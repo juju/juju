@@ -102,7 +102,7 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 
 // AllLinkLayerDevices returns all link layer devices in the model.
 func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
-	devicesCollection, closer := st.getCollection(linkLayerDevicesC)
+	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	sdocs := []linkLayerDeviceDoc{}
@@ -357,7 +357,7 @@ func insertLinkLayerDeviceDocOp(newDoc *linkLayerDeviceDoc) txn.Op {
 // ModelUUID, MachineID, and Name cannot be changed. ProviderID cannot be
 // changed once set. In all other cases newDoc values overwrites existingDoc
 // values.
-func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) txn.Op {
+func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) (txn.Op, bool) {
 	changes := make(bson.M)
 	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
 		// Only allow changing the ProviderID if it was empty.
@@ -392,7 +392,7 @@ func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) txn.Op 
 		Id:     existingDoc.DocID,
 		Assert: txn.DocExists,
 		Update: updates,
-	}
+	}, len(updates) > 0
 }
 
 // assertLinkLayerDeviceExistsOp returns an operation asserting the document

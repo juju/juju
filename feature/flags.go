@@ -39,3 +39,10 @@ const CrossModelRelations = "cross-model"
 
 // LXDStorage enables the LXD storage provider.
 const LXDStorage = "lxd-storage"
+
+// PersistentStorage enables the persistent storage feature.
+const PersistentStorage = "persistent-storage"
+
+// StrictMigration will cause migration to error if there are unexported
+// values for annotations, status, status history, or settings.
+const StrictMigration = "strict-migration"

@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type RemoveStorageSuite struct {
@@ -26,11 +26,11 @@ func (s *RemoveStorageSuite) TestRemoveStorage(c *gc.C) {
 		{},
 	}}
 	cmd := storage.NewRemoveStorageCommand(fake.new)
-	ctx, err := coretesting.RunCommand(c, cmd, "pgdata/0", "pgdata/1")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "pgdata/0", "pgdata/1")
 	c.Assert(err, jc.ErrorIsNil)
 	fake.CheckCallNames(c, "NewEntityDestroyerCloser", "Destroy", "Close")
 	fake.CheckCall(c, 1, "Destroy", []string{"pgdata/0", "pgdata/1"})
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 removing pgdata/0
 removing pgdata/1
 `[1:])
@@ -42,8 +42,8 @@ func (s *RemoveStorageSuite) TestRemoveStorageError(c *gc.C) {
 		{Error: &params.Error{Message: "bar"}},
 	}}
 	removeCmd := storage.NewRemoveStorageCommand(fake.new)
-	ctx, err := coretesting.RunCommand(c, removeCmd, "pgdata/0", "pgdata/1")
-	stderr := coretesting.Stderr(ctx)
+	ctx, err := cmdtesting.RunCommand(c, removeCmd, "pgdata/0", "pgdata/1")
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `failed to remove pgdata/0: foo
 failed to remove pgdata/1: bar
 `)
@@ -54,9 +54,9 @@ func (s *RemoveStorageSuite) TestRemoveStorageUnauthorizedError(c *gc.C) {
 	var fake fakeEntityDestroyer
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
 	cmd := storage.NewRemoveStorageCommand(fake.new)
-	ctx, err := coretesting.RunCommand(c, cmd, "pgdata/0")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "pgdata/0")
 	c.Assert(err, gc.ErrorMatches, "nope")
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 You do not have permission to remove storage.
 You may ask an administrator to grant you access with "juju grant".
 
@@ -70,7 +70,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageInitErrors(c *gc.C) {
 func (s *RemoveStorageSuite) testRemoveStorageInitError(c *gc.C, args []string, expect string) {
 	var fake fakeEntityDestroyer
 	cmd := storage.NewRemoveStorageCommand(fake.new)
-	_, err := coretesting.RunCommand(c, cmd, args...)
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 

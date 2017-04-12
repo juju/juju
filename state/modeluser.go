@@ -83,7 +83,7 @@ func (st *State) UpdateLastModelConnection(user names.UserTag) error {
 }
 
 func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) error {
-	lastConnections, closer := st.getCollection(modelUserLastConnectionC)
+	lastConnections, closer := st.db().GetCollection(modelUserLastConnectionC)
 	defer closer()
 
 	lastConnectionsW := lastConnections.Writeable()
@@ -106,7 +106,7 @@ func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) e
 // ModelUser a model userAccessDoc.
 func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc, error) {
 	modelUser := userAccessDoc{}
-	modelUsers, closer := st.getCollectionFor(modelUUID, modelUsersC)
+	modelUsers, closer := st.db().GetCollectionFor(modelUUID, modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Id())

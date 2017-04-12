@@ -34,15 +34,16 @@ type MetricBatch struct {
 }
 
 type metricBatchDoc struct {
-	UUID        string    `bson:"_id"`
-	ModelUUID   string    `bson:"model-uuid"`
-	Unit        string    `bson:"unit"`
-	CharmURL    string    `bson:"charmurl"`
-	Sent        bool      `bson:"sent"`
-	DeleteTime  time.Time `bson:"delete-time"`
-	Created     time.Time `bson:"created"`
-	Metrics     []Metric  `bson:"metrics"`
-	Credentials []byte    `bson:"credentials"`
+	UUID           string    `bson:"_id"`
+	ModelUUID      string    `bson:"model-uuid"`
+	Unit           string    `bson:"unit"`
+	CharmURL       string    `bson:"charmurl"`
+	Sent           bool      `bson:"sent"`
+	DeleteTime     time.Time `bson:"delete-time"`
+	Created        time.Time `bson:"created"`
+	Metrics        []Metric  `bson:"metrics"`
+	Credentials    []byte    `bson:"credentials"`
+	SLACredentials []byte    `bson:"sla-credentials,omitempty"`
 }
 
 // Metric represents a single Metric.
@@ -92,6 +93,14 @@ type BatchParam struct {
 	Unit     names.UnitTag
 }
 
+// ModelBatchParam contains the properties of a metric batch for a model
+// The model uuid will be attenuated in the call to AddModelMetrics.
+type ModelBatchParam struct {
+	UUID    string
+	Created time.Time
+	Metrics []Metric
+}
+
 // AddMetrics adds a new batch of metrics to the database.
 func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	if len(batch.Metrics) == 0 {
@@ -107,6 +116,8 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		return nil, errors.Trace(err)
 	}
 	application, err := unit.Application()
+
+	slaCreds, err := st.SLACredential()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -114,14 +125,15 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	metric := &MetricBatch{
 		st: st,
 		doc: metricBatchDoc{
-			UUID:        batch.UUID,
-			ModelUUID:   st.ModelUUID(),
-			Unit:        batch.Unit.Id(),
-			CharmURL:    charmURL.String(),
-			Sent:        false,
-			Created:     batch.Created,
-			Metrics:     batch.Metrics,
-			Credentials: application.MetricCredentials(),
+			UUID:           batch.UUID,
+			ModelUUID:      st.ModelUUID(),
+			Unit:           batch.Unit.Id(),
+			CharmURL:       charmURL.String(),
+			Sent:           false,
+			Created:        batch.Created,
+			Metrics:        batch.Metrics,
+			Credentials:    application.MetricCredentials(),
+			SLACredentials: slaCreds,
 		},
 	}
 	if err := metric.validate(); err != nil {
@@ -161,12 +173,58 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	return metric, nil
 }
 
+// AddModelMetrics adds a new model-centric batch of metrics to the database.
+func (st *State) AddModelMetrics(batch ModelBatchParam) (*MetricBatch, error) {
+	if len(batch.Metrics) == 0 {
+		return nil, errors.New("cannot add a batch of 0 metrics")
+	}
+	slaCreds, err := st.SLACredential()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	metric := &MetricBatch{
+		st: st,
+		doc: metricBatchDoc{
+			UUID:           batch.UUID,
+			ModelUUID:      st.ModelUUID(),
+			Sent:           false,
+			Created:        batch.Created,
+			Metrics:        batch.Metrics,
+			SLACredentials: slaCreds,
+		},
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			exists, err := st.MetricBatch(batch.UUID)
+			if exists != nil && err == nil {
+				return nil, errors.AlreadyExistsf("metrics batch UUID %q", batch.UUID)
+			}
+			if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{{
+			C:      metricsC,
+			Id:     metric.UUID(),
+			Assert: txn.DocMissing,
+			Insert: &metric.doc,
+		}}
+		return ops, nil
+	}
+	err = st.run(buildTxn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return metric, nil
+}
+
 // AllMetricBatches returns all metric batches currently stored in state.
 // TODO (tasdomas): this method is currently only used in the uniter worker test -
 //                  it needs to be modified to restrict the scope of the values it
 //                  returns if it is to be used outside of tests.
 func (st *State) AllMetricBatches() ([]MetricBatch, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
 	err := c.Find(nil).All(&docs)
@@ -181,7 +239,7 @@ func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 }
 
 func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
 	err := c.Find(query).Sort("created").All(&docs)
@@ -228,7 +286,7 @@ func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch,
 
 // MetricBatch returns the metric batch with the given id.
 func (st *State) MetricBatch(id string) (*MetricBatch, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	doc := metricBatchDoc{}
 	err := c.Find(bson.M{"_id": id}).One(&doc)
@@ -245,7 +303,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	now := st.clock.Now()
-	metrics, closer := st.getCollection(metricsC)
+	metrics, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
 	// to watch them either; so in this instance it's safe to do an end run around the
@@ -267,7 +325,7 @@ func (st *State) CleanupOldMetrics() error {
 // to the collector
 func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	var docs []metricBatchDoc
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 
 	q := bson.M{
@@ -291,7 +349,7 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 // CountOfUnsentMetrics returns the number of metrics that
 // haven't been sent to the collection service.
 func (st *State) CountOfUnsentMetrics() (int, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
 		"model-uuid": st.ModelUUID(),
@@ -303,7 +361,7 @@ func (st *State) CountOfUnsentMetrics() (int, error) {
 // have been sent to the collection service and have not
 // been removed by the cleanup worker.
 func (st *State) CountOfSentMetrics() (int, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
 		"model-uuid": st.ModelUUID(),
@@ -390,6 +448,11 @@ func (m *MetricBatch) SetSent(t time.Time) error {
 // Credentials returns any credentials associated with the metric batch.
 func (m *MetricBatch) Credentials() []byte {
 	return m.doc.Credentials
+}
+
+// SLACredentials returns any sla credentials associated with the metric batch.
+func (m *MetricBatch) SLACredentials() []byte {
+	return m.doc.SLACredentials
 }
 
 func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {

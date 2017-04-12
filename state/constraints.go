@@ -89,7 +89,7 @@ func removeConstraintsOp(st *State, id string) txn.Op {
 }
 
 func readConstraints(st *State, id string) (constraints.Value, error) {
-	constraintsCollection, closer := st.getCollection(constraintsC)
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
 	defer closer()
 
 	doc := constraintsDoc{}

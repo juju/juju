@@ -20,11 +20,11 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gorilla/handlers"
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -77,12 +77,12 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 	}
 	var endpoints []apihttp.Endpoint
 	add := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
-		handler := gr.ensureFileHandler(h)
+		handler := handlers.CompressHandler(gr.ensureFileHandler(h))
 		// TODO: We can switch from all methods to specific ones for entries
 		// where we only want to support specific request methods. However, our
 		// tests currently assert that errors come back as application/json and
 		// pat only does "text/plain" responses.
-		for _, method := range common.DefaultHTTPMethods {
+		for _, method := range defaultHTTPMethods {
 			endpoints = append(endpoints, apihttp.Endpoint{
 				Pattern: pattern,
 				Method:  method,
@@ -361,6 +361,7 @@ func sendGUIComboFile(w io.Writer, fpath string) {
 	}
 	defer f.Close()
 	if _, err := io.Copy(w, f); err != nil {
+		logger.Infof("cannot copy combo file %q: %s", fpath, err)
 		return
 	}
 	fmt.Fprintf(w, "\n/* %s */\n", filepath.Base(fpath))

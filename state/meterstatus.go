@@ -76,13 +76,21 @@ type meterStatusDoc struct {
 	Info      string `bson:"info"`
 }
 
-// SetMeterStatus sets the meter status for the unit.
-func (u *Unit) SetMeterStatus(codeStr, info string) error {
+func isValidMeterStatusCode(codeStr string) (MeterStatusCode, error) {
 	code := MeterStatusFromString(codeStr)
 	switch code {
 	case MeterGreen, MeterAmber, MeterRed:
+		return code, nil
 	default:
-		return errors.Errorf("invalid meter status %q", code)
+		return MeterNotAvailable, errors.NotValidf("meter status %q", codeStr)
+	}
+}
+
+// SetMeterStatus sets the meter status for the unit.
+func (u *Unit) SetMeterStatus(codeStr, info string) error {
+	code, err := isValidMeterStatusCode(codeStr)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	meterDoc, err := u.getMeterStatusDoc()
 	if err != nil {
@@ -174,7 +182,7 @@ func combineMeterStatus(a, b MeterStatus) MeterStatus {
 }
 
 func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
-	meterStatuses, closer := u.st.getCollection(meterStatusC)
+	meterStatuses, closer := u.st.db().GetCollection(meterStatusC)
 	defer closer()
 	var status meterStatusDoc
 	err := meterStatuses.FindId(u.globalMeterStatusKey()).One(&status)

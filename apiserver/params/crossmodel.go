@@ -21,9 +21,15 @@ type OfferFilters struct {
 	Filters []OfferFilter
 }
 
-// OfferFilter is used to query offers in a application directory.
+// OfferFilter is used to query offers.
 type OfferFilter struct {
-	ApplicationURL         string                     `json:"application-url"`
+	// OwnerName is the owner of the model hosting the offer.
+	OwnerName string `json:"owner-name"`
+
+	// ModelName is the name of the model hosting the offer.
+	ModelName string `json:"model-name"`
+
+	OfferName              string                     `json:"offer-name"`
 	ApplicationName        string                     `json:"application-name"`
 	ApplicationDescription string                     `json:"application-description"`
 	ApplicationUser        string                     `json:"application-user"`
@@ -33,10 +39,26 @@ type OfferFilter struct {
 
 // ApplicationOffer represents an application offering from an external model.
 type ApplicationOffer struct {
-	ApplicationURL         string           `json:"application-url"`
-	ApplicationName        string           `json:"application-name"`
+	OfferURL               string           `json:"offer-url"`
+	OfferName              string           `json:"offer-name"`
 	ApplicationDescription string           `json:"application-description"`
 	Endpoints              []RemoteEndpoint `json:"endpoints"`
+	Access                 string           `json:"access"`
+}
+
+// ApplicationOfferDetails represents an application offering,
+// including details about how it has been deployed.
+type ApplicationOfferDetails struct {
+	ApplicationOffer
+	ApplicationName string `json:"application-name"`
+	CharmName       string `json:"charm-name"`
+	ConnectedCount  int    `json:"connected-count"`
+}
+
+// ListApplicationOffersResults is a result of listing application offers.
+type ListApplicationOffersResults struct {
+	// Results contains application offers matching each filter.
+	Results []ApplicationOfferDetails `json:"results"`
 }
 
 // AddApplicationOffers is used when adding offers to a application directory.
@@ -46,7 +68,7 @@ type AddApplicationOffers struct {
 
 // AddApplicationOffer values are used to create an application offer.
 type AddApplicationOffer struct {
-	ApplicationURL         string            `json:"application-url"`
+	OfferName              string            `json:"offer-name"`
 	ApplicationName        string            `json:"application-name"`
 	ApplicationDescription string            `json:"application-description"`
 	Endpoints              map[string]string `json:"endpoints"`
@@ -163,7 +185,7 @@ type RemoteApplication struct {
 	// ModelUUID is the UUId of the model hosting the application.
 	ModelUUID string `json:"model-uuid"`
 
-	// Registered returns the application is created
+	// IsConsumerProxy returns the application is created
 	// from a registration operation by a consuming model.
 	Registered bool `json:"registered"`
 }
@@ -287,8 +309,8 @@ type RegisterRemoteRelation struct {
 	// RemoteEndpoint contains info about the endpoint in the remote model.
 	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
 
-	// OfferedApplicationName is the name of the application offer from the local model.
-	OfferedApplicationName string `json:"offered-application-name"`
+	// OfferName is the name of the application offer from the local model.
+	OfferName string `json:"offer-name"`
 
 	// LocalEndpointName is the name of the endpoint in the local model.
 	LocalEndpointName string `json:"local-endpoint-name"`
@@ -343,20 +365,34 @@ type RemoteEntities struct {
 	Entities []RemoteEntityId `json:"remote-entities"`
 }
 
-// IngressSubnetInfo is the result of an IngressSubnetsForRelation call.
-type IngressSubnetInfo struct {
-	// CIDRs is the set if CIDRs which need to be allowed ingress to the application.
-	CIDRs []string `json:"cidrs,omitempty"`
+// ModifyModelAccessRequest holds the parameters for making grant and revoke offer calls.
+type ModifyOfferAccessRequest struct {
+	Changes []ModifyOfferAccess `json:"changes"`
 }
 
-// IngressSubnetResult holds ingress network information and an error.
-type IngressSubnetResult struct {
-	Error  *Error             `json:"error,omitempty"`
-	Result *IngressSubnetInfo `json:"result,omitempty"`
+// ModifyOfferAccess contains parameters to grant and revoke access to an offer.
+type ModifyOfferAccess struct {
+	UserTag  string                `json:"user-tag"`
+	Action   OfferAction           `json:"action"`
+	Access   OfferAccessPermission `json:"access"`
+	OfferTag string                `json:"offer-tag"`
 }
 
-// IngressSubnetResults holds the result of an API call that returns
-// information about ingress networks for multiple remote relations.
-type IngressSubnetResults struct {
-	Results []IngressSubnetResult `json:"results"`
-}
+// OfferAction is an action that can be performed on an offer.
+type OfferAction string
+
+// Actions that can be preformed on an offer.
+const (
+	GrantOfferAccess  OfferAction = "grant"
+	RevokeOfferAccess OfferAction = "revoke"
+)
+
+// OfferAccessPermission defines a type for an access permission on an offer.
+type OfferAccessPermission string
+
+// Access permissions that may be set on an offer.
+const (
+	OfferAdminAccess   OfferAccessPermission = "admin"
+	OfferConsumeAccess OfferAccessPermission = "consume"
+	OfferReadAccess    OfferAccessPermission = "read"
+)

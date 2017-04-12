@@ -360,8 +360,13 @@ var ctests = []struct {
 			0644,
 		)
 	},
-},
-}
+}, {
+	"ManageEtcHosts",
+	map[string]interface{}{"manage_etc_hosts": true},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.ManageEtcHosts(true)
+	},
+}}
 
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {

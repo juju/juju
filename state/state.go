@@ -260,7 +260,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 // removeAllInCollectionRaw removes all the documents from the given
 // named collection.
 func (st *State) removeAllInCollectionRaw(name string) error {
-	coll, closer := st.getCollection(name)
+	coll, closer := st.db().GetCollection(name)
 	defer closer()
 	_, err := coll.Writeable().RemoveAll(nil)
 	return errors.Trace(err)
@@ -275,7 +275,7 @@ func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
 // removeInCollectionOps generates operations to remove all documents
 // from the named collection matching a specific selector.
 func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, error) {
-	coll, closer := st.getCollection(name)
+	coll, closer := st.db().GetCollection(name)
 	defer closer()
 
 	var ids []bson.M
@@ -457,7 +457,7 @@ func (st *State) EnsureModelRemoved() error {
 		if info.global {
 			continue
 		}
-		coll, closer := st.getCollection(name)
+		coll, closer := st.db().GetCollection(name)
 		defer closer()
 		n, err := coll.Find(nil).Count()
 		if err != nil {
@@ -591,7 +591,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	}}}
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
-		collection, closer := st.getCollection(name)
+		collection, closer := st.db().GetCollection(name)
 		defer closer()
 		var doc struct {
 			DocID string `bson:"_id"`
@@ -727,7 +727,7 @@ func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, e
 // AllMachines returns all machines in the model
 // ordered by id.
 func (st *State) AllMachines() ([]*Machine, error) {
-	machinesCollection, closer := st.getCollection(machinesC)
+	machinesCollection, closer := st.db().GetCollection(machinesC)
 	defer closer()
 	return st.allMachines(machinesCollection)
 }
@@ -735,7 +735,7 @@ func (st *State) AllMachines() ([]*Machine, error) {
 // AllMachinesFor returns all machines for the model represented
 // by the given modeluuid
 func (st *State) AllMachinesFor(modelUUID string) ([]*Machine, error) {
-	machinesCollection, closer := st.getCollectionFor(modelUUID, machinesC)
+	machinesCollection, closer := st.db().GetCollectionFor(modelUUID, machinesC)
 	defer closer()
 	return st.allMachines(machinesCollection)
 }
@@ -800,7 +800,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 }
 
 func (st *State) getMachineDoc(id string) (*machineDoc, error) {
-	machinesCollection, closer := st.getCollection(machinesC)
+	machinesCollection, closer := st.db().GetCollection(machinesC)
 	defer closer()
 
 	var err error
@@ -1271,7 +1271,7 @@ func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 }
 
 func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
-	col, close := st.getCollection(assignUnitC)
+	col, close := st.db().GetCollection(assignUnitC)
 	defer close()
 
 	var docs []assignUnitDoc
@@ -1419,7 +1419,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 
 // Application returns a application state by name.
 func (st *State) Application(name string) (_ *Application, err error) {
-	applications, closer := st.getCollection(applicationsC)
+	applications, closer := st.db().GetCollection(applicationsC)
 	defer closer()
 
 	if !names.IsValidApplication(name) {
@@ -1438,7 +1438,7 @@ func (st *State) Application(name string) (_ *Application, err error) {
 
 // AllApplications returns all deployed applications in the model.
 func (st *State) AllApplications() (applications []*Application, err error) {
-	applicationsCollection, closer := st.getCollection(applicationsC)
+	applicationsCollection, closer := st.db().GetCollection(applicationsC)
 	defer closer()
 
 	sdocs := []applicationDoc{}
@@ -1752,7 +1752,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 // KeyRelation returns the existing relation with the given key (which can
 // be derived unambiguously from the relation's endpoints).
 func (st *State) KeyRelation(key string) (*Relation, error) {
-	relations, closer := st.getCollection(relationsC)
+	relations, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	doc := relationDoc{}
@@ -1768,7 +1768,7 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 
 // Relation returns the existing relation with the given id.
 func (st *State) Relation(id int) (*Relation, error) {
-	relations, closer := st.getCollection(relationsC)
+	relations, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	doc := relationDoc{}
@@ -1784,7 +1784,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 
 // AllRelations returns all relations in the model ordered by id.
 func (st *State) AllRelations() (relations []*Relation, err error) {
-	relationsCollection, closer := st.getCollection(relationsC)
+	relationsCollection, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	docs := relationDocSlice{}
@@ -1812,7 +1812,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	if !names.IsValidUnit(name) {
 		return nil, errors.Errorf("%q is not a valid unit name", name)
 	}
-	units, closer := st.getCollection(unitsC)
+	units, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
 	doc := unitDoc{}
@@ -1976,7 +1976,7 @@ const stateServingInfoKey = "stateServingInfo"
 
 // StateServingInfo returns information for running a controller machine
 func (st *State) StateServingInfo() (StateServingInfo, error) {
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
 	var info StateServingInfo
@@ -2122,7 +2122,7 @@ func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id)
 // audit.AuditEntry instances to the database.
 func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 	insert := func(collectionName string, docs ...interface{}) error {
-		collection, closeCollection := st.getCollection(collectionName)
+		collection, closeCollection := st.db().GetCollection(collectionName)
 		defer closeCollection()
 
 		writeableCollection := collection.Writeable()
@@ -2130,6 +2130,51 @@ func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 		return errors.Trace(writeableCollection.Insert(docs...))
 	}
 	return stateaudit.PutAuditEntryFn(auditingC, insert)
+}
+
+// SetSLA sets the SLA on the current connected model.
+func (st *State) SetSLA(level, owner string, credentials []byte) error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return model.SetSLA(level, owner, credentials)
+}
+
+// SetModelMeterStatus sets the meter status for the current connected model.
+func (st *State) SetModelMeterStatus(status, info string) error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return model.SetMeterStatus(status, info)
+}
+
+// ModelMeterStatus returns the meter status for the current connected model.
+func (st *State) ModelMeterStatus() (MeterStatus, error) {
+	model, err := st.Model()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Trace(err)
+	}
+	return model.MeterStatus(), nil
+}
+
+// SLALevel returns the SLA level of the current connected model.
+func (st *State) SLALevel() (string, error) {
+	model, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return model.SLALevel(), nil
+}
+
+// SLACredential returns the SLA credential of the current connected model.
+func (st *State) SLACredential() ([]byte, error) {
+	model, err := st.Model()
+	if err != nil {
+		return []byte{}, errors.Trace(err)
+	}
+	return model.SLACredential(), nil
 }
 
 var tagPrefix = map[byte]string{
@@ -2168,22 +2213,4 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// getCollection delegates to the State's underlying Database.  It
-// returns the collection and a closer function for the session.
-//
-// TODO(mjs) - this should eventually go in favour of using the
-// Database directly.
-func (st *State) getCollection(name string) (mongo.Collection, func()) {
-	return st.database.GetCollection(name)
-}
-
-// getCollectionFor delegates to the State's underlying Database.  It
-// returns the collection and a closer function for the session.
-//
-// TODO(mjs) - this should eventually go in favour of using the
-// Database directly.
-func (st *State) getCollectionFor(modelUUID, name string) (mongo.Collection, func()) {
-	return st.database.GetCollectionFor(modelUUID, name)
 }

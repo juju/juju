@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/testing"
 )
@@ -119,9 +120,9 @@ func (s *MachineListCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineListCommandSuite) TestMachine(c *gc.C) {
-	context, err := testing.RunCommand(c, newMachineListCommand())
+	context, err := cmdtesting.RunCommand(c, newMachineListCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Machine  State    DNS       Inst id              Series  AZ         Message\n"+
 		"0        started  10.0.0.1  juju-badd06-0        trusty  us-east-1  \n"+
 		"1        started  10.0.0.2  juju-badd06-1        trusty             \n"+
@@ -130,9 +131,9 @@ func (s *MachineListCommandSuite) TestMachine(c *gc.C) {
 }
 
 func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
-	context, err := testing.RunCommand(c, newMachineListCommand(), "--format", "yaml")
+	context, err := cmdtesting.RunCommand(c, newMachineListCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
@@ -189,13 +190,13 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 }
 
 func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
-	context, err := testing.RunCommand(c, newMachineListCommand(), "--format", "json")
+	context, err := cmdtesting.RunCommand(c, newMachineListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.1\",\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"instance-id\":\"juju-badd06-0\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}},\"constraints\":\"mem=3584M\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.2\",\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"instance-id\":\"juju-badd06-1\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}},\"containers\":{\"1/lxd/0\":{\"juju-status\":{\"current\":\"pending\"},\"dns-name\":\"10.0.0.3\",\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"instance-id\":\"juju-badd06-1-lxd-0\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}}}}}}}\n")
 }
 
 func (s *MachineListCommandSuite) TestListMachineArgsError(c *gc.C) {
-	_, err := testing.RunCommand(c, newMachineListCommand(), "0")
+	_, err := cmdtesting.RunCommand(c, newMachineListCommand(), "0")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["0"\]`)
 }

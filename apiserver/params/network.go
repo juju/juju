@@ -19,6 +19,11 @@ type Subnet struct {
 	// ProviderId is the provider-specific subnet ID (if applicable).
 	ProviderId string `json:"provider-id,omitempty"`
 
+	// ProviderNetworkId is the id of the network containing this
+	// subnet from the provider's perspective. It can be empty if the
+	// provider doesn't support distinct networks.
+	ProviderNetworkId string `json:"provider-network-id,omitempty"`
+
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int `json:"vlan-tag"`
@@ -577,11 +582,12 @@ type AddSubnetsParams struct {
 // SubnetProviderId must be set, but not both. Zones can be empty if
 // they can be discovered
 type AddSubnetParams struct {
-	SubnetTag        string   `json:"subnet-tag,omitempty"`
-	SubnetProviderId string   `json:"subnet-provider-id,omitempty"`
-	SpaceTag         string   `json:"space-tag"`
-	VLANTag          int      `json:"vlan-tag,omitempty"`
-	Zones            []string `json:"zones,omitempty"`
+	SubnetTag         string   `json:"subnet-tag,omitempty"`
+	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
+	ProviderNetworkId string   `json:"provider-network-id,omitempty"`
+	SpaceTag          string   `json:"space-tag"`
+	VLANTag           int      `json:"vlan-tag,omitempty"`
+	Zones             []string `json:"zones,omitempty"`
 }
 
 // CreateSubnetsParams holds the arguments of CreateSubnets API call.

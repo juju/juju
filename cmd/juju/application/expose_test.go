@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testcharms"
@@ -30,7 +31,7 @@ func (s *ExposeSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ExposeSuite{})
 
 func runExpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, NewExposeCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewExposeCommand(), args...)
 	return err
 }
 

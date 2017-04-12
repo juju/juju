@@ -46,7 +46,6 @@ func (cache *charmstoreEntityCache) OpenResource(name string) (resource.Resource
 
 type charmstoreOpener struct {
 	st *state.State
-	// TODO(ericsnow) What else do we need?
 }
 
 func newCharmstoreOpener(st *state.State) *charmstoreOpener {

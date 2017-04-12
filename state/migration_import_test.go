@@ -108,6 +108,17 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 	s.assertAnnotations(c, newSt, newModel)
 
+	statusInfo, err := newModel.Status()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statusInfo.Status, gc.Equals, status.Busy)
+	c.Check(statusInfo.Message, gc.Equals, "importing")
+	// One for original "available", one for "busy (importing)"
+	history, err := newModel.StatusHistory(status.StatusHistoryFilter{Size: 5})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(history, gc.HasLen, 2)
+	c.Check(history[0].Status, gc.Equals, status.Busy)
+	c.Check(history[1].Status, gc.Equals, status.Available)
+
 	originalConfig, err := original.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	originalAttrs := originalConfig.AllAttrs()
@@ -210,6 +221,35 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(allUsers, gc.HasLen, 3)
 }
 
+func (s *MigrationImportSuite) TestSLA(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	c.Assert(newModel.SLALevel(), gc.Equals, "essential")
+	c.Assert(newModel.SLACredential(), jc.DeepEquals, []byte("creds"))
+	level, err := newSt.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "essential")
+	creds, err := newSt.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds, jc.DeepEquals, []byte("creds"))
+}
+
+func (s *MigrationImportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "info message")
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+	ms, err = newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+}
+
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
@@ -227,6 +267,24 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	oldTools, err := oldMachine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newTools, jc.DeepEquals, oldTools)
+
+	oldStatus, err := oldMachine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	newStatus, err := newMachine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newStatus, jc.DeepEquals, oldStatus)
+
+	oldInstID, err := oldMachine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	newInstID, err := newMachine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newInstID, gc.Equals, oldInstID)
+
+	oldStatus, err = oldMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	newStatus, err = newMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newStatus, jc.DeepEquals, oldStatus)
 }
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
@@ -746,11 +804,12 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	original, err := s.State.AddSubnet(state.SubnetInfo{
-		CIDR:             "10.0.0.0/24",
-		ProviderId:       network.Id("foo"),
-		VLANTag:          64,
-		AvailabilityZone: "bar",
-		SpaceName:        "bam",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
+		SpaceName:         "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -763,6 +822,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
@@ -1124,7 +1184,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	// with the models in different controllers.
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
-		URL:         "local:/u/me/rainbow",
+		URL:         "me/model.rainbow",
 		SourceModel: s.State.ModelTag(),
 		Token:       "charisma",
 		Endpoints: []charm.Relation{{

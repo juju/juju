@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
@@ -90,7 +91,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 	} {
 		c.Logf("test %v", i)
 		command := &debugLogCommand{}
-		err := testing.InitCommand(modelcmd.Wrap(command), test.args)
+		err := cmdtesting.InitCommand(modelcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.params, jc.DeepEquals, test.expected)
@@ -105,7 +106,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
 		return fake, nil
 	})
-	_, err := testing.RunCommand(c, newDebugLogCommand(),
+	_, err := cmdtesting.RunCommand(c, newDebugLogCommand(),
 		"-i", "machine-1*", "-x", "machine-1-lxd-1",
 		"--include-module=juju.provisioner",
 		"--lines=500",
@@ -141,9 +142,9 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	checkOutput := func(args ...string) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
-		ctx, err := testing.RunCommand(c, newDebugLogCommandTZ(tz), args...)
+		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(tz), args...)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(testing.Stdout(ctx), gc.Equals, expected)
+		c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
 
 	}
 	checkOutput(

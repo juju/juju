@@ -15,9 +15,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -41,7 +41,7 @@ type BaseActionSuite struct {
 	command cmd.Command
 
 	modelFlags []string
-	store      *jujuclienttesting.MemStore
+	store      *jujuclient.MemStore
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
@@ -49,7 +49,7 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 
 	s.modelFlags = []string{"-m", "--model"}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
@@ -110,7 +110,7 @@ func tagsForIdPrefix(prefix string, tags ...string) params.FindTagsResults {
 // setupValueFile creates a file containing one value for testing.
 // cf. cmd/juju/set_test.go
 func setupValueFile(c *gc.C, dir, filename, value string) string {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := ioutil.WriteFile(path, content, 0666)

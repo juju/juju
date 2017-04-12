@@ -4,16 +4,19 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
@@ -54,6 +57,7 @@ func (st *State) Export() (description.Model, error) {
 	if !found {
 		return nil, errors.New("missing model config")
 	}
+	delete(export.modelSettings, modelGlobalKey)
 
 	blocks, err := export.readBlocks()
 	if err != nil {
@@ -92,7 +96,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
-
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -143,7 +149,14 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	export.logExtras()
+	export.model.SetSLA(dbModel.SLALevel(), dbModel.SLAOwner(), string(dbModel.SLACredential()))
+	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
+
+	if featureflag.Enabled(feature.StrictMigration) {
+		if err := export.checkUnexportedValues(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	return export.model, nil
 }
@@ -166,7 +179,7 @@ type exporter struct {
 }
 
 func (e *exporter) sequences() error {
-	sequences, closer := e.st.getCollection(sequenceC)
+	sequences, closer := e.st.db().GetCollection(sequenceC)
 	defer closer()
 
 	var docs []sequenceDoc
@@ -181,7 +194,7 @@ func (e *exporter) sequences() error {
 }
 
 func (e *exporter) readBlocks() (map[string]string, error) {
-	blocks, closer := e.st.getCollection(blocksC)
+	blocks, closer := e.st.db().GetCollection(blocksC)
 	defer closer()
 
 	var docs []blockDoc
@@ -197,6 +210,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 		result[doc.Type.MigrationValue()] = doc.Message
 	}
 	return result, nil
+}
+
+func (e *exporter) modelStatus() error {
+	statusArgs, err := e.statusArgs(modelGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for model")
+	}
+
+	e.model.SetStatus(statusArgs)
+	e.model.SetStatusHistory(e.statusHistoryArgs(modelGlobalKey))
+	return nil
 }
 
 func (e *exporter) modelUsers() error {
@@ -240,7 +264,7 @@ func (e *exporter) machines() error {
 	}
 
 	// Read all the open ports documents.
-	openedPorts, closer := e.st.getCollection(openedPortsC)
+	openedPorts, closer := e.st.db().GetCollection(openedPortsC)
 	defer closer()
 	var portsData []portsDoc
 	if err := openedPorts.Find(nil).All(&portsData); err != nil {
@@ -277,7 +301,7 @@ func (e *exporter) machines() error {
 }
 
 func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
-	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
+	instanceDataCollection, closer := e.st.db().GetCollection(instanceDataC)
 	defer closer()
 
 	var instData []instanceData
@@ -293,7 +317,7 @@ func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
 }
 
 func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
-	coll, closer := e.st.getCollection(blockDevicesC)
+	coll, closer := e.st.db().GetCollection(blockDevicesC)
 	defer closer()
 
 	var deviceData []blockDevicesDoc
@@ -352,6 +376,14 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+	instance := exMachine.Instance()
+	instanceKey := machine.globalInstanceKey()
+	statusArgs, err := e.statusArgs(instanceKey)
+	if err != nil {
+		return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+	}
+	instance.SetStatus(statusArgs)
+	instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
@@ -372,7 +404,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()
-	statusArgs, err := e.statusArgs(globalKey)
+	statusArgs, err = e.statusArgs(globalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
@@ -447,7 +479,6 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
 	inst := description.CloudInstanceArgs{
 		InstanceId: string(data.InstanceId),
-		Status:     data.Status,
 	}
 	if data.Arch != nil {
 		inst.Architecture = *data.Arch
@@ -533,7 +564,7 @@ func (e *exporter) applications() error {
 }
 
 func (e *exporter) readAllStorageConstraints() error {
-	coll, closer := e.st.getCollection(storageConstraintsC)
+	coll, closer := e.st.db().GetCollection(storageConstraintsC)
 	defer closer()
 
 	storageConstraints := make(map[string]storageConstraintsDoc)
@@ -597,10 +628,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	if !found {
 		return errors.Errorf("missing settings for application %q", appName)
 	}
+	delete(e.modelSettings, settingsKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
 		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
+	delete(e.modelSettings, leadershipKey)
 
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
@@ -648,7 +681,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
 
-		workloadVersion, err := unit.WorkloadVersion()
+		workloadVersion, err := e.unitWorkloadVersion(unit)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -717,6 +750,17 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	return nil
+}
+
+func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
+	// Rather than call unit.WorkloadVersion(), which does a database
+	// query, we go directly to the status value that is stored.
+	key := unit.globalWorkloadVersionKey()
+	info, err := e.statusArgs(key)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return info.Message, nil
 }
 
 func (e *exporter) setResources(exApp description.Application, resources resource.ServiceResources) error {
@@ -844,6 +888,7 @@ func (e *exporter) relations() error {
 				if !found {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
+				delete(e.modelSettings, key)
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
@@ -899,11 +944,12 @@ func (e *exporter) subnets() error {
 
 	for _, subnet := range subnets {
 		e.model.AddSubnet(description.SubnetArgs{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       string(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			ProviderNetworkId: string(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 	}
 	return nil
@@ -1004,7 +1050,7 @@ func (e *exporter) actions() error {
 }
 
 func (e *exporter) readAllRelationScopes() (set.Strings, error) {
-	relationScopes, closer := e.st.getCollection(relationScopesC)
+	relationScopes, closer := e.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	docs := []relationScopeDoc{}
@@ -1022,7 +1068,7 @@ func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 }
 
 func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
-	unitsCollection, closer := e.st.getCollection(unitsC)
+	unitsCollection, closer := e.st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -1040,7 +1086,7 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 }
 
 func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
-	bindings, closer := e.st.getCollection(endpointBindingsC)
+	bindings, closer := e.st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
 	docs := []endpointBindingsDoc{}
@@ -1057,7 +1103,7 @@ func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
 }
 
 func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
-	meterStatuses, closer := e.st.getCollection(meterStatusC)
+	meterStatuses, closer := e.st.db().GetCollection(meterStatusC)
 	defer closer()
 
 	docs := []meterStatusDoc{}
@@ -1074,7 +1120,7 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
-	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
+	lastConnections, closer := e.st.db().GetCollection(modelUserLastConnectionC)
 	defer closer()
 
 	var docs []modelUserLastConnectionDoc
@@ -1090,7 +1136,7 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 }
 
 func (e *exporter) readAllAnnotations() error {
-	annotations, closer := e.st.getCollection(annotationsC)
+	annotations, closer := e.st.db().GetCollection(annotationsC)
 	defer closer()
 
 	var docs []annotatorDoc
@@ -1107,7 +1153,7 @@ func (e *exporter) readAllAnnotations() error {
 }
 
 func (e *exporter) readAllConstraints() error {
-	constraintsCollection, closer := e.st.getCollection(constraintsC)
+	constraintsCollection, closer := e.st.db().GetCollection(constraintsC)
 	defer closer()
 
 	// Since the constraintsDoc doesn't include any global key or _id
@@ -1145,7 +1191,7 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 }
 
 func (e *exporter) readAllSettings() error {
-	settings, closer := e.st.getCollection(settingsC)
+	settings, closer := e.st.db().GetCollection(settingsC)
 	defer closer()
 
 	var docs []settingsDoc
@@ -1162,7 +1208,7 @@ func (e *exporter) readAllSettings() error {
 }
 
 func (e *exporter) readAllStatuses() error {
-	statuses, closer := e.st.getCollection(statusesC)
+	statuses, closer := e.st.db().GetCollection(statusesC)
 	defer closer()
 
 	var docs []bson.M
@@ -1186,7 +1232,7 @@ func (e *exporter) readAllStatuses() error {
 }
 
 func (e *exporter) readAllStatusHistory() error {
-	statuses, closer := e.st.getCollection(statusesHistoryC)
+	statuses, closer := e.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 
 	count := 0
@@ -1218,6 +1264,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	if !found {
 		return result, errors.NotFoundf("status data for %s", globalKey)
 	}
+	delete(e.status, globalKey)
 
 	status, ok := statusDoc["status"].(string)
 	if !ok {
@@ -1249,7 +1296,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
 	result := make([]description.StatusArgs, len(history))
-	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
+	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
@@ -1258,7 +1305,7 @@ func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs 
 			Updated: time.Unix(0, doc.Updated),
 		}
 	}
-
+	delete(e.statusHistory, globalKey)
 	return result
 }
 
@@ -1266,7 +1313,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	doc, found := e.constraints[globalKey]
 	if !found {
 		// No constraints for this key.
-		e.logger.Debugf("no constraints found for key %q", globalKey)
+		e.logger.Tracef("no constraints found for key %q", globalKey)
 		return description.ConstraintsArgs{}, nil
 	}
 	// We capture any type error using a closure to avoid having to return
@@ -1323,15 +1370,33 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	return result, nil
 }
 
-func (e *exporter) logExtras() {
+func (e *exporter) checkUnexportedValues() error {
+	var missing []string
+
 	// As annotations are saved into the model, they are removed from the
 	// exporter's map. If there are any left at the end, we are missing
-	// things. Not an error just now, just a warning that we have missed
-	// something. Could potentially be an error at a later date when
-	// migrations are complete (but probably not).
+	// things.
 	for key, doc := range e.annotations {
-		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
+		missing = append(missing, fmt.Sprintf("unexported annotations for %s, %s", doc.Tag, key))
 	}
+
+	for key := range e.modelSettings {
+		missing = append(missing, fmt.Sprintf("unexported settings for %s", key))
+	}
+
+	for key := range e.status {
+		missing = append(missing, fmt.Sprintf("unexported status for %s", key))
+	}
+
+	for key := range e.statusHistory {
+		missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
+	}
+
+	if len(missing) > 0 {
+		content := strings.Join(missing, "\n  ")
+		return errors.Errorf("migration missed some docs:\n  %s", content)
+	}
+	return nil
 }
 
 func (e *exporter) remoteApplications() error {
@@ -1352,11 +1417,11 @@ func (e *exporter) remoteApplications() error {
 func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	url, _ := app.URL()
 	args := description.RemoteApplicationArgs{
-		Tag:         app.Tag().(names.ApplicationTag),
-		OfferName:   app.OfferName(),
-		URL:         url,
-		SourceModel: app.SourceModel(),
-		Registered:  app.Registered(),
+		Tag:             app.Tag().(names.ApplicationTag),
+		OfferName:       app.OfferName(),
+		URL:             url,
+		SourceModel:     app.SourceModel(),
+		IsConsumerProxy: app.IsConsumerProxy(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
 	endpoints, err := app.Endpoints()
@@ -1392,7 +1457,7 @@ func (e *exporter) storage() error {
 }
 
 func (e *exporter) volumes() error {
-	coll, closer := e.st.getCollection(volumesC)
+	coll, closer := e.st.db().GetCollection(volumesC)
 	defer closer()
 
 	attachments, err := e.readVolumeAttachments()
@@ -1481,7 +1546,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 }
 
 func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, error) {
-	coll, closer := e.st.getCollection(volumeAttachmentsC)
+	coll, closer := e.st.db().GetCollection(volumeAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]volumeAttachmentDoc)
@@ -1501,7 +1566,7 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 }
 
 func (e *exporter) filesystems() error {
-	coll, closer := e.st.getCollection(filesystemsC)
+	coll, closer := e.st.db().GetCollection(filesystemsC)
 	defer closer()
 
 	attachments, err := e.readFilesystemAttachments()
@@ -1584,7 +1649,7 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 }
 
 func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmentDoc, error) {
-	coll, closer := e.st.getCollection(filesystemAttachmentsC)
+	coll, closer := e.st.db().GetCollection(filesystemAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]filesystemAttachmentDoc)
@@ -1604,7 +1669,7 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 }
 
 func (e *exporter) storageInstances() error {
-	coll, closer := e.st.getCollection(storageInstancesC)
+	coll, closer := e.st.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	attachments, err := e.readStorageAttachments()
@@ -1644,7 +1709,7 @@ func (e *exporter) addStorage(instance *storageInstance, attachments []names.Uni
 }
 
 func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) {
-	coll, closer := e.st.getCollection(storageAttachmentsC)
+	coll, closer := e.st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]names.UnitTag)
@@ -1694,6 +1759,7 @@ func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]m
 	for key, doc := range m.e.modelSettings {
 		if strings.HasPrefix(key, keyPrefix) {
 			result[key] = doc.Settings
+			delete(m.e.modelSettings, key)
 		}
 	}
 	return result, nil

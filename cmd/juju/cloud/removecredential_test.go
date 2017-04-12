@@ -10,8 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,14 +24,14 @@ var _ = gc.Suite(&removeCredentialSuite{})
 
 func (s *removeCredentialSuite) TestBadArgs(c *gc.C) {
 	cmd := cloud.NewRemoveCredentialCommand()
-	_, err := testing.RunCommand(c, cmd)
+	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "Usage: juju remove-credential <cloud-name> <credential-name>")
-	_, err = testing.RunCommand(c, cmd, "cloud", "credential", "extra")
+	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "credential", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *removeCredentialSuite) TestMissingCredential(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				AuthCredentials: map[string]jujucloud.Credential{
@@ -40,24 +41,24 @@ func (s *removeCredentialSuite) TestMissingCredential(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewRemoveCredentialCommandForTest(store)
-	ctx, err := testing.RunCommand(c, cmd, "aws", "foo")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, gc.Equals, `No credential called "foo" exists for cloud "aws"`)
 }
 
 func (s *removeCredentialSuite) TestBadCloudName(c *gc.C) {
-	cmd := cloud.NewRemoveCredentialCommandForTest(jujuclienttesting.NewMemStore())
-	ctx, err := testing.RunCommand(c, cmd, "somecloud", "foo")
+	cmd := cloud.NewRemoveCredentialCommandForTest(jujuclient.NewMemStore())
+	ctx, err := cmdtesting.RunCommand(c, cmd, "somecloud", "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, gc.Equals, `No credentials exist for cloud "somecloud"`)
 }
 
 func (s *removeCredentialSuite) TestRemove(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				AuthCredentials: map[string]jujucloud.Credential{
@@ -68,9 +69,9 @@ func (s *removeCredentialSuite) TestRemove(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewRemoveCredentialCommandForTest(store)
-	ctx, err := testing.RunCommand(c, cmd, "aws", "my-credential")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "my-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, gc.Equals, `Credential "my-credential" for cloud "aws" has been deleted.`)
 	_, stillThere := store.Credentials["aws"].AuthCredentials["my-credential"]

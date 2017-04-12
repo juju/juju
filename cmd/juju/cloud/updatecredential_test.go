@@ -11,9 +11,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,21 +24,21 @@ type updateCredentialSuite struct {
 var _ = gc.Suite(&updateCredentialSuite{})
 
 func (s *updateCredentialSuite) TestBadArgs(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
 		CurrentControllerName: "controller",
 	}
 	cmd := cloud.NewUpdateCredentialCommandForTest(store, nil)
-	_, err := testing.RunCommand(c, cmd)
+	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "Usage: juju update-credential <cloud-name> <credential-name>")
-	_, err = testing.RunCommand(c, cmd, "cloud", "credential", "extra")
+	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "credential", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *updateCredentialSuite) TestMissingCredential(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
@@ -52,30 +52,30 @@ func (s *updateCredentialSuite) TestMissingCredential(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewUpdateCredentialCommandForTest(store, nil)
-	ctx, err := testing.RunCommand(c, cmd, "aws", "foo")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, gc.Equals, `No credential called "foo" exists for cloud "aws"`)
 }
 
 func (s *updateCredentialSuite) TestBadCloudName(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
 		CurrentControllerName: "controller",
 	}
 	cmd := cloud.NewUpdateCredentialCommandForTest(store, nil)
-	ctx, err := testing.RunCommand(c, cmd, "somecloud", "foo")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "somecloud", "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, gc.Equals, `No credentials exist for cloud "somecloud"`)
 }
 
 func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
@@ -96,9 +96,9 @@ func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
 	}
 	fake := &fakeUpdateCredentialAPI{}
 	cmd := cloud.NewUpdateCredentialCommandForTest(store, fake)
-	ctx, err := testing.RunCommand(c, cmd, "aws", "my-credential")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "my-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, gc.Equals, `Updated credential "my-credential" for user "admin@local" on cloud "aws".`)
 	c.Assert(fake.creds, jc.DeepEquals, map[names.CloudCredentialTag]jujucloud.Credential{

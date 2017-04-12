@@ -100,7 +100,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 
 // Clouds returns the definitions for all clouds in the controller.
 func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
-	coll, cleanup := st.getCollection(cloudsC)
+	coll, cleanup := st.db().GetCollection(cloudsC)
 	defer cleanup()
 
 	var doc cloudDoc
@@ -117,7 +117,7 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 
 // Cloud returns the controller's cloud definition.
 func (st *State) Cloud(name string) (cloud.Cloud, error) {
-	coll, cleanup := st.getCollection(cloudsC)
+	coll, cleanup := st.db().GetCollection(cloudsC)
 	defer cleanup()
 
 	var doc cloudDoc

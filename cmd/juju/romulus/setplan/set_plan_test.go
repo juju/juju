@@ -9,7 +9,6 @@ import (
 	"net/url"
 	stdtesting "testing"
 
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,6 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
 	jjjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

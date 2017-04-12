@@ -30,7 +30,7 @@ type cloudCredentialDoc struct {
 
 // CloudCredential returns the cloud credential for the given tag.
 func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
-	coll, cleanup := st.getCollection(cloudCredentialsC)
+	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
@@ -50,7 +50,7 @@ func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential
 // CloudCredentials returns the user's cloud credentials for a given cloud,
 // keyed by credential name.
 func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
-	coll, cleanup := st.getCollection(cloudCredentialsC)
+	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc

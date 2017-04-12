@@ -460,9 +460,9 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 
 	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	cu, err := s.State.UserAccess(user, ctag)
+	access, err := s.State.UserPermission(user, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cu.Access, gc.Equals, permission.LoginAccess)
+	c.Assert(access, gc.Equals, permission.LoginAccess)
 	return u, ctag
 }
 

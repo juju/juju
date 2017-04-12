@@ -5,7 +5,7 @@ package lease_test
 
 import (
 	"fmt"
-	"time" // Only used for time types and Parse().
+	"time"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

@@ -160,15 +160,15 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 
-	contextFactory, err := context.NewContextFactory(
-		uniter,
-		unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		testing.NewClock(time.Time{}),
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            uniter,
+		UnitTag:          unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testing.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(
 		uniter,

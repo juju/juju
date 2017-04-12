@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Spaces", 2, NewAPI)
-}
-
 // API defines the methods the Spaces API facade implements.
 type API interface {
 	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)

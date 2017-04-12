@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	jjcharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -48,7 +49,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	jtesting "github.com/juju/juju/testing"
 )
 
 type DeploySuite struct {
@@ -66,7 +66,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 }
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewDefaultDeployCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewDefaultDeployCommand(), args...)
 	return err
 }
 
@@ -98,7 +98,7 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := coretesting.InitCommand(NewDefaultDeployCommand(), t.args)
+		err := cmdtesting.InitCommand(NewDefaultDeployCommand(), t.args)
 		c.Assert(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -295,7 +295,7 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	d := DeployCommand{}
 	args := []string{ch, "--resource", res1, "--resource", res2, "--series", "quantal"}
 
-	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
+	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,
@@ -507,7 +507,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 // setupConfigFile creates a configuration file for testing set
 // with the --config argument specifying a configuration file.
 func setupConfigFile(c *gc.C, dir string) string {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte("dummy-application:\n  skill-level: 9000\n  username: admin001\n\n")
 	err := ioutil.WriteFile(path, content, 0666)
@@ -596,7 +596,7 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
-		_, err := coretesting.RunCommand(c, NewDefaultDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
+		_, err := cmdtesting.RunCommand(c, NewDefaultDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectError)
 			continue
@@ -630,7 +630,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	}
 	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
 	_, err := runDeployCommand(c, "quantal/terms1")
-	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
@@ -907,7 +907,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			return fakeAPI, nil
 		},
 	}
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -918,8 +918,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -955,7 +954,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			return fakeAPI, nil
 		},
 	}
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -967,8 +966,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "thisplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -997,7 +995,7 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 		},
 	}
 
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, call := range fakeAPI.Calls() {
@@ -1046,7 +1044,7 @@ summary: summary
 		},
 	}
 
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckNoCalls(c)
 }
@@ -1090,7 +1088,7 @@ summary: summary
 		},
 	}
 
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
@@ -1098,8 +1096,7 @@ summary: summary
 			CharmURL:        "cs:~user/quantal/metered-0",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -1168,7 +1165,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 			return fakeAPI, nil
 		},
 	}
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 
 	c.Check(err, gc.ErrorMatches, "IsMetered")
 }
@@ -1265,10 +1262,10 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc
 	cmd := NewDeployCommand(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	context, err := jtesting.RunCommand(c, cmd, charmDir.Path, "--series", "trusty")
+	context, err := cmdtesting.RunCommand(c, cmd, charmDir.Path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(jtesting.Stderr(context), gc.Equals, `Deploying charm "local:trusty/dummy-1".`+"\n")
+	c.Check(cmdtesting.Stderr(context), gc.Equals, `Deploying charm "local:trusty/dummy-1".`+"\n")
 }
 
 func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
@@ -1288,7 +1285,7 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 	deployCmd := NewDeployCommand(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	_, err := coretesting.RunCommand(c, deployCmd, charmDir.Path, "--series", "trusty")
+	_, err := cmdtesting.RunCommand(c, deployCmd, charmDir.Path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We never attempt to set metric credentials
@@ -1315,10 +1312,10 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharm_SucceedsWhenDeployed(c *gc.
 	deployCmd := NewDeployCommand(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	context, err := jtesting.RunCommand(c, deployCmd, dummyURL.String())
+	context, err := cmdtesting.RunCommand(c, deployCmd, dummyURL.String())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(jtesting.Stderr(context), gc.Equals, ""+
+	c.Check(cmdtesting.Stderr(context), gc.Equals, ""+
 		`Located charm "local:trusty/dummy-0".`+"\n"+
 		`Deploying charm "local:trusty/dummy-0".`+"\n",
 	)
@@ -1375,10 +1372,10 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	deployCmd := NewDeployCommand(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	context, err := jtesting.RunCommand(c, deployCmd, "cs:bundle/wordpress-simple")
+	context, err := cmdtesting.RunCommand(c, deployCmd, "cs:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(jtesting.Stderr(context), gc.Equals, ""+
+	c.Check(cmdtesting.Stderr(context), gc.Equals, ""+
 		`Located bundle "cs:bundle/wordpress-simple"`+"\n"+
 		`Deploying charm "cs:mysql"`+"\n"+
 		`Deploying charm "cs:wordpress"`+"\n"+

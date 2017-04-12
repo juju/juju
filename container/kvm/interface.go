@@ -5,18 +5,21 @@ package kvm
 
 import (
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/status"
 )
 
 // StartParams is a simple parameter struct for Container.Start.
 type StartParams struct {
-	Series           string
-	Arch             string
-	UserDataFile     string
-	Network          *container.NetworkConfig
-	Memory           uint64 // MB
-	CpuCores         uint64
-	RootDisk         uint64 // GB
-	ImageDownloadURL string
+	Series            string
+	Arch              string
+	UserDataFile      string
+	NetworkConfigData string
+	Network           *container.NetworkConfig
+	Memory            uint64 // MB
+	CpuCores          uint64
+	RootDisk          uint64 // GB
+	ImageDownloadURL  string
+	StatusCallback    func(status status.Status, info string, data map[string]interface{}) error
 }
 
 // Container represents a virtualized container instance and provides

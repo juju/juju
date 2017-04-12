@@ -16,10 +16,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("DiscoverSpaces", 2, NewAPI)
-}
-
 // API implements the API used by the discoverspaces worker.
 type API struct {
 	st         networkingcommon.NetworkBacking
@@ -135,6 +131,7 @@ func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, e
 		}
 		_, err = api.st.AddSubnet(networkingcommon.BackingSubnetInfo{
 			ProviderId:        network.Id(arg.SubnetProviderId),
+			ProviderNetworkId: network.Id(arg.ProviderNetworkId),
 			CIDR:              subnetTag.Id(),
 			VLANTag:           arg.VLANTag,
 			AvailabilityZones: arg.Zones,

@@ -13,20 +13,20 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ValidateImageMetadataSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	metadataDir string
-	store       *jujuclienttesting.MemStore
+	store       *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ValidateImageMetadataSuite{})
@@ -34,7 +34,7 @@ var _ = gc.Suite(&ValidateImageMetadataSuite{})
 func runValidateImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &validateImageMetadataCommand{}
 	cmd.SetClientStore(store)
-	return coretesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var validateInitImageErrorTests = []struct {
@@ -56,7 +56,7 @@ var validateInitImageErrorTests = []struct {
 func (s *ValidateImageMetadataSuite) TestInitErrors(c *gc.C) {
 	for i, t := range validateInitImageErrorTests {
 		c.Logf("test %d", i)
-		err := coretesting.InitCommand(newValidateImageMetadataCommand(), t.args)
+		err := cmdtesting.InitCommand(newValidateImageMetadataCommand(), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -92,7 +92,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	return nil
 }
 
-func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
+func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 	ec2UUID := utils.MustNewUUID().String()
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2",
@@ -164,7 +164,7 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
@@ -189,8 +189,8 @@ func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *g
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
 	ctx, err := runValidateImageMetadata(c, s.store, "-m", "ec2-controller:ec2", "-d", s.metadataDir, "--stream", stream)
 	c.Assert(err, jc.ErrorIsNil)
-	stdout := coretesting.Stdout(ctx)
-	stderr := coretesting.Stderr(ctx)
+	stdout := cmdtesting.Stdout(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	strippedOut := strings.Replace(stdout, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches,
 		`ImageIds:.*"1234".*Region:.*us-east-1.*Resolve Metadata:.*source: local metadata directory.*`,
@@ -221,7 +221,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(
 		strippedOut, gc.Matches,
@@ -249,7 +249,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(
 		strippedOut, gc.Matches,

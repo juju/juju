@@ -1,13 +1,12 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -36,36 +35,29 @@ func (inst *environInstance) Id() instance.Id {
 
 // Status implements instance.Instance.
 func (inst *environInstance) Status() instance.InstanceStatus {
-	// TODO(perrito666) I wont change the commented line because it was
-	// there and I have not enough knowledge about this provider
-	// but that method does not exist.
-	// return inst.base.Status()
-	return instance.InstanceStatus{
-		Status: status.Pending,
+	instanceStatus := instance.InstanceStatus{
+		Status:  status.Empty,
+		Message: string(inst.base.Runtime.PowerState),
 	}
+	switch inst.base.Runtime.PowerState {
+	case types.VirtualMachinePowerStatePoweredOn:
+		instanceStatus.Status = status.Running
+	}
+	return instanceStatus
 }
 
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
-	if inst.base.Guest == nil || inst.base.Guest.IpAddress == "" {
+	if inst.base.Guest == nil {
 		return nil, nil
 	}
-	res := make([]network.Address, 0)
+	res := make([]network.Address, 0, len(inst.base.Guest.Net))
 	for _, net := range inst.base.Guest.Net {
 		for _, ip := range net.IpAddress {
 			res = append(res, network.NewAddress(ip))
 		}
 	}
 	return res, nil
-}
-
-func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
-	for _, inst := range instances {
-		if id == inst.Id() {
-			return inst
-		}
-	}
-	return nil
 }
 
 // firewall stuff

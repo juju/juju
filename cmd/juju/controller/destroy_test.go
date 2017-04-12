@@ -17,13 +17,12 @@ import (
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -48,7 +47,7 @@ type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api       *fakeDestroyAPI
 	clientapi *fakeDestroyAPIClient
-	store     *jujuclienttesting.MemStore
+	store     *jujuclient.MemStore
 	apierror  error
 }
 
@@ -161,7 +160,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.apierror = nil
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"localhost"},
 		CACert:         testing.CACert,
@@ -232,7 +231,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, s.newDestroyCommand(), args...)
+	return cmdtesting.RunCommand(c, s.newDestroyCommand(), args...)
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
@@ -386,40 +385,40 @@ func (s *DestroySuite) resetController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	var stdin, stdout bytes.Buffer
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
+	_, errc := cmdtesting.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
-	_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
+	_, errc = cmdtesting.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
-		_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
+		_, errc = cmdtesting.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 		select {
 		case err := <-errc:
 			c.Check(err, jc.ErrorIsNil)
@@ -475,9 +474,9 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		},
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Destroying controller\n"+
 		"Name   Model UUID                            Owner   Disabled commands\n"+
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
 		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

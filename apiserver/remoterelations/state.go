@@ -158,9 +158,9 @@ type RemoteApplication interface {
 	// SourceModel returns the tag of the model hosting the remote application.
 	SourceModel() names.ModelTag
 
-	// Registered returns the application is created
+	// IsConsumerProxy returns whether application is created
 	// from a registration operation by a consuming model.
-	Registered() bool
+	IsConsumerProxy() bool
 
 	// URL returns the remote application URL, at which it is offered.
 	URL() (string, bool)

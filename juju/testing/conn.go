@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -321,7 +322,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	s.ControllerConfig = testing.FakeControllerConfig()
 	for key, value := range s.ControllerConfigAttrs {
 		s.ControllerConfig[key] = value

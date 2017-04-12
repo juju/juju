@@ -26,35 +26,23 @@ func NewClient(caller base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// WatchSubnets returns a strings watcher that notifies of the addition,
-// removal, and lifecycle changes of subnets in the model.
-func (c *Client) WatchSubnets() (watcher.StringsWatcher, error) {
-	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchSubnets", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if result.Error != nil {
-		return nil, errors.Trace(result.Error)
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
-}
-
-// IngressSubnetsForRelation returns any CIDRs for which ingress is required to allow
-// the specified relation to properly function.
-func (c *Client) IngressSubnetsForRelation(remoteRelationId params.RemoteEntityId) (*params.IngressSubnetInfo, error) {
+// WatchIngressAddressesForRelation returns a watcher that notifies when address, from which
+// connections will originate for the relation, change.
+// Each event contains the entire set of addresses which are required for ingress for the relation.
+func (c *Client) WatchIngressAddressesForRelation(remoteRelationId params.RemoteEntityId) (watcher.StringsWatcher, error) {
 	args := params.RemoteEntities{[]params.RemoteEntityId{remoteRelationId}}
-	var results params.IngressSubnetResults
-	err := c.facade.FacadeCall("IngressSubnetsForRelations", args, &results)
+	var results params.StringsWatchResults
+	err := c.facade.FacadeCall("WatchIngressAddressesForRelation", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected %d result(s), got %d", 1, len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	if err := results.Results[0].Error; err != nil {
-		return nil, err
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	return results.Results[0].Result, nil
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }

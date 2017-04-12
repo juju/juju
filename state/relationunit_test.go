@@ -152,7 +152,6 @@ func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
 func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -164,7 +163,6 @@ func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql1",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -813,6 +811,64 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationSc
 	}
 }
 
+func (s *RelationUnitSuite) TestSettingsAddress(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	)
+
+	address, err := prr.pru0.SettingsAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+}
+
+func (s *RelationUnitSuite) TestSettingsAddressRemoteRelation(c *gc.C) {
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
+	err := prr.ru0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.ru0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	)
+
+	address, err := prr.rru0.SettingsAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("4.3.2.1", network.ScopePublic))
+}
+
+func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationNoPublicAddr(c *gc.C) {
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
+	err := prr.ru0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.ru0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
+
+	address, err := prr.rru0.SettingsAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+}
+
 type PeerRelation struct {
 	rel                *state.Relation
 	app                *state.Application
@@ -933,12 +989,12 @@ type RemoteProReqRelation struct {
 	psvc                   *state.RemoteApplication
 	rsvc                   *state.Application
 	pru0, pru1, rru0, rru1 *state.RelationUnit
+	ru0, ru1               *state.Unit
 }
 
 func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
 	psvc, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -957,8 +1013,8 @@ func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
 	prr := &RemoteProReqRelation{rel: rel, psvc: psvc, rsvc: rsvc}
 	prr.pru0 = addRemoteRU(c, rel, "mysql/0")
 	prr.pru1 = addRemoteRU(c, rel, "mysql/1")
-	_, prr.rru0 = addRU(c, rsvc, rel, nil)
-	_, prr.rru1 = addRU(c, rsvc, rel, nil)
+	prr.ru0, prr.rru0 = addRU(c, rsvc, rel, nil)
+	prr.ru1, prr.rru1 = addRU(c, rsvc, rel, nil)
 	return prr
 }
 

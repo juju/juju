@@ -110,6 +110,8 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"controller-uuid":  "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		"life":             0,
 		"migration-mode":   "",
+		"sla":              bson.M{"level": "", "credentials": []uint8{}},
+		"meter-status":     bson.M{"code": "", "info": ""},
 	}, {
 		"_id":              "0000-dead-beaf-0002",
 		"owner":            "user-mary@external",
@@ -120,6 +122,8 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"controller-uuid":  "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		"life":             0,
 		"migration-mode":   "",
+		"sla":              bson.M{"level": "", "credentials": []uint8{}},
+		"meter-status":     bson.M{"code": "", "info": ""},
 	},
 		initialModel,
 	}

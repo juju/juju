@@ -114,7 +114,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPIV3, err := uniter.NewUniterAPIV4(
+	uniterAPIV3, err := uniter.NewUniterAPI(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -126,7 +126,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	_, err := uniter.NewUniterAPIV4(s.State, s.resources, anAuthorizer)
+	_, err := uniter.NewUniterAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -600,7 +600,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Now try as subordinate's agent.
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = subordinate.Tag()
-	subUniter, err := uniter.NewUniterAPIV4(s.State, s.resources, subAuthorizer)
+	subUniter, err := uniter.NewUniterAPI(s.State, s.resources, subAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = subUniter.GetPrincipal(args)
@@ -1216,7 +1216,7 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 	mysqlUnitAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.mysqlUnit.Tag(),
 	}
-	mysqlUnitFacade, err := uniter.NewUniterAPIV4(s.State, s.resources, mysqlUnitAuthorizer)
+	mysqlUnitFacade, err := uniter.NewUniterAPI(s.State, s.resources, mysqlUnitAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.wordpressUnit.AddAction("fakeaction", nil)
@@ -2267,6 +2267,113 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestSLALevel(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.uniter.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.StringResult{Result: "essential"})
+}
+
+func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
+	s.makeRemoteWordpress(c)
+	thisUniter := s.makeMysqlUniter(c)
+
+	// Set mysql's addresses first.
+	err := s.machine1.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("mysql", "remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, false)
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := thisUniter.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	// Verify the scope changes and settings.
+	s.assertInScope(c, relUnit, true)
+	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "4.3.2.1",
+	})
+}
+
+func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
+	s.makeRemoteWordpress(c)
+	thisUniter := s.makeMysqlUniter(c)
+
+	// Set mysql's addresses first - no public address.
+	err := s.machine1.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("mysql", "remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, false)
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := thisUniter.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	// Verify that we fell back to the private address.
+	s.assertInScope(c, relUnit, true)
+	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "1.2.3.4",
+	})
+}
+
+func (s *uniterSuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPIV3 {
+	authorizer := s.authorizer
+	authorizer.Tag = s.mysqlUnit.Tag()
+	result, err := uniter.NewUniterAPI(s.State, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	return result
+}
+
+func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
+		OfferName:       "chapo",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type unitMetricBatchesSuite struct {
 	uniterSuite
 	*commontesting.ModelWatcherTest
@@ -2282,7 +2389,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Tag: s.meteredUnit.Tag(),
 	}
 	var err error
-	s.uniter, err = uniter.NewUniterAPIV4(
+	s.uniter, err = uniter.NewUniterAPI(
 		s.State,
 		s.resources,
 		meteredAuthorizer,
@@ -2552,7 +2659,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.base.uniter, err = uniter.NewUniterAPIV4(
+	s.base.uniter, err = uniter.NewUniterAPI(
 		s.base.State,
 		s.base.resources,
 		s.base.authorizer,

@@ -214,6 +214,88 @@ func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
 	c.Assert(env.MigrationMode(), gc.Equals, state.MigrationModeExporting)
 }
 
+func (s *ModelSuite) TestSLA(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	level, err := st.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "unsupported")
+	c.Assert(model.SLACredential(), gc.DeepEquals, []byte{})
+	for _, goodLevel := range []string{"unsupported", "essential", "standard", "advanced"} {
+		err = st.SetSLA(goodLevel, "bob", []byte("auth "+goodLevel))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		level, err = st.SLALevel()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(level, gc.Equals, goodLevel)
+		c.Assert(model.SLALevel(), gc.Equals, goodLevel)
+		c.Assert(model.SLAOwner(), gc.Equals, "bob")
+		c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth "+goodLevel))
+	}
+
+	defaultLevel, err := state.NewSLALevel("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaultLevel, gc.Equals, state.SLAUnsupported)
+
+	err = model.SetSLA("nope", "nobody", []byte("auth nope"))
+	c.Assert(err, gc.ErrorMatches, `.*SLA level "nope" not valid.*`)
+
+	c.Assert(model.SLALevel(), gc.Equals, "advanced")
+	c.Assert(model.SLAOwner(), gc.Equals, "bob")
+	c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth advanced"))
+	slaCreds, err := st.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(slaCreds, gc.DeepEquals, []byte("auth advanced"))
+}
+
+func (s *ModelSuite) TestMeterStatus(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	ms, err := st.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code, gc.Equals, state.MeterNotAvailable)
+	c.Assert(ms.Info, gc.Equals, "")
+
+	for i, validStatus := range []string{"RED", "GREEN", "AMBER"} {
+		info := fmt.Sprintf("info setting %d", i)
+		err = st.SetModelMeterStatus(validStatus, info)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		ms, err = st.ModelMeterStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ms.Code.String(), gc.Equals, validStatus)
+		c.Assert(ms.Info, gc.Equals, info)
+	}
+
+	err = model.SetMeterStatus("PURPLE", "foobar")
+	c.Assert(err, gc.ErrorMatches, `meter status "PURPLE" not valid`)
+
+	c.Assert(ms.Code, gc.Equals, state.MeterAmber)
+	c.Assert(ms.Info, gc.Equals, "info setting 2")
+}
+
 func (s *ModelSuite) TestControllerModel(c *gc.C) {
 	model, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)

@@ -30,10 +30,6 @@ type RebootAPI struct {
 	resources facade.Resources
 }
 
-func init() {
-	common.RegisterStandardFacade("Reboot", 2, NewRebootAPI)
-}
-
 // NewRebootAPI creates a new server-side RebootAPI facade.
 func NewRebootAPI(st *state.State, resources facade.Resources, auth facade.Authorizer) (*RebootAPI, error) {
 	if !auth.AuthMachineAgent() {

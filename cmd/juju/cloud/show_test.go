@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/all"
@@ -22,14 +23,14 @@ type showSuite struct {
 var _ = gc.Suite(&showSuite{})
 
 func (s *showSuite) TestShowBadArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, cloud.NewShowCloudCommand())
+	_, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand())
 	c.Assert(err, gc.ErrorMatches, "no cloud specified")
 }
 
 func (s *showSuite) TestShow(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "aws-china")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "aws-china")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 defined: public
 type: ec2
@@ -57,9 +58,9 @@ clouds:
 `[1:]
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 
-	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "homestack")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 defined: local
 type: openstack
@@ -91,9 +92,9 @@ clouds:
 `[1:]
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 
-	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "homestack")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 defined: local
 type: openstack

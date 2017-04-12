@@ -5,7 +5,6 @@ package openstack_test
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -15,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -55,7 +54,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
@@ -1041,7 +1040,50 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C) environs.NetworkingEnviron {
+	env := s.Open(c, s.env.Config())
+	netenv, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
+	return netenv
+}
+
+func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	obtainedSubnets, err := env.Subnets(instance.Id(""), []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackSubnets, err := neutronClient.ListSubnetsV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, sub := range obtainedSubnets {
+		obtainedSubnetMap[sub.ProviderId] = sub
+	}
+
+	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, os := range openstackSubnets {
+		net, err := neutronClient.GetNetworkV2(os.NetworkId)
+		c.Assert(err, jc.ErrorIsNil)
+		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
+			CIDR:              os.Cidr,
+			ProviderId:        network.Id(os.Id),
+			VLANTag:           0,
+			AvailabilityZones: net.AvailabilityZones,
+			SpaceProviderId:   "",
+		}
+	}
+
+	c.Check(obtainedSubnetMap, jc.DeepEquals, expectedSubnetMap)
+}
+
+func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	subnets, err := env.Subnets(instance.Id(""), []network.Id{"missing"})
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
+	c.Assert(subnets, gc.HasLen, 0)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
@@ -1208,7 +1250,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
 	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
@@ -1239,6 +1281,30 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default ubuntu cloud images"})
 }
 
+// To compare found and expected SecurityGroupRules, convert the rules to RuleInfo, minus
+// details we can't predict such as id.
+func ruleToRuleInfo(rules []neutron.SecurityGroupRuleV2) []neutron.RuleInfoV2 {
+	ruleInfo := make([]neutron.RuleInfoV2, 0, len(rules))
+	for _, r := range rules {
+		ri := neutron.RuleInfoV2{
+			Direction:      r.Direction,
+			EthernetType:   r.EthernetType,
+			RemoteIPPrefix: r.RemoteIPPrefix,
+		}
+		if r.IPProtocol != nil {
+			ri.IPProtocol = *r.IPProtocol
+		}
+		if r.PortRangeMax != nil {
+			ri.PortRangeMax = *r.PortRangeMax
+		}
+		if r.PortRangeMin != nil {
+			ri.PortRangeMin = *r.PortRangeMin
+		}
+		ruleInfo = append(ruleInfo, ri)
+	}
+	return ruleInfo
+}
+
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
@@ -1248,35 +1314,100 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 			IPProtocol:   "tcp",
 			PortRangeMin: 22,
 			PortRangeMax: 22,
+			EthernetType: "IPv4",
 		},
-	}
-
-	assertRule := func(group neutron.SecurityGroupV2) {
-		c.Check(len(group.Rules), gc.Equals, 3)
-		for _, r := range group.Rules {
-			// Ignore the 2 default egress rules for each new
-			// security group created by Neutron
-			if r.Direction == "egress" {
-				continue
-			}
-			c.Check(r.Direction, gc.Equals, "ingress")
-			c.Check(*r.IPProtocol, gc.Equals, "tcp")
-			c.Check(*r.PortRangeMin, gc.Equals, 22)
-			c.Check(*r.PortRangeMax, gc.Equals, 22)
-		}
 	}
 
 	group, err := openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
-	assertRule(group)
+
+	// Rules created by Neutron when a new Security Group is created
+	defaultRules := []neutron.RuleInfoV2{
+		{
+			Direction:    "egress",
+			EthernetType: "IPv4",
+		},
+		{
+			Direction:    "egress",
+			EthernetType: "IPv6",
+		},
+	}
+	expectedRules := append(defaultRules, rule[0])
+	obtainedRules := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRules, jc.SameContents, expectedRules)
 	id := group.Id
-	// Do it again and check that the existing group is returned.
+
+	// Do it again and check that the existing group is returned
+	// and updated.
+	rules := []neutron.RuleInfoV2{
+		{
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
+			EthernetType: "IPv4",
+		},
+		{
+			Direction:    "ingress",
+			IPProtocol:   "icmp",
+			EthernetType: "IPv6",
+		},
+	}
+	group, err = openstack.EnsureGroup(s.env, "test group", rules)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(group.Id, gc.Equals, id)
+	c.Assert(group.Name, gc.Equals, "test group")
+	c.Check(len(group.Rules), gc.Equals, 4)
+	expectedRules = append(defaultRules, rules...)
+	obtainedRulesSecondTime := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRulesSecondTime, jc.SameContents, expectedRules)
+
+	// 3rd time with same name, should be back to the orginal now
 	group, err = openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
-	assertRule(group)
+	expectedRules = append(defaultRules, rule[0])
+	obtainedRulesThirdTime := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRulesThirdTime, jc.SameContents, expectedRules)
+	c.Check(obtainedRulesThirdTime, jc.SameContents, obtainedRules)
+}
+
+// TestMatchingGroup checks that you receive the group you expected.  matchingGroup()
+// is used by the firewaller when opening and closing ports.  Unit test in response to bug 1675799.
+func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
+	rule := []neutron.RuleInfoV2{
+		{
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
+			EthernetType: "IPv4",
+		},
+	}
+
+	err := bootstrapEnv(c, s.env)
+	group1, err := openstack.EnsureGroup(s.env,
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	group2, err := openstack.EnsureGroup(s.env,
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
+	groupMatched, err := openstack.MatchingGroup(s.env, machineNameRegexp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
+
+	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
+	groupMatched, err = openstack.MatchingGroup(s.env, machineNameRegexp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
 }
 
 // localHTTPSServerSuite contains tests that run against an Openstack service
@@ -1337,7 +1468,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.env, err = bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1555,7 +1686,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 
 func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
 	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID)
+	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, sampleUUID)
 }
@@ -1564,14 +1695,17 @@ func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
 	// For now this test has to cheat and use knowledge of goose internals
 	var networkLabel = "net"
 	var expectNetworkId = "1"
-	networkId, err := openstack.ResolveNetwork(s.env, networkLabel)
+	networkId, err := openstack.ResolveNetwork(s.env, networkLabel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, expectNetworkId)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 	var notPresentNetwork = "no-network-with-this-label"
-	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork)
+	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork, false)
+	c.Check(networkId, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
+	networkId, err = openstack.ResolveNetwork(s.env, notPresentNetwork, true)
 	c.Check(networkId, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
 }
@@ -1707,7 +1841,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	}
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(t.env, t.ControllerUUID, "1")
-	c.Assert(jujuerrors.Cause(err), gc.Equals, mock.err)
+	c.Assert(errors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
 	dgErr := fmt.Errorf("DistributionGroup failed")
@@ -1718,7 +1852,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		},
 	}
 	_, err = testing.StartInstanceWithParams(t.env, "1", params)
-	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
+	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
@@ -1819,7 +1953,7 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
-		err: jujuerrors.NotImplementedf("availability zones"),
+		err: errors.NotImplementedf("availability zones"),
 	}
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
@@ -1927,6 +2061,45 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	s.checkInstanceTags(c, env, newController)
 	s.checkVolumeTags(c, s.env, originalController)
 	s.checkVolumeTags(c, env, newController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, newController)
+}
+
+func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
+	// Nova-lxd doesn't support storage. lp:1677225
+	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
+		return nil, errors.NotSupportedf("volumes")
+	})
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
+	cfg, err := s.env.Config().Apply(map[string]interface{}{
+		"uuid": hostedModelUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  makeCloudSpec(s.cred),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	originalController := coretesting.ControllerTag.Id()
+	_, _, _, err = testing.StartInstance(env, originalController, "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, originalController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, originalController)
+
+	// Needs to be a correctly formatted uuid so we can get it out of
+	// group names.
+	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
+	err = env.AdoptResources(newController, version.MustParse("1.2.3"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, newController)
 	s.checkGroupController(c, s.env, originalController)
 	s.checkGroupController(c, env, newController)
 }
@@ -2099,7 +2272,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)

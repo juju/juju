@@ -15,9 +15,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -74,7 +74,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 				t.should, strings.Join(t.args, " "))
 			s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
-			err := testing.InitCommand(s.wrappedCommand, args)
+			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(err, jc.ErrorIsNil)
 				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedSvc)
@@ -140,7 +140,7 @@ snapshot        Take a snapshot of the database.
 
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
-				ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
+				ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {
 					c.Check(err, gc.ErrorMatches, t.expectedErr)
@@ -150,9 +150,9 @@ snapshot        Take a snapshot of the database.
 					if t.expectFullSchema {
 						checkFullSchema(c, t.withCharmActions, result)
 					} else if t.expectNoResults {
-						c.Check(testing.Stderr(ctx), gc.Matches, t.expectMessage)
+						c.Check(cmdtesting.Stderr(ctx), gc.Matches, t.expectMessage)
 					} else {
-						c.Check(testing.Stdout(ctx), gc.Equals, simpleOutput)
+						c.Check(cmdtesting.Stdout(ctx), gc.Equals, simpleOutput)
 					}
 				}
 

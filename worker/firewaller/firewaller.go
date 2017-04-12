@@ -38,8 +38,7 @@ type FirewallerAPI interface {
 
 // RemoteFirewallerAPI exposes remote firewaller functionality to a worker.
 type RemoteFirewallerAPI interface {
-	IngressSubnetsForRelation(id params.RemoteEntityId) (*params.IngressSubnetInfo, error)
-	WatchSubnets() (watcher.StringsWatcher, error)
+	WatchIngressAddressesForRelation(id params.RemoteEntityId) (watcher.StringsWatcher, error)
 }
 
 // RemoteFirewallerAPICloser implements RemoteFirewallerAPI
@@ -740,7 +739,6 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 	logger.Debugf("finding ingress rules for %v", appTag)
 	// Now create the rules for any remote relations of which the
 	// unit's application is a part.
-	appProcessed := false
 	for _, data := range fw.relationIngress {
 		if data.localApplicationTag != appTag {
 			continue
@@ -748,17 +746,9 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 		if !data.ingressRequired {
 			continue
 		}
-		appProcessed = true
 		for _, cidr := range data.networks.Values() {
 			cidrs.Add(cidr)
 		}
-	}
-	// This is a fallback for providers which have not yet implemented the
-	// network interface, or where the network information is not yet available.
-	// TODO(wallyworld) - remove fallback when providers are all updated
-	if appProcessed && len(cidrs) == 0 {
-		logger.Warningf("adding default CIDR 0.0.0.0/0 for: %v", appTag)
-		cidrs.Add("0.0.0.0/0")
 	}
 	return nil
 }
@@ -967,9 +957,9 @@ func (md *machineData) watchLoop(unitw watcher.StringsWatcher) error {
 				return errors.New("machine units watcher closed")
 			}
 			select {
-			case md.fw.unitsChange <- &unitsChange{md, change}:
 			case <-md.catacomb.Dying():
 				return md.catacomb.ErrDying()
+			case md.fw.unitsChange <- &unitsChange{md, change}:
 			}
 		}
 	}
@@ -1045,9 +1035,9 @@ func (ad *applicationData) watchLoop(exposed bool) error {
 
 			exposed = change
 			select {
-			case ad.fw.exposedChange <- &exposedChange{ad, change}:
 			case <-ad.catacomb.Dying():
 				return ad.catacomb.ErrDying()
+			case ad.fw.exposedChange <- &exposedChange{ad, change}:
 			}
 		}
 	}
@@ -1225,30 +1215,39 @@ func (rd *remoteRelationData) watchLoop() error {
 	}
 	defer facade.Close()
 
-	subnetsWatcher, err := facade.WatchSubnets()
-	if err != nil {
-		return errors.Trace(err)
+	// First, wait for relation to become ready.
+	for rd.remoteRelationId == nil {
+		select {
+		case <-rd.catacomb.Dying():
+			return rd.catacomb.ErrDying()
+		case remoteRelationId := <-rd.relationReady:
+			rd.remoteRelationId = &remoteRelationId
+			logger.Infof("relation %v is ready", remoteRelationId)
+		}
 	}
 
+	// Now watch for updates to ingress addresses.
+	addressWatcher, err := facade.WatchIngressAddressesForRelation(*rd.remoteRelationId)
+	if err != nil {
+		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
+			return errors.Trace(err)
+		}
+		logger.Infof("no ingress required for %v", rd.localApplicationTag)
+		rd.ingressRequired = false
+		return nil
+	}
 	for {
 		select {
 		case <-rd.catacomb.Dying():
 			// We stop the watcher here as it is tied to the remote facade
 			// which is closed as soon as we return.
-			worker.Stop(subnetsWatcher)
+			worker.Stop(addressWatcher)
 			return rd.catacomb.ErrDying()
-		case <-subnetsWatcher.Changes():
-			if rd.remoteRelationId == nil {
-				// relation not ready yet.
-				continue
+		case cidrs := <-addressWatcher.Changes():
+			logger.Debugf("relation ingress addresses for %v changed in model %v: %v", *rd.remoteRelationId, rd.remoteModelUUID, cidrs)
+			if err := rd.updateNetworks(facade, *rd.remoteRelationId, cidrs); err != nil {
+				return errors.Trace(err)
 			}
-			logger.Debugf("subnets changed in model %v", rd.remoteModelUUID)
-		case remoteRelationId := <-rd.relationReady:
-			rd.remoteRelationId = &remoteRelationId
-			logger.Debugf("relation %v is ready", remoteRelationId)
-		}
-		if err := rd.updateNetworks(facade, *rd.remoteRelationId); err != nil {
-			return errors.Trace(err)
 		}
 	}
 }
@@ -1262,26 +1261,18 @@ type remoteRelationChange struct {
 
 // updateNetworks gathers the ingress CIDRs for the relation and notifies
 // that a change has occurred.
-func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteRelationId params.RemoteEntityId) error {
-	ingressRequired := true
-	networks, err := facade.IngressSubnetsForRelation(remoteRelationId)
-	if err != nil {
-		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
-			return errors.Trace(err)
-		}
-		ingressRequired = false
-	}
-	logger.Debugf("ingress networks for %v: %+v", remoteRelationId, networks)
+func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteRelationId params.RemoteEntityId, cidrs []string) error {
+	logger.Debugf("ingress cidrs for %v: %+v", remoteRelationId, cidrs)
 	change := &remoteRelationChange{
 		relationTag:         rd.tag,
 		localApplicationTag: rd.localApplicationTag,
-		networks:            set.NewStrings(networks.CIDRs...),
-		ingressRequired:     ingressRequired,
+		networks:            set.NewStrings(cidrs...),
+		ingressRequired:     true,
 	}
 	select {
-	case rd.fw.remoteRelationsChange <- change:
 	case <-rd.catacomb.Dying():
 		return rd.catacomb.ErrDying()
+	case rd.fw.remoteRelationsChange <- change:
 	}
 	return nil
 }
@@ -1303,6 +1294,7 @@ func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
 	change := &remoteRelationChange{
 		relationTag:         data.tag,
 		localApplicationTag: data.localApplicationTag,
+		networks:            make(set.Strings),
 	}
 	if err := fw.remoteRelationChanged(change); err != nil {
 		return errors.Trace(err)
@@ -1373,9 +1365,9 @@ func (p *remoteRelationPoller) pollLoop() error {
 			logger.Debugf("poll token %v in model %v", token, modelUUID)
 			remoteRelationId := params.RemoteEntityId{ModelUUID: modelUUID, Token: token}
 			select {
-			case p.relationReady <- remoteRelationId:
 			case <-p.catacomb.Dying():
 				return p.catacomb.ErrDying()
+			case p.relationReady <- remoteRelationId:
 			}
 			return nil
 		}

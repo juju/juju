@@ -340,11 +340,17 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
 	}
 
+	info.SLA = m.SLALevel()
+
 	info.ModelStatus = params.DetailedStatus{
 		Status: status.Status.String(),
 		Info:   status.Message,
 		Since:  status.Since,
 		Data:   status.Data,
+	}
+	ms := m.MeterStatus()
+	if isColorStatus(ms.Code) {
+		info.MeterStatus = params.MeterStatus{Color: ms.Code.String(), Message: ms.Info}
 	}
 
 	return info, nil

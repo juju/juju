@@ -125,6 +125,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 			newSt.Close()
 		}
 	}()
+	// We don't actually care what the old model status was, because we are
+	// going to set it to busy, with a message of migrating.
+	if err := dbModel.SetStatus(status.StatusInfo{
+		Status:  status.Busy,
+		Message: "importing",
+	}); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
@@ -190,6 +198,20 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 	// Update the sequences to match that the source.
 
+	if err := dbModel.SetSLA(
+		model.SLA().Level(),
+		model.SLA().Owner(),
+		[]byte(model.SLA().Credentials()),
+	); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if model.MeterStatus().Code() != MeterNotAvailable.String() {
+		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -230,6 +252,10 @@ func (i *importer) modelExtras() error {
 		}
 		i.st.SwitchBlockOn(block, message)
 	}
+
+	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -255,7 +281,7 @@ func (i *importer) sequences() error {
 		return nil
 	}
 
-	sequences, closer := i.st.getCollection(sequenceC)
+	sequences, closer := i.st.db().GetCollection(sequenceC)
 	defer closer()
 
 	if err := sequences.Writeable().Insert(docs...); err != nil {
@@ -344,11 +370,15 @@ func (i *importer) machine(m description.Machine) error {
 		StatusData: mStatus.Data(),
 		Updated:    mStatus.Updated().UnixNano(),
 	}
-	// XXX(mjs) - this needs to be included in the serialized model
-	// (a card exists for the work). Fake it for now.
+	// A machine isn't valid if it doesn't have an instance.
+	instance := m.Instance()
+	instStatus := instance.Status()
 	instanceStatusDoc := statusDoc{
-		ModelUUID: i.st.ModelUUID(),
-		Status:    status.Started,
+		ModelUUID:  i.st.ModelUUID(),
+		Status:     status.Status(instStatus.Value()),
+		StatusInfo: instStatus.Message(),
+		StatusData: instStatus.Data(),
+		Updated:    instStatus.Updated().UnixNano(),
 	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
@@ -359,9 +389,7 @@ func (i *importer) machine(m description.Machine) error {
 	)
 
 	// 3. create op for adding in instance data
-	if instance := m.Instance(); instance != nil {
-		prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
-	}
+	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
 
 	if parentId := ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
@@ -390,6 +418,9 @@ func (i *importer) machine(m description.Machine) error {
 		}
 	}
 	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := i.importStatusHistory(machine.globalInstanceKey(), instance.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
 	if err := i.importMachineBlockDevices(machine, m); err != nil {
@@ -649,7 +680,7 @@ func (i *importer) applications() error {
 }
 
 func (i *importer) loadUnits() error {
-	unitsCollection, closer := i.st.getCollection(unitsC)
+	unitsCollection, closer := i.st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -1146,11 +1177,12 @@ func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
 		err := i.addSubnet(SubnetInfo{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       network.Id(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 		if err != nil {
 			return errors.Trace(err)
@@ -1350,7 +1382,7 @@ func (i *importer) importStatusHistory(globalKey string, history []description.S
 		return nil
 	}
 
-	statusHistory, closer := i.st.getCollection(statusesHistoryC)
+	statusHistory, closer := i.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 
 	if err := statusHistory.Writeable().Insert(docs...); err != nil {
@@ -1460,7 +1492,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Insert: doc,
 	})
 
-	refcounts, closer := i.st.getCollection(refcountsC)
+	refcounts, closer := i.st.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)

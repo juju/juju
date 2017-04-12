@@ -5,10 +5,10 @@ package apiserver
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,7 +20,7 @@ import (
 // Hub defines the publish method that the handler uses to publish
 // messages on the centralhub of the apiserver.
 type Hub interface {
-	Publish(pubsub.Topic, interface{}) (<-chan struct{}, error)
+	Publish(string, interface{}) (<-chan struct{}, error)
 }
 
 func newPubSubHandler(h httpContext, hub Hub) http.Handler {
@@ -75,14 +75,33 @@ func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// formatted simple error.
 		h.sendError(socket, req, nil)
 
+		// Here we configure the ping/pong handling for the websocket so
+		// the server can notice when the client goes away.
+		// See the long note in logsink.go for the rationale.
+		socket.SetReadDeadline(time.Now().Add(pongDelay))
+		socket.SetPongHandler(func(string) error {
+			socket.SetReadDeadline(time.Now().Add(pongDelay))
+			return nil
+		})
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+
 		messageCh := h.receiveMessages(socket)
 		for {
 			select {
 			case <-h.ctxt.stop():
 				return
+			case <-ticker.C:
+				deadline := time.Now().Add(writeWait)
+				if err := socket.WriteControl(websocket.PingMessage, []byte{}, deadline); err != nil {
+					// This error is expected if the other end goes away. By
+					// returning we close the socket through the defer call.
+					logger.Debugf("failed to write ping: %s", err)
+					return
+				}
 			case m := <-messageCh:
 				logger.Tracef("topic: %q, data: %v", m.Topic, m.Data)
-				_, err := h.hub.Publish(pubsub.Topic(m.Topic), m.Data)
+				_, err := h.hub.Publish(m.Topic, m.Data)
 				if err != nil {
 					logger.Errorf("publish failed: %v", err)
 				}

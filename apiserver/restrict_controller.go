@@ -19,6 +19,7 @@ var controllerFacadeNames = set.NewStrings(
 	"Controller",
 	"MigrationTarget",
 	"ModelManager",
+	"RemoteEndpoints",
 	"UserManager",
 )
 

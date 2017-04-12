@@ -16,6 +16,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -91,25 +92,25 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *configCommandSuite) TestGetCommandInit(c *gc.C) {
 	// missing args
-	err := coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{})
+	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{})
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 }
 
 func (s *configCommandSuite) TestGetCommandInitWithApplication(c *gc.C) {
-	err := coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"app"})
+	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"app"})
 	// everything ok
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
-	err := coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"app", "key"})
+	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"app", "key"})
 	// everything ok
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 	for _, t := range getTests {
-		ctx := coretesting.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{t.application})
 		c.Check(code, gc.Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -130,7 +131,7 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 }
 
 func (s *configCommandSuite) TestGetConfigKey(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "title"})
 	c.Check(code, gc.Equals, 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -138,48 +139,48 @@ func (s *configCommandSuite) TestGetConfigKey(c *gc.C) {
 }
 
 func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "invalid"})
 	c.Check(code, gc.Equals, 1)
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "error: key \"invalid\" not found in \"dummy-application\" application settings.\n")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "ERROR key \"invalid\" not found in \"dummy-application\" application settings.\n")
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 }
 
 func (s *configCommandSuite) TestSetCommandInit(c *gc.C) {
 	// missing args
-	err := coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{})
+	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{})
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 
 	// missing application name
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"name=foo"})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"name=foo"})
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 
 	// --file path, but no application
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"--file", "testconfig.yaml"})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"--file", "testconfig.yaml"})
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 
 	// --file and options specified
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--file", "testconfig.yaml", "bees="})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--file", "testconfig.yaml", "bees="})
 	c.Assert(err, gc.ErrorMatches, "cannot specify --file and key=value arguments simultaneously")
 
 	// --reset and no config name provided
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset"})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset"})
 	c.Assert(err, gc.ErrorMatches, "flag needs an argument: --reset")
 
 	// cannot set and retrieve simultaneously
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "get", "set=value"})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "get", "set=value"})
 	c.Assert(err, gc.ErrorMatches, "cannot set and retrieve values simultaneously")
 
 	// cannot reset and get simultaneously
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset", "get"})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset", "get"})
 	c.Assert(err, gc.ErrorMatches, "cannot reset and retrieve values simultaneously")
 
 	// invalid reset keys
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset,bad=key"})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset,bad=key"})
 	c.Assert(err, gc.ErrorMatches, `--reset accepts a comma delimited set of keys "a,b,c", received: "bad=key"`)
 
 	// init too many args fails
-	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "key", "another"})
+	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "key", "another"})
 	c.Assert(err, gc.ErrorMatches, "can only retrieve a single value, or all values")
 
 }
@@ -231,26 +232,26 @@ func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 
 func (s *configCommandSuite) TestSetOptionFail(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{"foo", "bar"},
-		"error: can only retrieve a single value, or all values\n")
-	s.assertSetFail(c, s.dir, []string{"=bar"}, "error: expected \"key=value\", got \"=bar\"\n")
+		"ERROR can only retrieve a single value, or all values\n")
+	s.assertSetFail(c, s.dir, []string{"=bar"}, "ERROR expected \"key=value\", got \"=bar\"\n")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
-	}, "error: cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp+"\n")
+	}, "ERROR cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp+"\n")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@big.txt",
-	}, "error: size of option file is larger than 5M\n")
+	}, "ERROR size of option file is larger than 5M\n")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@invalid.txt",
-	}, "error: value for option \"username\" contains non-UTF-8 sequences\n")
+	}, "ERROR value for option \"username\" contains non-UTF-8 sequences\n")
 }
 
 func (s *configCommandSuite) TestSetConfig(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{
 		"--file",
 		"missing.yaml",
-	}, "error.* "+utils.NoSuchFileErrRegexp+"\n")
+	}, "ERROR.* "+utils.NoSuchFileErrRegexp+"\n")
 
-	ctx := coretesting.ContextForDir(c, s.dir)
+	ctx := cmdtesting.ContextForDir(c, s.dir)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{
 		"dummy-application",
 		"--file",
@@ -262,7 +263,7 @@ func (s *configCommandSuite) TestSetConfig(c *gc.C) {
 
 func (s *configCommandSuite) TestSetFromStdin(c *gc.C) {
 	s.fake = &fakeApplicationAPI{name: "dummy-application"}
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	ctx.Stdin = strings.NewReader("settings:\n  username:\n  value: world\n")
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{
 		"dummy-application",
@@ -286,7 +287,7 @@ func (s *configCommandSuite) TestResetConfigToDefault(c *gc.C) {
 func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
 	s.fake.err = common.OperationBlockedError("TestBlockSetConfig")
-	ctx := coretesting.ContextForDir(c, s.dir)
+	ctx := cmdtesting.ContextForDir(c, s.dir)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{
 		"dummy-application",
 		"--file",
@@ -299,21 +300,21 @@ func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 
 // assertSetSuccess sets configuration options and checks the expected settings.
 func (s *configCommandSuite) assertSetSuccess(c *gc.C, dir string, args []string, expect map[string]interface{}) {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, append([]string{"dummy-application"}, args...))
 	c.Assert(code, gc.Equals, 0)
 }
 
 // assertSetFail sets configuration options and checks the expected error.
 func (s *configCommandSuite) assertSetFail(c *gc.C, dir string, args []string, err string) {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, append([]string{"dummy-application"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
 }
 
 func (s *configCommandSuite) assertSetWarning(c *gc.C, dir string, args []string, w string) {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, append([]string{"dummy-application"}, args...))
 	c.Check(code, gc.Equals, 0)
 
@@ -323,7 +324,7 @@ func (s *configCommandSuite) assertSetWarning(c *gc.C, dir string, args []string
 // setupValueFile creates a file containing one value for testing
 // set with name=@filename.
 func setupValueFile(c *gc.C, dir, filename, value string) string {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := ioutil.WriteFile(path, content, 0666)
@@ -334,7 +335,7 @@ func setupValueFile(c *gc.C, dir, filename, value string) string {
 // setupBigFile creates a too big file for testing
 // set with name=@filename.
 func setupBigFile(c *gc.C, dir string) string {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("big.txt")
 	file, err := os.Create(path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -353,7 +354,7 @@ func setupBigFile(c *gc.C, dir string) string {
 // setupConfigFile creates a configuration file for testing set
 // with the --file argument specifying a configuration file.
 func setupConfigFile(c *gc.C, dir string) string {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte(yamlConfigValue)
 	err := ioutil.WriteFile(path, content, 0666)

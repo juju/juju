@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Undertaker", 1, NewUndertakerAPI)
-}
-
 // UndertakerAPI implements the API used by the model undertaker worker.
 type UndertakerAPI struct {
 	st        State
@@ -89,28 +85,9 @@ func (u *UndertakerAPI) RemoveModel() error {
 	return u.st.RemoveAllModelDocs()
 }
 
-func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
+func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 	var nothing params.NotifyWatchResult
-	machines, err := u.st.AllMachines()
-	if err != nil {
-		nothing.Error = common.ServerError(err)
-		return nothing
-	}
-	services, err := u.st.AllApplications()
-	if err != nil {
-		nothing.Error = common.ServerError(err)
-		return nothing
-	}
-	var watchers []state.NotifyWatcher
-	for _, machine := range machines {
-		watchers = append(watchers, machine.Watch())
-	}
-	for _, service := range services {
-		watchers = append(watchers, service.Watch())
-	}
-
-	watch := common.NewMultiNotifyWatcher(watchers...)
-
+	watch := u.st.WatchModelEntityReferences(u.st.ModelUUID())
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: u.resources.Register(watch),
@@ -125,7 +102,7 @@ func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
 func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
-			u.environResourceWatcher(),
+			u.modelEntitiesWatcher(),
 		},
 	}
 }

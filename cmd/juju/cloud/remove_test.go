@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -23,17 +24,17 @@ var _ = gc.Suite(&removeSuite{})
 
 func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommand()
-	_, err := testing.RunCommand(c, cmd)
+	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "Usage: juju remove-cloud <cloud name>")
-	_, err = testing.RunCommand(c, cmd, "cloud", "extra")
+	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *removeSuite) TestRemoveNotFound(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommand()
-	ctx, err := testing.RunCommand(c, cmd, "fnord")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "fnord")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "No personal cloud called \"fnord\" exists\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"fnord\" exists\n")
 }
 
 func (s *removeSuite) createTestCloudData(c *gc.C) {
@@ -63,17 +64,17 @@ clouds:
 func (s *removeSuite) TestRemoveCloud(c *gc.C) {
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	ctx, err := testing.RunCommand(c, cloud.NewRemoveCloudCommand(), "homestack")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "homestack")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
 	assertPersonalClouds(c, "homestack2")
 }
 
 func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	s.createTestCloudData(c)
-	ctx, err := testing.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "No personal cloud called \"prodstack\" exists\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"prodstack\" exists\n")
 }
 
 func assertPersonalClouds(c *gc.C, names ...string) {

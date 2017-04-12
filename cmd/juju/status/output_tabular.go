@@ -106,12 +106,18 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		cloudRegion += "/" + fs.Model.CloudRegion
 	}
 
+	metering := fs.Model.MeterStatus != nil
+
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
 	message := getModelMessage(fs.Model)
 	if message != "" {
 		header = append(header, "Notes")
 		values = append(values, message)
+	}
+	if fs.Model.SLA != "" {
+		header = append(header, "SLA")
+		values = append(values, fs.Model.SLA)
 	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.
@@ -125,7 +131,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			var store, urlPath string
 			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
 			if err == nil {
-				store = url.Directory
+				store = url.Source
 				urlPath = url.Path()
 				if store == "" {
 					store = "local"
@@ -142,7 +148,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	units := make(map[string]unitStatus)
-	metering := false
 	relations := newRelationFormatter()
 	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
@@ -225,6 +230,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	if metering {
 		outputHeaders("Meter", "Status", "Message")
+		if fs.Model.MeterStatus != nil {
+			w.Print("model")
+			outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
+			w.Println()
+		}
 		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {

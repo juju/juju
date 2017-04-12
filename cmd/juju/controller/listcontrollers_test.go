@@ -13,10 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type ListControllersSuite struct {
@@ -27,11 +28,9 @@ type ListControllersSuite struct {
 var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
-	s.store = jujuclienttesting.NewMemStore()
-	context, err := s.runListControllers(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, modelcmd.ErrNoControllersDefined.Error())
+	s.store = jujuclient.NewMemStore()
+	_, err := s.runListControllers(c)
+	c.Check(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
@@ -250,8 +249,19 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C
 	s.assertListControllersFailed(c, "--model", "still.my.world")
 }
 
+func (s *ListControllersSuite) TestListControllersNoControllers(c *gc.C) {
+	store := s.createTestClientStore(c)
+	store.Controllers = map[string]jujuclient.ControllerDetails{}
+	s.expectedErr = `No controllers registered.
+
+Please either create a new controller using "juju bootstrap" or connect to
+another controller that you have been given access to using "juju register".
+`
+	s.assertListControllersFailed(c)
+}
+
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
+	return cmdtesting.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {
@@ -262,7 +272,7 @@ func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...stri
 func (s *ListControllersSuite) assertListControllers(c *gc.C, args ...string) string {
 	context, err := s.runListControllers(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	if s.expectedOutput != "" {
 		c.Assert(output, gc.Equals, s.expectedOutput)
 	}

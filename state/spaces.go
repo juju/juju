@@ -57,7 +57,7 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot fetch subnets")
 	name := s.Name()
 
-	subnetsCollection, closer := s.st.getCollection(subnetsC)
+	subnetsCollection, closer := s.st.db().GetCollection(subnetsC)
 	defer closer()
 
 	var doc subnetDoc
@@ -137,7 +137,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 // is returned if the space doesn't exist or if there was a problem accessing
 // its information.
 func (st *State) Space(name string) (*Space, error) {
-	spaces, closer := st.getCollection(spacesC)
+	spaces, closer := st.db().GetCollection(spacesC)
 	defer closer()
 
 	var doc spaceDoc
@@ -153,7 +153,7 @@ func (st *State) Space(name string) (*Space, error) {
 
 // AllSpaces returns all spaces for the model.
 func (st *State) AllSpaces() ([]*Space, error) {
-	spacesCollection, closer := st.getCollection(spacesC)
+	spacesCollection, closer := st.db().GetCollection(spacesC)
 	defer closer()
 
 	docs := []spaceDoc{}
@@ -223,7 +223,7 @@ func (s *Space) Remove() (err error) {
 // returns an error that satisfies errors.IsNotFound if the Space has been
 // removed.
 func (s *Space) Refresh() error {
-	spaces, closer := s.st.getCollection(spacesC)
+	spaces, closer := s.st.db().GetCollection(spacesC)
 	defer closer()
 
 	var doc spaceDoc

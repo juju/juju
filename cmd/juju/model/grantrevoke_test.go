@@ -11,17 +11,20 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type grantRevokeSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake       *fakeGrantRevokeAPI
-	cmdFactory func(*fakeGrantRevokeAPI) cmd.Command
-	store      *jujuclienttesting.MemStore
+	fakeModelAPI  *fakeModelGrantRevokeAPI
+	fakeOffersAPI *fakeOffersGrantRevokeAPI
+	cmdFactory    func(*fakeModelGrantRevokeAPI, *fakeOffersGrantRevokeAPI) cmd.Command
+	store         *jujuclient.MemStore
 }
 
 const (
@@ -33,14 +36,16 @@ const (
 )
 
 func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeGrantRevokeAPI{}
+	s.fakeModelAPI = &fakeModelGrantRevokeAPI{}
+	s.fakeOffersAPI = &fakeOffersGrantRevokeAPI{}
 
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "test-master"
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{
@@ -49,42 +54,60 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 	s.store.Models = map[string]*jujuclient.ControllerModels{
 		controllerName: {
 			Models: map[string]jujuclient.ModelDetails{
-				"bob/foo":    jujuclient.ModelDetails{fooModelUUID},
-				"bob/bar":    jujuclient.ModelDetails{barModelUUID},
-				"bob/baz":    jujuclient.ModelDetails{bazModelUUID},
-				"bob/model1": jujuclient.ModelDetails{model1ModelUUID},
-				"bob/model2": jujuclient.ModelDetails{model2ModelUUID},
+				"bob/foo":    {fooModelUUID},
+				"bob/bar":    {barModelUUID},
+				"bob/baz":    {bazModelUUID},
+				"bob/model1": {model1ModelUUID},
+				"bob/model2": {model2ModelUUID},
 			},
 		},
 	}
 }
 
 func (s *grantRevokeSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := s.cmdFactory(s.fake)
-	return testing.RunCommand(c, command, args...)
+	command := s.cmdFactory(s.fakeModelAPI, s.fakeOffersAPI)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
-func (s *grantRevokeSuite) TestPassesValues(c *gc.C) {
+func (s *grantRevokeSuite) TestPassesModelValues(c *gc.C) {
 	user := "sam"
 	models := []string{fooModelUUID, barModelUUID, bazModelUUID}
 	_, err := s.run(c, "sam", "read", "foo", "bar", "baz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.user, jc.DeepEquals, user)
-	c.Assert(s.fake.modelUUIDs, jc.DeepEquals, models)
-	c.Assert(s.fake.access, gc.Equals, "read")
+	c.Assert(s.fakeModelAPI.user, jc.DeepEquals, user)
+	c.Assert(s.fakeModelAPI.modelUUIDs, jc.DeepEquals, models)
+	c.Assert(s.fakeModelAPI.access, gc.Equals, "read")
 }
 
-func (s *grantRevokeSuite) TestAccess(c *gc.C) {
+func (s *grantRevokeSuite) TestPassesOfferValues(c *gc.C) {
+	offers := []string{"bob/foo.hosted-mysql", "bob/bar.mysql", "bob/baz.hosted-db2"}
+	_, err := s.run(c, "sam", "read", offers[0], offers[1], offers[2])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeOffersAPI.user, jc.DeepEquals, "sam")
+	c.Assert(s.fakeOffersAPI.offerURLs, jc.SameContents, []string{"hosted-mysql", "mysql", "hosted-db2"})
+	c.Assert(s.fakeOffersAPI.access, gc.Equals, "read")
+}
+
+func (s *grantRevokeSuite) TestPassesOfferWithDefaultModelUser(c *gc.C) {
+	offer := "foo.hosted-mysql"
+	_, err := s.run(c, "sam", "read", offer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeOffersAPI.user, jc.DeepEquals, "sam")
+	c.Assert(s.fakeOffersAPI.offerURLs, jc.SameContents, []string{"hosted-mysql"})
+	c.Assert(s.fakeOffersAPI.access, gc.Equals, "read")
+}
+
+func (s *grantRevokeSuite) TestModelAccess(c *gc.C) {
 	sam := "sam"
 	_, err := s.run(c, "sam", "write", "model1", "model2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.user, jc.DeepEquals, sam)
-	c.Assert(s.fake.modelUUIDs, jc.DeepEquals, []string{model1ModelUUID, model2ModelUUID})
-	c.Assert(s.fake.access, gc.Equals, "write")
+	c.Assert(s.fakeModelAPI.user, jc.DeepEquals, sam)
+	c.Assert(s.fakeModelAPI.modelUUIDs, jc.DeepEquals, []string{model1ModelUUID, model2ModelUUID})
+	c.Assert(s.fakeModelAPI.access, gc.Equals, "write")
 }
 
-func (s *grantRevokeSuite) TestBlockGrant(c *gc.C) {
-	s.fake.err = common.OperationBlockedError("TestBlockGrant")
+func (s *grantRevokeSuite) TestModelBlockGrant(c *gc.C) {
+	s.fakeModelAPI.err = common.OperationBlockedError("TestBlockGrant")
 	_, err := s.run(c, "sam", "read", "foo")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockGrant.*")
 }
@@ -97,37 +120,53 @@ var _ = gc.Suite(&grantSuite{})
 
 func (s *grantSuite) SetUpTest(c *gc.C) {
 	s.grantRevokeSuite.SetUpTest(c)
-	s.cmdFactory = func(fake *fakeGrantRevokeAPI) cmd.Command {
-		c, _ := model.NewGrantCommandForTest(fake, s.store)
+	s.cmdFactory = func(fakeModelAPI *fakeModelGrantRevokeAPI, fakeOfferAPI *fakeOffersGrantRevokeAPI) cmd.Command {
+		c, _ := model.NewGrantCommandForTest(fakeModelAPI, fakeOfferAPI, s.store)
 		return c
 	}
 }
 
-func (s *grantSuite) TestInit(c *gc.C) {
-	wrappedCmd, grantCmd := model.NewGrantCommandForTest(s.fake, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{})
+func (s *grantSuite) TestInitModels(c *gc.C) {
+	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
+	err := cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no user specified")
 
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, gc.Equals, "bob")
 	c.Assert(grantCmd.ModelNames, jc.DeepEquals, []string{"model1", "model2"})
+	c.Assert(grantCmd.OfferURLs, gc.HasLen, 0)
 
-	err = testing.InitCommand(wrappedCmd, []string{})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, `no user specified`)
+}
+
+func (s *grantSuite) TestInitOffers(c *gc.C) {
+	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
+
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "fred/model.offer1", "mary/model.offer2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(grantCmd.User, gc.Equals, "bob")
+	url1, err := crossmodel.ParseApplicationURL("fred/model.offer1")
+	c.Assert(err, jc.ErrorIsNil)
+	url2, err := crossmodel.ParseApplicationURL("mary/model.offer2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(grantCmd.OfferURLs, jc.DeepEquals, []*crossmodel.ApplicationURL{url1, url2})
+	c.Assert(grantCmd.ModelNames, gc.HasLen, 0)
 }
 
 // TestInitGrantAddModel checks that both the documented 'add-model' access and
 // the backwards-compatible 'addmodel' work to grant the AddModel permission.
 func (s *grantSuite) TestInitGrantAddModel(c *gc.C) {
-	wrappedCmd, grantCmd := model.NewGrantCommandForTest(s.fake, s.store)
+	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
 	// The documented case, add-model.
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "add-model"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model"})
 	c.Check(err, jc.ErrorIsNil)
 
 	// The backwards-compatible case, addmodel.
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(grantCmd.Access, gc.Equals, "add-model")
 }
@@ -140,24 +179,24 @@ var _ = gc.Suite(&revokeSuite{})
 
 func (s *revokeSuite) SetUpTest(c *gc.C) {
 	s.grantRevokeSuite.SetUpTest(c)
-	s.cmdFactory = func(fake *fakeGrantRevokeAPI) cmd.Command {
-		c, _ := model.NewRevokeCommandForTest(fake, s.store)
+	s.cmdFactory = func(fakeModelAPI *fakeModelGrantRevokeAPI, fakeOffersAPI *fakeOffersGrantRevokeAPI) cmd.Command {
+		c, _ := model.NewRevokeCommandForTest(fakeModelAPI, fakeOffersAPI, s.store)
 		return c
 	}
 }
 
 func (s *revokeSuite) TestInit(c *gc.C) {
-	wrappedCmd, revokeCmd := model.NewRevokeCommandForTest(s.fake, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{})
+	wrappedCmd, revokeCmd := model.NewRevokeCommandForTest(nil, nil, s.store)
+	err := cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no user specified")
 
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(revokeCmd.User, gc.Equals, "bob")
 	c.Assert(revokeCmd.ModelNames, jc.DeepEquals, []string{"model1", "model2"})
 
-	err = testing.InitCommand(wrappedCmd, []string{})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, `no user specified`)
 
 }
@@ -165,51 +204,82 @@ func (s *revokeSuite) TestInit(c *gc.C) {
 // TestInitRevokeAddModel checks that both the documented 'add-model' access and
 // the backwards-compatible 'addmodel' work to revoke the AddModel permission.
 func (s *grantSuite) TestInitRevokeAddModel(c *gc.C) {
-	wrappedCmd, revokeCmd := model.NewRevokeCommandForTest(s.fake, s.store)
+	wrappedCmd, revokeCmd := model.NewRevokeCommandForTest(nil, nil, s.store)
 	// The documented case, add-model.
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "add-model"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model"})
 	c.Check(err, jc.ErrorIsNil)
 
 	// The backwards-compatible case, addmodel.
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(revokeCmd.Access, gc.Equals, "add-model")
 }
 
 func (s *grantSuite) TestModelAccessForController(c *gc.C) {
-	wrappedCmd, _ := model.NewRevokeCommandForTest(s.fake, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "write"})
+	wrappedCmd, _ := model.NewRevokeCommandForTest(nil, nil, s.store)
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "write"})
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Check(msg, gc.Matches, `You have specified a model access permission "write".*`)
 }
 
 func (s *grantSuite) TestControllerAccessForModel(c *gc.C) {
-	wrappedCmd, _ := model.NewRevokeCommandForTest(s.fake, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "superuser", "default"})
+	wrappedCmd, _ := model.NewRevokeCommandForTest(nil, nil, s.store)
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "superuser", "default"})
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Check(msg, gc.Matches, `You have specified a controller access permission "superuser".*`)
 }
 
-type fakeGrantRevokeAPI struct {
+func (s *grantSuite) TestControllerAccessForOffer(c *gc.C) {
+	wrappedCmd, _ := model.NewRevokeCommandForTest(nil, nil, s.store)
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "superuser", "fred/default.mysql"})
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Check(msg, gc.Matches, `You have specified a controller access permission "superuser".*`)
+}
+
+type fakeModelGrantRevokeAPI struct {
 	err        error
 	user       string
 	access     string
 	modelUUIDs []string
 }
 
-func (f *fakeGrantRevokeAPI) Close() error { return nil }
+func (f *fakeModelGrantRevokeAPI) Close() error { return nil }
 
-func (f *fakeGrantRevokeAPI) GrantModel(user, access string, modelUUIDs ...string) error {
+func (f *fakeModelGrantRevokeAPI) GrantModel(user, access string, modelUUIDs ...string) error {
 	return f.fake(user, access, modelUUIDs...)
 }
 
-func (f *fakeGrantRevokeAPI) RevokeModel(user, access string, modelUUIDs ...string) error {
+func (f *fakeModelGrantRevokeAPI) RevokeModel(user, access string, modelUUIDs ...string) error {
 	return f.fake(user, access, modelUUIDs...)
 }
 
-func (f *fakeGrantRevokeAPI) fake(user, access string, modelUUIDs ...string) error {
+func (f *fakeModelGrantRevokeAPI) fake(user, access string, modelUUIDs ...string) error {
 	f.user = user
 	f.access = access
 	f.modelUUIDs = modelUUIDs
+	return f.err
+}
+
+type fakeOffersGrantRevokeAPI struct {
+	err       error
+	user      string
+	access    string
+	offerURLs []string
+}
+
+func (f *fakeOffersGrantRevokeAPI) Close() error { return nil }
+
+func (f *fakeOffersGrantRevokeAPI) GrantOffer(user, access string, offerURLs ...string) error {
+	return f.fake(user, access, offerURLs...)
+}
+
+func (f *fakeOffersGrantRevokeAPI) RevokeOffer(user, access string, offerURLs ...string) error {
+	return f.fake(user, access, offerURLs...)
+}
+
+func (f *fakeOffersGrantRevokeAPI) fake(user, access string, offerURLs ...string) error {
+	f.user = user
+	f.access = access
+	f.offerURLs = append(f.offerURLs, offerURLs...)
 	return f.err
 }

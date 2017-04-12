@@ -1,15 +1,15 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
+	"path"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"golang.org/x/net/context"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -20,9 +20,9 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {
-	name   string
-	cloud  environs.CloudSpec
-	client *client
+	name     string
+	cloud    environs.CloudSpec
+	provider *environProvider
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
@@ -34,15 +34,14 @@ type environ struct {
 	supportedArchitectures []string
 }
 
-func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) {
+func newEnviron(
+	provider *environProvider,
+	cloud environs.CloudSpec,
+	cfg *config.Config,
+) (*environ, error) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
-	}
-
-	client, err := newClient(cloud)
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to create new client")
 	}
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
@@ -53,24 +52,37 @@ func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) 
 	env := &environ{
 		name:      ecfg.Name(),
 		cloud:     cloud,
+		provider:  provider,
 		ecfg:      ecfg,
-		client:    client,
 		namespace: namespace,
 	}
 	return env, nil
 }
 
-// Name returns the name of the environment.
+func (env *environ) withClient(ctx context.Context, f func(Client) error) error {
+	client, err := env.dialClient(ctx)
+	if err != nil {
+		return errors.Annotate(err, "dialing client")
+	}
+	defer client.Close(ctx)
+	return f(client)
+}
+
+func (env *environ) dialClient(ctx context.Context) (Client, error) {
+	return dialClient(ctx, env.cloud, env.provider.dial)
+}
+
+// Name is part of the environs.Environ interface.
 func (env *environ) Name() string {
 	return env.name
 }
 
-// Provider returns the environment provider that created this env.
-func (*environ) Provider() environs.EnvironProvider {
-	return providerInstance
+// Provider is part of the environs.Environ interface.
+func (env *environ) Provider() environs.EnvironProvider {
+	return env.provider
 }
 
-// SetConfig updates the env's configuration.
+// SetConfig is part of the environs.Environ interface.
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
@@ -85,7 +97,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// Config returns the configuration data with which the env was created.
+// Config is part of the environs.Environ interface.
 func (env *environ) Config() *config.Config {
 	env.lock.Lock()
 	cfg := env.ecfg.Config
@@ -99,19 +111,48 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Create implements environs.Environ.
-func (env *environ) Create(environs.CreateParams) error {
-	return nil
+func (env *environ) Create(args environs.CreateParams) error {
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.Create(args)
+	})
+}
+
+// Create implements environs.Environ.
+func (env *sessionEnviron) Create(args environs.CreateParams) error {
+	return env.ensureVMFolder(args.ControllerUUID)
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
 var Bootstrap = common.Bootstrap
 
-// Bootstrap creates a new instance, chosing the series and arch out of
-// available tools. The series and arch are returned along with a func
-// that must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial juju controller.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return Bootstrap(ctx, env, params)
+// Bootstrap is part of the environs.Environ interface.
+func (env *environ) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (result *environs.BootstrapResult, err error) {
+	// NOTE(axw) we must not pass a sessionEnviron to common.Bootstrap,
+	// as the Environ will be used during instance finalization after
+	// the Bootstrap method returns, and the session will be invalid.
+	if err := env.withSession(func(env *sessionEnviron) error {
+		return env.ensureVMFolder(args.ControllerConfig.ControllerUUID())
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return Bootstrap(ctx, env, args)
+}
+
+func (env *sessionEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (result *environs.BootstrapResult, err error) {
+	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
+}
+
+func (env *sessionEnviron) ensureVMFolder(controllerUUID string) error {
+	return env.client.EnsureVMFolder(env.ctx, path.Join(
+		controllerFolderName(controllerUUID),
+		env.modelFolderName(),
+	))
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
@@ -119,17 +160,60 @@ var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
 func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	// This provider doesn't track instance -> controller.
-	return nil
+	// Move model folder into the controller's folder.
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.AdoptResources(controllerUUID, fromVersion)
+	})
 }
 
-// Destroy shuts down all known machines and destroys the rest of the
-// known environment.
+// AdoptResources is part of the Environ interface.
+func (env *sessionEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	return env.client.MoveVMFolderInto(env.ctx,
+		controllerFolderName(controllerUUID),
+		path.Join(
+			controllerFolderName("*"),
+			env.modelFolderName(),
+		),
+	)
+}
+
+// Destroy is part of the environs.Environ interface.
 func (env *environ) Destroy() error {
-	return DestroyEnv(env)
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.Destroy()
+	})
+}
+
+// Destroy is part of the environs.Environ interface.
+func (env *sessionEnviron) Destroy() error {
+	if err := DestroyEnv(env); err != nil {
+		return errors.Trace(err)
+	}
+	return env.client.DestroyVMFolder(env.ctx, path.Join(
+		controllerFolderName("*"),
+		env.modelFolderName(),
+	))
 }
 
 // DestroyController implements the Environ interface.
 func (env *environ) DestroyController(controllerUUID string) error {
-	return env.Destroy()
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.DestroyController(controllerUUID)
+	})
+}
+
+// DestroyController implements the Environ interface.
+func (env *sessionEnviron) DestroyController(controllerUUID string) error {
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+	controllerFolderName := controllerFolderName(controllerUUID)
+	if err := env.client.RemoveVirtualMachines(env.ctx, path.Join(
+		controllerFolderName,
+		modelFolderName("*", "*"),
+		"*",
+	)); err != nil {
+		return errors.Annotate(err, "removing VMs")
+	}
+	return env.client.DestroyVMFolder(env.ctx, controllerFolderName)
 }

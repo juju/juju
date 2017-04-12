@@ -11,10 +11,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Resumer", 2, NewResumerAPI)
-}
-
 // ResumerAPI implements the API used by the resumer worker.
 type ResumerAPI struct {
 	st   stateInterface

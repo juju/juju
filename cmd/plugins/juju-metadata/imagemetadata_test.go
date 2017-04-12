@@ -16,10 +16,10 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -28,7 +28,7 @@ type ImageMetadataSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	environ []string
 	dir     string
-	store   *jujuclienttesting.MemStore
+	store   *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ImageMetadataSuite{})
@@ -42,7 +42,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
@@ -52,7 +52,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 func runImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &imageMetadataCommand{}
 	cmd.SetClientStore(store)
-	return testing.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var seriesVersions map[string]string = map[string]string{
@@ -123,7 +123,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 		"-s", "raring", "--virt-type=pv", "--storage=root",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "raring",
 		arch:     "arch",
@@ -138,7 +138,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 		"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		series: "raring",
 		arch:   "amd64",
@@ -167,7 +167,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		series: series.LatestLts(),
 		arch:   "arch",
@@ -180,7 +180,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 		"-d", s.dir, "-m", "ec2-controller:ec2", "-i", "1234", "--virt-type=pv", "--storage=root",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "precise",
 		arch:     "amd64",
@@ -197,7 +197,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 		"-d", s.dir, "-m", "ec2-controller:ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "precise",
 		arch:     "amd64",
@@ -212,7 +212,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc
 		"-d", s.dir, "-m", "azure-controller:azure", "-r", "region", "-u", "endpoint", "-i", "1234",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "raring",
 		arch:     "amd64",

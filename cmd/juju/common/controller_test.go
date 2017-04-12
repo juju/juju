@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -94,7 +94,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 		s.mockBlockClient.numRetries = t.numRetries
 		s.mockBlockClient.retryCount = 0
 		cmd := &modelcmd.ModelCommandBase{}
-		cmd.SetClientStore(jujuclienttesting.NewMemStore())
+		cmd.SetClientStore(jujuclient.NewMemStore())
 		err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 		c.Check(errors.Cause(err), gc.DeepEquals, t.err)
 		expectedRetries := t.numRetries
@@ -112,7 +112,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 func (s *controllerSuite) TestWaitForAgentAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
 	s.mockBlockClient.discoveringSpacesError = 2
 	cmd := &modelcmd.ModelCommandBase{}
-	cmd.SetClientStore(jujuclienttesting.NewMemStore())
+	cmd.SetClientStore(jujuclient.NewMemStore())
 	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
@@ -123,7 +123,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *gc.C)
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = io.EOF
 	cmd := &modelcmd.ModelCommandBase{}
-	cmd.SetClientStore(jujuclienttesting.NewMemStore())
+	cmd.SetClientStore(jujuclient.NewMemStore())
 	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 	c.Check(err, jc.ErrorIsNil)
 
@@ -135,7 +135,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
 	cmd := &modelcmd.ModelCommandBase{}
-	cmd.SetClientStore(jujuclienttesting.NewMemStore())
+	cmd.SetClientStore(jujuclient.NewMemStore())
 	err := WaitForAgentInitialisation(cmdtesting.NullContext(c), cmd, "controller", "default")
 	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
 

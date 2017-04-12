@@ -23,6 +23,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/migration"
@@ -47,7 +48,7 @@ var (
 )
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code = cmd.Main(NewStatusCommand(), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
@@ -168,6 +169,7 @@ var (
 			"current": "available",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"sla": "unsupported",
 	}
 
 	machine0 = M{
@@ -2577,6 +2579,7 @@ var statusTests = []testCase{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
+					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2796,7 +2799,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addRemoteApplication{name: "hosted-mysql", url: "local:/u/me/mysql", charm: "mysql", endpoints: []string{"server"}},
+		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
 		relateServices{"wordpress", "hosted-mysql"},
 
 		expect{
@@ -2809,7 +2812,7 @@ var statusTests = []testCase{
 				},
 				"application-endpoints": M{
 					"hosted-mysql": M{
-						"url": "local:/u/me/mysql",
+						"url": "me/model.mysql",
 						"endpoints": M{
 							"server": M{
 								"interface": "mysql",
@@ -2853,6 +2856,56 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+			},
+		},
+	),
+	test( // 24
+		"set meter status on the model",
+		setModelMeterStatus{"RED", "status message"},
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"model": M{
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"meter-status": M{
+						"color":   "RED",
+						"message": "status message",
+					},
+					"sla": "unsupported",
+				},
+				"machines":     M{},
+				"applications": M{},
+			},
+		},
+	),
+	test( // 25
+		"set sla on the model",
+		setSLA{"advanced"},
+		expect{
+			"set sla on the model",
+			M{
+				"model": M{
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla": "advanced",
+				},
+				"machines":     M{},
+				"applications": M{},
 			},
 		},
 	),
@@ -2923,6 +2976,15 @@ func wordpressCharm(extras M) M {
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
+
+type setSLA struct {
+	level string
+}
+
+func (s setSLA) step(c *gc.C, ctx *context) {
+	err := ctx.st.SetSLA(s.level, "test-user", []byte(""))
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 type addMachine struct {
 	machineId string
@@ -3308,6 +3370,18 @@ func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type setModelMeterStatus struct {
+	color   string
+	message string
+}
+
+func (s setModelMeterStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMeterStatus(s.color, s.message)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type setUnitAsLeader struct {
 	unitName string
 }
@@ -3621,6 +3695,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 				"since":   "01 Apr 15 01:23+10:00",
 				"message": "migrating: foo bar",
 			},
+			"sla": "unsupported",
 		},
 		"machines":     M{},
 		"applications": M{},
@@ -3648,8 +3723,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
@@ -3669,8 +3744,8 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
@@ -3748,7 +3823,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3801,7 +3876,7 @@ Running on subnets:  127.0.0.1/8, 10.0.2.1/8
         wordpress  1/1  exposed
                  
         # Remote:  (1)
-      hosted-riak       local:/u/me/riak
+      hosted-riak       me/model.riak
 
 `[1:])
 }
@@ -3895,7 +3970,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3959,11 +4034,11 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-Model       Controller  Cloud/Region        Version  Notes
-controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
+Model       Controller  Cloud/Region        Version  Notes                     SLA
+controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4  unsupported
 
 SAAS name    Status   Store  URL
-hosted-riak  unknown  local  u/me/riak
+hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
@@ -4096,7 +4171,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 
 	code, _, stderr := runStatus(c, "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
-	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
+	c.Check(string(stderr), gc.Equals, "ERROR unable to obtain the current status\n")
 }
 
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
@@ -4292,6 +4367,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  model-status:\n" +
 		"    current: available\n" +
 		"    since: 01 Apr 15 01:23+10:00\n" +
+		"  sla: unsupported\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -4530,7 +4606,7 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
 	com := &statusCommand{}
-	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
+	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 var statusInitTests = []struct {
@@ -4597,6 +4673,7 @@ var statusTimeTest = test(
 					"current": "available",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
+				"sla": "unsupported",
 			},
 			"machines": M{
 				"0": machine0,

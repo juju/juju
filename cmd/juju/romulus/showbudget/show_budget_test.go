@@ -4,7 +4,6 @@
 package showbudget_test
 
 import (
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/wireformat/budget"
 	"github.com/juju/testing"
@@ -13,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/showbudget"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -33,18 +33,16 @@ func (s *showBudgetSuite) SetUpTest(c *gc.C) {
 	s.mockBudgetAPI = &mockBudgetAPI{s.stub}
 	s.mockAPI = &mockAPI{s.stub}
 	s.PatchValue(showbudget.NewBudgetAPIClient, showbudget.BudgetAPIClientFnc(s.mockBudgetAPI))
-	s.PatchValue(showbudget.NewAPIClient, showbudget.NewAPIClientFnc(s.mockAPI))
 }
 
 func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 	tests := []struct {
-		about      string
-		args       []string
-		err        string
-		budget     string
-		apierr     string
-		resolveerr string
-		output     string
+		about  string
+		args   []string
+		err    string
+		budget string
+		apierr string
+		output string
 	}{{
 		about: "missing argument",
 		err:   `missing arguments`,
@@ -62,30 +60,14 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 		args:   []string{"personal"},
 		budget: "personal",
 		output: "" +
-			"MODEL      \tSERVICES \tSPENT\tALLOCATED\tBY       \tUSAGE\n" +
-			"model.joe  \tmysql    \t  200\t     1200\tuser.joe \t  42%\n" +
-			"           \twordpress\t  300\t         \t         \n" +
-			"model.jess \tlandscape\t  600\t     1000\tuser.jess\t  60%\n" +
-			"uuid3      \tmysql    \t   10\t      100\tuser.bob \t  10%\n" +
-			"           \t         \t     \t         \t         \n" +
-			"TOTAL      \t         \t 1110\t     2300\t         \t  48%\n" +
-			"BUDGET     \t         \t     \t     4000\t         \n" +
-			"UNALLOCATED\t         \t     \t     1700\t         \n",
-	}, {
-		about:      "all ok",
-		args:       []string{"personal"},
-		budget:     "personal",
-		resolveerr: "test error",
-		output: "" +
-			"MODEL      \tSERVICES \tSPENT\tALLOCATED\tBY       \tUSAGE\n" +
-			"uuid1      \tmysql    \t  200\t     1200\tuser.joe \t  42%\n" +
-			"           \twordpress\t  300\t         \t         \n" +
-			"uuid2      \tlandscape\t  600\t     1000\tuser.jess\t  60%\n" +
-			"uuid3      \tmysql    \t   10\t      100\tuser.bob \t  10%\n" +
-			"           \t         \t     \t         \t         \n" +
-			"TOTAL      \t         \t 1110\t     2300\t         \t  48%\n" +
-			"BUDGET     \t         \t     \t     4000\t         \n" +
-			"UNALLOCATED\t         \t     \t     1700\t         \n",
+			"Model      \tSpent\tAllocated\t       By\tUsage\n" +
+			"uuid1      \t500  \t     1200\t user.joe\t42%  \n" +
+			"uuid2      \t600  \t     1000\tuser.jess\t60%  \n" +
+			"uuid3      \t10   \t      100\t user.bob\t10%  \n" +
+			"           \t     \t         \t         \n" +
+			"Total      \t1110 \t     2300\t         \t48%  \n" +
+			"Budget     \t     \t     4000\t         \n" +
+			"Unallocated\t     \t     1700\t         \n",
 	},
 	}
 
@@ -99,11 +81,6 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 		} else {
 			errs = append(errs, nil)
 		}
-		if test.resolveerr != "" {
-			errs = append(errs, errors.New(test.resolveerr))
-		} else {
-			errs = append(errs, nil)
-		}
 		s.mockAPI.SetErrors(errs...)
 
 		showBudget := showbudget.NewShowBudgetCommand()
@@ -113,7 +90,6 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			s.stub.CheckCalls(c, []testing.StubCall{
 				{"GetBudget", []interface{}{test.budget}},
-				{"ModelInfo", []interface{}{[]names.ModelTag{names.NewModelTag("uuid1"), names.NewModelTag("uuid2"), names.NewModelTag("uuid3")}}},
 			})
 			output := cmdtesting.Stdout(ctx)
 			c.Assert(output, gc.Equals, test.output)
@@ -128,23 +104,7 @@ type mockAPI struct {
 }
 
 func (api *mockAPI) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
-	api.AddCall("ModelInfo", tags)
-	return []params.ModelInfoResult{{
-		Result: &params.ModelInfo{
-			Name: "model.jess",
-			UUID: "uuid2",
-		},
-	}, {
-		Result: &params.ModelInfo{
-			Name: "model.joe",
-			UUID: "uuid1",
-		},
-	}, {
-		Error: &params.Error{
-			Message: "not found",
-		},
-	},
-	}, api.NextErr()
+	return nil, api.NextErr()
 }
 
 type mockBudgetAPI struct {
@@ -168,35 +128,17 @@ func (api *mockBudgetAPI) GetBudget(name string) (*budget.BudgetWithAllocations,
 			Consumed: "500",
 			Usage:    "42%",
 			Model:    "uuid1",
-			Services: map[string]budget.ServiceAllocation{
-				"wordpress": budget.ServiceAllocation{
-					Consumed: "300",
-				},
-				"mysql": budget.ServiceAllocation{
-					Consumed: "200",
-				},
-			},
 		}, {
 			Owner:    "user.jess",
 			Limit:    "1000",
 			Consumed: "600",
 			Usage:    "60%",
 			Model:    "uuid2",
-			Services: map[string]budget.ServiceAllocation{
-				"landscape": budget.ServiceAllocation{
-					Consumed: "600",
-				},
-			},
 		}, {
 			Owner:    "user.bob",
 			Limit:    "100",
 			Consumed: "10",
 			Usage:    "10%",
 			Model:    "uuid3",
-			Services: map[string]budget.ServiceAllocation{
-				"mysql": budget.ServiceAllocation{
-					Consumed: "10",
-				},
-			},
 		}}}, api.NextErr()
 }

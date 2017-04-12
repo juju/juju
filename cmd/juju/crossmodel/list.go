@@ -34,26 +34,21 @@ options:
        - charm
 
 Examples:
-    $ juju list-offers
-    $ juju list-offers vendor:
-    $ juju list-offers --url vendor:/u/ibm
-    $ juju list-offers --interface db2
+    $ juju offers
+    $ juju offers user/model
+    $ juju offers --url user/model
+    $ juju offers --interface db2
 
-    $ juju list-offers --interface db2
-    LOCAL
-    APPLICATION           CHARM  INTERFACES   CONNECTED  STORE  URL 
-    fred/prod/hosted-db2  db2    db2, log     23         local  /u/fred/prod/hosted-db2 
-    mary/test/hosted-db2  db2    db2          0          local  /u/mary/test/hosted-db2
-
-    VENDOR
-    APPLICATION             CHARM  INTERFACES   CONNECTED  STORE  URL
-    ibm/us-east/hosted-db2  db2    db2          3212       vendor   /u/ibm/hosted-db2
+    $ juju offers --interface db2
+    mycontroller
+    Application  Charm  Connected  Store         URL                     Endpoint  Interface  Role
+    db2          db2    123        mycontroller  admin/controller.mysql  db        db2        provider
 
 `
 
 // listCommand returns storage instances.
 type listCommand struct {
-	CrossModelCommandBase
+	ApplicationOffersCommandBase
 
 	out cmd.Output
 
@@ -66,7 +61,7 @@ type listCommand struct {
 func NewListEndpointsCommand() cmd.Command {
 	listCmd := &listCommand{}
 	listCmd.newAPIFunc = func() (ListAPI, error) {
-		return listCmd.NewCrossModelAPI()
+		return listCmd.NewApplicationOffersAPI()
 	}
 	return modelcmd.Wrap(listCmd)
 }
@@ -89,7 +84,7 @@ func (c *listCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.ApplicationOffersCommandBase.SetFlags(f)
 
 	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -107,9 +102,6 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	if len(c.filters) == 0 {
-		c.filters = []crossmodel.ApplicationOfferFilter{{ApplicationURL: "local:"}}
-	}
 	// TODO (anastasiamac 2015-11-17) add input filters
 	offeredApplications, err := api.ListOffers(c.filters...)
 	if err != nil {
@@ -117,21 +109,23 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	// Filter out valid output, if any...
-	valid := []crossmodel.OfferedApplicationDetails{}
-	for _, service := range offeredApplications {
-		if service.Error != nil {
-			fmt.Fprintf(ctx.Stderr, "%v\n", service.Error)
+	valid := []crossmodel.ApplicationOfferDetails{}
+	for _, application := range offeredApplications {
+		if application.Error != nil {
+			fmt.Fprintf(ctx.Stderr, "%v\n", application.Error)
 			continue
 		}
-		if service.Result != nil {
-			valid = append(valid, *service.Result)
+		if application.Result != nil {
+			valid = append(valid, *application.Result)
 		}
 	}
 	if len(valid) == 0 {
 		return nil
 	}
 
-	data, err := formatOfferedApplicationDetails(valid)
+	// For now, all offers come from the one controller.
+	controllerName := c.ControllerName()
+	data, err := formatApplicationOfferDetails(controllerName, valid)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found applications")
 	}
@@ -142,60 +136,57 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.OfferedApplicationDetailsResult, error)
+	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOfferDetailsResult, error)
 }
 
-// ListServiceItem defines the serialization behaviour of a service item in endpoints list.
-type ListServiceItem struct {
-	// CharmName is the charm name of this service.
+// ListOfferItem defines the serialization behaviour of an offer item in endpoints list.
+type ListOfferItem struct {
+	// ApplicationName is the application backing this offer.
+	ApplicationName string `yaml:"-" json:"-"`
+
+	// Store is the controller hosting this offer.
+	Source string `yaml:"store,omitempty" json:"store,omitempty"`
+
+	// CharmName is the charm name of this application.
 	CharmName string `yaml:"charm,omitempty" json:"charm,omitempty"`
 
-	// UsersCount is the count of how many users are connected to this shared service.
+	// UsersCount is the count of how many users are connected to this shared application.
 	UsersCount int `yaml:"connected,omitempty" json:"connected,omitempty"`
 
-	// Store is the name of the store which offers this shared service.
-	Store string `yaml:"store" json:"store"`
-
-	// Location is part of Juju location where this service is shared relative to the store.
+	// Location is part of Juju location where this application is shared relative to the store.
 	Location string `yaml:"url" json:"url"`
 
-	// Endpoints is a list of service endpoints.
+	// Endpoints is a list of application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 }
 
-type directoryApplications map[string]ListServiceItem
+type offeredApplications map[string]ListOfferItem
 
-func formatOfferedApplicationDetails(all []crossmodel.OfferedApplicationDetails) (map[string]directoryApplications, error) {
-	directories := make(map[string]directoryApplications)
+func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
+	result := make(offeredApplications)
 	for _, one := range all {
-		url, err := crossmodel.ParseApplicationURL(one.ApplicationURL)
+		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "%v", one.OfferURL)
+		}
+		if url.Source == "" {
+			url.Source = store
 		}
 
-		// Get services for this directory.
-		servicesMap, ok := directories[url.Directory]
-		if !ok {
-			servicesMap = make(directoryApplications)
-			directories[url.Directory] = servicesMap
-		}
-
-		// Store services by name.
-		servicesMap[url.ApplicationName] = convertServiceToListItem(url, one)
+		// Store offers by name.
+		result[one.OfferName] = convertOfferToListItem(url, one)
 	}
-	return directories, nil
+	return result, nil
 }
 
-func convertServiceToListItem(url *crossmodel.ApplicationURL, service crossmodel.OfferedApplicationDetails) ListServiceItem {
-	item := ListServiceItem{
-		CharmName: service.CharmName,
-		// TODO (anastasiamac 2-15-11-20) what is the difference between store and directory.
-		// At this stage, the distinction is unclear apart from strong desire to call "directory" "store".
-		Store: url.Directory,
-		// Location is the suffix of the service's url, the part after "<directory name>:".
-		Location:   service.ApplicationURL[len(url.Directory)+1:],
-		UsersCount: service.ConnectedCount,
-		Endpoints:  convertCharmEndpoints(service.Endpoints...),
+func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
+	item := ListOfferItem{
+		ApplicationName: offer.ApplicationName,
+		Source:          url.Source,
+		CharmName:       offer.CharmName,
+		Location:        offer.OfferURL,
+		UsersCount:      offer.ConnectedCount,
+		Endpoints:       convertCharmEndpoints(offer.Endpoints...),
 	}
 	return item
 }

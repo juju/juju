@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -25,7 +25,7 @@ func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("add-metric"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
@@ -61,7 +61,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: no metrics specified\n",
+			"ERROR no metrics specified\n",
 			nil,
 		}, {
 			"invalid argument format",
@@ -69,7 +69,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: expected \"key=value\", got \"key\"\n",
+			"ERROR expected \"key=value\", got \"key\"\n",
 			nil,
 		}, {
 			"invalid argument format",
@@ -77,7 +77,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: expected \"key=value\", got \"=key\"\n",
+			"ERROR expected \"key=value\", got \"=key\"\n",
 			nil,
 		}, {
 			"invalid argument format, whitespace key",
@@ -85,7 +85,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: expected \"key=value\", got \"=value\"\n",
+			"ERROR expected \"key=value\", got \"=value\"\n",
 			nil,
 		}, {
 			"invalid argument format, whitespace key and value",
@@ -93,7 +93,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: expected \"key=value\", got \"=\"\n",
+			"ERROR expected \"key=value\", got \"=\"\n",
 			nil,
 		}, {
 			"invalid argument format, whitespace value",
@@ -101,7 +101,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: expected \"key=value\", got \"key=\"\n",
+			"ERROR expected \"key=value\", got \"key=\"\n",
 			nil,
 		}, {
 			"multiple metrics",
@@ -117,7 +117,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: key \"key\" specified more than once\n",
+			"ERROR key \"key\" specified more than once\n",
 			nil,
 		}, {
 			"newline in metric value",
@@ -133,7 +133,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			false,
 			1,
 			"",
-			"error: cannot record metric: metrics disabled\n",
+			"ERROR cannot record metric: metrics disabled\n",
 			nil,
 		}, {
 			"cannot add builtin metric",
@@ -141,7 +141,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			1,
 			"",
-			"error: juju-key uses a reserved prefix\n",
+			"ERROR juju-key uses a reserved prefix\n",
 			nil,
 		}}
 	for i, t := range testCases {
@@ -150,7 +150,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		hctx.canAddMetrics = t.canAddMetrics
 		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])
 		c.Check(ret, gc.Equals, t.result)
 		c.Check(bufferString(ctx.Stdout), gc.Equals, t.stdout)

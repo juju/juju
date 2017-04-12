@@ -13,9 +13,9 @@ import (
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/private"
 	"github.com/juju/juju/resource/api/private/client"
 	"github.com/juju/juju/resource/resourcetesting"
 )
@@ -78,14 +78,14 @@ func (s *UnitFacadeClientSuite) TestUnitDoer(c *gc.C) {
 type stubAPI struct {
 	*testing.Stub
 
-	ReturnFacadeCall private.ResourcesResult
+	ReturnFacadeCall params.UnitResourcesResult
 	ReturnUnit       string
 	ReturnDo         *http.Response
 }
 
 func (s *stubAPI) setResource(info resource.Resource, reader io.ReadCloser) {
-	s.ReturnFacadeCall = private.ResourcesResult{
-		Resources: []private.ResourceResult{{
+	s.ReturnFacadeCall = params.UnitResourcesResult{
+		Resources: []params.UnitResourceResult{{
 			Resource: api.Resource2API(info),
 		}},
 	}
@@ -94,13 +94,13 @@ func (s *stubAPI) setResource(info resource.Resource, reader io.ReadCloser) {
 	}
 }
 
-func (s *stubAPI) FacadeCall(request string, params, response interface{}) error {
-	s.AddCall("FacadeCall", params, response)
+func (s *stubAPI) FacadeCall(request string, args, response interface{}) error {
+	s.AddCall("FacadeCall", args, response)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	resp := response.(*private.ResourcesResult)
+	resp := response.(*params.UnitResourcesResult)
 	*resp = s.ReturnFacadeCall
 	return nil
 }

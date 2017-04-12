@@ -183,7 +183,7 @@ func (a *Application) EnsureMinUnits() (err error) {
 
 // aliveUnitsCount returns the number a alive units for the application.
 func aliveUnitsCount(app *Application) (int, error) {
-	units, closer := app.st.getCollection(unitsC)
+	units, closer := app.st.db().GetCollection(unitsC)
 	defer closer()
 
 	query := bson.D{{"application", app.doc.Name}, {"life", Alive}}

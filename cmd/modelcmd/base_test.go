@@ -14,16 +14,16 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type BaseCommandSuite struct {
 	testing.IsolationSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&BaseCommandSuite{})
@@ -31,7 +31,7 @@ var _ = gc.Suite(&BaseCommandSuite{})
 func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "foo"
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
 		APIEndpoints: []string{"testing.invalid:1234"},
@@ -79,7 +79,7 @@ type NewGetBootstrapConfigParamsFuncSuite struct {
 var _ = gc.Suite(&NewGetBootstrapConfigParamsFuncSuite{})
 
 func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
-	clientStore := jujuclienttesting.NewMemStore()
+	clientStore := jujuclient.NewMemStore()
 	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
 	clientStore.BootstrapConfig["foo"] = jujuclient.BootstrapConfig{
 		Cloud:               "cloud",
@@ -93,7 +93,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 	var registry mockProviderRegistry
 
 	f := modelcmd.NewGetBootstrapConfigParamsFunc(
-		coretesting.Context(c),
+		cmdtesting.Context(c),
 		clientStore,
 		&registry,
 	)

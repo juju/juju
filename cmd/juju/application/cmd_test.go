@@ -10,22 +10,22 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type CmdSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	ControllerStore *jujuclienttesting.MemStore
+	ControllerStore *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&CmdSuite{})
 
 func (s *CmdSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.ControllerStore = jujuclienttesting.NewMemStore()
+	s.ControllerStore = jujuclient.NewMemStore()
 }
 
 var deployTests = []struct {
@@ -61,7 +61,7 @@ func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
 	com.SetClientStore(store)
-	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
+	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
@@ -78,7 +78,7 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 	}
 
 	// test relative --config path
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	expected := []byte("test: data")
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
@@ -108,7 +108,7 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 
 func initExposeCommand(args ...string) (*exposeCommand, error) {
 	com := &exposeCommand{}
-	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
+	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestExposeCommandInit(c *gc.C) {
@@ -121,7 +121,7 @@ func (*CmdSuite) TestExposeCommandInit(c *gc.C) {
 
 func initUnexposeCommand(args ...string) (*unexposeCommand, error) {
 	com := &unexposeCommand{}
-	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
+	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestUnexposeCommandInit(c *gc.C) {
@@ -134,7 +134,7 @@ func (*CmdSuite) TestUnexposeCommandInit(c *gc.C) {
 
 func initRemoveUnitCommand(args ...string) (cmd.Command, error) {
 	com := NewRemoveUnitCommand()
-	return com, coretesting.InitCommand(com, args)
+	return com, cmdtesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestRemoveUnitCommandInit(c *gc.C) {

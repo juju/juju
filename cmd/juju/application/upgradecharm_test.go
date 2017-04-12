@@ -31,12 +31,13 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -117,7 +118,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	s.modelConfigGetter = mockModelConfigGetter{}
 	s.resourceLister = mockResourceLister{}
 
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	store.Models["foo"] = &jujuclient.ControllerModels{
@@ -161,14 +162,14 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, s.cmd, args...)
+	return cmdtesting.RunCommand(c, s.cmd, args...)
 }
 
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -203,8 +204,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -259,7 +260,7 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
 	return err
 }
 
@@ -464,7 +465,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	d := upgradeCharmCommand{}
 	args := []string{"dummy", "--resource", res1, "--resource", res2}
 
-	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
+	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,
@@ -664,7 +665,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C
 		Message: "term agreement required: term/1 term/2",
 		Code:    "term agreement required",
 	}
-	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	err = runUpgradeCharm(c, "terms1")
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -728,6 +729,11 @@ func (m *mockCharmUpgradeClient) GetCharmURL(applicationName string) (*charm.URL
 func (m *mockCharmUpgradeClient) SetCharm(cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", cfg)
 	return m.NextErr()
+}
+
+func (m *mockCharmUpgradeClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+	m.MethodCall(m, "Get", applicationName)
+	return &params.ApplicationGetResults{}, m.NextErr()
 }
 
 type mockModelConfigGetter struct {

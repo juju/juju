@@ -5,15 +5,14 @@ package modelcmd_test
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type ControllerCommandSuite struct {
@@ -28,7 +27,7 @@ func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "bar",
@@ -40,7 +39,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *g
 func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	// Take controller name from command line arg, and it trumps the current-
 	// controller file.
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Accounts["explicit"] = jujuclient.AccountDetails{
 		User: "bar",

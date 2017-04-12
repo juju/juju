@@ -188,7 +188,7 @@ func (r *RemoteEntities) removeRemoteEntityOp(
 // GetToken returns the token associated with the entity with the given tag
 // and model.
 func (r *RemoteEntities) GetToken(sourceModel names.ModelTag, entity names.Tag) (string, error) {
-	remoteEntities, closer := r.st.getCollection(remoteEntitiesC)
+	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
 	defer closer()
 
 	var doc remoteEntityDoc
@@ -213,7 +213,7 @@ func (r *RemoteEntities) GetToken(sourceModel names.ModelTag, entity names.Tag) 
 // GetRemoteEntity returns the tag of the entity associated with the given
 // token and model.
 func (r *RemoteEntities) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
-	remoteEntities, closer := r.st.getCollection(remoteEntitiesC)
+	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
 	defer closer()
 
 	var doc remoteEntityDoc
@@ -241,7 +241,7 @@ func (r *RemoteEntities) docID(sourceModel names.ModelTag, entity names.Tag) str
 }
 
 func (r *RemoteEntities) tokenExists(token string) (bool, error) {
-	tokens, closer := r.st.getCollection(tokensC)
+	tokens, closer := r.st.db().GetCollection(tokensC)
 	defer closer()
 	n, err := tokens.FindId(token).Count()
 	if err != nil {

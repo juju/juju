@@ -14,13 +14,13 @@ import (
 	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/lxd"
@@ -30,7 +30,7 @@ import (
 
 type restoreSuite struct {
 	BaseBackupsSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&restoreSuite{})
@@ -50,7 +50,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	err := cloud.WritePersonalCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
 		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
 		CACert:                 testing.CACert,
@@ -96,13 +96,13 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 
 func (s *restoreSuite) TestRestoreArgs(c *gc.C) {
 	s.command = backups.NewRestoreCommandForTest(s.store, nil, nil, nil, nil)
-	_, err := testing.RunCommand(c, s.command, "restore")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore")
 	c.Assert(err, gc.ErrorMatches, "you must specify either a file or a backup id.")
 
-	_, err = testing.RunCommand(c, s.command, "restore", "--id", "anid", "--file", "afile")
+	_, err = cmdtesting.RunCommand(c, s.command, "restore", "--id", "anid", "--file", "afile")
 	c.Assert(err, gc.ErrorMatches, "you must specify either a file or a backup id but not both.")
 
-	_, err = testing.RunCommand(c, s.command, "restore", "--id", "anid", "-b")
+	_, err = cmdtesting.RunCommand(c, s.command, "restore", "--id", "anid", "-b")
 	c.Assert(err, gc.ErrorMatches, "it is not possible to rebootstrap and restore from an id.")
 }
 
@@ -137,7 +137,7 @@ func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 		backups.GetEnvironFunc(fakeEnv),
 		backups.GetRebootstrapParamsFunc("mycloud"),
 	)
-	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*still seems to exist.*")
 }
 
@@ -157,7 +157,7 @@ func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 		return errors.New("failed to bootstrap new controller")
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*failed to bootstrap new controller")
 }
 
@@ -178,7 +178,7 @@ func (s *restoreSuite) TestRestoreReboostrapReadsMetadata(c *gc.C) {
 		return errors.New("failed to bootstrap new controller")
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*failed to bootstrap new controller")
 }
 
@@ -201,7 +201,7 @@ func (s *restoreSuite) TestFailedRestoreReboostrapMaintainsControllerInfo(c *gc.
 		return nil
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, "failed")
 	// The details below are as per what was done in test setup, so no changes.
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
@@ -245,7 +245,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		return &i
 	}
 
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boostrapped, jc.IsTrue)
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
@@ -289,7 +289,7 @@ func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
 		return nil
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boostrapped, jc.IsTrue)
 }

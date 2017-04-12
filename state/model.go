@@ -83,10 +83,70 @@ type modelDoc struct {
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
+
+	// SLA is the current support level of the model.
+	SLA slaDoc `bson:"sla"`
+
+	// MeterStatus is the current meter status of the model.
+	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
+}
+
+// slaLevel enumerates the support levels available to a model.
+type slaLevel string
+
+const (
+	slaNone        = slaLevel("")
+	SLAUnsupported = slaLevel("unsupported")
+	SLAEssential   = slaLevel("essential")
+	SLAStandard    = slaLevel("standard")
+	SLAAdvanced    = slaLevel("advanced")
+)
+
+// String implements fmt.Stringer returning the string representation of an
+// SLALevel.
+func (l slaLevel) String() string {
+	if l == slaNone {
+		l = SLAUnsupported
+	}
+	return string(l)
+}
+
+// newSLALevel returns a new SLA level from a string representation.
+func newSLALevel(level string) (slaLevel, error) {
+	l := slaLevel(level)
+	if l == slaNone {
+		l = SLAUnsupported
+	}
+	switch l {
+	case SLAUnsupported, SLAEssential, SLAStandard, SLAAdvanced:
+		return l, nil
+	}
+	return l, errors.NotValidf("SLA level %q", level)
+}
+
+// slaDoc represents the state of the SLA on the model.
+type slaDoc struct {
+	// Level is the current support level set on the model.
+	Level slaLevel `bson:"level"`
+
+	// Owner is the SLA owner of the model.
+	Owner string `bson:"owner,omitempty"`
+
+	// Credentials authenticates the support level setting.
+	Credentials []byte `bson:"credentials"`
+}
+
+type modelMeterStatusdoc struct {
+	Code string `bson:"code"`
+	Info string `bson:"info"`
 }
 
 // modelEntityRefsDoc records references to the top-level entities
 // in the model.
+// (anastasiamac 2017-04-10) This is also used to determine if a model can be destroyed.
+// Consequently, any changes, especially additions of entities, here,
+// would need to be reflected, at least, in Model.checkEmpty(...) as well as
+// Model.destroyOps(...)
 type modelEntityRefsDoc struct {
 	UUID string `bson:"_id"`
 
@@ -113,16 +173,7 @@ func (st *State) ControllerModel() (*Model, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get controller info")
 	}
-
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-
-	env := &Model{st: st}
-	uuid := ssinfo.ModelTag.Id()
-	if err := env.refresh(models.FindId(uuid)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return env, nil
+	return st.GetModel(ssinfo.ModelTag)
 }
 
 // Model returns the model entity.
@@ -132,7 +183,7 @@ func (st *State) Model() (*Model, error) {
 
 // GetModel looks for the model identified by the uuid passed in.
 func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
-	models, closer := st.getCollection(modelsC)
+	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	model := &Model{st: st}
@@ -144,7 +195,7 @@ func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 
 // AllModels returns all the models in the system.
 func (st *State) AllModels() ([]*Model, error) {
-	models, closer := st.getCollection(modelsC)
+	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	var modelDocs []modelDoc
@@ -290,7 +341,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
+	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -308,7 +359,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
 		name := args.Config.Name()
-		models, closer := st.getCollection(modelsC)
+		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		envCount, countErr := models.Find(bson.D{
 			{"owner", owner.Id()},
@@ -335,6 +386,10 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	if args.MigrationMode != MigrationModeImporting {
+		probablyUpdateStatusHistory(newSt, modelGlobalKey, modelStatusDoc)
+	}
+
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
@@ -547,6 +602,23 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 	})
 }
 
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
+// representing past statuses for this application.
+func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	st, closeState, err := m.getState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closeState()
+	args := &statusHistoryArgs{
+		st:        st,
+		globalKey: m.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
+}
+
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
 	st, closeState, err := m.getState()
@@ -604,13 +676,80 @@ func (m *Model) LatestToolsVersion() version.Number {
 	return v
 }
 
+// SLALevel returns the SLA level as a string.
+func (m *Model) SLALevel() string {
+	return m.doc.SLA.Level.String()
+}
+
+// SLAOwner returns the SLA owner as a string. Note that this may differ from
+// the model owner.
+func (m *Model) SLAOwner() string {
+	return m.doc.SLA.Owner
+}
+
+// SLACredential returns the SLA credential.
+func (m *Model) SLACredential() []byte {
+	return m.doc.SLA.Credentials
+}
+
+// SetSLA sets the SLA on the model.
+func (m *Model) SetSLA(level, owner string, credentials []byte) error {
+	l, err := newSLALevel(level)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"sla", slaDoc{
+			Level:       l,
+			Owner:       owner,
+			Credentials: credentials,
+		}}}}},
+	}}
+	err = m.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
+}
+
+// SetMeterStatus sets the current meter status for this model.
+func (m *Model) SetMeterStatus(status, info string) error {
+	if _, err := isValidMeterStatusCode(status); err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"meter-status", modelMeterStatusdoc{
+			Code: status,
+			Info: info,
+		}}}}},
+	}}
+	err := m.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
+}
+
+// MeterStatus returns the current meter status for this model.
+func (m *Model) MeterStatus() MeterStatus {
+	ms := m.doc.MeterStatus
+	return MeterStatus{
+		Code: MeterStatusFromString(ms.Code),
+		Info: ms.Info,
+	}
+}
+
 // globalKey returns the global database key for the model.
 func (m *Model) globalKey() string {
 	return modelGlobalKey
 }
 
 func (m *Model) Refresh() error {
-	models, closer := m.st.getCollection(modelsC)
+	models, closer := m.st.db().GetCollection(modelsC)
 	defer closer()
 	return m.refresh(models.FindId(m.UUID()))
 }
@@ -628,7 +767,7 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 	if m.st.ModelUUID() != m.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
 	}
-	coll, closer := m.st.getCollection(modelUsersC)
+	coll, closer := m.st.db().GetCollection(modelUsersC)
 	defer closer()
 
 	var userDocs []userAccessDoc
@@ -775,6 +914,8 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 			Assert: bson.D{
 				{"machines", bson.D{{"$size", 0}}},
 				{"applications", bson.D{{"$size", 0}}},
+				{"volumes", bson.D{{"$size", 0}}},
+				{"filesystems", bson.D{{"$size", 0}}},
 			},
 		}}
 		if !m.isControllerModel() {
@@ -895,7 +1036,7 @@ func (m *Model) checkEmpty() error {
 	}
 	defer closeState()
 
-	modelEntityRefs, closer := st.getCollection(modelEntityRefsC)
+	modelEntityRefs, closer := st.db().GetCollection(modelEntityRefsC)
 	defer closer()
 
 	var doc modelEntityRefsDoc
@@ -905,16 +1046,22 @@ func (m *Model) checkEmpty() error {
 		}
 		return errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
+	// These errors could be potentially swallowed as we re-try to destroy model.
+	// Let's, at least, log them for observation.
 	if n := len(doc.Machines); n > 0 {
+		logger.Infof("model is still not empty, has machines: %v", doc.Machines)
 		return errors.Errorf("model not empty, found %d machine(s)", n)
 	}
 	if n := len(doc.Applications); n > 0 {
+		logger.Infof("model is still not empty, has applications: %v", doc.Applications)
 		return errors.Errorf("model not empty, found %d application(s)", n)
 	}
 	if n := len(doc.Volumes); n > 0 {
+		logger.Infof("model is still not empty, has volumes: %v", doc.Volumes)
 		return errors.Errorf("model not empty, found %d volume(s)", n)
 	}
 	if n := len(doc.Filesystems); n > 0 {
+		logger.Infof("model is still not empty, has file systems: %v", doc.Filesystems)
 		return errors.Errorf("model not empty, found %d filesystem(s)", n)
 	}
 	return nil
@@ -1042,7 +1189,7 @@ func HostedModelCountOp(amount int) txn.Op {
 
 func hostedModelCount(st *State) (int, error) {
 	var doc hostedModelCountDoc
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
 	if err := controllers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {

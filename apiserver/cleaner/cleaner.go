@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Cleaner", 2, NewCleanerAPI)
-}
-
 // CleanerAPI implements the API used by the cleaner worker.
 type CleanerAPI struct {
 	st        StateInterface

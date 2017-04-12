@@ -22,10 +22,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.highavailability")
 
-func init() {
-	common.RegisterStandardFacade("HighAvailability", 2, NewHighAvailabilityAPI)
-}
-
 // HighAvailability defines the methods on the highavailability API end point.
 type HighAvailability interface {
 	EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error)

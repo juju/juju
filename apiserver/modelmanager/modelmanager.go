@@ -36,10 +36,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
-func init() {
-	common.RegisterStandardFacade("ModelManager", 2, newFacade)
-}
-
 // ModelManager defines the methods on the modelmanager API endpoint.
 type ModelManager interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
@@ -63,7 +59,8 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
-func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
+// NewFacade is used for API registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	return NewModelManagerAPI(common.NewModelManagerBackend(st), configGetter, auth)
 }
@@ -503,7 +500,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResul
 		if err := m.authCheck(model.Owner()); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
+		return errors.Trace(common.DestroyModel(m.state, tag))
 	}
 
 	for i, arg := range args.Entities {
@@ -616,6 +613,12 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		// No users, which means the authenticated user doesn't
 		// have access to the model.
 		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
+	}
+
+	// All users with access to the model can see the SLA information.
+	info.SLA = &params.ModelSLAInfo{
+		Level: model.SLALevel(),
+		Owner: model.SLAOwner(),
 	}
 
 	canSeeMachines := authorizedOwner

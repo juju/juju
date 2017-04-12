@@ -59,10 +59,17 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 			Version:          sf.status.Model.Version,
 			AvailableVersion: sf.status.Model.AvailableVersion,
 			Status:           sf.getStatusInfoContents(sf.status.Model.ModelStatus),
+			SLA:              sf.status.Model.SLA,
 		},
 		Machines:           make(map[string]machineStatus),
 		Applications:       make(map[string]applicationStatus),
 		RemoteApplications: make(map[string]remoteApplicationStatus),
+	}
+	if sf.status.Model.MeterStatus.Color != "" {
+		out.Model.MeterStatus = &meterStatus{
+			Color:   sf.status.Model.MeterStatus.Color,
+			Message: sf.status.Model.MeterStatus.Message,
+		}
 	}
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)

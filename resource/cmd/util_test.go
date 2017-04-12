@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 )
 
 func charmRes(c *gc.C, name, suffix, description, content string) charmresource.Resource {
@@ -57,7 +57,7 @@ func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 }
 
 func runCmd(c *gc.C, command jujucmd.Command, args ...string) (code int, stdout string, stderr string) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code = jujucmd.Main(command, ctx, args)
 	stdout = string(ctx.Stdout.(*bytes.Buffer).Bytes())
 	stderr = string(ctx.Stderr.(*bytes.Buffer).Bytes())

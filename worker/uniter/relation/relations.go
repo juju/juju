@@ -407,9 +407,9 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 			return errors.Trace(removeErr)
 		}
 	}
-	if ok, err := r.unit.IsPrincipal(); err != nil {
+	if _, ok, err := r.unit.PrincipalName(); err != nil {
 		return errors.Trace(err)
-	} else if ok {
+	} else if !ok {
 		return nil
 	}
 	// If no Alive relations remain between a subordinate unit's service

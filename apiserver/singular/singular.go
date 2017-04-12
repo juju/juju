@@ -15,13 +15,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade(
-		"Singular", 1,
-		func(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
-			return NewFacade(st, auth)
-		},
-	)
+// NewExternalFacade is for API registration.
+func NewExternalFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
+	return NewFacade(st, auth)
 }
 
 // Backend supplies capabilities required by a Facade.

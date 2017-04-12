@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
 )
 
 type PoolCreateSuite struct {
@@ -27,7 +27,7 @@ func (s *PoolCreateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PoolCreateSuite) runPoolCreate(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewPoolCreateCommandForTest(s.mockAPI, s.store), args...)
+	return cmdtesting.RunCommand(c, storage.NewPoolCreateCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateOneArg(c *gc.C) {

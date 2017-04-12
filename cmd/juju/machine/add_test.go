@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/provider/dummy"
@@ -93,7 +94,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine, s.fakeMachineManager)
-		err := testing.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(addCmd.Series, gc.Equals, test.series)
@@ -112,13 +113,13 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine, s.fakeMachineManager)
-	return testing.RunCommand(c, add, args...)
+	return cmdtesting.RunCommand(c, add, args...)
 }
 
 func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "created machine 0\n")
 
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
 	param := s.fakeAddMachine.args[0]
@@ -133,7 +134,7 @@ func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Code:    params.CodeUnauthorized,
 	}
 	ctx, _ := s.run(c)
-	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 
@@ -143,7 +144,7 @@ func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(context), gc.Equals, "created machine 42\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "created machine 42\n")
 }
 
 func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
@@ -152,7 +153,7 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
 	c.Assert(err, gc.ErrorMatches, "failed to initialize warp core")
-	c.Assert(testing.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
@@ -183,7 +184,7 @@ failed to create 2 machines
 `
 	context, err := s.run(c, "-n", "3")
 	c.Assert(err, gc.ErrorMatches, "something went wrong, something went wrong")
-	c.Assert(testing.Stderr(context), gc.Equals, expectedOutput)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, expectedOutput)
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {

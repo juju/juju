@@ -72,6 +72,13 @@ type ModelUnset struct {
 	Keys []string `json:"keys"`
 }
 
+// ModelSLA contains the arguments for the SetSLALevel client API
+// call.
+type ModelSLA struct {
+	ModelSLAInfo
+	Credentials []byte `json:"creds"`
+}
+
 // SetModelDefaults contains the arguments for SetModelDefaults
 // client API call.
 type SetModelDefaults struct {
@@ -147,6 +154,15 @@ type ModelInfo struct {
 	// Migration contains information about the latest failed or
 	// currently-running migration. It'll be nil if there isn't one.
 	Migration *ModelMigrationStatus `json:"migration,omitempty"`
+
+	// SLA contains the information about the SLA for the model, if set.
+	SLA *ModelSLAInfo `json:"sla"`
+}
+
+// ModelSLAInfo describes the SLA info for a model.
+type ModelSLAInfo struct {
+	Level string `json:"level"`
+	Owner string `json:"owner"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.

@@ -83,8 +83,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to list controllers")
 	}
 	if len(controllers) == 0 && c.out.Name() == "tabular" {
-		ctx.Infof("%s", modelcmd.ErrNoControllersDefined)
-		return nil
+		return errors.Trace(modelcmd.ErrNoControllersDefined)
 	}
 	if c.refresh && len(controllers) > 0 {
 		var wg sync.WaitGroup

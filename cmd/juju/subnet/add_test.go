@@ -13,9 +13,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type AddSuite struct {
@@ -96,7 +96,7 @@ func (s *AddSuite) TestInit(c *gc.C) {
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
 		wrappedCommand, command := subnet.NewAddCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)

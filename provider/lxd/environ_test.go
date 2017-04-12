@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -66,7 +67,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 		},
 	}
 
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	params := environs.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
@@ -78,7 +79,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.Finalize, gc.NotNil)
 
-	out := coretesting.Stderr(ctx)
+	out := cmdtesting.Stderr(ctx)
 	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md\n")
 }
 

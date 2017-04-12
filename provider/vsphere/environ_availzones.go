@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
@@ -28,65 +26,84 @@ func (z *vmwareAvailZone) Available() bool {
 	return true
 }
 
-// AvailabilityZones returns all availability zones in the environment.
-func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
-	zones, err := env.client.AvailabilityZones()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var result []common.AvailabilityZone
-	for _, zone := range zones {
-		result = append(result, &vmwareAvailZone{*zone})
-	}
-	return result, nil
+// AvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *environ) AvailabilityZones() (zones []common.AvailabilityZone, err error) {
+	err = env.withSession(func(env *sessionEnviron) error {
+		zones, err = env.AvailabilityZones()
+		return err
+	})
+	return zones, err
 }
 
-// InstanceAvailabilityZoneNames returns the names of the availability
-// zones for the specified instances. The error returned follows the same
-// rules as Environ.Instances.
-func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	instances, err := env.Instances(ids)
-	if err != nil && err != environs.ErrPartialInstances && err != environs.ErrNoInstances {
-		return nil, errors.Trace(err)
+// AvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *sessionEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	if env.zones == nil {
+		computeResources, err := env.client.ComputeResources(env.ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		zones := make([]common.AvailabilityZone, len(computeResources))
+		for i, cr := range computeResources {
+			zones[i] = &vmwareAvailZone{*cr}
+		}
+		env.zones = zones
 	}
+	return env.zones, nil
+}
 
-	zones, err := env.client.AvailabilityZones()
+// InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
+func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) (names []string, err error) {
+	err = env.withSession(func(env *sessionEnviron) error {
+		names, err = env.InstanceAvailabilityZoneNames(ids)
+		return err
+	})
+	return names, err
+}
+
+// InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
+func (env *sessionEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	zones, err := env.AvailabilityZones()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make([]string, 0, len(ids))
-	for _, inst := range instances {
+	instances, err := env.Instances(ids)
+	switch err {
+	case nil, environs.ErrPartialInstances:
+		break
+	case environs.ErrNoInstances:
+		return nil, err
+	default:
+		return nil, errors.Trace(err)
+	}
+
+	results := make([]string, len(ids))
+	for i, inst := range instances {
+		if inst == nil {
+			continue
+		}
+		vm := inst.(*environInstance).base
 		for _, zone := range zones {
-			if eInst := inst.(*environInstance); eInst != nil && zone.ResourcePool.Value == eInst.base.ResourcePool.Value {
-				results = append(results, zone.Name)
+			cr := &zone.(*vmwareAvailZone).r
+			if cr.ResourcePool.Value == vm.ResourcePool.Value {
+				results[i] = cr.Name
 				break
 			}
 		}
 	}
-
 	return results, err
 }
 
-func (env *environ) availZone(name string) (*vmwareAvailZone, error) {
-	zones, err := env.client.AvailabilityZones()
+func (env *sessionEnviron) availZone(name string) (common.AvailabilityZone, error) {
+	zones, err := env.AvailabilityZones()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for _, z := range zones {
-		if z.Name == name {
-			return &vmwareAvailZone{*z}, nil
+		if z.Name() == name {
+			return z, nil
 		}
 	}
-	return nil, errors.NotFoundf("invalid availability zone %q", name)
-}
-
-//AvailabilityZoneAllocations is exported, because it has to be rewritten in external unit tests
-var AvailabilityZoneAllocations = common.AvailabilityZoneAllocations
-
-// AllAvailabilityZones is exported because it has to be patched in external unit tests.
-var AllAvailabilityZones = func(env common.ZonedEnviron) ([]common.AvailabilityZone, error) {
-	return env.AvailabilityZones()
+	return nil, errors.NotFoundf("availability zone %q", name)
 }
 
 // parseAvailabilityZones returns the availability zones that should be
@@ -95,7 +112,7 @@ var AllAvailabilityZones = func(env common.ZonedEnviron) ([]common.AvailabilityZ
 // queried for available zones. In that case, the resulting list is
 // roughly ordered such that the environment's instances are spread
 // evenly across the region.
-func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+func (env *sessionEnviron) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
 		placement, err := env.parsePlacement(args.Placement)
@@ -117,10 +134,10 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 		}
 	}
 	var zoneNames []string
-	// Vsphere will misbehave if we call AvailabilityZoneAllocations with empty
-	// groups, in this case all zones shouhld be returned.
+	// vSphere will misbehave if we call AvailabilityZoneAllocations with empty
+	// groups, in this case all zones should be returned.
 	if len(group) != 0 {
-		zoneInstances, err := AvailabilityZoneAllocations(env, group)
+		zoneInstances, err := common.AvailabilityZoneAllocations(env, group)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -128,7 +145,7 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 			zoneNames = append(zoneNames, z.ZoneName)
 		}
 	} else {
-		zones, err := AllAvailabilityZones(env)
+		zones, err := env.AvailabilityZones()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -139,7 +156,7 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 	logger.Infof("found %d zones: %v", len(zoneNames), zoneNames)
 
 	if len(zoneNames) == 0 {
-		return nil, errors.NotFoundf("failed to determine availability zones")
+		return nil, errors.NotFoundf("availability zones")
 	}
 
 	return zoneNames, nil

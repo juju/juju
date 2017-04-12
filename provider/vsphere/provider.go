@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
@@ -18,21 +16,25 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-type environProvider struct {
-	environProviderCredentials
-}
-
-var providerInstance = environProvider{}
-var _ environs.EnvironProvider = providerInstance
-
 var logger = loggo.GetLogger("juju.provider.vmware")
 
+type environProvider struct {
+	environProviderCredentials
+	dial DialFunc
+}
+
+// NewEnvironProvider returns a new environs.EnvironProvider that will
+// dial vSphere connectons with the given dial function.
+func NewEnvironProvider(dial DialFunc) environs.EnvironProvider {
+	return &environProvider{dial: dial}
+}
+
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := newEnviron(args.Cloud, args.Config)
+	env, err := newEnviron(p, args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 
@@ -42,7 +44,7 @@ var cloudSchema = &jsonschema.Schema{
 	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
 	Properties: map[string]*jsonschema.Schema{
 		cloud.EndpointKey: {
-			Singular: "the API endpoint url for the cloud",
+			Singular: "the vCenter address or URL",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,
 		},
@@ -53,8 +55,8 @@ var cloudSchema = &jsonschema.Schema{
 		},
 		cloud.RegionsKey: {
 			Type:     []jsonschema.Type{jsonschema.ObjectType},
-			Singular: "region",
-			Plural:   "regions",
+			Singular: "datacenter",
+			Plural:   "datacenters",
 			AdditionalProperties: &jsonschema.Schema{
 				Type:          []jsonschema.Type{jsonschema.ObjectType},
 				MaxProperties: jsonschema.Int(0),
@@ -64,14 +66,14 @@ var cloudSchema = &jsonschema.Schema{
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.
-func (p environProvider) CloudSchema() *jsonschema.Schema {
+func (p *environProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
 
 const failedLoginMsg = "ServerFaultCode: Cannot complete login due to an incorrect user name or password."
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(endpoint string) error {
 	// try to be smart and not punish people for adding or forgetting http
 	u, err := url.Parse(endpoint)
 	if err != nil {
@@ -89,32 +91,30 @@ func (p environProvider) Ping(endpoint string) error {
 		return errors.New("Invalid endpoint format, please use an http or https URL.")
 	}
 
-	client, logout, err := newConnection(u)
+	// Set a user, to force the dial function to perform a login. The login
+	// should fail, since there's no password set.
+	u.User = url.User("juju")
+
+	ctx := context.Background()
+	client, err := p.dial(ctx, u, "")
 	if err != nil {
-		logger.Errorf("Unexpected error from creating vsphere client: %v", err)
-		return errors.Errorf("No VSphere server running at %s", endpoint)
+		if err.Error() == failedLoginMsg {
+			// This is our expected error for trying to log into
+			// vSphere without any creds, so return nil.
+			return nil
+		}
+		logger.Errorf("Unexpected error dialing vSphere connection: %v", err)
+		return errors.Errorf("No vCenter/ESXi available at %s", endpoint)
 	}
-	defer logout()
-	err = client.Login(context.TODO(), nil)
-	if err == nil {
-		// shouldn't happen, since we haven't used any credentials, but can't
-		// really complain if it does.  The liklihood that the SOAP conversation
-		// will succeed with a random incorrect server is miniscule.
-		return nil
-	}
-	// There's no way to get at any type information in the returned error, so
-	// we have to just look at the string value.
-	if err.Error() == failedLoginMsg {
-		// This is our expected error for trying to log into VSphere without any
-		// creds, so return nil.
-		return nil
-	}
-	logger.Errorf("Unexpected error from endpoint: %v", err)
-	return errors.Errorf("No VSphere server running at %s", endpoint)
+	defer client.Close(ctx)
+
+	// We shouldn't get here, since we haven't set a password, but it is
+	// theoretically possible to have user="juju", password="".
+	return nil
 }
 
 // PrepareConfig implements environs.EnvironProvider.
-func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -122,7 +122,7 @@ func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 }
 
 // Validate implements environs.EnvironProvider.
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if old == nil {
 		ecfg, err := newValidConfig(cfg, configDefaults)
 		if err != nil {

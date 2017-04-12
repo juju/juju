@@ -42,7 +42,7 @@ func accessToString(a permission.Access) string {
 // userPermission returns a Permission for the given Subject and User.
 func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
 	result := &userPermission{}
-	permissions, closer := st.getCollection(permissionsC)
+	permissions, closer := st.db().GetCollection(permissionsC)
 	defer closer()
 
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
@@ -57,7 +57,7 @@ func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*user
 func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
 	result := &userPermission{}
 
-	permissions, closer := st.getCollection(permissionsC)
+	permissions, closer := st.db().GetCollection(permissionsC)
 	defer closer()
 
 	id := permissionID(objectGlobalKey, subjectGlobalKey)

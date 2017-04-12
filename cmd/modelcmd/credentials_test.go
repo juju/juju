@@ -13,11 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 func init() {
@@ -70,7 +70,7 @@ func (mockProvider) FinalizeCredential(
 type credentialsSuite struct {
 	testing.IsolationSuite
 	cloud cloud.Cloud
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&credentialsSuite{})
@@ -91,7 +91,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	err := ioutil.WriteFile(keyFile, []byte("value"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Credentials["cloud"] = cloud.CloudCredential{
 		DefaultRegion: "second-region",
 		AuthCredentials: map[string]cloud.Credential{
@@ -109,7 +109,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 
 func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		jujutesting.Context(c), s.store, modelcmd.GetCredentialsParams{
+		cmdtesting.Context(c), s.store, modelcmd.GetCredentialsParams{
 			Cloud:          s.cloud,
 			CloudRegion:    region,
 			CredentialName: cred,

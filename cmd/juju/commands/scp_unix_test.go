@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	jujussh "github.com/juju/juju/network/ssh"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&SCPSuite{})
@@ -220,7 +220,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		s.setHostChecker(t.hostChecker)
 		s.setForceAPIv1(t.forceAPIv1)
 
-		ctx, err := coretesting.RunCommand(c, newSCPCommand(s.hostChecker), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, newSCPCommand(s.hostChecker), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 		} else {
@@ -228,8 +228,8 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 			// we suppress stdout from scp, so get the scp args used
 			// from the "scp.args" file that the fake scp executable
 			// installed by SSHCommonSuite generates.
-			c.Check(coretesting.Stderr(ctx), gc.Equals, "")
-			c.Check(coretesting.Stdout(ctx), gc.Equals, "")
+			c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+			c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
 			actual, err := ioutil.ReadFile(filepath.Join(s.binDir, "scp.args"))
 			c.Assert(err, jc.ErrorIsNil)
 			t.expected.check(c, string(actual))

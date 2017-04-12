@@ -36,6 +36,7 @@ changed to UpgradeComplete and the upgradeInfo document is archived.
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -45,6 +46,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/status"
 )
 
 // UpgradeStatus describes the states an upgrade operation may be in.
@@ -210,6 +213,37 @@ func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
 	return n > 0, nil
 }
 
+// upgradeStatusHistoryAndOps sets the model's status history and returns ops for
+// setting model status according to the UpgradeStatus.
+func upgradeStatusHistoryAndOps(st *State, upgradeStatus UpgradeStatus, now time.Time) ([]txn.Op, error) {
+	var modelStatus status.Status
+	var msg string
+	switch upgradeStatus {
+	case UpgradeComplete:
+		modelStatus = status.Available
+		msg = fmt.Sprintf("upgraded on %q", now.UTC().Format(time.RFC3339))
+	case UpgradeRunning:
+		modelStatus = status.Busy
+		msg = fmt.Sprintf("upgrade in progress since %q", now.UTC().Format(time.RFC3339))
+	case UpgradeAborted:
+		modelStatus = status.Available
+		msg = fmt.Sprintf("last upgrade aborted on %q", now.UTC().Format(time.RFC3339))
+	default:
+		return []txn.Op{}, nil
+	}
+	doc := statusDoc{
+		Status:     modelStatus,
+		StatusInfo: msg,
+		Updated:    now.UnixNano(),
+	}
+	ops, err := statusSetOps(st, doc, modelGlobalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	probablyUpdateStatusHistory(st, modelGlobalKey, doc)
+	return ops, nil
+}
+
 // SetStatus sets the status of the current upgrade. Checks are made
 // to ensure that status changes are performed in the correct order.
 func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
@@ -242,7 +276,15 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 		}}, assertSane...),
 		Update: bson.D{{"$set", bson.D{{"status", status}}}},
 	}}
-	err := info.st.runTransaction(ops)
+
+	extraOps, err := upgradeStatusHistoryAndOps(info.st, status, info.st.clock.Now())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(extraOps) > 0 {
+		ops = append(ops, extraOps...)
+	}
+	err = info.st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		return errors.Errorf("cannot set upgrade status to %q: Another "+
 			"status change may have occurred concurrently", status)
@@ -401,7 +443,17 @@ func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 			// This is the last controller. Archive the current
 			// upgradeInfo document.
 			doc.ControllersDone = controllersDone.SortedValues()
-			return info.makeArchiveOps(doc, UpgradeComplete), nil
+
+			ops := info.makeArchiveOps(doc, UpgradeComplete)
+			extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeComplete, info.st.clock.Now())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if len(extraOps) > 0 {
+				ops = append(ops, extraOps...)
+			}
+
+			return ops, nil
 		}
 
 		return []txn.Op{{
@@ -429,7 +481,16 @@ func (info *UpgradeInfo) Abort() error {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return info.makeArchiveOps(doc, UpgradeAborted), nil
+		ops := info.makeArchiveOps(doc, UpgradeAborted)
+		extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeAborted, info.st.clock.Now())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(extraOps) > 0 {
+			ops = append(ops, extraOps...)
+		}
+
+		return ops, nil
 	}
 	err := info.st.run(buildTxn)
 	return errors.Annotate(err, "cannot abort upgrade")
@@ -481,7 +542,7 @@ func (st *State) AbortCurrentUpgrade() error {
 
 func currentUpgradeInfoDoc(st *State) (*upgradeInfoDoc, error) {
 	var doc upgradeInfoDoc
-	upgradeInfo, closer := st.getCollection(upgradeInfoC)
+	upgradeInfo, closer := st.db().GetCollection(upgradeInfoC)
 	defer closer()
 	if err := upgradeInfo.FindId(currentUpgradeId).One(&doc); err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("current upgrade info")

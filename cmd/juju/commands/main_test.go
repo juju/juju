@@ -22,10 +22,10 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
@@ -102,17 +102,17 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --cheese\n",
+		out:     "ERROR flag provided but not defined: --cheese\n",
 	}, {
 		summary: "unknown option after command",
 		args:    []string{"bootstrap", "--cheese"},
 		code:    2,
-		out:     "error: flag provided but not defined: --cheese\n",
+		out:     "ERROR flag provided but not defined: --cheese\n",
 	}, {
 		summary: "known option, but specified before command",
 		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --model\n",
+		out:     "ERROR flag provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-tools registered properly",
 		args:    []string{"sync-tools", "--help"},
@@ -144,9 +144,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "controllers"}, // global flags before
-		{"controllers", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "controllers", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "help"}, // global flags before
+		{"help", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "help", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -402,7 +402,7 @@ var commandNames = []string{
 	"agree",
 	"agreements",
 	"allocate",
-	"attach-storage",
+	"attach",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
@@ -411,18 +411,16 @@ var commandNames = []string{
 	"change-user-password",
 	"charm",
 	"clouds",
-	"config",
 	"collect-metrics",
+	"config",
+	"controller-config",
 	"controllers",
 	"create-backup",
 	"create-budget",
 	"create-storage-pool",
 	"credentials",
-	"controller-config",
 	"debug-hooks",
 	"debug-log",
-	"detach-storage",
-	"remove-user",
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
@@ -430,9 +428,9 @@ var commandNames = []string{
 	"disable-user",
 	"disabled-commands",
 	"download-backup",
-	"enable-ha",
 	"enable-command",
 	"enable-destroy-controller",
+	"enable-ha",
 	"enable-user",
 	"expose",
 	"get-constraints",
@@ -454,10 +452,12 @@ var commandNames = []string{
 	"list-disabled-commands",
 	"list-machines",
 	"list-models",
+	"list-payloads",
 	"list-plans",
 	"list-regions",
-	"list-ssh-keys",
+	"list-resources",
 	"list-spaces",
+	"list-ssh-keys",
 	"list-storage",
 	"list-storage-pools",
 	"list-subnets",
@@ -470,6 +470,7 @@ var commandNames = []string{
 	"model-config",
 	"model-defaults",
 	"models",
+	"payloads",
 	"plans",
 	"regions",
 	"register",
@@ -484,7 +485,9 @@ var commandNames = []string{
 	"remove-ssh-key",
 	"remove-storage",
 	"remove-unit",
+	"remove-user",
 	"resolved",
+	"resources",
 	"restore-backup",
 	"retry-provisioning",
 	"revoke",
@@ -510,6 +513,7 @@ var commandNames = []string{
 	"show-status-log",
 	"show-storage",
 	"show-user",
+	"sla",
 	"spaces",
 	"ssh",
 	"ssh-keys",
@@ -517,28 +521,33 @@ var commandNames = []string{
 	"storage",
 	"storage-pools",
 	"subnets",
+	"support",
 	"switch",
 	"sync-tools",
 	"unexpose",
-	"update-allocation",
-	"upload-backup",
 	"unregister",
 	"update-clouds",
 	"update-credential",
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
+	"upload-backup",
 	"users",
 	"version",
 	"whoami",
 }
 
 // devFeatures are feature flags that impact registration of commands.
-var devFeatures = []string{feature.CrossModelRelations}
+var devFeatures = []string{
+	feature.CrossModelRelations,
+	feature.PersistentStorage,
+}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
+	"attach-storage",
 	"consume",
+	"detach-storage",
 	"find-endpoints",
 	"list-offers",
 	"offer",
@@ -647,7 +656,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	registry := &stubRegistry{stub: stub}
 	registry.names = append(registry.names, "help", "version") // implicit
-	registerCommands(registry, testing.Context(c))
+	registerCommands(registry, cmdtesting.Context(c))
 	sort.Strings(registry.names)
 
 	expected := make([]string, len(commandNames))
@@ -675,7 +684,7 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 
 func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	// There should not be any ModelCommands registered.
 	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, cmd := range commands {
@@ -684,22 +693,23 @@ func (s *MainSuite) TestModelCommands(c *gc.C) {
 	}
 }
 
-func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
+func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	// Verify each command that:
-	// - the Purpose field is not empty
+	// - the Purpose field is not empty.
+	// - the Purpose ends with a full stop.
 	// - if set, the Doc field either begins with the name of the
 	// command or and uppercase letter.
 	//
-	// The first makes Purpose a required documentation. Also, makes
-	// both "help commands"'s output and "help <cmd>"'s header more
-	// uniform. The second makes the Doc content either start like a
-	// sentence, or start godoc-like by using the command's name in
-	// lowercase.
+	// This:
+	// - makes Purpose a required documentation.
+	// - Standardises Purpose formatting across all commands.
+	// - Brings "help commands"'s output in line with "help <cmd>"'s header.
+	// - Makes the Doc content either start like a sentence, or start
+	//   godoc-like by using the command's name in lowercase.
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	for _, cmd := range commands {
 		info := cmd.Info()
-		c.Logf("%v", info.Name)
 		purpose := strings.TrimSpace(info.Purpose)
 		doc := strings.TrimSpace(info.Doc)
 		comment := func(message string) interface{} {
@@ -710,8 +720,9 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 		if purpose != "" {
 			prefix := string(purpose[0])
 			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),
-				comment("expected uppercase first-letter Purpose"),
-			)
+				comment("expected uppercase first-letter Purpose"))
+			c.Check(strings.HasSuffix(purpose, "."), jc.IsTrue,
+				comment("is missing full stop in Purpose"))
 		}
 		if doc != "" && !strings.HasPrefix(doc, info.Name) {
 			prefix := string(doc[0])

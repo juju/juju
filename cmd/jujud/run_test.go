@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
@@ -114,7 +115,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 	} {
 		c.Logf("%d: %s", i, test.title)
 		runCommand := &RunCommand{}
-		err := testing.InitCommand(runCommand, test.args)
+		err := cmdtesting.InitCommand(runCommand, test.args)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(runCommand.unit, gc.Equals, test.unit)
@@ -143,12 +144,12 @@ func (s *RunTestSuite) TestInsideContext(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestMissingAgentName(c *gc.C) {
-	_, err := testing.RunCommand(c, s.runCommand(), "foo/2", "bar")
+	_, err := cmdtesting.RunCommand(c, s.runCommand(), "foo/2", "bar")
 	c.Assert(err, gc.ErrorMatches, `unit "foo/2" not found on this machine`)
 }
 
 func (s *RunTestSuite) TestMissingAgentTag(c *gc.C) {
-	_, err := testing.RunCommand(c, s.runCommand(), "unit-foo-2", "bar")
+	_, err := cmdtesting.RunCommand(c, s.runCommand(), "unit-foo-2", "bar")
 	c.Assert(err, gc.ErrorMatches, `unit "foo/2" not found on this machine`)
 }
 
@@ -164,7 +165,7 @@ func waitForResult(running <-chan *cmd.Context, timeout time.Duration) (*cmd.Con
 func (s *RunTestSuite) startRunAsync(c *gc.C, params []string) <-chan *cmd.Context {
 	resultChannel := make(chan *cmd.Context)
 	go func() {
-		ctx, err := testing.RunCommand(c, s.runCommand(), params...)
+		ctx, err := cmdtesting.RunCommand(c, s.runCommand(), params...)
 		c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 		c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 		resultChannel <- ctx
@@ -174,17 +175,17 @@ func (s *RunTestSuite) startRunAsync(c *gc.C, params []string) <-chan *cmd.Conte
 }
 
 func (s *RunTestSuite) TestNoContext(c *gc.C) {
-	ctx, err := testing.RunCommand(c, s.runCommand(), "--no-context", "echo done")
+	ctx, err := cmdtesting.RunCommand(c, s.runCommand(), "--no-context", "echo done")
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
-	c.Assert(strings.TrimRight(testing.Stdout(ctx), "\r\n"), gc.Equals, "done")
+	c.Assert(strings.TrimRight(cmdtesting.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }
 
 func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 	channel := s.startRunAsync(c, []string{"--no-context", "echo done"})
 	ctx, err := waitForResult(channel, testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.TrimRight(testing.Stdout(ctx), "\r\n"), gc.Equals, "done")
+	c.Assert(strings.TrimRight(cmdtesting.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }
 
 func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
@@ -205,7 +206,7 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 
 	ctx, err = waitForResult(channel, testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.TrimRight(testing.Stdout(ctx), "\r\n"), gc.Equals, "done")
+	c.Assert(strings.TrimRight(cmdtesting.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }
 
 func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
@@ -216,7 +217,7 @@ func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, s.runCommand(), "foo/1", "bar")
+	_, err = cmdtesting.RunCommand(c, s.runCommand(), "foo/1", "bar")
 	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket:.*`+utils.NoSuchFileErrRegexp)
 }
 
@@ -224,29 +225,29 @@ func (s *RunTestSuite) TestRunning(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "unit-foo-1")
 
-	ctx, err := testing.RunCommand(c, s.runCommand(), "foo/1", "bar")
+	ctx, err := cmdtesting.RunCommand(c, s.runCommand(), "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "bar stderr")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "bar stdout")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "bar stderr")
 }
 
 func (s *RunTestSuite) TestRunningRelation(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "unit-foo-1")
 
-	ctx, err := testing.RunCommand(c, s.runCommand(), "--relation", "db:1", "foo/1", "bar")
+	ctx, err := cmdtesting.RunCommand(c, s.runCommand(), "--relation", "db:1", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "bar stderr")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "bar stdout")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "bar stderr")
 }
 
 func (s *RunTestSuite) TestRunningBadRelation(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "unit-foo-1")
 
-	_, err := testing.RunCommand(c, s.runCommand(), "--relation", "badrelation:W", "foo/1", "bar")
+	_, err := cmdtesting.RunCommand(c, s.runCommand(), "--relation", "badrelation:W", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "invalid relation id")
 }
@@ -255,7 +256,7 @@ func (s *RunTestSuite) TestRunningRemoteUnitNoRelation(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "unit-foo-1")
 
-	_, err := testing.RunCommand(c, s.runCommand(), "--remote-unit", "remote/0", "foo/1", "bar")
+	_, err := cmdtesting.RunCommand(c, s.runCommand(), "--remote-unit", "remote/0", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "remote unit: remote/0, provided without a relation")
 }
@@ -264,11 +265,11 @@ func (s *RunTestSuite) TestSkipCheckAndRemoteUnit(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "unit-foo-1")
 
-	ctx, err := testing.RunCommand(c, s.runCommand(), "--force-remote-unit", "--remote-unit", "unit-name-2", "--relation", "db:1", "foo/1", "bar")
+	ctx, err := cmdtesting.RunCommand(c, s.runCommand(), "--force-remote-unit", "--remote-unit", "unit-name-2", "--relation", "db:1", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "bar stderr")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "bar stdout")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "bar stderr")
 }
 
 func (s *RunTestSuite) TestCheckRelationIdValid(c *gc.C) {

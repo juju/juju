@@ -25,6 +25,7 @@ import (
 	gooselogging "gopkg.in/goose.v1/logging"
 	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -168,6 +169,17 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
+
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	client, err := authClient(e.cloud, e.ecfgUnlocked)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot set config")
+	}
+	e.clientUnlocked = client
+	e.novaUnlocked = nova.New(e.clientUnlocked)
+	e.neutronUnlocked = neutron.New(e.clientUnlocked)
+
 	return e, nil
 }
 
@@ -798,13 +810,6 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	client, err := authClient(e.cloud, ecfg)
-	if err != nil {
-		return errors.Annotate(err, "cannot set config")
-	}
-	e.clientUnlocked = client
-	e.novaUnlocked = nova.New(e.clientUnlocked)
-	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 	return nil
 }
 
@@ -1004,7 +1009,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
-		networkId, err := e.networking.ResolveNetwork(usingNetwork)
+		networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1285,20 +1290,6 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cinder, err := e.cinderProvider()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(axw): fix the storage API.
-	volumeSource, err := cinder.VolumeSource(nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	volumeIds, err := volumeSource.ListVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, instance := range instances {
 		err := e.TagInstance(instance.Id(), controllerTag)
 		if err != nil {
@@ -1307,13 +1298,11 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		}
 	}
 
-	for _, volumeId := range volumeIds {
-		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
-		if err != nil {
-			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
-			failed = append(failed, volumeId)
-		}
+	failedVolumes, err := e.adoptVolumes(controllerTag)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	failed = append(failed, failedVolumes...)
 
 	err = e.firewaller.UpdateGroupController(controllerUUID)
 	if err != nil {
@@ -1323,6 +1312,36 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		return errors.Errorf("error updating controller tag for some resources: %v", failed)
 	}
 	return nil
+}
+
+func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error) {
+	cinder, err := e.cinderProvider()
+	if errors.IsNotSupported(err) {
+		logger.Debugf("volumes not supported: not transferring ownership for volumes")
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(axw): fix the storage API.
+	volumeSource, err := cinder.VolumeSource(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeIds, err := volumeSource.ListVolumes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var failed []string
+	for _, volumeId := range volumeIds {
+		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
+			failed = append(failed, volumeId)
+		}
+	}
+	return failed, nil
 }
 
 // AllInstances returns all instances in this environment.
@@ -1584,4 +1603,44 @@ func validateAuthURL(authURL string) error {
 		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
+}
+
+// Subnets is specified on environs.Networking.
+func (e *Environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	return e.networking.Subnets(instId, subnetIds)
+}
+
+// NetworkInterfaces is specified on environs.Networking.
+func (e *Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	return e.networking.NetworkInterfaces(instId)
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (e *Environ) SupportsSpaces() (bool, error) {
+	return false, nil
+}
+
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (e *Environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
+// Spaces is specified on environs.Networking.
+func (e *Environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// SupportsContainerAddresses is specified on environs.Networking.
+func (e *Environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container address")
+}
+
+// AllocateContainerAddresses is specified on environs.Networking.
+func (e *Environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("allocate container address")
+}
+
+// ReleaseContainerAddresses is specified on environs.Networking.
+func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("release container address")
 }

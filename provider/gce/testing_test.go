@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -271,12 +272,27 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 		Status:    google.StatusRunning,
 		Metadata:  s.UbuntuMetadata,
 		Addresses: s.Addresses,
+		NetworkInterfaces: []*compute.NetworkInterface{{
+			Name:       "somenetif",
+			NetworkIP:  "10.0.10.3",
+			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
+			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
+			AccessConfigs: []*compute.AccessConfig{{
+				Type:  "ONE_TO_ONE_NAT",
+				Name:  "ExternalNAT",
+				NatIP: "25.185.142.226",
+			}},
+		}},
 	}
 	return google.NewInstance(summary, &instanceSpec)
 }
 
 func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, id string) *environInstance {
 	base := s.NewBaseInstance(c, id)
+	return newInstance(base, s.Env)
+}
+
+func (s *BaseSuiteUnpatched) NewInstanceFromBase(base *google.Instance) *environInstance {
 	return newInstance(base, s.Env)
 }
 
@@ -468,10 +484,12 @@ type fakeConnCall struct {
 type fakeConn struct {
 	Calls []fakeConnCall
 
-	Inst  *google.Instance
-	Insts []google.Instance
-	Rules []network.IngressRule
-	Zones []google.AvailabilityZone
+	Inst      *google.Instance
+	Insts     []google.Instance
+	Rules     []network.IngressRule
+	Zones     []google.AvailabilityZone
+	Subnets   []*compute.Subnetwork
+	Networks_ []*compute.Network
 
 	GoogleDisks   []*google.Disk
 	GoogleDisk    *google.Disk
@@ -574,6 +592,21 @@ func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone,
 		Region:   region,
 	})
 	return fc.Zones, fc.err()
+}
+
+func (fc *fakeConn) Subnetworks(region string) ([]*compute.Subnetwork, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Subnetworks",
+		Region:   region,
+	})
+	return fc.Subnets, fc.err()
+}
+
+func (fc *fakeConn) Networks() ([]*compute.Network, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Networks",
+	})
+	return fc.Networks_, fc.err()
 }
 
 func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*google.Disk, error) {

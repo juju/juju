@@ -434,7 +434,8 @@ func (c *firewallerBase) globalGroupRegexp() string {
 }
 
 func (c *firewallerBase) machineGroupRegexp(machineId string) string {
-	return fmt.Sprintf("%s-%s", c.jujuGroupRegexp(), machineId)
+	// we are only looking to match 1 machine
+	return fmt.Sprintf("%s-%s$", c.jujuGroupRegexp(), machineId)
 }
 
 type neutronFirewaller struct {
@@ -548,92 +549,134 @@ func (c *neutronFirewaller) setUpGlobalGroup(groupName string, apiPort int) (neu
 // zeroGroup holds the zero security group.
 var zeroGroup neutron.SecurityGroupV2
 
-// ensureGroup returns the security group with name and perms.
+// ensureGroup returns the security group with name and rules.
 // If a group with name does not exist, one will be created.
-// If it exists, its permissions are set to perms.
+// If it exists, its permissions are set to rules.
 func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
 	neutronClient := c.environ.neutron()
+	var group neutron.SecurityGroupV2
+
 	// First attempt to look up an existing group by name.
 	groupsFound, err := neutronClient.SecurityGroupByNameV2(name)
-	if err == nil {
-		for _, group := range groupsFound {
-			if c.verifyGroupRules(group.Rules, rules) {
-				return group, nil
-			}
+	// a list is returned, but there should be only one
+	if err == nil && len(groupsFound) == 1 {
+		group = groupsFound[0]
+	} else if err != nil && strings.Contains(err.Error(), "failed to find security group") {
+		// TODO(hml): We should use a typed error here.  SecurityGroupByNameV2
+		// doesn't currently return one for this case.
+		g, err := neutronClient.CreateSecurityGroupV2(name, "juju group")
+		if err != nil {
+			return zeroGroup, err
 		}
-	}
-	// Doesn't exist, so try and create it.
-	newGroup, err := neutronClient.CreateSecurityGroupV2(name, "juju group")
-	if err != nil {
+		group = *g
+	} else if err == nil && len(groupsFound) > 1 {
+		// TODO(hml): Add unit test for this case
+		return zeroGroup, errors.New(fmt.Sprintf("More than one security group named %s was found", name))
+	} else {
 		return zeroGroup, err
 	}
-	// The new group is created so now add the rules.
-	for _, rule := range rules {
-		rule.ParentGroupId = newGroup.Id
+
+	have := newRuleInfoSetFromRules(group.Rules)
+	want := newRuleInfoSetFromRuleInfo(rules)
+
+	// Find rules we want to delete, that we have but don't want, and
+	// delete them.
+	remove := make(ruleInfoSet)
+	for k := range have {
+		// Neutron creates 2 egress rules with any new Security Group.
+		// Keep them.
+		if _, ok := want[k]; !ok && k.Direction != "egress" {
+			remove[k] = have[k]
+		}
+	}
+	for _, ruleId := range remove {
+		if err = neutronClient.DeleteSecurityGroupRuleV2(ruleId); err != nil {
+			return zeroGroup, err
+		}
+	}
+
+	// Find rules we want to add, that we want but don't have, and add
+	// them.
+	add := make(ruleInfoSet)
+	for k := range want {
+		if _, ok := have[k]; !ok {
+			add[k] = want[k]
+		}
+	}
+	for rule, _ := range add {
+		rule.ParentGroupId = group.Id
 		// Neutron translates empty RemoteIPPrefix into
 		// 0.0.0.0/0 or ::/0 instead of ParentGroupId
 		// when EthernetType is set
 		if rule.RemoteIPPrefix == "" {
-			rule.RemoteGroupId = newGroup.Id
+			rule.RemoteGroupId = group.Id
 		}
-		groupRule, err := neutronClient.CreateSecurityGroupRuleV2(rule)
-		if err != nil {
+		if _, err := neutronClient.CreateSecurityGroupRuleV2(rule); err != nil {
 			return zeroGroup, err
 		}
-		newGroup.Rules = append(newGroup.Rules, *groupRule)
 	}
-	return *newGroup, nil
+
+	// Since we may have done a few add or delete rules, get a new
+	// copy of the security group to return containing the end
+	// list of rules.
+	groupsFound, err = neutronClient.SecurityGroupByNameV2(name)
+	if err != nil {
+		return zeroGroup, err
+	} else if len(groupsFound) > 1 {
+		// TODO(hml): Add unit test for this case
+		return zeroGroup, errors.New(fmt.Sprintf("More than one security group named %s was found after group was ensured", name))
+	}
+	return groupsFound[0], nil
 }
 
-func countIngressRules(rules []neutron.SecurityGroupRuleV2) int {
-	count := 0
-	for _, rule := range rules {
-		if rule.Direction == "ingress" {
-			count += 1
+// ruleInfoSet represents a Security Group Rule created for a Security Group.
+// The string will be the Security Group Rule Id, if the rule has previously been
+// created.
+type ruleInfoSet map[neutron.RuleInfoV2]string
+
+// newRuleSetForGroup returns a set of all of the permissions in a given
+// slice of SecurityGroupRules.  It ignores the group id, the
+// remove group id, and tenant id.  Keep the rule id to delete the rule if
+// necessary.
+func newRuleInfoSetFromRules(rules []neutron.SecurityGroupRuleV2) ruleInfoSet {
+	m := make(ruleInfoSet)
+	for _, r := range rules {
+		k := neutron.RuleInfoV2{
+			Direction:      r.Direction,
+			EthernetType:   r.EthernetType,
+			RemoteIPPrefix: r.RemoteIPPrefix,
 		}
+		if r.IPProtocol != nil {
+			k.IPProtocol = *r.IPProtocol
+		}
+		if r.PortRangeMax != nil {
+			k.PortRangeMax = *r.PortRangeMax
+		}
+		if r.PortRangeMin != nil {
+			k.PortRangeMin = *r.PortRangeMin
+		}
+		m[k] = r.Id
 	}
-	return count
+	return m
 }
 
-// verifyGroupRules verifies the group rules against the rules we're looking for.
-func (c *neutronFirewaller) verifyGroupRules(rules []neutron.SecurityGroupRuleV2, rulesToMatch []neutron.RuleInfoV2) bool {
-	if countIngressRules(rules) != len(rulesToMatch) {
-		return false
-	}
-	count := len(rulesToMatch)
-	for _, rule := range rules {
-		// This is one of the default rules created when a new
-		// Neutron Security Group is created
-		if rule.Direction == "egress" {
-			continue
+// newRuleSetForGroup returns a set of all of the permissions in a given
+// slice of RuleInfo.  It ignores the rule id, the group id, the
+// remove group id, and tenant id.
+func newRuleInfoSetFromRuleInfo(rules []neutron.RuleInfoV2) ruleInfoSet {
+	m := make(ruleInfoSet)
+	for _, r := range rules {
+		k := neutron.RuleInfoV2{
+			Direction:      r.Direction,
+			IPProtocol:     r.IPProtocol,
+			PortRangeMin:   r.PortRangeMin,
+			PortRangeMax:   r.PortRangeMax,
+			EthernetType:   r.EthernetType,
+			RemoteIPPrefix: r.RemoteIPPrefix,
 		}
-		for _, toMatch := range rulesToMatch {
-			var maxInt int
-			if rule.PortRangeMax != nil {
-				maxInt = *rule.PortRangeMax
-			} else {
-				maxInt = 0
-			}
-			var minInt int
-			if rule.PortRangeMin != nil {
-				minInt = *rule.PortRangeMin
-			} else {
-				minInt = 0
-			}
-			if rule.Direction == toMatch.Direction &&
-				rule.RemoteIPPrefix == toMatch.RemoteIPPrefix &&
-				*rule.IPProtocol == toMatch.IPProtocol &&
-				minInt == toMatch.PortRangeMin &&
-				maxInt == toMatch.PortRangeMax {
-				count -= 1
-				break
-			}
-		}
+		m[k] = ""
 	}
-	if count != 0 {
-		return false
-	}
-	return true
+	return m
 }
 
 func (c *neutronFirewaller) deleteSecurityGroups(match func(name string) bool) error {
@@ -758,8 +801,11 @@ func (c *neutronFirewaller) matchingGroup(nameRegExp string) (neutron.SecurityGr
 			matchingGroups = append(matchingGroups, group)
 		}
 	}
-	if len(matchingGroups) != 1 {
+	numMatching := len(matchingGroups)
+	if numMatching == 0 {
 		return neutron.SecurityGroupV2{}, errors.NotFoundf("security groups matching %q", nameRegExp)
+	} else if numMatching > 1 {
+		return neutron.SecurityGroupV2{}, errors.New(fmt.Sprintf("%d security groups found matching %q, expected 1", numMatching, nameRegExp))
 	}
 	return matchingGroups[0], nil
 }

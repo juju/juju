@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
@@ -70,9 +71,9 @@ func (s *BaseSubnetSuite) RunCommand(c *gc.C, args ...string) (string, string, e
 	if s.command == nil {
 		panic("command is nil")
 	}
-	ctx, err := coretesting.RunCommand(c, s.command, args...)
+	ctx, err := cmdtesting.RunCommand(c, s.command, args...)
 	if ctx != nil {
-		return coretesting.Stdout(ctx), coretesting.Stderr(ctx), err
+		return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
 	}
 	return "", "", err
 }
@@ -128,11 +129,12 @@ func NewStubAPI() *StubAPI {
 		Zones:      []string{"zone1", "zone2"},
 	}, {
 		// IPv6 subnet.
-		CIDR:       "2001:db8::/32",
-		ProviderId: "subnet-bar",
-		Life:       params.Dying,
-		SpaceTag:   "space-dmz",
-		Zones:      []string{"zone2"},
+		CIDR:              "2001:db8::/32",
+		ProviderId:        "subnet-bar",
+		ProviderNetworkId: "network-yay",
+		Life:              params.Dying,
+		SpaceTag:          "space-dmz",
+		Zones:             []string{"zone2"},
 	}, {
 		// IPv4 VLAN subnet.
 		CIDR:     "10.10.0.0/16",

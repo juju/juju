@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/component/all"
 	coretesting "github.com/juju/juju/testing"
@@ -52,6 +53,7 @@ func init() {
 	gc.Suite(&CmdRelationSuite{})
 	gc.Suite(&remoteRelationsSuite{})
 	gc.Suite(&crossmodelSuite{})
+	gc.Suite(&ApplicationConfigSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.
@@ -71,9 +73,9 @@ func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	// return an error if we attempt to run two commands in the
 	// same test.
 	loggo.ResetWriters()
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	command := jujucmd.NewJujuCommand(ctx)
-	return coretesting.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func runCommandExpectSuccess(c *gc.C, command string, args ...string) {
@@ -84,5 +86,5 @@ func runCommandExpectSuccess(c *gc.C, command string, args ...string) {
 func runCommandExpectFailure(c *gc.C, command, expectedError string, args ...string) {
 	context, err := runCommand(c, append([]string{command}, args...)...)
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
-	c.Assert(coretesting.Stderr(context), jc.Contains, expectedError)
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, expectedError)
 }

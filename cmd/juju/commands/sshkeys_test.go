@@ -13,6 +13,7 @@ import (
 
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -94,9 +95,9 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
 
-	context, err := coretesting.RunCommand(c, NewListKeysCommand())
+	context, err := cmdtesting.RunCommand(c, NewListKeysCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	output := strings.TrimSpace(coretesting.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(output, gc.Matches, "Keys used in model: controller\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
@@ -106,15 +107,15 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
 
-	context, err := coretesting.RunCommand(c, NewListKeysCommand(), "--full")
+	context, err := cmdtesting.RunCommand(c, NewListKeysCommand(), "--full")
 	c.Assert(err, jc.ErrorIsNil)
-	output := strings.TrimSpace(coretesting.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(output, gc.Matches, "Keys used in model: controller\n.*user@host\n.*another@host")
 }
 
 func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {
-	_, err := coretesting.RunCommand(c, NewListKeysCommand(), "foo")
+	_, err := cmdtesting.RunCommand(c, NewListKeysCommand(), "foo")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
@@ -129,9 +130,9 @@ func (s *AddKeySuite) TestAddKey(c *gc.C) {
 	s.setAuthorizedKeys(c, key1)
 
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	context, err := coretesting.RunCommand(c, NewAddKeysCommand(), key2, "invalid-key")
+	context, err := cmdtesting.RunCommand(c, NewAddKeysCommand(), key2, "invalid-key")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot add key "invalid-key".*\n`)
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `cannot add key "invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1, key2)
 }
 
@@ -142,7 +143,7 @@ func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockAddKey")
-	_, err := coretesting.RunCommand(c, NewAddKeysCommand(), key2, "invalid-key")
+	_, err := cmdtesting.RunCommand(c, NewAddKeysCommand(), key2, "invalid-key")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddKey.*")
 }
 
@@ -157,10 +158,10 @@ func (s *RemoveKeySuite) TestRemoveKeys(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
 
-	context, err := coretesting.RunCommand(c, NewRemoveKeysCommand(),
+	context, err := cmdtesting.RunCommand(c, NewRemoveKeysCommand(),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot remove key id "invalid-key".*\n`)
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `cannot remove key id "invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1)
 }
 
@@ -171,7 +172,7 @@ func (s *RemoveKeySuite) TestBlockRemoveKeys(c *gc.C) {
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockRemoveKeys")
-	_, err := coretesting.RunCommand(c, NewRemoveKeysCommand(),
+	_, err := cmdtesting.RunCommand(c, NewRemoveKeysCommand(),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockRemoveKeys.*")
 }
@@ -191,9 +192,9 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
 
-	context, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "lp:invalid-key")
+	context, err := cmdtesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "lp:invalid-key")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot import key id "lp:invalid-key".*\n`)
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `cannot import key id "lp:invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
 }
 
@@ -203,6 +204,6 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockImportKeys")
-	_, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "lp:invalid-key")
+	_, err := cmdtesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "lp:invalid-key")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockImportKeys.*")
 }

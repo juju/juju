@@ -24,10 +24,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.keymanager")
 
-func init() {
-	common.RegisterStandardFacade("KeyManager", 1, NewKeyManagerAPI)
-}
-
 // The comment values used by juju internal ssh keys.
 var internalComments = set.NewStrings([]string{"juju-client-key", "juju-system-key"}...)
 
@@ -82,7 +78,7 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 		return common.ErrPerm
 	}
 	ok, err := common.HasPermission(
-		api.state.UserAccess,
+		api.state.UserPermission,
 		*api.apiUser,
 		permission.ReadAccess,
 		api.state.ModelTag(),

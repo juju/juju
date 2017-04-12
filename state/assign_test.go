@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
-	"time" // Only used to Sleep().
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"

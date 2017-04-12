@@ -241,7 +241,7 @@ func (st *State) Volume(tag names.VolumeTag) (Volume, error) {
 }
 
 func (st *State) volumes(query interface{}) ([]*volume, error) {
-	coll, cleanup := st.getCollection(volumesC)
+	coll, cleanup := st.db().GetCollection(volumesC)
 	defer cleanup()
 
 	var docs []volumeDoc
@@ -302,7 +302,7 @@ func (st *State) StorageInstanceVolume(tag names.StorageTag) (Volume, error) {
 // VolumeAttachment returns the VolumeAttachment corresponding to
 // the specified volume and machine.
 func (st *State) VolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (VolumeAttachment, error) {
-	coll, cleanup := st.getCollection(volumeAttachmentsC)
+	coll, cleanup := st.db().GetCollection(volumeAttachmentsC)
 	defer cleanup()
 
 	var att volumeAttachment
@@ -336,7 +336,7 @@ func (st *State) VolumeAttachments(volume names.VolumeTag) ([]VolumeAttachment, 
 }
 
 func (st *State) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
-	coll, cleanup := st.getCollection(volumeAttachmentsC)
+	coll, cleanup := st.db().GetCollection(volumeAttachmentsC)
 	defer cleanup()
 
 	var docs []volumeAttachmentDoc

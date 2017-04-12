@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/constraints"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
 )
 
 type UpgradeCharmResourceSuite struct {
@@ -45,7 +45,7 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 
-	_, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), chPath, "riak", "--series", "quantal")
+	_, err := cmdtesting.RunCommand(c, application.NewDefaultDeployCommand(), chPath, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +87,7 @@ resources:
 	err = ioutil.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, application.NewUpgradeCharmCommand(),
+	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(),
 		"riak", "--path="+myriakPath.Path, "--resource", "data="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -193,9 +193,9 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	err := ioutil.WriteFile(resourceFile, []byte(resourceContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
+	ctx, err := cmdtesting.RunCommand(c, application.NewDefaultDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 
 	expectedOutput := `Located charm "cs:trusty/starsay-1".
 Deploying charm "cs:trusty/starsay-1".
@@ -279,7 +279,7 @@ Deploying charm "cs:trusty/starsay-1".
 
 	testcharms.UploadCharm(c, s.client, "trusty/starsay-2", "starsay")
 
-	_, err = testing.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
+	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertServicesDeployed(c, map[string]serviceInfo{

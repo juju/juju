@@ -4,13 +4,13 @@
 package listbudgets_test
 
 import (
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/wireformat/budget"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/listbudgets"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -54,6 +54,7 @@ func (s *listBudgetsSuite) TestListBudgetsOutput(c *gc.C) {
 				Unallocated: "20",
 				Available:   "45",
 				Consumed:    "5",
+				Default:     true,
 			},
 			budget.BudgetSummary{
 				Owner:       "bob",
@@ -85,11 +86,11 @@ func (s *listBudgetsSuite) TestListBudgetsOutput(c *gc.C) {
 	}
 	// Expected command output. Make sure budgets are sorted alphabetically.
 	expected := "" +
-		"BUDGET       \tMONTHLY\tALLOCATED\tAVAILABLE\tSPENT\n" +
-		"personal     \t     50\t       30\t       45\t    5\n" +
+		"Budget       \tMonthly\tAllocated\tAvailable\tSpent\n" +
+		"personal*    \t     50\t       30\t       45\t    5\n" +
 		"team         \t     50\t       10\t       40\t   10\n" +
 		"work         \t    200\t      100\t      150\t   50\n" +
-		"TOTAL        \t    300\t      140\t      235\t   65\n" +
+		"Total        \t    300\t      140\t      235\t   65\n" +
 		"             \t       \t         \t         \t     \n" +
 		"Credit limit:\t    400\t         \t         \t     \n"
 
@@ -114,8 +115,8 @@ func (s *listBudgetsSuite) TestListBudgetsOutputNoBudgets(c *gc.C) {
 		Credit: "0",
 	}
 	expected := "" +
-		"BUDGET       \tMONTHLY\tALLOCATED\tAVAILABLE\tSPENT\n" +
-		"TOTAL        \t      0\t        0\t        0\t    0\n" +
+		"Budget       \tMonthly\tAllocated\tAvailable\tSpent\n" +
+		"Total        \t      0\t        0\t        0\t    0\n" +
 		"             \t       \t         \t         \t     \n" +
 		"Credit limit:\t      0\t         \t         \t     \n"
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -98,13 +99,13 @@ var _ = gc.Suite(&EnableHASuite{})
 
 func (s *EnableHASuite) runEnableHA(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := &enableHACommand{newHAClientFunc: func() (MakeHAClient, error) { return s.fake, nil }}
-	return coretesting.RunCommand(c, modelcmd.WrapController(command), args...)
+	return cmdtesting.RunCommand(c, modelcmd.WrapController(command), args...)
 }
 
 func (s *EnableHASuite) TestEnableHA(c *gc.C) {
 	ctx, err := s.runEnableHA(c, "-n", "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "\n")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 1)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
@@ -159,7 +160,7 @@ func (s *EnableHASuite) TestEnableHAWithFive(c *gc.C) {
 	// Also test with -n 5 to validate numbers other than 1 and 3
 	ctx, err := s.runEnableHA(c, "-n", "5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2, 3, 4\n\n")
 
@@ -171,7 +172,7 @@ func (s *EnableHASuite) TestEnableHAWithFive(c *gc.C) {
 func (s *EnableHASuite) TestEnableHAWithConstraints(c *gc.C) {
 	ctx, err := s.runEnableHA(c, "--constraints", "mem=4G", "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
@@ -184,7 +185,7 @@ func (s *EnableHASuite) TestEnableHAWithConstraints(c *gc.C) {
 func (s *EnableHASuite) TestEnableHAWithPlacement(c *gc.C) {
 	ctx, err := s.runEnableHA(c, "--to", "valid", "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
@@ -209,7 +210,7 @@ func (s *EnableHASuite) TestEnableHAAllows0(c *gc.C) {
 	// then use the default number of 3.
 	ctx, err := s.runEnableHA(c, "-n", "0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
@@ -223,7 +224,7 @@ func (s *EnableHASuite) TestEnableHADefaultsTo0(c *gc.C) {
 	// API.  The API will then use the default number of 3.
 	ctx, err := s.runEnableHA(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
@@ -236,11 +237,11 @@ func (s *EnableHASuite) TestEnableHAEndToEnd(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
-	ctx, err := coretesting.RunCommand(c, newEnableHACommand(), "-n", "3")
+	ctx, err := cmdtesting.RunCommand(c, newEnableHACommand(), "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Machine 0 is demoted because it hasn't reported its presence
-	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"adding machines: 1, 2, 3\n"+
 			"demoting machines: 0\n\n")
 }
@@ -248,7 +249,7 @@ func (s *EnableHASuite) TestEnableHAEndToEnd(c *gc.C) {
 func (s *EnableHASuite) TestEnableHAToExisting(c *gc.C) {
 	ctx, err := s.runEnableHA(c, "--to", "1,2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(coretesting.Stdout(ctx), gc.Equals, `
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, `
 maintaining machines: 0
 converting machines: 1, 2
 
@@ -264,5 +265,5 @@ func (s *EnableHASuite) TestEnableHADisallowsSeries(c *gc.C) {
 	// inadvertantly added back.
 	ctx, err := s.runEnableHA(c, "-n", "0", "--series", "xenian")
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --series")
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

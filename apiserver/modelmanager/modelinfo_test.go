@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -187,6 +186,10 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}, {
 			Id: "2",
 		}},
+		SLA: &params.ModelSLAInfo{
+			Level: "essential",
+			Owner: "user",
+		},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
@@ -215,6 +218,8 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Cloud", nil},
 		{"CloudRegion", nil},
 		{"CloudCredential", nil},
+		{"SLALevel", nil},
+		{"SLAOwner", nil},
 	})
 }
 
@@ -345,6 +350,16 @@ type unitRetriever interface {
 	Unit(name string) (*state.Unit, error)
 }
 
+// metricSender defines methods required by the metricsender package.
+type metricSender interface {
+	MetricsManager() (*state.MetricsManager, error)
+	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
+	SetMetricBatchesSent(batchUUIDs []string) error
+	CountOfUnsentMetrics() (int, error)
+	CountOfSentMetrics() (int, error)
+	CleanupOldMetrics() error
+}
+
 type mockState struct {
 	gitjujutesting.Stub
 
@@ -352,7 +367,7 @@ type mockState struct {
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
 	common.BlockGetter
-	metricsender.MetricsSenderBackend
+	metricSender
 	unitRetriever
 
 	modelUUID       string
@@ -615,6 +630,11 @@ func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 	return st.migration, st.NextErr()
 }
 
+func (st *mockState) SetModelMeterStatus(level, message string) error {
+	st.MethodCall(st, "SetModelMeterStatus", level, message)
+	return st.NextErr()
+}
+
 type mockBlock struct {
 	state.Block
 	t state.BlockType
@@ -758,6 +778,16 @@ func (m *mockModel) Destroy() error {
 func (m *mockModel) DestroyIncludingHosted() error {
 	m.MethodCall(m, "DestroyIncludingHosted")
 	return m.NextErr()
+}
+
+func (m *mockModel) SLALevel() string {
+	m.MethodCall(m, "SLALevel")
+	return "essential"
+}
+
+func (m *mockModel) SLAOwner() string {
+	m.MethodCall(m, "SLAOwner")
+	return "user"
 }
 
 type mockModelUser struct {

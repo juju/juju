@@ -215,3 +215,66 @@ func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend().Equal(time.Time{}), jc.IsTrue)
 }
+
+func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeMachine(c, nil)
+	err = s.metricsmanager.AddJujuMachineMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	metrics, err := s.State.MetricsToSend(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Metrics()[0].Key, gc.Equals, "juju-machines")
+	c.Assert(metrics[0].Metrics()[0].Value, gc.Equals, "2")
+	c.Assert(metrics[0].SLACredentials(), gc.DeepEquals, []byte("sla"))
+}
+
+func (s *metricsManagerSuite) TestAddJujuMachineMetricsAddsNoMetricsWhenNoSLASet(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	err := s.metricsmanager.AddJujuMachineMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	metrics, err := s.State.MetricsToSend(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 0)
+}
+
+func (s *metricsManagerSuite) TestAddJujuMachineMetricsDontCountContainers(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	c.Assert(err, jc.ErrorIsNil)
+	machine := s.Factory.MakeMachine(c, nil)
+	s.Factory.MakeMachineNested(c, machine.Id(), nil)
+	err = s.metricsmanager.AddJujuMachineMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	metrics, err := s.State.MetricsToSend(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Metrics()[0].Key, gc.Equals, "juju-machines")
+	// Even though we add two machines - one nested (i.e. container) we only
+	// count non-container machine.
+	c.Assert(metrics[0].Metrics()[0].Value, gc.Equals, "2")
+	c.Assert(metrics[0].SLACredentials(), gc.DeepEquals, []byte("sla"))
+}
+
+func (s *metricsManagerSuite) TestSendMetricsMachineMetrics(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeMachine(c, nil)
+	var sender testing.MockSender
+	metricsmanager.PatchSender(&sender)
+	args := params.Entities{Entities: []params.Entity{
+		{s.State.ModelTag().String()},
+	}}
+	result, err := s.metricsmanager.SendMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+	c.Assert(sender.Data, gc.HasLen, 1)
+	c.Assert(sender.Data[0], gc.HasLen, 1)
+	c.Assert(sender.Data[0][0].Metrics[0].Key, gc.Equals, "juju-machines")
+	c.Assert(sender.Data[0][0].SLACredentials, gc.DeepEquals, []byte("sla"))
+	ms, err := s.State.AllMetricBatches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.HasLen, 1)
+	c.Assert(ms[0].Sent(), jc.IsTrue)
+}

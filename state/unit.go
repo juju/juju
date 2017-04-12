@@ -346,7 +346,7 @@ func (u *Unit) Destroy() (err error) {
 }
 
 func (u *Unit) eraseHistory() error {
-	history, closer := u.st.getCollection(statusesHistoryC)
+	history, closer := u.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 
@@ -807,7 +807,7 @@ func (u *Unit) AvailabilityZone() (string, error) {
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.
 func (u *Unit) Refresh() error {
-	units, closer := u.st.getCollection(unitsC)
+	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
 	err := units.FindId(u.doc.DocID).One(&u.doc)
@@ -1253,7 +1253,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 		return u.doc.MachineId, nil
 	}
 
-	units, closer := u.st.getCollection(unitsC)
+	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
 	pudoc := unitDoc{}
@@ -1660,7 +1660,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	if err != nil {
 		return err
 	}
-	machinesCollection, closer := u.st.getCollection(machinesC)
+	machinesCollection, closer := u.st.db().GetCollection(machinesC)
 	defer closer()
 	var host machineDoc
 	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
@@ -2130,7 +2130,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// instances for those that are provisioned. Instances
 	// will be distributed across in preference to
 	// unprovisioned machines.
-	machinesCollection, closer := u.st.getCollection(machinesC)
+	machinesCollection, closer := u.st.db().GetCollection(machinesC)
 	defer closer()
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {

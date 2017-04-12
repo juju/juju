@@ -70,8 +70,10 @@ func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) cmd.Comm
 }
 
 // NewConsumeCommandForTest returns a ConsumeCommand with the specified api.
-func NewConsumeCommandForTest(api applicationConsumeAPI) cmd.Command {
-	return modelcmd.Wrap(&consumeCommand{api: api})
+func NewConsumeCommandForTest(store jujuclient.ClientStore, api applicationConsumeAPI) cmd.Command {
+	c := &consumeCommand{api: api}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c)
 }
 
 type Patcher interface {

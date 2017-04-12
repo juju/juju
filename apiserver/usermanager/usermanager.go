@@ -19,10 +19,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.usermanager")
 
-func init() {
-	common.RegisterStandardFacade("UserManager", 1, NewUserManagerAPI)
-}
-
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
@@ -33,6 +29,7 @@ type UserManagerAPI struct {
 	isAdmin    bool
 }
 
+// NewUserManagerAPI provides the signature required for facade registration.
 func NewUserManagerAPI(
 	st *state.State,
 	resources facade.Resources,
@@ -271,9 +268,9 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 
 	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
 		// Lookup the access the specified user has to the controller.
-		_, controllerUserAccess, err := common.UserAccess(api.state, userTag)
+		access, err := common.GetPermission(api.state.UserPermission, userTag, api.state.ControllerTag())
 		if err == nil {
-			result.Result.Access = string(controllerUserAccess.Access)
+			result.Result.Access = string(access)
 		} else if err != nil && !errors.IsNotFound(err) {
 			result.Result = nil
 			result.Error = common.ServerError(err)

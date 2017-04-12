@@ -138,6 +138,11 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
 	}
 
+	// first validate cloud input
+	if err = cloud.ValidateCloudSet([]byte(c.CloudFile)); err != nil {
+		ctxt.Warningf("%s", err.Error())
+	}
+
 	// validate cloud data
 	provider, err := environs.Provider(newCloud.Type)
 	if err != nil {

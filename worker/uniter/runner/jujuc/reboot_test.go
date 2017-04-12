@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -93,7 +93,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		hctx.rebootPriority = t.hctx.rebootPriority
 		com, err := jujuc.NewCommand(hctx, cmdString("juju-reboot"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		c.Check(hctx.rebootPriority, gc.Equals, t.priority)
@@ -104,8 +104,8 @@ func (s *JujuRebootSuite) TestRebootInActions(c *gc.C) {
 	jujucCtx := &actionGetContext{}
 	com, err := jujuc.NewCommand(jujucCtx, cmdString("juju-reboot"))
 	c.Assert(err, jc.ErrorIsNil)
-	cmdCtx := testing.Context(c)
+	cmdCtx := cmdtesting.Context(c)
 	code := cmd.Main(com, cmdCtx, nil)
 	c.Check(code, gc.Equals, 1)
-	c.Assert(testing.Stderr(cmdCtx), gc.Equals, "error: juju-reboot is not supported when running an action.\n")
+	c.Assert(cmdtesting.Stderr(cmdCtx), gc.Equals, "ERROR juju-reboot is not supported when running an action.\n")
 }

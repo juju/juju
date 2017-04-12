@@ -16,10 +16,6 @@ import (
 	"github.com/juju/juju/status"
 )
 
-func init() {
-	common.RegisterStandardFacade("InstancePoller", 3, newInstancePollerAPI)
-}
-
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
@@ -35,8 +31,8 @@ type InstancePollerAPI struct {
 	clock         clock.Clock
 }
 
-// newInstancePollerAPI wraps NewInstancePollerAPI for RegisterStandardFacade.
-func newInstancePollerAPI(
+// NewFacade wraps NewInstancePollerAPI for facade registration.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

@@ -29,9 +29,9 @@ func (*CentralHubSuite) waitForSubscribers(c *gc.C, done <-chan struct{}) {
 
 func (s *CentralHubSuite) TestSetsOrigin(c *gc.C) {
 	hub := centralhub.New(names.NewMachineTag("42"))
-	topic := pubsub.Topic("testing")
+	topic := "testing"
 	var called bool
-	unsub, err := hub.Subscribe(pubsub.MatchAll, func(t pubsub.Topic, data map[string]interface{}) {
+	unsub, err := hub.SubscribeMatch(pubsub.MatchAll, func(t string, data map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		expected := map[string]interface{}{
 			"key":    "value",
@@ -42,7 +42,7 @@ func (s *CentralHubSuite) TestSetsOrigin(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	defer unsub.Unsubscribe()
+	defer unsub()
 
 	done, err := hub.Publish(topic, map[string]interface{}{"key": "value"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,9 +56,9 @@ type IntStruct struct {
 
 func (s *CentralHubSuite) TestYAMLMarshalling(c *gc.C) {
 	hub := centralhub.New(names.NewMachineTag("42"))
-	topic := pubsub.Topic("testing")
+	topic := "testing"
 	var called bool
-	unsub, err := hub.Subscribe(pubsub.MatchAll, func(t pubsub.Topic, data map[string]interface{}) {
+	unsub, err := hub.SubscribeMatch(pubsub.MatchAll, func(t string, data map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		expected := map[string]interface{}{
 			"key":    1234,
@@ -69,7 +69,7 @@ func (s *CentralHubSuite) TestYAMLMarshalling(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	defer unsub.Unsubscribe()
+	defer unsub()
 
 	// With the default JSON marshalling, integers are marshalled to floats into the map.
 	done, err := hub.Publish(topic, IntStruct{1234})
@@ -88,9 +88,9 @@ func (s *CentralHubSuite) TestPostProcessingMaps(c *gc.C) {
 	// need to be map[string]interface{} not map[interface{}]interface{},
 	// which is what the YAML marshaller will give us.
 	hub := centralhub.New(names.NewMachineTag("42"))
-	topic := pubsub.Topic("testing")
+	topic := "testing"
 	var called bool
-	unsub, err := hub.Subscribe(pubsub.MatchAll, func(t pubsub.Topic, data map[string]interface{}) {
+	unsub, err := hub.SubscribeMatch(pubsub.MatchAll, func(t string, data map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		expected := map[string]interface{}{
 			"key": "value",
@@ -104,7 +104,7 @@ func (s *CentralHubSuite) TestPostProcessingMaps(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	defer unsub.Unsubscribe()
+	defer unsub()
 
 	// With the default JSON marshalling, integers are marshalled to floats into the map.
 	done, err := hub.Publish(topic, NestedStruct{

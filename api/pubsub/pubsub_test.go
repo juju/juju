@@ -120,7 +120,9 @@ func (s mockStream) ReadJSON(v interface{}) error {
 }
 
 func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
-	s.conn.c.Errorf("NextReader called unexpectedly")
+	// NextReader is now called by the read loop thread.
+	// So just wait a bit and return so it doesn't sit in a very tight loop.
+	time.Sleep(time.Millisecond)
 	return 0, nil, nil
 }
 
@@ -183,10 +185,10 @@ func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 
 func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	writer := s.connect(c)
-	var topic pubsub.Topic = "test.message"
+	topic := "test.message"
 	messages := []map[string]interface{}{}
 	done := make(chan struct{})
-	_, err := s.hub.Subscribe(pubsub.MatchAll, func(t pubsub.Topic, payload map[string]interface{}) {
+	_, err := s.hub.SubscribeMatch(pubsub.MatchAll, func(t string, payload map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		messages = append(messages, payload)
 		if len(messages) == 2 {
