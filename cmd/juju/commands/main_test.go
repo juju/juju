@@ -521,7 +521,6 @@ var commandNames = []string{
 	"storage",
 	"storage-pools",
 	"subnets",
-	"support",
 	"switch",
 	"sync-tools",
 	"unexpose",

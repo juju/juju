@@ -13,15 +13,15 @@ import (
 
 var (
 	NewAuthorizationClient = &newAuthorizationClient
-	NewSLAClient           = &newSlaClient
+	NewSLAClient           = &newSLAClient
 	ModelId                = &modelId
 )
 
 // NewSLACommandForTest returns an slaCommand with apis provided by the given arguments
 func NewSLACommandForTest(apiRoot api.Connection, slaC slaClient, authClient authorizationClient) cmd.Command {
-	cmd := &supportCommand{
+	cmd := &slaCommand{
 		newAPIRoot:   func() (api.Connection, error) { return apiRoot, nil },
-		newSlaClient: func(api.Connection) slaClient { return slaC },
+		newSLAClient: func(api.Connection) slaClient { return slaC },
 		newAuthorizationClient: func(options ...sla.ClientOption) (authorizationClient, error) {
 			return authClient, nil
 		},
