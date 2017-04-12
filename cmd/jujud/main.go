@@ -209,6 +209,7 @@ func Main(args []string) int {
 		logger.Errorf("error: %v\n", err)
 		os.Exit(exit_err)
 	}
+	cmd.SetUpLogging(ctx)
 
 	code := 1
 	commandName := filepath.Base(args[0])

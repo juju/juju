@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )

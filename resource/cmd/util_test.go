@@ -8,11 +8,10 @@ import (
 	"strings"
 
 	jujucmd "github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
-	"github.com/juju/juju/cmd/cmdtesting"
 )
 
 func charmRes(c *gc.C, name, suffix, description, content string) charmresource.Resource {
