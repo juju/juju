@@ -375,21 +375,23 @@ func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
 	session := w.beings.Database.Session.Copy()
 	defer session.Close()
 
+	beingInfos := make(map[int64]beingInfo)
 	beingsC := w.beings.With(session)
+
 	t0 := time.Now()
-	beings := make([]beingInfo, 0)
-	err := beingsC.Find(bson.M{
+	iter := beingsC.Find(bson.M{
 		"_id": bson.M{"$regex": bson.RegEx{"^" + w.modelUUID, ""}},
-	}).All(&beings)
-	if err != nil {
-		return nil, err
-	}
-	dt := time.Now().Sub(t0)
-	logger.Debugf("[%s] loaded %d beings in %s", w.modelUUID[:6], len(beings), dt)
-	beingInfos := make(map[int64]beingInfo, len(beings))
-	for _, being := range beings {
+	}).Batch(1600).Iter()
+	var being beingInfo
+	for iter.Next(&being) {
 		beingInfos[being.Seq] = being
 	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotate(err, "reading all beings")
+	}
+
+	dt := time.Now().Sub(t0)
+	logger.Debugf("[%s] loaded %d beings in %s", w.modelUUID[:6], len(beingInfos), dt)
 	return beingInfos, nil
 }
 
