@@ -144,8 +144,10 @@ if [[ ! -f ~/.ssh/id_rsa ]]; then
     ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 fi
 if [[ "$USE_TMPFS" == "true" ]]; then
-    sudo mkdir -m 777 /mnt/tmp
-    sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
+    if ! findmnt /mnt/tmp > /dev/null; then
+        sudo mkdir -p -m 777 /mnt/tmp
+        sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
+    fi
     export TMPDIR=/mnt/tmp
 fi
 export GOPATH=\$HOME/$juju_version
