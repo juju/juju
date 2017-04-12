@@ -742,7 +742,7 @@ class HookFailedError(UnitError):
 class InstallError(HookFailedError):
     """The unit's install hook has failed."""
 
-    recoverable = False
+    recoverable = True
 
 
 class AppError(StatusError):
