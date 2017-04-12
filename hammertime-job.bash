@@ -52,5 +52,7 @@ fi
 EOT
 EXIT_STATUS=$?
 set -e
+JUJU_DATA=$DATA_DIR $JUJU_BIN status --format yaml || true
+if [ -f $PLAN ]; then cat $PLAN; fi
 JUJU_DATA=$DATA_DIR $JUJU_BIN kill-controller $MODEL_NAME --yes
 exit $EXIT_STATUS
