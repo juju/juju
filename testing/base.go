@@ -94,6 +94,13 @@ func SkipIfI386(c *gc.C, bugID string) {
 	}
 }
 
+// SkipIfS390X skips the test if the arch is S390X.
+func SkipIfS390X(c *gc.C, bugID string) {
+	if arch.NormaliseArch(runtime.GOARCH) == arch.S390X {
+		c.Skip(fmt.Sprintf("Test disabled on S390X until fixed - see bug %s", bugID))
+	}
+}
+
 // SkipIfWindowsBug skips the test if the OS is Windows.
 func SkipIfWindowsBug(c *gc.C, bugID string) {
 	if runtime.GOOS == "windows" {
