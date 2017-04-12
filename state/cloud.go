@@ -134,7 +134,7 @@ func (st *State) AddCloud(c cloud.Cloud) error {
 		return errors.Annotate(err, "invalid cloud")
 	}
 	ops := []txn.Op{createCloudOp(c)}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			err = errors.AlreadyExistsf("cloud %q", c.Name)
 		}

@@ -252,7 +252,7 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 		}
 		return ops, nil
 	}
-	return dev.st.run(buildTxn)
+	return dev.st.db().Run(buildTxn)
 }
 
 func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
@@ -499,5 +499,5 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 		return errors.Trace(err)
 	}
 
-	return dev.st.runTransaction(ops)
+	return dev.st.db().RunTransaction(ops)
 }

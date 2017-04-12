@@ -115,7 +115,7 @@ func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
 		}
 		return ops, nil
 	}
-	if err := info.st.run(buildTxn); err != nil {
+	if err := info.st.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "setting status %q", status)
 	}
 	return nil

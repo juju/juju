@@ -293,7 +293,7 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error) {
@@ -880,7 +880,7 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		ops = append(ops, u.assertCharmOps(ch)...)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // attachStorageOps returns txn.Ops to attach a storage instance to the
@@ -998,7 +998,7 @@ func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // DetachStorage ensures that the storage attachment will be
@@ -1113,7 +1113,7 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		}
 		return append(ops, detachStorageOps(storage, unit)...), nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
@@ -1189,7 +1189,7 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeStorageAttachmentOps(
@@ -1805,7 +1805,7 @@ func (st *State) AddStorageForUnit(
 		}
 		return st.addStorageForUnitOps(u, name, cons)
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "adding %q storage to %s", name, u)
 	}
 	return nil

@@ -57,7 +57,7 @@ func (m *Machine) setFlag() error {
 			Insert: &rebootDoc{Id: m.Id()},
 		},
 	}
-	err := m.st.runTransaction(ops)
+	err := m.st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		if err := checkModelActive(m.st); err != nil {
 			return errors.Trace(err)
@@ -88,7 +88,7 @@ func (m *Machine) clearFlag() error {
 		return nil
 	}
 	ops := []txn.Op{removeRebootDocOp(m.st, m.Id())}
-	err = m.st.runTransaction(ops)
+	err = m.st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Errorf("failed to clear reboot flag: %v", err)
 	}

@@ -252,7 +252,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}
 	u.doc.Tools = tools
@@ -277,7 +277,7 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-	err := u.st.runTransaction(ops)
+	err := u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, ErrDead))
 	}
@@ -327,7 +327,7 @@ func (u *Unit) Destroy() (err error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	if err = unit.st.run(buildTxn); err == nil {
+	if err = unit.st.db().Run(buildTxn); err == nil {
 		if historyErr := unit.eraseHistory(); historyErr != nil {
 			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), historyErr)
 		}
@@ -591,7 +591,7 @@ func (u *Unit) EnsureDead() (err error) {
 		Assert: assert,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := u.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if notDead, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
@@ -660,7 +660,7 @@ func (u *Unit) Remove() (err error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	return unit.st.run(buildTxn)
+	return unit.st.db().Run(buildTxn)
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -1135,7 +1135,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 		return ops, nil
 	}
-	err := u.st.run(buildTxn)
+	err := u.st.db().Run(buildTxn)
 	if err == nil {
 		u.doc.CharmURL = curl
 	}
@@ -1294,7 +1294,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		}
 		return u.assignToMachineOps(m, unused)
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -1719,7 +1719,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		if errors.Cause(err) == machineNotCleanErr {
 			// The clean machine was used before we got a chance
 			// to use it so just stick the unit on a new machine.
@@ -1777,7 +1777,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -2129,7 +2129,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (*Machine, erro
 		m, ops, err = u.assignToCleanMaybeEmptyMachineOps(requireEmpty)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -2287,7 +2287,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
 		})
 	}
-	err = u.st.runTransaction(ops)
+	err = u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
@@ -2420,7 +2420,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
 	}}
-	if err := u.st.runTransaction(ops); err == nil {
+	if err := u.st.db().RunTransaction(ops); err == nil {
 		u.doc.Resolved = mode
 		return nil
 	} else if err != txn.ErrAborted {
@@ -2443,7 +2443,7 @@ func (u *Unit) ClearResolved() error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.runTransaction(ops)
+	err := u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
 	}

@@ -371,7 +371,7 @@ func (c *Charm) Destroy() error {
 		}
 		return ops, nil
 	}
-	if err := c.st.run(buildTxn); err != nil {
+	if err := c.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	c.doc.Life = Dying
@@ -403,7 +403,7 @@ func (c *Charm) Remove() error {
 		Id:     c.doc.URL.String(),
 		Remove: true,
 	}}
-	if err := c.st.runTransaction(removeOps); err != nil {
+	if err := c.st.db().RunTransaction(removeOps); err != nil {
 		return errors.Trace(err)
 	}
 	c.doc.Life = Dead
@@ -507,7 +507,7 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.st.runTransaction(ops); err != nil {
+	if err := c.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -548,7 +548,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		}
 		return nil, errors.AlreadyExistsf("charm %q", info.ID)
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return st.Charm(info.ID)
 	}
 	return nil, errors.Trace(err)
@@ -661,7 +661,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 		return nil, errors.Trace(err)
 	}
 
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return allocatedURL, nil
@@ -727,7 +727,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			return nil, jujutxn.ErrNoOperations
 		}
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return newCharm(st, &uploadedCharm), nil
 	}
 	return nil, errors.Trace(err)
@@ -775,7 +775,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		ops := append(deleteOps, insertOps...)
 		return ops, nil
 	}
-	return errors.Trace(st.run(buildTxn))
+	return errors.Trace(st.db().Run(buildTxn))
 }
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
@@ -800,7 +800,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(info.ID)

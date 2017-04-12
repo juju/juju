@@ -128,7 +128,7 @@ func (st *State) Cleanup() (err error) {
 			Id:     doc.DocID,
 			Remove: true,
 		}}
-		if err := st.runTransaction(ops); err != nil {
+		if err := st.db().RunTransaction(ops); err != nil {
 			return errors.Annotate(err, "cannot remove empty cleanup document")
 		}
 	}
@@ -479,7 +479,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	if err != nil {
 		return err
 	}
-	return st.runTransaction(removePortsOps)
+	return st.db().RunTransaction(removePortsOps)
 
 	// Note that we do *not* remove the machine entirely: we leave it for the
 	// provisioner to clean up, so that we don't end up with an unreferenced

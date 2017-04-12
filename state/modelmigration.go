@@ -341,7 +341,7 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 		Assert: bson.M{"phase": mig.statusDoc.Phase},
 	})
 
-	if err := mig.st.runTransaction(ops); err == txn.ErrAborted {
+	if err := mig.st.db().RunTransaction(ops); err == txn.ErrAborted {
 		return errors.New("phase already changed")
 	} else if err != nil {
 		return errors.Annotate(err, "failed to update phase")
@@ -404,7 +404,7 @@ func (mig *modelMigration) SetStatusMessage(text string) error {
 		Update: bson.M{"$set": bson.M{"status-message": text}},
 		Assert: txn.DocExists,
 	})
-	if err := mig.st.runTransaction(ops); err != nil {
+	if err := mig.st.db().RunTransaction(ops); err != nil {
 		return errors.Annotate(err, "failed to set migration status")
 	}
 	mig.statusDoc.StatusMessage = text
@@ -432,7 +432,7 @@ func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Pha
 		Insert: doc,
 		Assert: txn.DocMissing,
 	}}
-	err = mig.st.runTransaction(ops)
+	err = mig.st.db().RunTransaction(ops)
 	if errors.Cause(err) == txn.ErrAborted {
 		coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
 		defer closer()
@@ -705,7 +705,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 		}...)
 		return ops, nil
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create migration")
 	}
 

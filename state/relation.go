@@ -133,7 +133,7 @@ func (r *Relation) Destroy() (err error) {
 		}
 		return ops, nil
 	}
-	return rel.st.run(buildTxn)
+	return rel.st.db().Run(buildTxn)
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and

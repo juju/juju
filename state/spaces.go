@@ -111,7 +111,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		})
 	}
 
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
+	if err := st.db().RunTransaction(ops); err == txn.ErrAborted {
 		if _, err := st.Space(name); err == nil {
 			return nil, errors.AlreadyExistsf("space %q", name)
 		}
@@ -185,7 +185,7 @@ func (s *Space) EnsureDead() (err error) {
 		Assert: isAliveDoc,
 	}}
 
-	txnErr := s.st.runTransaction(ops)
+	txnErr := s.st.db().RunTransaction(ops)
 	if txnErr == nil {
 		s.doc.Life = Dead
 		return nil
@@ -212,7 +212,7 @@ func (s *Space) Remove() (err error) {
 		ops = append(ops, s.st.networkEntityGlobalKeyRemoveOp("space", s.ProviderId()))
 	}
 
-	txnErr := s.st.runTransaction(ops)
+	txnErr := s.st.db().RunTransaction(ops)
 	if txnErr == nil {
 		return nil
 	}

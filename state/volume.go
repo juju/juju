@@ -501,7 +501,7 @@ func (st *State) DetachVolume(machine names.MachineTag, volume names.VolumeTag) 
 		}
 		return detachVolumeOps(machine, volume), nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func (st *State) volumeFilesystemAttachment(machine names.MachineTag, volume names.VolumeTag) (FilesystemAttachment, error) {
@@ -545,7 +545,7 @@ func (st *State) RemoveVolumeAttachment(machine names.MachineTag, volume names.V
 		}
 		return removeVolumeAttachmentOps(machine, v), nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
@@ -657,7 +657,7 @@ func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 		}}}
 		return destroyVolumeOps(st, volume, hasNoStorageAssignment)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func destroyVolumeOps(st *State, v *volume, extraAssert bson.D) ([]txn.Op, error) {
@@ -732,7 +732,7 @@ func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 			removeStatusOp(st, volumeGlobalKey(tag.Id())),
 		}, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // newVolumeName returns a unique volume name.
@@ -952,7 +952,7 @@ func (st *State) setVolumeAttachmentInfo(
 		)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func setVolumeAttachmentInfoOps(machine names.MachineTag, volume names.VolumeTag, info VolumeAttachmentInfo, unsetParams bool) []txn.Op {
@@ -1019,7 +1019,7 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		ops = append(ops, setVolumeInfoOps(tag, info, unsetParams)...)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func validateVolumeInfoChange(newInfo, oldInfo VolumeInfo) error {

@@ -159,7 +159,7 @@ func (a *Application) Destroy() (err error) {
 		}
 		return nil, jujutxn.ErrTransientFailure
 	}
-	return a.st.run(buildTxn)
+	return a.st.db().Run(buildTxn)
 }
 
 // destroyOps returns the operations required to destroy the application. If it
@@ -327,7 +327,7 @@ func (a *Application) setExposed(exposed bool) (err error) {
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
-	if err := a.st.runTransaction(ops); err != nil {
+	if err := a.st.db().RunTransaction(ops); err != nil {
 		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, errNotAlive))
 	}
 	a.doc.Exposed = exposed
@@ -996,7 +996,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 		return ops, nil
 	}
-	if err := a.st.run(buildTxn); err != nil {
+	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
 	a.doc.CharmURL = cfg.Charm.URL()
@@ -1289,7 +1289,7 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 		return nil, err
 	}
 
-	if err := a.st.runTransaction(ops); err == txn.ErrAborted {
+	if err := a.st.db().RunTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(a.st, applicationsC, a.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
@@ -1566,7 +1566,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 			Update: update,
 		}}, nil
 	}
-	return a.st.run(buildTxnWithLeadership(buildTxn, token))
+	return a.st.db().Run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")
@@ -1601,7 +1601,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 		Assert: isAliveDoc,
 	}}
 	ops = append(ops, setConstraintsOp(a.st, a.globalKey(), cons))
-	return onAbort(a.st.runTransaction(ops), errNotAlive)
+	return onAbort(a.st.db().RunTransaction(ops), errNotAlive)
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
@@ -1664,7 +1664,7 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 		}
 		return ops, nil
 	}
-	if err := a.st.run(buildTxn); err != nil {
+	if err := a.st.db().Run(buildTxn); err != nil {
 		if err == errNotAlive {
 			return errors.New("cannot update metric credentials: application " + err.Error())
 		}

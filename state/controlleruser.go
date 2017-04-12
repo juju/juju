@@ -25,7 +25,7 @@ func (st *State) setControllerAccess(access permission.Access, userGlobalKey str
 	}
 	op := updatePermissionOp(controllerKey(st.ControllerUUID()), userGlobalKey, access)
 
-	err := st.runTransaction([]txn.Op{op})
+	err := st.db().RunTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -86,7 +86,7 @@ func removeControllerUserOps(controllerUUID string, user names.UserTag) []txn.Op
 // RemoveControllerUser removes a user from the database.
 func (st *State) removeControllerUser(user names.UserTag) error {
 	ops := removeControllerUserOps(st.ControllerUUID(), user)
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("controller user %q does not exist", user.Id()))
 	}

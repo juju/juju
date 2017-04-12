@@ -23,20 +23,8 @@ func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, err
 	return result.TxnRevno, errors.Trace(err)
 }
 
-func (st *State) runTransaction(ops []txn.Op) error {
-	return st.database.RunTransaction(ops)
-}
-
-func (st *State) runTransactionFor(modelUUID string, ops []txn.Op) error {
-	return st.database.RunTransactionFor(modelUUID, ops)
-}
-
 func (st *State) runRawTransaction(ops []txn.Op) error {
 	return st.database.RunRawTransaction(ops)
-}
-
-func (st *State) run(transactions jujutxn.TransactionSource) error {
-	return st.database.Run(transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.

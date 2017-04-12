@@ -232,7 +232,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		return ops, nil
 	}
 	// Run the transaction using the state transaction runner.
-	if err = p.st.run(buildTxn); err != nil {
+	if err = p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	// Mark object as created.
@@ -303,7 +303,7 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 			return setPortsDocOps(p.st, ports.doc, assert, newPorts...), nil
 		}
 	}
-	if err = p.st.run(buildTxn); err != nil {
+	if err = p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	p.doc.Ports = newPorts
@@ -365,7 +365,7 @@ func (p *Ports) Remove() error {
 		}
 		return ports.removeOps(), nil
 	}
-	return p.st.run(buildTxn)
+	return p.st.db().Run(buildTxn)
 }
 
 // OpenedPorts returns this machine ports document for the given subnetID.

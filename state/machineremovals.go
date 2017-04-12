@@ -59,7 +59,7 @@ func (m *Machine) MarkForRemoval() (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // AllMachineRemovals returns (the ids of) all of the machines that
@@ -203,5 +203,5 @@ func (st *State) CompleteMachineRemovals(ids ...string) error {
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }

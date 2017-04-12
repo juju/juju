@@ -53,7 +53,7 @@ func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
 	doc := sshHostKeysDoc{
 		Keys: keys,
 	}
-	err := st.runTransaction([]txn.Op{
+	err := st.db().RunTransaction([]txn.Op{
 		{
 			C:      sshHostKeysC,
 			Id:     id,

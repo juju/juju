@@ -384,7 +384,7 @@ func UpdateLegacyLXDCloudCredentials(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return st.runTransaction(append(cloudOps, credOps...))
+	return st.db().RunTransaction(append(cloudOps, credOps...))
 }
 
 func updateLegacyLXDCloudsOps(st *State, endpoint string) ([]txn.Op, error) {
@@ -582,7 +582,7 @@ func addNonDetachableStorageMachineId(st *State) error {
 		})
 	}
 	if len(ops) > 0 {
-		return errors.Trace(st.runTransaction(ops))
+		return errors.Trace(st.db().RunTransaction(ops))
 	}
 	return nil
 }
@@ -831,7 +831,7 @@ func addStorageInstanceConstraints(st *State) error {
 		})
 	}
 	if len(ops) > 0 {
-		return errors.Trace(st.runTransaction(ops))
+		return errors.Trace(st.db().RunTransaction(ops))
 	}
 	return nil
 }
