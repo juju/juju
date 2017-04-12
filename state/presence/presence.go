@@ -61,7 +61,6 @@ func docIDStr(modelUUID string, localID string) string {
 // {
 //   "_id":   <model UUID>:<time slot>,
 //   "slot": <slot>,
-//   "model-uuid": <model UUID>,
 //   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 //   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 // }
@@ -369,10 +368,9 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	DocID     string `bson:"_id"`
-	Seq       int64  `bson:"seq,omitempty"`
-	ModelUUID string `bson:"model-uuid,omitempty"`
-	Key       string `bson:"key,omitempty"`
+	DocID string `bson:"_id"`
+	Seq   int64  `bson:"seq,omitempty"`
+	Key   string `bson:"key,omitempty"`
 }
 
 type pingInfo struct {
@@ -383,15 +381,20 @@ type pingInfo struct {
 }
 
 func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
-	beings := make([]beingInfo, 0)
 	session := w.beings.Database.Session.Copy()
 	defer session.Close()
-	beingsC := w.beings.With(session)
 
-	err := beingsC.Find(bson.D{{"model-uuid", w.modelUUID}}).All(&beings)
+	beingsC := w.beings.With(session)
+	t0 := time.Now()
+	beings := make([]beingInfo, 0)
+	err := beingsC.Find(bson.M{
+		"_id": bson.M{"$regex": bson.RegEx{"^" + w.modelUUID, ""}},
+	}).All(&beings)
 	if err != nil {
 		return nil, err
 	}
+	dt := time.Now().Sub(t0)
+	logger.Debugf("[%s] loaded %d beings in %s", w.modelUUID[:6], len(beings), dt)
 	beingInfos := make(map[int64]beingInfo, len(beings))
 	for _, being := range beings {
 		beingInfos[being.Seq] = being
@@ -706,10 +709,9 @@ func (p *Pinger) prepare() error {
 	beings := beingsC(base)
 	return errors.Trace(beings.Insert(
 		beingInfo{
-			DocID:     docIDInt64(p.modelUUID, p.beingSeq),
-			Seq:       p.beingSeq,
-			ModelUUID: p.modelUUID,
-			Key:       p.beingKey,
+			DocID: docIDInt64(p.modelUUID, p.beingSeq),
+			Seq:   p.beingSeq,
+			Key:   p.beingKey,
 		},
 	))
 }
