@@ -16,16 +16,16 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&updateAllocationSuite{})
+var _ = gc.Suite(&allocateSuite{})
 
-type updateAllocationSuite struct {
+type allocateSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	stub    *testing.Stub
 	mockAPI *mockapi
 	store   jujuclient.ClientStore
 }
 
-func (s *updateAllocationSuite) SetUpTest(c *gc.C) {
+func (s *allocateSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
@@ -49,14 +49,14 @@ func (s *updateAllocationSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = newMockAPI(s.stub)
 }
 
-func (s *updateAllocationSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	updateAlloc := allocate.NewUpdateAllocateCommandForTest(s.mockAPI, s.store)
+func (s *allocateSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+	updateAlloc := allocate.NewAllocateCommandForTest(s.mockAPI, s.store)
 	a := []string{"-m", "controller:model"}
 	a = append(a, args...)
 	return cmdtesting.RunCommand(c, updateAlloc, a...)
 }
 
-func (s *updateAllocationSuite) TestUpdateAllocation(c *gc.C) {
+func (s *allocateSuite) TestUpdateAllocation(c *gc.C) {
 	s.mockAPI.resp = "allocation set to 5"
 	ctx, err := s.run(c, "5")
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,14 +64,14 @@ func (s *updateAllocationSuite) TestUpdateAllocation(c *gc.C) {
 	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", "model-uuid", "5")
 }
 
-func (s *updateAllocationSuite) TestUpdateAllocationAPIError(c *gc.C) {
+func (s *allocateSuite) TestUpdateAllocationAPIError(c *gc.C) {
 	s.stub.SetErrors(errors.New("something failed"))
 	_, err := s.run(c, "5")
 	c.Assert(err, gc.ErrorMatches, "failed to update the allocation: something failed")
 	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", "model-uuid", "5")
 }
 
-func (s *updateAllocationSuite) TestUpdateAllocationErrors(c *gc.C) {
+func (s *allocateSuite) TestUpdateAllocationErrors(c *gc.C) {
 	tests := []struct {
 		about         string
 		args          []string

@@ -100,7 +100,7 @@ func (c *slaCommand) Init(args []string) error {
 		return nil
 	}
 	c.Level = args[0]
-	return cmd.CheckEmpty(args[1:])
+	return c.ModelCommandBase.Init(args[1:])
 }
 
 func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, []byte, error) {

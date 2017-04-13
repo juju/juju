@@ -54,10 +54,10 @@ type ListPlansCommand struct {
 }
 
 // NewListPlansCommand creates a new ListPlansCommand.
-func NewListPlansCommand() modelcmd.CommandBase {
-	return &ListPlansCommand{
+func NewListPlansCommand() cmd.Command {
+	return modelcmd.WrapBase(&ListPlansCommand{
 		CharmResolver: rcmd.NewCharmStoreResolver(),
-	}
+	})
 }
 
 // Info implements Command.Info.
@@ -81,7 +81,7 @@ func (c *ListPlansCommand) Init(args []string) error {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
 	}
 	c.CharmURL = charmURL
-	return nil
+	return c.JujuCommandBase.Init(args)
 }
 
 // SetFlags implements Command.SetFlags.

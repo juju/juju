@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
 	"github.com/juju/juju/cmd/juju/romulus/showbudget"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
-	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type commandRegister interface {
@@ -27,23 +26,14 @@ type commandRegister interface {
 // RegisterAll registers all romulus commands with the
 // provided command registry.
 func RegisterAll(r commandRegister) {
-	register := func(c cmd.Command) {
-		switch c := c.(type) {
-		case modelcmd.CommandBase:
-			r.Register(modelcmd.WrapBase(c))
-		default:
-			r.Register(c)
-		}
-
-	}
-	register(agree.NewAgreeCommand())
-	register(listagreements.NewListAgreementsCommand())
-	register(allocate.NewUpdateAllocationCommand())
-	register(listbudgets.NewListBudgetsCommand())
-	register(createbudget.NewCreateBudgetCommand())
-	register(listplans.NewListPlansCommand())
-	register(setbudget.NewSetBudgetCommand())
-	register(setplan.NewSetPlanCommand())
-	register(showbudget.NewShowBudgetCommand())
-	register(sla.NewSLACommand())
+	r.Register(agree.NewAgreeCommand())
+	r.Register(listagreements.NewListAgreementsCommand())
+	r.Register(allocate.NewAllocateCommand())
+	r.Register(listbudgets.NewListBudgetsCommand())
+	r.Register(createbudget.NewCreateBudgetCommand())
+	r.Register(listplans.NewListPlansCommand())
+	r.Register(setbudget.NewSetBudgetCommand())
+	r.Register(setplan.NewSetPlanCommand())
+	r.Register(showbudget.NewShowBudgetCommand())
+	r.Register(sla.NewSLACommand())
 }

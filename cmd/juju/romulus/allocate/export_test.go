@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func NewUpdateAllocateCommandForTest(api apiClient, store jujuclient.ClientStore) cmd.Command {
-	c := &updateAllocationCommand{api: api}
+func NewAllocateCommandForTest(api apiClient, store jujuclient.ClientStore) cmd.Command {
+	c := &allocateCommand{api: api}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }

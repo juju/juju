@@ -23,7 +23,7 @@ type setBudgetCommand struct {
 
 // NewSetBudgetCommand returns a new setBudgetCommand.
 func NewSetBudgetCommand() cmd.Command {
-	return &setBudgetCommand{}
+	return modelcmd.WrapBase(&setBudgetCommand{})
 }
 
 const doc = `
@@ -53,7 +53,7 @@ func (c *setBudgetCommand) Init(args []string) error {
 	if _, err := strconv.ParseInt(c.Value, 10, 32); err != nil {
 		return errors.New("budget value needs to be a whole number")
 	}
-	return cmd.CheckEmpty(args[2:])
+	return c.JujuCommandBase.Init(args[2:])
 }
 
 // Run implements cmd.Command.Run and contains most of the setbudget logic.

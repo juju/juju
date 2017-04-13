@@ -25,12 +25,12 @@ var logger = loggo.GetLogger("romulus.cmd.showbudget")
 
 // NewShowBudgetCommand returns a new command that is used
 // to show details of the specified wireformat.
-func NewShowBudgetCommand() modelcmd.CommandBase {
-	return &showBudgetCommand{}
+func NewShowBudgetCommand() cmd.Command {
+	return modelcmd.WrapBase(&showBudgetCommand{})
 }
 
 type showBudgetCommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.JujuCommandBase
 
 	out    cmd.Output
 	budget string
@@ -60,12 +60,12 @@ func (c *showBudgetCommand) Init(args []string) error {
 	}
 	c.budget, args = args[0], args[1:]
 
-	return cmd.CheckEmpty(args)
+	return c.JujuCommandBase.Init(args)
 }
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *showBudgetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.JujuCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": formatTabular,
 		"json":    cmd.FormatJson,
