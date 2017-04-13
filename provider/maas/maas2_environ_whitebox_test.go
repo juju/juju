@@ -1541,14 +1541,14 @@ func getArgs(c *gc.C, calls []testing.StubCall) interface{} {
 	return args[0]
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c *gc.C) {
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(c *gc.C) {
 	subnet := makeFakeSubnet(3)
 	var env *maasEnviron
 	machine := &fakeMachine{
 		Stub:     &testing.Stub{},
 		systemID: "1",
 	}
-	machine.SetErrors(nil, errors.New("boom"))
+	machine.SetErrors(nil, errors.New("bad device call"))
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
@@ -1566,7 +1566,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": bad device call`)
 	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
 		Hostname: []string{"juju-06f00d-1-lxd-0"},
 	})
