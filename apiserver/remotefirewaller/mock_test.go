@@ -281,7 +281,7 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 type mockMachine struct {
 	testing.Stub
 	id      string
-	watcher *mockAddressesWatcher
+	watcher *mockAddressWatcher
 }
 
 func newMockMachine(id string) *mockMachine {
@@ -296,23 +296,23 @@ func (m *mockMachine) Id() string {
 func (m *mockMachine) WatchAddresses() state.NotifyWatcher {
 	m.MethodCall(m, "WatchAddresses")
 	if m.watcher == nil {
-		m.watcher = newMockAddressesWatcher()
+		m.watcher = newMockAddressWatcher()
 	}
 	return m.watcher
 }
 
-type mockAddressesWatcher struct {
+type mockAddressWatcher struct {
 	mockWatcher
 	changes chan struct{}
 }
 
-func newMockAddressesWatcher() *mockAddressesWatcher {
-	w := &mockAddressesWatcher{changes: make(chan struct{}, 1)}
+func newMockAddressWatcher() *mockAddressWatcher {
+	w := &mockAddressWatcher{changes: make(chan struct{}, 1)}
 	go w.doneWhenDying()
 	return w
 }
 
-func (w *mockAddressesWatcher) Changes() <-chan struct{} {
+func (w *mockAddressWatcher) Changes() <-chan struct{} {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }
