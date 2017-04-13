@@ -9,15 +9,11 @@ import sys
 import os
 import yaml
 import pexpect
-import subprocess
 import shutil
 
 from deploy_stack import (
     BootstrapManager,
     )
-from jujupy import (
-    ModelClient
-)
 from utility import (
     configure_logging,
     add_basic_testing_arguments,
@@ -56,17 +52,18 @@ def assess_add_credentials(args):
         env = 'google'
     else:
         env = args.env.split('parallel-')[1]
+
+    # Grab the credentials from cloud-city
     with open(os.path.join(os.environ['HOME'], 'cloud-city',
                            'credentials.yaml')) as f:
         creds_dict = yaml.load(f)
     cred = creds_dict['credentials'][env]
 
-    key_raw = cred['credentials'].get('private-key')
-    if key_raw:
-        key = ''
-        for line in key_raw.split('\n'):
-            key += line
-        cred['credentials']['private-key'] = key
+    # Fix the keypath to reflect local username
+    key_path = cred['credentials'].get('private-key-path')
+    if key_path:
+        cred['credentials']['private-key-path'] = os.path.join(
+            os.environ['HOME'], 'cloud-city', '{}-key'.format(env))
 
     log.info("Adding {} credential from ~/cloud-city/credentials.yaml "
              "into testing instance".format(args.env))
@@ -86,6 +83,10 @@ def assess_add_credentials(args):
 
 
 def verify_bootstrap(args):
+    """Verify the client can bootstrap with the newly added credentials
+
+    :param args: Testing arguments
+    """
     env_file = os.path.join(
         os.environ['HOME'], 'cloud-city', 'environments.yaml')
     shutil.copy(env_file, os.environ['JUJU_HOME'])
@@ -95,11 +96,15 @@ def verify_bootstrap(args):
 
 
 def verify_credentials(env, cred):
+    """Verify the credentials entered match the credentials stored
+
+    :param env: String environment name
+    :param cred: Dict of credential information
+    """
     cred_path = os.path.join(os.environ['JUJU_HOME'], 'credentials.yaml')
     with open(cred_path) as f:
         test_creds = yaml.load(f)
         test_creds = test_creds['credentials'][env][env]
-    import pdb; pdb.set_trace()
     if not test_creds == cred['credentials']:
         error = 'Credential miss-match after manual add'
         raise JujuAssertionError(error)
@@ -118,10 +123,10 @@ def end_session(session):
 def add_aws(child, env, cred):
     """Adds credentials for AWS to test client using real credentials.
 
+    :param child: pexpect.spawn object of the juju add-credential command
     :param env: String environment name
     :param cred: Dict of credential information
     """
-    auth_type = cred['credentials']['auth-type']
     access_key = cred['credentials']['access-key']
     secret_key = cred['credentials']['secret-key']
 
@@ -136,14 +141,15 @@ def add_aws(child, env, cred):
 
 
 def add_gce(child, env, cred):
-    """Adds credentials for AWS to test client using real credentials.
+    """Adds credentials for GCE to test client using real credentials.
 
+    :param child: pexpect.spawn object of the juju add-credential command
     :param env: String environment name
     :param cred: Dict of credential information
     """
     auth_type = cred['credentials']['auth-type']
     project_id = cred['credentials']['project-id']
-    private_key= cred['credentials']['private-key']
+    private_key = cred['credentials']['private-key']
     client_email = cred['credentials']['client-email']
     client_id = cred['credentials']['client-id']
 
@@ -156,60 +162,105 @@ def add_gce(child, env, cred):
     child.expect('Enter client-email:')
     child.sendline(client_email)
     child.expect('Enter private-key:')
-    child.sendline(private_key)
+    child.send(private_key)
+    child.sendline('')
     child.expect('Enter project-id:')
     child.sendline(project_id)
     end_session(child)
     log.info('Added GCE credential')
 
+
+def add_rackspace(child, env, cred):
+    """Adds credentials for Rackspace to test client using real credentials.
+
+    :param child: pexpect.spawn object of the juju add-credential command
+    :param env: String environment name
+    :param cred: Dict of credential information
     """
-    auth-type
-    project-id
-    private-key
-    client-email
-    client-id
-    """
-    pass
+    username = cred['credentials']['username']
+    password = cred['credentials']['password']
+    tenant_name = cred['credentials']['tenant-name']
+
+    child.expect('Enter credential name:')
+    child.sendline(env)
+    child.expect('Enter username:')
+    child.sendline(username)
+    child.expect('Enter password:')
+    child.sendline(password)
+    child.expect('Enter tenant-name:')
+    child.sendline(tenant_name)
+    end_session(child)
+    log.info('Added Rackspace credential')
 
 
-def add_rackspace(client, cred):
+def add_maas(child, env, cred):
+    """Adds credentials for MaaS to test client using real credentials.
+
+    :param child: pexpect.spawn object of the juju add-credential command
+    :param env: String environment name
+    :param cred: Dict of credential information
     """
-    auth-type
-    username
-    password
-    tenant-name
-    """
-    pass
+    maas_oauth = cred['credentials']['maas-oauth']
+
+    child.expect('Enter credential name:')
+    child.sendline(env)
+    child.expect('Enter maas-oauth:')
+    child.sendline(maas_oauth)
+    end_session(child)
+    log.info('Added Rackspace credential')
 
 
-def add_maas(client, cred):
+def add_joyent(child, env, cred):
+    """Adds credentials for Joyent to test client using real credentials.
+
+    :param child: pexpect.spawn object of the juju add-credential command
+    :param env: String environment name
+    :param cred: Dict of credential information
     """
-    auth-type
-    maas-oauth
-    """
-    pass
+    algorithm = cred['credentials']['algorithm']
+    sdc_user = cred['credentials']['sdc-user']
+    sdc_key_id = cred['credentials']['sdc-key-id']
+    private_key_path = os.path.join(
+        os.environ['HOME'], 'cloud-city', 'joyent-key')
+
+    child.expect('Enter credential name:')
+    child.sendline(env)
+    child.expect('Enter sdc-user:')
+    child.sendline(sdc_user)
+    child.expect('Enter sdc-key-id:')
+    child.sendline(sdc_key_id)
+    child.expect('Enter private-key-path:')
+    child.sendline(private_key_path)
+    child.expect(',rsa-sha512]:')
+    child.sendline(algorithm)
+    end_session(child)
+    log.info('Added Joyent credential')
 
 
-def add_joyent(client, cred):
-    """
-    auth-type
-    algorithm
-    sdc-user
-    sdc-key-id
-    private-key
-    """
-    pass
+def add_azure(child, env, cred):
+    """Adds credentials for Azure to test client using real credentials.
 
+    :param child: pexpect.spawn object of the juju add-credential command
+    :param env: String environment name
+    :param cred: Dict of credential information
+    """
+    auth_type = cred['credentials']['auth-type']
+    application_id = cred['credentials']['application-id']
+    subscription_id = cred['credentials']['subscription-id']
+    application_password = cred['credentials']['application-password']
 
-def add_azure(client, cred):
-    """
-    auth-type
-    application-id
-    private-key
-    client-email
-    client-id
-    """
-    pass
+    child.expect('Enter credential name:')
+    child.sendline(env)
+    child.expect('Select auth-type:')
+    child.sendline(auth_type)
+    child.expect('Enter application-id:')
+    child.sendline(application_id)
+    child.expect('Enter subscription-id:')
+    child.sendline(subscription_id)
+    child.expect('Enter application-password:')
+    child.sendline(application_password)
+    end_session(child)
+    log.info('Added Azure credential')
 
 
 def parse_args(argv):
