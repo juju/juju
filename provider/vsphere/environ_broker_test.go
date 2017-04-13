@@ -6,7 +6,9 @@ package vsphere_test
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +17,9 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -55,15 +59,8 @@ func (s *environBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInst
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tools := []*coretools.Tools{{
-		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
-		URL:     "https://example.org",
-	}}
-	err = instanceConfig.SetTools(tools[:1])
-	c.Assert(err, jc.ErrorIsNil)
-
-	config := fakeConfig(c)
-	instanceConfig.AuthorizedKeys = config.AuthorizedKeys()
+	setInstanceConfigAuthorizedKeys(c, instanceConfig)
+	tools := setInstanceConfigTools(c, instanceConfig)
 
 	return environs.StartInstanceParams{
 		ControllerUUID: instanceConfig.Controller.Config.ControllerUUID(),
@@ -75,6 +72,25 @@ func (s *environBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInst
 			return s.statusCallbackStub.NextErr()
 		},
 	}
+}
+
+func setInstanceConfigTools(c *gc.C, instanceConfig *instancecfg.InstanceConfig) coretools.List {
+	tools := []*coretools.Tools{{
+		Version: version.Binary{
+			Number: version.MustParse("1.2.3"),
+			Arch:   arch.AMD64,
+			Series: "trusty",
+		},
+		URL: "https://example.org",
+	}}
+	err := instanceConfig.SetTools(tools[:1])
+	c.Assert(err, jc.ErrorIsNil)
+	return tools
+}
+
+func setInstanceConfigAuthorizedKeys(c *gc.C, instanceConfig *instancecfg.InstanceConfig) {
+	config := fakeConfig(c)
+	instanceConfig.AuthorizedKeys = config.AuthorizedKeys()
 }
 
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
@@ -110,6 +126,73 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 		Metadata:        startInstArgs.InstanceConfig.Tags,
 		ComputeResource: s.client.computeResources[0],
 	})
+}
+
+func (s *environBrokerSuite) TestStartInstanceImageCaching(c *gc.C) {
+	startInstArgs := s.createStartInstanceArgs(c)
+	instanceConfig, err := instancecfg.NewInstanceConfig(
+		coretesting.ControllerTag,
+		"0", // machine ID
+		"fake-nonce",
+		"released",
+		"trusty",
+		&api.Info{
+			Addrs:    []string{"0.1.2.3:4567"},
+			Tag:      names.NewMachineTag("0"),
+			Password: "sekrit",
+			CACert:   coretesting.CACert,
+			ModelTag: coretesting.ModelTag,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	setInstanceConfigAuthorizedKeys(c, instanceConfig)
+	startInstArgs.Tools = setInstanceConfigTools(c, instanceConfig)
+	startInstArgs.InstanceConfig = instanceConfig
+
+	// Create some junk in the OVA cache dir to show that it
+	// will be removed when downloading a new image.
+	archDir := filepath.Join(s.ovaCacheDir, "trusty", "amd64")
+	oldDir := filepath.Join(archDir, "junk")
+	err = os.MkdirAll(oldDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.env.StartInstance(startInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.imageServerRequests, gc.HasLen, 3)
+	c.Assert(s.imageServerRequests[0].URL.Path, gc.Equals, "/streams/v1/index.json")
+	c.Assert(s.imageServerRequests[1].URL.Path, gc.Equals, "/streams/v1/com.ubuntu.cloud:released:download.json")
+	c.Assert(s.imageServerRequests[2].URL.Path, gc.Equals, "/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova")
+	s.statusCallbackStub.CheckCalls(c, []testing.StubCall{
+		{"StatusCallback", []interface{}{
+			status.Provisioning,
+			"downloading " + s.imageServer.URL + "/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
+			map[string]interface{}(nil),
+		}},
+	})
+
+	// The old directory should have been removed.
+	_, err = os.Stat(oldDir)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// And there should be a new directory named by the SHA-256 hash.
+	dir, err := os.Open(filepath.Join(archDir, fakeOvaSha256))
+	c.Assert(err, jc.ErrorIsNil)
+	entries, err := dir.Readdirnames(-1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entries, jc.SameContents, []string{
+		"ubuntu-14.04-server-cloudimg-amd64.ovf",
+		"ubuntu-14.04-server-cloudimg-amd64.vmdk",
+	})
+
+	// Starting a second instance will use the cached image.
+	s.statusCallbackStub.ResetCalls()
+	_, err = s.env.StartInstance(startInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.imageServerRequests, gc.HasLen, 5)
+	c.Assert(s.imageServerRequests[3].URL.Path, gc.Equals, "/streams/v1/index.json")
+	c.Assert(s.imageServerRequests[4].URL.Path, gc.Equals, "/streams/v1/com.ubuntu.cloud:released:download.json")
+	s.statusCallbackStub.CheckNoCalls(c) // no download
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {

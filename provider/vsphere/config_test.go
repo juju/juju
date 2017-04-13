@@ -61,7 +61,7 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.config = fakeConfig(c)
-	s.provider = vsphere.NewEnvironProvider(nil)
+	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{})
 }
 
 // configTestSpec defines a subtest to run in a table driven test.

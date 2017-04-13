@@ -303,7 +303,7 @@ func uploadImage(
 		Progress:      &progressSink,
 	}
 	if err := client.Upload(f, targetURL, &opts); err != nil {
-		return errors.Annotatef(err, "uploading %s to %s", item.Path, targetURL)
+		return errors.Annotatef(err, "uploading %s to %s", filepath.Base(item.Path), targetURL)
 	}
 	return nil
 }

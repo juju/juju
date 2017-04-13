@@ -163,21 +163,16 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Download and extract the OVA file.
-	args.StatusCallback(status.Provisioning, fmt.Sprintf("downloading %s", img.URL), nil)
-	ovaDir, err := ioutil.TempDir("", "juju-ova")
+	// Download and extract the OVA file. If we're bootstrapping we use
+	// a temporary directory, otherwise we cache the image for future use.
+	updateProgress := func(message string) {
+		args.StatusCallback(status.Provisioning, message, nil)
+	}
+	ovaDir, ovf, ovaCleanup, err := env.prepareOVA(img, args.InstanceConfig, updateProgress)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	defer func() {
-		if err := os.RemoveAll(ovaDir); err != nil {
-			logger.Warningf("failed to remove temp directory: %s", err)
-		}
-	}()
-	ovf, err := downloadOva(ovaDir, img.URL)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	defer ovaCleanup()
 
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
@@ -186,14 +181,12 @@ func (env *sessionEnviron) newRawInstance(
 			env.modelFolderName(),
 		),
 		OVADir:          ovaDir,
-		OVF:             ovf,
+		OVF:             string(ovf),
 		UserData:        string(userData),
 		Metadata:        args.InstanceConfig.Tags,
 		Constraints:     cons,
 		ExternalNetwork: externalNetwork,
-		UpdateProgress: func(message string) {
-			args.StatusCallback(status.Provisioning, message, nil)
-		},
+		UpdateProgress:  updateProgress,
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
@@ -229,6 +222,61 @@ func (env *sessionEnviron) newRawInstance(
 		RootDisk: cons.RootDisk,
 	}
 	return vm, hw, err
+}
+
+// prepareOVA downloads and extracts the OVA, and reads the contents of the
+// .ovf file contained within it.
+func (env *environ) prepareOVA(
+	img *OvaFileMetadata,
+	instanceConfig *instancecfg.InstanceConfig,
+	updateProgress func(string),
+) (ovaDir, ovf string, cleanup func(), err error) {
+	fail := func(err error) (string, string, func(), error) {
+		return "", "", cleanup, errors.Trace(err)
+	}
+	defer func() {
+		if err != nil && cleanup != nil {
+			cleanup()
+		}
+	}()
+
+	var ovaBaseDir string
+	if instanceConfig.Bootstrap != nil {
+		ovaTempDir, err := ioutil.TempDir("", "juju-ova")
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+		cleanup = func() {
+			if err := os.RemoveAll(ovaTempDir); err != nil {
+				logger.Warningf("failed to remove temp directory: %s", err)
+			}
+		}
+		ovaBaseDir = ovaTempDir
+	} else {
+		// Lock the OVA cache directory for the remainder of the
+		// provisioning process. It's not enough to lock just
+		// around or in downloadOVA, because we refer to the
+		// contents after it returns.
+		unlock, err := env.provider.ovaCacheLocker.Lock()
+		if err != nil {
+			return fail(errors.Annotate(err, "locking OVA cache dir"))
+		}
+		cleanup = unlock
+		ovaBaseDir = env.provider.ovaCacheDir
+	}
+
+	ovaDir, ovfPath, err := downloadOVA(
+		ovaBaseDir, instanceConfig.Series, img, updateProgress,
+	)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	ovfBytes, err := ioutil.ReadFile(ovfPath)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	return ovaDir, string(ovfBytes), cleanup, nil
 }
 
 // AllInstances implements environs.InstanceBroker.
