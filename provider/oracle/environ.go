@@ -423,7 +423,8 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	if err := instance.waitForMachineStatus(desiredStatus, timeout); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("started instance %q", machineId)
+	logger.Infof("started instance %q", machineId)
+
 	//TODO: add config option for public IP allocation
 	logger.Debugf("Associating public IP to instance %q", machineId)
 	if err := instance.associatePublicIP(); err != nil {
@@ -461,7 +462,7 @@ func (o *oracleEnviron) terminateInstances(instances ...*oracleInstance) error {
 	for _, oInst := range instances {
 		go func() {
 			defer wg.Done()
-			if err := oInst.delete(true); err != nil {
+			if err := oInst.deleteInstanceAndResources(true); err != nil {
 				if !oci.IsNotFound(err) {
 					errc <- err
 				}

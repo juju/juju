@@ -25,5 +25,8 @@ func (a AvailabilityZone) Name() string {
 func (a AvailabilityZone) Available() bool {
 	// we don't really have availability zones in oracle cloud. We only
 	// have regions
+	// TODO (gsamfira): Remove AvailabilityZone when bug
+	// https://bugs.launchpad.net/juju/+bug/1680652
+	// is resolved
 	return true
 }

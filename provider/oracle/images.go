@@ -161,6 +161,7 @@ func checkImageList(c EnvironAPI, cons constraints.Value) ([]*imagemetadata.Imag
 			logger.Warningf("failed to parse image name %s. Error was: %q", name, err)
 			continue
 		}
+		logger.Infof("adding image %v to metadata", metadata.String())
 		images = append(images, metadata)
 	}
 	return images, nil
@@ -182,7 +183,7 @@ func getImageName(c EnvironAPI, id string) (string, error) {
 	// we should let the user know this
 	if resp.Result == nil {
 		return "", errors.NotFoundf(
-			"there are currently no images available in your account. Please add images from the oracle market",
+			"no usable images found in your account. Please add images from the oracle market",
 		)
 	}
 
@@ -193,5 +194,5 @@ func getImageName(c EnvironAPI, id string) (string, error) {
 		}
 	}
 
-	return "", errors.NotFoundf("could not find image with ID: %q", id)
+	return "", errors.NotFoundf("image not found: %q", id)
 }

@@ -8,12 +8,10 @@ import (
 	"sync"
 	"time"
 
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
-	ociResponse "github.com/juju/go-oracle-cloud/response"
-	"github.com/pkg/errors"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -101,7 +99,7 @@ func (o *oracleInstance) Status() instance.InstanceStatus {
 // of instance creation. This storage cannot be detached dynamically.
 // this is also needed if you wish to determine the free disk index
 // you can use when attaching a new disk
-func (o *oracleInstance) StorageAttachments() []ociResponse.Storage {
+func (o *oracleInstance) StorageAttachments() []response.Storage {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	return o.machine.Storage_attachments
@@ -173,7 +171,7 @@ func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, tim
 
 // delete will delete the instance and attempt to cleanup any instance related
 // resources
-func (o *oracleInstance) delete(cleanup bool) error {
+func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 	if cleanup {
 		err := o.disassociatePublicIps(true)
 		if err != nil {
@@ -182,7 +180,7 @@ func (o *oracleInstance) delete(cleanup bool) error {
 	}
 
 	if err := o.env.client.DeleteInstance(o.name); err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if cleanup {
@@ -213,18 +211,18 @@ func (o *oracleInstance) delete(cleanup bool) error {
 		// the VM association is now gone, now we can delete the
 		// machine sec list
 		if err := o.env.DeleteMachineSecList(o.machineId); err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Trace(err)
 		}
 
 		if err := o.env.DeleteMachineVnicSet(o.machineId); err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
 // unusedPublicIps returns a slice of IpReservation that are currently not used
-func (o *oracleInstance) unusedPublicIps() ([]ociResponse.IpReservation, error) {
+func (o *oracleInstance) unusedPublicIps() ([]response.IpReservation, error) {
 	filter := []oci.Filter{
 		oci.Filter{
 			Arg:   "permanent",
@@ -347,7 +345,7 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 
 	assoc, err := o.env.client.AllIpAssociations(filter)
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	return assoc.Result, nil
@@ -359,7 +357,7 @@ func (o *oracleInstance) Addresses() ([]network.Address, error) {
 
 	ips, err := o.publicAddressesAssociations()
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	if len(o.machine.Attributes.Network) > 0 {
