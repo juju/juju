@@ -29,6 +29,10 @@ const (
 	// cloud storage volume, as seen by GNU/Linux guests. For more information, please see:
 	// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/op-storage-attachment--post.html#request
 	blockDevicePrefix = "xvd"
+
+	// blockDeviceStartIndex is the base from which we start incrementing block device names
+	// start from 'a'. xvda will always be the root disk.
+	blockDeviceStartIndex = 'a'
 )
 
 // storageProvider implements the storage.Provider interface

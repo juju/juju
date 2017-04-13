@@ -221,38 +221,26 @@ func (s *oracleVolumeSource) fetchVolumeAttachmentStatus(name, desiredStatus str
 func (o *oracleVolumeSource) waitForResourceStatus(
 	fetch func(name string, desiredStatus string) (complete bool, err error),
 	name, state string, timeout time.Duration) error {
-	errChan := make(chan error)
-	done := make(chan bool)
 
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				done, err := fetch(name, state)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if done {
-					errChan <- nil
-					return
-				}
-				<-o.env.clock.After(2 * time.Second)
+	timer := o.clock.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-o.clock.After(2 * time.Second):
+			done, err := fetch(name, state)
+			if err != nil {
+				return err
 			}
+			if done {
+				return nil
+			}
+		case <-timer.Chan():
+			return errors.Errorf(
+				"timed out waiting for resource %q to transition to %v",
+				name, state,
+			)
 		}
-	}()
-
-	select {
-	case err := <-errChan:
-		return err
-	case <-o.clock.After(timeout):
-		done <- true
-		return errors.Errorf(
-			"timed out waiting for resource %q to transition to %v",
-			name, state,
-		)
 	}
 	return nil
 }
@@ -326,11 +314,11 @@ func (s *oracleVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(volIds))
 	for i, val := range volIds {
-		go func(volId string) {
+		go func(volId string, idx int) {
+			defer wg.Done()
 			err := s.api.DeleteStorageVolume(volId)
-			results[i] = err
-			wg.Done()
-		}(val)
+			results[idx] = err
+		}(val, i)
 	}
 	wg.Wait()
 	return results, nil
@@ -428,14 +416,13 @@ func (s *oracleVolumeSource) getFreeIndexNumber(existing []int, max int) (int, e
 }
 
 func (s *oracleVolumeSource) getDeviceNameForIndex(idx int) string {
-	// start from 97. xvda will always be the root disk.
 	// We use an ephemeral disk when booting instances, so we get
 	// the full range of 10 disks we can attach to an instance.
 	// Alternatively, we can create a volume from an image and attach
 	// it to the launchplan, and set it as a boot device.
 	// NOTE(gsamfira): if we ever decide to boot from volume, this
 	// needs to be addressed to return the proper device name
-	return fmt.Sprintf("%s%s", blockDevicePrefix, string([]byte{97 + byte(idx)}))
+	return fmt.Sprintf("%s%s", blockDevicePrefix, string([]byte{blockDeviceStartIndex + byte(idx)}))
 }
 
 func (s *oracleVolumeSource) attachVolume(

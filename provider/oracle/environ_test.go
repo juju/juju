@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/tools"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
+	//"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 )
@@ -178,7 +178,8 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
-		clock.WallClock,
+        &advancingClock,
+		//clock.WallClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)

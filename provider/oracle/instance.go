@@ -126,44 +126,25 @@ func (o *oracleInstance) refresh() error {
 // waitForMachineStatus will ping the machine status until the timeout
 // duration is reached or an error appeared
 func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, timeout time.Duration) error {
-	errChan := make(chan error)
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				err := o.refresh()
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if o.machine.State == ociCommon.StateError {
-					errChan <- errors.Errorf(
-						"Machine %v entered error state",
-						o.machine.Name,
-					)
-					return
-				}
-				if o.machine.State == state {
-					errChan <- nil
-					return
-				}
-				<-o.env.clock.After(10 * time.Second)
+	timer := o.env.clock.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-timer.Chan():
+			return errors.Errorf(
+				"Timed out waiting for instance to transition from %v to %v",
+				o.machine.State, state,
+			)
+		case <-o.env.clock.After(10 * time.Second):
+			err := o.refresh()
+			if err != nil {
+				return err
+			}
+			if o.machine.State == state {
+				return nil
 			}
 		}
-	}()
-
-	select {
-	case err := <-errChan:
-		return err
-	case <-o.env.clock.After(timeout):
-		done <- true
-		return errors.Errorf(
-			"Timed out waiting for instance to transition from %v to %v",
-			o.machine.State, state,
-		)
 	}
 
 	return nil
@@ -194,7 +175,7 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 					break
 				}
 				if iteration >= 30 && instance.State == ociCommon.StateRunning {
-					logger.Warningf("Instance still in running state after %q checks. breaking loop", iteration)
+					logger.Warningf("Instance still in running state after %v checks. breaking loop", iteration)
 					break
 				}
 				if oci.IsInternalApi(err) {

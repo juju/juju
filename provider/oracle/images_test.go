@@ -6,7 +6,6 @@ package oracle_test
 import (
 	"errors"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/oracle"
@@ -36,44 +35,21 @@ func (i imageSuite) TestGetImageNameWithErrors(c *gc.C) {
 }
 
 func (i imageSuite) TestCheckImageList(c *gc.C) {
-	arch := "amd64"
-	cpucores := uint64(4)
-	mem := uint64(2048)
-	instanceType := "oc4"
-	images, err := oracle.CheckImageList(DefaultEnvironAPI, constraints.Value{
-		Arch:         &arch,
-		CpuCores:     &cpucores,
-		Mem:          &mem,
-		InstanceType: &instanceType,
-	})
+	images, err := oracle.CheckImageList(DefaultEnvironAPI)
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(images, gc.NotNil)
 }
 
 func (i imageSuite) TestCheckImageListWithErrors(c *gc.C) {
-	arch := "amd64"
-	cpucores := uint64(4)
-	mem := uint64(2048)
-	instanceType := "oc4"
 	_, err := oracle.CheckImageList(FakeEnvironAPI{
 		FakeImager: FakeImager{
 			AllErr: errors.New("FakeImageListErr"),
 		},
-	}, constraints.Value{
-		Arch:         &arch,
-		CpuCores:     &cpucores,
-		Mem:          &mem,
-		InstanceType: &instanceType,
 	})
 	c.Assert(err, gc.NotNil)
 
-	_, err = oracle.CheckImageList(nil, constraints.Value{
-		Arch:         &arch,
-		CpuCores:     &cpucores,
-		Mem:          &mem,
-		InstanceType: &instanceType,
-	})
+	_, err = oracle.CheckImageList(nil)
 	c.Assert(err, gc.NotNil)
 }
 
