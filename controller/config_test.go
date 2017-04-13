@@ -134,3 +134,24 @@ func (s *ConfigSuite) TestValidate(c *gc.C) {
 		}
 	}
 }
+
+func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxLogsAge(), gc.Equals, 72*time.Hour)
+	c.Assert(cfg.MaxLogSizeMB(), gc.Equals, 4096)
+}
+
+func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"max-logs-size":       "8G",
+			"max-logs-age": "96h",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxLogsAge(), gc.Equals, 96*time.Hour)
+	c.Assert(cfg.MaxLogSizeMB(), gc.Equals, 8192)
+}

@@ -236,6 +236,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 			"state-port":              1234,
 			"api-port":                17777,
 			"set-numa-control-policy": false,
+			"max-logs-age":            "72h",
+			"max-logs-size":           "4G",
 		})
 		boostrapped = true
 		return nil

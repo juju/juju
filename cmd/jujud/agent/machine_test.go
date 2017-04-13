@@ -437,7 +437,7 @@ func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started.assertTriggered(c, "peergrouperworker to start")
 }
 
-func (s *MachineSuite) TestManageModelRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsDbLogPruner(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()

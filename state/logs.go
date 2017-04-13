@@ -693,7 +693,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 	session, logsColl := initLogsSession(st)
 	defer session.Close()
 
-	modelUUIDs, err := getEnvsInLogs(logsColl)
+	modelUUIDs, err := getModelsInLogs(logsColl)
 	if err != nil {
 		return errors.Annotate(err, "failed to get log counts")
 	}
@@ -723,7 +723,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 			break
 		}
 
-		modelUUID, count, err := findEnvWithMostLogs(logsColl, modelUUIDs)
+		modelUUID, count, err := findModelWithMostLogs(logsColl, modelUUIDs)
 		if err != nil {
 			return errors.Annotate(err, "log count query failed")
 		}
@@ -796,10 +796,10 @@ func getCollectionMB(coll *mgo.Collection) (int, error) {
 	return result["size"].(int), nil
 }
 
-// getEnvsInLogs returns the unique model UUIDs that exist in
+// getModelsInLogs returns the unique model UUIDs that exist in
 // the logs collection. This uses the one of the indexes on the
 // collection and should be fast.
-func getEnvsInLogs(coll *mgo.Collection) ([]string, error) {
+func getModelsInLogs(coll *mgo.Collection) ([]string, error) {
 	var modelUUIDs []string
 	err := coll.Find(nil).Distinct("e", &modelUUIDs)
 	if err != nil {
@@ -808,13 +808,13 @@ func getEnvsInLogs(coll *mgo.Collection) ([]string, error) {
 	return modelUUIDs, nil
 }
 
-// findEnvWithMostLogs returns the modelUUID and log count for the
+// findModelWithMostLogs returns the modelUUID and log count for the
 // model with the most logs in the logs collection.
-func findEnvWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string, int, error) {
+func findModelWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string, int, error) {
 	var maxModelUUID string
 	var maxCount int
 	for _, modelUUID := range modelUUIDs {
-		count, err := getLogCountForEnv(logsColl, modelUUID)
+		count, err := getLogCountForModel(logsColl, modelUUID)
 		if err != nil {
 			return "", -1, errors.Trace(err)
 		}
@@ -826,9 +826,9 @@ func findEnvWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string,
 	return maxModelUUID, maxCount, nil
 }
 
-// getLogCountForEnv returns the number of log records stored for a
+// getLogCountForModel returns the number of log records stored for a
 // given model.
-func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
+func getLogCountForModel(coll *mgo.Collection, modelUUID string) (int, error) {
 	count, err := coll.Find(bson.M{"e": modelUUID}).Count()
 	if err != nil {
 		return -1, errors.Annotate(err, "failed to get log count")

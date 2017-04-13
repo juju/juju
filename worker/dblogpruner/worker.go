@@ -21,16 +21,14 @@ type LogPruneParams struct {
 	PruneInterval   time.Duration
 }
 
-const DefaultMaxLogAge = 3 * 24 * time.Hour // 3 days
-const DefaultMaxCollectionMB = 4 * 1024     // 4 GB
 const DefaultPruneInterval = 5 * time.Minute
 
 // NewLogPruneParams returns a LogPruneParams initialised with default
 // values.
-func NewLogPruneParams() *LogPruneParams {
+func NewLogPruneParams(maxLogAge time.Duration, maxCollectionMB int) *LogPruneParams {
 	return &LogPruneParams{
-		MaxLogAge:       DefaultMaxLogAge,
-		MaxCollectionMB: DefaultMaxCollectionMB,
+		MaxLogAge:       maxLogAge,
+		MaxCollectionMB: maxCollectionMB,
 		PruneInterval:   DefaultPruneInterval,
 	}
 }

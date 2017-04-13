@@ -985,6 +985,11 @@ func (a *MachineAgent) startStateWorkers(
 		return nil, errors.Trace(err)
 	}
 
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot fetch the controller config")
+	}
+
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
@@ -1077,7 +1082,10 @@ func (a *MachineAgent) startStateWorkers(
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
-				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+				return dblogpruner.New(st, dblogpruner.NewLogPruneParams(
+					controllerConfig.MaxLogsAge(),
+					controllerConfig.MaxLogSizeMB(),
+				)), nil
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
