@@ -134,7 +134,7 @@ func (w *IngressAddressWatcher) loop() error {
 				addressSet.Add(addr)
 			}
 			changed = false
-			addresses = addressSet.Values()
+			addresses = formatAsCIDR(addressSet.Values())
 			out = w.out
 		}
 
@@ -142,7 +142,7 @@ func (w *IngressAddressWatcher) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		// Send initial event or subsequent changes.
-		case out <- formatAsCIDR(addresses):
+		case out <- addresses:
 			sentInitial = true
 			out = nil
 		case c, ok := <-ruw.Changes():
