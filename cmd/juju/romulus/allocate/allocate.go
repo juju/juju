@@ -44,7 +44,7 @@ Updates an existing allocation for a model.
 
 Examples:
     # Sets the allocation for the current model to 10.
-    juju update-allocation 10
+    juju allocation 10
 `
 
 // Info implements cmd.Command.Info.

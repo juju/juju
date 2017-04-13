@@ -2876,7 +2876,7 @@ var statusTests = []testCase{
 						"since":   "01 Apr 15 01:23+10:00",
 					},
 					"meter-status": M{
-						"color":   "RED",
+						"color":   "red",
 						"message": "status message",
 					},
 					"sla": "unsupported",
@@ -4209,9 +4209,9 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		"foo/0                                                   \n"+
 		"foo/1                                                   \n"+
 		"\n"+
-		"Meter  Status   Message\n"+
-		"foo/0  strange  warning: stable strangelets  \n"+
-		"foo/1  up       things are looking up        \n"+
+		"Entity  Meter status  Message\n"+
+		"foo/0   strange       warning: stable strangelets  \n"+
+		"foo/1   up            things are looking up        \n"+
 		"\n"+
 		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
 }

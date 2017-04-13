@@ -350,7 +350,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 	}
 	ms := m.MeterStatus()
 	if isColorStatus(ms.Code) {
-		info.MeterStatus = params.MeterStatus{Color: ms.Code.String(), Message: ms.Info}
+		info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
 	}
 
 	return info, nil
