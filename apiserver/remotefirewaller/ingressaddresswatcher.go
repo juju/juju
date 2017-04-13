@@ -45,8 +45,8 @@ type IngressAddressWatcher struct {
 
 // machineData holds the information we track at the machine level.
 type machineData struct {
-	units   set.Strings
-	watcher *machineAddressWatcher
+	units  set.Strings
+	worker *machineAddressWorker
 }
 
 // NewIngressAddressWatcher creates an IngressAddressWatcher.
@@ -68,7 +68,7 @@ func NewIngressAddressWatcher(backend State, rel Relation, appName string) (*Ing
 	return w, err
 }
 
-func (w *IngressAddressWatcher) initial() error {
+func (w *IngressAddressWatcher) initialise() error {
 	app, err := w.backend.Application(w.appName)
 	if err != nil {
 		return errors.Trace(err)
@@ -119,7 +119,7 @@ func (w *IngressAddressWatcher) loop() error {
 		out         chan<- []string
 		addresses   []string
 	)
-	err = w.initial()
+	err = w.initialise()
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -152,15 +152,15 @@ func (w *IngressAddressWatcher) loop() error {
 			// A unit has entered or left scope.
 			// Get the new set of addresses resulting from that
 			// change, and if different to what we know, send the change.
-			changed, err = w.relationUnitsChanged(c)
+			changed, err = w.processUnitChanges(c)
 			if err != nil {
 				return err
 			}
 		case machineId, ok := <-w.addressChanges:
 			if !ok {
-				return errors.Errorf("address changes channel unexpectedly closed")
+				continue
 			}
-			changed, err = w.machineAddressChanged(machineId)
+			changed, err = w.processMachineAddresses(machineId)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -198,7 +198,7 @@ func (w *IngressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
 	return addr.Value, true, nil
 }
 
-func (w *IngressAddressWatcher) relationUnitsChanged(c params.RelationUnitsChange) (bool, error) {
+func (w *IngressAddressWatcher) processUnitChanges(c params.RelationUnitsChange) (bool, error) {
 	changed := false
 	for name := range c.Changed {
 
@@ -274,15 +274,15 @@ func (w *IngressAddressWatcher) trackUnit(unit Unit) error {
 		return nil
 	}
 
-	addressWatcher, err := newMachineAddressWatcher(machine, w.addressChanges)
+	addressWorker, err := newMachineAddressWorker(machine, w.addressChanges)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	w.machines[machine.Id()] = &machineData{
-		units:   set.NewStrings(unit.Name()),
-		watcher: addressWatcher,
+		units:  set.NewStrings(unit.Name()),
+		worker: addressWorker,
 	}
-	err = w.catacomb.Add(addressWatcher)
+	err = w.catacomb.Add(addressWorker)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -295,10 +295,12 @@ func (w *IngressAddressWatcher) untrackUnit(unitName string) error {
 		logger.Errorf("missing machine id for unit %q", unitName)
 		return nil
 	}
+	delete(w.unitToMachine, unitName)
+
 	mData, ok := w.machines[machineId]
 	if !ok {
-		// This shouldn't happen.
-		return errors.Errorf("missing machine data for machine %q (hosting unit %q)", machineId, unitName)
+		logger.Debugf("missing machine data for machine %q (hosting unit %q)", machineId, unitName)
+		return nil
 	}
 	mData.units.Remove(unitName)
 	if mData.units.Size() > 0 {
@@ -307,12 +309,11 @@ func (w *IngressAddressWatcher) untrackUnit(unitName string) error {
 		return nil
 	}
 
-	err := worker.Stop(mData.watcher)
+	err := worker.Stop(mData.worker)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	delete(w.machines, machineId)
-	delete(w.unitToMachine, unitName)
 	return nil
 }
 
@@ -328,12 +329,11 @@ func (w *IngressAddressWatcher) assignedMachine(unit Unit) (Machine, error) {
 	return machine, nil
 }
 
-func (w *IngressAddressWatcher) machineAddressChanged(machineId string) (bool, error) {
+func (w *IngressAddressWatcher) processMachineAddresses(machineId string) (changed bool, err error) {
 	mData, ok := w.machines[machineId]
 	if !ok {
 		return false, errors.Errorf("missing machineData for machine %q", machineId)
 	}
-	changed := false
 	for unitName := range mData.units {
 		unit, err := w.backend.Unit(unitName)
 		if errors.IsNotFound(err) {
@@ -383,10 +383,10 @@ func (w *IngressAddressWatcher) Err() error {
 	return w.catacomb.Err()
 }
 
-func newMachineAddressWatcher(machine Machine, dest chan<- string) (*machineAddressWatcher, error) {
-	w := &machineAddressWatcher{
-		machine: machine,
-		dest:    dest,
+func newMachineAddressWorker(machine Machine, addressChanges chan<- string) (*machineAddressWorker, error) {
+	w := &machineAddressWorker{
+		machine:        machine,
+		addressChanges: addressChanges,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -395,16 +395,15 @@ func newMachineAddressWatcher(machine Machine, dest chan<- string) (*machineAddr
 	return w, errors.Trace(err)
 }
 
-// machineAddressWatcher watches for machine address changes and
-// notifies the dest channel when it sees them. It isn't a watcher in
-// the strict sense since it doesn't have a Changes method.
-type machineAddressWatcher struct {
-	catacomb catacomb.Catacomb
-	machine  Machine
-	dest     chan<- string
+// machineAddressWorker watches for machine address changes and
+// notifies the dest channel when it sees them.
+type machineAddressWorker struct {
+	catacomb       catacomb.Catacomb
+	machine        Machine
+	addressChanges chan<- string
 }
 
-func (w *machineAddressWatcher) loop() error {
+func (w *machineAddressWorker) loop() error {
 	aw := w.machine.WatchAddresses()
 	if err := w.catacomb.Add(aw); err != nil {
 		return errors.Trace(err)
@@ -414,15 +413,15 @@ func (w *machineAddressWatcher) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-aw.Changes():
-			w.dest <- w.machine.Id()
+			w.addressChanges <- w.machine.Id()
 		}
 	}
 }
 
-func (w *machineAddressWatcher) Kill() {
+func (w *machineAddressWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
-func (w *machineAddressWatcher) Wait() error {
+func (w *machineAddressWorker) Wait() error {
 	return w.catacomb.Wait()
 }
