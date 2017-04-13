@@ -29,11 +29,11 @@ type IngressAddressWatcher struct {
 
 	// Channel for machineAddressWatchers to report individual machine
 	// updates.
-	addressChanges  chan string
-	addressWatchers map[string]*machineAddressWatcher
+	addressChanges chan string
 
-	// A map of unit names by machine id.
-	machineToUnits map[string]set.Strings
+	// A map of machine id to machine data.
+	machines map[string]*machineData
+
 	// A map of machine id by unit name - this is needed because we
 	// might not be able to retrieve the machine name when a unit
 	// leaves scope if it's been completely removed by the time we look.
@@ -43,18 +43,23 @@ type IngressAddressWatcher struct {
 	known map[string]string
 }
 
+// machineData holds the information we track at the machine level.
+type machineData struct {
+	units   set.Strings
+	watcher *machineAddressWatcher
+}
+
 // NewIngressAddressWatcher creates an IngressAddressWatcher.
 func NewIngressAddressWatcher(backend State, rel Relation, appName string) (*IngressAddressWatcher, error) {
 	w := &IngressAddressWatcher{
-		backend:         backend,
-		appName:         appName,
-		rel:             rel,
-		known:           make(map[string]string),
-		out:             make(chan []string),
-		addressChanges:  make(chan string),
-		addressWatchers: make(map[string]*machineAddressWatcher),
-		machineToUnits:  make(map[string]set.Strings),
-		unitToMachine:   make(map[string]string),
+		backend:        backend,
+		appName:        appName,
+		rel:            rel,
+		known:          make(map[string]string),
+		out:            make(chan []string),
+		addressChanges: make(chan string),
+		machines:       make(map[string]*machineData),
+		unitToMachine:  make(map[string]string),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -260,26 +265,27 @@ func (w *IngressAddressWatcher) trackUnit(unit Unit) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if units, ok := w.machineToUnits[machine.Id()]; !ok {
-		w.machineToUnits[machine.Id()] = set.NewStrings(unit.Name())
-	} else {
-		units.Add(unit.Name())
-	}
-	if _, ok := w.addressWatchers[machine.Id()]; ok {
-		// We're already watching this machine.
+
+	w.unitToMachine[unit.Name()] = machine.Id()
+	mData, ok := w.machines[machine.Id()]
+	if ok {
+		// We're already watching the machine, just add this unit.
+		mData.units.Add(unit.Name())
 		return nil
 	}
+
 	addressWatcher, err := newMachineAddressWatcher(machine, w.addressChanges)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	w.machines[machine.Id()] = &machineData{
+		units:   set.NewStrings(unit.Name()),
+		watcher: addressWatcher,
 	}
 	err = w.catacomb.Add(addressWatcher)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	w.addressWatchers[machine.Id()] = addressWatcher
-	w.unitToMachine[unit.Name()] = machine.Id()
 	return nil
 }
 
@@ -289,29 +295,23 @@ func (w *IngressAddressWatcher) untrackUnit(unitName string) error {
 		logger.Errorf("missing machine id for unit %q", unitName)
 		return nil
 	}
-	units, ok := w.machineToUnits[machineId]
+	mData, ok := w.machines[machineId]
 	if !ok {
 		// This shouldn't happen.
-		return errors.Errorf("missing unit-set for machine %q (hosting unit %q)", machineId, unitName)
+		return errors.Errorf("missing machine data for machine %q (hosting unit %q)", machineId, unitName)
 	}
-	units.Remove(unitName)
-	if units.Size() > 0 {
+	mData.units.Remove(unitName)
+	if mData.units.Size() > 0 {
 		// No need to stop the watcher - there are still units on the
 		// machine.
 		return nil
 	}
 
-	// Clean up this machine's watcher and units entries.
-	watcher, ok := w.addressWatchers[machineId]
-	if !ok {
-		return errors.Errorf("missing watcher for machine %q (hosting unit %q)", machineId, unitName)
-	}
-	err := worker.Stop(watcher)
+	err := worker.Stop(mData.watcher)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	delete(w.addressWatchers, machineId)
-	delete(w.machineToUnits, machineId)
+	delete(w.machines, machineId)
 	delete(w.unitToMachine, unitName)
 	return nil
 }
@@ -329,12 +329,12 @@ func (w *IngressAddressWatcher) assignedMachine(unit Unit) (Machine, error) {
 }
 
 func (w *IngressAddressWatcher) machineAddressChanged(machineId string) (bool, error) {
-	unitNames, ok := w.machineToUnits[machineId]
+	mData, ok := w.machines[machineId]
 	if !ok {
-		return false, errors.Errorf("missing unit-set for machine %q", machineId)
+		return false, errors.Errorf("missing machineData for machine %q", machineId)
 	}
 	changed := false
-	for unitName := range unitNames {
+	for unitName := range mData.units {
 		unit, err := w.backend.Unit(unitName)
 		if errors.IsNotFound(err) {
 			continue
