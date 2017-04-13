@@ -16,6 +16,7 @@ import (
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -78,17 +79,19 @@ type FirewallerAPI interface {
 // Firewall implements environ.Firewaller
 type Firewall struct {
 	// environ is the current oracle cloud environment
-	// this will use to acces the underlying config
+	// this will use to access the underlying config
 	environ environs.ConfigGetter
 	// client is used to make operations on the oracle provider
 	client FirewallerAPI
+	clock  clock.Clock
 }
 
 // NewFirewall returns a new Firewall
-func NewFirewall(cfg environs.ConfigGetter, client FirewallerAPI) *Firewall {
+func NewFirewall(cfg environs.ConfigGetter, client FirewallerAPI, c clock.Clock) *Firewall {
 	return &Firewall{
 		environ: cfg,
 		client:  client,
+		clock:   c,
 	}
 }
 
@@ -475,7 +478,7 @@ func (f Firewall) deleteAllSecRulesOnList(list string) error {
 // sec list still has some associations to any instance, we simply return and assume
 // the last VM to get killed as part of the tear-down, will also remove the global
 // list as well
-func (f Firewall) maybeDeleteList(list string) error {
+func (f *Firewall) maybeDeleteList(list string) error {
 	filter := []api.Filter{
 		api.Filter{
 			Arg:   "seclist",
@@ -494,7 +497,7 @@ func (f Firewall) maybeDeleteList(list string) error {
 			return errors.Trace(err)
 		}
 		if len(assoc.Result) > 0 {
-			time.Sleep(1 * time.Second)
+			<-f.clock.After(1 * time.Second)
 			iter++
 			continue
 		}

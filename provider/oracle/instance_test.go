@@ -26,6 +26,7 @@ func (i instanceSuite) TestNewOracleInstanceEmpty(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -42,6 +43,7 @@ func (i instanceSuite) TestNewOracleInstance(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -58,6 +60,7 @@ func (i instanceSuite) TestId(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -78,6 +81,7 @@ func (i instanceSuite) TestStatus(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -100,6 +104,7 @@ func (i instanceSuite) TestStorageAttachments(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -119,6 +124,7 @@ func (i instanceSuite) TestAddresses(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -143,6 +149,7 @@ func (i instanceSuite) TestAddressesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeEnvironAPI"),
 			},
 		},
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -166,6 +173,7 @@ func (i instanceSuite) TestOpenPorts(c *gc.C) {
 			Config: fakeConfig,
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -197,6 +205,7 @@ func (i instanceSuite) TestClosePorts(c *gc.C) {
 			Config: fakeConfig,
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -228,6 +237,7 @@ func (i instanceSuite) TestIngressRules(c *gc.C) {
 			Config: fakeConfig,
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)

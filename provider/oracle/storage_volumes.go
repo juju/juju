@@ -239,7 +239,7 @@ func (o *oracleVolumeSource) waitForResourceStatus(
 					errChan <- nil
 					return
 				}
-				time.Sleep(2 * time.Second)
+				<-o.env.clock.After(2 * time.Second)
 			}
 		}
 	}()

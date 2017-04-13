@@ -6,6 +6,7 @@ package oracle_test
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -14,7 +15,9 @@ import (
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 )
@@ -23,6 +26,10 @@ type environSuite struct{}
 
 var _ = gc.Suite(&environSuite{})
 
+// shamelessly copied from one of the OpenStack tests
+var clk = gitjujutesting.NewClock(time.Time{})
+var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+
 func (e *environSuite) TestNewOracleEnviron(c *gc.C) {
 	environ, err := oracle.NewOracleEnviron(
 		oracle.DefaultProvider,
@@ -30,6 +37,7 @@ func (e *environSuite) TestNewOracleEnviron(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -42,6 +50,7 @@ func (e *environSuite) TestAvailabilityZone(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -58,6 +67,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -80,6 +90,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 				InstanceErr: errors.New("FakeInstanceErr"),
 			},
 		},
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -97,6 +108,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeInstanceErr"),
 			},
 		},
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -115,6 +127,7 @@ func (e *environSuite) TestPrepareForBootstrap(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -135,6 +148,7 @@ func (e *environSuite) TestPrepareForBootstrapWithErrors(c *gc.C) {
 				AuthenticateErr: errors.New("FakeAuthenticateErr"),
 			},
 		},
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -164,6 +178,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		clock.WallClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -186,6 +201,7 @@ func (e *environSuite) TestCreate(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -207,6 +223,7 @@ func (e *environSuite) TestCreateWithErrors(c *gc.C) {
 				AuthenticateErr: errors.New("FakeAuthenticateErr"),
 			},
 		},
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -224,6 +241,7 @@ func (e *environSuite) TestAdoptResources(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -239,6 +257,7 @@ func (e *environSuite) TestStopInstances(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -255,6 +274,7 @@ func (e *environSuite) TestAllInstances(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -270,6 +290,7 @@ func (e *environSuite) TestMaintainInstance(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -285,6 +306,7 @@ func (e *environSuite) TestConfig(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -300,6 +322,7 @@ func (e *environSuite) TestConstraintsValidator(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -316,6 +339,7 @@ func (e *environSuite) TestSetConfig(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -331,6 +355,7 @@ func (e *environSuite) TestInstances(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -347,6 +372,7 @@ func (e *environSuite) TestConstrollerInstances(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -363,6 +389,7 @@ func (e *environSuite) TestDestroy(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -378,6 +405,7 @@ func (e *environSuite) TestDestroyController(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -393,6 +421,7 @@ func (e *environSuite) TestProvider(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -408,6 +437,7 @@ func (e *environSuite) TestPrecheckInstnace(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -423,6 +453,7 @@ func (e *environSuite) TestInstanceTypes(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)

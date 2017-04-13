@@ -39,6 +39,7 @@ func (o *oracleVolumeSource) NewVolumeSource(
 			Config: testing.ModelConfig(c),
 		},
 		client,
+		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)

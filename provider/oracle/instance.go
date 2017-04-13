@@ -152,7 +152,7 @@ func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, tim
 					errChan <- nil
 					return
 				}
-				time.Sleep(10 * time.Second)
+				<-o.env.clock.After(10 * time.Second)
 			}
 		}
 	}()
@@ -202,7 +202,7 @@ func (o *oracleInstance) delete(cleanup bool) error {
 				if oci.IsInternalApi(err) {
 					logger.Errorf("got internal server error from API: %q", err)
 				}
-				time.Sleep(1 * time.Second)
+				<-o.env.clock.After(1 * time.Second)
 				iteration++
 				continue
 			}

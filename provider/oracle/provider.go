@@ -9,6 +9,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -112,7 +113,7 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 		return nil, errors.Trace(err)
 	}
 
-	return newOracleEnviron(e, params, cli)
+	return newOracleEnviron(e, params, cli, clock.WallClock)
 }
 
 // Validate is defined on the config.Validator interface.

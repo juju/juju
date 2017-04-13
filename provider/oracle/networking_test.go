@@ -21,6 +21,7 @@ func (n networkingSuite) TestDeleteMachineVnicSet(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
+		&advancingClock,
 	)
 
 	c.Assert(err, gc.IsNil)

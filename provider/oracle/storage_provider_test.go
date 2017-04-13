@@ -25,6 +25,7 @@ func NewStorageProviderTest(c *gc.C) storage.Provider {
 			Config: testing.ModelConfig(c),
 		},
 		&api.Client{},
+		&advancingClock,
 	)
 
 	c.Assert(err, gc.IsNil)

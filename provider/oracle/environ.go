@@ -46,6 +46,7 @@ type oracleEnviron struct {
 	client    EnvironAPI
 	namespace instance.Namespace
 	clock     clock.Clock
+	rand      *rand.Rand
 }
 
 // EnvironAPI provides interface to access and make operation
@@ -95,7 +96,7 @@ func (o *oracleEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]stri
 }
 
 // newOracleEnviron returns a new oracleEnviron
-func newOracleEnviron(p *environProvider, args environs.OpenParams, client EnvironAPI) (env *oracleEnviron, err error) {
+func newOracleEnviron(p *environProvider, args environs.OpenParams, client EnvironAPI, c clock.Clock) (env *oracleEnviron, err error) {
 	if client == nil {
 		return nil, errors.NotFoundf("oracle client")
 	}
@@ -108,14 +109,18 @@ func newOracleEnviron(p *environProvider, args environs.OpenParams, client Envir
 		cfg:    args.Config,
 		mutex:  &sync.Mutex{},
 		client: client,
-		clock:  clock.WallClock,
+		clock:  c,
 	}
 	env.namespace, err = instance.NewNamespace(env.cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.Firewaller = oraclenet.NewFirewall(env, client)
+	env.Firewaller = oraclenet.NewFirewall(env, client, c)
 	env.Networking = oraclenet.NewEnviron(client)
+
+	source := rand.NewSource(env.clock.Now().UTC().UnixNano())
+	r := rand.New(source)
+	env.rand = r
 
 	return env, nil
 }
@@ -249,10 +254,7 @@ func (e *oracleEnviron) getInstanceNetworks(
 				errors.Errorf("No usable subnets found in space %q", space)
 		}
 
-		// gsamfira: about as random as rainfall during monsoon season.
-		// I am open to suggestions here
-		rand.Seed(e.clock.Now().UTC().UnixNano())
-		ipNet := providerSpace[rand.Intn(len(providerSpace))]
+		ipNet := providerSpace[e.rand.Intn(len(providerSpace))]
 		vnic := oci.IPNetwork{
 			Ipnetwork: ipNet.Name,
 			Vnicsets:  vnicSets,
