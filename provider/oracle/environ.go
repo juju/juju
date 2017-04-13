@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
@@ -284,10 +285,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 
 	// check if we find an image that is compliant with the
 	// constraints provided in the oracle cloud account
-	if args.ImageMetadata, err = checkImageList(
-		o.client,
-		args.Constraints,
-	); err != nil {
+	if args.ImageMetadata, err = checkImageList(o.client); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -617,7 +615,6 @@ func (o *oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 		constraints.CpuPower,
 		constraints.RootDisk,
 		constraints.VirtType,
-		constraints.Spaces,
 	}
 
 	// we choose to use the default validator implementation
@@ -625,6 +622,7 @@ func (o *oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	// we must feed the validator that the oracle cloud
 	// provider does not support these constraints
 	validator.RegisterUnsupported(unsupportedConstraints)
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.I386, arch.AMD64})
 	logger.Infof("Returning constraints validator: %v", validator)
 	return validator, nil
 }

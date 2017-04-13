@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
@@ -123,7 +122,7 @@ func parseImageName(name string, uri *url.URL) (*imagemetadata.ImageMetadata, er
 }
 
 // checkImageList creates image metadata from the oracle image list
-func checkImageList(c EnvironAPI, cons constraints.Value) ([]*imagemetadata.ImageMetadata, error) {
+func checkImageList(c EnvironAPI) ([]*imagemetadata.ImageMetadata, error) {
 	if c == nil {
 		return nil, errors.NotFoundf("oracle client")
 	}
