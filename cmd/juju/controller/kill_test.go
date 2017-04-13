@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
+	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -419,7 +420,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtesting.RunCommandWithDummyProvider(ctx, s.newKillCommand(), "test1")
+	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newKillCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction aborted")

@@ -6,6 +6,7 @@ package listplans_test
 import (
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	api "github.com/juju/romulus/api/plan"
 	wireformat "github.com/juju/romulus/wireformat/plan"
 	"github.com/juju/testing"
@@ -13,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/listplans"
 	coretesting "github.com/juju/juju/testing"
 )

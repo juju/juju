@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	jc "github.com/juju/testing/checkers"
@@ -22,7 +23,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"

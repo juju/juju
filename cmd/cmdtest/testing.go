@@ -1,31 +1,19 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmdtesting
+package cmdtest
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 
 	"github.com/juju/cmd"
-	"github.com/juju/gnuflag"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/dummy"
 )
-
-// HelpText returns a command's formatted help text.
-func HelpText(command cmd.Command, name string) string {
-	buff := &bytes.Buffer{}
-	info := command.Info()
-	info.Name = name
-	f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-	command.SetFlags(f)
-	buff.Write(info.Help(f))
-	return buff.String()
-}
 
 type gcWriter struct {
 	c      *gc.C
@@ -71,7 +59,7 @@ func RunCommandWithDummyProvider(ctx *cmd.Context, com cmd.Command, args ...stri
 			close(opc)
 		}()
 
-		if err := InitCommand(com, args); err != nil {
+		if err := cmdtesting.InitCommand(com, args); err != nil {
 			errc <- err
 			return
 		}

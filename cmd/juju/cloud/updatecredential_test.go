@@ -6,12 +6,12 @@ package cloud_test
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"

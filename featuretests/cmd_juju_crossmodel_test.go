@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,7 +17,6 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/model"

@@ -177,10 +177,6 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	logger.Tracef("running hook tool %q", req.CommandName)
 	logger.Debugf("hook context id %q; dir %q", req.ContextId, req.Dir)
 	wrapper := &cmdWrapper{c, nil}
-	if err := loggo.RegisterWriter("jujuc-context", cmd.NewWarningWriter(ctx.Stderr)); err != nil {
-		return errors.Annotatef(err, "setting up execution context")
-	}
-	defer loggo.RemoveWriter("jujuc-context")
 	resp.Code = cmd.Main(wrapper, ctx, req.Args)
 	if errors.Cause(wrapper.err) == ErrNoStdin {
 		return ErrNoStdin

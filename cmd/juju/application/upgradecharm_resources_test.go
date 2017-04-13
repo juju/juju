@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -20,7 +21,6 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/constraints"

@@ -6,12 +6,12 @@
 package lxd_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"

@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,7 +15,6 @@ import (
 	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"

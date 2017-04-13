@@ -131,22 +131,21 @@ type main struct {
 func (m main) Run(args []string) int {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		return 2
 	}
-	cmd.SetUpLogging(ctx)
 
 	// note that this has to come before we init the juju home directory,
 	// since it relies on detecting the lack of said directory.
 	newInstall := m.maybeWarnJuju1x()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
-		logger.Errorf("%s", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return 2
 	}
 
 	if err := installProxy(); err != nil {
-		logger.Errorf("%s", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return 2
 	}
 
@@ -154,7 +153,7 @@ func (m main) Run(args []string) int {
 		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
 		updateCmd := cloud.NewUpdateCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
-			logger.Errorf("%s", err)
+			cmd.WriteError(ctx.Stderr, err)
 		}
 	}
 

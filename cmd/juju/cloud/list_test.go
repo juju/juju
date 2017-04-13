@@ -7,11 +7,11 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/all"

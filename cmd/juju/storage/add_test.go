@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 )
@@ -263,7 +263,7 @@ func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func visibleErrorMessage(errMsg string) string {
-	return fmt.Sprintf("error: %v\n", errMsg)
+	return fmt.Sprintf("ERROR %v\n", errMsg)
 }
 
 type mockAddAPI struct {

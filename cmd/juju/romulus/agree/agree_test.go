@@ -8,13 +8,13 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/agree"
 	coretesting "github.com/juju/juju/testing"
 )

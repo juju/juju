@@ -5,6 +5,7 @@ package application
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

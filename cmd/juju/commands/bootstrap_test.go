@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -29,7 +30,7 @@ import (
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmdtesting"
+	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -245,7 +246,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		cloudName, controllerName,
 		"--config", "default-series=raring",
 	}, test.args...)
-	opc, errc := cmdtesting.RunCommandWithDummyProvider(cmdtesting.NullContext(c), s.newBootstrapCommand(), args...)
+	opc, errc := cmdtest.RunCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
 	select {
 	case err = <-errc:
@@ -848,7 +849,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	})
 
 	ctx := cmdtesting.Context(c)
-	_, errc := cmdtesting.RunCommandWithDummyProvider(
+	_, errc := cmdtest.RunCommandWithDummyProvider(
 		ctx, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 	)
@@ -939,7 +940,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	s.writeControllerModelAccountInfo(c, &cmaCtx)
 
 	ctx := cmdtesting.Context(c)
-	_, errc := cmdtesting.RunCommandWithDummyProvider(ctx, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
+	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
 	err := <-errc
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, controllerName))
@@ -1154,8 +1155,8 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
-	opc, errc := cmdtesting.RunCommandWithDummyProvider(
-		cmdtesting.NullContext(c), s.newBootstrapCommand(),
+	opc, errc := cmdtest.RunCommandWithDummyProvider(
+		cmdtesting.Context(c), s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-series=raring",
 		"--auto-upgrade",
@@ -1218,8 +1219,8 @@ No packaged binary found, preparing local Juju agent binary
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 
-	opc, errc := cmdtesting.RunCommandWithDummyProvider(
-		cmdtesting.NullContext(c), s.newBootstrapCommand(),
+	opc, errc := cmdtest.RunCommandWithDummyProvider(
+		cmdtesting.Context(c), s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
@@ -1258,7 +1259,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 
 	ctx := cmdtesting.Context(c)
-	opc, errc := cmdtesting.RunCommandWithDummyProvider(ctx, s.newBootstrapCommand(),
+	opc, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newBootstrapCommand(),
 		"--keep-broken",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
@@ -1728,7 +1729,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 			errc <- err
 			return
 		}
-		errc <- com.Run(cmdtesting.NullContext(c))
+		errc <- com.Run(cmdtesting.Context(c))
 	}()
 
 	// Wait for bootstrap to start.

@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )

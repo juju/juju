@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -15,7 +16,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

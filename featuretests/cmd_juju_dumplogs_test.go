@@ -9,13 +9,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/state"
