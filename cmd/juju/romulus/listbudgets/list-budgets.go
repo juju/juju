@@ -21,8 +21,8 @@ import (
 
 // NewListBudgetsCommand returns a new command that is used
 // to list budgets a user has access to.
-func NewListBudgetsCommand() modelcmd.CommandBase {
-	return &listBudgetsCommand{}
+func NewListBudgetsCommand() cmd.Command {
+	return modelcmd.WrapBase(&listBudgetsCommand{})
 }
 
 type listBudgetsCommand struct {

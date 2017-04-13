@@ -16,18 +16,18 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-type updateAllocationCommand struct {
+type allocateCommand struct {
 	modelcmd.ModelCommandBase
 	api   apiClient
 	Value string
 }
 
-// NewUpdateAllocationCommand returns a new updateAllocationCommand.
-func NewUpdateAllocationCommand() modelcmd.ModelCommand {
-	return &updateAllocationCommand{}
+// NewAllocateCommand returns a new allocateCommand.
+func NewAllocateCommand() cmd.Command {
+	return modelcmd.Wrap(&allocateCommand{})
 }
 
-func (c *updateAllocationCommand) newAPIClient(bakery *httpbakery.Client) (apiClient, error) {
+func (c *allocateCommand) newAPIClient(bakery *httpbakery.Client) (apiClient, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -44,11 +44,11 @@ Updates an existing allocation for a model.
 
 Examples:
     # Sets the allocation for the current model to 10.
-    juju allocation 10
+    juju allocate 10
 `
 
 // Info implements cmd.Command.Info.
-func (c *updateAllocationCommand) Info() *cmd.Info {
+func (c *allocateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "allocate",
 		Args:    "<value>",
@@ -58,7 +58,7 @@ func (c *updateAllocationCommand) Info() *cmd.Info {
 }
 
 // Init implements cmd.Command.Init.
-func (c *updateAllocationCommand) Init(args []string) error {
+func (c *allocateCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("value required")
 	}
@@ -66,10 +66,11 @@ func (c *updateAllocationCommand) Init(args []string) error {
 	if _, err := strconv.ParseInt(c.Value, 10, 32); err != nil {
 		return errors.New("value needs to be a whole number")
 	}
-	return cmd.CheckEmpty(args[1:])
+
+	return c.ModelCommandBase.Init(args[1:])
 }
 
-func (c *updateAllocationCommand) modelUUID() (string, error) {
+func (c *allocateCommand) modelUUID() (string, error) {
 	model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName())
 	if err != nil {
 		return "", errors.Trace(err)
@@ -78,7 +79,7 @@ func (c *updateAllocationCommand) modelUUID() (string, error) {
 }
 
 // Run implements cmd.Command.Run and contains most of the setbudget logic.
-func (c *updateAllocationCommand) Run(ctx *cmd.Context) error {
+func (c *allocateCommand) Run(ctx *cmd.Context) error {
 	modelUUID, err := c.modelUUID()
 	if err != nil {
 		return errors.Annotate(err, "failed to get model uuid")
