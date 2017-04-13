@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -626,6 +628,40 @@ func RemoveNilValueApplicationSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// AddControllerLogPruneSettings adds the controller
+// settings to control log pruning if they are missing.
+func AddControllerLogPruneSettings(st *State) error {
+	coll, closer := st.getRawCollection(controllersC)
+	defer closer()
+	var doc settingsDoc
+	if err := coll.FindId(controllerSettingsGlobalKey).One(&doc); err != nil {
+		return nil
+	}
+
+	var ops []txn.Op
+	settingsChanged := false
+	if _, ok := doc.Settings[controller.MaxLogsAge]; !ok {
+		settingsChanged = true
+		doc.Settings[controller.MaxLogsAge] = fmt.Sprintf("%vh", controller.DefaultMaxLogsAgeDays*24)
+	}
+	if _, ok := doc.Settings[controller.MaxLogSize]; !ok {
+		settingsChanged = true
+		doc.Settings[controller.MaxLogSize] = fmt.Sprintf("%vM", controller.DefaultMaxLogCollectionMB)
+	}
+	if settingsChanged {
+		ops = append(ops, txn.Op{
+			C:      controllersC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
