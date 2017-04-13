@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/httprequest"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/gui"
 	jujutesting "github.com/juju/juju/juju/testing"
 )

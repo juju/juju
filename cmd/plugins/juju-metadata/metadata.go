@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/juju/cmd"
@@ -30,11 +29,11 @@ Juju model.
 func Main(args []string) {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		os.Exit(2)
 	}
 	if err := juju.InitJujuXDGDataHome(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		os.Exit(2)
 	}
 	os.Exit(cmd.Main(NewSuperCommand(), ctx, args[1:]))

@@ -7,13 +7,13 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/terms-client/api/wireformat"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/listagreements"
 	coretesting "github.com/juju/juju/testing"
 )

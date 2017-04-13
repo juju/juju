@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	jjcharmstore "github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"

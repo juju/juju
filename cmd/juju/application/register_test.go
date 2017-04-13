@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,6 @@ import (
 
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cmd/cmdtesting"
 )
 
 var _ = gc.Suite(&registrationSuite{})

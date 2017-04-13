@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/gosuri/uitable"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

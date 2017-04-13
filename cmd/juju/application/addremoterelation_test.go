@@ -6,13 +6,13 @@ package application
 import (
 	"regexp"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"

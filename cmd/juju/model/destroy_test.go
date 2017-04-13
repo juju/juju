@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
+	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -230,7 +231,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtesting.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
+	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
@@ -243,7 +244,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
-	_, errc = cmdtesting.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
+	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
@@ -257,7 +258,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
-		_, errc = cmdtesting.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
+		_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 		select {
 		case err := <-errc:
 			c.Check(err, jc.ErrorIsNil)
