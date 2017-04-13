@@ -54,6 +54,7 @@ type addModelCommand struct {
 	CredentialName string
 	CloudRegion    string
 	Config         common.ConfigFlag
+	noSwitch       bool
 }
 
 const addModelHelpDoc = `
@@ -115,6 +116,8 @@ func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Owner, "owner", "", "The owner of the new model if not the current user")
 	f.StringVar(&c.CredentialName, "credential", "", "Credential used to add the model")
 	f.Var(&c.Config, "config", "Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...])")
+	f.BoolVar(&c.noSwitch, "S", false, "Do not switch to the newly created controller")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "")
 }
 
 func (c *addModelCommand) Init(args []string) error {
@@ -234,8 +237,10 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		}); err != nil {
 			return errors.Trace(err)
 		}
-		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
-			return errors.Trace(err)
+		if !c.noSwitch {
+			if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
