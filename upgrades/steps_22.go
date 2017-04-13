@@ -32,6 +32,13 @@ func stateStepsFor22() []Step {
 				return context.State().AddControllerLogPruneSettings()
 			},
 		},
+		&upgradeStep{
+			description: "add status history pruning config settings",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddStatusHistoryPruneSettings()
+			},
+		},
 	}
 }
 
