@@ -147,6 +147,7 @@ type bootstrapCommand struct {
 	Cloud               string
 	Region              string
 	noGUI               bool
+	noSwitch            bool
 	interactive         bool
 }
 
@@ -178,9 +179,11 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
-	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
+	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
+	f.BoolVar(&c.noSwitch, "S", false, "Do not switch to the newly created controller")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -457,14 +460,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-		return errors.Trace(err)
-	}
 
-	// Set the current controller so "juju status" can be run while
-	// bootstrapping is underway.
-	if err := store.SetCurrentController(c.controllerName); err != nil {
-		return errors.Trace(err)
+	if !c.noSwitch {
+		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+			return errors.Trace(err)
+		}
+		if err := store.SetCurrentController(c.controllerName); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	cloudRegion := c.Cloud
