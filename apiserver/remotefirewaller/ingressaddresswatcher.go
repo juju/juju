@@ -68,20 +68,19 @@ func NewIngressAddressWatcher(backend State, rel Relation, appName string) (*Ing
 	return w, err
 }
 
-func (w *IngressAddressWatcher) initial() (set.Strings, error) {
+func (w *IngressAddressWatcher) initial() error {
 	app, err := w.backend.Application(w.appName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	units, err := app.AllUnits()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	result := make(set.Strings)
 	for _, u := range units {
 		inScope, err := w.rel.UnitInScope(u)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		if !inScope {
 			continue
@@ -89,17 +88,17 @@ func (w *IngressAddressWatcher) initial() (set.Strings, error) {
 
 		addr, ok, err := w.unitAddress(u)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		if ok {
-			result.Add(addr)
+			w.known[u.Name()] = addr
 		}
 		if err := w.trackUnit(u); err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 
 	}
-	return result, nil
+	return nil
 }
 
 func (w *IngressAddressWatcher) loop() error {
@@ -118,23 +117,32 @@ func (w *IngressAddressWatcher) loop() error {
 	var (
 		sentInitial bool
 		out         chan<- []string
+		addresses   []string
 	)
-	// addresses holds the current set of known addresses.
-	addresses, err := w.initial()
+	err = w.initial()
 	if errors.IsNotFound(err) {
 		return nil
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	out = w.out
+	changed := false
 	for {
-		newAddresses := addresses
+		if !sentInitial || changed {
+			addressSet := set.NewStrings()
+			for _, addr := range w.known {
+				addressSet.Add(addr)
+			}
+			changed = false
+			addresses = addressSet.Values()
+			out = w.out
+		}
+
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		// Send initial event or subsequent changes.
-		case out <- formatAsCIDR(addresses.Values()):
+		case out <- formatAsCIDR(addresses):
 			sentInitial = true
 			out = nil
 		case c, ok := <-ruw.Changes():
@@ -144,7 +152,7 @@ func (w *IngressAddressWatcher) loop() error {
 			// A unit has entered or left scope.
 			// Get the new set of addresses resulting from that
 			// change, and if different to what we know, send the change.
-			newAddresses, err = w.mergeAddresses(addresses, c)
+			changed, err = w.relationUnitsChanged(c)
 			if err != nil {
 				return err
 			}
@@ -152,25 +160,12 @@ func (w *IngressAddressWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("address changes channel unexpectedly closed")
 			}
-			changed, err := w.machineAddressChanged(machineId)
+			changed, err = w.machineAddressChanged(machineId)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if changed {
-				newAddresses = set.NewStrings()
-				for _, addr := range w.known {
-					newAddresses.Add(addr)
-				}
-			}
 		}
 
-		changed := areDifferent(newAddresses, addresses)
-		if !sentInitial || changed {
-			addresses = newAddresses
-			out = w.out
-		} else {
-			out = nil
-		}
 	}
 }
 
@@ -203,8 +198,8 @@ func (w *IngressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
 	return addr.Value, true, nil
 }
 
-func (w *IngressAddressWatcher) mergeAddresses(addresses set.Strings, c params.RelationUnitsChange) (set.Strings, error) {
-	result := set.NewStrings(addresses.Values()...)
+func (w *IngressAddressWatcher) relationUnitsChanged(c params.RelationUnitsChange) (bool, error) {
+	changed := false
 	for name := range c.Changed {
 
 		u, err := w.backend.Unit(name)
@@ -212,11 +207,11 @@ func (w *IngressAddressWatcher) mergeAddresses(addresses set.Strings, c params.R
 			continue
 		}
 		if err != nil {
-			return result, err
+			return false, err
 		}
 
 		if err := w.trackUnit(u); err != nil {
-			return result, errors.Trace(err)
+			return false, errors.Trace(err)
 		}
 
 		// We need to know whether to look at the public or cloud local address.
@@ -224,21 +219,26 @@ func (w *IngressAddressWatcher) mergeAddresses(addresses set.Strings, c params.R
 		// parameter to look at the cloud local address.
 		addr, ok, err := w.unitAddress(u)
 		if err != nil {
-			return result, err
+			return false, err
 		}
 		if !ok {
 			continue
 		}
-		result.Add(addr)
-		w.known[name] = addr
+		if w.known[name] != addr {
+			w.known[name] = addr
+			changed = true
+		}
 	}
 	for _, name := range c.Departed {
 		if err := w.untrackUnit(name); err != nil {
-			return result, errors.Trace(err)
+			return false, errors.Trace(err)
 		}
 		// If the unit is departing and we have seen its address,
 		// remove the address.
-		address := w.known[name]
+		address, ok := w.known[name]
+		if !ok {
+			continue
+		}
 		delete(w.known, name)
 
 		// See if the address is still used by another unit.
@@ -250,10 +250,10 @@ func (w *IngressAddressWatcher) mergeAddresses(addresses set.Strings, c params.R
 			}
 		}
 		if !inUse {
-			result.Remove(address)
+			changed = true
 		}
 	}
-	return result, nil
+	return changed, nil
 }
 
 func (w *IngressAddressWatcher) trackUnit(unit Unit) error {
