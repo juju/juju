@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
@@ -156,29 +157,27 @@ func makeToolsList(series string) tools.List {
 	}}
 }
 
-//TODO
-//
-// func (e *environSuite) TestBootstrap(c *gc.C) {
-// 	environ, err := oracle.NewOracleEnviron(
-// 		oracle.DefaultProvider,
-// 		environs.OpenParams{
-// 			Config: testing.ModelConfig(c),
-// 		},
-// 		DefaultEnvironAPI,
-// 	)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(environ, gc.NotNil)
-//
-// 	ctx := envtesting.BootstrapContext(c)
-// 	_, err = environ.Bootstrap(ctx,
-// 		environs.BootstrapParams{
-// 			ControllerConfig:     testing.FakeControllerConfig(),
-// 			AvailableTools:       makeToolsList("xenial"),
-// 			BootstrapSeries:      "xenial",
-// 			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
-// 		})
-// 	c.Assert(err, gc.IsNil)
-// }
+func (e *environSuite) TestBootstrap(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	ctx := envtesting.BootstrapContext(c)
+	_, err = environ.Bootstrap(ctx,
+		environs.BootstrapParams{
+			ControllerConfig:     testing.FakeControllerConfig(),
+			AvailableTools:       makeToolsList("xenial"),
+			BootstrapSeries:      "xenial",
+			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+		})
+	c.Assert(err, gc.IsNil)
+}
 
 func (e *environSuite) TestCreate(c *gc.C) {
 	environ, err := oracle.NewOracleEnviron(
@@ -292,4 +291,143 @@ func (e *environSuite) TestConfig(c *gc.C) {
 
 	cfg := environ.Config()
 	c.Assert(cfg, gc.NotNil)
+}
+
+func (e *environSuite) TestConstraintsValidator(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	validator, err := environ.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	c.Assert(validator, gc.NotNil)
+}
+
+func (e *environSuite) TestSetConfig(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	err = environ.SetConfig(testing.ModelConfig(c))
+	c.Assert(err, gc.NotNil)
+}
+
+func (e *environSuite) TestInstances(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	instances, err := environ.Instances([]instance.Id{instance.Id("0")})
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.NotNil)
+}
+
+func (e *environSuite) TestConstrollerInstances(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	instances, err := environ.ControllerInstances("23123-3123-12312")
+	c.Assert(err, gc.Equals, environs.ErrNoInstances)
+	c.Assert(instances, gc.IsNil)
+}
+
+func (e *environSuite) TestDestroy(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	err = environ.Destroy()
+	c.Assert(err, gc.IsNil)
+}
+
+func (e *environSuite) TestDestroyController(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	err = environ.DestroyController("231233-312-321-3312")
+	c.Assert(err, gc.IsNil)
+}
+
+func (e *environSuite) TestProvider(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	p := environ.Provider()
+	c.Assert(p, gc.NotNil)
+}
+
+func (e *environSuite) TestPrecheckInstnace(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	err = environ.PrecheckInstance("", constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+}
+
+func (e *environSuite) TestInstanceTypes(c *gc.C) {
+	environ, err := oracle.NewOracleEnviron(
+		oracle.DefaultProvider,
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		DefaultEnvironAPI,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
+
+	types, err := environ.InstanceTypes(constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(types, gc.NotNil)
 }

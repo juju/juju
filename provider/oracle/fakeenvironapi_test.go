@@ -319,7 +319,12 @@ var (
 	DefaultEnvironAPI = &FakeEnvironAPI{
 		FakeInstancer: DefaultFakeInstancer,
 		FakeInstance: FakeInstance{
-			Create:    response.LaunchPlan{},
+			Create: response.LaunchPlan{
+				Relationships: nil,
+				Instances: []response.Instance{
+					DefaultFakeInstancer.Instance,
+				},
+			},
 			CreateErr: nil,
 			All: response.AllInstances{
 				Result: []response.Instance{
