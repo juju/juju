@@ -229,7 +229,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if metering {
-		outputHeaders("Meter", "Status", "Message")
+		outputHeaders("Entity", "Meter status", "Message")
 		if fs.Model.MeterStatus != nil {
 			w.Print("model")
 			outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
