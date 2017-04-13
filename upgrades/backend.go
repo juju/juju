@@ -27,6 +27,7 @@ type StateBackend interface {
 	UpgradeNoProxyDefaults() error
 	AddNonDetachableStorageMachineId() error
 	RemoveNilValueApplicationSettings() error
+	AddControllerLogPruneSettings() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -95,6 +96,10 @@ func (s stateBackend) AddNonDetachableStorageMachineId() error {
 
 func (s stateBackend) RemoveNilValueApplicationSettings() error {
 	return state.RemoveNilValueApplicationSettings(s.st)
+}
+
+func (s stateBackend) AddControllerLogPruneSettings() error {
+	return state.AddControllerLogPruneSettings(s.st)
 }
 
 type modelShim struct {

@@ -922,3 +922,56 @@ func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
 		expectUpgradedData{settingsColl, expectedSettings},
 	)
 }
+
+func (s *upgradesSuite) TestAddControllerLogPruneSettingsKeepExisting(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "controllerSettings",
+		"settings": bson.M{
+			"max-logs-age":  "96h",
+			"max-logs-size": "5G",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "controllerSettings",
+			"settings": bson.M{
+				"max-logs-age":  "96h",
+				"max-logs-size": "5G",
+			},
+		}}
+
+	s.assertUpgradedData(c, AddControllerLogPruneSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
+func (s *upgradesSuite) TestAddControllerLogPruneSettings(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id":      "controllerSettings",
+		"settings": bson.M{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "controllerSettings",
+			"settings": bson.M{
+				"max-logs-age":  "72h",
+				"max-logs-size": "4096M",
+			},
+		}}
+
+	s.assertUpgradedData(c, AddControllerLogPruneSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}

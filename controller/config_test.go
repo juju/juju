@@ -147,8 +147,8 @@ func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			"max-logs-size":       "8G",
-			"max-logs-age": "96h",
+			"max-logs-size": "8G",
+			"max-logs-age":  "96h",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
