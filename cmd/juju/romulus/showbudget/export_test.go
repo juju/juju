@@ -9,6 +9,7 @@ import (
 
 var (
 	NewBudgetAPIClient = &newBudgetAPIClient
+	NewJujuclientStore = &newJujuclientStore
 )
 
 // BudgetAPIClientFnc returns a function that returns the provided budgetAPIClient

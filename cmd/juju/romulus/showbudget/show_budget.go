@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var logger = loggo.GetLogger("romulus.cmd.showbudget")
@@ -67,7 +68,7 @@ func (c *showBudgetCommand) Init(args []string) error {
 func (c *showBudgetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
-		"tabular": formatTabular,
+		"tabular": c.formatTabular,
 		"json":    cmd.FormatJson,
 	})
 }
@@ -90,7 +91,7 @@ func (c *showBudgetCommand) Run(ctx *cmd.Context) error {
 }
 
 // formatTabular returns a tabular view of available budgets.
-func formatTabular(writer io.Writer, value interface{}) error {
+func (c *showBudgetCommand) formatTabular(writer io.Writer, value interface{}) error {
 	b, ok := value.(*wireformat.BudgetWithAllocations)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", b, value)
@@ -103,9 +104,18 @@ func formatTabular(writer io.Writer, value interface{}) error {
 		table.RightAlign(col)
 	}
 
+	uuidToModelName, err := c.modelNameMap()
+	if err != nil {
+		logger.Warningf("failed to read juju client model names")
+		uuidToModelName = map[string]string{}
+	}
 	table.AddRow("Model", "Spent", "Allocated", "By", "Usage")
 	for _, allocation := range b.Allocations {
-		table.AddRow(allocation.Model, allocation.Consumed, allocation.Limit, allocation.Owner, allocation.Usage)
+		modelName := uuidToModelName[allocation.Model]
+		if modelName == "" {
+			modelName = allocation.Model
+		}
+		table.AddRow(modelName, allocation.Consumed, allocation.Limit, allocation.Owner, allocation.Usage)
 	}
 	table.AddRow("", "", "", "")
 	table.AddRow("Total", b.Total.Consumed, b.Total.Allocated, "", b.Total.Usage)
@@ -113,6 +123,25 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	table.AddRow("Unallocated", "", b.Total.Unallocated, "")
 	fmt.Fprint(writer, table)
 	return nil
+}
+
+func (c *showBudgetCommand) modelNameMap() (map[string]string, error) {
+	store := newJujuclientStore()
+	uuidToName := map[string]string{}
+	controllers, err := store.AllControllers()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for cname := range controllers {
+		models, err := store.AllModels(cname)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for mname, mdetails := range models {
+			uuidToName[mdetails.ModelUUID] = cname + ":" + mname
+		}
+	}
+	return uuidToName, nil
 }
 
 type APIClient interface {
@@ -129,3 +158,5 @@ func newBudgetAPIClientImpl(c *httpbakery.Client) (budgetAPIClient, error) {
 type budgetAPIClient interface {
 	GetBudget(string) (*wireformat.BudgetWithAllocations, error)
 }
+
+var newJujuclientStore = jujuclient.NewFileClientStore
