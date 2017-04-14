@@ -37,15 +37,6 @@ def assess_add_credentials(args):
     :param args: Test arguments
     """
 
-    testing_variations = {
-        'aws': add_aws,
-        'google': add_gce,
-        'rackspace': add_rackspace,
-        'maas': add_maas,
-        'joyent': add_joyent,
-        'azure': add_azure
-        }
-
     if 'vmaas' in args.env:
         env = 'maas'
     elif 'gce' in args.env:
@@ -54,16 +45,36 @@ def assess_add_credentials(args):
         env = args.env.split('parallel-')[1]
 
     # Grab the credentials from cloud-city
-    with open(os.path.join(os.environ['HOME'], 'cloud-city',
-                           'credentials.yaml')) as f:
-        creds_dict = yaml.load(f)
-    cred = creds_dict['credentials'][env]
+    cred = get_credentials(env)
 
     # Fix the keypath to reflect local username
     key_path = cred['credentials'].get('private-key-path')
     if key_path:
         cred['credentials']['private-key-path'] = os.path.join(
             os.environ['HOME'], 'cloud-city', '{}-key'.format(env))
+
+    verify_add_credentials(args, env, cred)
+    verify_credentials_match(env, cred)
+    verify_bootstrap(args)
+
+    log.info('SUCCESS')
+
+
+def verify_add_credentials(args, env, cred):
+    """Adds the supplied credential to juju with 'juju add-credential'.
+
+    :param args: Testing arguments
+    :param env: String environment name
+    :param cred: Dict of credential information
+    """
+    testing_variations = {
+        'aws': add_aws,
+        'google': add_gce,
+        'rackspace': add_rackspace,
+        'maas': add_maas,
+        'joyent': add_joyent,
+        'azure': add_azure
+        }
 
     log.info("Adding {} credential from ~/cloud-city/credentials.yaml "
              "into testing instance".format(args.env))
@@ -76,10 +87,17 @@ def assess_add_credentials(args):
             raise Exception(
                 'Registering user failed: pexpect session timed out')
 
-    verify_credentials(env, cred)
-    verify_bootstrap(args)
 
-    log.info('SUCCESS')
+def get_credentials(env):
+    """Gets the stored test credentials.
+
+    :return: Dict of credential information
+    """
+    with open(os.path.join(os.environ['HOME'], 'cloud-city',
+                           'credentials.yaml')) as f:
+        creds_dict = yaml.load(f)
+    cred = creds_dict['credentials'][env]
+    return cred
 
 
 def verify_bootstrap(args):
@@ -95,14 +113,13 @@ def verify_bootstrap(args):
         log.info('Bootstrap successfull, tearing down client')
 
 
-def verify_credentials(env, cred):
-    """Verify the credentials entered match the credentials stored
+def verify_credentials_match(env, cred):
+    """Verify the credentials entered match the stored credentials.
 
     :param env: String environment name
     :param cred: Dict of credential information
     """
-    cred_path = os.path.join(os.environ['JUJU_HOME'], 'credentials.yaml')
-    with open(cred_path) as f:
+    with open(os.path.join(os.environ['JUJU_HOME'], 'credentials.yaml')) as f:
         test_creds = yaml.load(f)
         test_creds = test_creds['credentials'][env][env]
     if not test_creds == cred['credentials']:
@@ -111,6 +128,8 @@ def verify_credentials(env, cred):
 
 
 def end_session(session):
+    """Convenience function to check a pexpect session has properly closed.
+    """
     session.expect(pexpect.EOF)
     session.close()
     if session.exitstatus != 0:
