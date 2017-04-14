@@ -148,7 +148,7 @@ if [[ "$USE_TMPFS" == "true" ]]; then
         sudo mkdir -p -m 777 /mnt/tmp
         sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
     fi
-    sudo rm -r /mnt/tmp/* || true
+    sudo rm -rf /mnt/tmp/* || true
     export TMPDIR=/mnt/tmp
 fi
 export GOPATH=\$HOME/$juju_version
