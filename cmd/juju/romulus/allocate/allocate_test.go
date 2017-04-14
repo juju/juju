@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/allocate"
@@ -28,8 +29,10 @@ type allocateSuite struct {
 func (s *allocateSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = &jujuclient.MemStore{
+		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
-			"controller": {},
+			"controller":        {},
+			"anothercontroller": {},
 		},
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
@@ -38,9 +41,18 @@ func (s *allocateSuite) SetUpTest(c *gc.C) {
 				},
 				CurrentModel: "admin/model",
 			},
+			"anothercontroller": {
+				Models: map[string]jujuclient.ModelDetails{
+					"admin/somemodel": {"another-model-uuid"},
+				},
+				CurrentModel: "admin/somemodel",
+			},
 		},
 		Accounts: map[string]jujuclient.AccountDetails{
 			"controller": {
+				User: "admin",
+			},
+			"anothercontroller": {
 				User: "admin",
 			},
 		},
@@ -51,9 +63,7 @@ func (s *allocateSuite) SetUpTest(c *gc.C) {
 
 func (s *allocateSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	updateAlloc := allocate.NewAllocateCommandForTest(s.mockAPI, s.store)
-	a := []string{"-m", "controller:model"}
-	a = append(a, args...)
-	return cmdtesting.RunCommand(c, updateAlloc, a...)
+	return cmdtesting.RunCommand(c, updateAlloc, args...)
 }
 
 func (s *allocateSuite) TestUpdateAllocation(c *gc.C) {
@@ -62,6 +72,30 @@ func (s *allocateSuite) TestUpdateAllocation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "allocation set to 5\n")
 	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", "model-uuid", "5")
+}
+
+func (s *allocateSuite) TestUpdateAllocationByModelUUID(c *gc.C) {
+	modelUUID := utils.MustNewUUID().String()
+	s.mockAPI.resp = "allocation set to 5"
+	ctx, err := s.run(c, "--model-uuid", modelUUID, "5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "allocation set to 5\n")
+	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", modelUUID, "5")
+}
+
+func (s *allocateSuite) TestUpdateAllocationByModelName(c *gc.C) {
+	s.mockAPI.resp = "allocation set to 5"
+	ctx, err := s.run(c, "--model", "anothercontroller:somemodel", "5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "allocation set to 5\n")
+	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", "another-model-uuid", "5")
+}
+
+func (s *allocateSuite) TestUpdateAllocationInvalidModelUUID(c *gc.C) {
+	ctx, err := s.run(c, "--model-uuid", "not-a-uuid", "5")
+	c.Assert(err, gc.ErrorMatches, `provided model UUID "not-a-uuid" not valid`)
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
+	s.mockAPI.CheckNoCalls(c)
 }
 
 func (s *allocateSuite) TestUpdateAllocationAPIError(c *gc.C) {

@@ -10,7 +10,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	api "github.com/juju/romulus/api/budget"
+	"github.com/juju/utils"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -18,8 +20,9 @@ import (
 
 type allocateCommand struct {
 	modelcmd.ModelCommandBase
-	api   apiClient
-	Value string
+	modelUUID string
+	api       apiClient
+	Value     string
 }
 
 // NewAllocateCommand returns a new allocateCommand.
@@ -57,6 +60,11 @@ func (c *allocateCommand) Info() *cmd.Info {
 	}
 }
 
+func (c *allocateCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.modelUUID, "model-uuid", "", "Model uuid to set allocation for.")
+	c.ModelCommandBase.SetFlags(f)
+}
+
 // Init implements cmd.Command.Init.
 func (c *allocateCommand) Init(args []string) error {
 	if len(args) < 1 {
@@ -66,11 +74,18 @@ func (c *allocateCommand) Init(args []string) error {
 	if _, err := strconv.ParseInt(c.Value, 10, 32); err != nil {
 		return errors.New("value needs to be a whole number")
 	}
-
+	if c.modelUUID != "" {
+		if !utils.IsValidUUIDString(c.modelUUID) {
+			return errors.NotValidf("provided model UUID %q", c.modelUUID)
+		}
+	}
 	return c.ModelCommandBase.Init(args[1:])
 }
 
-func (c *allocateCommand) modelUUID() (string, error) {
+func (c *allocateCommand) getModelUUID() (string, error) {
+	if c.modelUUID != "" {
+		return c.modelUUID, nil
+	}
 	model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName())
 	if err != nil {
 		return "", errors.Trace(err)
@@ -80,7 +95,7 @@ func (c *allocateCommand) modelUUID() (string, error) {
 
 // Run implements cmd.Command.Run and contains most of the setbudget logic.
 func (c *allocateCommand) Run(ctx *cmd.Context) error {
-	modelUUID, err := c.modelUUID()
+	modelUUID, err := c.getModelUUID()
 	if err != nil {
 		return errors.Annotate(err, "failed to get model uuid")
 	}
