@@ -12,13 +12,11 @@ from mock import (
     patch,
     mock_open
     )
-
 from assess_add_credentials import (
     verify_add_credentials,
     get_credentials,
     verify_bootstrap,
     verify_credentials_match,
-    end_session,
     add_aws,
     add_gce,
     add_maas,
@@ -27,9 +25,6 @@ from assess_add_credentials import (
     add_rackspace,
     parse_args,
     main,
-    )
-from jujupy import (
-    fake_juju_client,
     )
 from tests import (
     parse_error,
@@ -128,7 +123,6 @@ class TestMain(TestCase):
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         args = parse_args(argv)
-        client = Mock(spec=["is_jes_enabled"])
         with patch("assess_add_credentials.configure_logging",
                    autospec=True) as mock_cl:
             with patch("assess_add_credentials.assess_add_credentials",
