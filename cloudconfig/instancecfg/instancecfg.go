@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
+	"strings"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
@@ -438,6 +439,19 @@ func (cfg *InstanceConfig) APIHostAddrs() []string {
 	return hosts
 }
 
+func (cfg *InstanceConfig) APIHosts() []string {
+	var hosts []string
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, "localhost")
+	}
+	if cfg.APIInfo != nil {
+		for _, addr := range cfg.APIInfo.Addrs {
+			hosts = append(hosts, strings.Split(addr, ":")[0])
+		}
+	}
+	return hosts
+}
+
 // AgentVersion returns the version of the Juju agent that will be configured
 // on the instance. The zero value will be returned if there are no tools set.
 func (cfg *InstanceConfig) AgentVersion() version.Binary {
@@ -743,6 +757,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AgentEnvironment[agent.ContainerType] = string(icfg.MachineContainerType)
 	icfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	icfg.ProxySettings = proxySettings
+	icfg.ProxySettings.AutoNoProxy = strings.Join(icfg.APIHosts(), ",")
 	icfg.AptProxySettings = aptProxySettings
 	icfg.AptMirror = aptMirror
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates

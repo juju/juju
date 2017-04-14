@@ -1176,6 +1176,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
 		Https:   "https://proxy.example.com:9000",
 		NoProxy: "127.0.0.1,localhost,::1",
 	}

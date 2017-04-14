@@ -47,7 +47,7 @@ github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-0
 github.com/juju/testing	git	fce9bc4ebf7a77310c262ac4884e03b778eae06a	2017-02-22T09:01:19Z
 github.com/juju/txn	git	b0486f90a44540ef9a5cfc9f3fad904832e954fe	2017-03-31T02:42:25Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
-github.com/juju/utils	git	6a26b0e1230eeaad6d2321bb63700da1b1116c2b	2017-03-17T14:03:37Z
+github.com/juju/utils	git	10e50064daf69e29e89f8b806269372e9a4b5406	2017-04-13T15:08:51Z
 github.com/juju/version	git	1f41e27e54f21acccf9b2dddae063a782a8a7ceb	2016-10-31T05:19:06Z
 github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-09T14:36:29Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z

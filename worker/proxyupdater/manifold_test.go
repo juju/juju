@@ -118,9 +118,9 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	dummy, ok := worker.(*dummyWorker)
 	c.Assert(ok, jc.IsTrue)
-	c.Check(dummy.config.Directory, gc.Equals, "/home/ubuntu")
+	c.Check(dummy.config.SystemdFiles, gc.DeepEquals, []string{"/etc/systemd/system.conf.d/juju-proxy.conf", "/etc/systemd/user.conf.d/juju-proxy.conf"})
+	c.Check(dummy.config.EnvFiles, gc.DeepEquals, []string{"/etc/juju-proxy.conf"})
 	c.Check(dummy.config.RegistryPath, gc.Equals, `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`)
-	c.Check(dummy.config.Filename, gc.Equals, ".juju-proxy")
 	c.Check(dummy.config.API, gc.NotNil)
 	// Checking function equality is problematic, use the errors they
 	// return.

@@ -132,12 +132,13 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 	)
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5,9.9.9.9"
+	expectedAptNoProxy := "9.9.9.9"
 
 	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
-			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
+			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: expectedAptNoProxy},
 	})
 }
 
@@ -157,12 +158,13 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 	)
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
+	expectedAptNoProxy := "0.1.2.3"
 
 	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
-			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
+			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: expectedAptNoProxy},
 	})
 }
 

@@ -6,11 +6,9 @@ package proxyupdater
 import (
 	"fmt"
 	"io/ioutil"
-	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/commands"
@@ -27,9 +25,9 @@ var (
 )
 
 type Config struct {
-	Directory       string
 	RegistryPath    string
-	Filename        string
+	EnvFiles        []string
+	SystemdFiles    []string
 	API             API
 	ExternalUpdate  func(proxyutils.Settings) error
 	InProcessUpdate func(proxyutils.Settings) error
@@ -79,36 +77,27 @@ var NewWorker = func(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-func (w *proxyWorker) writeEnvironmentFile() error {
-	// Writing the environment file is handled by executing the script:
-	//
-	// On cloud-instance ubuntu images, the ubuntu user is uid 1000, but in
-	// the situation where the ubuntu user has been created as a part of the
-	// manual provisioning process, the user will exist, and will not have the
-	// same uid/gid as the default cloud image.
-	//
-	// It is easier to shell out to check, and is also the same way that the file
-	// is written in the cloud-init process, so consistency FTW.
-	filePath := path.Join(w.config.Directory, w.config.Filename)
-	result, err := exec.RunCommands(exec.RunParams{
-		Commands: fmt.Sprintf(
-			`[ -e %s ] && (printf '%%s\n' %s > %s && chown ubuntu:ubuntu %s)`,
-			w.config.Directory,
-			utils.ShQuote(w.proxy.AsScriptEnvironment()),
-			filePath, filePath),
-		WorkingDir: w.config.Directory,
-	})
-
-	if err != nil {
-		return err
+func (w *proxyWorker) saveProxySettingsToFiles() error {
+	// The proxy settings are (usually) stored in three files:
+	// - /etc/juju-proxy.conf - in 'env' format
+	// - /etc/systemd/system.conf.d/juju-proxy.conf
+	// - /etc/systemd/user.conf.d/juju-proxy.conf - both in 'systemd' format
+	for _, file := range w.config.EnvFiles {
+		err := ioutil.WriteFile(file, []byte(w.proxy.AsScriptEnvironment()), 0644)
+		if err != nil {
+			logger.Errorf("Error updating environment file %s - %v", file, err)
+		}
 	}
-	if result.Code != 0 {
-		logger.Errorf("failed writing new proxy values: \n%s\n%s", result.Stdout, result.Stderr)
+	for _, file := range w.config.SystemdFiles {
+		err := ioutil.WriteFile(file, []byte(w.proxy.AsSystemdDefaultEnv()), 0644)
+		if err != nil {
+			logger.Errorf("Error updating systemd file %s - %v", file, err)
+		}
 	}
 	return nil
 }
 
-func (w *proxyWorker) writeEnvironmentToRegistry() error {
+func (w *proxyWorker) saveProxySettingsToRegistry() error {
 	// On windows we write the proxy settings to the registry.
 	setProxyScript := `$value_path = "%s"
     $new_proxy = "%s"
@@ -118,7 +107,7 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 
 	if w.config.RegistryPath == "" {
 		err := fmt.Errorf("config.RegistryPath is empty")
-		logger.Errorf("writeEnvironmentToRegistry couldn't write proxy settings to registry: %s", err)
+		logger.Errorf("saveProxySettingsToRegistry couldn't write proxy settings to registry: %s", err)
 		return err
 	}
 
@@ -137,12 +126,12 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 	return nil
 }
 
-func (w *proxyWorker) writeEnvironment() error {
+func (w *proxyWorker) saveProxySettings() error {
 	switch os.HostOS() {
 	case os.Windows:
-		return w.writeEnvironmentToRegistry()
+		return w.saveProxySettingsToRegistry()
 	default:
-		return w.writeEnvironmentFile()
+		return w.saveProxySettingsToFiles()
 	}
 }
 
@@ -154,9 +143,9 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
-		if err := w.writeEnvironment(); err != nil {
+		if err := w.saveProxySettings(); err != nil {
 			// It isn't really fatal, but we should record it.
-			logger.Errorf("error writing proxy environment file: %v", err)
+			logger.Errorf("error saving proxy settings: %v", err)
 		}
 		if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
 			if err := externalFunc(proxySettings); err != nil {
