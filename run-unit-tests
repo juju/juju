@@ -208,6 +208,7 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp if it is dirty."
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
+    sudo killall -9 mongod || true
     rm -rf /tmp/adduser-* || true
     rm -rf /tmp/check* || true
     rm -rf /tmp/go-* || true
@@ -243,6 +244,7 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp"
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
+    sudo killall -9 mongod || true
     rm -rf /home/ubuntu/$juju_version || true
     rm -rf /tmp/adduser-* || true
     rm -rf /tmp/check* || true
