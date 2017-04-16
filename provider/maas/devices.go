@@ -5,10 +5,11 @@ package maas
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"path"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
@@ -250,7 +251,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(device gomaasapi.Device, nameToPare
 	interfaces := device.InterfaceSet()
 
 	interfaceInfo := make([]network.InterfaceInfo, 0, len(interfaces))
-	for _, nic := range interfaces {
+	for idx, nic := range interfaces {
 		vlanId := 0
 		vlanVid := 0
 		vlan := nic.VLAN()
@@ -259,6 +260,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(device gomaasapi.Device, nameToPare
 			vlanVid = vlan.VID()
 		}
 		nicInfo := network.InterfaceInfo{
+			DeviceIndex:         idx,
 			InterfaceName:       nic.Name(),
 			InterfaceType:       network.EthernetInterface,
 			MACAddress:          nic.MACAddress(),
@@ -505,6 +507,48 @@ func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Mach
 	return params, nil
 }
 
+func validateExistingDevice(netInfo []network.InterfaceInfo, device gomaasapi.Device) (bool, error) {
+	// Compare the desired device characteristics with the actual device
+	interfaces := device.InterfaceSet()
+	if len(interfaces) < len(netInfo) {
+		logger.Debugf("existing device doesn't have enough interfaces, wanted %d, found %d", len(netInfo), len(interfaces))
+		return false, nil
+	}
+	actualByMAC := make(map[string]gomaasapi.Interface, len(interfaces))
+	for _, iface := range interfaces {
+		actualByMAC[iface.MACAddress()] = iface
+	}
+	for _, desired := range netInfo {
+		actual, ok := actualByMAC[desired.MACAddress]
+		if !ok {
+			foundMACs := make([]string, 0, len(actualByMAC))
+			for _, iface := range interfaces {
+				foundMACs = append(foundMACs, fmt.Sprintf("%s: %s", iface.Name(), iface.MACAddress()))
+			}
+			found := strings.Join(foundMACs, ", ")
+			logger.Debugf("existing device doesn't have device for MAC Address %q, found: %s", desired.MACAddress, found)
+			// No such network interface
+			return false, nil
+		}
+		// TODO: we should have a way to know what space we are targetting, rather than a desired subnet CIDR
+		foundCIDR := false
+		for _, link := range actual.Links() {
+			subnet := link.Subnet()
+			if subnet != nil {
+				cidr := subnet.CIDR()
+				if cidr == desired.CIDR {
+					foundCIDR = true
+				}
+			}
+		}
+		if !foundCIDR {
+			logger.Debugf("could not find Subnet link for CIDR: %q", desired.CIDR)
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // checkForExistingDevice checks to see if we've already registered a device
 // with this name, and if its information is appropriately populated. If we
 // have, then we just return the existing interface info. If we find it, but
@@ -530,8 +574,18 @@ func (env *maasEnviron) checkForExistingDevice(params deviceCreatorParams) (goma
 		return nil, errors.Errorf("found more than 1 MAAS device (%d) for container %q",
 			len(maybeDevices), params.Name)
 	}
-	logger.Debugf("found MAAS device for container %q, "+"using existing device", params.Name)
 	device := maybeDevices[0]
 	// Now validate that this device has the right interfaces
-	return device, nil
+	matches, err := validateExistingDevice(params.DesiredInterfaceInfo, device)
+	if err != nil {
+		return nil, err
+	}
+	if matches {
+		logger.Debugf("found MAAS device for container %q using existing device", params.Name)
+		return device, nil
+	}
+	logger.Debugf("found existing MAAS device for container %q but interfaces did not match, removing device", params.Name)
+	// We found a device, but it doesn't match what we need. remove it and we'll create again.
+	device.Delete()
+	return nil, nil
 }
