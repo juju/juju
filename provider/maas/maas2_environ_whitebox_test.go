@@ -1486,12 +1486,25 @@ func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, c
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSpacesError(c *gc.C) {
-	controller := &fakeController{spacesError: errors.New("boom")}
+	machine := &fakeMachine{
+		Stub:     &testing.Stub{},
+		systemID: "1",
+	}
+	controller := &fakeController{
+		machines:    []gomaasapi.Machine{machine},
+		spacesError: errors.New("boom"),
+	}
 	suite.assertAllocateContainerAddressesFails(c, controller, nil, "boom")
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceMissing(c *gc.C) {
-	controller := &fakeController{}
+	machine := &fakeMachine{
+		Stub:     &testing.Stub{},
+		systemID: "1",
+	}
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{machine},
+	}
 	suite.assertAllocateContainerAddressesFails(c, controller, nil, "cannot find primary interface for container")
 }
 
@@ -1706,7 +1719,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
-	c.Assert(err, gc.ErrorMatches, "creating device interface: boom")
+	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": creating device interface: boom`)
 	args := getArgs(c, device.Calls())
 	maasArgs, ok := args.(gomaasapi.CreateInterfaceArgs)
 	c.Assert(ok, jc.IsTrue)
