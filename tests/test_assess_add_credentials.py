@@ -166,7 +166,7 @@ class TestAssess(TestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         client = Mock(spec=["is_jes_enabled"])
         args = parse_args(argv)
-        with patch.dict(os.environ, {'JUJU_HOME': '/', 'HOME': '/'}):
+        with patch.dict(os.environ, {'JUJU_DATA': '/', 'HOME': '/'}):
             with patch('shutil.copy', autospec=True, return_value=None):
                 with patch(
                     "assess_destroy_model.BootstrapManager.booted_context",
@@ -182,7 +182,7 @@ class TestAssess(TestCase):
         m = mock_open()
         with patch('assess_add_credentials.open', m, create=True) as o:
             o.return_value = io.StringIO(dummy_test_pass)
-            with patch.dict(os.environ, {'JUJU_HOME': '/'}):
+            with patch.dict(os.environ, {'JUJU_DATA': '/'}):
                 verify_credentials_match(
                     'aws', dummy_loaded['credentials']['aws'])
 
@@ -191,7 +191,7 @@ class TestAssess(TestCase):
         creds = dummy_loaded['credentials']['aws']
         with patch('assess_add_credentials.open', m, create=True) as o:
             o.return_value = io.StringIO(dummy_test_fail)
-            with patch.dict(os.environ, {'JUJU_HOME': '/'}):
+            with patch.dict(os.environ, {'JUJU_DATA': '/'}):
                 pattern = 'Credential miss-match after manual add'
                 with self.assertRaisesRegexp(JujuAssertionError, pattern):
                     verify_credentials_match('aws', creds)

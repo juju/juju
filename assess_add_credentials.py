@@ -26,6 +26,9 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_add_credentials")
 
+script_dir = os.path.dirname(__file__)
+cloud_city = os.path.join(script_dir, 'cloud-city')
+
 
 def assess_add_credentials(args):
     """Tests if juju's add-credentials command works as expected.
@@ -51,7 +54,7 @@ def assess_add_credentials(args):
     key_path = cred['credentials'].get('private-key-path')
     if key_path:
         cred['credentials']['private-key-path'] = os.path.join(
-            os.environ['HOME'], 'cloud-city', '{}-key'.format(env))
+            cloud_city, '{}-key'.format(env))
 
     verify_add_credentials(args, env, cred)
     verify_credentials_match(env, cred)
@@ -76,7 +79,7 @@ def verify_add_credentials(args, env, cred):
         'azure': add_azure
         }
 
-    log.info("Adding {} credential from ~/cloud-city/credentials.yaml "
+    log.info("Adding {} credential from /cloud-city/credentials.yaml "
              "into testing instance".format(args.env))
     with pexpect.spawn('juju add-credential {}'.format(env)) as child:
         try:
@@ -93,8 +96,7 @@ def get_credentials(env):
 
     :return: Dict of credential information
     """
-    with open(os.path.join(os.environ['HOME'], 'cloud-city',
-                           'credentials.yaml')) as f:
+    with open(os.path.join(cloud_city, 'credentials.yaml')) as f:
         creds_dict = yaml.load(f)
     cred = creds_dict['credentials'][env]
     return cred
@@ -107,7 +109,7 @@ def verify_bootstrap(args):
     """
     env_file = os.path.join(
         os.environ['HOME'], 'cloud-city', 'environments.yaml')
-    shutil.copy(env_file, os.environ['JUJU_HOME'])
+    shutil.copy(env_file, os.environ['JUJU_DATA'])
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         log.info('Bootstrap successfull, tearing down client')
@@ -119,7 +121,7 @@ def verify_credentials_match(env, cred):
     :param env: String environment name
     :param cred: Dict of credential information
     """
-    with open(os.path.join(os.environ['JUJU_HOME'], 'credentials.yaml')) as f:
+    with open(os.path.join(os.environ['JUJU_DATA'], 'credentials.yaml')) as f:
         test_creds = yaml.load(f)
         test_creds = test_creds['credentials'][env][env]
     if not test_creds == cred['credentials']:
@@ -226,7 +228,7 @@ def add_maas(child, env, cred):
     child.expect('Enter maas-oauth:')
     child.sendline(maas_oauth)
     end_session(child)
-    log.info('Added Rackspace credential')
+    log.info('Added MaaS credential')
 
 
 def add_joyent(child, env, cred):
