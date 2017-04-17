@@ -25,6 +25,8 @@ type State interface {
 	Application(string) (Application, error)
 
 	Unit(string) (Unit, error)
+
+	Machine(string) (Machine, error)
 }
 
 type stateShim struct {
@@ -93,8 +95,18 @@ func (a applicationShim) AllUnits() (results []Unit, err error) {
 type Unit interface {
 	Name() string
 	PublicAddress() (network.Address, error)
+	AssignedMachineId() (string, error)
 }
 
 func (st stateShim) Unit(name string) (Unit, error) {
 	return st.State.Unit(name)
+}
+
+type Machine interface {
+	Id() string
+	WatchAddresses() state.NotifyWatcher
+}
+
+func (st stateShim) Machine(id string) (Machine, error) {
+	return st.State.Machine(id)
 }
