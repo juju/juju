@@ -219,7 +219,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAddCIDR(c *gc.C) {
 	sort.Strings(s.FakeConn.Calls[1].Firewall.Allowed[0].Ports)
 	c.Check(s.FakeConn.Calls[1].Name, gc.Equals, "spam-d01a82")
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-a34d80",
+		Name:         "spam-d01a82",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
 		Allowed: []*compute.FirewallAllowed{{

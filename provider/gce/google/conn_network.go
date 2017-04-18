@@ -119,7 +119,7 @@ func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) err
 		inputCidrs = cidrs.Union(set.NewStrings(inputCidrs...)).SortedValues()
 
 		// Copy new firewall details into required firewall spec.
-		spec := firewallSpec(name, target, inputCidrs, portsByProtocol)
+		spec := firewallSpec(existingFirewallName, target, inputCidrs, portsByProtocol)
 		if err := gce.raw.UpdateFirewall(gce.projectID, existingFirewallName, spec); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", rules)
 		}
