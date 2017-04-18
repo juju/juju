@@ -35,12 +35,12 @@ func (s *commandSuite) TestRegister(c *gc.C) {
 		"agree",
 		"agreements",
 		"allocate",
-		"budgets",
-		"create-budget",
+		"wallets",
+		"create-wallet",
 		"plans",
-		"set-budget",
+		"set-wallet",
 		"set-plan",
-		"show-budget",
+		"show-wallet",
 		"sla",
 	})
 }

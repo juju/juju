@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package showbudget
+package showwallet
 
 import (
 	"fmt"
@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	api "github.com/juju/romulus/api/budget"
-	wireformat "github.com/juju/romulus/wireformat/budget"
+	api "github.com/juju/romulus/api/wallet"
+	wireformat "github.com/juju/romulus/wireformat/wallet"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
@@ -22,50 +22,50 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var logger = loggo.GetLogger("romulus.cmd.showbudget")
+var logger = loggo.GetLogger("romulus.cmd.showwallet")
 
-// NewShowBudgetCommand returns a new command that is used
+// NewShowWalletCommand returns a new command that is used
 // to show details of the specified wireformat.
-func NewShowBudgetCommand() cmd.Command {
-	return modelcmd.WrapBase(&showBudgetCommand{})
+func NewShowWalletCommand() cmd.Command {
+	return modelcmd.WrapBase(&showWalletCommand{})
 }
 
-type showBudgetCommand struct {
+type showWalletCommand struct {
 	modelcmd.JujuCommandBase
 
 	out    cmd.Output
-	budget string
+	wallet string
 }
 
-const showBudgetDoc = `
-Display budget usage information.
+const showWalletDoc = `
+Display wallet usage information.
 
 Examples:
-    juju show-budget personal
+    juju show-wallet personal
 `
 
 // Info implements cmd.Command.Info.
-func (c *showBudgetCommand) Info() *cmd.Info {
+func (c *showWalletCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-budget",
-		Args:    "<budget>",
-		Purpose: "Show details about a budget.",
-		Doc:     showBudgetDoc,
+		Name:    "show-wallet",
+		Args:    "<wallet>",
+		Purpose: "Show details about a wallet.",
+		Doc:     showWalletDoc,
 	}
 }
 
 // Init implements cmd.Command.Init.
-func (c *showBudgetCommand) Init(args []string) error {
+func (c *showWalletCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing arguments")
 	}
-	c.budget, args = args[0], args[1:]
+	c.wallet, args = args[0], args[1:]
 
 	return c.JujuCommandBase.Init(args)
 }
 
 // SetFlags implements cmd.Command.SetFlags.
-func (c *showBudgetCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *showWalletCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": c.formatTabular,
@@ -73,26 +73,26 @@ func (c *showBudgetCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *showBudgetCommand) Run(ctx *cmd.Context) error {
+func (c *showWalletCommand) Run(ctx *cmd.Context) error {
 	client, err := c.BakeryClient()
 	if err != nil {
 		return errors.Annotate(err, "failed to create an http client")
 	}
-	api, err := newBudgetAPIClient(client)
+	api, err := newWalletAPIClient(client)
 	if err != nil {
 		return errors.Annotate(err, "failed to create an api client")
 	}
-	budget, err := api.GetBudget(c.budget)
+	wallet, err := api.GetWallet(c.wallet)
 	if err != nil {
-		return errors.Annotate(err, "failed to retrieve the budget")
+		return errors.Annotate(err, "failed to retrieve the wallet")
 	}
-	err = c.out.Write(ctx, budget)
+	err = c.out.Write(ctx, wallet)
 	return errors.Trace(err)
 }
 
-// formatTabular returns a tabular view of available budgets.
-func (c *showBudgetCommand) formatTabular(writer io.Writer, value interface{}) error {
-	b, ok := value.(*wireformat.BudgetWithAllocations)
+// formatTabular returns a tabular view of available wallets.
+func (c *showWalletCommand) formatTabular(writer io.Writer, value interface{}) error {
+	b, ok := value.(*wireformat.WalletWithAllocations)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", b, value)
 	}
@@ -119,13 +119,13 @@ func (c *showBudgetCommand) formatTabular(writer io.Writer, value interface{}) e
 	}
 	table.AddRow("", "", "", "")
 	table.AddRow("Total", b.Total.Consumed, b.Total.Allocated, "", b.Total.Usage)
-	table.AddRow("Budget", "", b.Limit, "")
+	table.AddRow("Wallet", "", b.Limit, "")
 	table.AddRow("Unallocated", "", b.Total.Unallocated, "")
 	fmt.Fprint(writer, table)
 	return nil
 }
 
-func (c *showBudgetCommand) modelNameMap() (map[string]string, error) {
+func (c *showWalletCommand) modelNameMap() (map[string]string, error) {
 	store := newJujuclientStore()
 	uuidToName := map[string]string{}
 	controllers, err := store.AllControllers()
@@ -148,15 +148,15 @@ type APIClient interface {
 	ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error)
 }
 
-var newBudgetAPIClient = newBudgetAPIClientImpl
+var newWalletAPIClient = newWalletAPIClientImpl
 
-func newBudgetAPIClientImpl(c *httpbakery.Client) (budgetAPIClient, error) {
+func newWalletAPIClientImpl(c *httpbakery.Client) (walletAPIClient, error) {
 	client := api.NewClient(c)
 	return client, nil
 }
 
-type budgetAPIClient interface {
-	GetBudget(string) (*wireformat.BudgetWithAllocations, error)
+type walletAPIClient interface {
+	GetWallet(string) (*wireformat.WalletWithAllocations, error)
 }
 
 var newJujuclientStore = jujuclient.NewFileClientStore

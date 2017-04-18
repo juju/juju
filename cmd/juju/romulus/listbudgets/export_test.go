@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package listbudgets
+package listwallets
 
 import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"

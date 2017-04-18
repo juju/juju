@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	api "github.com/juju/romulus/api/budget"
+	api "github.com/juju/romulus/api/wallet"
 	"github.com/juju/utils"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
@@ -93,7 +93,7 @@ func (c *allocateCommand) getModelUUID() (string, error) {
 	return model.ModelUUID, nil
 }
 
-// Run implements cmd.Command.Run and contains most of the setbudget logic.
+// Run implements cmd.Command.Run and contains most of the setwallet logic.
 func (c *allocateCommand) Run(ctx *cmd.Context) error {
 	modelUUID, err := c.getModelUUID()
 	if err != nil {

@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package setbudget
+package setwallet
 
 import (
 	"fmt"
@@ -9,55 +9,55 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	api "github.com/juju/romulus/api/budget"
+	api "github.com/juju/romulus/api/wallet"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-type setBudgetCommand struct {
+type setWalletCommand struct {
 	modelcmd.JujuCommandBase
 	Name  string
 	Value string
 }
 
-// NewSetBudgetCommand returns a new setBudgetCommand.
-func NewSetBudgetCommand() cmd.Command {
-	return modelcmd.WrapBase(&setBudgetCommand{})
+// NewSetWalletCommand returns a new setWalletCommand.
+func NewSetWalletCommand() cmd.Command {
+	return modelcmd.WrapBase(&setWalletCommand{})
 }
 
 const doc = `
-Set the monthly budget limit.
+Set the monthly wallet limit.
 
 Examples:
-    # Sets the monthly limit for budget named 'personal' to 96.
-    juju set-budget personal 96
+    # Sets the monthly limit for wallet named 'personal' to 96.
+    juju set-wallet personal 96
 `
 
 // Info implements cmd.Command.Info.
-func (c *setBudgetCommand) Info() *cmd.Info {
+func (c *setWalletCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "set-budget",
-		Args:    "<budget name> <value>",
-		Purpose: "Set the budget limit.",
+		Name:    "set-wallet",
+		Args:    "<wallet name> <value>",
+		Purpose: "Set the wallet limit.",
 		Doc:     doc,
 	}
 }
 
 // Init implements cmd.Command.Init.
-func (c *setBudgetCommand) Init(args []string) error {
+func (c *setWalletCommand) Init(args []string) error {
 	if len(args) < 2 {
 		return errors.New("name and value required")
 	}
 	c.Name, c.Value = args[0], args[1]
 	if _, err := strconv.ParseInt(c.Value, 10, 32); err != nil {
-		return errors.New("budget value needs to be a whole number")
+		return errors.New("wallet value needs to be a whole number")
 	}
 	return c.JujuCommandBase.Init(args[2:])
 }
 
-// Run implements cmd.Command.Run and contains most of the setbudget logic.
-func (c *setBudgetCommand) Run(ctx *cmd.Context) error {
+// Run implements cmd.Command.Run and contains most of the setwallet logic.
+func (c *setWalletCommand) Run(ctx *cmd.Context) error {
 	client, err := c.BakeryClient()
 	if err != nil {
 		return errors.Annotate(err, "failed to create an http client")
@@ -66,9 +66,9 @@ func (c *setBudgetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to create an api client")
 	}
-	resp, err := api.SetBudget(c.Name, c.Value)
+	resp, err := api.SetWallet(c.Name, c.Value)
 	if err != nil {
-		return errors.Annotate(err, "failed to set the budget")
+		return errors.Annotate(err, "failed to set the wallet")
 	}
 	fmt.Fprintln(ctx.Stdout, resp)
 	return nil
@@ -82,5 +82,5 @@ func newAPIClientImpl(c *httpbakery.Client) (apiClient, error) {
 }
 
 type apiClient interface {
-	SetBudget(string, string) (string, error)
+	SetWallet(string, string) (string, error)
 }

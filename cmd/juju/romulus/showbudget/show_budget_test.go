@@ -1,48 +1,48 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.s
 
-package showbudget_test
+package showwallet_test
 
 import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/romulus/wireformat/budget"
+	"github.com/juju/romulus/wireformat/wallet"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/romulus/showbudget"
+	"github.com/juju/juju/cmd/juju/romulus/showwallet"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&showBudgetSuite{})
+var _ = gc.Suite(&showWalletSuite{})
 
-type showBudgetSuite struct {
+type showWalletSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	stub          *testing.Stub
-	mockBudgetAPI *mockBudgetAPI
+	mockWalletAPI *mockWalletAPI
 	mockAPI       *mockAPI
 }
 
-func (s *showBudgetSuite) SetUpTest(c *gc.C) {
+func (s *showWalletSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
-	s.mockBudgetAPI = &mockBudgetAPI{s.stub}
+	s.mockWalletAPI = &mockWalletAPI{s.stub}
 	s.mockAPI = &mockAPI{s.stub}
-	s.PatchValue(showbudget.NewBudgetAPIClient, showbudget.BudgetAPIClientFnc(s.mockBudgetAPI))
-	s.PatchValue(showbudget.NewJujuclientStore, newMockClientStore)
+	s.PatchValue(showwallet.NewWalletAPIClient, showwallet.WalletAPIClientFnc(s.mockWalletAPI))
+	s.PatchValue(showwallet.NewJujuclientStore, newMockClientStore)
 }
 
-func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
+func (s *showWalletSuite) TestShowWalletCommand(c *gc.C) {
 	tests := []struct {
 		about  string
 		args   []string
 		err    string
-		budget string
+		wallet string
 		apierr string
 		output string
 	}{{
@@ -50,17 +50,17 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 		err:   `missing arguments`,
 	}, {
 		about: "unknown arguments",
-		args:  []string{"my-special-budget", "extra", "arguments"},
+		args:  []string{"my-special-wallet", "extra", "arguments"},
 		err:   `unrecognized args: \["extra" "arguments"\]`,
 	}, {
 		about:  "api error",
 		args:   []string{"personal"},
 		apierr: "well, this is embarrassing",
-		err:    "failed to retrieve the budget: well, this is embarrassing",
+		err:    "failed to retrieve the wallet: well, this is embarrassing",
 	}, {
 		about:  "all ok",
 		args:   []string{"personal"},
-		budget: "personal",
+		wallet: "personal",
 		output: "" +
 			"Model      \tSpent\tAllocated\t       By\tUsage\n" +
 			"c:m1       \t500  \t     1200\t user.joe\t42%  \n" +
@@ -69,7 +69,7 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 			"uuid4      \t10   \t      100\t user.bob\t10%  \n" +
 			"           \t     \t         \t         \n" +
 			"Total      \t1120 \t     2400\t         \t47%  \n" +
-			"Budget     \t     \t     4000\t         \n" +
+			"Wallet     \t     \t     4000\t         \n" +
 			"Unallocated\t     \t     1600\t         \n",
 	},
 	}
@@ -86,13 +86,13 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 		}
 		s.mockAPI.SetErrors(errs...)
 
-		showBudget := showbudget.NewShowBudgetCommand()
+		showWallet := showwallet.NewShowWalletCommand()
 
-		ctx, err := cmdtesting.RunCommand(c, showBudget, test.args...)
+		ctx, err := cmdtesting.RunCommand(c, showWallet, test.args...)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			s.stub.CheckCalls(c, []testing.StubCall{
-				{"GetBudget", []interface{}{test.budget}},
+				{"GetWallet", []interface{}{test.wallet}},
 			})
 			output := cmdtesting.Stdout(ctx)
 			c.Assert(output, gc.Equals, test.output)
@@ -110,22 +110,22 @@ func (api *mockAPI) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, 
 	return nil, api.NextErr()
 }
 
-type mockBudgetAPI struct {
+type mockWalletAPI struct {
 	*testing.Stub
 }
 
-func (api *mockBudgetAPI) GetBudget(name string) (*budget.BudgetWithAllocations, error) {
-	api.AddCall("GetBudget", name)
-	return &budget.BudgetWithAllocations{
+func (api *mockWalletAPI) GetWallet(name string) (*wallet.WalletWithAllocations, error) {
+	api.AddCall("GetWallet", name)
+	return &wallet.WalletWithAllocations{
 		Limit: "4000",
-		Total: budget.BudgetTotals{
+		Total: wallet.WalletTotals{
 			Allocated:   "2400",
 			Unallocated: "1600",
 			Available:   "1180",
 			Consumed:    "1120",
 			Usage:       "47%",
 		},
-		Allocations: []budget.Allocation{{
+		Allocations: []wallet.Allocation{{
 			Owner:    "user.joe",
 			Limit:    "1200",
 			Consumed: "500",

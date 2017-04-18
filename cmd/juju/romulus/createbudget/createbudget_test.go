@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package createbudget_test
+package createwallet_test
 
 import (
 	"github.com/juju/cmd/cmdtesting"
@@ -10,43 +10,43 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/romulus/createbudget"
+	"github.com/juju/juju/cmd/juju/romulus/createwallet"
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&createBudgetSuite{})
+var _ = gc.Suite(&createWalletSuite{})
 
-type createBudgetSuite struct {
+type createWalletSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	stub    *testing.Stub
 	mockAPI *mockapi
 }
 
-func (s *createBudgetSuite) SetUpTest(c *gc.C) {
+func (s *createWalletSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
 	s.mockAPI = newMockAPI(s.stub)
-	s.PatchValue(createbudget.NewAPIClient, createbudget.APIClientFnc(s.mockAPI))
+	s.PatchValue(createwallet.NewAPIClient, createwallet.APIClientFnc(s.mockAPI))
 }
 
-func (s *createBudgetSuite) TestCreateBudget(c *gc.C) {
-	s.mockAPI.resp = "name budget set to 5"
-	createCmd := createbudget.NewCreateBudgetCommand()
+func (s *createWalletSuite) TestCreateWallet(c *gc.C) {
+	s.mockAPI.resp = "name wallet set to 5"
+	createCmd := createwallet.NewCreateWalletCommand()
 	ctx, err := cmdtesting.RunCommand(c, createCmd, "name", "5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "name budget set to 5\n")
-	s.mockAPI.CheckCall(c, 0, "CreateBudget", "name", "5")
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "name wallet set to 5\n")
+	s.mockAPI.CheckCall(c, 0, "CreateWallet", "name", "5")
 }
 
-func (s *createBudgetSuite) TestCreateBudgetAPIError(c *gc.C) {
+func (s *createWalletSuite) TestCreateWalletAPIError(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New("something failed"))
-	createCmd := createbudget.NewCreateBudgetCommand()
+	createCmd := createwallet.NewCreateWalletCommand()
 	_, err := cmdtesting.RunCommand(c, createCmd, "name", "5")
-	c.Assert(err, gc.ErrorMatches, "failed to create the budget: something failed")
-	s.mockAPI.CheckCall(c, 0, "CreateBudget", "name", "5")
+	c.Assert(err, gc.ErrorMatches, "failed to create the wallet: something failed")
+	s.mockAPI.CheckCall(c, 0, "CreateWallet", "name", "5")
 }
 
-func (s *createBudgetSuite) TestCreateBudgetErrors(c *gc.C) {
+func (s *createWalletSuite) TestCreateWalletErrors(c *gc.C) {
 	tests := []struct {
 		about         string
 		args          []string
@@ -55,7 +55,7 @@ func (s *createBudgetSuite) TestCreateBudgetErrors(c *gc.C) {
 		{
 			about:         "test value needs to be a number",
 			args:          []string{"name", "badvalue"},
-			expectedError: "budget value needs to be a whole number",
+			expectedError: "wallet value needs to be a whole number",
 		},
 		{
 			about:         "value is missing",
@@ -73,7 +73,7 @@ func (s *createBudgetSuite) TestCreateBudgetErrors(c *gc.C) {
 		if test.expectedError != "" {
 			s.mockAPI.SetErrors(errors.New(test.expectedError))
 		}
-		createCmd := createbudget.NewCreateBudgetCommand()
+		createCmd := createwallet.NewCreateWalletCommand()
 		_, err := cmdtesting.RunCommand(c, createCmd, test.args...)
 		c.Assert(err, gc.ErrorMatches, test.expectedError)
 		s.mockAPI.CheckNoCalls(c)
@@ -89,7 +89,7 @@ type mockapi struct {
 	resp string
 }
 
-func (api *mockapi) CreateBudget(name, value string) (string, error) {
-	api.MethodCall(api, "CreateBudget", name, value)
+func (api *mockapi) CreateWallet(name, value string) (string, error) {
+	api.MethodCall(api, "CreateWallet", name, value)
 	return api.resp, api.NextErr()
 }

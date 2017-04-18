@@ -26,7 +26,7 @@ import (
 // the command uses to create an sla authorization macaroon.
 type authorizationClient interface {
 	// Authorize returns the sla authorization macaroon for the specified model,
-	Authorize(modelUUID, supportLevel, budget string) (*slawire.SLAResponse, error)
+	Authorize(modelUUID, supportLevel, wallet string) (*slawire.SLAResponse, error)
 }
 
 type slaClient interface {
@@ -69,13 +69,13 @@ type slaCommand struct {
 	newAuthorizationClient func(options ...sla.ClientOption) (authorizationClient, error)
 
 	Level  string
-	Budget string
+	Wallet string
 }
 
 // SetFlags sets additional flags for the support command.
 func (c *slaCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.Budget, "budget", "", "the maximum spend for the model")
+	f.StringVar(&c.Wallet, "wallet", "", "the maximum spend for the model")
 }
 
 // Info implements cmd.Command.
@@ -88,7 +88,7 @@ func (c *slaCommand) Info() *cmd.Info {
 Set the support level for the model, effective immediately.
 Examples:
     juju sla essential              # set the support level to essential
-    juju sla standard --budget 1000 # set the support level to essential witha maximum budget of $1000
+    juju sla standard --wallet 1000 # set the support level to essential witha maximum wallet of $1000
     juju sla                        # display the current support level for the model.
 `,
 	}
@@ -112,7 +112,7 @@ func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, []byte
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
+	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Wallet)
 	if err != nil {
 		err = common.MaybeTermsAgreementError(err)
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
