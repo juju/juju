@@ -42,6 +42,7 @@ func (f FakeRules) DeleteSecRule(name string) error {
 
 // FakeAcl implements the common.AclAPI interface
 type FakeAcl struct {
+	Acls      response.AllAcls
 	Acl       response.Acl
 	AclErr    error
 	Create    response.Acl
@@ -59,6 +60,10 @@ func (f FakeAcl) CreateAcl(string, string, bool, []string) (response.Acl, error)
 
 func (f FakeAcl) DeleteAcl(string) error {
 	return f.DeleteErr
+}
+
+func (f FakeAcl) AllAcls([]api.Filter) (response.AllAcls, error) {
+	return f.Acls, f.AclErr
 }
 
 // FakeSecIp implements common.SecIpAPI interface

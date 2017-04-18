@@ -24,6 +24,7 @@ github.com/juju/cmd	git	e47739aefe0adb68a401fcd371c0c92c8f6f8d99	2017-04-13T02:1
 github.com/juju/description	git	50b9bb7345dcc1d0443cc137337fdb15a4296ac2	2017-04-06T03:03:04Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
+github.com/juju/go-oracle-cloud	git	94f29b1b5517a3a94f68f1bc887f1798606a015e	2017-04-14T14:56:09Z
 github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:32:58Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
@@ -105,4 +106,3 @@ gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06
 gopkg.in/retry.v1	git	c09f6b86ba4d5d2cf5bdf0665364aec9fd4815db	2016-10-25T18:14:30Z
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/yaml.v2	git	a3f3340b5840cee44f372bddb5880fcbc419b46a	2017-02-08T14:18:51Z
-github.com/juju/go-oracle-cloud	git	e7722f73673541aee4ef426773603aa7ef1f9ba4	2017-05-03T22:05:32Z

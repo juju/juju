@@ -32,6 +32,9 @@ type NetworkingAPI interface {
 	// AllIpNetworks fetches all IP networks matching a filter. A nil valued filter
 	// will return all IP networks
 	AllIpNetworks([]api.Filter) (response.AllIpNetworks, error)
+
+	// AllAcls fetches all ACLs that match a given filter.
+	AllAcls([]api.Filter) (response.AllAcls, error)
 }
 
 // Environ implements the environs.Networking interface
@@ -238,14 +241,40 @@ func (e Environ) getNicAttributes(instance response.Instance) map[string]respons
 	return ret
 }
 
+func (e *Environ) canAccessNetworkAPI() (bool, error) {
+	_, err := e.client.AllAcls(nil)
+	if err != nil {
+		if api.IsMethodNotAllowed(err) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+	return true, nil
+}
+
 // SupportsSpaces is defined on the environs.Networking interface.
 func (e Environ) SupportsSpaces() (bool, error) {
-	return true, nil
+	logger.Infof("checking for spaces support")
+	access, err := e.canAccessNetworkAPI()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if access {
+		return true, nil
+	}
+	return false, errors.NotSupportedf("spaces not supported. Trial account?")
 }
 
 // SupportsSpaceDiscovery is defined on the environs.Networking interface.
 func (e Environ) SupportsSpaceDiscovery() (bool, error) {
-	return true, nil
+	access, err := e.canAccessNetworkAPI()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if access {
+		return true, nil
+	}
+	return false, errors.NotSupportedf("space discovery not supported. Trial account?")
 }
 
 // SupportsContainerAddresses is defined on the environs.Networking interface.

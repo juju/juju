@@ -5,6 +5,7 @@ package oracle
 
 import (
 	"github.com/juju/errors"
+	oci "github.com/juju/go-oracle-cloud/api"
 
 	"github.com/juju/juju/provider/oracle/common"
 	"github.com/juju/juju/storage"
@@ -56,14 +57,37 @@ func mibToGib(m uint64) uint64 {
 	return (m + 1023) / 1024
 }
 
+func (o *oracleEnviron) canAccessStorageAPI() (bool, error) {
+	// Check if we actually have access to the storage APIs.
+	_, err := o.client.AllStorageVolumes(nil)
+	if err != nil {
+		// The API usually returns a 405 error if we don't have access to that bit of the cloud
+		// this is something that happens for trial accounts.
+		if oci.IsMethodNotAllowed(err) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+	return true, nil
+}
+
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (o *oracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{oracleStorageProvideType}, nil
+	if access, err := o.canAccessStorageAPI(); access {
+		return []storage.ProviderType{oracleStorageProvideType}, nil
+	} else {
+		return nil, errors.Trace(err)
+	}
+	return nil, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (o *oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == oracleStorageProvideType {
+	access, err := o.canAccessStorageAPI()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if access && t == oracleStorageProvideType {
 		return &storageProvider{
 			env: o,
 			api: o.client,

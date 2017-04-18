@@ -123,6 +123,8 @@ type AclAPI interface {
 	CreateAcl(string, string, bool, []string) (response.Acl, error)
 	// DeleteAcl deletes one access control list
 	DeleteAcl(string) error
+	// AllAcls fetches a list of all ACLs matching the given filter.
+	AllAcls([]api.Filter) (response.AllAcls, error)
 }
 
 // SecIpAPI defines methods for retrieving creating sec IP lists

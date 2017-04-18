@@ -455,23 +455,31 @@ func (o *oracleEnviron) StopInstances(ids ...instance.Id) error {
 
 func (o *oracleEnviron) terminateInstances(instances ...*oracleInstance) error {
 	wg := sync.WaitGroup{}
-	errc := make(chan error, len(instances))
 	wg.Add(len(instances))
+	errs := []error{}
+	instIds := []instance.Id{}
 	for _, oInst := range instances {
 		go func() {
 			defer wg.Done()
 			if err := oInst.deleteInstanceAndResources(true); err != nil {
 				if !oci.IsNotFound(err) {
-					errc <- err
+					instIds = append(instIds, instance.Id(oInst.name))
+					errs = append(errs, err)
 				}
 			}
 		}()
 	}
 	wg.Wait()
-	select {
-	case err := <-errc:
-		return errors.Annotate(err, "cannot delete all instances")
+	switch len(errs) {
+	case 0:
+		return nil
+	case 1:
+		return errors.Annotatef(errs[0], "failed to stop instance %s", instIds[0])
 	default:
+		return errors.Errorf(
+			"failed to stop instances %s: %s",
+			instIds, errs,
+		)
 	}
 	return nil
 }
