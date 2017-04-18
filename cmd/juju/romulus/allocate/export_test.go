@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package allocate
+package budget
 
 import (
 	"github.com/juju/cmd"
@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func NewAllocateCommandForTest(api apiClient, store jujuclient.ClientStore) cmd.Command {
-	c := &allocateCommand{api: api}
+func NewBudgetCommandForTest(api apiClient, store jujuclient.ClientStore) cmd.Command {
+	c := &budgetCommand{api: api}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }

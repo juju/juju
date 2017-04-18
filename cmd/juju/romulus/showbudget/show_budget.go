@@ -92,7 +92,7 @@ func (c *showWalletCommand) Run(ctx *cmd.Context) error {
 
 // formatTabular returns a tabular view of available wallets.
 func (c *showWalletCommand) formatTabular(writer io.Writer, value interface{}) error {
-	b, ok := value.(*wireformat.WalletWithAllocations)
+	b, ok := value.(*wireformat.WalletWithBudgets)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", b, value)
 	}
@@ -109,16 +109,16 @@ func (c *showWalletCommand) formatTabular(writer io.Writer, value interface{}) e
 		logger.Warningf("failed to read juju client model names")
 		uuidToModelName = map[string]string{}
 	}
-	table.AddRow("Model", "Spent", "Allocated", "By", "Usage")
-	for _, allocation := range b.Allocations {
-		modelName := uuidToModelName[allocation.Model]
+	table.AddRow("Model", "Spent", "Budgeted", "By", "Usage")
+	for _, budget := range b.Budgets {
+		modelName := uuidToModelName[budget.Model]
 		if modelName == "" {
-			modelName = allocation.Model
+			modelName = budget.Model
 		}
-		table.AddRow(modelName, allocation.Consumed, allocation.Limit, allocation.Owner, allocation.Usage)
+		table.AddRow(modelName, budget.Consumed, budget.Limit, budget.Owner, budget.Usage)
 	}
 	table.AddRow("", "", "", "")
-	table.AddRow("Total", b.Total.Consumed, b.Total.Allocated, "", b.Total.Usage)
+	table.AddRow("Total", b.Total.Consumed, b.Total.Budgeted, "", b.Total.Usage)
 	table.AddRow("Wallet", "", b.Limit, "")
 	table.AddRow("Unallocated", "", b.Total.Unallocated, "")
 	fmt.Fprint(writer, table)
@@ -156,7 +156,7 @@ func newWalletAPIClientImpl(c *httpbakery.Client) (walletAPIClient, error) {
 }
 
 type walletAPIClient interface {
-	GetWallet(string) (*wireformat.WalletWithAllocations, error)
+	GetWallet(string) (*wireformat.WalletWithBudgets, error)
 }
 
 var newJujuclientStore = jujuclient.NewFileClientStore

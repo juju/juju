@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package allocate_test
+package budget_test
 
 import (
 	"github.com/juju/cmd"
@@ -12,21 +12,21 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/romulus/allocate"
+	"github.com/juju/juju/cmd/juju/romulus/budget"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&allocateSuite{})
+var _ = gc.Suite(&budgetSuite{})
 
-type allocateSuite struct {
+type budgetSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	stub    *testing.Stub
 	mockAPI *mockapi
 	store   jujuclient.ClientStore
 }
 
-func (s *allocateSuite) SetUpTest(c *gc.C) {
+func (s *budgetSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
@@ -61,51 +61,51 @@ func (s *allocateSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = newMockAPI(s.stub)
 }
 
-func (s *allocateSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	updateAlloc := allocate.NewAllocateCommandForTest(s.mockAPI, s.store)
-	return cmdtesting.RunCommand(c, updateAlloc, args...)
+func (s *budgetSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+	updateBudget := budget.NewBudgetCommandForTest(s.mockAPI, s.store)
+	return cmdtesting.RunCommand(c, updateBudget, args...)
 }
 
-func (s *allocateSuite) TestUpdateAllocation(c *gc.C) {
-	s.mockAPI.resp = "allocation set to 5"
+func (s *budgetSuite) TestUpdateBudget(c *gc.C) {
+	s.mockAPI.resp = "budget set to 5"
 	ctx, err := s.run(c, "5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "allocation set to 5\n")
-	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", "model-uuid", "5")
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "budget set to 5\n")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "model-uuid", "5")
 }
 
-func (s *allocateSuite) TestUpdateAllocationByModelUUID(c *gc.C) {
+func (s *budgetSuite) TestUpdateBudgetByModelUUID(c *gc.C) {
 	modelUUID := utils.MustNewUUID().String()
-	s.mockAPI.resp = "allocation set to 5"
+	s.mockAPI.resp = "budget set to 5"
 	ctx, err := s.run(c, "--model-uuid", modelUUID, "5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "allocation set to 5\n")
-	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", modelUUID, "5")
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "budget set to 5\n")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", modelUUID, "5")
 }
 
-func (s *allocateSuite) TestUpdateAllocationByModelName(c *gc.C) {
-	s.mockAPI.resp = "allocation set to 5"
+func (s *budgetSuite) TestUpdateBudgetByModelName(c *gc.C) {
+	s.mockAPI.resp = "budget set to 5"
 	ctx, err := s.run(c, "--model", "anothercontroller:somemodel", "5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "allocation set to 5\n")
-	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", "another-model-uuid", "5")
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "budget set to 5\n")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "another-model-uuid", "5")
 }
 
-func (s *allocateSuite) TestUpdateAllocationInvalidModelUUID(c *gc.C) {
+func (s *budgetSuite) TestUpdateBudgetInvalidModelUUID(c *gc.C) {
 	ctx, err := s.run(c, "--model-uuid", "not-a-uuid", "5")
 	c.Assert(err, gc.ErrorMatches, `provided model UUID "not-a-uuid" not valid`)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
 	s.mockAPI.CheckNoCalls(c)
 }
 
-func (s *allocateSuite) TestUpdateAllocationAPIError(c *gc.C) {
+func (s *budgetSuite) TestUpdateBudgetAPIError(c *gc.C) {
 	s.stub.SetErrors(errors.New("something failed"))
 	_, err := s.run(c, "5")
-	c.Assert(err, gc.ErrorMatches, "failed to update the allocation: something failed")
-	s.mockAPI.CheckCall(c, 0, "UpdateAllocation", "model-uuid", "5")
+	c.Assert(err, gc.ErrorMatches, "failed to update the budget: something failed")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "model-uuid", "5")
 }
 
-func (s *allocateSuite) TestUpdateAllocationErrors(c *gc.C) {
+func (s *budgetSuite) TestUpdateBudgetErrors(c *gc.C) {
 	tests := []struct {
 		about         string
 		args          []string
@@ -139,7 +139,7 @@ type mockapi struct {
 	resp string
 }
 
-func (api *mockapi) UpdateAllocation(modelUUID, value string) (string, error) {
-	api.MethodCall(api, "UpdateAllocation", modelUUID, value)
+func (api *mockapi) UpdateBudget(modelUUID, value string) (string, error) {
+	api.MethodCall(api, "UpdateBudget", modelUUID, value)
 	return api.resp, api.NextErr()
 }

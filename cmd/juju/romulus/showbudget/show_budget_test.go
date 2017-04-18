@@ -62,7 +62,7 @@ func (s *showWalletSuite) TestShowWalletCommand(c *gc.C) {
 		args:   []string{"personal"},
 		wallet: "personal",
 		output: "" +
-			"Model      \tSpent\tAllocated\t       By\tUsage\n" +
+			"Model      \tSpent\t Budgeted\t       By\tUsage\n" +
 			"c:m1       \t500  \t     1200\t user.joe\t42%  \n" +
 			"c:m2       \t600  \t     1000\tuser.jess\t60%  \n" +
 			"c:m3       \t10   \t      100\t user.bob\t10%  \n" +
@@ -114,18 +114,18 @@ type mockWalletAPI struct {
 	*testing.Stub
 }
 
-func (api *mockWalletAPI) GetWallet(name string) (*wallet.WalletWithAllocations, error) {
+func (api *mockWalletAPI) GetWallet(name string) (*wallet.WalletWithBudgets, error) {
 	api.AddCall("GetWallet", name)
-	return &wallet.WalletWithAllocations{
+	return &wallet.WalletWithBudgets{
 		Limit: "4000",
 		Total: wallet.WalletTotals{
-			Allocated:   "2400",
+			Budgeted:    "2400",
 			Unallocated: "1600",
 			Available:   "1180",
 			Consumed:    "1120",
 			Usage:       "47%",
 		},
-		Allocations: []wallet.Allocation{{
+		Budgets: []wallet.Budget{{
 			Owner:    "user.joe",
 			Limit:    "1200",
 			Consumed: "500",

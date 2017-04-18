@@ -8,13 +8,13 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/juju/romulus/agree"
-	"github.com/juju/juju/cmd/juju/romulus/allocate"
+	"github.com/juju/juju/cmd/juju/romulus/budget"
 	"github.com/juju/juju/cmd/juju/romulus/createwallet"
 	"github.com/juju/juju/cmd/juju/romulus/listagreements"
-	"github.com/juju/juju/cmd/juju/romulus/listwallets"
 	"github.com/juju/juju/cmd/juju/romulus/listplans"
-	"github.com/juju/juju/cmd/juju/romulus/setwallet"
+	"github.com/juju/juju/cmd/juju/romulus/listwallets"
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
+	"github.com/juju/juju/cmd/juju/romulus/setwallet"
 	"github.com/juju/juju/cmd/juju/romulus/showwallet"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
 )
@@ -28,7 +28,7 @@ type commandRegister interface {
 func RegisterAll(r commandRegister) {
 	r.Register(agree.NewAgreeCommand())
 	r.Register(listagreements.NewListAgreementsCommand())
-	r.Register(allocate.NewAllocateCommand())
+	r.Register(budget.NewBudgetCommand())
 	r.Register(listwallets.NewListWalletsCommand())
 	r.Register(createwallet.NewCreateWalletCommand())
 	r.Register(listplans.NewListPlansCommand())

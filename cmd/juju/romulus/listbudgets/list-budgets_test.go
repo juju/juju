@@ -50,7 +50,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 				Owner:       "bob",
 				Wallet:      "personal",
 				Limit:       "50",
-				Allocated:   "30",
+				Budgeted:    "30",
 				Unallocated: "20",
 				Available:   "45",
 				Consumed:    "5",
@@ -60,7 +60,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 				Owner:       "bob",
 				Wallet:      "work",
 				Limit:       "200",
-				Allocated:   "100",
+				Budgeted:    "100",
 				Unallocated: "100",
 				Available:   "150",
 				Consumed:    "50",
@@ -69,7 +69,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 				Owner:       "bob",
 				Wallet:      "team",
 				Limit:       "50",
-				Allocated:   "10",
+				Budgeted:    "10",
 				Unallocated: "40",
 				Available:   "40",
 				Consumed:    "10",
@@ -77,7 +77,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 		},
 		Total: wallet.WalletTotals{
 			Limit:       "300",
-			Allocated:   "140",
+			Budgeted:    "140",
 			Available:   "235",
 			Unallocated: "160",
 			Consumed:    "65",
@@ -86,7 +86,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 	}
 	// Expected command output. Make sure wallets are sorted alphabetically.
 	expected := "" +
-		"Wallet       \tMonthly\tAllocated\tAvailable\tSpent\n" +
+		"Wallet       \tMonthly\tBudgeted\tAvailable\tSpent\n" +
 		"personal*    \t     50\t       30\t       45\t    5\n" +
 		"team         \t     50\t       10\t       40\t   10\n" +
 		"work         \t    200\t      100\t      150\t   50\n" +
@@ -107,7 +107,7 @@ func (s *listWalletsSuite) TestListWalletsOutputNoWallets(c *gc.C) {
 		Wallets: wallet.WalletSummaries{},
 		Total: wallet.WalletTotals{
 			Limit:       "0",
-			Allocated:   "0",
+			Budgeted:    "0",
 			Available:   "0",
 			Unallocated: "0",
 			Consumed:    "0",
@@ -115,10 +115,10 @@ func (s *listWalletsSuite) TestListWalletsOutputNoWallets(c *gc.C) {
 		Credit: "0",
 	}
 	expected := "" +
-		"Wallet       \tMonthly\tAllocated\tAvailable\tSpent\n" +
-		"Total        \t      0\t        0\t        0\t    0\n" +
-		"             \t       \t         \t         \t     \n" +
-		"Credit limit:\t      0\t         \t         \t     \n"
+		"Wallet       \tMonthly\tBudgeted\tAvailable\tSpent\n" +
+		"Total        \t      0\t       0\t        0\t    0\n" +
+		"             \t       \t        \t         \t     \n" +
+		"Credit limit:\t      0\t        \t         \t     \n"
 
 	listWallets := listwallets.NewListWalletsCommand()
 
