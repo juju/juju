@@ -922,6 +922,8 @@ func (p *BeingPruner) removeOldPings() error {
 	// now and now-period are both considered active slots, so we don't
 	// touch those. We also leave 2 more slots around
 	startTime := time.Now()
+	// TODO(jam): 2017-04-18 startCount may not be appropriate, because
+	// Count() includes all models, not just the one we are pruning
 	startCount, err := p.pingsC.Count()
 	if err != nil {
 		return err
@@ -944,6 +946,8 @@ func (p *BeingPruner) removeOldPings() error {
 
 func (p *BeingPruner) removeUnusedBeings() error {
 	var keyInfo collapsedBeingsInfo
+	// TODO(jam): 2017-04-18 startCount may not be appropriate, because
+	// Count() includes all models, not just the one we are pruning
 	startCount, err := p.beingsC.Count()
 	if err != nil {
 		return err
