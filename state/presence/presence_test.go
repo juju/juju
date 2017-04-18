@@ -477,32 +477,6 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 	}
 }
 
-func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
-	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer assertStopped(c, w)
-	defer assertStopped(c, p)
-
-	ch := make(chan presence.Change)
-	w.Watch("a", ch)
-	assertChange(c, ch, presence.Change{"a", false})
-	c.Assert(p.Start(), gc.IsNil)
-	done := make(chan bool)
-	go func() {
-		w.Sync()
-		done <- true
-	}()
-	assertChange(c, ch, presence.Change{"a", true})
-	results, err := presence.FindAllBeings(w)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("Sync failed to returned")
-	}
-}
-
 func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	key := "a"
 	w1, p1, ch1 := s.setup(c, key)
@@ -564,6 +538,7 @@ func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence
 func (s *PresenceSuite) TestDeepStressStaysSane(c *gc.C) {
 	presence.FakePeriod(1)
 	defer presence.RealPeriod()
+	presence.RealTimeSlot()
 	keys := make([]string, 500)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%03d", i)
@@ -622,7 +597,7 @@ func (s *PresenceSuite) TestDeepStressStaysSane(c *gc.C) {
 		}
 	}()
 	defer close(done)
-	const loopCount = 100
+	const loopCount = 10
 	beings := s.presence.Database.C(s.presence.Name + ".beings")
 	for loop := 0; loop < loopCount; loop++ {
 		t := time.Now()
@@ -641,8 +616,8 @@ func (s *PresenceSuite) TestDeepStressStaysSane(c *gc.C) {
 		// how often should we force w.Sync?
 		w.Sync()
 		fmt.Printf("loop %d in %v\n", loop, time.Since(t))
-		oldPruner := presence.NewOldBeingPruner(modelTag.Id(), beings)
-		c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
+		// oldPruner := presence.NewOldBeingPruner(modelTag.Id(), beings)
+		// c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
 	}
 	// Now that we've gone through all of that, check that we've created as
 	// many sequences as we think we have
