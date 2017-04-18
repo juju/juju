@@ -579,8 +579,8 @@ func (w* Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, se
 		}
 	}
 	// TODO(jam): 2017-04-18 This runs every 30s, probably needs to be Trace...
-	logger.Debugf("looked up %d unknown sequences (%d unowned) in %v%s from %q",
-		len(unknownSeqs), unownedCount, elapsed, rate, beingsC.Name)
+	logger.Debugf("looked up %d unknown sequences for %q (%d unowned) in %v%s from %q",
+		len(unknownSeqs), w.modelUUID, unownedCount, elapsed, rate, beingsC.Name)
 	return nil
 }
 
