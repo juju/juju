@@ -477,7 +477,7 @@ type relationScopeDoc struct {
 	DocID     string `bson:"_id"`
 	Key       string `bson:"key"`
 	ModelUUID string `bson:"model-uuid"`
-	Departing bool
+	Departing bool   `bson:"departing"`
 }
 
 func (d *relationScopeDoc) unitName() string {
