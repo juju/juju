@@ -730,7 +730,7 @@ func (p *Pinger) ping() (err error) {
 		}
 		p.delta = delta
 	}
-	// TODO(perrito666) 2016-05-02 lp:1558657
+	// TODO(perrito667) 2016-05-02 lp:1558657
 	slot := timeSlot(time.Now(), p.delta)
 	if slot == p.lastSlot {
 		// Never, ever, ping the same slot twice.
@@ -746,6 +746,124 @@ func (p *Pinger) ping() (err error) {
 			{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}},
 		})
 	return errors.Trace(err)
+}
+
+// collapsedBeingsInfo tracks the result of aggregating all of the items in the
+// beings table by their key.
+type collapsedBeingsInfo struct {
+	Key    string   `bson:"_id"`
+	Seqs    []int64 `bson:"seqs"`
+}
+
+
+// OldBeingPruner tracks the state of removing unworthy beings from the
+// presence.beings collection. Being sequences are unworthy once their sequence
+// has been superseded.
+type OldBeingPruner struct {
+	modelUUID string
+	beingsC *mgo.Collection
+	toRemove []string
+	maxQueue int
+	removedCount uint64
+}
+
+// iterKeys is returns an iterator of Keys from this modelUUId and what Sequences
+// are in use to represent them.
+func (p *OldBeingPruner) iterKeys() *mgo.Iter {
+	thisModelRegex := bson.M{"_id": bson.M{"$regex": bson.RegEx{"^" + p.modelUUID, ""}}}
+	pipe := p.beingsC.Pipe([]bson.M{
+		// Grab all sequences for this model
+		{"$match": thisModelRegex},
+		// We don't need the _id
+		{"$project": bson.M{"_id": 0, "seq": 1, "key": 1}},
+		// Group all the sequences by their key.
+		{"$group": bson.M{
+			"_id":    "$key",
+			"seqs":    bson.M{"$push": "$seq"},
+		}},
+		// Filter out any keys that have only a single sequence
+		// representing them
+		// {"$match": bson.M{"seqs.1": bson.M{"$exists": 1}}},
+	})
+	return pipe.Iter()
+}
+
+// queueRemoval includes this sequence as one that has been superseded
+func (p *OldBeingPruner) queueRemoval(seq int64) {
+	p.toRemove = append(p.toRemove, docIDInt64(p.modelUUID, seq))
+}
+
+// flushRemovals makes sure that we've applied all desired removals
+func (p *OldBeingPruner) flushRemovals() error {
+	if len(p.toRemove) == 0 {
+		return nil
+	}
+	matched, err := p.beingsC.RemoveAll(bson.M{"_id": bson.M{"$in": p.toRemove}})
+	p.toRemove = p.toRemove[:0]
+	if matched.Removed > 0 {
+		p.removedCount += uint64(matched.Removed)
+	}
+	return err
+}
+
+// Prune removes beings from the beings collection that have been superseded by
+// another entry with a higher sequence. It does *not* attempt to remove beings that
+// have not been referenced by recent pings.
+func (p *OldBeingPruner) Prune() error {
+	var keyInfo collapsedBeingsInfo
+	count, err := p.beingsC.Count()
+	if err != nil {
+		return err
+	}
+	startTime := time.Now()
+	logger.Debugf("Pruning %q, starting with %d being sequences", p.beingsC.Name, count)
+	keyCount := 0
+	iter := p.iterKeys()
+	for iter.Next(&keyInfo) {
+		keyCount += 1
+		if len(keyInfo.Seqs) <= 1 {
+			continue
+		}
+		// Find the max
+		maxSeq := int64(-1)
+		for _, seq := range keyInfo.Seqs {
+			if seq > maxSeq {
+				maxSeq = seq
+			}
+		}
+		// Queue everything < max to be deleted
+		for _, seq := range keyInfo.Seqs {
+			if seq >= maxSeq {
+				// It shouldn't be possible to be > at this point
+				continue
+			}
+			p.queueRemoval(seq)
+			if len(p.toRemove) > p.maxQueue {
+				if err := p.flushRemovals(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err := p.flushRemovals(); err != nil {
+		return err
+	}
+	if err := iter.Close(); err != nil {
+		return err
+	}
+	logger.Debugf("Pruned %d sequence keys from %d keys of %q in %v",
+		p.removedCount, keyCount, p.beingsC.Name, time.Since(startTime))
+	return nil
+}
+
+// NewOldBeingPruner returns an object that is ready to prune the Beings collection
+// of old beings sequence entries that we no longer need.
+func NewOldBeingPruner(modelUUID string, beings *mgo.Collection) *OldBeingPruner {
+	return &OldBeingPruner{
+		modelUUID: modelUUID,
+		beingsC: beings,
+		maxQueue: 1000,
+	}
 }
 
 // clockDelta returns the approximate skew between
