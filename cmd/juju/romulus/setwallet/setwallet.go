@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	api "github.com/juju/romulus/api/wallet"
+	api "github.com/juju/romulus/api/budget"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"

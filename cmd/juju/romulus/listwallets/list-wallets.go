@@ -12,8 +12,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	api "github.com/juju/romulus/api/wallet"
-	wireformat "github.com/juju/romulus/wireformat/wallet"
+	api "github.com/juju/romulus/api/budget"
+	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
