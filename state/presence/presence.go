@@ -499,6 +499,10 @@ func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error)
 // lookupUnknownSeqs handles finding new sequences that we weren't already tracking.
 // Keys that we find are now alive will have a 'found alive' event queued.
 func (w* Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, session *mgo.Session) error {
+	if len(unknownSeqs) == 0 {
+		// Nothing to do, with nothing unknown.
+		return nil
+	}
 	// We do cache *all* beingInfos, but they're reasonably small
 	seqToBeing := make(map[int64]beingInfo, len(unknownSeqs))
 	startTime := time.Now()
