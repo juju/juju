@@ -935,7 +935,8 @@ func (p *BeingPruner) removeOldPings() error {
 	if err != nil {
 		return err
 	}
-	logger.Tracef("pruning %q starting with %d docs", p.pingsC.Name, startCount)
+	logger.Tracef("pruning %q for %q starting with %d docs",
+		p.pingsC.Name, p.modelUUID, startCount)
 	s := timeSlot(time.Now(), p.delta)
 	oldSlot := s - 3*period
 	res, err := p.pingsC.RemoveAll(bson.D{{"_id", bson.RegEx{"^" + p.modelUUID, ""}},
@@ -945,8 +946,8 @@ func (p *BeingPruner) removeOldPings() error {
 		return err
 	}
 	endCount, _ := p.pingsC.Count()
-	logger.Debugf("pruned %q (with %d docs) of %d old pings down to %d docs in %v",
-		p.pingsC.Name, startCount, res.Removed, endCount, time.Since(startTime))
+	logger.Debugf("pruned %q for %q (with %d docs) of %d old pings down to %d docs in %v",
+		p.pingsC.Name, p.modelUUID, startCount, res.Removed, endCount, time.Since(startTime))
 	return nil
 }
 
@@ -956,7 +957,8 @@ func (p *BeingPruner) removeUnusedBeings() error {
 	if err != nil {
 		return err
 	}
-	logger.Tracef("pruning %q starting with %d docs", p.beingsC.Name, startCount)
+	logger.Tracef("pruning %q for %q starting with %d docs",
+		p.beingsC.Name, p.modelUUID, startCount)
 	startTime := time.Now()
 	keyCount := 0
 	seqCount := 0
@@ -991,8 +993,8 @@ func (p *BeingPruner) removeUnusedBeings() error {
 	if err := iter.Close(); err != nil {
 		return err
 	}
-	logger.Debugf("pruned %q (with %d docs) of %d sequence keys (evaluated %d) from %d keys in %v",
-		p.beingsC.Name, startCount, p.removedCount, seqCount, keyCount, time.Since(startTime))
+	logger.Debugf("pruned %q for %q (with %d docs) of %d sequence keys (evaluated %d) from %d keys in %v",
+		p.beingsC.Name, p.modelUUID, startCount, p.removedCount, seqCount, keyCount, time.Since(startTime))
 	return nil
 }
 
