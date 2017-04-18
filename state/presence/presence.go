@@ -9,6 +9,7 @@ package presence
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -23,6 +24,13 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.state.presence")
+
+// lookupBatchSize is how many Sequence => Being keys we'll lookup at one time.
+// In testing, we could do 50,000 entries in a single request without errors.
+// This mostly prevents us from blowout.
+// Going from 10 to 100, increased the throughput 2x. Going to 1k was ~1.1x, and
+// going to 10k was another 1.1x. 1000 seems a reasonable size.
+const lookupBatchSize = 1000
 
 // Agent shouldn't really live here -- it's not used in this package,
 // and is implemented by a couple of state types for the convenience of
@@ -79,6 +87,18 @@ func docIDStr(modelUUID string, localID string) string {
 
 // BUG(gn): The pings and beings collection currently grow without bound.
 
+// psuedoRandomFactor defines an increasing chance that we will trigger an effect.
+// Inspired by: http://dota2.gamepedia.com/Random_distribution
+// The idea is that 'on average' we will trigger 5% of the time. However, that
+// leaves a low but non-zero chance that we will *never* trigger, and a
+// surprisingly high chance that we will trigger twice in a row.
+// psuedoRandom increases the chance to trigger everytime it does not trigger,
+// ultimately making it mandatory that you will trigger, and giving the desirable
+// average case that you will trigger while still giving some slop so that
+// machines won't get into sync and trigger at the same time.
+// psuedoRandomFactor of 0.00380 represents a 5% average chance to trigger.
+const psuedoRandomFactor = 0.00380
+
 // A Watcher can watch any number of pinger keys for liveness changes.
 type Watcher struct {
 	modelUUID string
@@ -115,6 +135,10 @@ type Watcher struct {
 	// knowledge. It's maintained here so that ForceRefresh
 	// can manipulate it to force a sync sooner.
 	next <-chan time.Time
+
+	// syncsSinceLastPrune is a counter that tracks how long it has been
+	// since we've run a prune on the Beings and Pings collections.
+	syncsSinceLastPrune int
 }
 
 type event struct {
@@ -296,6 +320,8 @@ func (w *Watcher) loop() error {
 			for _, done := range syncDone {
 				close(done)
 			}
+			w.syncsSinceLastPrune++
+			w.checkShouldPrune()
 		case req := <-w.request:
 			w.handle(req)
 			w.flush()
@@ -323,6 +349,26 @@ func (w *Watcher) flush() {
 		}
 	}
 	w.pending = w.pending[:0]
+}
+
+// checkShouldPrune looks at whether we should run a prune step this time
+func (w *Watcher) checkShouldPrune() {
+	chanceToPrune := float64(w.syncsSinceLastPrune) * psuedoRandomFactor
+	if chanceToPrune >= 1.0 || rand.Float64() < chanceToPrune {
+		w.prune()
+	}
+}
+
+// prune cleans out old data in the Beings and Pings tables.
+func (w *Watcher) prune() {
+	logger.Debugf("watcher decided to prune %q and %q", w.beings.Name, w.pings.Name)
+	w.syncsSinceLastPrune = 0
+	pruner := NewBeingPruner(w.modelUUID, w.beings, w.pings, w.delta)
+	err := pruner.Prune()
+	if err != nil {
+		// Warning because we are supressing it?
+		logger.Errorf("Error trying to prune %q: %v", w.beings.Name, err)
+	}
 }
 
 // handle deals with requests delivered by the public API
@@ -392,7 +438,6 @@ func (w *Watcher) lookupPings(session *mgo.Session) ([]pingInfo, error) {
 	if err != nil && err != mgo.ErrNotFound {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("ping found %d slots", len(ping))
 	return ping, nil
 }
 
@@ -463,29 +508,55 @@ func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error)
 // lookupUnknownSeqs handles finding new sequences that we weren't already tracking.
 // Keys that we find are now alive will have a 'found alive' event queued.
 func (w* Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, session *mgo.Session) error {
-	// TODO: batch this into reasonable lengths (1000?)
-	docIds := make([]string, len(unknownSeqs))
-	for _, seq := range unknownSeqs {
-		docIds = append(docIds, docIDInt64(w.modelUUID, seq))
-	}
-	beingsC := w.beings.With(session)
-	logger.Debugf("looking up %d unknown sequences in %q", len(unknownSeqs), beingsC.Name)
+	// We do cache *all* beingInfos, but they're reasonably small
 	seqToBeing := make(map[int64]beingInfo, len(unknownSeqs))
-	beingIter := beingsC.Find(bson.M{"_id": bson.M{"$in": docIds}}).Iter()
-	being := beingInfo{}
-	for beingIter.Next(&being) {
-		seqToBeing[being.Seq] = being
-	}
-	if err := beingIter.Close(); err != nil {
-		if err != mgo.ErrNotFound {
-			// This may be an old sequence, not considered fatal
-			return err
+	startTime := time.Now()
+	beingsC := w.beings.With(session)
+	remaining := unknownSeqs
+	for len(remaining) > 0 {
+		// batch this into reasonable lengths
+		// testing shows that it works just fine at 50,000 ids, but be a
+		// bit more conservative
+		batch := remaining
+		if len(remaining) > lookupBatchSize {
+			batch = remaining[:lookupBatchSize]
+			remaining = remaining[lookupBatchSize:]
+		} else {
+			remaining = nil
+		}
+		docIds := make([]string, len(batch))
+		for _, seq := range batch {
+			docIds = append(docIds, docIDInt64(w.modelUUID, seq))
+		}
+		query := beingsC.Find(bson.M{"_id": bson.M{"$in": docIds}})
+		// We don't need the _id returned, as its just a way to lookup the seq,
+		// and _id is quite large
+		query = query.Select(bson.M{"_id": false, "key": true, "seq": true})
+		query.Batch(lookupBatchSize)
+		beingIter := query.Iter()
+		being := beingInfo{}
+		for beingIter.Next(&being) {
+			seqToBeing[being.Seq] = being
+		}
+		if err := beingIter.Close(); err != nil {
+			if err != mgo.ErrNotFound {
+				// This may be an old sequence, not considered fatal
+				return err
+			}
 		}
 	}
+	rate := ""
+	elapsed := time.Since(startTime)
+	if len(unknownSeqs) > 0 {
+		seqPerMS :=  float64(len(unknownSeqs)) / (elapsed.Seconds() * 1000.0)
+		rate = fmt.Sprintf(" (%.1fseq/ms)", seqPerMS)
+	}
+	unownedCount := 0
 	for _, seq := range unknownSeqs {
 		being, ok := seqToBeing[seq]
 		if !ok {
 			// Not Found
+			unownedCount++
 			logger.Tracef("[%s] found seq=%d unowned", w.modelUUID[:6], seq)
 			continue
 		}
@@ -512,6 +583,8 @@ func (w* Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, se
 			w.pending = append(w.pending, event{ch, being.Key, true})
 		}
 	}
+	logger.Debugf("looked up %d unknown sequences (%d unowned) in %v%s from %q",
+		len(unknownSeqs), unownedCount, elapsed, rate, beingsC.Name)
 	return nil
 }
 
@@ -791,20 +864,22 @@ type collapsedBeingsInfo struct {
 }
 
 
-// OldBeingPruner tracks the state of removing unworthy beings from the
+// BeingPruner tracks the state of removing unworthy beings from the
 // presence.beings collection. Being sequences are unworthy once their sequence
 // has been superseded.
-type OldBeingPruner struct {
+type BeingPruner struct {
 	modelUUID string
 	beingsC *mgo.Collection
+	pingsC *mgo.Collection
 	toRemove []string
 	maxQueue int
 	removedCount uint64
+	delta time.Duration
 }
 
 // iterKeys is returns an iterator of Keys from this modelUUId and what Sequences
 // are in use to represent them.
-func (p *OldBeingPruner) iterKeys() *mgo.Iter {
+func (p *BeingPruner) iterKeys() *mgo.Iter {
 	thisModelRegex := bson.M{"_id": bson.M{"$regex": bson.RegEx{"^" + p.modelUUID, ""}}}
 	pipe := p.beingsC.Pipe([]bson.M{
 		// Grab all sequences for this model
@@ -818,18 +893,24 @@ func (p *OldBeingPruner) iterKeys() *mgo.Iter {
 		}},
 		// Filter out any keys that have only a single sequence
 		// representing them
-		// {"$match": bson.M{"seqs.1": bson.M{"$exists": 1}}},
+		// Note: indexing is from 0, you can set this to 2 if you wanted
+		// to only bother pruning sequences that have >2 entries.
+		// This mostly helps the 'nothing to do' case, dropping the time
+		// to realize there are no sequences to be removed from 36ms,
+		// down to 15ms with 3500 keys.
+		{"$match": bson.M{"seqs.1": bson.M{"$exists": 1}}},
 	})
+	pipe.Batch(1600)
 	return pipe.Iter()
 }
 
 // queueRemoval includes this sequence as one that has been superseded
-func (p *OldBeingPruner) queueRemoval(seq int64) {
+func (p *BeingPruner) queueRemoval(seq int64) {
 	p.toRemove = append(p.toRemove, docIDInt64(p.modelUUID, seq))
 }
 
 // flushRemovals makes sure that we've applied all desired removals
-func (p *OldBeingPruner) flushRemovals() error {
+func (p *BeingPruner) flushRemovals() error {
 	if len(p.toRemove) == 0 {
 		return nil
 	}
@@ -841,24 +922,42 @@ func (p *OldBeingPruner) flushRemovals() error {
 	return err
 }
 
-// Prune removes beings from the beings collection that have been superseded by
-// another entry with a higher sequence. It does *not* attempt to remove beings that
-// have not been referenced by recent pings.
-func (p *OldBeingPruner) Prune() error {
-	var keyInfo collapsedBeingsInfo
-	count, err := p.beingsC.Count()
+func (p *BeingPruner) removeOldPings() error {
+	// now and now-period are both considered active slots, so we don't
+	// touch those. We also leave 2 more slots around
+	startTime := time.Now()
+	startCount, err := p.pingsC.Count()
 	if err != nil {
 		return err
 	}
+	logger.Tracef("pruning %q starting with %d docs", p.pingsC.Name, startCount)
+	s := timeSlot(time.Now(), p.delta)
+	oldSlot := s - 3*period
+	res, err := p.pingsC.RemoveAll(bson.D{{"_id", bson.RegEx{"^" + p.modelUUID, ""}},
+					     {"slot", bson.M{"$lt": oldSlot}} })
+	if err != nil && err != mgo.ErrNotFound {
+		logger.Errorf("error removing old entries from %q: %v", p.pingsC.Name, err)
+		return err
+	}
+	endCount, _ := p.pingsC.Count()
+	logger.Debugf("pruned %q (with %d docs) of %d old pings down to %d docs in %v",
+		p.pingsC.Name, startCount, res.Removed, endCount, time.Since(startTime))
+	return nil
+}
+
+func (p *BeingPruner) removeUnusedBeings() error {
+	var keyInfo collapsedBeingsInfo
+	startCount, err := p.beingsC.Count()
+	if err != nil {
+		return err
+	}
+	logger.Tracef("pruning %q starting with %d docs", p.beingsC.Name, startCount)
 	startTime := time.Now()
-	logger.Debugf("Pruning %q, starting with %d being sequences", p.beingsC.Name, count)
 	keyCount := 0
+	seqCount := 0
 	iter := p.iterKeys()
 	for iter.Next(&keyInfo) {
 		keyCount += 1
-		if len(keyInfo.Seqs) <= 1 {
-			continue
-		}
 		// Find the max
 		maxSeq := int64(-1)
 		for _, seq := range keyInfo.Seqs {
@@ -868,6 +967,7 @@ func (p *OldBeingPruner) Prune() error {
 		}
 		// Queue everything < max to be deleted
 		for _, seq := range keyInfo.Seqs {
+			seqCount++
 			if seq >= maxSeq {
 				// It shouldn't be possible to be > at this point
 				continue
@@ -886,18 +986,35 @@ func (p *OldBeingPruner) Prune() error {
 	if err := iter.Close(); err != nil {
 		return err
 	}
-	logger.Debugf("Pruned %d sequence keys from %d keys of %q in %v",
-		p.removedCount, keyCount, p.beingsC.Name, time.Since(startTime))
+	logger.Debugf("pruned %q (with %d docs) of %d sequence keys (evaluated %d) from %d keys in %v",
+		p.beingsC.Name, startCount, p.removedCount, seqCount, keyCount, time.Since(startTime))
 	return nil
 }
 
-// NewOldBeingPruner returns an object that is ready to prune the Beings collection
+// Prune removes beings from the beings collection that have been superseded by
+// another entry with a higher sequence. It does *not* attempt to remove beings that
+// have not been referenced by recent pings.
+func (p *BeingPruner) Prune() error {
+	err := p.removeUnusedBeings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = p.removeOldPings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// NewBeingPruner returns an object that is ready to prune the Beings collection
 // of old beings sequence entries that we no longer need.
-func NewOldBeingPruner(modelUUID string, beings *mgo.Collection) *OldBeingPruner {
-	return &OldBeingPruner{
+func NewBeingPruner(modelUUID string, beings *mgo.Collection, pings *mgo.Collection, delta time.Duration) *BeingPruner {
+	return &BeingPruner{
 		modelUUID: modelUUID,
 		beingsC: beings,
 		maxQueue: 1000,
+		pingsC: pings,
+		delta: delta,
 	}
 }
 
