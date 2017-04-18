@@ -4,6 +4,8 @@
 package presence_test
 
 import (
+	"fmt"
+	"math/rand"
 	"strconv"
 	stdtesting "testing"
 	"time"
@@ -98,7 +100,7 @@ func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
 func assertStopped(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), gc.IsNil)
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
@@ -540,16 +542,126 @@ func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	assertNoChange(c, ch1)
 }
 
-func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+func newModelTag(c *gc.C) names.ModelTag {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := uuid.String()
+	return names.NewModelTag(modelUUID)
+}
 
-	w := presence.NewWatcher(s.presence, names.NewModelTag(modelUUID))
-	p := presence.NewPinger(s.presence, names.NewModelTag(modelUUID), key)
+func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+	modelTag := newModelTag(c)
+
+	w := presence.NewWatcher(s.presence, modelTag)
+	p := presence.NewPinger(s.presence, modelTag, key)
 
 	ch := make(chan presence.Change)
 	w.Watch(key, ch)
 	assertChange(c, ch, presence.Change{key, false})
 	return w, p, ch
+}
+
+func (s *PresenceSuite) TestDeepStressStaysSane(c *gc.C) {
+	presence.FakePeriod(1)
+	defer presence.RealPeriod()
+	keys := make([]string, 500)
+	for i := 0; i < len(keys); i++ {
+		keys[i] = fmt.Sprintf("being-%03d", i)
+	}
+	modelTag := newModelTag(c)
+	// To create abuse on the system, we leave 2 pingers active for every
+	// key. We then keep creating new pingers for each one, and rotate them
+	// into old, and stop them when they rotate out. So we potentially have
+	// 3 active pingers for each key. We should never see any key go
+	// inactive, because there is always at least 1 active pinger for each
+	// one
+	oldPingers := make([]*presence.Pinger, len(keys))
+	newPingers := make([]*presence.Pinger, len(keys))
+	ch := make(chan presence.Change)
+	w := presence.NewWatcher(s.presence, modelTag)
+	// Ensure that all pingers and the watcher are clean at exit
+	defer assertStopped(c, w)
+	defer func() {
+		for i, p := range oldPingers {
+			if p == nil {
+				continue
+			}
+			assertStopped(c, p)
+			oldPingers[i] = nil
+		}
+		for i, p := range newPingers {
+			if p == nil {
+				continue
+			}
+			assertStopped(c, p)
+			newPingers[i] = nil
+		}
+	}()
+	for i, key := range keys {
+		w.Watch(key, ch)
+		// we haven't started the pinger yet, so the initial state must be stopped
+		// TODO: This is probably dangerous, as all other pingers are on the same channel,
+		// so might get their message in the queue before us
+		assertChange(c, ch, presence.Change{key, false})
+		p := presence.NewPinger(s.presence, modelTag, key)
+		newPingers[i] = p
+		err := p.Start()
+		c.Assert(err, jc.ErrorIsNil)
+		defer assertStopped(c, p)
+	}
+	// Make sure all of the entities stay showing up as alive
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case got := <-ch:
+				c.Check(got.Alive, jc.IsTrue, gc.Commentf("key %q reported dead", got.Key))
+			case <-done:
+				return
+			}
+		}
+	}()
+	defer close(done)
+	const loopCount = 100
+	beings := s.presence.Database.C(s.presence.Name + ".beings")
+	for loop := 0; loop < loopCount; loop++ {
+		t := time.Now()
+		for i, key := range keys {
+			old := oldPingers[i]
+			if old != nil {
+				assertStopped(c, old)
+			}
+			oldPingers[i] = newPingers[i]
+			p := presence.NewPinger(s.presence, modelTag, key)
+			err := p.Start()
+			c.Assert(err, jc.ErrorIsNil)
+			newPingers[i] = p
+			time.Sleep(time.Duration(rand.Intn(200)) * time.Microsecond)
+		}
+		// how often should we force w.Sync?
+		w.Sync()
+		fmt.Printf("loop %d in %v\n", loop, time.Since(t))
+		oldPruner := presence.NewOldBeingPruner(modelTag.Id(), beings)
+		c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
+	}
+	// Now that we've gone through all of that, check that we've created as
+	// many sequences as we think we have
+	seq := s.presence.Database.C(s.presence.Name + ".seqs")
+	var sequence struct {
+		Seq int64 `bson:"seq"`
+	}
+	seqDocID := modelTag.Id() + ":beings"
+	err := seq.FindId(seqDocID).One(&sequence)
+	c.Assert(err, jc.ErrorIsNil)
+	// we should have created N keys Y+1 times (once in init, once per loop)
+	seqCount := int64(len(keys) * (loopCount + 1))
+	c.Check(sequence.Seq, gc.Equals, seqCount)
+	oldPruner := presence.NewOldBeingPruner(modelTag.Id(), beings)
+	err = oldPruner.Prune()
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := beings.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	// After pruning, we should have exactly 1 sequence for each key
+	c.Check(count, gc.Equals, len(keys))
+	c.Fail()
 }
