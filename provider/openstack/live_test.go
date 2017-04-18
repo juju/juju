@@ -11,8 +11,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v1/client"
-	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v2/client"
+	"gopkg.in/goose.v2/identity"
 
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"

@@ -4,7 +4,7 @@
 package openstack
 
 import (
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
