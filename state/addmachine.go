@@ -844,27 +844,28 @@ func (st *State) enableHAIntentionOps(
 	}
 	// Use any placement directives that have been provided
 	// when adding new machines, until the directives have
-	// been all used up. Set up a helper function to do the
-	// work required.
+	// been all used up. Ignore constraints for provided machines.
+	// Set up a helper function to do the work required.
 	placementCount := 0
-	getPlacement := func() string {
+	getPlacementConstraints := func() (string, constraints.Value) {
 		if placementCount >= len(intent.placement) {
-			return ""
+			return "", cons
 		}
 		result := intent.placement[placementCount]
 		placementCount++
-		return result
+		return result, constraints.Value{}
 	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
+		placement, constraints := getPlacementConstraints()
 		template := MachineTemplate{
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageModel,
 			},
-			Constraints: cons,
-			Placement:   getPlacement(),
+			Constraints: constraints,
+			Placement:   placement,
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
