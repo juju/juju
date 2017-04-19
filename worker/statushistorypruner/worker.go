@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/statushistory"
 	jworker "github.com/juju/juju/worker"
 )
 
@@ -59,4 +61,9 @@ func New(conf Config) (worker.Worker, error) {
 	}
 
 	return jworker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer), nil
+}
+
+// NewFacade returns a new status history facade.
+func NewFacade(caller base.APICaller) Facade {
+	return statushistory.NewFacade(caller)
 }

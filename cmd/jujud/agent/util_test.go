@@ -565,7 +565,7 @@ type minModelWorkersEnviron struct {
 
 func (e *minModelWorkersEnviron) Config() *config.Config {
 	attrs := coretesting.FakeConfig()
-	cfg, err := config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		panic(err)
 	}

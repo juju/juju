@@ -75,9 +75,9 @@ const (
 	// MaxLogsAge is the maximum age for log entries, ef "72h"
 	MaxLogsAge = "max-logs-age"
 
-	// MaxLogSize is the maximum size the log collection can grow to
+	// MaxLogsSize is the maximum size the log collection can grow to
 	// before it is pruned, eg "4M"
-	MaxLogSize = "max-logs-size"
+	MaxLogsSize = "max-logs-size"
 
 	// Attribute Defaults
 
@@ -120,7 +120,7 @@ var ControllerOnlyConfigAttributes = []string{
 	SetNUMAControlPolicyKey,
 	StatePort,
 	MongoMemoryProfile,
-	MaxLogSize,
+	MaxLogsSize,
 	MaxLogsAge,
 }
 
@@ -295,7 +295,7 @@ func (c Config) MaxLogsAge() time.Duration {
 // can grow to before being pruned.
 func (c Config) MaxLogSizeMB() int {
 	// Value has already been validated.
-	val, _ := utils.ParseSize(c.mustString(MaxLogSize))
+	val, _ := utils.ParseSize(c.mustString(MaxLogsSize))
 	return int(val)
 }
 
@@ -346,7 +346,7 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[MaxLogSize].(string); ok {
+	if v, ok := c[MaxLogsSize].(string); ok {
 		if _, err := utils.ParseSize(v); err != nil {
 			return errors.Annotate(err, "invalid max logs size in configuration")
 		}
@@ -373,7 +373,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AllowModelAccessKey:     schema.Bool(),
 	MongoMemoryProfile:      schema.String(),
 	MaxLogsAge:              schema.String(),
-	MaxLogSize:              schema.String(),
+	MaxLogsSize:             schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -386,5 +386,5 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AllowModelAccessKey:     schema.Omit,
 	MongoMemoryProfile:      schema.Omit,
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
-	MaxLogSize:              fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
+	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 })
