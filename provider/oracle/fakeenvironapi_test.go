@@ -4,6 +4,8 @@
 package oracle_test
 
 import (
+	"github.com/juju/testing"
+
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
@@ -12,143 +14,143 @@ import (
 )
 
 type FakeInstancer struct {
-	Instance    response.Instance
-	InstanceErr error
+	*testing.Stub
+
+	Instance map[string]response.Instance
 }
 
-func (f FakeInstancer) InstanceDetails(string) (response.Instance, error) {
-	return f.Instance, f.InstanceErr
+func (f FakeInstancer) InstanceDetails(name string) (response.Instance, error) {
+	return f.Instance[name], f.NextErr()
 }
 
 type FakeInstance struct {
-	Create    response.LaunchPlan
-	CreateErr error
-	All       response.AllInstances
-	AllErr    error
-	DeleteErr error
+	*testing.Stub
+
+	Create response.LaunchPlan
+	All    response.AllInstances
 }
 
-func (f FakeInstance) CreateInstance(api.InstanceParams) (response.LaunchPlan, error) {
-	return f.Create, f.CreateErr
+func (f FakeInstance) CreateInstance(params api.InstanceParams) (response.LaunchPlan, error) {
+	return f.Create, f.NextErr()
 }
 
 func (f FakeInstance) AllInstances([]api.Filter) (response.AllInstances, error) {
-	return f.All, f.AllErr
+	return f.All, f.NextErr()
 }
 
 func (f FakeInstance) DeleteInstance(string) error {
-	return f.DeleteErr
+	return f.NextErr()
 }
 
 type FakeAuthenticater struct {
+	*testing.Stub
+
 	AuthenticateErr error
 }
 
 func (f FakeAuthenticater) Authenticate() error {
-	return f.AuthenticateErr
+	return f.NextErr()
 }
 
 type FakeShaper struct {
-	All    response.AllShapes
-	AllErr error
+	*testing.Stub
+	All response.AllShapes
 }
 
 func (f FakeShaper) AllShapes([]api.Filter) (response.AllShapes, error) {
-	return f.All, f.AllErr
+	return f.All, f.NextErr()
 }
 
 type FakeImager struct {
-	All    response.AllImageLists
-	AllErr error
+	*testing.Stub
+	All response.AllImageLists
 }
 
 func (f FakeImager) AllImageLists([]api.Filter) (response.AllImageLists, error) {
-	return f.All, f.AllErr
+	return f.All, f.NextErr()
 }
 
 type FakeIpReservation struct {
-	All       response.AllIpReservations
-	AllErr    error
-	Update    response.IpReservation
-	UpdateErr error
-	Create    response.IpReservation
-	CreateErr error
-	DeleteErr error
+	*testing.Stub
+
+	All    response.AllIpReservations
+	Update response.IpReservation
+	Create response.IpReservation
 }
 
 func (f FakeIpReservation) AllIpReservations([]api.Filter) (response.AllIpReservations, error) {
-	return f.All, f.AllErr
+	return f.All, f.NextErr()
 }
 
 func (f FakeIpReservation) UpdateIpReservation(string, string, common.IPPool, bool, []string) (response.IpReservation, error) {
-	return f.Update, f.UpdateErr
+	return f.Update, f.NextErr()
 }
 
 func (f FakeIpReservation) CreateIpReservation(string, common.IPPool, bool, []string) (response.IpReservation, error) {
-	return f.Create, f.CreateErr
+	return f.Create, f.NextErr()
 }
 
 func (f FakeIpReservation) DeleteIpReservation(string) error {
-	return f.DeleteErr
+	return f.NextErr()
 }
 
 type FakeIpAssociation struct {
-	Create    response.IpAssociation
-	CreateErr error
-	DeleteErr error
-	All       response.AllIpAssociations
-	AllErr    error
+	*testing.Stub
+
+	Create response.IpAssociation
+	All    response.AllIpAssociations
 }
 
 func (f FakeIpAssociation) CreateIpAssociation(common.IPPool,
 	common.VcableID) (response.IpAssociation, error) {
-	return f.Create, f.CreateErr
+	return f.Create, f.NextErr()
 }
 
 func (f FakeIpAssociation) DeleteIpAssociation(string) error {
-	return f.DeleteErr
+	return f.NextErr()
 }
 
 func (f FakeIpAssociation) AllIpAssociations([]api.Filter) (response.AllIpAssociations, error) {
-	return f.All, f.AllErr
+	return f.All, f.NextErr()
 }
 
 type FakeIpNetworkExchanger struct {
-	All    response.AllIpNetworkExchanges
-	AllErr error
+	*testing.Stub
+
+	All response.AllIpNetworkExchanges
 }
 
 func (f FakeIpNetworkExchanger) AllIpNetworkExchanges([]api.Filter) (response.AllIpNetworkExchanges, error) {
-	return f.All, f.AllErr
+	return f.All, f.NextErr()
 }
 
 type FakeIpNetworker struct {
-	All    response.AllIpNetworks
-	AllErr error
+	*testing.Stub
+
+	All response.AllIpNetworks
 }
 
 func (f FakeIpNetworker) AllIpNetworks([]api.Filter) (response.AllIpNetworks, error) {
-	return f.All, f.AllErr
+	return f.All, f.NextErr()
 }
 
 type FakeVnicSet struct {
-	Create     response.VnicSet
-	CreateErr  error
-	VnicSet    response.VnicSet
-	VnicSetErr error
-	DeleteErr  error
+	*testing.Stub
+
+	Create  response.VnicSet
+	VnicSet response.VnicSet
 }
 
 func (f FakeVnicSet) DeleteVnicSet(string) error {
-	return f.DeleteErr
+	return f.stub.NextErr()
 }
 
 func (f FakeVnicSet) CreateVnicSet(api.VnicSetParams) (response.VnicSet, error) {
-	return f.Create, f.CreateErr
+	return f.Create, f.NextErr()
 }
 
 func (f FakeVnicSet) VnicSetDetails(string) (response.VnicSet, error) {
-	return f.VnicSet, f.VnicSetErr
+	return f.VnicSet, f.stub.NextErr()
 }
 
 type FakeEnvironAPI struct {
@@ -173,6 +175,10 @@ type FakeEnvironAPI struct {
 	providertest.FakeSecRules
 	providertest.FakeApplication
 	providertest.FakeAssociation
+}
+
+func NewFakeEnvironAPI() *FakeEnvironAPI {
+
 }
 
 var _ oracle.EnvironAPI = (*FakeEnvironAPI)(nil)

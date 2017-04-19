@@ -34,7 +34,7 @@ type oracleInstance struct {
 	arch      *string
 	instType  *instances.InstanceType
 	mutex     *sync.Mutex
-	env       *oracleEnviron
+	env       *OracleEnviron
 	machineId string
 }
 
@@ -56,7 +56,7 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 }
 
 // newInstance returns a new oracleInstance
-func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance, error) {
+func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance, error) {
 	if params.Name == "" {
 		return nil, errors.New(
 			"Instance response does not contain a name",

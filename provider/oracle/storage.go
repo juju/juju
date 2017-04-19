@@ -38,7 +38,7 @@ const (
 
 // storageProvider implements the storage.Provider interface
 type storageProvider struct {
-	env *oracleEnviron
+	env *OracleEnviron
 	api StorageAPI
 }
 
@@ -57,7 +57,7 @@ func mibToGib(m uint64) uint64 {
 	return (m + 1023) / 1024
 }
 
-func (o *oracleEnviron) canAccessStorageAPI() (bool, error) {
+func (o *OracleEnviron) canAccessStorageAPI() (bool, error) {
 	// Check if we actually have access to the storage APIs.
 	_, err := o.client.AllStorageVolumes(nil)
 	if err != nil {
@@ -72,7 +72,7 @@ func (o *oracleEnviron) canAccessStorageAPI() (bool, error) {
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (o *oracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+func (o *OracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 	if access, err := o.canAccessStorageAPI(); access {
 		return []storage.ProviderType{oracleStorageProvideType}, nil
 	} else {
@@ -82,7 +82,7 @@ func (o *oracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 }
 
 // StorageProvider implements storage.ProviderRegistry.
-func (o *oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+func (o *OracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
 	access, err := o.canAccessStorageAPI()
 	if err != nil {
 		return nil, errors.Trace(err)

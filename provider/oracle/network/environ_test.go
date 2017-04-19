@@ -54,6 +54,10 @@ func (f fakeNetworkingAPI) InstanceDetails(
 	}, nil
 }
 
+func (f fakeNetworkingAPI) AllAcls(filter []api.Filter) (response.AllAcls, error) {
+	return response.AllAcls{}, nil
+}
+
 func (f fakeNetworkingAPI) ComposeName(name string) string {
 	return fmt.Sprintf("https://some-url.us6.com/Compute-test/%s", name)
 }

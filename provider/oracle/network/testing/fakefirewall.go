@@ -63,7 +63,7 @@ func (f FakeAcl) DeleteAcl(string) error {
 }
 
 func (f FakeAcl) AllAcls([]api.Filter) (response.AllAcls, error) {
-	return f.Acls, f.AclErr
+	return f.Acls, nil
 }
 
 // FakeSecIp implements common.SecIpAPI interface

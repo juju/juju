@@ -23,7 +23,7 @@ import (
 
 // oracleVolumeSource implements the storage.VolumeSource interface
 type oracleVolumeSource struct {
-	env       *oracleEnviron
+	env       *OracleEnviron
 	envName   string // non-unique, informational only
 	modelUUID string
 	api       StorageAPI
@@ -33,7 +33,7 @@ type oracleVolumeSource struct {
 // newOracleVolumeSource returns a new volume source to provide an interface
 // for creating, destroying, describing attaching and detaching volumes in the
 // oracle cloud environment
-func newOracleVolumeSource(env *oracleEnviron, name, uuid string, api StorageAPI, clock clock.Clock) (*oracleVolumeSource, error) {
+func newOracleVolumeSource(env *OracleEnviron, name, uuid string, api StorageAPI, clock clock.Clock) (*oracleVolumeSource, error) {
 	if env == nil {
 		return nil, errors.NotFoundf("environ")
 	}

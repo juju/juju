@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-var _ environs.NetworkingEnviron = (*oracleEnviron)(nil)
+var _ environs.NetworkingEnviron = (*OracleEnviron)(nil)
 
 // Only Ubuntu for now. There is no CentOS image in the oracle
 // compute marketplace
@@ -34,7 +34,7 @@ const (
 )
 
 // getIPExchangeAndNetworks returns all IP exchanges and IP networks attached to each of them
-func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.IpNetwork, error) {
+func (e *OracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.IpNetwork, error) {
 	ret := map[string][]ociResponse.IpNetwork{}
 	exchanges, err := e.client.AllIpNetworkExchanges(nil)
 	if err != nil {
@@ -59,7 +59,7 @@ func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.Ip
 }
 
 // DeleteMachineVnicSet will delete the machine vNIC set and any ACLs bound to it.
-func (o *oracleEnviron) DeleteMachineVnicSet(machineId string) error {
+func (o *OracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	if err := o.RemoveACLAndRules(machineId); err != nil {
 		return errors.Trace(err)
 	}
@@ -72,7 +72,7 @@ func (o *oracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	return nil
 }
 
-func (o *oracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
+func (o *OracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
 	if access, err := o.SupportsSpaces(); err != nil || access == false {
 		logger.Warningf("spaces is not supported on this API endpoint. SupportsSpaces returned: %v; %s", access, err)
 		return ociResponse.VnicSet{}, nil
