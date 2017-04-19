@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -15,12 +16,13 @@ const apiName = "StatusHistory"
 // Facade allows calls to "StatusHistory" endpoints
 type Facade struct {
 	facade base.FacadeCaller
+	*common.ModelWatcher
 }
 
 // NewFacade returns a status "StatusHistory" Facade.
 func NewFacade(caller base.APICaller) *Facade {
 	facadeCaller := base.NewFacadeCaller(caller, apiName)
-	return &Facade{facadeCaller}
+	return &Facade{facade: facadeCaller, ModelWatcher: common.NewModelWatcher(facadeCaller)}
 }
 
 // Prune calls "StatusHistory.Prune"

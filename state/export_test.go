@@ -674,6 +674,12 @@ func GetApplicationSettings(st *State, app *Application) *Settings {
 	return newSettings(st, settingsC, app.settingsKey())
 }
 
+// GetControllerSettings allows access to settings collection for
+// the controller.
+func GetControllerSettings(st *State) *Settings {
+	return newSettings(st, controllersC, controllerSettingsGlobalKey)
+}
+
 // NewSLALevel returns a new SLA level.
 func NewSLALevel(level string) (slaLevel, error) {
 	return newSLALevel(level)

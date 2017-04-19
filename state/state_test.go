@@ -2473,6 +2473,35 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	})
 }
 
+func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchControllerConfig()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg := testing.FakeControllerConfig()
+	c.Assert(cfg, jc.DeepEquals, expectedCfg)
+
+	settings := state.GetControllerSettings(s.State)
+	settings.Set("max-logs-age", "96h")
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertOneChange()
+
+	cfg, err = s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg["max-logs-age"] = "96h"
+	c.Assert(cfg, jc.DeepEquals, expectedCfg)
+}
+
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op

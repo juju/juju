@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -29,23 +30,55 @@ func TestPackage(t *stdtesting.T) {
 var _ = gc.Suite(&suite{})
 
 type suite struct {
-	statetesting.StateSuite
-	pruner   worker.Worker
-	logsColl *mgo.Collection
+	jujutesting.MgoSuite
+	testing.BaseSuite
+
+	state          *state.State
+	pruner         worker.Worker
+	logsColl       *mgo.Collection
+	controllerColl *mgo.Collection
+}
+
+func (s *suite) SetUpSuite(c *gc.C) {
+	s.MgoSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *suite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	s.logsColl = s.State.MongoSession().DB("logs").C("logs")
+	s.MgoSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *suite) StartWorker(c *gc.C, maxLogAge time.Duration, maxCollectionMB int) {
-	params := &dblogpruner.LogPruneParams{
-		MaxLogAge:       maxLogAge,
-		MaxCollectionMB: maxCollectionMB,
-		PruneInterval:   time.Millisecond, // Speed up pruning interval for testing
+func (s *suite) TearDownTest(c *gc.C) {
+	s.BaseSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
+	controllerConfig := map[string]interface{}{
+		"max-logs-age":  maxLogAge,
+		"max-logs-size": maxCollectionMB,
 	}
-	s.pruner = dblogpruner.New(s.State, params)
+
+	s.state = statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
+		Owner:            names.NewLocalUserTag("test-admin"),
+		Clock:            jujutesting.NewClock(testing.NonZeroTime()),
+		ControllerConfig: controllerConfig,
+	})
+	s.AddCleanup(func(*gc.C) { s.state.Close() })
+	s.logsColl = s.state.MongoSession().DB("logs").C("logs")
+}
+
+func (s *suite) startWorker(c *gc.C) {
+	params := &dblogpruner.LogPruneParams{
+		PruneInterval: time.Millisecond, // Speed up pruning interval for testing
+	}
+	s.pruner = dblogpruner.New(s.state, params)
 	s.AddCleanup(func(*gc.C) {
 		s.pruner.Kill()
 		c.Assert(s.pruner.Wait(), jc.ErrorIsNil)
@@ -54,8 +87,8 @@ func (s *suite) StartWorker(c *gc.C, maxLogAge time.Duration, maxCollectionMB in
 
 func (s *suite) TestPrunesOldLogs(c *gc.C) {
 	maxLogAge := 24 * time.Hour
-	noPruneMB := int(1e9)
-	s.StartWorker(c, maxLogAge, noPruneMB)
+	s.setupState(c, "24h", "1000P")
+	s.startWorker(c)
 
 	now := time.Now()
 	addLogsToPrune := func(count int) {
@@ -88,12 +121,11 @@ func (s *suite) TestPrunesOldLogs(c *gc.C) {
 }
 
 func (s *suite) TestPrunesLogsBySize(c *gc.C) {
+	s.setupState(c, "999h", "2M")
 	startingLogCount := 25000
 	s.addLogs(c, time.Now(), "stuff", startingLogCount)
 
-	noPruneAge := 999 * time.Hour
-	s.StartWorker(c, noPruneAge, 2)
-
+	s.startWorker(c)
 	for attempt := testing.LongAttempt.Start(); attempt.Next(); {
 		count, err := s.logsColl.Count()
 		c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +140,7 @@ func (s *suite) TestPrunesLogsBySize(c *gc.C) {
 }
 
 func (s *suite) addLogs(c *gc.C, t0 time.Time, text string, count int) {
-	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("0"), version.Current)
+	dbLogger := state.NewEntityDbLogger(s.state, names.NewMachineTag("0"), version.Current)
 	defer dbLogger.Close()
 
 	for offset := 0; offset < count; offset++ {

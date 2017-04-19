@@ -4,8 +4,6 @@
 package statushistorypruner_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/statushistorypruner"
 )
@@ -25,32 +22,6 @@ type ManifoldSuite struct {
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
-
-func (s *ManifoldSuite) TestStatusHistoryConfig(c *gc.C) {
-	ctx := &mockDependencyContext{
-		env: &mockEnviron{
-			config: coretesting.CustomModelConfig(c, coretesting.Attrs{
-				"max-status-history-age":  "96h",
-				"max-status-history-size": "4G",
-			}),
-		},
-	}
-
-	manifold := statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
-		APICallerName: "api-caller",
-		EnvironName:   "environ",
-		NewWorker: func(cfg statushistorypruner.Config) (worker.Worker, error) {
-			c.Assert(cfg.MaxHistoryTime, gc.Equals, 96*time.Hour)
-			c.Assert(cfg.MaxHistoryMB, gc.Equals, uint(4096))
-			return nil, dependency.ErrUninstall
-		},
-		NewFacade: func(caller base.APICaller) statushistorypruner.Facade {
-			return nil
-		},
-	})
-	_, err := manifold.Start(ctx)
-	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
-}
 
 type mockDependencyContext struct {
 	dependency.Context
