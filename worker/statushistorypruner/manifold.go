@@ -10,7 +10,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -45,19 +44,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var environ environs.Environ
-	if err := context.Get(config.EnvironName, &environ); err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg := environ.Config()
-
 	facade := config.NewFacade(apiCaller)
 	prunerConfig := Config{
-		Facade:         facade,
-		MaxHistoryTime: cfg.MaxStatusHistoryAge(),
-		MaxHistoryMB:   cfg.MaxStatusHistorySizeMB(),
-		PruneInterval:  config.PruneInterval,
-		NewTimer:       config.NewTimer,
+		Facade:        facade,
+		PruneInterval: config.PruneInterval,
+		NewTimer:      config.NewTimer,
 	}
 	w, err := config.NewWorker(prunerConfig)
 	if err != nil {
