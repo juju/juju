@@ -69,13 +69,13 @@ type slaCommand struct {
 	newAuthorizationClient func(options ...sla.ClientOption) (authorizationClient, error)
 
 	Level  string
-	Wallet string
+	Budget string
 }
 
 // SetFlags sets additional flags for the support command.
 func (c *slaCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.Wallet, "wallet", "", "the maximum spend for the model")
+	f.StringVar(&c.Budget, "budget", "", "the maximum spend for the model")
 }
 
 // Info implements cmd.Command.
@@ -112,7 +112,7 @@ func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, []byte
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Wallet)
+	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
 	if err != nil {
 		err = common.MaybeTermsAgreementError(err)
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {

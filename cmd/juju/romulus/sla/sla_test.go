@@ -58,7 +58,7 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 	tests := []struct {
 		about    string
 		level    string
-		wallet   string
+		budget   string
 		err      string
 		apiErr   error
 		apiCalls []testing.StubCall
@@ -74,9 +74,9 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 			},
 		}},
 	}, {
-		about:  "all is well with wallet",
+		about:  "all is well with budget",
 		level:  "essential",
-		wallet: "personal:10",
+		budget: "personal:10",
 		apiCalls: []testing.StubCall{{
 			FuncName: "Authorize",
 			Args: []interface{}{
@@ -93,7 +93,7 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		if test.apiErr != nil {
 			s.mockAPI.SetErrors(test.apiErr)
 		}
-		_, err := s.run(c, test.level, "--wallet", test.wallet)
+		_, err := s.run(c, test.level, "--budget", test.budget)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
@@ -134,12 +134,12 @@ type mockapi struct {
 	macaroon *macaroon.Macaroon
 }
 
-func (m *mockapi) Authorize(modelUUID, supportLevel, wallet string) (*slawire.SLAResponse, error) {
+func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*slawire.SLAResponse, error) {
 	err := m.NextErr()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m.AddCall("Authorize", modelUUID, supportLevel, wallet)
+	m.AddCall("Authorize", modelUUID, supportLevel, budget)
 	macaroon, err := m.service.NewMacaroon(
 		"foobar",
 		nil,
