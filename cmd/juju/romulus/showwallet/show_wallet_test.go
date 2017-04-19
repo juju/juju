@@ -6,7 +6,7 @@ package showwallet_test
 import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/romulus/wireformat/wallet"
+	"github.com/juju/romulus/wireformat/budget"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -62,15 +62,15 @@ func (s *showWalletSuite) TestShowWalletCommand(c *gc.C) {
 		args:   []string{"personal"},
 		wallet: "personal",
 		output: "" +
-			"Model      \tSpent\t Budgeted\t       By\tUsage\n" +
-			"c:m1       \t500  \t     1200\t user.joe\t42%  \n" +
-			"c:m2       \t600  \t     1000\tuser.jess\t60%  \n" +
-			"c:m3       \t10   \t      100\t user.bob\t10%  \n" +
-			"uuid4      \t10   \t      100\t user.bob\t10%  \n" +
-			"           \t     \t         \t         \n" +
-			"Total      \t1120 \t     2400\t         \t47%  \n" +
-			"Wallet     \t     \t     4000\t         \n" +
-			"Unallocated\t     \t     1600\t         \n",
+			"Model      \tSpent\tBudgeted\t       By\tUsage\n" +
+			"c:m1       \t500  \t    1200\t user.joe\t42%  \n" +
+			"c:m2       \t600  \t    1000\tuser.jess\t60%  \n" +
+			"c:m3       \t10   \t     100\t user.bob\t10%  \n" +
+			"uuid4      \t10   \t     100\t user.bob\t10%  \n" +
+			"           \t     \t        \t         \n" +
+			"Total      \t1120 \t    2400\t         \t47%  \n" +
+			"Wallet     \t     \t    4000\t         \n" +
+			"Unallocated\t     \t    1600\t         \n",
 	},
 	}
 
@@ -114,18 +114,18 @@ type mockWalletAPI struct {
 	*testing.Stub
 }
 
-func (api *mockWalletAPI) GetWallet(name string) (*wallet.WalletWithBudgets, error) {
+func (api *mockWalletAPI) GetWallet(name string) (*budget.WalletWithBudgets, error) {
 	api.AddCall("GetWallet", name)
-	return &wallet.WalletWithBudgets{
+	return &budget.WalletWithBudgets{
 		Limit: "4000",
-		Total: wallet.WalletTotals{
+		Total: budget.WalletTotals{
 			Budgeted:    "2400",
 			Unallocated: "1600",
 			Available:   "1180",
 			Consumed:    "1120",
 			Usage:       "47%",
 		},
-		Budgets: []wallet.Budget{{
+		Budgets: []budget.Budget{{
 			Owner:    "user.joe",
 			Limit:    "1200",
 			Consumed: "500",

@@ -6,7 +6,7 @@ package listwallets_test
 import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/romulus/wireformat/wallet"
+	"github.com/juju/romulus/wireformat/budget"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -44,9 +44,9 @@ func (s *listWalletsSuite) TestAPIError(c *gc.C) {
 }
 
 func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
-	s.mockAPI.result = &wallet.ListWalletsResponse{
-		Wallets: wallet.WalletSummaries{
-			wallet.WalletSummary{
+	s.mockAPI.result = &budget.ListWalletsResponse{
+		Wallets: budget.WalletSummaries{
+			budget.WalletSummary{
 				Owner:       "bob",
 				Wallet:      "personal",
 				Limit:       "50",
@@ -56,7 +56,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 				Consumed:    "5",
 				Default:     true,
 			},
-			wallet.WalletSummary{
+			budget.WalletSummary{
 				Owner:       "bob",
 				Wallet:      "work",
 				Limit:       "200",
@@ -65,7 +65,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 				Available:   "150",
 				Consumed:    "50",
 			},
-			wallet.WalletSummary{
+			budget.WalletSummary{
 				Owner:       "bob",
 				Wallet:      "team",
 				Limit:       "50",
@@ -75,7 +75,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 				Consumed:    "10",
 			},
 		},
-		Total: wallet.WalletTotals{
+		Total: budget.WalletTotals{
 			Limit:       "300",
 			Budgeted:    "140",
 			Available:   "235",
@@ -87,12 +87,12 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 	// Expected command output. Make sure wallets are sorted alphabetically.
 	expected := "" +
 		"Wallet       \tMonthly\tBudgeted\tAvailable\tSpent\n" +
-		"personal*    \t     50\t       30\t       45\t    5\n" +
-		"team         \t     50\t       10\t       40\t   10\n" +
-		"work         \t    200\t      100\t      150\t   50\n" +
-		"Total        \t    300\t      140\t      235\t   65\n" +
-		"             \t       \t         \t         \t     \n" +
-		"Credit limit:\t    400\t         \t         \t     \n"
+		"personal*    \t     50\t      30\t       45\t    5\n" +
+		"team         \t     50\t      10\t       40\t   10\n" +
+		"work         \t    200\t     100\t      150\t   50\n" +
+		"Total        \t    300\t     140\t      235\t   65\n" +
+		"             \t       \t        \t         \t     \n" +
+		"Credit limit:\t    400\t        \t         \t     \n"
 
 	listWallets := listwallets.NewListWalletsCommand()
 
@@ -103,9 +103,9 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 }
 
 func (s *listWalletsSuite) TestListWalletsOutputNoWallets(c *gc.C) {
-	s.mockAPI.result = &wallet.ListWalletsResponse{
-		Wallets: wallet.WalletSummaries{},
-		Total: wallet.WalletTotals{
+	s.mockAPI.result = &budget.ListWalletsResponse{
+		Wallets: budget.WalletSummaries{},
+		Total: budget.WalletTotals{
 			Limit:       "0",
 			Budgeted:    "0",
 			Available:   "0",
@@ -139,10 +139,10 @@ func (s *listWalletsSuite) TestListWalletsNoOutput(c *gc.C) {
 
 type mockapi struct {
 	*testing.Stub
-	result *wallet.ListWalletsResponse
+	result *budget.ListWalletsResponse
 }
 
-func (api *mockapi) ListWallets() (*wallet.ListWalletsResponse, error) {
+func (api *mockapi) ListWallets() (*budget.ListWalletsResponse, error) {
 	api.AddCall("ListWallets")
 	if err := api.NextErr(); err != nil {
 		return nil, err

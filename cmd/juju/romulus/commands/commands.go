@@ -29,11 +29,11 @@ func RegisterAll(r commandRegister) {
 	r.Register(agree.NewAgreeCommand())
 	r.Register(listagreements.NewListAgreementsCommand())
 	r.Register(budget.NewBudgetCommand())
-	r.Register(listwallets.NewListWalletsCommand())
 	r.Register(createwallet.NewCreateWalletCommand())
 	r.Register(listplans.NewListPlansCommand())
 	r.Register(setwallet.NewSetWalletCommand())
 	r.Register(setplan.NewSetPlanCommand())
 	r.Register(showwallet.NewShowWalletCommand())
 	r.Register(sla.NewSLACommand())
+	r.Register(listwallets.NewListWalletsCommand())
 }

@@ -199,7 +199,7 @@ func (s *DestroySuite) TestDestroyWithSupportedSLA(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{{
-		"DeleteAllocation", []interface{}{"test2-uuid"},
+		"DeleteBudget", []interface{}{"test2-uuid"},
 	}})
 }
 
@@ -209,7 +209,7 @@ func (s *DestroySuite) TestDestroyWithSupportedSLAFailure(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{{
-		"DeleteAllocation", []interface{}{"test2-uuid"},
+		"DeleteBudget", []interface{}{"test2-uuid"},
 	}})
 }
 
@@ -283,7 +283,7 @@ type mockBudgetAPIClient struct {
 	*jutesting.Stub
 }
 
-func (c *mockBudgetAPIClient) DeleteAllocation(model string) (string, error) {
-	c.MethodCall(c, "DeleteAllocation", model)
-	return "Allocation removed.", c.NextErr()
+func (c *mockBudgetAPIClient) DeleteBudget(model string) (string, error) {
+	c.MethodCall(c, "DeleteBudget", model)
+	return "Budget removed.", c.NextErr()
 }
