@@ -26,8 +26,7 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_add_credentials")
 
-script_dir = os.path.dirname(__file__)
-cloud_city = os.path.join(script_dir, 'cloud-city')
+cloud_city = os.environ.get('JUJU_HOME')
 
 
 def assess_add_credentials(args):

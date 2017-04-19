@@ -158,8 +158,7 @@ class TestAssess(TestCase):
         m = mock_open()
         with patch('assess_add_credentials.open', m, create=True) as o:
             o.return_value = io.StringIO(dummy_creds)
-            with patch.dict(os.environ, {'HOME': '/'}):
-                out = get_credentials('aws')
+            out = get_credentials('aws')
         self.assertEqual(out, dummy_loaded['credentials']['aws'])
 
     def test_verify_bootstrap(self):
