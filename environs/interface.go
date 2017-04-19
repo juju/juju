@@ -129,6 +129,11 @@ type FinalizeCredentialParams struct {
 	// to finalize the credentials.
 	CloudEndpoint string
 
+	// CloudStorageEndpoint is the storage endpoint for the cloud that the
+	// credentials are for. This may be used by the provider to communicate
+	// with the cloud to finalize the credentials.
+	CloudStorageEndpoint string
+
 	// CloudIdentityEndpoint is the identity endpoint for the cloud that the
 	// credentials are for. This may be used by the provider to communicate
 	// with the cloud to finalize the credentials.

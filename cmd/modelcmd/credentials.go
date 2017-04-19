@@ -65,6 +65,7 @@ func GetCredentials(
 	}
 
 	cloudEndpoint := args.Cloud.Endpoint
+	cloudStorageEndpoint := args.Cloud.StorageEndpoint
 	cloudIdentityEndpoint := args.Cloud.IdentityEndpoint
 	if regionName != "" {
 		region, err := cloud.RegionByName(args.Cloud.Regions, regionName)
@@ -72,6 +73,7 @@ func GetCredentials(
 			return nil, "", "", errors.Trace(err)
 		}
 		cloudEndpoint = region.Endpoint
+		cloudStorageEndpoint = region.StorageEndpoint
 		cloudIdentityEndpoint = region.IdentityEndpoint
 	}
 
@@ -103,6 +105,7 @@ func GetCredentials(
 		ctx, environs.FinalizeCredentialParams{
 			Credential:            *credential,
 			CloudEndpoint:         cloudEndpoint,
+			CloudStorageEndpoint:  cloudStorageEndpoint,
 			CloudIdentityEndpoint: cloudIdentityEndpoint,
 		},
 	)

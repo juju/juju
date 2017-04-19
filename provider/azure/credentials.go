@@ -80,12 +80,17 @@ func (c environProviderCredentials) FinalizeCredential(
 ) (*cloud.Credential, error) {
 	switch authType := args.Credential.AuthType(); authType {
 	case deviceCodeAuthType:
+		resourceManagerResourceId, err := azureauth.ResourceManagerResourceId(args.CloudStorageEndpoint)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		subscriptionId := args.Credential.Attributes()[credAttrSubscriptionId]
 		applicationId, password, err := c.interactiveCreateServicePrincipal(
 			ctx.GetStderr(),
 			c.sender,
 			c.requestInspector,
 			args.CloudEndpoint,
+			resourceManagerResourceId,
 			args.CloudIdentityEndpoint,
 			subscriptionId,
 			clock.WallClock,

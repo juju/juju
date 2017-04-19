@@ -73,6 +73,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 	out, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		Credential:            in,
 		CloudEndpoint:         "https://arm.invalid",
+		CloudStorageEndpoint:  "https://core.invalid",
 		CloudIdentityEndpoint: "https://graph.invalid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,8 +88,9 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 	s.interactiveCreateServicePrincipalCreator.CheckCallNames(c, "InteractiveCreateServicePrincipal")
 	args := s.interactiveCreateServicePrincipalCreator.Calls()[0].Args
 	c.Assert(args[3], gc.Equals, "https://arm.invalid")
-	c.Assert(args[4], gc.Equals, "https://graph.invalid")
-	c.Assert(args[5], gc.Equals, "subscription")
+	c.Assert(args[4], gc.Equals, "https://management.core.invalid/")
+	c.Assert(args[5], gc.Equals, "https://graph.invalid")
+	c.Assert(args[6], gc.Equals, "subscription")
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialInteractiveError(c *gc.C) {
@@ -112,6 +114,7 @@ func (c *interactiveCreateServicePrincipalCreator) InteractiveCreateServicePrinc
 	sender autorest.Sender,
 	requestInspector autorest.PrepareDecorator,
 	resourceManagerEndpoint string,
+	resourceManagerResourceId string,
 	graphEndpoint string,
 	subscriptionId string,
 	clock clock.Clock,
@@ -120,7 +123,8 @@ func (c *interactiveCreateServicePrincipalCreator) InteractiveCreateServicePrinc
 	c.MethodCall(
 		c, "InteractiveCreateServicePrincipal",
 		stderr, sender, requestInspector, resourceManagerEndpoint,
-		graphEndpoint, subscriptionId, clock, newUUID,
+		resourceManagerResourceId, graphEndpoint, subscriptionId,
+		clock, newUUID,
 	)
 	return "appid", "service-principal-password", c.NextErr()
 }
