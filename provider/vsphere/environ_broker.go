@@ -9,14 +9,15 @@ import (
 	"os"
 	"path"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -26,9 +27,8 @@ import (
 )
 
 const (
-	DefaultCpuCores = uint64(2)
-	DefaultCpuPower = uint64(2000)
-	DefaultMemMb    = uint64(2000)
+	startInstanceUpdateProgressInterval = 30 * time.Second
+	bootstrapUpdateProgressInterval     = 5 * time.Second
 )
 
 func controllerFolderName(controllerUUID string) string {
@@ -135,22 +135,7 @@ func (env *sessionEnviron) newRawInstance(
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
 	// Obtain the final constraints by merging with defaults.
-	uint64ptr := func(v uint64) *uint64 {
-		return &v
-	}
-	defaultCons := constraints.Value{
-		CpuCores: uint64ptr(DefaultCpuCores),
-		CpuPower: uint64ptr(DefaultCpuPower),
-		Mem:      uint64ptr(DefaultMemMb),
-	}
-	validator, err := env.ConstraintsValidator()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	cons, err := validator.Merge(defaultCons, args.Constraints)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	cons := args.Constraints
 	minRootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
 	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
 		cons.RootDisk = &minRootDisk
@@ -165,6 +150,10 @@ func (env *sessionEnviron) newRawInstance(
 
 	// Download and extract the OVA file. If we're bootstrapping we use
 	// a temporary directory, otherwise we cache the image for future use.
+	updateProgressInterval := startInstanceUpdateProgressInterval
+	if args.InstanceConfig.Bootstrap != nil {
+		updateProgressInterval = bootstrapUpdateProgressInterval
+	}
 	updateProgress := func(message string) {
 		args.StatusCallback(status.Provisioning, message, nil)
 	}
@@ -180,13 +169,15 @@ func (env *sessionEnviron) newRawInstance(
 			controllerFolderName(args.ControllerUUID),
 			env.modelFolderName(),
 		),
-		OVADir:          ovaDir,
-		OVF:             string(ovf),
-		UserData:        string(userData),
-		Metadata:        args.InstanceConfig.Tags,
-		Constraints:     cons,
-		ExternalNetwork: externalNetwork,
-		UpdateProgress:  updateProgress,
+		OVADir:                 ovaDir,
+		OVF:                    string(ovf),
+		UserData:               string(userData),
+		Metadata:               args.InstanceConfig.Tags,
+		Constraints:            cons,
+		ExternalNetwork:        externalNetwork,
+		UpdateProgress:         updateProgress,
+		UpdateProgressInterval: updateProgressInterval,
+		Clock: clock.WallClock,
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
