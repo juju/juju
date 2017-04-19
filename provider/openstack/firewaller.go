@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
-	"gopkg.in/goose.v1/neutron"
+	"gopkg.in/goose.v2/neutron"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

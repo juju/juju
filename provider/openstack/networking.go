@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"

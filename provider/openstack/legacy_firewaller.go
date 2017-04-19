@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	gooseerrors "gopkg.in/goose.v1/errors"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	gooseerrors "gopkg.in/goose.v2/errors"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
