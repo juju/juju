@@ -73,6 +73,11 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 		return nil, errors.NotSupportedf("auth-type %q", authType)
 	}
 
+	resourceId, err := azureauth.ResourceManagerResourceId(cloud.StorageEndpoint)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	credAttrs := cloud.Credential.Attributes()
 	subscriptionId := credAttrs[credAttrSubscriptionId]
 	appId := credAttrs[credAttrAppId]
@@ -84,12 +89,11 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 		return nil, errors.Trace(err)
 	}
 
-	resource := azureauth.TokenResource(cloud.Endpoint)
 	token, err := azure.NewServicePrincipalToken(
 		*oauthConfig,
 		appId,
 		appPassword,
-		resource,
+		resourceId,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing service principal token")
