@@ -85,8 +85,6 @@ func docIDStr(modelUUID string, localID string) string {
 // into the beings collection to establish the mapping between pinger sequence
 // and key.
 
-// BUG(gn): The pings and beings collection currently grow without bound.
-
 // psuedoRandomFactor defines an increasing chance that we will trigger an effect.
 // Inspired by: http://dota2.gamepedia.com/Random_distribution
 // The idea is that 'on average' we will trigger 5% of the time. However, that
@@ -354,20 +352,15 @@ func (w *Watcher) flush() {
 // checkShouldPrune looks at whether we should run a prune step this time
 func (w *Watcher) checkShouldPrune() {
 	chanceToPrune := float64(w.syncsSinceLastPrune) * psuedoRandomFactor
-	if chanceToPrune >= 1.0 || rand.Float64() < chanceToPrune {
-		w.prune()
+	if chanceToPrune < 1.0 && rand.Float64() > chanceToPrune {
+		return
 	}
-}
-
-// prune cleans out old data in the Beings and Pings tables.
-func (w *Watcher) prune() {
-	logger.Debugf("watcher decided to prune %q and %q", w.beings.Name, w.pings.Name)
+	logger.Debugf("watcher %q decided to prune %q and %q", w.modelUUID, w.beings.Name, w.pings.Name)
 	w.syncsSinceLastPrune = 0
-	pruner := NewBeingPruner(w.modelUUID, w.beings, w.pings, w.delta)
+	pruner := NewPruner(w.modelUUID, w.beings, w.pings, w.delta)
 	err := pruner.Prune()
 	if err != nil {
-		// Warning because we are supressing it?
-		logger.Errorf("Error trying to prune %q: %v", w.beings.Name, err)
+		logger.Warningf("error while pruning %q for %q: %v", w.beings.Name, w.modelUUID, err)
 	}
 }
 
@@ -427,11 +420,16 @@ type pingInfo struct {
 }
 
 func (w *Watcher) lookupPings(session *mgo.Session) ([]pingInfo, error) {
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	s := timeSlot(time.Now(), w.delta)
-	slot := docIDInt64(w.modelUUID, s)
-	previousSlot := docIDInt64(w.modelUUID, s-period)
 	pings := w.pings.With(session)
+	return lookupPings(pings, w.modelUUID, time.Now(), w.delta)
+}
+
+
+func lookupPings(pings *mgo.Collection, modelUUID string, ts time.Time, delta time.Duration) ([]pingInfo, error) {
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	s := timeSlot(ts, delta)
+	slot := docIDInt64(modelUUID, s)
+	previousSlot := docIDInt64(modelUUID, s-period)
 	var ping []pingInfo
 	q := bson.D{{"$or", []pingInfo{{DocID: slot}, {DocID: previousSlot}}}}
 	err := pings.Find(q).All(&ping)
@@ -445,27 +443,68 @@ func (w *Watcher) lookForDead(pings []pingInfo) (map[int64]bool, error) {
 	// Learn about all enforced deaths.
 	// TODO(ericsnow) Remove this once KillForTesting() goes away.
 	dead := make(map[int64]bool)
-	for i := range pings {
-		for key, value := range pings[i].Dead {
-			k, err := strconv.ParseInt(key, 16, 64)
-			if err != nil {
-				err = errors.Annotatef(err, "presence cannot parse dead key: %q", key)
-				return nil, err
-			}
-			k *= 63
-			for i := int64(0); i < 63 && value > 0; i++ {
-				on := value&1 == 1
-				value >>= 1
-				if !on {
-					continue
-				}
-				seq := k + i
-				dead[seq] = true
-				logger.Tracef("[%s] found seq=%d dead", w.modelUUID[:6], seq)
-			}
-		}
+	deadSeqs, err := deadSeqs(pings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, seq := range deadSeqs {
+		dead[seq] = true
+		logger.Tracef("[%s] found seq=%d dead", w.modelUUID[:6], seq)
 	}
 	return dead, nil
+}
+
+// decompressPings looks at a map like 'Alive' and turns it into an array of
+// sequences that were seen in those maps
+func decompressPings(maps []map[string]int64) ([]int64, error) {
+	if len(maps) == 0 {
+		return nil, nil
+	}
+	// First step, merge the two value structures together.
+	// Every ping has a bit field in an int64. However, we can bitwise-or them
+	// and preserve the logic about what is actually alive in either set.
+	// It also means we have to convert the base from hex half as often,
+	// and things that ping 2x don't have to be parsed 2x.
+	baseToBits := make(map[string]int64, len(maps[0]))
+	for i := range maps {
+		for hexbase, bits := range maps[i] {
+			baseToBits[hexbase] |= bits
+		}
+	}
+	sequences := make([]int64, 0, len(baseToBits)*30)
+	for hexbase, bits := range baseToBits {
+		base, err := strconv.ParseInt(hexbase, 16, 64)
+		if err != nil {
+			return nil, errors.Annotatef(err, "presence cannot parse alive key: %q", base)
+		}
+		base *= 63
+		for i := int64(0); i < 63 && bits > 0; i++ {
+			on := (bits&1 == 1)
+			bits >>= 1
+			if !on {
+				continue
+			}
+			seq := base + i
+			sequences = append(sequences, seq)
+		}
+	}
+	return sequences, nil
+}
+
+func aliveSeqs(pings []pingInfo) ([]int64, error) {
+	maps := make([]map[string]int64, len(pings))
+	for i := range pings {
+		maps[i] = pings[i].Alive
+	}
+	return decompressPings(maps)
+}
+
+func deadSeqs(pings []pingInfo) ([]int64, error) {
+	maps := make([]map[string]int64, len(pings))
+	for i := range pings {
+		maps[i] = pings[i].Dead
+	}
+	return decompressPings(maps)
 }
 
 func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error){
@@ -474,33 +513,21 @@ func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error)
 	// are not reportedly dead either.
 	alive := make(map[int64]bool)
 	unknownSeqs := make([]int64, 0)
-	for i := range pings {
-		for key, value := range pings[i].Alive {
-			k, err := strconv.ParseInt(key, 16, 64)
-			if err != nil {
-				err = errors.Annotatef(err, "presence cannot parse alive key: %q", key)
-				return nil, nil, err
-			}
-			k *= 63
-			for i := int64(0); i < 63 && value > 0; i++ {
-				on := value&1 == 1
-				value >>= 1
-				if !on {
-					continue
-				}
-				seq := k + i
-				alive[seq] = true
-				if _, ok := w.beingKey[seq]; ok {
-					// entries in beingKey are ones we consider alive
-					// since we already have this sequence, we
-					// consider this being alive and this as the
-					// active sequence for that being, so we don't
-					// need to do any more work for this sequence
-					continue
-				}
-				unknownSeqs = append(unknownSeqs, seq)
-			}
+	aliveSeq, err := aliveSeqs(pings)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	for _, seq := range aliveSeq {
+		alive[seq] = true
+		if _, ok := w.beingKey[seq]; ok {
+			// entries in beingKey are ones we consider alive
+			// since we already have this sequence, we
+			// consider this being alive and this as the
+			// active sequence for that being, so we don't
+			// need to do any more work for this sequence
+			continue
 		}
+		unknownSeqs = append(unknownSeqs, seq)
 	}
 	return alive, unknownSeqs, nil
 }
@@ -587,8 +614,7 @@ func (w* Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, se
 			w.pending = append(w.pending, event{ch, being.Key, true})
 		}
 	}
-	// TODO(jam): 2017-04-18 This runs every 30s, probably needs to be Trace...
-	logger.Debugf("looked up %d unknown sequences for %q (%d unowned) in %v%s from %q",
+	logger.Tracef("looked up %d unknown sequences for %q (%d unowned) in %v%s from %q",
 		len(unknownSeqs), w.modelUUID, unownedCount, elapsed, rate, beingsC.Name)
 	return nil
 }
@@ -615,7 +641,6 @@ func (w *Watcher) sync() error {
 	if err != nil {
 		return err
 	}
-
 
 	// Pingers that were known to be alive and haven't reported
 	// in the last two slots are now considered dead. Dispatch
@@ -843,7 +868,7 @@ func (p *Pinger) ping() (err error) {
 		}
 		p.delta = delta
 	}
-	// TODO(perrito667) 2016-05-02 lp:1558657
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	slot := timeSlot(time.Now(), p.delta)
 	if slot == p.lastSlot {
 		// Never, ever, ping the same slot twice.
@@ -868,166 +893,6 @@ type collapsedBeingsInfo struct {
 	Seqs    []int64 `bson:"seqs"`
 }
 
-
-// BeingPruner tracks the state of removing unworthy beings from the
-// presence.beings collection. Being sequences are unworthy once their sequence
-// has been superseded.
-type BeingPruner struct {
-	modelUUID string
-	beingsC *mgo.Collection
-	pingsC *mgo.Collection
-	toRemove []string
-	maxQueue int
-	removedCount uint64
-	delta time.Duration
-}
-
-// iterKeys is returns an iterator of Keys from this modelUUId and what Sequences
-// are in use to represent them.
-func (p *BeingPruner) iterKeys() *mgo.Iter {
-	thisModelRegex := bson.M{"_id": bson.M{"$regex": bson.RegEx{"^" + p.modelUUID, ""}}}
-	pipe := p.beingsC.Pipe([]bson.M{
-		// Grab all sequences for this model
-		{"$match": thisModelRegex},
-		// We don't need the _id
-		{"$project": bson.M{"_id": 0, "seq": 1, "key": 1}},
-		// Group all the sequences by their key.
-		{"$group": bson.M{
-			"_id":    "$key",
-			"seqs":    bson.M{"$push": "$seq"},
-		}},
-		// Filter out any keys that have only a single sequence
-		// representing them
-		// Note: indexing is from 0, you can set this to 2 if you wanted
-		// to only bother pruning sequences that have >2 entries.
-		// This mostly helps the 'nothing to do' case, dropping the time
-		// to realize there are no sequences to be removed from 36ms,
-		// down to 15ms with 3500 keys.
-		{"$match": bson.M{"seqs.1": bson.M{"$exists": 1}}},
-	})
-	pipe.Batch(1600)
-	return pipe.Iter()
-}
-
-// queueRemoval includes this sequence as one that has been superseded
-func (p *BeingPruner) queueRemoval(seq int64) {
-	p.toRemove = append(p.toRemove, docIDInt64(p.modelUUID, seq))
-}
-
-// flushRemovals makes sure that we've applied all desired removals
-func (p *BeingPruner) flushRemovals() error {
-	if len(p.toRemove) == 0 {
-		return nil
-	}
-	matched, err := p.beingsC.RemoveAll(bson.M{"_id": bson.M{"$in": p.toRemove}})
-	p.toRemove = p.toRemove[:0]
-	if matched.Removed > 0 {
-		p.removedCount += uint64(matched.Removed)
-	}
-	return err
-}
-
-func (p *BeingPruner) removeOldPings() error {
-	// now and now-period are both considered active slots, so we don't
-	// touch those. We also leave 2 more slots around
-	startTime := time.Now()
-	// TODO(jam): 2017-04-18 startCount may not be appropriate, because
-	// Count() includes all models, not just the one we are pruning
-	startCount, err := p.pingsC.Count()
-	if err != nil {
-		return err
-	}
-	logger.Tracef("pruning %q for %q starting with %d docs",
-		p.pingsC.Name, p.modelUUID, startCount)
-	s := timeSlot(time.Now(), p.delta)
-	oldSlot := s - 3*period
-	res, err := p.pingsC.RemoveAll(bson.D{{"_id", bson.RegEx{"^" + p.modelUUID, ""}},
-					     {"slot", bson.M{"$lt": oldSlot}} })
-	if err != nil && err != mgo.ErrNotFound {
-		logger.Errorf("error removing old entries from %q: %v", p.pingsC.Name, err)
-		return err
-	}
-	endCount, _ := p.pingsC.Count()
-	logger.Debugf("pruned %q for %q (with %d docs) of %d old pings down to %d docs in %v",
-		p.pingsC.Name, p.modelUUID, startCount, res.Removed, endCount, time.Since(startTime))
-	return nil
-}
-
-func (p *BeingPruner) removeUnusedBeings() error {
-	var keyInfo collapsedBeingsInfo
-	// TODO(jam): 2017-04-18 startCount may not be appropriate, because
-	// Count() includes all models, not just the one we are pruning
-	startCount, err := p.beingsC.Count()
-	if err != nil {
-		return err
-	}
-	logger.Tracef("pruning %q for %q starting with %d docs",
-		p.beingsC.Name, p.modelUUID, startCount)
-	startTime := time.Now()
-	keyCount := 0
-	seqCount := 0
-	iter := p.iterKeys()
-	for iter.Next(&keyInfo) {
-		keyCount += 1
-		// Find the max
-		maxSeq := int64(-1)
-		for _, seq := range keyInfo.Seqs {
-			if seq > maxSeq {
-				maxSeq = seq
-			}
-		}
-		// Queue everything < max to be deleted
-		for _, seq := range keyInfo.Seqs {
-			seqCount++
-			if seq >= maxSeq {
-				// It shouldn't be possible to be > at this point
-				continue
-			}
-			p.queueRemoval(seq)
-			if len(p.toRemove) > p.maxQueue {
-				if err := p.flushRemovals(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if err := p.flushRemovals(); err != nil {
-		return err
-	}
-	if err := iter.Close(); err != nil {
-		return err
-	}
-	logger.Debugf("pruned %q for %q (with %d docs) of %d sequence keys (evaluated %d) from %d keys in %v",
-		p.beingsC.Name, p.modelUUID, startCount, p.removedCount, seqCount, keyCount, time.Since(startTime))
-	return nil
-}
-
-// Prune removes beings from the beings collection that have been superseded by
-// another entry with a higher sequence. It does *not* attempt to remove beings that
-// have not been referenced by recent pings.
-func (p *BeingPruner) Prune() error {
-	err := p.removeUnusedBeings()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = p.removeOldPings()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// NewBeingPruner returns an object that is ready to prune the Beings collection
-// of old beings sequence entries that we no longer need.
-func NewBeingPruner(modelUUID string, beings *mgo.Collection, pings *mgo.Collection, delta time.Duration) *BeingPruner {
-	return &BeingPruner{
-		modelUUID: modelUUID,
-		beingsC: beings,
-		maxQueue: 1000,
-		pingsC: pings,
-		delta: delta,
-	}
-}
 
 // clockDelta returns the approximate skew between
 // the local clock and the database clock.

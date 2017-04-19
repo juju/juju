@@ -4,8 +4,6 @@
 package presence_test
 
 import (
-	"fmt"
-	"math/rand"
 	"strconv"
 	stdtesting "testing"
 	"time"
@@ -78,23 +76,6 @@ func assertChange(c *gc.C, watch <-chan presence.Change, want presence.Change) {
 		}
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watch reported nothing, want %v", want)
-	}
-}
-
-func waitForFirstChange(c *gc.C, watch <-chan presence.Change, want presence.Change) {
-	timeout := time.After(testing.LongWait)
-	for {
-		select {
-		case got := <-watch:
-			if got == want {
-				return
-			}
-			if got.Alive == false {
-				c.Fatalf("got a not-alive before the one we were expecting: %v (want %v)", got, want)
-			}
-		case <-timeout:
-			c.Fatalf("watch reported nothing, want %v", want)
-		}
 	}
 }
 
@@ -552,125 +533,3 @@ func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence
 	return w, p, ch
 }
 
-func (s *PresenceSuite) TestDeepStressStaysSane(c *gc.C) {
-	presence.FakePeriod(1)
-	defer presence.RealPeriod()
-	presence.RealTimeSlot()
-	// Each Pinger potentially grabs another socket to Mongo,
-	// which can exhaust connections. Somewhere around 5000 pingers on my
-	// machine everything starts failing because Mongo refuses new connections.
-	keys := make([]string, 3500)
-	for i := 0; i < len(keys); i++ {
-		keys[i] = fmt.Sprintf("being-%04d", i)
-	}
-	modelTag := newModelTag(c)
-	// To create abuse on the system, we leave 2 pingers active for every
-	// key. We then keep creating new pingers for each one, and rotate them
-	// into old, and stop them when they rotate out. So we potentially have
-	// 3 active pingers for each key. We should never see any key go
-	// inactive, because there is always at least 1 active pinger for each
-	// one
-	oldPingers := make([]*presence.Pinger, len(keys))
-	newPingers := make([]*presence.Pinger, len(keys))
-	ch := make(chan presence.Change)
-	w := presence.NewWatcher(s.presence, modelTag)
-	// Ensure that all pingers and the watcher are clean at exit
-	defer assertStopped(c, w)
-	defer func() {
-		for i, p := range oldPingers {
-			if p == nil {
-				continue
-			}
-			assertStopped(c, p)
-			oldPingers[i] = nil
-		}
-		for i, p := range newPingers {
-			if p == nil {
-				continue
-			}
-			assertStopped(c, p)
-			newPingers[i] = nil
-		}
-	}()
-	for i, key := range keys {
-		w.Watch(key, ch)
-		// we haven't started the pinger yet, so the initial state must be stopped
-		// As this is a busy channel, we may be queued up behind some other
-		// pinger showing up as alive, so allow up to LongWait for the event to show up
-		waitForFirstChange(c, ch, presence.Change{key, false})
-		p := presence.NewPinger(s.presence, modelTag, key)
-		err := p.Start()
-		c.Assert(err, jc.ErrorIsNil)
-		newPingers[i] = p
-		// All newPingers will be checked that they stop cleanly
-	}
-	fmt.Printf("initialized %d pingers\n", len(newPingers))
-	// Make sure all of the entities stay showing up as alive
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case got := <-ch:
-				c.Check(got.Alive, jc.IsTrue, gc.Commentf("key %q reported dead", got.Key))
-			case <-done:
-				return
-			}
-		}
-	}()
-	defer close(done)
-	beings := s.presence.Database.C(s.presence.Name + ".beings")
-	// Create a background Pruner task, that prunes items independently of
-	// when they are being updated
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-time.After(time.Duration(rand.Intn(500)+3000) * time.Millisecond):
-				oldPruner := presence.NewBeingPruner(modelTag.Id(), beings, s.pings, 0)
-				// Don't assert in a goroutine, as the panic may do bad things
-				c.Check(oldPruner.Prune(), jc.ErrorIsNil)
-			}
-		}
-	}()
-	const loopCount = 10
-	for loop := 0; loop < loopCount; loop++ {
-		t := time.Now()
-		for _, i := range rand.Perm(len(keys)) {
-			old := oldPingers[i]
-			if old != nil {
-				assertStopped(c, old)
-			}
-			oldPingers[i] = newPingers[i]
-			p := presence.NewPinger(s.presence, modelTag, keys[i])
-			err := p.Start()
-			c.Assert(err, jc.ErrorIsNil)
-			newPingers[i] = p
-		}
-		// no need to force w.Sync() it automatically full syncs every period seconds
-		fmt.Printf("loop %d in %v\n", loop, time.Since(t))
-	}
-	// Now that we've gone through all of that, check that we've created as
-	// many sequences as we think we have
-	seq := s.presence.Database.C(s.presence.Name + ".seqs")
-	var sequence struct {
-		Seq int64 `bson:"seq"`
-	}
-	seqDocID := modelTag.Id() + ":beings"
-	err := seq.FindId(seqDocID).One(&sequence)
-	c.Assert(err, jc.ErrorIsNil)
-	// we should have created N keys Y+1 times (once in init, once per loop)
-	seqCount := int64(len(keys) * (loopCount + 1))
-	c.Check(sequence.Seq, gc.Equals, seqCount)
-	oldPruner := presence.NewBeingPruner(modelTag.Id(), beings, s.pings, 0)
-	c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
-	count, err := beings.Count()
-	c.Assert(err, jc.ErrorIsNil)
-	// After pruning, we should have exactly 1 sequence for each key
-	c.Logf("beings has %d keys", count)
-	c.Check(count, gc.Equals, len(keys))
-	// Run the pruner again, it should essentially be a no-op
-	oldPruner = presence.NewBeingPruner(modelTag.Id(), beings, s.pings, 0)
-	c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
-	c.Fatal("dumping logs")
-}
