@@ -56,6 +56,12 @@ func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
 }
 
+func (s *ControllerCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testControllerCommand)
+	wrapped := modelcmd.WrapController(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
+}
+
 type testControllerCommand struct {
 	modelcmd.ControllerCommandBase
 }

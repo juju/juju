@@ -57,10 +57,6 @@ type ControllerCommand interface {
 	// ControllerName returns the name of the controller
 	// that the command should use.
 	ControllerName() string
-
-	// SetAPIOpener allows the replacement of the default API opener,
-	// which ends up calling NewAPIRoot
-	SetAPIOpener(opener APIOpener)
 }
 
 // ControllerCommandBase is a convenience type for embedding in commands
@@ -70,9 +66,6 @@ type ControllerCommandBase struct {
 
 	store          jujuclient.ClientStore
 	controllerName string
-
-	// opener is the strategy used to open the API connection.
-	opener APIOpener
 }
 
 // SetClientStore implements the ControllerCommand interface.
@@ -104,12 +97,6 @@ func (c *ControllerCommandBase) SetControllerName(controllerName string, allowDe
 // ControllerName implements the ControllerCommand interface.
 func (c *ControllerCommandBase) ControllerName() string {
 	return c.controllerName
-}
-
-// SetAPIOpener specifies the strategy used by the command to open
-// the API connection.
-func (c *ControllerCommandBase) SetAPIOpener(opener APIOpener) {
-	c.opener = opener
 }
 
 // NewModelManagerAPIClient returns an API client for the
@@ -177,11 +164,7 @@ func (c *ControllerCommandBase) newAPIRoot(modelName string) (api.Connection, er
 		}
 		return nil, errors.Trace(ErrNoCurrentController)
 	}
-	opener := c.opener
-	if opener == nil {
-		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
-	}
-	return opener.Open(c.store, c.controllerName, modelName)
+	return c.JujuCommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.
@@ -229,18 +212,9 @@ func wrapControllerSkipDefaultController(w *sysCommandWrapper) {
 	w.useDefaultController = false
 }
 
-// WrapControllerAPIOpener specifies that the given APIOpener
-// should should be used to open the API connection when
-// NewAPIRoot or NewControllerAPIRoot are called.
-func WrapControllerAPIOpener(opener APIOpener) WrapControllerOption {
-	return func(w *sysCommandWrapper) {
-		w.ControllerCommand.SetAPIOpener(opener)
-	}
-}
-
 // WrapController wraps the specified ControllerCommand, returning a Command
 // that proxies to each of the ControllerCommand methods.
-func WrapController(c ControllerCommand, options ...WrapControllerOption) cmd.Command {
+func WrapController(c ControllerCommand, options ...WrapControllerOption) CommandBase {
 	wrapper := &sysCommandWrapper{
 		ControllerCommand:    c,
 		setControllerFlags:   true,
@@ -257,6 +231,11 @@ type sysCommandWrapper struct {
 	setControllerFlags   bool
 	useDefaultController bool
 	controllerName       string
+}
+
+// wrapped implements wrapper.wrapped.
+func (w *sysCommandWrapper) inner() cmd.Command {
+	return w.ControllerCommand
 }
 
 // SetFlags implements Command.SetFlags, then calls the wrapped command's SetFlags.
