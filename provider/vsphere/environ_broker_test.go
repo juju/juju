@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -119,12 +120,14 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	createVMArgs.UserData = ""
 	createVMArgs.Constraints = constraints.Value{}
 	createVMArgs.UpdateProgress = nil
+	createVMArgs.Clock = nil
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
-		Name:            "juju-f75cba-0",
-		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
-		OVF:             "FakeOvfContent",
-		Metadata:        startInstArgs.InstanceConfig.Tags,
-		ComputeResource: s.client.computeResources[0],
+		Name:                   "juju-f75cba-0",
+		Folder:                 `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		OVF:                    "FakeOvfContent",
+		Metadata:               startInstArgs.InstanceConfig.Tags,
+		ComputeResource:        s.client.computeResources[0],
+		UpdateProgressInterval: 5 * time.Second,
 	})
 }
 
@@ -234,16 +237,10 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 
 	var (
 		arch     = "amd64"
-		cpuCores = vsphere.DefaultCpuCores
-		cpuPower = vsphere.DefaultCpuPower
-		mem      = vsphere.DefaultMemMb
 		rootDisk = common.MinRootDiskSizeGiB("trusty") * 1024
 	)
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:     &arch,
-		CpuCores: &cpuCores,
-		CpuPower: &cpuPower,
-		Mem:      &mem,
 		RootDisk: &rootDisk,
 	})
 }

@@ -33,6 +33,7 @@ type clientSuite struct {
 	serviceContent types.ServiceContent
 	roundTripper   mockRoundTripper
 	uploadRequests []*http.Request
+	onImageUpload  func(*http.Request)
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -174,6 +175,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			},
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "vm-0"},
+				{Name: "runtime.powerState", Val: "poweredOff"},
 				{
 					Name: "resourcePool",
 					Val: types.ManagedObjectReference{
@@ -190,6 +192,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			},
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "vm-1"},
+				{Name: "runtime.powerState", Val: "poweredOn"},
 				{
 					Name: "resourcePool",
 					Val: types.ManagedObjectReference{
@@ -204,12 +207,16 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	// Create an HTTP server to receive image uploads.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/disk-device/", func(w http.ResponseWriter, r *http.Request) {
+		if s.onImageUpload != nil {
+			s.onImageUpload(r)
+		}
 		var buf bytes.Buffer
 		io.Copy(&buf, r.Body)
 		rcopy := *r
 		rcopy.Body = ioutil.NopCloser(&buf)
 		s.uploadRequests = append(s.uploadRequests, &rcopy)
 	})
+	s.onImageUpload = nil
 	s.server = httptest.NewServer(mux)
 	s.AddCleanup(func(*gc.C) {
 		s.server.Close()
@@ -380,13 +387,10 @@ func (s *clientSuite) TestRemoveVirtualMachines(c *gc.C) {
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeModelVmFolder"),
-		testing.StubCall{"PowerOffVM_Task", nil},
+		retrievePropertiesStubCall("FakeVm0", "FakeVm1"),
 		testing.StubCall{"Destroy_Task", nil},
 		testing.StubCall{"PowerOffVM_Task", nil},
 		testing.StubCall{"Destroy_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
 		testing.StubCall{"CreatePropertyCollector", nil},
 		testing.StubCall{"CreateFilter", nil},
 		testing.StubCall{"WaitForUpdatesEx", nil},
