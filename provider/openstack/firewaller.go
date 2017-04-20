@@ -362,10 +362,6 @@ func (c *firewallerBase) openInstancePorts(
 	machineId string,
 	rules []network.IngressRule,
 ) error {
-	if c.environ.Config().FirewallMode() != config.FwInstance {
-		return errors.Errorf("invalid firewall mode %q for opening ports on instance",
-			c.environ.Config().FirewallMode())
-	}
 	nameRegexp := c.machineGroupRegexp(machineId)
 	if err := openPortsInGroup(nameRegexp, rules); err != nil {
 		return errors.Trace(err)
@@ -379,10 +375,6 @@ func (c *firewallerBase) closeInstancePorts(
 	machineId string,
 	rules []network.IngressRule,
 ) error {
-	if c.environ.Config().FirewallMode() != config.FwInstance {
-		return errors.Errorf("invalid firewall mode %q for closing ports on instance",
-			c.environ.Config().FirewallMode())
-	}
 	nameRegexp := c.machineGroupRegexp(machineId)
 	if err := closePortsInGroup(nameRegexp, rules); err != nil {
 		return errors.Trace(err)
@@ -395,10 +387,6 @@ func (c *firewallerBase) instanceIngressRules(
 	ingressRulesInGroup func(string) ([]network.IngressRule, error),
 	machineId string,
 ) ([]network.IngressRule, error) {
-	if c.environ.Config().FirewallMode() != config.FwInstance {
-		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
-			c.environ.Config().FirewallMode())
-	}
 	nameRegexp := c.machineGroupRegexp(machineId)
 	portRanges, err := ingressRulesInGroup(nameRegexp)
 	if err != nil {
@@ -769,16 +757,49 @@ func (c *neutronFirewaller) IngressRules() ([]network.IngressRule, error) {
 
 // OpenInstancePorts implements Firewaller interface.
 func (c *neutronFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, ports []network.IngressRule) error {
+	if c.environ.Config().FirewallMode() != config.FwInstance {
+		return errors.Errorf("invalid firewall mode %q for opening ports on instance",
+			c.environ.Config().FirewallMode())
+	}
+	// For bug 1680787
+	// No security groups exist if the network used to boot the instance has
+	// PortSecurityEnabled set to false.  To avoid filling up the log files,
+	// skip trying to open ports in this cases.
+	if securityGroups := inst.(*openstackInstance).getServerDetail().Groups; securityGroups == nil {
+		return nil
+	}
 	return c.openInstancePorts(c.openPortsInGroup, machineId, ports)
 }
 
 // CloseInstancePorts implements Firewaller interface.
 func (c *neutronFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, ports []network.IngressRule) error {
+	if c.environ.Config().FirewallMode() != config.FwInstance {
+		return errors.Errorf("invalid firewall mode %q for closing ports on instance",
+			c.environ.Config().FirewallMode())
+	}
+	// For bug 1680787
+	// No security groups exist if the network used to boot the instance has
+	// PortSecurityEnabled set to false.  To avoid filling up the log files,
+	// skip trying to open ports in this cases.
+	if securityGroups := inst.(*openstackInstance).getServerDetail().Groups; securityGroups == nil {
+		return nil
+	}
 	return c.closeInstancePorts(c.closePortsInGroup, machineId, ports)
 }
 
 // InstanceIngressRules implements Firewaller interface.
 func (c *neutronFirewaller) InstanceIngressRules(inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+	if c.environ.Config().FirewallMode() != config.FwInstance {
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
+			c.environ.Config().FirewallMode())
+	}
+	// For bug 1680787
+	// No security groups exist if the network used to boot the instance has
+	// PortSecurityEnabled set to false.  To avoid filling up the log files,
+	// skip trying to open ports in this cases.
+	if securityGroups := inst.(*openstackInstance).getServerDetail().Groups; securityGroups == nil {
+		return []network.IngressRule{}, nil
+	}
 	return c.instanceIngressRules(c.ingressRulesInGroup, machineId)
 }
 

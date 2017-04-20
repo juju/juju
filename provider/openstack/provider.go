@@ -1017,20 +1017,44 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 	}
 
-	var apiPort int
-	if args.InstanceConfig.Controller != nil {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
-	} else {
-		// All ports are the same so pick the first.
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	// For BUG 1680787: openstack: add support for neutron networks where port
+	// security is disabled.
+	// If any network specified for instance boot has PortSecurityEnabled equals
+	// false, don't create security groups, instance boot will fail.
+	createSecurityGroups := true
+	if len(networks) > 0 && e.supportsNeutron() {
+		client := e.neutron()
+		for _, n := range networks {
+			net, err := client.GetNetworkV2(n.NetworkId)
+			if err != nil {
+				return nil, err
+			}
+			if net.PortSecurityEnabled != nil &&
+				*net.PortSecurityEnabled == false {
+				createSecurityGroups = *net.PortSecurityEnabled
+				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
+				break
+			}
+		}
 	}
-	groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot set up groups")
-	}
-	novaGroupNames := make([]nova.SecurityGroupName, len(groupNames))
-	for i, name := range groupNames {
-		novaGroupNames[i].Name = name
+
+	var novaGroupNames = []nova.SecurityGroupName{}
+	if createSecurityGroups {
+		var apiPort int
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		} else {
+			// All ports are the same so pick the first.
+			apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+		}
+		groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set up groups")
+		}
+		novaGroupNames = make([]nova.SecurityGroupName, len(groupNames))
+		for i, name := range groupNames {
+			novaGroupNames[i].Name = name
+		}
 	}
 
 	machineName := resourceName(
