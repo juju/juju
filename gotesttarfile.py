@@ -69,6 +69,8 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     env = dict(os.environ)
     env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
+    version_cmd = [go_cmd, 'version']
+    env_cmd = [go_cmd, 'env']
     build_cmd = [go_cmd, 'test', '-i', './...']
     test_cmd = [go_cmd, 'test', '-timeout=1200s', './...']
     if sys.platform == 'win32':
@@ -89,6 +91,11 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         test_cmd = ['powershell.exe', '-Command'] + test_cmd
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
+        if verbose:
+            print_now('Go environment information')
+        # We don't care about return code for these
+        run(version_cmd, env=env)
+        run(env_cmd, env=env)
         if verbose:
             print_now('Building test dependencies')
         returncode = run(build_cmd, env=env)
