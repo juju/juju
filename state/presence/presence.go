@@ -1018,3 +1018,23 @@ func beingsC(base *mgo.Collection) *mgo.Collection {
 func pingsC(base *mgo.Collection) *mgo.Collection {
 	return base.Database.C(base.Name + ".pings")
 }
+
+// RemovePresenceForModel removes all of the records of entities for a given model
+// across all of the collections.
+func RemovePresenceForModel(base *mgo.Collection, modelTag names.ModelTag) error {
+	modelIDMatch := bson.M{"_id": bson.RegEx{"^" + modelTag.Id() + ":", ""}}
+	errs := make([]error, 0)
+	if _, err := pingsC(base).RemoveAll(modelIDMatch); err != nil && err != mgo.ErrNotFound {
+		errs = append(errs, err)
+	}
+	if _, err := beingsC(base).RemoveAll(modelIDMatch); err != nil && err != mgo.ErrNotFound {
+		errs = append(errs, err)
+	}
+	if _, err := seqsC(base).RemoveAll(modelIDMatch); err != nil && err != mgo.ErrNotFound {
+		errs = append(errs, err)
+	}
+	if len(errs) != 0 {
+		return errors.Errorf("errors removing presence for model %q: %v", modelTag.Id(), errs)
+	}
+	return nil
+}
