@@ -262,7 +262,7 @@ func (e Environ) SupportsSpaces() (bool, error) {
 	if access {
 		return true, nil
 	}
-	return false, errors.NotSupportedf("spaces not supported. Trial account?")
+	return false, nil
 }
 
 // SupportsSpaceDiscovery is defined on the environs.Networking interface.
@@ -274,7 +274,7 @@ func (e Environ) SupportsSpaceDiscovery() (bool, error) {
 	if access {
 		return true, nil
 	}
-	return false, errors.NotSupportedf("space discovery not supported. Trial account?")
+	return false, nil
 }
 
 // SupportsContainerAddresses is defined on the environs.Networking interface.

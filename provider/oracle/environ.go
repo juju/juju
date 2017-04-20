@@ -686,9 +686,9 @@ func (o *OracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error
 		return nil, err
 	}
 
-	ret := make([]instance.Instance, len(instances))
-	for i, val := range instances {
-		ret[i] = val
+	ret := []instance.Instance{}
+	for _, val := range instances {
+		ret = append(ret, val)
 	}
 	return ret, nil
 }
@@ -732,7 +732,7 @@ func (o *OracleEnviron) Destroy() error {
 func (o *OracleEnviron) DestroyController(controllerUUID string) error {
 	err := o.Destroy()
 	if err != nil {
-		logger.Errorf("Failed to destroy environment through controller: %s", err)
+		logger.Errorf("Failed to destroy environment through controller: %s", errors.Trace(err))
 	}
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {

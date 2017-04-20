@@ -815,7 +815,7 @@ func (f Firewall) newResourceName(appName string) string {
 func (f Firewall) getAllSecurityRules(aclName string) ([]response.SecurityRule, error) {
 	rules, err := f.client.AllSecurityRules(nil)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	if aclName == "" {
 		return rules.Result, nil

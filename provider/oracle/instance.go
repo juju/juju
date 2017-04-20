@@ -191,12 +191,19 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 
 		// the VM association is now gone, now we can delete the
 		// machine sec list
+		logger.Debugf("deleting seclist for instance: %s", o.machineId)
 		if err := o.env.DeleteMachineSecList(o.machineId); err != nil {
-			return errors.Trace(err)
+			logger.Errorf("failed to delete seclist: %s", err)
+			if !oci.IsMethodNotAllowed(err) {
+				return errors.Trace(err)
+			}
 		}
-
+		logger.Debugf("deleting vnic set for instance: %s", o.machineId)
 		if err := o.env.DeleteMachineVnicSet(o.machineId); err != nil {
-			return errors.Trace(err)
+			logger.Errorf("failed to delete vnic set: %s", err)
+			if !oci.IsMethodNotAllowed(err) {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil

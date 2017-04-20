@@ -36,6 +36,8 @@ const (
 // DeleteMachineVnicSet will delete the machine vNIC set and any ACLs bound to it.
 func (o *OracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	if err := o.RemoveACLAndRules(machineId); err != nil {
+		// A method not allowed error denotes that this feature
+		// is not enabled. Probably a trial account, so not really an error
 		if !oci.IsMethodNotAllowed(err) {
 			return errors.Trace(err)
 		}
@@ -43,7 +45,7 @@ func (o *OracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	name := o.client.ComposeName(o.namespace.Value(machineId))
 	if err := o.client.DeleteVnicSet(name); err != nil {
 		if !oci.IsNotFound(err) && !oci.IsMethodNotAllowed(err) {
-			return errors.Trace(err)
+			return err
 		}
 	}
 	return nil
