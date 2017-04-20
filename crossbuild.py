@@ -92,14 +92,18 @@ def setup_cross_building(build_dir, dry_run=False, verbose=False):
 
     mkdir crossbuild
     cd crossbuild
-    sudo apt-get install dpkg-dev wine xvfb
+    sudo apt-get install winetricks wine innoextract dpkg-dev xvfb
     apt-get source golang-go={GOLANG_VERSION}*
     export GOROOT=/var/lib/jenkins/crossbuild/golang-{GOLANG_VERSION}
+    export GOROOT_BOOTSTRAP=/usr/lib/go-1.6/
 
-    wget {CROSSCOMPILE_SOURCE} -O crosscompile.bash
-    source crosscompile.bash
+    # For sl90x, ppc64el, arm64
+    go-crosscompile-build linux/$GOARCH
+
+    # for amd64
+    source juju-release-tools/crosscompile.bash
+    go-crosscompile-build linux/amd64
     go-crosscompile-build darwin/amd64
-    go-crosscompile-build windows/386
     go-crosscompile-build windows/amd64
 
     wget {INNO_SOURCE} -O isetup-5.5.5-unicode.exe
