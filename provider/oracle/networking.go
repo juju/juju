@@ -36,11 +36,13 @@ const (
 // DeleteMachineVnicSet will delete the machine vNIC set and any ACLs bound to it.
 func (o *OracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	if err := o.RemoveACLAndRules(machineId); err != nil {
-		return errors.Trace(err)
+		if !oci.IsMethodNotAllowed(err) {
+			return errors.Trace(err)
+		}
 	}
 	name := o.client.ComposeName(o.namespace.Value(machineId))
 	if err := o.client.DeleteVnicSet(name); err != nil {
-		if !oci.IsNotFound(err) {
+		if !oci.IsNotFound(err) && !oci.IsMethodNotAllowed(err) {
 			return errors.Trace(err)
 		}
 	}
