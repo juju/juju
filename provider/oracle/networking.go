@@ -33,31 +33,6 @@ const (
 	interfacesConfigDir = `/etc/network/interfaces.d`
 )
 
-// getIPExchangeAndNetworks returns all IP exchanges and IP networks attached to each of them
-func (e *OracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.IpNetwork, error) {
-	ret := map[string][]ociResponse.IpNetwork{}
-	exchanges, err := e.client.AllIpNetworkExchanges(nil)
-	if err != nil {
-		return ret, err
-	}
-	ipNets, err := e.client.AllIpNetworks(nil)
-	if err != nil {
-		return ret, err
-	}
-	for _, val := range exchanges.Result {
-		ret[val.Name] = []ociResponse.IpNetwork{}
-	}
-	for _, val := range ipNets.Result {
-		if val.IpNetworkExchange == nil {
-			continue
-		}
-		if _, ok := ret[*val.IpNetworkExchange]; ok {
-			ret[*val.IpNetworkExchange] = append(ret[*val.IpNetworkExchange], val)
-		}
-	}
-	return ret, nil
-}
-
 // DeleteMachineVnicSet will delete the machine vNIC set and any ACLs bound to it.
 func (o *OracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	if err := o.RemoveACLAndRules(machineId); err != nil {

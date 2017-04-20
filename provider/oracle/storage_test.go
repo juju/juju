@@ -4,7 +4,6 @@
 package oracle_test
 
 import (
-	"github.com/juju/go-oracle-cloud/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -23,7 +22,7 @@ func (s *storageSuite) NewStorageProvider(c *gc.C) storage.ProviderRegistry {
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		&api.Client{},
+		DefaultEnvironAPI,
 		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
