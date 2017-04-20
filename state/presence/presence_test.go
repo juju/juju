@@ -535,7 +535,7 @@ func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence
 }
 
 func countModelIds(c *gc.C, coll *mgo.Collection, modelTag names.ModelTag) int {
-	count, err := coll.Find(bson.M{"_id": bson.RegEx{"^" + modelTag.Id() +":", ""}}).Count()
+	count, err := coll.Find(bson.M{"_id": bson.RegEx{"^" + modelTag.Id() + ":", ""}}).Count()
 	// either the error is NotFound or nil
 	if err != nil {
 		c.Assert(err, gc.Equals, mgo.ErrNotFound)
@@ -578,7 +578,7 @@ func (s *PresenceSuite) TestRemovePresenceForModel(c *gc.C) {
 	// we should have a being and pings for both pingers
 	c.Check(countModelIds(c, beings, s.modelTag), gc.Equals, 1)
 	c.Check(countModelIds(c, beings, modelTag2), gc.Equals, 1)
-	c.Check(countModelIds(c, pings, s.modelTag), jc.GreaterThan,0)
+	c.Check(countModelIds(c, pings, s.modelTag), jc.GreaterThan, 0)
 	c.Check(countModelIds(c, pings, modelTag2), jc.GreaterThan, 0)
 	c.Check(countModelIds(c, seqs, s.modelTag), gc.Equals, 1)
 	c.Check(countModelIds(c, seqs, modelTag2), gc.Equals, 1)
@@ -597,7 +597,7 @@ func (s *PresenceSuite) TestRemovePresenceForModel(c *gc.C) {
 	// And we should only have the second model in the databases
 	c.Check(countModelIds(c, beings, s.modelTag), gc.Equals, 0)
 	c.Check(countModelIds(c, beings, modelTag2), gc.Equals, 1)
-	c.Check(countModelIds(c, pings, s.modelTag), gc.Equals,0)
+	c.Check(countModelIds(c, pings, s.modelTag), gc.Equals, 0)
 	c.Check(countModelIds(c, pings, modelTag2), jc.GreaterThan, 0)
 	c.Check(countModelIds(c, seqs, s.modelTag), gc.Equals, 0)
 	c.Check(countModelIds(c, seqs, modelTag2), gc.Equals, 1)
