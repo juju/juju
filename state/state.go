@@ -538,8 +538,15 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-func (st *State) Watch() *Multiwatcher {
-	return NewMultiwatcher(st.workers.allManager())
+// WatchParams defines config to control which
+// entites are included when watching a model.
+type WatchParams struct {
+	// IncludeOffers controls whether application offers should be watched.
+	IncludeOffers bool
+}
+
+func (st *State) Watch(params WatchParams) *Multiwatcher {
+	return NewMultiwatcher(st.workers.allManager(params))
 }
 
 func (st *State) WatchAllModels(pool *StatePool) *Multiwatcher {

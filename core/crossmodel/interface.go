@@ -33,7 +33,7 @@ type AddApplicationOfferArgs struct {
 	// Owner is the user name who owns the offer.
 	Owner string
 
-	// HasRead are rthe user names who can see the offer exists.
+	// HasRead are the user names who can see the offer exists.
 	HasRead []string
 
 	// ApplicationName is the name of the application to which the offer pertains.
