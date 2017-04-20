@@ -27,8 +27,8 @@ type environProvider struct{}
 
 var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
-	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
-	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey},
+	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey},
 	Properties: map[string]*jsonschema.Schema{
 		cloud.EndpointKey: {
 			Singular: "the API endpoint url for the cloud",
@@ -39,15 +39,6 @@ var cloudSchema = &jsonschema.Schema{
 			// don't need a prompt, since there's only one choice.
 			Type: []jsonschema.Type{jsonschema.ArrayType},
 			Enum: []interface{}{[]string{string(cloud.UserPassAuthType)}},
-		},
-		cloud.RegionsKey: {
-			Type:     []jsonschema.Type{jsonschema.ObjectType},
-			Singular: "region",
-			Plural:   "regions",
-			AdditionalProperties: &jsonschema.Schema{
-				Type:          []jsonschema.Type{jsonschema.ObjectType},
-				MaxProperties: jsonschema.Int(0),
-			},
 		},
 	},
 }

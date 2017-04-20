@@ -241,6 +241,8 @@ func (e Environ) getNicAttributes(instance response.Instance) map[string]respons
 	return ret
 }
 
+// canAccessNetworkAPI checks whether or not we have access to the necessary
+// API endpoints needed for spaces support
 func (e *Environ) canAccessNetworkAPI() (bool, error) {
 	_, err := e.client.AllAcls(nil)
 	if err != nil {

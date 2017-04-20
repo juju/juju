@@ -156,6 +156,8 @@ func (o *OracleEnviron) Create(params environs.CreateParams) error {
 
 // AdoptResources is part of the Environ interface.
 func (e *OracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	//TODO (gsamfira): Implement AdoptResources. Controller tag for all resources needs to
+	// be changed
 	return nil
 }
 
