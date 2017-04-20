@@ -732,7 +732,7 @@ func (o *OracleEnviron) Destroy() error {
 func (o *OracleEnviron) DestroyController(controllerUUID string) error {
 	err := o.Destroy()
 	if err != nil {
-		logger.Errorf("Failed to destroy environment through controller")
+		logger.Errorf("Failed to destroy environment through controller: %s", err)
 	}
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {
