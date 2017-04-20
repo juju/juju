@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/testing"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
@@ -218,8 +219,7 @@ func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 			DeviceName: "ens3",
 		},
 	}
-	environ := os.Environ()
-	environ = append(environ, "ADD_JUJU_BRIDGE_SLEEP_PREAMBLE_FOR_TESTING=10")
+	environ := utils.Setenv(os.Environ(), "ADD_JUJU_BRIDGE_SLEEP_PREAMBLE_FOR_TESTING=10")
 	expected := "bridgescript timed out after 500ms"
 	assertENIBridgerError(c, devices, environ, 500*time.Millisecond, clock.WallClock, "br-", "testdata/non-existent-file", true, 0, expected)
 }
