@@ -532,4 +532,3 @@ func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence
 	assertChange(c, ch, presence.Change{key, false})
 	return w, p, ch
 }
-

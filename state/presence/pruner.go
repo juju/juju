@@ -15,18 +15,19 @@ import (
 type beingRemover struct {
 	queue []string
 }
+
 // Pruner tracks the state of removing unworthy beings from the
 // presence.beings and presence.pings collections. Being sequences are unworthy
 // once their sequence has been superseded, and pings older than 2 slots are
 // no longer referenced.
 type Pruner struct {
-	modelUUID string
-	beingsC *mgo.Collection
-	pingsC *mgo.Collection
-	toRemove []string
-	maxQueue int
+	modelUUID    string
+	beingsC      *mgo.Collection
+	pingsC       *mgo.Collection
+	toRemove     []string
+	maxQueue     int
 	removedCount uint64
-	delta time.Duration
+	delta        time.Duration
 }
 
 // iterKeys is returns an iterator of Keys from this modelUUID and which Sequences
@@ -40,8 +41,8 @@ func (p *Pruner) iterKeys() *mgo.Iter {
 		{"$project": bson.M{"_id": 0, "seq": 1, "key": 1}},
 		// Group all the sequences by their key.
 		{"$group": bson.M{
-			"_id":    "$key",
-			"seqs":    bson.M{"$push": "$seq"},
+			"_id":  "$key",
+			"seqs": bson.M{"$push": "$seq"},
 		}},
 		// Filter out any keys that have only a single sequence
 		// representing them
@@ -85,7 +86,7 @@ func (p *Pruner) removeOldPings() error {
 	s := timeSlot(time.Now(), p.delta)
 	oldSlot := s - 3*period
 	res, err := p.pingsC.RemoveAll(bson.D{{"_id", bson.RegEx{"^" + p.modelUUID, ""}},
-					      {"slot", bson.M{"$lt": oldSlot}} })
+		{"slot", bson.M{"$lt": oldSlot}}})
 	if err != nil && err != mgo.ErrNotFound {
 		logger.Errorf("error removing old entries from %q: %v", p.pingsC.Name, err)
 		return err
@@ -100,7 +101,7 @@ func (p *Pruner) removeUnusedBeings() error {
 	// var seqSet map[int64]struct{}
 	seqSet, err := p.findActiveSeqs()
 	if err != nil {
-	 	return err
+		return err
 	}
 	logger.Tracef("pruning %q for %q starting", p.beingsC.Name, p.modelUUID)
 	startTime := time.Now()
@@ -187,10 +188,9 @@ func (p *Pruner) Prune() error {
 func NewPruner(modelUUID string, beings *mgo.Collection, pings *mgo.Collection, delta time.Duration) *Pruner {
 	return &Pruner{
 		modelUUID: modelUUID,
-		beingsC: beings,
-		maxQueue: 1000,
-		pingsC: pings,
-		delta: delta,
+		beingsC:   beings,
+		maxQueue:  1000,
+		pingsC:    pings,
+		delta:     delta,
 	}
 }
-
