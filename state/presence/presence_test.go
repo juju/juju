@@ -98,7 +98,7 @@ func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
 func assertStopped(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), gc.IsNil)
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
@@ -475,32 +475,6 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 	}
 }
 
-func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
-	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer assertStopped(c, w)
-	defer assertStopped(c, p)
-
-	ch := make(chan presence.Change)
-	w.Watch("a", ch)
-	assertChange(c, ch, presence.Change{"a", false})
-	c.Assert(p.Start(), gc.IsNil)
-	done := make(chan bool)
-	go func() {
-		w.Sync()
-		done <- true
-	}()
-	assertChange(c, ch, presence.Change{"a", true})
-	results, err := presence.FindAllBeings(w)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("Sync failed to returned")
-	}
-}
-
 func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	key := "a"
 	w1, p1, ch1 := s.setup(c, key)
@@ -540,13 +514,18 @@ func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	assertNoChange(c, ch1)
 }
 
-func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+func newModelTag(c *gc.C) names.ModelTag {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := uuid.String()
+	return names.NewModelTag(modelUUID)
+}
 
-	w := presence.NewWatcher(s.presence, names.NewModelTag(modelUUID))
-	p := presence.NewPinger(s.presence, names.NewModelTag(modelUUID), key)
+func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+	modelTag := newModelTag(c)
+
+	w := presence.NewWatcher(s.presence, modelTag)
+	p := presence.NewPinger(s.presence, modelTag, key)
 
 	ch := make(chan presence.Change)
 	w.Watch(key, ch)
