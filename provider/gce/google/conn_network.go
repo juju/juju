@@ -17,16 +17,16 @@ import (
 // (within the Connection's project) and returns them as a RuleSet. If
 // no rules match the name the RuleSet will be empty and no error is
 // returned.
-func (gce Connection) firewallRules(fwname string) (RuleSet, error) {
+func (gce Connection) firewallRules(fwname string) (ruleSet, error) {
 	firewalls, err := gce.raw.GetFirewalls(gce.projectID, fwname)
 	if errors.IsNotFound(err) {
-		return make(RuleSet), nil
+		return make(ruleSet), nil
 	}
 	if err != nil {
 		return nil, errors.Annotate(err, "while getting firewall rules from GCE")
 	}
 
-	return NewRulesetFromFirewalls(firewalls...)
+	return newRulesetFromFirewalls(firewalls...)
 }
 
 // IngressRules build a list of all open port ranges for a given firewall name
@@ -41,7 +41,7 @@ func (gce Connection) IngressRules(fwname string) ([]network.IngressRule, error)
 }
 
 // FirewallNamer generates a name for a firewall.
-type FirewallNamer func(Firewall) (string, error)
+type FirewallNamer func(firewall) (string, error)
 
 // OpenPorts sends a request to the GCE API to open the provided port
 // ranges on the named firewall. If the firewall does not exist yet it
@@ -60,7 +60,7 @@ func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) err
 		return errors.Trace(err)
 	}
 	// From the input rules, compose the firewall specs we want to add.
-	inputRuleSet := NewRuleSetFromRules(rules...)
+	inputRuleSet := newRuleSetFromRules(rules...)
 
 	// For each input rule, either create a new firewall or update
 	// an existing one depending on what exists already.
@@ -115,8 +115,8 @@ func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) err
 	return nil
 }
 
-func generateName(target string, firewall *Firewall) (string, error) {
-	suffix, err := randomSuffix(firewall)
+func generateName(target string, fw *firewall) (string, error) {
+	suffix, err := randomSuffix(fw)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -137,7 +137,7 @@ func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) er
 	}
 
 	// From the input rules, compose the firewall specs we want to add.
-	inputRuleSet := NewRuleSetFromRules(rules...)
+	inputRuleSet := newRuleSetFromRules(rules...)
 
 	// For each input firewall, find an existing firewall including it
 	// and update or remove it.
