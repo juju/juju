@@ -26,7 +26,7 @@ import (
 // the command uses to create an sla authorization macaroon.
 type authorizationClient interface {
 	// Authorize returns the sla authorization macaroon for the specified model,
-	Authorize(modelUUID, supportLevel, budget string) (*slawire.SLAResponse, error)
+	Authorize(modelUUID, supportLevel, wallet string) (*slawire.SLAResponse, error)
 }
 
 type slaClient interface {
@@ -88,7 +88,7 @@ func (c *slaCommand) Info() *cmd.Info {
 Set the support level for the model, effective immediately.
 Examples:
     juju sla essential              # set the support level to essential
-    juju sla standard --budget 1000 # set the support level to essential witha maximum budget of $1000
+    juju sla standard --wallet 1000 # set the support level to essential witha maximum wallet of $1000
     juju sla                        # display the current support level for the model.
 `,
 	}

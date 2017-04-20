@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package setbudget
+package createwallet
 
 import (
 	"fmt"
@@ -15,49 +15,48 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-type setBudgetCommand struct {
+type createWalletCommand struct {
 	modelcmd.JujuCommandBase
 	Name  string
 	Value string
 }
 
-// NewSetBudgetCommand returns a new setBudgetCommand.
-func NewSetBudgetCommand() cmd.Command {
-	return modelcmd.WrapBase(&setBudgetCommand{})
+// NewCreateWalletCommand returns a new createWalletCommand
+func NewCreateWalletCommand() cmd.Command {
+	return modelcmd.WrapBase(&createWalletCommand{})
 }
 
 const doc = `
-Set the monthly budget limit.
+Create a new wallet with monthly limit.
 
 Examples:
-    # Sets the monthly limit for budget named 'personal' to 96.
-    juju set-budget personal 96
+    # Creates a wallet named 'qa' with a limit of 42.
+    juju create-wallet qa 42
 `
 
 // Info implements cmd.Command.Info.
-func (c *setBudgetCommand) Info() *cmd.Info {
+func (c *createWalletCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "set-budget",
-		Args:    "<budget name> <value>",
-		Purpose: "Set the budget limit.",
+		Name:    "create-wallet",
+		Purpose: "Create a new wallet.",
 		Doc:     doc,
 	}
 }
 
 // Init implements cmd.Command.Init.
-func (c *setBudgetCommand) Init(args []string) error {
+func (c *createWalletCommand) Init(args []string) error {
 	if len(args) < 2 {
 		return errors.New("name and value required")
 	}
 	c.Name, c.Value = args[0], args[1]
 	if _, err := strconv.ParseInt(c.Value, 10, 32); err != nil {
-		return errors.New("budget value needs to be a whole number")
+		return errors.New("wallet value needs to be a whole number")
 	}
 	return c.JujuCommandBase.Init(args[2:])
 }
 
-// Run implements cmd.Command.Run and contains most of the setbudget logic.
-func (c *setBudgetCommand) Run(ctx *cmd.Context) error {
+// Run implements cmd.Command.Run and has most of the logic for the run command.
+func (c *createWalletCommand) Run(ctx *cmd.Context) error {
 	client, err := c.BakeryClient()
 	if err != nil {
 		return errors.Annotate(err, "failed to create an http client")
@@ -66,9 +65,9 @@ func (c *setBudgetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to create an api client")
 	}
-	resp, err := api.SetBudget(c.Name, c.Value)
+	resp, err := api.CreateWallet(c.Name, c.Value)
 	if err != nil {
-		return errors.Annotate(err, "failed to set the budget")
+		return errors.Annotate(err, "failed to create the wallet")
 	}
 	fmt.Fprintln(ctx.Stdout, resp)
 	return nil
@@ -82,5 +81,5 @@ func newAPIClientImpl(c *httpbakery.Client) (apiClient, error) {
 }
 
 type apiClient interface {
-	SetBudget(string, string) (string, error)
+	CreateWallet(name string, limit string) (string, error)
 }

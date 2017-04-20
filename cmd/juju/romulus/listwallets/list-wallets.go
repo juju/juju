@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package listbudgets
+package listwallets
 
 import (
 	"fmt"
@@ -19,37 +19,37 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewListBudgetsCommand returns a new command that is used
-// to list budgets a user has access to.
-func NewListBudgetsCommand() cmd.Command {
-	return modelcmd.WrapBase(&listBudgetsCommand{})
+// NewListWalletsCommand returns a new command that is used
+// to list wallets a user has access to.
+func NewListWalletsCommand() cmd.Command {
+	return modelcmd.WrapBase(&listWalletsCommand{})
 }
 
-type listBudgetsCommand struct {
+type listWalletsCommand struct {
 	modelcmd.JujuCommandBase
 
 	out cmd.Output
 }
 
-const listBudgetsDoc = `
-List the available budgets.
+const listWalletsDoc = `
+List the available wallets.
 
 Examples:
-    juju budgets
+    juju wallets
 `
 
 // Info implements cmd.Command.Info.
-func (c *listBudgetsCommand) Info() *cmd.Info {
+func (c *listWalletsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "budgets",
-		Purpose: "List budgets.",
-		Doc:     listBudgetsDoc,
-		Aliases: []string{"list-budgets"},
+		Name:    "wallets",
+		Purpose: "List wallets.",
+		Doc:     listWalletsDoc,
+		Aliases: []string{"list-wallets"},
 	}
 }
 
 // SetFlags implements cmd.Command.SetFlags.
-func (c *listBudgetsCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listWalletsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": formatTabular,
@@ -57,7 +57,7 @@ func (c *listBudgetsCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *listBudgetsCommand) Run(ctx *cmd.Context) error {
+func (c *listWalletsCommand) Run(ctx *cmd.Context) error {
 	client, err := c.BakeryClient()
 	if err != nil {
 		return errors.Annotate(err, "failed to create an http client")
@@ -66,27 +66,27 @@ func (c *listBudgetsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to create an api client")
 	}
-	budgets, err := api.ListBudgets()
+	wallets, err := api.ListWallets()
 	if err != nil {
-		return errors.Annotate(err, "failed to retrieve budgets")
+		return errors.Annotate(err, "failed to retrieve wallets")
 	}
-	if budgets == nil {
-		return errors.New("no budget information available")
+	if wallets == nil {
+		return errors.New("no wallet information available")
 	}
-	err = c.out.Write(ctx, budgets)
+	err = c.out.Write(ctx, wallets)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-// formatTabular returns a tabular view of available budgets.
+// formatTabular returns a tabular view of available wallets.
 func formatTabular(writer io.Writer, value interface{}) error {
-	b, ok := value.(*wireformat.ListBudgetsResponse)
+	b, ok := value.(*wireformat.ListWalletsResponse)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", b, value)
 	}
-	sort.Sort(b.Budgets)
+	sort.Sort(b.Wallets)
 
 	table := uitable.New()
 	table.MaxColWidth = 50
@@ -95,15 +95,15 @@ func formatTabular(writer io.Writer, value interface{}) error {
 		table.RightAlign(col)
 	}
 
-	table.AddRow("Budget", "Monthly", "Allocated", "Available", "Spent")
-	for _, budgetEntry := range b.Budgets {
+	table.AddRow("Wallet", "Monthly", "Budgeted", "Available", "Spent")
+	for _, walletEntry := range b.Wallets {
 		suffix := ""
-		if budgetEntry.Default {
+		if walletEntry.Default {
 			suffix = "*"
 		}
-		table.AddRow(budgetEntry.Budget+suffix, budgetEntry.Limit, budgetEntry.Allocated, budgetEntry.Available, budgetEntry.Consumed)
+		table.AddRow(walletEntry.Wallet+suffix, walletEntry.Limit, walletEntry.Budgeted, walletEntry.Available, walletEntry.Consumed)
 	}
-	table.AddRow("Total", b.Total.Limit, b.Total.Allocated, b.Total.Available, b.Total.Consumed)
+	table.AddRow("Total", b.Total.Limit, b.Total.Budgeted, b.Total.Available, b.Total.Consumed)
 	table.AddRow("", "", "", "", "")
 	table.AddRow("Credit limit:", b.Credit, "", "", "")
 	fmt.Fprint(writer, table)
@@ -118,6 +118,6 @@ func newAPIClientImpl(c *httpbakery.Client) (apiClient, error) {
 }
 
 type apiClient interface {
-	// ListBudgets returns a list of budgets a user has access to.
-	ListBudgets() (*wireformat.ListBudgetsResponse, error)
+	// ListWallets returns a list of wallets a user has access to.
+	ListWallets() (*wireformat.ListWalletsResponse, error)
 }

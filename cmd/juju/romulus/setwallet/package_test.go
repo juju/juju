@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package showbudget_test
+package setwallet_test
 
 import (
 	stdtesting "testing"

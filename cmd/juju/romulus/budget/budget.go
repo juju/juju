@@ -1,8 +1,8 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package allocate defines the command used to update allocations.
-package allocate
+// Package budget defines the command used to update budgets.
+package budget
 
 import (
 	"fmt"
@@ -18,19 +18,19 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-type allocateCommand struct {
+type budgetCommand struct {
 	modelcmd.ModelCommandBase
 	modelUUID string
 	api       apiClient
 	Value     string
 }
 
-// NewAllocateCommand returns a new allocateCommand.
-func NewAllocateCommand() cmd.Command {
-	return modelcmd.Wrap(&allocateCommand{})
+// NewBudgetCommand returns a new budgetCommand.
+func NewBudgetCommand() cmd.Command {
+	return modelcmd.Wrap(&budgetCommand{})
 }
 
-func (c *allocateCommand) newAPIClient(bakery *httpbakery.Client) (apiClient, error) {
+func (c *budgetCommand) newAPIClient(bakery *httpbakery.Client) (apiClient, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -39,34 +39,34 @@ func (c *allocateCommand) newAPIClient(bakery *httpbakery.Client) (apiClient, er
 }
 
 type apiClient interface {
-	UpdateAllocation(string, string) (string, error)
+	UpdateBudget(string, string) (string, error)
 }
 
 const doc = `
-Updates an existing allocation for a model.
+Updates an existing budget for a model.
 
 Examples:
-    # Sets the allocation for the current model to 10.
-    juju allocate 10
+    # Sets the budget for the current model to 10.
+    juju budget 10
 `
 
 // Info implements cmd.Command.Info.
-func (c *allocateCommand) Info() *cmd.Info {
+func (c *budgetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "allocate",
+		Name:    "budget",
 		Args:    "<value>",
-		Purpose: "Update an allocation.",
+		Purpose: "Update a budget.",
 		Doc:     doc,
 	}
 }
 
-func (c *allocateCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.modelUUID, "model-uuid", "", "Model uuid to set allocation for.")
+func (c *budgetCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.modelUUID, "model-uuid", "", "Model uuid to set budget for.")
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements cmd.Command.Init.
-func (c *allocateCommand) Init(args []string) error {
+func (c *budgetCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("value required")
 	}
@@ -82,7 +82,7 @@ func (c *allocateCommand) Init(args []string) error {
 	return c.ModelCommandBase.Init(args[1:])
 }
 
-func (c *allocateCommand) getModelUUID() (string, error) {
+func (c *budgetCommand) getModelUUID() (string, error) {
 	if c.modelUUID != "" {
 		return c.modelUUID, nil
 	}
@@ -93,8 +93,8 @@ func (c *allocateCommand) getModelUUID() (string, error) {
 	return model.ModelUUID, nil
 }
 
-// Run implements cmd.Command.Run and contains most of the setbudget logic.
-func (c *allocateCommand) Run(ctx *cmd.Context) error {
+// Run implements cmd.Command.Run and contains most of the setwallet logic.
+func (c *budgetCommand) Run(ctx *cmd.Context) error {
 	modelUUID, err := c.getModelUUID()
 	if err != nil {
 		return errors.Annotate(err, "failed to get model uuid")
@@ -107,9 +107,9 @@ func (c *allocateCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to create an api client")
 	}
-	resp, err := api.UpdateAllocation(modelUUID, c.Value)
+	resp, err := api.UpdateBudget(modelUUID, c.Value)
 	if err != nil {
-		return errors.Annotate(err, "failed to update the allocation")
+		return errors.Annotate(err, "failed to update the budget")
 	}
 	fmt.Fprintln(ctx.Stdout, resp)
 	return nil
