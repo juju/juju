@@ -81,7 +81,7 @@ func (s *prunerSuite) TestPrunesOldPingsAndBeings(c *gc.C) {
 	for i, key := range keys {
 		pingers[i] = NewPinger(s.presence, s.modelTag, key)
 	}
-	const numSlots= 10
+	const numSlots = 10
 	sequences := make([][]int64, len(keys))
 	for i := range keys {
 		sequences[i] = make([]int64, numSlots)
@@ -89,7 +89,7 @@ func (s *prunerSuite) TestPrunesOldPingsAndBeings(c *gc.C) {
 
 	for i := 0; i < numSlots; i++ {
 		FakeTimeSlot(i)
-		for j, p := range(pingers) {
+		for j, p := range pingers {
 			// Create a new being sequence, and force a ping in this
 			// time slot. We don't Start()/Stop() them so we don't
 			// have to worry about things being async.
@@ -172,13 +172,11 @@ func assertStopped(c *gc.C, w worker.Worker) {
 }
 
 func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
-	const period = 1
-	FakePeriod(period)
-	RealTimeSlot()
+	FakePeriod(1)
 	// Each Pinger potentially grabs another socket to Mongo,
 	// which can exhaust connections. Somewhere around 5000 pingers on my
 	// machine everything starts failing because Mongo refuses new connections.
-	keys := make([]string, 3500)
+	keys := make([]string, 500)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%04d", i)
 	}
@@ -211,10 +209,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		}
 	}()
 	t := time.Now()
-	sleepUSRange := int(1000000.*float64(period)/float64(len(keys)) - 500)
-	if sleepUSRange <= 0 {
-		sleepUSRange = 1
-	}
+	FakeTimeSlot(1)
 	for i, key := range keys {
 		w.Watch(key, ch)
 		// we haven't started the pinger yet, so the initial state must be stopped
@@ -226,9 +221,9 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		newPingers[i] = p
 		// All newPingers will be checked that they stop cleanly
-		time.Sleep(time.Duration(rand.Intn(sleepUSRange)) * time.Microsecond)
+		// Spread them out slightly
 	}
-	fmt.Printf("initialized %d pingers in %v: sleeping %dus\n", len(newPingers), time.Since(t), sleepUSRange)
+	c.Logf("initialized %d pingers in %v\n", len(newPingers), time.Since(t))
 	// Make sure all of the entities stay showing up as alive
 	done := make(chan struct{})
 	go func() {
@@ -250,7 +245,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 			select {
 			case <-done:
 				return
-			case <-time.After(time.Duration(rand.Intn(500)+(period*1000)) * time.Millisecond):
+			case <-time.After(time.Duration(rand.Intn(500)+1000) * time.Millisecond):
 				oldPruner := NewPruner(s.modelTag.Id(), beings, s.pings, 0)
 				// Don't assert in a goroutine, as the panic may do bad things
 				c.Check(oldPruner.Prune(), jc.ErrorIsNil)
@@ -259,6 +254,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	}()
 	const loopCount = 10
 	for loop := 0; loop < loopCount; loop++ {
+		FakeTimeSlot(loop + 2)
 		t := time.Now()
 		for _, i := range rand.Perm(len(keys)) {
 			old := oldPingers[i]
@@ -270,10 +266,8 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 			err := p.Start()
 			c.Assert(err, jc.ErrorIsNil)
 			newPingers[i] = p
-			time.Sleep(time.Duration(rand.Intn(sleepUSRange)) * time.Microsecond)
 		}
-		// no need to force w.Sync() it automatically full syncs every period seconds
-		fmt.Printf("loop %d in %v\n", loop, time.Since(t))
+		c.Logf("loop %d in %v\n", loop, time.Since(t))
 	}
 	// Now that we've gone through all of that, check that we've created as
 	// many sequences as we think we have
@@ -298,5 +292,4 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	// Run the pruner again, it should essentially be a no-op
 	oldPruner = NewPruner(s.modelTag.Id(), beings, s.pings, 0)
 	c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
-	c.Fatal("dumping logs")
 }

@@ -424,7 +424,6 @@ func (w *Watcher) lookupPings(session *mgo.Session) ([]pingInfo, error) {
 	return lookupPings(pings, w.modelUUID, time.Now(), w.delta)
 }
 
-
 func lookupPings(pings *mgo.Collection, modelUUID string, ts time.Time, delta time.Duration) ([]pingInfo, error) {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	s := timeSlot(ts, delta)
@@ -507,7 +506,7 @@ func deadSeqs(pings []pingInfo) ([]int64, error) {
 	return decompressPings(maps)
 }
 
-func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error){
+func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error) {
 	// Learn about all the pingers that reported and queue
 	// events for those that weren't known to be alive and
 	// are not reportedly dead either.
@@ -534,7 +533,7 @@ func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error)
 
 // lookupUnknownSeqs handles finding new sequences that we weren't already tracking.
 // Keys that we find are now alive will have a 'found alive' event queued.
-func (w* Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, session *mgo.Session) error {
+func (w *Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, session *mgo.Session) error {
 	if len(unknownSeqs) == 0 {
 		// Nothing to do, with nothing unknown.
 		return nil
@@ -579,7 +578,7 @@ func (w* Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, se
 	rate := ""
 	elapsed := time.Since(startTime)
 	if len(unknownSeqs) > 0 {
-		seqPerMS :=  float64(len(unknownSeqs)) / (elapsed.Seconds() * 1000.0)
+		seqPerMS := float64(len(unknownSeqs)) / (elapsed.Seconds() * 1000.0)
 		rate = fmt.Sprintf(" (%.1fseq/ms)", seqPerMS)
 	}
 	unownedCount := 0
@@ -889,10 +888,9 @@ func (p *Pinger) ping() (err error) {
 // collapsedBeingsInfo tracks the result of aggregating all of the items in the
 // beings table by their key.
 type collapsedBeingsInfo struct {
-	Key    string   `bson:"_id"`
-	Seqs    []int64 `bson:"seqs"`
+	Key  string  `bson:"_id"`
+	Seqs []int64 `bson:"seqs"`
 }
-
 
 // clockDelta returns the approximate skew between
 // the local clock and the database clock.
