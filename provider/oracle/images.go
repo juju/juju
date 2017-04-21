@@ -33,6 +33,7 @@ var defaultImages = []string{
 // ensureImageInventory populates the image inventory for the current user
 // with official Ubuntu images
 func ensureImageInventory(c EnvironAPI) error {
+	// TODO (gsamfira): add tests for this
 	logger.Debugf("checking image inventory")
 	images, err := c.AllImageLists(nil)
 	if err != nil {
@@ -187,7 +188,7 @@ func checkImageList(c EnvironAPI) ([]*imagemetadata.ImageMetadata, error) {
 
 	err := ensureImageInventory(c)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// take a list of all images that are in the oracle cloud account
 	resp, err := c.AllImageLists(nil)
