@@ -486,11 +486,12 @@ func (o *OracleEnviron) terminateInstances(instances ...*oracleInstance) error {
 	errs := []error{}
 	instIds := []instance.Id{}
 	for _, oInst := range instances {
+		inst := oInst
 		go func() {
 			defer wg.Done()
-			if err := oInst.deleteInstanceAndResources(true); err != nil {
+			if err := inst.deleteInstanceAndResources(true); err != nil {
 				if !oci.IsNotFound(err) {
-					instIds = append(instIds, instance.Id(oInst.name))
+					instIds = append(instIds, instance.Id(inst.name))
 					errs = append(errs, err)
 				}
 			}
@@ -508,7 +509,6 @@ func (o *OracleEnviron) terminateInstances(instances ...*oracleInstance) error {
 			instIds, errs,
 		)
 	}
-	return nil
 }
 
 type tagValue struct {

@@ -242,7 +242,6 @@ func (o *oracleVolumeSource) waitForResourceStatus(
 			)
 		}
 	}
-	return nil
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.

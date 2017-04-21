@@ -78,7 +78,6 @@ func (o *OracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 	} else {
 		return nil, errors.Trace(err)
 	}
-	return nil, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.

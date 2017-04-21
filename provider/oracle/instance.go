@@ -146,8 +146,6 @@ func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, tim
 			}
 		}
 	}
-
-	return nil
 }
 
 // delete will delete the instance and attempt to cleanup any instance related
