@@ -67,21 +67,21 @@ func (f FakeImager) AllImageLists([]api.Filter) (response.AllImageLists, error) 
 }
 
 func (f FakeImager) CreateImageList(def int, description string, name string) (resp response.ImageList, err error) {
-    return response.ImageList{}, nil
+	return response.ImageList{}, nil
 }
 
 func (f FakeImager) CreateImageListEntry(
-    name string,
-    attributes map[string]interface{},
-    version int,
-    machineImages []string,
-) (resp response.ImageListEntryAdd, err error){
+	name string,
+	attributes map[string]interface{},
+	version int,
+	machineImages []string,
+) (resp response.ImageListEntryAdd, err error) {
 
-    return response.ImageListEntryAdd{}, nil
+	return response.ImageListEntryAdd{}, nil
 }
 
 func (f FakeImager) DeleteImageList(name string) (err error) {
-    return nil
+	return nil
 }
 
 type FakeIpReservation struct {
