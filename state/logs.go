@@ -383,12 +383,12 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 
 	session := st.MongoSession().Copy()
 	t := &logTailer{
-		modelUUID: st.ModelUUID(),
-		session:   session,
-		logsColl:  session.DB(logsDB).C(logsC).With(session),
-		params:    params,
-		logCh:     make(chan *LogRecord),
-		recentIds: newRecentIdTracker(maxRecentLogIds),
+		modelUUID:       st.ModelUUID(),
+		session:         session,
+		logsColl:        session.DB(logsDB).C(logsC).With(session),
+		params:          params,
+		logCh:           make(chan *LogRecord),
+		recentIds:       newRecentIdTracker(maxRecentLogIds),
 		maxInitialLines: maxInitialLines,
 	}
 	go func() {
@@ -402,15 +402,15 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 }
 
 type logTailer struct {
-	tomb      tomb.Tomb
-	modelUUID string
-	session   *mgo.Session
-	logsColl  *mgo.Collection
-	params    *LogTailerParams
-	logCh     chan *LogRecord
-	lastID    int64
-	lastTime  time.Time
-	recentIds *recentIdTracker
+	tomb            tomb.Tomb
+	modelUUID       string
+	session         *mgo.Session
+	logsColl        *mgo.Collection
+	params          *LogTailerParams
+	logCh           chan *LogRecord
+	lastID          int64
+	lastTime        time.Time
+	recentIds       *recentIdTracker
 	maxInitialLines int
 }
 
