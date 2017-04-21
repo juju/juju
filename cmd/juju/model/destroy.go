@@ -141,7 +141,7 @@ func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 	if c.configApi != nil {
 		return c.configApi, nil
 	}
-	root, err := c.NewControllerAPIRoot()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
