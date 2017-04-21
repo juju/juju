@@ -1168,12 +1168,12 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
-		`export no_proxy=localhost,10.0.3.1`,
-		`export NO_PROXY=localhost,10.0.3.1`,
+		`export no_proxy=10.0.3.1,localhost`,
+		`export NO_PROXY=10.0.3.1,localhost`,
 		`(id ubuntu &> /dev/null) && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
-export no_proxy=localhost,10.0.3.1
-export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+export no_proxy=10.0.3.1,localhost
+export NO_PROXY=10.0.3.1,localhost' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
 	}
 	found := false
 	for i, cmd := range cmds {
