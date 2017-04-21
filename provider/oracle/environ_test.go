@@ -178,7 +178,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 			Config: testing.ModelConfig(c),
 		},
 		DefaultEnvironAPI,
-        &advancingClock,
+		&advancingClock,
 		//clock.WallClock,
 	)
 	c.Assert(err, gc.IsNil)
