@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -456,4 +457,24 @@ func (s *connSuite) TestSubnetworks(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListSubnetworks")
 	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
 	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "us-central1")
+}
+
+func (s *connSuite) TestRandomSuffixNamer(c *gc.C) {
+	ruleset := google.NewRuleSetFromRules(
+		network.MustNewIngressRule("tcp", 80, 80),
+		network.MustNewIngressRule("tcp", 80, 90, "10.0.10.0/24"),
+	)
+	i := 0
+	for _, firewall := range ruleset {
+		i++
+		c.Logf("%#v", *firewall)
+		name, err := google.RandomSuffixNamer(firewall, "mischief", set.NewStrings())
+		c.Assert(err, jc.ErrorIsNil)
+		if firewall.SourceCIDRs[0] == "0.0.0.0/0" {
+			c.Assert(name, gc.Equals, "mischief")
+		} else {
+			c.Assert(name, gc.Matches, "mischief-[0-9a-f]{8}")
+		}
+	}
+	c.Assert(i, gc.Equals, 2)
 }

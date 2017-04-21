@@ -11,12 +11,13 @@ import (
 var (
 	NewRawConnection = &newRawConnection
 
-	NewInstanceRaw    = newInstance
-	PackMetadata      = packMetadata
-	UnpackMetadata    = unpackMetadata
-	FormatMachineType = formatMachineType
-	FirewallSpec      = firewallSpec
-	ExtractAddresses  = extractAddresses
+	NewInstanceRaw      = newInstance
+	PackMetadata        = packMetadata
+	UnpackMetadata      = unpackMetadata
+	FormatMachineType   = formatMachineType
+	FirewallSpec        = firewallSpec
+	ExtractAddresses    = extractAddresses
+	NewRuleSetFromRules = newRuleSetFromRules
 )
 
 func SetRawConn(conn *Connection, raw rawConnectionWrapper) {
