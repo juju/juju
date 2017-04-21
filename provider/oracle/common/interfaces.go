@@ -57,6 +57,9 @@ type Shaper interface {
 // oracle cloud environment
 type Imager interface {
 	AllImageLists([]api.Filter) (response.AllImageLists, error)
+	CreateImageList(def int, description string, name string) (resp response.ImageList, err error)
+	CreateImageListEntry(name string, attributes map[string]interface{}, version int, machineImages []string) (resp response.ImageListEntryAdd, err error)
+	DeleteImageList(name string) (err error)
 }
 
 // IpReservationAPI provider methods for retrieving, updating, creating
