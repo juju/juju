@@ -130,11 +130,11 @@ func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rul
 
 // RandomSuffixNamer tries to find a unique name for the firewall by
 // appending a random suffix.
-func RandomSuffixNamer(fw *firewall, target string, names set.Strings) (string, error) {
+func RandomSuffixNamer(fw *firewall, prefix string, names set.Strings) (string, error) {
 	// For backwards compatibility, open rules for "0.0.0.0/0"
 	// do not use any suffix in the name.
 	if len(fw.SourceCIDRs) == 0 || len(fw.SourceCIDRs) == 1 && fw.SourceCIDRs[0] == "0.0.0.0/0" {
-		return "target", nil
+		return prefix, nil
 	}
 	data := make([]byte, 4)
 	for i := 0; i < 10; i++ {
@@ -142,7 +142,7 @@ func RandomSuffixNamer(fw *firewall, target string, names set.Strings) (string, 
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-		name := fmt.Sprintf("%s-%x", target, data)
+		name := fmt.Sprintf("%s-%x", prefix, data)
 		if !names.Contains(name) {
 			return name, nil
 		}
