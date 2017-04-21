@@ -124,6 +124,21 @@ func (w *unixConfigure) ConfigureBasic() error {
 		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
+
+	if w.icfg.Bootstrap != nil {
+		// For the bootstrap machine only, we set the host keys
+		// except when manually provisioning.
+		icfgKeys := w.icfg.Bootstrap.InitialSSHHostKeys
+		var keys cloudinit.SSHKeys
+		if icfgKeys.RSA != nil {
+			keys.RSA = &cloudinit.SSHKey{
+				Private: icfgKeys.RSA.Private,
+				Public:  icfgKeys.RSA.Public,
+			}
+		}
+		w.conf.SetSSHKeys(keys)
+	}
+
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
 	// nonce. The presence and contents of this file will be verified
@@ -181,6 +196,25 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.SetOutput(cloudinit.OutAll, ">> "+w.icfg.CloudInitOutputLog, "")
 		w.conf.AddBootCmd(initProgressCmd)
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLog))
+	}
+
+	if w.icfg.Bootstrap != nil {
+		// Before anything else, we must regenerate the SSH host keys.
+		var any bool
+		keys := w.icfg.Bootstrap.InitialSSHHostKeys
+		if keys.RSA != nil {
+			any = true
+			w.conf.AddBootCmd(cloudinit.LogProgressCmd("Regenerating SSH RSA host key"))
+			w.conf.AddBootCmd(`rm /etc/ssh/ssh_host_rsa_key*`)
+			w.conf.AddBootCmd(`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`)
+		}
+		if any {
+			// ssh_keys was specified in cloud-config, which will
+			// disable all key generation. Generate the other keys
+			// that we did not generate previously.
+			w.conf.AddBootCmd(`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`)
+			w.conf.AddBootCmd(`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`)
+		}
 	}
 
 	w.conf.AddPackageCommands(

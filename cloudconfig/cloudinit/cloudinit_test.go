@@ -366,6 +366,32 @@ var ctests = []struct {
 	func(cfg cloudinit.CloudConfig) {
 		cfg.ManageEtcHosts(true)
 	},
+}, {
+	"SetSSHKeys",
+	map[string]interface{}{"ssh_keys": map[string]interface{}{
+		"rsa_private": "private",
+		"rsa_public":  "public",
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHKeys(cloudinit.SSHKeys{
+			RSA: &cloudinit.SSHKey{
+				Private: "private",
+				Public:  "public",
+			},
+		})
+	},
+}, {
+	"SetSSHKeys unsets keys",
+	map[string]interface{}{},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHKeys(cloudinit.SSHKeys{
+			RSA: &cloudinit.SSHKey{
+				Private: "private",
+				Public:  "public",
+			},
+		})
+		cfg.SetSSHKeys(cloudinit.SSHKeys{})
+	},
 }}
 
 func (S) TestOutput(c *gc.C) {

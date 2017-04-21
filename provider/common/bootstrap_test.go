@@ -4,17 +4,23 @@
 package common_test
 
 import (
+	"crypto/rsa"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"regexp"
+	"sync"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
+	cryptossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -47,7 +53,7 @@ type cleaner interface {
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string) error {
+	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string, opts *ssh.Options) error {
 		return fmt.Errorf("mock connection failure to %s", host)
 	})
 }
@@ -116,6 +122,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 			"juju-is-controller":   "true",
 		}
 		expectedMcfg.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
+		icfg.Bootstrap.InitialSSHHostKeys.RSA = nil
 
 		c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, errors.Errorf("meh, not started")
@@ -194,12 +201,25 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
+	var innerInstanceConfig *instancecfg.InstanceConfig
+	inst := &mockInstance{
+		id:        checkInstanceId,
+		addresses: network.NewAddresses("testing.invalid"),
+	}
 	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig,
+		_ string, _ constraints.Value, _ []string, tools tools.List, icfg *instancecfg.InstanceConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+		innerInstanceConfig = icfg
+		c.Assert(icfg.Bootstrap.InitialSSHHostKeys.RSA, gc.NotNil)
+		privKey, err := cryptossh.ParseRawPrivateKey([]byte(icfg.Bootstrap.InitialSSHHostKeys.RSA.Private))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(privKey, gc.FitsTypeOf, &rsa.PrivateKey{})
+		pubKey, _, _, _, err := cryptossh.ParseAuthorizedKey([]byte(icfg.Bootstrap.InitialSSHHostKeys.RSA.Public))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(pubKey.Type(), gc.Equals, cryptossh.KeyAlgoRSA)
+		return inst, &checkHardware, nil, nil
 	}
 	var mocksConfig = minimalConfig(c)
 	var getConfigCalled int
@@ -212,11 +232,17 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		return nil
 	}
 
+	var instancesMu sync.Mutex
 	env := &mockEnviron{
 		storage:       stor,
 		startInstance: startInstance,
 		config:        getConfig,
 		setConfig:     setConfig,
+		instances: func(ids []instance.Id) ([]instance.Instance, error) {
+			instancesMu.Lock()
+			defer instancesMu.Unlock()
+			return []instance.Instance{inst}, nil
+		},
 	}
 	inner := cmdtesting.Context(c)
 	ctx := modelcmd.BootstrapContext(inner)
@@ -234,6 +260,47 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
+	c.Assert(result.Finalize, gc.NotNil)
+
+	// Check that we make the SSH connection with desired options.
+	var knownHosts string
+	re := regexp.MustCompile(
+		"ssh '-o' 'StrictHostKeyChecking yes' " +
+			"'-o' 'PasswordAuthentication no' " +
+			"'-o' 'ServerAliveInterval 30' " +
+			"'-o' 'UserKnownHostsFile (.*)' " +
+			"'-o' 'HostKeyAlgorithms ssh-rsa' " +
+			"'ubuntu@testing.invalid' '/bin/bash'")
+	testing.PatchExecutableAsEchoArgs(c, s, "ssh")
+	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string, opts *ssh.Options) error {
+		// Stop WaitSSH from continuing.
+		client, err := ssh.NewOpenSSHClient()
+		if err != nil {
+			return err
+		}
+		cmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, opts)
+		if err := cmd.Run(); err != nil {
+			return nil
+		}
+		sshArgs := testing.ReadEchoArgs(c, "ssh")
+		submatch := re.FindStringSubmatch(sshArgs)
+		if c.Check(submatch, gc.NotNil, gc.Commentf("%s", sshArgs)) {
+			knownHostsFile := submatch[1]
+			knownHostsBytes, err := ioutil.ReadFile(knownHostsFile)
+			c.Assert(err, jc.ErrorIsNil)
+			knownHosts = string(knownHostsBytes)
+		}
+		return nil
+	})
+	err = result.Finalize(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+		Timeout: coretesting.LongWait,
+	})
+	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: .*") // icfg hasn't been finalized
+	c.Assert(
+		string(knownHosts),
+		gc.Equals,
+		"testing.invalid "+innerInstanceConfig.Bootstrap.InitialSSHHostKeys.RSA.Public,
+	)
 }
 
 type neverRefreshes struct {
@@ -275,7 +342,10 @@ var testSSHTimeout = environs.BootstrapDialOpts{
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 	ctx := cmdtesting.Context(c)
-	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
+	_, err := common.WaitSSH(
+		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout,
+		common.DefaultHostSSHOptions,
+	)
 	c.Check(err, gc.ErrorMatches, `waited for `+testSSHTimeout.Timeout.String()+` without getting any addresses`)
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
 }
@@ -284,16 +354,25 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	interrupted := make(chan os.Signal, 1)
 	interrupted <- os.Interrupt
-	_, err := common.WaitSSH(ctx.Stderr, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
+	_, err := common.WaitSSH(
+		ctx.Stderr, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout,
+		common.DefaultHostSSHOptions,
+	)
 	c.Check(err, gc.ErrorMatches, "interrupted")
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
 }
 
 func (s *BootstrapSuite) TestWaitSSHNoticesProvisioningFailures(c *gc.C) {
 	ctx := cmdtesting.Context(c)
-	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{}, testSSHTimeout)
+	_, err := common.WaitSSH(
+		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{}, testSSHTimeout,
+		common.DefaultHostSSHOptions,
+	)
 	c.Check(err, gc.ErrorMatches, `instance provisioning failed`)
-	_, err = common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{message: "blargh"}, testSSHTimeout)
+	_, err = common.WaitSSH(
+		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{message: "blargh"}, testSSHTimeout,
+		common.DefaultHostSSHOptions,
+	)
 	c.Check(err, gc.ErrorMatches, `instance provisioning failed \(blargh\)`)
 }
 
@@ -307,7 +386,10 @@ func (brokenAddresses) Addresses() ([]network.Address, error) {
 
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
 	ctx := cmdtesting.Context(c)
-	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", brokenAddresses{}, testSSHTimeout)
+	_, err := common.WaitSSH(
+		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", brokenAddresses{}, testSSHTimeout,
+		common.DefaultHostSSHOptions,
+	)
 	c.Check(err, gc.ErrorMatches, "getting addresses: Addresses will never work")
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Waiting for address\n")
 }
@@ -324,7 +406,10 @@ func (n *neverOpensPort) Addresses() ([]network.Address, error) {
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	// 0.x.y.z addresses are always invalid
-	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, testSSHTimeout)
+	_, err := common.WaitSSH(
+		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, testSSHTimeout,
+		common.DefaultHostSSHOptions,
+	)
 	c.Check(err, gc.ErrorMatches,
 		`waited for `+testSSHTimeout.Timeout.String()+` without being able to connect: mock connection failure to 0.1.2.3`)
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches,
@@ -354,7 +439,10 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 	timeout := testSSHTimeout
 	timeout.Timeout = 1 * time.Minute
 	interrupted := make(chan os.Signal, 1)
-	_, err := common.WaitSSH(ctx.Stderr, interrupted, ssh.DefaultClient, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, timeout)
+	_, err := common.WaitSSH(
+		ctx.Stderr, interrupted, ssh.DefaultClient, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, timeout,
+		common.DefaultHostSSHOptions,
+	)
 	c.Check(err, gc.ErrorMatches, "interrupted")
 	// Exact timing is imprecise but it should have tried a few times before being killed
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches,
@@ -391,7 +479,7 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 		{"0.1.2.3"},
 		nil,
 		{"0.1.2.4"},
-	}}, testSSHTimeout)
+	}}, testSSHTimeout, common.DefaultHostSSHOptions)
 	// Not necessarily the last one in the list, due to scheduling.
 	c.Check(err, gc.ErrorMatches,
 		`waited for `+testSSHTimeout.Timeout.String()+` without being able to connect: mock connection failure to 0.1.2.[34]`)

@@ -1360,3 +1360,39 @@ func (*cloudinitSuite) TestSetUbuntuUserCentOS(c *gc.C) {
 	expected := expectedUbuntuUser(cloudconfig.CentOSGroups, keys)
 	c.Assert(string(data), jc.YAMLEquals, expected)
 }
+
+func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
+	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(
+		minimalModelConfig(c),
+	).render()
+	instConfig.Bootstrap.InitialSSHHostKeys.RSA = &instancecfg.SSHKeyPair{
+		Private: "private",
+		Public:  "public",
+	}
+	cloudcfg, err := cloudinit.New(instConfig.Series)
+	c.Assert(err, jc.ErrorIsNil)
+
+	udata, err := cloudconfig.NewUserdataConfig(&instConfig, cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := cloudcfg.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+
+	configKeyValues := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(configKeyValues["ssh_keys"], jc.DeepEquals, map[interface{}]interface{}{
+		"rsa_private": "private",
+		"rsa_public":  "public",
+	})
+
+	cmds := cloudcfg.BootCmds()
+	c.Assert(cmds, jc.DeepEquals, []string{
+		`echo 'Regenerating SSH RSA host key' >&$JUJU_PROGRESS_FD`,
+		`rm /etc/ssh/ssh_host_rsa_key*`,
+		`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`,
+		`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`,
+		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
+	})
+}
