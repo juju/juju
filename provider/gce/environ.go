@@ -32,7 +32,7 @@ type gceConnection interface {
 	UpdateMetadata(key, value string, ids ...string) error
 
 	IngressRules(fwname string) ([]network.IngressRule, error)
-	OpenPorts(fwname string, rules ...network.IngressRule) error
+	OpenPorts(fwname string, namer google.FirewallNamer, rules ...network.IngressRule) error
 	ClosePorts(fwname string, rules ...network.IngressRule) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
@@ -206,7 +206,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 		params.ControllerConfig.APIPort(),
 		params.ControllerConfig.APIPort(),
 	)
-	if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
+	if err := env.gce.OpenPorts(env.globalFirewallName(), google.RandomSuffixNamer, rule); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return bootstrap(ctx, env, params)

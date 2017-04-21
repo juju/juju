@@ -6,11 +6,11 @@ package google
 import (
 	"crypto/sha256"
 	"fmt"
-	"math/rand"
 	"sort"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/network"
@@ -88,7 +88,11 @@ func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
 			portRange.Protocol = allowed.IPProtocol
 			ranges[i] = portRange
 		}
-		result.AllowedPorts[allowed.IPProtocol] = network.CombinePortRanges(ranges...)
+		p := result.AllowedPorts
+		p[allowed.IPProtocol] = append(p[allowed.IPProtocol], ranges...)
+	}
+	for protocol, ranges := range result.AllowedPorts {
+		result.AllowedPorts[protocol] = network.CombinePortRanges(ranges...)
 	}
 	if other, ok := rs[key]; ok {
 		return errors.Errorf(
@@ -134,6 +138,14 @@ func (rs ruleSet) toIngressRules() ([]network.IngressRule, error) {
 	return results, nil
 }
 
+func (rs ruleSet) allNames() set.Strings {
+	result := set.NewStrings()
+	for _, fw := range rs {
+		result.Add(fw.Name)
+	}
+	return result
+}
+
 // sourcecidrs is used to calculate a unique key for a collection of
 // cidrs.
 type sourcecidrs []string
@@ -173,20 +185,6 @@ func (fw *firewall) toIngressRules() ([]network.IngressRule, error) {
 // protocolPorts maps a protocol eg "tcp" to a collection of
 // port ranges for that protocol.
 type protocolPorts map[string][]network.PortRange
-
-func randomSuffix(f *firewall) (string, error) {
-	// For backwards compatibility, open rules for "0.0.0.0/0"
-	// do not use any suffix in the name.
-	if len(f.SourceCIDRs) == 0 || len(f.SourceCIDRs) == 1 && f.SourceCIDRs[0] == "0.0.0.0/0" {
-		return "", nil
-	}
-	data := make([]byte, 4)
-	_, err := rand.Read(data)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return fmt.Sprintf("-%x", data), nil
-}
 
 func (pp protocolPorts) String() string {
 	var sortedProtocols []string

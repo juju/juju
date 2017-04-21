@@ -568,7 +568,7 @@ func (fc *fakeConn) IngressRules(fwname string) ([]network.IngressRule, error) {
 	return fc.Rules, fc.err()
 }
 
-func (fc *fakeConn) OpenPorts(fwname string, rules ...network.IngressRule) error {
+func (fc *fakeConn) OpenPorts(fwname string, namer google.FirewallNamer, rules ...network.IngressRule) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "OpenPorts",
 		FirewallName: fwname,

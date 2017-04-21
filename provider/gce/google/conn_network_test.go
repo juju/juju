@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 func (s *connSuite) TestConnectionIngressRules(c *gc.C) {
@@ -128,13 +129,33 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	rule2 := network.MustNewIngressRule("udp", 80, 81, "0.0.0.0/0")
 	rule3 := network.MustNewIngressRule("tcp", 100, 120, "192.168.1.0/24", "10.0.0.0/24")
 	rule4 := network.MustNewIngressRule("udp", 67, 67, "10.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", rule, rule2, rule3, rule4)
+	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rule, rule2, rule3, rule4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 4)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewalls")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "AddFirewall")
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
+		Name:         "spam-a34d80",
+		TargetTags:   []string{"spam"},
+		SourceRanges: []string{"10.0.0.0/24"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "udp",
+			Ports:      []string{"67"},
+		}},
+	})
+	c.Check(s.FakeConn.Calls[2].FuncName, gc.Equals, "AddFirewall")
+	c.Check(s.FakeConn.Calls[2].Firewall, jc.DeepEquals, &compute.Firewall{
+		Name:         "spam-ad7554",
+		TargetTags:   []string{"spam"},
+		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "tcp",
+			Ports:      []string{"100-120"},
+		}},
+	})
+	c.Check(s.FakeConn.Calls[3].FuncName, gc.Equals, "AddFirewall")
+	c.Check(s.FakeConn.Calls[3].Firewall, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"0.0.0.0/0"},
@@ -144,26 +165,6 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 		}, {
 			IPProtocol: "udp",
 			Ports:      []string{"80-81"},
-		}},
-	})
-	c.Check(s.FakeConn.Calls[2].FuncName, gc.Equals, "AddFirewall")
-	c.Check(s.FakeConn.Calls[2].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-a34d80",
-		TargetTags:   []string{"spam"},
-		SourceRanges: []string{"10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "udp",
-			Ports:      []string{"67"},
-		}},
-	})
-	c.Check(s.FakeConn.Calls[3].FuncName, gc.Equals, "AddFirewall")
-	c.Check(s.FakeConn.Calls[3].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-ad7554",
-		TargetTags:   []string{"spam"},
-		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
-			Ports:      []string{"100-120"},
 		}},
 	})
 }
@@ -180,7 +181,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateSameCIDR(c *gc.C) {
 	}}
 
 	rules := network.MustNewIngressRule("tcp", 443, 443, "192.168.1.0/24", "10.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", rules)
+	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -210,7 +211,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAddCIDR(c *gc.C) {
 	}}
 
 	rules := network.MustNewIngressRule("tcp", 80, 81, "10.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", rules)
+	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -252,7 +253,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAndAdd(c *gc.C) {
 	rule2 := network.MustNewIngressRule("tcp", 80, 100, "10.0.0.0/24")
 	rule3 := network.MustNewIngressRule("tcp", 443, 443, "10.0.0.0/24")
 	rule4 := network.MustNewIngressRule("udp", 67, 67, "172.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", rule1, rule2, rule3, rule4)
+	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rule1, rule2, rule3, rule4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 4)
@@ -380,7 +381,7 @@ func (s *connSuite) TestConnectionClosePortsCollapseUpdate(c *gc.C) {
 
 func (s *connSuite) TestConnectionClosePortsRemoveCIDR(c *gc.C) {
 	s.FakeConn.Firewalls = []*compute.Firewall{{
-		Name:         "spam",
+		Name:         "glass-onion",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
@@ -399,7 +400,7 @@ func (s *connSuite) TestConnectionClosePortsRemoveCIDR(c *gc.C) {
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "UpdateFirewall")
 	sort.Strings(s.FakeConn.Calls[1].Firewall.Allowed[0].Ports)
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-d01a82",
+		Name:         "glass-onion",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"10.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{

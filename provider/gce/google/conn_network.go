@@ -4,6 +4,8 @@
 package google
 
 import (
+	"fmt"
+	"math/rand"
 	"sort"
 
 	"github.com/juju/errors"
@@ -40,8 +42,9 @@ func (gce Connection) IngressRules(fwname string) ([]network.IngressRule, error)
 	return ruleset.toIngressRules()
 }
 
-// FirewallNamer generates a name for a firewall.
-type FirewallNamer func(firewall) (string, error)
+// FirewallNamer generates a unique name for a firewall given the firewall, a
+// prefix and a set of current firewall rule names.
+type FirewallNamer func(*firewall, string, set.Strings) (string, error)
 
 // OpenPorts sends a request to the GCE API to open the provided port
 // ranges on the named firewall. If the firewall does not exist yet it
@@ -49,7 +52,7 @@ type FirewallNamer func(firewall) (string, error)
 // existing firewall is updated to add the provided port ranges to the
 // ports it already has open. The call blocks until the ports are
 // opened or the request fails.
-func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) error {
+func (gce Connection) OpenPorts(target string, namer FirewallNamer, rules ...network.IngressRule) error {
 	if len(rules) == 0 {
 		return nil
 	}
@@ -71,6 +74,8 @@ func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) err
 	}
 	sort.Strings(sortedKeys)
 
+	allNames := currentRuleSet.allNames()
+
 	// Get the rules by sorted key for deterministic testing.
 	for _, key := range sortedKeys {
 		inputFirewall := inputRuleSet[key]
@@ -84,10 +89,11 @@ func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) err
 
 		if !ok {
 			// Create a new firewall.
-			name, err := generateName(target, inputFirewall)
+			name, err := namer(inputFirewall, target, allNames)
 			if err != nil {
 				return errors.Trace(err)
 			}
+			allNames.Add(name)
 			spec := firewallSpec(name, target, inputFirewall.SourceCIDRs, inputFirewall.AllowedPorts)
 			if err := gce.raw.AddFirewall(gce.projectID, spec); err != nil {
 				return errors.Annotatef(err, "opening port(s) %+v", rules)
@@ -115,12 +121,26 @@ func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) err
 	return nil
 }
 
-func generateName(target string, fw *firewall) (string, error) {
-	suffix, err := randomSuffix(fw)
-	if err != nil {
-		return "", errors.Trace(err)
+// RandomSuffixNamer tries to find a unique name for the firewall by
+// appending a random suffix.
+func RandomSuffixNamer(fw *firewall, target string, names set.Strings) (string, error) {
+	// For backwards compatibility, open rules for "0.0.0.0/0"
+	// do not use any suffix in the name.
+	if len(fw.SourceCIDRs) == 0 || len(fw.SourceCIDRs) == 1 && fw.SourceCIDRs[0] == "0.0.0.0/0" {
+		return "target", nil
 	}
-	return target + suffix, nil
+	data := make([]byte, 4)
+	for i := 0; i < 10; i++ {
+		_, err := rand.Read(data)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		name := fmt.Sprintf("%s-%x", target, data)
+		if !names.Contains(name) {
+			return name, nil
+		}
+	}
+	return "", errors.New("couldn't pick unique name after 10 attempts")
 }
 
 // ClosePorts sends a request to the GCE API to close the provided port

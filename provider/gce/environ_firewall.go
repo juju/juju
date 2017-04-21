@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 // globalFirewallName returns the name to use for the global firewall.
@@ -19,7 +20,7 @@ func (env *environ) globalFirewallName() string {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(rules []network.IngressRule) error {
-	err := env.gce.OpenPorts(env.globalFirewallName(), rules...)
+	err := env.gce.OpenPorts(env.globalFirewallName(), google.RandomSuffixNamer, rules...)
 	return errors.Trace(err)
 }
 

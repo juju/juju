@@ -5,6 +5,7 @@ package google
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -175,4 +176,13 @@ func (s *RuleSetSuite) TestMatchSourceCIDRs(c *gc.C) {
 	fw, ok = ruleset.matchSourceCIDRs([]string{"1.2.3.0/24"})
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(fw, gc.IsNil)
+}
+
+func (s *RuleSetSuite) TestAllNames(c *gc.C) {
+	ports := map[string][]string{"tcp": {"80"}}
+	fw1 := newFirewall("weeps", "target", []string{"1.2.3.0/24", "2.3.4.0/24"}, ports)
+	fw2 := newFirewall("blackbird", "somewhere", nil, ports)
+	ruleset, err := newRuleSetFromFirewalls(fw1, fw2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ruleset.allNames(), gc.DeepEquals, set.NewStrings("weeps", "blackbird"))
 }

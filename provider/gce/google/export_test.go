@@ -4,6 +4,7 @@
 package google
 
 import (
+	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -57,4 +58,11 @@ func ConnAddInstance(conn *Connection, inst *compute.Instance, mtype string, zon
 
 func ConnRemoveInstance(conn *Connection, id, zone string) error {
 	return conn.removeInstance(id, zone)
+}
+
+func HashSuffixNamer(fw *firewall, prefix string, _ set.Strings) (string, error) {
+	if len(fw.SourceCIDRs) == 0 || len(fw.SourceCIDRs) == 1 && fw.SourceCIDRs[0] == "0.0.0.0/0" {
+		return prefix, nil
+	}
+	return prefix + "-" + sourcecidrs(fw.SourceCIDRs).key(), nil
 }
