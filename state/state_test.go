@@ -211,7 +211,7 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.Watch()
 
-	w := s.State.Watch()
+	w := s.State.Watch(state.WatchParams{IncludeOffers: true})
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
 	s.State.StartSync()

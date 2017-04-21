@@ -896,6 +896,7 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 			Name:      ep.Name,
 			Interface: ep.Interface,
 			Role:      ep.Role,
+			Scope:     ep.Scope,
 		}
 	}
 	status.Life = processLife(application)

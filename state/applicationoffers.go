@@ -172,7 +172,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	doc := s.makeApplicationOfferDoc(uuid.String(), offerArgs)
+	doc := s.makeApplicationOfferDoc(s.st, uuid.String(), offerArgs)
 	result, err := s.makeApplicationOffer(doc)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -243,7 +243,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 		// In either case, we return the error.
 		return nil, errors.Trace(err)
 	}
-	doc := s.makeApplicationOfferDoc(offer.OfferUUID, offerArgs)
+	doc := s.makeApplicationOfferDoc(s.st, offer.OfferUUID, offerArgs)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -276,9 +276,9 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 	return s.makeApplicationOffer(doc)
 }
 
-func (s *applicationOffers) makeApplicationOfferDoc(uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
+func (s *applicationOffers) makeApplicationOfferDoc(st *State, uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
 	doc := applicationOfferDoc{
-		DocID:                  offer.OfferName,
+		DocID:                  st.docID(offer.OfferName),
 		OfferUUID:              uuid,
 		OfferName:              offer.OfferName,
 		ApplicationName:        offer.ApplicationName,
