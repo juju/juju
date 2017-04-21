@@ -146,7 +146,7 @@ fi
 if [[ "$USE_TMPFS" == "true" ]]; then
     if ! findmnt /mnt/tmp > /dev/null; then
         sudo mkdir -p -m 777 /mnt/tmp
-        sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
+        sudo mount -t tmpfs -o size=10G /mnt/tmp /mnt/tmp
     fi
     sudo rm -rf /mnt/tmp/* || true
     export TMPDIR=/mnt/tmp
@@ -175,10 +175,6 @@ fi
 export PATH=/usr/lib/go-1.6/bin:$PATH
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
-sudo apt-get upgrade -y --force-yes \
-    -o Dpkg::Options::="--force-confdef" \
-    -o Dpkg::Options::="--force-confold" \
-    -o Dpkg::Options::="--force-confnew"
 sudo apt-get install -y make gcc software-properties-common distro-info-data
 if [[ "$USE_PPA" != "" ]]; then
     sudo apt-add-repository -y $USE_PPA;

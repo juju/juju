@@ -12,9 +12,7 @@ export PATH=$(dirname $JUJU_BIN):$PATH
 export GOCOOKIES=$WORKSPACE/.go-cookies
 JUJU_BIN=$GOPATH/bin/juju
 
-PRECISE_AMI=$($SCRIPTS/get_ami.py precise amd64)
-TRUSTY_AMI=$($SCRIPTS/get_ami.py trusty amd64)
-XENIAL_AMI=$($SCRIPTS/get_ami.py xenial amd64)
+XENIAL_AMI=$($SCRIPTS/get_ami.py xenial amd64 --virt hvm)
 
 VERSION=$($JUJU_BIN version | cut -d '-' -f1)
 if [[ $VERSION =~ 1\..*  ]]; then
@@ -24,13 +22,13 @@ if [[ $VERSION =~ 1\..*  ]]; then
 else
     mkdir -p $WORKSPACE/artifacts/lxd
     mkdir -p $WORKSPACE/artifacts/grant
-    LXD="timeout -s INT 20m $SCRIPTS/deploy_job.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/lxd merge-juju-lxd  --series xenial --debug"    
+    LXD="timeout -s INT 20m $SCRIPTS/deploy_job.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/lxd merge-juju-lxd  --series xenial --debug"
     GRANT="echo \"Skipping Grant test for now.\""
-    RACE="run-unit-tests m1.xlarge $XENIAL_AMI --force-archive --race --local $TARFILE_NAME --install-deps 'golang-1.6 juju-mongodb distro-info-data ca-certificates bzr git-core mercurial zip golang-1.6-race-detector-runtime'"
+    RACE="run-unit-tests c4.4xlarge $XENIAL_AMI --force-archive --race --local $TARFILE_NAME --install-deps 'golang-1.6 juju-mongodb distro-info-data ca-certificates bzr git-core mercurial zip golang-1.6-race-detector-runtime'"
     RACE="echo 'Skipping race unit tests.'"
 fi
 timeout 180m concurrently.py -v -l $WORKSPACE/artifacts \
-    trusty="$SCRIPTS/run-unit-tests c3.4xlarge $TRUSTY_AMI --local $TARFILE_NAME --use-tmpfs --force-archive" \
+    xenial="$SCRIPTS/run-unit-tests c4.4xlarge $XENIAL_AMI --local $TARFILE_NAME --use-tmpfs --force-archive" \
     windows="$SCRIPTS/gotestwin.py developer-win-unit-tester.vapour.ws $TARFILE_NAME github.com/juju/juju/cmd" \
     lxd="$LXD" \
     grant="$GRANT" \
