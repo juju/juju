@@ -122,6 +122,12 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (s *ModelCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testCommand)
+	wrapped := modelcmd.Wrap(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
+}
+
 func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {
 	assert := func(in, controller, model string) {
 		outController, outModel := modelcmd.SplitModelName(in)

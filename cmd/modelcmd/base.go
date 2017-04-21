@@ -36,6 +36,9 @@ var errNoNameSpecified = errors.New("no name specified")
 type CommandBase interface {
 	cmd.Command
 
+	// SetAPIOpen sets the function used for opening an API connection.
+	SetAPIOpen(opener api.OpenFunc)
+
 	// closeContext closes the command's API context.
 	closeContext()
 	setCmdContext(*cmd.Context)
@@ -305,7 +308,7 @@ func (c *JujuCommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connec
 
 // WrapBase wraps the specified CommandBase, returning a Command
 // that proxies to each of the CommandBase methods.
-func WrapBase(c CommandBase) cmd.Command {
+func WrapBase(c CommandBase) CommandBase {
 	return &baseCommandWrapper{
 		CommandBase: c,
 	}
@@ -313,6 +316,11 @@ func WrapBase(c CommandBase) cmd.Command {
 
 type baseCommandWrapper struct {
 	CommandBase
+}
+
+// inner implements wrapper.inner.
+func (w *baseCommandWrapper) inner() cmd.Command {
+	return w.CommandBase
 }
 
 // Run implements Command.Run.
@@ -517,4 +525,23 @@ type byteAtATimeReader struct {
 // Read is part of the io.Reader interface.
 func (r byteAtATimeReader) Read(out []byte) (int, error) {
 	return r.Reader.Read(out[:1])
+}
+
+// wrapper is implemented by types that wrap a command.
+type wrapper interface {
+	inner() cmd.Command
+}
+
+// InnerCommand returns the command that has been wrapped
+// by one of the Wrap functions. This is useful for
+// tests that wish to inspect internal details of a command
+// instance. If c isn't wrapping anything, it returns c.
+func InnerCommand(c cmd.Command) cmd.Command {
+	for {
+		c1, ok := c.(wrapper)
+		if !ok {
+			return c
+		}
+		c = c1.inner()
+	}
 }

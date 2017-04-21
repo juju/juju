@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -121,8 +119,8 @@ func NewKillCommandForTest(
 	store jujuclient.ClientStore,
 	apierr error,
 	clock clock.Clock,
-	apiOpen modelcmd.APIOpener,
-) (cmd.Command, *killCommand) {
+	apiOpen api.OpenFunc,
+) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
@@ -132,20 +130,21 @@ func NewKillCommandForTest(
 		clock: clock,
 	}
 	kill.SetClientStore(store)
-	return wrapKillCommand(kill, apiOpen, clock), kill
+	wrapped := wrapKillCommand(kill)
+	if apiOpen != nil {
+		wrapped.SetAPIOpen(apiOpen)
+	}
+	return wrapped
 }
 
 // KillTimeout returns the internal timeout duration of the kill command.
-func KillTimeout(c *gc.C, command cmd.Command) time.Duration {
-	kill, ok := command.(*killCommand)
-	c.Assert(ok, jc.IsTrue)
-	return kill.timeout
+func KillTimeout(command cmd.Command) time.Duration {
+	return modelcmd.InnerCommand(command).(*killCommand).timeout
 }
 
 // KillWaitForModels calls the WaitForModels method of the kill command.
 func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControllerAPI, uuid string) error {
-	kill := command.(*killCommand)
-	return kill.WaitForModels(ctx, api, uuid)
+	return modelcmd.InnerCommand(command).(*killCommand).WaitForModels(ctx, api, uuid)
 }
 
 // NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with
