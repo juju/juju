@@ -75,7 +75,7 @@ func (inst *environInstance) OpenPorts(machineID string, rules []network.Ingress
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.gce.OpenPorts(name, google.RandomSuffixNamer, rules...)
+	err = inst.env.gce.OpenPorts(name, rules...)
 	return errors.Trace(err)
 }
 

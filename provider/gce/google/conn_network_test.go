@@ -129,7 +129,7 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	rule2 := network.MustNewIngressRule("udp", 80, 81, "0.0.0.0/0")
 	rule3 := network.MustNewIngressRule("tcp", 100, 120, "192.168.1.0/24", "10.0.0.0/24")
 	rule4 := network.MustNewIngressRule("udp", 67, 67, "10.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rule, rule2, rule3, rule4)
+	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rule, rule2, rule3, rule4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 4)
@@ -181,7 +181,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateSameCIDR(c *gc.C) {
 	}}
 
 	rules := network.MustNewIngressRule("tcp", 443, 443, "192.168.1.0/24", "10.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rules)
+	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -211,7 +211,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAddCIDR(c *gc.C) {
 	}}
 
 	rules := network.MustNewIngressRule("tcp", 80, 81, "10.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rules)
+	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -253,7 +253,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAndAdd(c *gc.C) {
 	rule2 := network.MustNewIngressRule("tcp", 80, 100, "10.0.0.0/24")
 	rule3 := network.MustNewIngressRule("tcp", 443, 443, "10.0.0.0/24")
 	rule4 := network.MustNewIngressRule("udp", 67, 67, "172.0.0.0/24")
-	err := s.Conn.OpenPorts("spam", google.HashSuffixNamer, rule1, rule2, rule3, rule4)
+	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rule1, rule2, rule3, rule4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 4)

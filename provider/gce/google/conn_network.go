@@ -42,17 +42,24 @@ func (gce Connection) IngressRules(fwname string) ([]network.IngressRule, error)
 	return ruleset.toIngressRules()
 }
 
+// OpenPorts adds or updates GCE firewall rules so that traffic to the
+// target ports is allowed from the source ranges specified by the
+// ingress rules. If a rule matching a set of source ranges doesn't
+// already exist, it will be created - the name will be made unique
+// using a random suffix.
+func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) error {
+	return errors.Trace(gce.OpenPortsWithNamer(target, RandomSuffixNamer, rules...))
+}
+
 // FirewallNamer generates a unique name for a firewall given the firewall, a
 // prefix and a set of current firewall rule names.
 type FirewallNamer func(*firewall, string, set.Strings) (string, error)
 
-// OpenPorts sends a request to the GCE API to open the provided port
-// ranges on the named firewall. If the firewall does not exist yet it
-// is created, with the provided port ranges opened. Otherwise the
-// existing firewall is updated to add the provided port ranges to the
-// ports it already has open. The call blocks until the ports are
-// opened or the request fails.
-func (gce Connection) OpenPorts(target string, namer FirewallNamer, rules ...network.IngressRule) error {
+// OpenPortsWithNamer adds or creates firewall rules in the same way
+// as OpenPorts, but uses the FirewallNamer passed in to generate the
+// firewall name - this is mostly useful for getting predictable
+// results in tests.
+func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rules ...network.IngressRule) error {
 	if len(rules) == 0 {
 		return nil
 	}
