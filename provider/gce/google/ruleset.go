@@ -30,11 +30,15 @@ func newRuleSetFromRules(rules ...network.IngressRule) ruleSet {
 }
 
 func (rs ruleSet) addRule(rule network.IngressRule) {
-	key := sourcecidrs(rule.SourceCIDRs).key()
+	sourceCIDRs := rule.SourceCIDRs
+	if len(sourceCIDRs) == 0 {
+		sourceCIDRs = []string{"0.0.0.0/0"}
+	}
+	key := sourcecidrs(sourceCIDRs).key()
 	fw, ok := rs[key]
 	if !ok {
 		fw = &firewall{
-			SourceCIDRs:  rule.SourceCIDRs,
+			SourceCIDRs:  sourceCIDRs,
 			AllowedPorts: make(protocolPorts),
 		}
 		rs[key] = fw
@@ -43,7 +47,7 @@ func (rs ruleSet) addRule(rule network.IngressRule) {
 	ports[rule.Protocol] = append(ports[rule.Protocol], rule.PortRange)
 }
 
-func newRulesetFromFirewalls(firewalls ...*compute.Firewall) (ruleSet, error) {
+func newRuleSetFromFirewalls(firewalls ...*compute.Firewall) (ruleSet, error) {
 	result := make(ruleSet)
 	for _, firewall := range firewalls {
 		err := result.addFirewall(firewall)
@@ -55,7 +59,6 @@ func newRulesetFromFirewalls(firewalls ...*compute.Firewall) (ruleSet, error) {
 }
 
 func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
-	key := sourcecidrs(fw.SourceRanges).key()
 	if len(fw.TargetTags) != 1 {
 		return errors.Errorf(
 			"firewall rule %q has %d targets (expected 1): %#v",
@@ -68,6 +71,7 @@ func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
 	if len(sourceRanges) == 0 {
 		sourceRanges = []string{"0.0.0.0/0"}
 	}
+	key := sourcecidrs(sourceRanges).key()
 	result := &firewall{
 		Name:         fw.Name,
 		Target:       fw.TargetTags[0],
@@ -126,6 +130,7 @@ func (rs ruleSet) toIngressRules() ([]network.IngressRule, error) {
 		}
 		results = append(results, rules...)
 	}
+	network.SortIngressRules(results)
 	return results, nil
 }
 

@@ -26,7 +26,7 @@ func (gce Connection) firewallRules(fwname string) (ruleSet, error) {
 		return nil, errors.Annotate(err, "while getting firewall rules from GCE")
 	}
 
-	return newRulesetFromFirewalls(firewalls...)
+	return newRuleSetFromFirewalls(firewalls...)
 }
 
 // IngressRules build a list of all open port ranges for a given firewall name
