@@ -255,7 +255,6 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", modelSet, value)
 	}
-
 	// We need the tag of the user for which we're listing models,
 	// and for the logged-in user. We use these below when formatting
 	// the model display names.
@@ -306,16 +305,15 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		if c.listUUID {
 			w.Print(model.UUID)
 		}
-		lastConnection := model.Users[userForLastConn.Id()].LastConnection
-		if lastConnection == "" {
-			lastConnection = "never connected"
-		}
 		userForAccess := loggedInUser
 		if c.user != "" {
 			userForAccess = names.NewUserTag(c.user)
 		}
-		access := model.Users[userForAccess.Id()].Access
-		w.Print(cloudRegion, model.Status.Current)
+		status := "-"
+		if model.Status != nil {
+			status = model.Status.Current.String()
+		}
+		w.Print(cloudRegion, status)
 		if haveMachineInfo {
 			machineInfo := fmt.Sprintf("%d", len(model.Machines))
 			cores := uint64(0)
@@ -327,6 +325,14 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 				coresInfo = fmt.Sprintf("%d", cores)
 			}
 			w.Print(machineInfo, coresInfo)
+		}
+		access := model.Users[userForAccess.Id()].Access
+		if access == "" {
+			access = "-"
+		}
+		lastConnection := model.Users[userForLastConn.Id()].LastConnection
+		if lastConnection == "" {
+			lastConnection = "never connected"
 		}
 		w.Println(access, lastConnection)
 	}

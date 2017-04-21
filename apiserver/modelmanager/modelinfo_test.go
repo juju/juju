@@ -49,7 +49,6 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("admin@local"),
 	}
 	s.st = &mockState{
-		modelUUID:      coretesting.ModelTag.Id(),
 		controllerUUID: coretesting.ControllerTag.Id(),
 		cloud: cloud.Cloud{
 			Type:      "dummy",
@@ -74,6 +73,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		owner: names.NewUserTag("admin@local"),
 		life:  state.Alive,
 		cfg:   coretesting.ModelConfig(c),
+		// This feels kind of wrong as both controller model and
+		// default model will end up with the same model tag.
+		tag:            coretesting.ModelTag,
+		controllerUUID: s.st.controllerUUID,
 		status: status.StatusInfo{
 			Status: status.Available,
 			Since:  &time.Time{},
@@ -88,14 +91,15 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st.model = &mockModel{
-		owner: names.NewUserTag("bob@local"),
-		cfg:   coretesting.ModelConfig(c),
-		life:  state.Dying,
+		owner:          names.NewUserTag("bob@local"),
+		cfg:            coretesting.ModelConfig(c),
+		tag:            coretesting.ModelTag,
+		controllerUUID: s.st.controllerUUID,
+		life:           state.Dying,
 		status: status.StatusInfo{
 			Status: status.Destroying,
 			Since:  &time.Time{},
 		},
-
 		users: []*mockModelUser{{
 			userName: "admin",
 			access:   permission.AdminAccess,
@@ -144,7 +148,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
-	info := s.getModelInfo(c)
+	info := s.getModelInfo(c, s.st.model.cfg.UUID())
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:               "testenv",
 		UUID:               s.st.model.cfg.UUID(),
@@ -156,7 +160,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
 		DefaultSeries:      series.LatestLts(),
 		Life:               params.Dying,
-		Status: params.EntityStatus{
+		Status: &params.EntityStatus{
 			Status: status.Destroying,
 			Since:  &time.Time{},
 		},
@@ -196,7 +200,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ModelUUID", nil},
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},
-		{"ControllerConfig", nil},
 		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
@@ -206,26 +209,31 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Config", nil},
-		{"Users", nil},
-		{"ModelTag", nil},
-		{"ModelTag", nil},
-		{"ModelTag", nil},
-		{"ModelTag", nil},
-		{"Status", nil},
+		{"UUID", nil},
 		{"Owner", nil},
+		{"Name", nil},
+		{"UUID", nil},
+		{"ControllerUUID", nil},
 		{"Life", nil},
 		{"Cloud", nil},
 		{"CloudRegion", nil},
 		{"CloudCredential", nil},
 		{"SLALevel", nil},
 		{"SLAOwner", nil},
+		{"Life", nil},
+		{"Config", nil},
+		{"Status", nil},
+		{"Users", nil},
+		{"ModelTag", nil},
+		{"ModelTag", nil},
+		{"ModelTag", nil},
+		{"ModelTag", nil},
 	})
 }
 
 func (s *modelInfoSuite) TestModelInfoOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("bob@local"))
-	info := s.getModelInfo(c)
+	info := s.getModelInfo(c, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 4)
 	c.Assert(info.Machines, gc.HasLen, 2)
 }
@@ -234,7 +242,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	mary := names.NewUserTag("mary@local")
 	s.authorizer.HasWriteTag = mary
 	s.setAPIUser(c, mary)
-	info := s.getModelInfo(c)
+	info := s.getModelInfo(c, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
 	c.Assert(info.Machines, gc.HasLen, 2)
@@ -242,22 +250,22 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
-	info := s.getModelInfo(c)
+	info := s.getModelInfo(c, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
 	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
-func (s *modelInfoSuite) getModelInfo(c *gc.C) params.ModelInfo {
+func (s *modelInfoSuite) getModelInfo(c *gc.C, modelUUID string) params.ModelInfo {
 	results, err := s.modelmanager.ModelInfo(params.Entities{
 		Entities: []params.Entity{{
-			names.NewModelTag(s.st.model.cfg.UUID()).String(),
+			names.NewModelTag(modelUUID).String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Result, gc.NotNil)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Check(results.Results[0].Result, gc.NotNil)
+	c.Check(results.Results[0].Error, gc.IsNil)
 	return *results.Results[0].Result
 }
 
@@ -276,7 +284,11 @@ func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
-	s.st.model.SetErrors(errors.Errorf("no users for you"))
+	s.st.model.SetErrors(
+		nil, //Config
+		nil, //Status
+		errors.Errorf("no users for you"), // Users
+	)
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `no users for you`)
 }
 
@@ -336,6 +348,160 @@ func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 	c.Assert(results.Results[0].Result.Migration, gc.IsNil)
 }
 
+func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
+	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, params.Alive)
+}
+
+func (s *modelInfoSuite) TestAliveModelWithConfigFailure(c *gc.C) {
+	s.st.model.life = state.Alive
+	s.setModelConfigError()
+	s.testModelInfoError(c, s.st.model.tag.String(), "config not found")
+}
+
+func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *gc.C) {
+	s.st.model.life = state.Alive
+	s.setModelStatusError()
+	s.testModelInfoError(c, s.st.model.tag.String(), "status not found")
+}
+
+func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
+	s.st.model.life = state.Alive
+	s.setModelUsersError()
+	s.testModelInfoError(c, s.st.model.tag.String(), "users not found")
+}
+
+func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
+	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Dead, params.Dead)
+}
+
+func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelConfigError,
+		desiredLife:  state.Dead,
+		expectedLife: params.Dead,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelStatusError,
+		desiredLife:  state.Dead,
+		expectedLife: params.Dead,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelUsersError,
+		desiredLife:  state.Dead,
+		expectedLife: params.Dead,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelConfigError,
+		desiredLife:  state.Dying,
+		expectedLife: params.Dying,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelStatusError,
+		desiredLife:  state.Dying,
+		expectedLife: params.Dying,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelUsersError,
+		desiredLife:  state.Dying,
+		expectedLife: params.Dying,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
+	s.st.model.migrationStatus = state.MigrationModeImporting
+	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, params.Alive)
+}
+
+func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
+	s.st.model.migrationStatus = state.MigrationModeImporting
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelConfigError,
+		desiredLife:  state.Alive,
+		expectedLife: params.Alive,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
+	s.st.model.migrationStatus = state.MigrationModeImporting
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelStatusError,
+		desiredLife:  state.Alive,
+		expectedLife: params.Alive,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
+	s.st.model.migrationStatus = state.MigrationModeImporting
+	testData := incompleteModelInfoTest{
+		failModel:    s.setModelUsersError,
+		desiredLife:  state.Alive,
+		expectedLife: params.Alive,
+	}
+	s.assertSuccessWithMissingData(c, testData)
+}
+
+type incompleteModelInfoTest struct {
+	failModel    func()
+	desiredLife  state.Life
+	expectedLife params.Life
+}
+
+func (s *modelInfoSuite) setModelConfigError() {
+	s.st.model.SetErrors(errors.NotFoundf("config"))
+}
+
+func (s *modelInfoSuite) setModelStatusError() {
+	s.st.model.SetErrors(
+		nil, //Config
+		errors.NotFoundf("status"), //Status
+	)
+}
+
+func (s *modelInfoSuite) setModelUsersError() {
+	s.st.model.SetErrors(
+		nil, //Config
+		nil, //Status
+		errors.NotFoundf("users"), //Users
+	)
+}
+
+func (s *modelInfoSuite) assertSuccessWithMissingData(c *gc.C, test incompleteModelInfoTest) {
+	test.failModel()
+	// We do not expect any errors to surface and still want to get basic model info.
+	s.assertSuccess(c, s.st.model.cfg.UUID(), test.desiredLife, test.expectedLife)
+}
+
+func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife state.Life, expectedLife params.Life) {
+	s.st.model.life = desiredLife
+	// should get no errors
+	info := s.getModelInfo(c, modelUUID)
+	c.Assert(info.UUID, gc.Equals, modelUUID)
+	c.Assert(info.Life, gc.Equals, expectedLife)
+}
+
 func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr string) {
 	results, err := s.modelmanager.ModelInfo(params.Entities{
 		Entities: []params.Entity{{modelTag}},
@@ -370,7 +536,6 @@ type mockState struct {
 	metricSender
 	unitRetriever
 
-	modelUUID       string
 	controllerUUID  string
 	cloud           cloud.Cloud
 	clouds          map[names.CloudTag]cloud.Cloud
@@ -392,12 +557,12 @@ type fakeModelDescription struct {
 }
 
 func (st *mockState) Export() (description.Model, error) {
-	return &fakeModelDescription{UUID: st.modelUUID}, nil
+	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
-	return st.modelUUID
+	return st.model.UUID()
 }
 
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
@@ -697,12 +862,14 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 
 type mockModel struct {
 	gitjujutesting.Stub
-	owner  names.UserTag
-	life   state.Life
-	tag    names.ModelTag
-	status status.StatusInfo
-	cfg    *config.Config
-	users  []*mockModelUser
+	owner           names.UserTag
+	life            state.Life
+	tag             names.ModelTag
+	status          status.StatusInfo
+	cfg             *config.Config
+	users           []*mockModelUser
+	migrationStatus state.MigrationMode
+	controllerUUID  string
 }
 
 func (m *mockModel) Config() (*config.Config, error) {
@@ -712,19 +879,16 @@ func (m *mockModel) Config() (*config.Config, error) {
 
 func (m *mockModel) Owner() names.UserTag {
 	m.MethodCall(m, "Owner")
-	m.PopNoErr()
 	return m.owner
 }
 
 func (m *mockModel) ModelTag() names.ModelTag {
 	m.MethodCall(m, "ModelTag")
-	m.PopNoErr()
 	return m.tag
 }
 
 func (m *mockModel) Life() state.Life {
 	m.MethodCall(m, "Life")
-	m.PopNoErr()
 	return m.life
 }
 
@@ -735,19 +899,16 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 
 func (m *mockModel) Cloud() string {
 	m.MethodCall(m, "Cloud")
-	m.PopNoErr()
 	return "some-cloud"
 }
 
 func (m *mockModel) CloudRegion() string {
 	m.MethodCall(m, "CloudRegion")
-	m.PopNoErr()
 	return "some-region"
 }
 
 func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
 	m.MethodCall(m, "CloudCredential")
-	m.PopNoErr()
 	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
 }
 
@@ -788,6 +949,26 @@ func (m *mockModel) SLALevel() string {
 func (m *mockModel) SLAOwner() string {
 	m.MethodCall(m, "SLAOwner")
 	return "user"
+}
+
+func (m *mockModel) ControllerUUID() string {
+	m.MethodCall(m, "ControllerUUID")
+	return m.controllerUUID
+}
+
+func (m *mockModel) UUID() string {
+	m.MethodCall(m, "UUID")
+	return m.cfg.UUID()
+}
+
+func (m *mockModel) Name() string {
+	m.MethodCall(m, "Name")
+	return m.cfg.Name()
+}
+
+func (m *mockModel) MigrationMode() state.MigrationMode {
+	m.MethodCall(m, "MigrationMode")
+	return m.migrationStatus
 }
 
 type mockModelUser struct {

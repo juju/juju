@@ -558,33 +558,13 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 
-	cfg, err := model.Config()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	users, err := model.Users()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	status, err := model.Status()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-
 	owner := model.Owner()
 	info := params.ModelInfo{
-		Name:           cfg.Name(),
-		UUID:           cfg.UUID(),
-		ControllerUUID: controllerCfg.ControllerUUID(),
+		Name:           model.Name(),
+		UUID:           model.UUID(),
+		ControllerUUID: model.ControllerUUID(),
 		OwnerTag:       owner.String(),
 		Life:           params.Life(model.Life().String()),
-		Status:         common.EntityStatusFromState(status),
-		ProviderType:   cfg.Type(),
-		DefaultSeries:  config.PreferredSeries(cfg),
 		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:    model.CloudRegion(),
 	}
@@ -593,32 +573,74 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		info.CloudCredentialTag = cloudCredentialTag.String()
 	}
 
-	authorizedOwner := m.authCheck(owner) == nil
-	for _, user := range users {
-		if !authorizedOwner && m.authCheck(user.UserTag) != nil {
-			// The authenticated user is neither the owner
-			// nor administrator, nor the model user, so
-			// has no business knowing about the model user.
-			continue
-		}
-
-		userInfo, err := common.ModelUserInfo(user, st)
-		if err != nil {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-		info.Users = append(info.Users, userInfo)
-	}
-
-	if len(info.Users) == 0 {
-		// No users, which means the authenticated user doesn't
-		// have access to the model.
-		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
-	}
-
 	// All users with access to the model can see the SLA information.
 	info.SLA = &params.ModelSLAInfo{
 		Level: model.SLALevel(),
 		Owner: model.SLAOwner(),
+	}
+
+	// If model is not alive - dying or dead - or if it is being imported,
+	// there is no guarantee that the rest of the call will succeed.
+	// For these models we can ignore NotFound errors coming from persistent layer.
+	// However, for Alive models, these errors are genuine and cannot be ignored.
+	ignoreNotFoundError := false
+	if model.Life() != state.Alive || model.MigrationMode() == state.MigrationModeImporting {
+		ignoreNotFoundError = true
+	}
+
+	// If we received an an error and cannot ignore it, we should consider it fatal and surface it.
+	// We should do the same if we can ignore NotFound errors but the given error is of some other type.
+	shouldErr := func(thisErr error) bool {
+		if thisErr == nil {
+			return false
+		}
+		return !ignoreNotFoundError || (ignoreNotFoundError && !errors.IsNotFound(thisErr))
+	}
+	cfg, err := model.Config()
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		info.ProviderType = cfg.Type()
+		info.DefaultSeries = config.PreferredSeries(cfg)
+	}
+
+	status, err := model.Status()
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		entityStatus := common.EntityStatusFromState(status)
+		info.Status = &entityStatus
+	}
+
+	authorizedOwner := m.authCheck(owner) == nil
+
+	users, err := model.Users()
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		for _, user := range users {
+			if !authorizedOwner && m.authCheck(user.UserTag) != nil {
+				// The authenticated user is neither the owner
+				// nor administrator, nor the model user, so
+				// has no business knowing about the model user.
+				continue
+			}
+
+			userInfo, err := common.ModelUserInfo(user, st)
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
+			}
+			info.Users = append(info.Users, userInfo)
+		}
+
+		if len(info.Users) == 0 {
+			// No users, which means the authenticated user doesn't
+			// have access to the model.
+			return params.ModelInfo{}, errors.Trace(common.ErrPerm)
+		}
 	}
 
 	canSeeMachines := authorizedOwner
@@ -628,7 +650,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		}
 	}
 	if canSeeMachines {
-		if info.Machines, err = common.ModelMachineInfo(st); err != nil {
+		if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}
 	}

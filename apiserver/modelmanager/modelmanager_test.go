@@ -78,8 +78,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = &mockState{
-		modelUUID: coretesting.ModelTag.Id(),
-		cloud:     dummyCloud,
+		cloud: dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
@@ -192,7 +191,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"NewModel",
 		"ForModel",
 		"Model",
-		"ControllerConfig",
 		"LastModelConnection",
 		"LastModelConnection",
 		"LastModelConnection",

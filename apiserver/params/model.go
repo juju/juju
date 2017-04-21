@@ -126,8 +126,8 @@ type ModelInfo struct {
 	Name               string `json:"name"`
 	UUID               string `json:"uuid"`
 	ControllerUUID     string `json:"controller-uuid"`
-	ProviderType       string `json:"provider-type"`
-	DefaultSeries      string `json:"default-series"`
+	ProviderType       string `json:"provider-type,omitempty"`
+	DefaultSeries      string `json:"default-series,omitempty"`
 	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
@@ -139,7 +139,7 @@ type ModelInfo struct {
 	Life Life `json:"life"`
 
 	// Status is the current status of the model.
-	Status EntityStatus `json:"status"`
+	Status *EntityStatus `json:"status,omitempty"`
 
 	// Users contains information about the users that have access
 	// to the model. Owners and administrators can see all users
