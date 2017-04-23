@@ -137,22 +137,22 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewalls")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "AddFirewall")
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
+		Name:         "spam-4eebe8",
+		TargetTags:   []string{"spam"},
+		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "tcp",
+			Ports:      []string{"100-120"},
+		}},
+	})
+	c.Check(s.FakeConn.Calls[2].FuncName, gc.Equals, "AddFirewall")
+	c.Check(s.FakeConn.Calls[2].Firewall, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam-a34d80",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"10.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
 			IPProtocol: "udp",
 			Ports:      []string{"67"},
-		}},
-	})
-	c.Check(s.FakeConn.Calls[2].FuncName, gc.Equals, "AddFirewall")
-	c.Check(s.FakeConn.Calls[2].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-ad7554",
-		TargetTags:   []string{"spam"},
-		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
-			Ports:      []string{"100-120"},
 		}},
 	})
 	c.Check(s.FakeConn.Calls[3].FuncName, gc.Equals, "AddFirewall")

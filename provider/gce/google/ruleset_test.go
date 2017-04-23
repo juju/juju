@@ -186,3 +186,19 @@ func (s *RuleSetSuite) TestAllNames(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ruleset.allNames(), gc.DeepEquals, set.NewStrings("weeps", "blackbird"))
 }
+
+func (s *RuleSetSuite) TestDifferentOrdersForCIDRs(c *gc.C) {
+	rule1 := network.MustNewIngressRule("tcp", 8000, 8099, "1.2.3.0/24", "4.3.2.0/24")
+	rule2 := network.MustNewIngressRule("tcp", 80, 80, "4.3.2.0/24", "1.2.3.0/24")
+	ruleset := NewRuleSetFromRules(rule1, rule2)
+	// They should be combined into one firewall rule.
+	c.Assert(ruleset, gc.HasLen, 1)
+	for _, fw := range ruleset {
+		c.Assert(fw, gc.DeepEquals, &firewall{
+			SourceCIDRs: []string{"1.2.3.0/24", "4.3.2.0/24"},
+			AllowedPorts: protocolPorts{
+				"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}},
+			},
+		})
+	}
+}

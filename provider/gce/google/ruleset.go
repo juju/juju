@@ -151,11 +151,18 @@ func (rs ruleSet) allNames() set.Strings {
 type sourcecidrs []string
 
 func (s sourcecidrs) key() string {
-	src := strings.Join(s, ",")
+	src := strings.Join(s.sorted(), ",")
 	hash := sha256.New()
 	hash.Write([]byte(src))
 	hashStr := fmt.Sprintf("%x", hash.Sum(nil))
 	return hashStr[:6]
+}
+
+func (s sourcecidrs) sorted() []string {
+	values := make([]string, len(s))
+	copy(values, s)
+	sort.Strings(values)
+	return values
 }
 
 // firewall represents a GCE firewall - if it was constructed from a
