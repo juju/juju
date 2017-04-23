@@ -137,7 +137,7 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewalls")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "AddFirewall")
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-4eebe8",
+		Name:         "spam-4eebe8d7a9",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
@@ -147,7 +147,7 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	})
 	c.Check(s.FakeConn.Calls[2].FuncName, gc.Equals, "AddFirewall")
 	c.Check(s.FakeConn.Calls[2].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-a34d80",
+		Name:         "spam-a34d80f7b6",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"10.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
@@ -241,7 +241,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAndAdd(c *gc.C) {
 			Ports:      []string{"80-81"},
 		}},
 	}, {
-		Name:         "spam-8e65ef",
+		Name:         "spam-8e65efabcd",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"172.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
@@ -261,9 +261,9 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAndAdd(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewalls")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "UpdateFirewall")
 	sort.Strings(s.FakeConn.Calls[1].Firewall.Allowed[0].Ports)
-	c.Check(s.FakeConn.Calls[1].Name, gc.Equals, "spam-8e65ef")
+	c.Check(s.FakeConn.Calls[1].Name, gc.Equals, "spam-8e65efabcd")
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-8e65ef",
+		Name:         "spam-8e65efabcd",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"172.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
@@ -277,7 +277,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAndAdd(c *gc.C) {
 	c.Check(s.FakeConn.Calls[2].FuncName, gc.Equals, "AddFirewall")
 	sort.Strings(s.FakeConn.Calls[2].Firewall.Allowed[0].Ports)
 	c.Check(s.FakeConn.Calls[2].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-a34d80",
+		Name:         "spam-a34d80f7b6",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"10.0.0.0/24"},
 		Allowed: []*compute.FirewallAllowed{{

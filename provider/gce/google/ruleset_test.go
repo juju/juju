@@ -30,13 +30,13 @@ func makeRuleSet() ruleSet {
 func (s *RuleSetSuite) TestNewRuleSetFromRules(c *gc.C) {
 	rs := makeRuleSet()
 	c.Assert(rs, jc.DeepEquals, ruleSet{
-		"b42e18": &firewall{
+		"b42e18366a": &firewall{
 			SourceCIDRs: []string{"0.0.0.0/0"},
 			AllowedPorts: protocolPorts{
 				"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
 			},
 		},
-		"d01a82": &firewall{
+		"d01a825c13": &firewall{
 			SourceCIDRs: []string{"192.168.1.0/24"},
 			AllowedPorts: protocolPorts{
 				"udp": []network.PortRange{{5123, 8099, "udp"}},
@@ -73,7 +73,7 @@ func (s *RuleSetSuite) TestNewRuleSetFromFirewalls(c *gc.C) {
 	ruleset, err := newRuleSetFromFirewalls(fw1, fw2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ruleset, gc.DeepEquals, ruleSet{
-		"b42e18": &firewall{
+		"b42e18366a": &firewall{
 			Name:        "blackbird",
 			Target:      "somewhere",
 			SourceCIDRs: []string{"0.0.0.0/0"},
@@ -82,7 +82,7 @@ func (s *RuleSetSuite) TestNewRuleSetFromFirewalls(c *gc.C) {
 				"udp": []network.PortRange{{123, 123, "udp"}},
 			},
 		},
-		"0e3c16": &firewall{
+		"0e3c16a771": &firewall{
 			Name:        "weeps",
 			Target:      "target",
 			SourceCIDRs: []string{"1.2.3.0/24", "2.3.4.0/24"},

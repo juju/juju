@@ -155,7 +155,7 @@ func (s sourcecidrs) key() string {
 	hash := sha256.New()
 	hash.Write([]byte(src))
 	hashStr := fmt.Sprintf("%x", hash.Sum(nil))
-	return hashStr[:6]
+	return hashStr[:10]
 }
 
 func (s sourcecidrs) sorted() []string {
