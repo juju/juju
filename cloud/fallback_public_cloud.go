@@ -235,4 +235,19 @@ clouds:
         endpoint: https://wdc.cloudsigma.com/api/2.0/
       zrh:
         endpoint: https://zrh.cloudsigma.com/api/2.0/
+  oracle:
+    type: oracle
+    description: Oracle Cloud
+    auth-types: [ userpass ]
+    regions:
+      uscom-central-1:
+        endpoint: https://compute.uscom-central-1.oraclecloud.com
+      us2:
+        endpoint: https://compute.uscom-central-1.oraclecloud.com
+      us6:
+        endpoint: https://compute.us6.oraclecloud.com
+      em2:
+        endpoint: https://compute.em2.oraclecloud.com
+      em3:
+        endpoint: https://compute.em3.oraclecloud.com
 `
