@@ -23,13 +23,6 @@ usage() {
     exit 1
 }
 
-# check build dependencies
-source "$SCRIPT_DIR/check-source-depends.bash"
-
-
-test $# -ge 1 ||  usage
-check_deps
-
 MERGE_REPO=""
 MERGE_REF=""
 MERGE_REV=""
