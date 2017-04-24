@@ -512,6 +512,15 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	c.Assert(modelName, gc.Equals, "admin/default")
 }
 
+func (s *BootstrapSuite) TestNoSwitch(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--no-switch")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.store.CurrentControllerName, gc.Equals, "")
+}
+
 func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
