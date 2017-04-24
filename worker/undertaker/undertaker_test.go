@@ -119,8 +119,10 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		nil, // ModelInfo
 		nil, // SetStatus
 		nil, // WatchModelResources,
-		errors.New("meh, will retry"),  // ProcessDyingModel,
+		errors.New("meh, will retry"), // ProcessDyingModel,
+		nil, // SetStatus
 		errors.New("will retry again"), // ProcessDyingModel,
+		nil, // SetStatus
 		nil, // ProcessDyingModel,
 		nil, // SetStatus
 		nil, // Destroy,
@@ -134,7 +136,9 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		"SetStatus",
 		"WatchModelResources",
 		"ProcessDyingModel",
+		"SetStatus",
 		"ProcessDyingModel",
+		"SetStatus",
 		"ProcessDyingModel",
 		"SetStatus",
 		"Destroy",

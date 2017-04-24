@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -36,59 +37,13 @@ type baseSuite struct {
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.JujuConnSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 var _ = gc.Suite(&baseSuite{})
-
-func chanReadEmpty(c *gc.C, ch <-chan struct{}, what string) bool {
-	select {
-	case _, ok := <-ch:
-		return ok
-	case <-time.After(10 * time.Second):
-		c.Fatalf("timed out reading from %s", what)
-	}
-	panic("unreachable")
-}
-
-func chanReadStrings(c *gc.C, ch <-chan []string, what string) ([]string, bool) {
-	select {
-	case changes, ok := <-ch:
-		return changes, ok
-	case <-time.After(10 * time.Second):
-		c.Fatalf("timed out reading from %s", what)
-	}
-	panic("unreachable")
-}
-
-func chanReadConfig(c *gc.C, ch <-chan *config.Config, what string) (*config.Config, bool) {
-	select {
-	case envConfig, ok := <-ch:
-		return envConfig, ok
-	case <-time.After(10 * time.Second):
-		c.Fatalf("timed out reading from %s", what)
-	}
-	panic("unreachable")
-}
-
-func removeServiceAndUnits(c *gc.C, service *state.Application) {
-	// Destroy all units for the application.
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range units {
-		err = unit.EnsureDead()
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.Remove()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	err = service.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = service.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
 
 // apiAuthenticator represents a simple authenticator object with only the
 // SetPassword and Tag methods.  This will fit types from both the state
@@ -176,6 +131,7 @@ var scenarioStatus = &params.FullStatus{
 			Status: "available",
 			Data:   map[string]interface{}{},
 		},
+		SLA: "unsupported",
 	},
 	Machines: map[string]params.MachineStatus{
 		"0": {
@@ -231,7 +187,24 @@ var scenarioStatus = &params.FullStatus{
 			WantsVote:   false,
 		},
 	},
-	RemoteApplications: map[string]params.RemoteApplicationStatus{},
+	RemoteApplications: map[string]params.RemoteApplicationStatus{
+		"remote-db2": {
+			ApplicationURL:  "admin/prod.db2",
+			ApplicationName: "remote-db2",
+			Endpoints: []params.RemoteEndpoint{{
+				Name:      "database",
+				Interface: "db2",
+				Role:      "provider",
+				Scope:     "global",
+			}},
+			Relations: map[string][]string{},
+			Status: params.DetailedStatus{
+				Status: status.Unknown.String(),
+				Info:   "waiting for remote connection",
+				Data:   map[string]interface{}{},
+			},
+		},
+	},
 	Applications: map[string]params.ApplicationStatus{
 		"logging": {
 			Charm:  "local:quantal/logging-1",
@@ -424,6 +397,22 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-db2",
+		OfferName:   "hosted-db2",
+		URL:         "admin/prod.db2",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{
+			{
+				Name:      "database",
+				Interface: "db2",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 2; i++ {

@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
@@ -36,7 +36,7 @@ func (s *RelationSetSuite) TestHelp(c *gc.C) {
 		hctx, _ := s.newHookContext(t.relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, fmt.Sprintf(`
@@ -106,7 +106,7 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 
 	// Adjust the args and context for the filename.
 	filename, i := t.filename()
@@ -322,7 +322,7 @@ func (s *RelationSetSuite) TestInit(c *gc.C) {
 		t.log(c, i)
 		com, args, ctx := t.init(c, s)
 
-		err := testing.InitCommand(com, args)
+		err := cmdtesting.InitCommand(com, args)
 		if err == nil {
 			err = jujuc.HandleSettingsFile(com.(*jujuc.RelationSetCommand), ctx)
 		}
@@ -363,7 +363,7 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
 		rset.Settings = t.change
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		err = com.Run(ctx)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -378,9 +378,9 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	com, _ := jujuc.NewCommand(hctx, cmdString("relation-set"))
 
 	// The rel= is needed to make this a valid command.
-	ctx, err := testing.RunCommand(c, com, "--format", "foo", "rel=")
+	ctx, err := cmdtesting.RunCommand(c, com, "--format", "foo", "rel=")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
 }

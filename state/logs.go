@@ -361,6 +361,10 @@ const oplogOverlap = time.Minute
 // output of large broken models with logging at DEBUG.
 var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 
+// maxInitialLines limits the number of documents we will load into memory
+// so that we can iterate them in the correct order.
+var maxInitialLines = 10000
+
 // LogTailerState describes the methods on State required for logging to
 // the database.
 type LogTailerState interface {
@@ -379,12 +383,13 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 
 	session := st.MongoSession().Copy()
 	t := &logTailer{
-		modelUUID: st.ModelUUID(),
-		session:   session,
-		logsColl:  session.DB(logsDB).C(logsC).With(session),
-		params:    params,
-		logCh:     make(chan *LogRecord),
-		recentIds: newRecentIdTracker(maxRecentLogIds),
+		modelUUID:       st.ModelUUID(),
+		session:         session,
+		logsColl:        session.DB(logsDB).C(logsC).With(session),
+		params:          params,
+		logCh:           make(chan *LogRecord),
+		recentIds:       newRecentIdTracker(maxRecentLogIds),
+		maxInitialLines: maxInitialLines,
 	}
 	go func() {
 		err := t.loop()
@@ -397,15 +402,16 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 }
 
 type logTailer struct {
-	tomb      tomb.Tomb
-	modelUUID string
-	session   *mgo.Session
-	logsColl  *mgo.Collection
-	params    *LogTailerParams
-	logCh     chan *LogRecord
-	lastID    int64
-	lastTime  time.Time
-	recentIds *recentIdTracker
+	tomb            tomb.Tomb
+	modelUUID       string
+	session         *mgo.Session
+	logsColl        *mgo.Collection
+	params          *LogTailerParams
+	logCh           chan *LogRecord
+	lastID          int64
+	lastTime        time.Time
+	recentIds       *recentIdTracker
+	maxInitialLines int
 }
 
 // Logs implements the LogTailer interface.
@@ -443,22 +449,70 @@ func (t *logTailer) loop() error {
 	return errors.Trace(err)
 }
 
+func (t *logTailer) processReversed(query *mgo.Query) error {
+	// We must sort by exactly the fields in the index and exactly reversed
+	// so that Mongo will use the index and not try to sort in memory.
+	// Note (jam): 2017-04-19 if this is truly too much memory load we should
+	// a) limit InitialLines to something reasonable
+	// b) we *could* just load the object _ids and then do a forward query
+	//    on exactly those ids (though it races with new items being inserted)
+	// c) use the aggregation pipeline in Mongo 3.2 to write the docs to
+	//    a temp location and iterate them forward from there.
+	// (a) makes the most sense for me :)
+	if t.params.InitialLines > t.maxInitialLines {
+		return errors.Errorf("too many lines requested (%d) maximum is %d",
+			t.params.InitialLines, maxInitialLines)
+	}
+	query.Sort("-e", "-t", "-_id")
+	query.Limit(t.params.InitialLines)
+	iter := query.Iter()
+	queue := make([]logDoc, t.params.InitialLines)
+	cur := t.params.InitialLines
+	var doc logDoc
+	for iter.Next(&doc) {
+		select {
+		case <-t.tomb.Dying():
+			return errors.Trace(tomb.ErrDying)
+		default:
+		}
+		cur--
+		queue[cur] = doc
+		if cur == 0 {
+			break
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	// We loaded the queue in reverse order, truncate it to just the actual
+	// contents, and then return them in the correct order.
+	queue = queue[cur:]
+	for _, doc := range queue {
+		rec, err := logDocToRecord(&doc)
+		if err != nil {
+			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+		}
+		select {
+		case <-t.tomb.Dying():
+			return errors.Trace(tomb.ErrDying)
+		case t.logCh <- rec:
+			t.lastID = rec.ID
+			t.lastTime = rec.Time
+			t.recentIds.Add(doc.Id)
+		}
+	}
+	return nil
+}
+
 func (t *logTailer) processCollection() error {
 	// Create a selector from the params.
 	sel := t.paramsToSelector(t.params, "")
 	query := t.logsColl.Find(sel)
 
+	var doc logDoc
 	if t.params.InitialLines > 0 {
-		// This is a little racy but it's good enough.
-		count, err := query.Count()
-		if err != nil {
-			return errors.Annotate(err, "query count failed")
-		}
-		if skipOver := count - t.params.InitialLines; skipOver > 0 {
-			query = query.Skip(skipOver)
-		}
+		return t.processReversed(query)
 	}
-
 	// In tests, sorting by time can leave the result ordering
 	// underconstrained. Since object ids are (timestamp, machine id,
 	// process id, counter)
@@ -469,12 +523,9 @@ func (t *logTailer) processCollection() error {
 	// Important: it is critical that the sort index includes _id,
 	// otherwise MongoDB won't use the index, which risks hitting
 	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
-	//
-	// TODO(ericsnow) Sort only by _id once it is a sequential int.
 	iter := query.Sort("e", "t", "_id").Iter()
-	doc := new(logDoc)
-	for iter.Next(doc) {
-		rec, err := logDocToRecord(doc)
+	for iter.Next(&doc) {
+		rec, err := logDocToRecord(&doc)
 		if err != nil {
 			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
 		}
@@ -693,7 +744,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 	session, logsColl := initLogsSession(st)
 	defer session.Close()
 
-	modelUUIDs, err := getEnvsInLogs(logsColl)
+	modelUUIDs, err := getModelsInLogs(logsColl)
 	if err != nil {
 		return errors.Annotate(err, "failed to get log counts")
 	}
@@ -723,7 +774,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 			break
 		}
 
-		modelUUID, count, err := findEnvWithMostLogs(logsColl, modelUUIDs)
+		modelUUID, count, err := findModelWithMostLogs(logsColl, modelUUIDs)
 		if err != nil {
 			return errors.Annotate(err, "log count query failed")
 		}
@@ -796,10 +847,10 @@ func getCollectionMB(coll *mgo.Collection) (int, error) {
 	return result["size"].(int), nil
 }
 
-// getEnvsInLogs returns the unique model UUIDs that exist in
+// getModelsInLogs returns the unique model UUIDs that exist in
 // the logs collection. This uses the one of the indexes on the
 // collection and should be fast.
-func getEnvsInLogs(coll *mgo.Collection) ([]string, error) {
+func getModelsInLogs(coll *mgo.Collection) ([]string, error) {
 	var modelUUIDs []string
 	err := coll.Find(nil).Distinct("e", &modelUUIDs)
 	if err != nil {
@@ -808,13 +859,13 @@ func getEnvsInLogs(coll *mgo.Collection) ([]string, error) {
 	return modelUUIDs, nil
 }
 
-// findEnvWithMostLogs returns the modelUUID and log count for the
+// findModelWithMostLogs returns the modelUUID and log count for the
 // model with the most logs in the logs collection.
-func findEnvWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string, int, error) {
+func findModelWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string, int, error) {
 	var maxModelUUID string
 	var maxCount int
 	for _, modelUUID := range modelUUIDs {
-		count, err := getLogCountForEnv(logsColl, modelUUID)
+		count, err := getLogCountForModel(logsColl, modelUUID)
 		if err != nil {
 			return "", -1, errors.Trace(err)
 		}
@@ -826,9 +877,9 @@ func findEnvWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string,
 	return maxModelUUID, maxCount, nil
 }
 
-// getLogCountForEnv returns the number of log records stored for a
+// getLogCountForModel returns the number of log records stored for a
 // given model.
-func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
+func getLogCountForModel(coll *mgo.Collection, modelUUID string) (int, error) {
 	count, err := coll.Find(bson.M{"e": modelUUID}).Count()
 	if err != nil {
 		return -1, errors.Annotate(err, "failed to get log count")

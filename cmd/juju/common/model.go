@@ -28,6 +28,8 @@ type ModelInfo struct {
 	Status         ModelStatus                 `json:"status" yaml:"status"`
 	Users          map[string]ModelUserInfo    `json:"users" yaml:"users"`
 	Machines       map[string]ModelMachineInfo `json:"machines,omitempty" yaml:"machines,omitempty"`
+	SLA            string                      `json:"sla,omitempty" yaml:"sla,omitempty"`
+	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
 }
 
 // ModelMachineInfo contains information about a machine in a model.
@@ -96,6 +98,8 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		ProviderType:   info.ProviderType,
 		Users:          ModelUserInfoFromParams(info.Users, now),
 		Machines:       ModelMachineInfoFromParams(info.Machines),
+		SLA:            modelSLAFromParams(info.SLA),
+		SLAOwner:       modelSLAOwnerFromParams(info.SLA),
 	}, nil
 }
 
@@ -130,6 +134,20 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 		output[names.NewUserTag(info.UserName).Id()] = outInfo
 	}
 	return output
+}
+
+func modelSLAFromParams(sla *params.ModelSLAInfo) string {
+	if sla == nil {
+		return ""
+	}
+	return sla.Level
+}
+
+func modelSLAOwnerFromParams(sla *params.ModelSLAInfo) string {
+	if sla == nil {
+		return ""
+	}
+	return sla.Owner
 }
 
 // OwnerQualifiedModelName returns the model name qualified with the

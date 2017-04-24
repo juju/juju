@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"time"
@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/resource"
+	resourcecmd "github.com/juju/juju/resource/cmd"
 )
 
 var _ = gc.Suite(&ShowServiceSuite{})
@@ -36,28 +37,28 @@ func (s *ShowServiceSuite) SetUpTest(c *gc.C) {
 }
 
 func (*ShowServiceSuite) TestInitEmpty(c *gc.C) {
-	s := ShowServiceCommand{}
+	s := resourcecmd.ShowServiceCommand{}
 
 	err := s.Init([]string{})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*ShowServiceSuite) TestInitGood(c *gc.C) {
-	s := ShowServiceCommand{}
+	s := resourcecmd.ShowServiceCommand{}
 	err := s.Init([]string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.target, gc.Equals, "foo")
+	c.Assert(resourcecmd.ShowServiceCommandTarget(&s), gc.Equals, "foo")
 }
 
 func (*ShowServiceSuite) TestInitTooManyArgs(c *gc.C) {
-	s := ShowServiceCommand{}
+	s := resourcecmd.ShowServiceCommand{}
 
 	err := s.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (s *ShowServiceSuite) TestInfo(c *gc.C) {
-	var command ShowServiceCommand
+	var command resourcecmd.ShowServiceCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
@@ -163,11 +164,9 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := &ShowServiceCommand{
-		deps: ShowServiceDeps{
-			NewClient: s.stubDeps.NewClient,
-		},
-	}
+	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+		NewClient: s.stubDeps.NewClient,
+	})
 
 	code, stdout, stderr := runCmd(c, cmd, "svc")
 	c.Check(code, gc.Equals, 0)
@@ -226,11 +225,9 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := &ShowServiceCommand{
-		deps: ShowServiceDeps{
-			NewClient: s.stubDeps.NewClient,
-		},
-	}
+	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+		NewClient: s.stubDeps.NewClient,
+	})
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/0")
 	c.Assert(code, gc.Equals, 0)
@@ -390,11 +387,9 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := &ShowServiceCommand{
-		deps: ShowServiceDeps{
-			NewClient: s.stubDeps.NewClient,
-		},
-	}
+	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+		NewClient: s.stubDeps.NewClient,
+	})
 
 	code, stdout, stderr := runCmd(c, cmd, "svc", "--details")
 	c.Check(code, gc.Equals, 0)
@@ -530,11 +525,9 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := &ShowServiceCommand{
-		deps: ShowServiceDeps{
-			NewClient: s.stubDeps.NewClient,
-		},
-	}
+	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+		NewClient: s.stubDeps.NewClient,
+	})
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/10", "--details")
 	c.Assert(code, gc.Equals, 0)
@@ -557,7 +550,7 @@ type stubShowServiceDeps struct {
 	client *stubServiceClient
 }
 
-func (s *stubShowServiceDeps) NewClient(c *ShowServiceCommand) (ShowServiceClient, error) {
+func (s *stubShowServiceDeps) NewClient(c *resourcecmd.ShowServiceCommand) (resourcecmd.ShowServiceClient, error) {
 	s.stub.AddCall("NewClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

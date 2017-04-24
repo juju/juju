@@ -53,107 +53,117 @@ func (APICallerFunc) ConnectControllerStream(path string, attrs url.Values, head
 	return nil, errors.NotImplementedf("controller stream connection")
 }
 
-// CheckArgs holds the possible arguments to CheckingAPICaller(). Any
-// fields non empty fields will be checked to match the arguments
-// recieved by the APICall() method of the returned APICallerFunc. If
-// Id is empty, but IdIsEmpty is true, the id argument is checked to
-// be empty. The same applies to Version being empty, but if
-// VersionIsZero set to true the version is checked to be 0.
-type CheckArgs struct {
-	Facade  string
+// CallChecker is an APICaller implementation that checks
+// calls as they are made.
+type CallChecker struct {
+	APICallerFunc
+
+	// CallCount records the current call count.
+	CallCount int
+}
+
+// APICall describes an expected API call.
+type APICall struct {
+	// If Check is non-nil, all other fields will be ignored and Check
+	// will be called to check the call.
+	Check func(objType string, version int, id, request string, params, response interface{}) error
+
+	// Facade holds the expected call facade. If it's empty,
+	// any facade will be accepted.
+	Facade string
+
+	// Version holds the expected call version. If it's zero,
+	// any version will be accepted unless VersionIsZero is true.
 	Version int
-	Id      string
-	Method  string
-	Args    interface{}
+
+	// VersionIsZero holds whether the version is expected to be zero.
+	VersionIsZero bool
+
+	// Id holds the expected call id. If it's empty, any id will be
+	// accepted unless IdIsEmpty is true.
+	Id string
+
+	// IdIsEmpty holds whether the call id is expected to be empty.
+	IdIsEmpty bool
+
+	// Method holds the expected method.
+	Method string
+
+	// Args holds the expected value of the call's argument.
+	Args interface{}
+
+	// Results is assigned to the result parameter of the call on return.
 	Results interface{}
 
-	IdIsEmpty     bool
-	VersionIsZero bool
+	// Error is returned from the call.
+	Error error
 }
 
-func checkArgs(c *gc.C, args *CheckArgs, facade string, version int, id, method string, inArgs, outResults interface{}) {
-	if args == nil {
-		c.Logf("checkArgs: args is nil!")
-		return
-	} else {
-		if args.Facade != "" {
-			c.Check(facade, gc.Equals, args.Facade)
+// APICallChecker returns an APICaller implementation that checks
+// API calls. Each element of calls corresponds to an expected
+// API call. If more calls are made than there are elements, they
+// will not be checked - check the value of the Count field
+// to ensure that the expected number of calls have been made.
+//
+// Note that the returned value is not thread-safe - do not
+// use it if the client is making concurrent calls.
+func APICallChecker(c *gc.C, calls ...APICall) *CallChecker {
+	var checker CallChecker
+	checker.APICallerFunc = func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
+		call := checker.CallCount
+		checker.CallCount++
+		if call >= len(calls) {
+			return nil
 		}
-		if args.Version != 0 {
-			c.Check(version, gc.Equals, args.Version)
-		} else if args.VersionIsZero {
-			c.Check(version, gc.Equals, 0)
-		}
-		if args.Id != "" {
-			c.Check(id, gc.Equals, args.Id)
-		} else if args.IdIsEmpty {
-			c.Check(id, gc.Equals, "")
-		}
-		if args.Method != "" {
-			c.Check(method, gc.Equals, args.Method)
-		}
-		if args.Args != nil {
-			c.Check(inArgs, jc.DeepEquals, args.Args)
-		}
-		if args.Results != nil {
-			c.Check(outResults, gc.NotNil)
-			testing.PatchValue(outResults, args.Results)
-		}
+		return checkArgs(c, calls[call], facade, version, id, method, inArgs, outResults)
 	}
+	return &checker
 }
 
-// CheckingAPICaller returns an APICallerFunc which can report the
-// number of times its APICall() method was called (if numCalls is not
-// nil), as well as check if any of the arguments passed to the
-// APICall() method match the values given in args (if args itself is
-// not nil, otherwise no arguments are checked). The final error
-// result of the APICall() will be set to err.
-func CheckingAPICaller(c *gc.C, args *CheckArgs, numCalls *int, err error) base.APICallCloser {
-	return APICallerFunc(
-		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
-			if numCalls != nil {
-				*numCalls++
-			}
-			if args != nil {
-				checkArgs(c, args, facade, version, id, method, inArgs, outResults)
-			}
-			return err
-		},
-	)
-}
-
-// NotifyingCheckingAPICaller returns an APICallerFunc which sends a message on the channel "called" every
-// time it recives a call, as well as check if any of the arguments passed to the APICall() method match
-// the values given in args (if args itself is not nil, otherwise no arguments are checked). The final
-// error result of the APICall() will be set to err.
-func NotifyingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, err error) base.APICaller {
-	return APICallerFunc(
-		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
-			called <- struct{}{}
-			if args != nil {
-				checkArgs(c, args, facade, version, id, method, inArgs, outResults)
-			}
-			return err
-		},
-	)
-}
-
-// CheckingAPICallerMultiArgs checks each call against the indexed expected argument. Once expected
-// arguments run out it doesn't check them. This is useful if your test continues to make calls after
-// you have checked the ones you care about.
-func CheckingAPICallerMultiArgs(c *gc.C, args []CheckArgs, numCalls *int, err error) base.APICallCloser {
-	if numCalls == nil {
-		panic("numCalls must be non-nill")
+func checkArgs(c *gc.C, args APICall, facade string, version int, id, method string, inArgs, outResults interface{}) error {
+	if args.Facade != "" {
+		c.Check(facade, gc.Equals, args.Facade)
 	}
-	return APICallerFunc(
-		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
-			if len(args) > *numCalls {
-				checkArgs(c, &args[*numCalls], facade, version, id, method, inArgs, outResults)
-			}
-			*numCalls++
-			return err
-		},
-	)
+	if args.Version != 0 {
+		c.Check(version, gc.Equals, args.Version)
+	} else if args.VersionIsZero {
+		c.Check(version, gc.Equals, 0)
+	}
+	if args.Id != "" {
+		c.Check(id, gc.Equals, args.Id)
+	} else if args.IdIsEmpty {
+		c.Check(id, gc.Equals, "")
+	}
+	if args.Method != "" {
+		c.Check(method, gc.Equals, args.Method)
+	}
+	if args.Args != nil {
+		c.Check(inArgs, jc.DeepEquals, args.Args)
+	}
+	if args.Results != nil {
+		c.Check(outResults, gc.NotNil)
+		testing.PatchValue(outResults, args.Results)
+	}
+	return args.Error
+}
+
+type notifyingAPICaller struct {
+	base.APICaller
+	called chan<- struct{}
+}
+
+func (c notifyingAPICaller) APICall(objType string, version int, id, request string, params, response interface{}) error {
+	c.called <- struct{}{}
+	return c.APICaller.APICall(objType, version, id, request, params, response)
+}
+
+// NotifyingAPICaller returns an APICaller implementation which sends a
+// message on the given channel every time it receives a call.
+func NotifyingAPICaller(c *gc.C, called chan<- struct{}, caller base.APICaller) base.APICaller {
+	return notifyingAPICaller{
+		APICaller: caller,
+		called:    called,
+	}
 }
 
 // StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.

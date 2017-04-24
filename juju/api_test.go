@@ -83,7 +83,7 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclient.ClientStore) {
 	const controllerName = "my-controller"
 
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 
 	ctx := envtesting.BootstrapContext(c)
 
@@ -272,8 +272,8 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 
 // newClientStore returns a client store that contains information
 // based on the given controller name and info.
-func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore {
-	store := jujuclienttesting.NewMemStore()
+func newClientStore(c *gc.C, controllerName string) *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
 	err := store.AddController(controllerName, jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
 		CACert:         "certificate",

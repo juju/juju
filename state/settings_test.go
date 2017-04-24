@@ -83,7 +83,7 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 	var mgoData struct {
 		Settings settingsMap
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,7 +168,7 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	var mgoData struct {
 		Settings settingsMap
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,7 +196,7 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,7 +236,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,7 +257,7 @@ func (s *SettingsSuite) TestcreateSettingsEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 
 	err = settings.FindId(s.key).One(&mgoData)
@@ -416,7 +416,7 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)

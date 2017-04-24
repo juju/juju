@@ -276,7 +276,7 @@ var ensureActionMarker = ensureSuffixFn(actionMarker)
 // Action returns an Action by Id, which is a UUID.
 func (st *State) Action(id string) (Action, error) {
 	actionLogger.Tracef("Action() %q", id)
-	actions, closer := st.getCollection(actionsC)
+	actions, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	doc := actionDoc{}
@@ -294,7 +294,7 @@ func (st *State) Action(id string) (Action, error) {
 // AllActions returns all Actions.
 func (st *State) AllActions() ([]Action, error) {
 	actionLogger.Tracef("AllActions()")
-	actions, closer := st.getCollection(actionsC)
+	actions, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	results := []Action{}
@@ -323,7 +323,7 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 		Id string `bson:"_id"`
 	}
 
-	actions, closer := st.getCollection(actionsC)
+	actions, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}).Iter()
@@ -344,7 +344,7 @@ func (st *State) FindActionsByName(name string) ([]Action, error) {
 	var results []Action
 	var doc actionDoc
 
-	actions, closer := st.getCollection(actionsC)
+	actions, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	iter := actions.Find(bson.D{{"name", name}}).Iter()
@@ -412,7 +412,7 @@ func (st *State) matchingActionsByReceiverId(id string) ([]Action, error) {
 	var doc actionDoc
 	var actions []Action
 
-	actionsCollection, closer := st.getCollection(actionsC)
+	actionsCollection, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	iter := actionsCollection.Find(bson.D{{"receiver", id}}).Iter()
@@ -453,7 +453,7 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 	var doc actionDoc
 	var actions []Action
 
-	actionsCollection, closer := st.getCollection(actionsC)
+	actionsCollection, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	sel := append(bson.D{{"receiver", tag.Id()}}, statusCondition...)

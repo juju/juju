@@ -35,7 +35,7 @@ func (st *State) setControllerAccess(access permission.Access, userGlobalKey str
 // controllerUser a model userAccessDoc.
 func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 	controllerUser := userAccessDoc{}
-	controllerUsers, closer := st.getCollection(controllerUsersC)
+	controllerUsers, closer := st.db().GetCollection(controllerUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Id())

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -32,7 +32,7 @@ import (
 type syncToolsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	fakeSyncToolsAPI *fakeSyncToolsAPI
-	store            *jujuclienttesting.MemStore
+	store            *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&syncToolsSuite{})
@@ -43,7 +43,7 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil
 	})
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
@@ -58,7 +58,7 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 func (s *syncToolsSuite) runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmd := &syncToolsCommand{}
 	cmd.SetClientStore(s.store)
-	return coretesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var syncToolsCommandTests = []struct {

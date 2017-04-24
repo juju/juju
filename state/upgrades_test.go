@@ -5,14 +5,18 @@ package state
 
 import (
 	"reflect"
+	"sort"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/testing"
 )
 
 type upgradesSuite struct {
@@ -323,6 +327,7 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, 
 				doc := d
 				delete(doc, "txn-queue")
 				delete(doc, "txn-revno")
+				delete(doc, "version")
 				docs[i] = doc
 			}
 			c.Assert(docs, jc.DeepEquals, expect.expected)
@@ -921,4 +926,160 @@ func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
 	s.assertUpgradedData(c, RemoveNilValueApplicationSettings,
 		expectUpgradedData{settingsColl, expectedSettings},
 	)
+}
+
+func (s *upgradesSuite) TestAddControllerLogPruneSettingsKeepExisting(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "controllerSettings",
+		"settings": bson.M{
+			"key":           "value",
+			"max-logs-age":  "96h",
+			"max-logs-size": "5G",
+		},
+	}, bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-controller data: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "controllerSettings",
+			"settings": bson.M{
+				"key":           "value",
+				"max-logs-age":  "96h",
+				"max-logs-size": "5G",
+			},
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+
+	s.assertUpgradedData(c, AddControllerLogPruneSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
+func (s *upgradesSuite) TestAddControllerLogPruneSettings(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id":      "controllerSettings",
+		"settings": bson.M{"key": "value"},
+	}, bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-controller data: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "controllerSettings",
+			"settings": bson.M{
+				"key":           "value",
+				"max-logs-age":  "72h",
+				"max-logs-size": "4096M",
+			},
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+
+	s.assertUpgradedData(c, AddControllerLogPruneSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
+func (s *upgradesSuite) makeModel(c *gc.C, name string, attr testing.Attrs) *State {
+	uuid := utils.MustNewUUID()
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": name,
+		"uuid": uuid.String(),
+	}.Merge(attr))
+	m, err := s.state.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, st, err := s.state.NewModel(ModelArgs{
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       m.Owner(),
+		StorageProviderRegistry: provider.CommonStorageProviders(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return st
+}
+
+func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m1 := s.makeModel(c, "m1", testing.Attrs{
+		"max-status-history-age":  "96h",
+		"max-status-history-size": "4G",
+	})
+	defer m1.Close()
+
+	m2 := s.makeModel(c, "m2", testing.Attrs{})
+	defer m2.Close()
+
+	err = settingsColl.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg1, err := m1.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected1 := cfg1.AllAttrs()
+	expected1["resource-tags"] = ""
+
+	cfg2, err := m2.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected2 := cfg2.AllAttrs()
+	expected2["max-status-history-age"] = "336h"
+	expected2["max-status-history-size"] = "5G"
+	expected2["resource-tags"] = ""
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	s.assertUpgradedData(c, AddStatusHistoryPruneSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
+type bsonMById []bson.M
+
+func (x bsonMById) Len() int { return len(x) }
+
+func (x bsonMById) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+
+func (x bsonMById) Less(i, j int) bool {
+	return x[i]["_id"].(string) < x[j]["_id"].(string)
 }

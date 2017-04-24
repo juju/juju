@@ -10,17 +10,19 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// API is the concrete implementation of the Pruner endpoint..
+// API is the concrete implementation of the Pruner endpoint.
 type API struct {
+	*common.ModelWatcher
 	st         *state.State
 	authorizer facade.Authorizer
 }
 
 // NewAPI returns an API Instance.
-func NewAPI(st *state.State, _ facade.Resources, auth facade.Authorizer) (*API, error) {
+func NewAPI(st *state.State, r facade.Resources, auth facade.Authorizer) (*API, error) {
 	return &API{
-		st:         st,
-		authorizer: auth,
+		ModelWatcher: common.NewModelWatcher(st, r, auth),
+		st:           st,
+		authorizer:   auth,
 	}, nil
 }
 

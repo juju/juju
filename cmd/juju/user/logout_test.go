@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type LogoutCommandSuite struct {
@@ -31,7 +31,7 @@ func (s *LogoutCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *LogoutCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmd, _ := user.NewLogoutCommandForTest(s.store)
-	return coretesting.RunCommand(c, cmd, args...)
+	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 func (s *LogoutCommandSuite) TestInit(c *gc.C) {
@@ -51,7 +51,7 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		wrappedCommand, _ := user.NewLogoutCommandForTest(s.store)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -88,8 +88,8 @@ func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
 	s.setPassword(c, "testing", "")
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Logged out. You are no longer logged into any controllers.
 `[1:],
 	)
@@ -123,8 +123,8 @@ func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
 	for i, controller := range controllers {
 		ctx, err := s.run(c, "-c", controller)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
-		c.Assert(coretesting.Stderr(ctx), gc.Equals, expected[i])
+		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expected[i])
 	}
 }
 
@@ -158,8 +158,8 @@ func (s *LogoutCommandSuite) TestLogoutNotLoggedIn(c *gc.C) {
 	delete(s.store.Accounts, "testing")
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Logged out. You are no longer logged into any controllers.
 `[1:],
 	)

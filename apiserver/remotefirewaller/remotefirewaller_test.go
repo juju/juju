@@ -69,10 +69,14 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 
 	unit := newMockUnit("django/0")
 	unit.publicAddress = network.NewScopedAddress("1.2.3.4", network.ScopePublic)
+	unit.machineId = "0"
 	s.st.units["django/0"] = unit
-	unit1 := newMockUnit("django/0")
+	unit1 := newMockUnit("django/1")
 	unit1.publicAddress = network.NewScopedAddress("4.3.2.1", network.ScopePublic)
+	unit1.machineId = "1"
 	s.st.units["django/1"] = unit1
+	s.st.machines["0"] = newMockMachine("0")
+	s.st.machines["1"] = newMockMachine("1")
 	app := newMockApplication("django")
 	app.units = []*mockUnit{unit, unit1}
 	s.st.applications["django"] = app
@@ -96,6 +100,8 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
 		{"Application", []interface{}{"django"}},
 		{"Application", []interface{}{"django"}},
+		{"Machine", []interface{}{"0"}},
+		{"Machine", []interface{}{"1"}},
 	})
 }
 

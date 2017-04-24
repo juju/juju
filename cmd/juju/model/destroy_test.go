@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,11 +19,10 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -33,7 +33,7 @@ type DestroySuite struct {
 	configAPI       *fakeConfigAPI
 	stub            *jutesting.Stub
 	budgetAPIClient *mockBudgetAPIClient
-	store           *jujuclienttesting.MemStore
+	store           *jujuclient.MemStore
 	sleep           func(time.Duration)
 }
 
@@ -81,7 +81,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.configAPI = &fakeConfigAPI{}
 	s.configAPI.err = nil
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "test1"
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{ControllerUUID: "test1-uuid"}
 	s.store.Models["test1"] = &jujuclient.ControllerModels{
@@ -102,7 +102,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, noOpRefresh, s.store, s.sleep)
-	return testing.RunCommand(c, cmd, args...)
+	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
@@ -144,7 +144,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 	}
 
 	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, refresh, s.store, s.sleep)
-	_, err := testing.RunCommand(c, cmd, "foo")
+	_, err := cmdtesting.RunCommand(c, cmd, "foo")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, `cannot read model info: model test1:admin/foo not found`)
 }
@@ -198,24 +198,19 @@ func (s *DestroySuite) TestDestroyWithSupportedSLA(c *gc.C) {
 	s.configAPI.slaLevel = "standard"
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(cmars): fix DeleteAllocation on model destroy
-	//s.stub.CheckCalls(c, []jutesting.StubCall{{
-	//	"DeleteAllocation", []interface{}{"test2-uuid"},
-	//}})
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCalls(c, []jutesting.StubCall{{
+		"DeleteBudget", []interface{}{"test2-uuid"},
+	}})
 }
 
 func (s *DestroySuite) TestDestroyWithSupportedSLAFailure(c *gc.C) {
 	s.configAPI.slaLevel = "standard"
 	s.stub.SetErrors(errors.New("bah"))
 	_, err := s.runDestroyCommand(c, "test2", "-y")
-	// TODO(cmars): fix DeleteAllocation on model destroy
-	//c.Assert(err, gc.ErrorMatches, `bah`)
-	//s.stub.CheckCalls(c, []jutesting.StubCall{{
-	//	"DeleteAllocation", []interface{}{"test2-uuid"},
-	//}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCalls(c, []jutesting.StubCall{{
+		"DeleteBudget", []interface{}{"test2-uuid"},
+	}})
 }
 
 func (s *DestroySuite) resetModel(c *gc.C) {
@@ -236,34 +231,34 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
+	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
+	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
 	checkModelExistsInStore(c, "test1:admin/test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
-	_, errc = cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
+	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
+	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
-		_, errc = cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
+		_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 		select {
 		case err := <-errc:
 			c.Check(err, jc.ErrorIsNil)
@@ -288,7 +283,7 @@ type mockBudgetAPIClient struct {
 	*jutesting.Stub
 }
 
-func (c *mockBudgetAPIClient) DeleteAllocation(model string) (string, error) {
-	c.MethodCall(c, "DeleteAllocation", model)
-	return "Allocation removed.", c.NextErr()
+func (c *mockBudgetAPIClient) DeleteBudget(model string) (string, error) {
+	c.MethodCall(c, "DeleteBudget", model)
+	return "Budget removed.", c.NextErr()
 }

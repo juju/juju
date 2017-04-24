@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,35 +25,35 @@ var _ = gc.Suite(&defaultCredentialSuite{})
 
 func (s *defaultCredentialSuite) TestBadArgs(c *gc.C) {
 	cmd := cloud.NewSetDefaultCredentialCommand()
-	_, err := testing.RunCommand(c, cmd)
+	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "Usage: juju set-default-credential <cloud-name> <credential-name>")
-	_, err = testing.RunCommand(c, cmd, "cloud", "credential", "extra")
+	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "credential", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *defaultCredentialSuite) TestBadCredential(c *gc.C) {
 	cmd := cloud.NewSetDefaultCredentialCommand()
-	_, err := testing.RunCommand(c, cmd, "aws", "foo")
+	_, err := cmdtesting.RunCommand(c, cmd, "aws", "foo")
 	c.Assert(err, gc.ErrorMatches, `credential "foo" for cloud aws not valid`)
 }
 
 func (s *defaultCredentialSuite) TestBadCloudName(c *gc.C) {
 	cmd := cloud.NewSetDefaultCredentialCommand()
-	_, err := testing.RunCommand(c, cmd, "somecloud", "us-west-1")
+	_, err := cmdtesting.RunCommand(c, cmd, "somecloud", "us-west-1")
 	c.Assert(err, gc.ErrorMatches, `cloud somecloud not valid`)
 }
 
 func (s *defaultCredentialSuite) assertSetDefaultCredential(c *gc.C, cloudName string) {
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.Credentials[cloudName] = jujucloud.CloudCredential{
 		AuthCredentials: map[string]jujucloud.Credential{
 			"my-sekrets": {},
 		},
 	}
 	cmd := cloud.NewSetDefaultCredentialCommandForTest(store)
-	ctx, err := testing.RunCommand(c, cmd, cloudName, "my-sekrets")
+	ctx, err := cmdtesting.RunCommand(c, cmd, cloudName, "my-sekrets")
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	c.Assert(output, gc.Equals, fmt.Sprintf(`Default credential for %s set to "my-sekrets".`, cloudName))
 	c.Assert(store.Credentials[cloudName].DefaultCredential, gc.Equals, "my-sekrets")

@@ -239,7 +239,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 }
 
 func getInstanceData(st *State, id string) (instanceData, error) {
-	instanceDataCollection, closer := st.getCollection(instanceDataC)
+	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
 	defer closer()
 
 	var instData instanceData
@@ -514,7 +514,7 @@ func IsHasAssignedUnitsError(err error) bool {
 // Containers returns the container ids belonging to a parent machine.
 // TODO(wallyworld): move this method to a service
 func (m *Machine) Containers() ([]string, error) {
-	containerRefs, closer := m.st.getCollection(containerRefsC)
+	containerRefs, closer := m.st.db().GetCollection(containerRefsC)
 	defer closer()
 
 	var mc machineContainers
@@ -1042,7 +1042,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
-	unitsCollection, closer := m.st.getCollection(unitsC)
+	unitsCollection, closer := m.st.db().GetCollection(unitsC)
 	defer closer()
 
 	pudocs := []unitDoc{}

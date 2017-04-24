@@ -5,12 +5,12 @@ package backups_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/testing"
 )
 
 type downloadSuite struct {
@@ -48,7 +48,7 @@ func (s *downloadSuite) setSuccess() *fakeAPIClient {
 
 func (s *downloadSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, s.metaresult.ID)
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.metaresult.ID)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
@@ -58,7 +58,7 @@ func (s *downloadSuite) TestOkay(c *gc.C) {
 
 func (s *downloadSuite) TestFilename(c *gc.C) {
 	s.setSuccess()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, s.metaresult.ID, "--filename", "backup.tar.gz")
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.metaresult.ID, "--filename", "backup.tar.gz")
 	c.Check(err, jc.ErrorIsNil)
 
 	s.filename = "backup.tar.gz"
@@ -68,6 +68,6 @@ func (s *downloadSuite) TestFilename(c *gc.C) {
 
 func (s *downloadSuite) TestError(c *gc.C) {
 	s.setFailure("failed!")
-	_, err := testing.RunCommand(c, s.wrappedCommand, s.metaresult.ID)
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.metaresult.ID)
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

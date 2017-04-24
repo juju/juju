@@ -71,9 +71,9 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		Used:             used,
 		Timestamp:        res.Timestamp,
 		Username:         res.Username,
-		combinedRevision: combinedRevision(res),
-		combinedOrigin:   combinedOrigin(used, res),
-		usedYesNo:        usedYesNo(used),
+		CombinedRevision: combinedRevision(res),
+		CombinedOrigin:   combinedOrigin(used, res),
+		UsedYesNo:        usedYesNo(used),
 	}
 }
 
@@ -131,24 +131,23 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 	progressStr := ""
 	fUnit := FormatSvcResource(unit)
 	expected := FormatSvcResource(svc)
-	revProgress := expected.combinedRevision
+	revProgress := expected.CombinedRevision
 	if progress >= 0 {
 		progressStr = "100%"
 		if expected.Size > 0 {
 			progressStr = fmt.Sprintf("%.f%%", float64(progress)*100.0/float64(expected.Size))
 		}
-		if fUnit.combinedRevision != expected.combinedRevision {
-			revProgress = fmt.Sprintf("%s (fetching: %s)", expected.combinedRevision, progressStr)
+		if fUnit.CombinedRevision != expected.CombinedRevision {
+			revProgress = fmt.Sprintf("%s (fetching: %s)", expected.CombinedRevision, progressStr)
 		}
 	}
 	return FormattedDetailResource{
 		UnitID:      tag.Id(),
-		unitNumber:  unitNum,
+		UnitNumber:  unitNum,
 		Unit:        fUnit,
 		Expected:    expected,
 		Progress:    progress,
-		progress:    progressStr,
-		revProgress: revProgress,
+		RevProgress: revProgress,
 	}, nil
 }
 

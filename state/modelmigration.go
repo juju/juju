@@ -447,7 +447,7 @@ func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Pha
 	}}
 	err = mig.st.runTransaction(ops)
 	if errors.Cause(err) == txn.ErrAborted {
-		coll, closer := mig.st.getCollection(migrationsMinionSyncC)
+		coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
 		defer closer()
 		var existingDoc modelMigMinionSyncDoc
 		err := coll.FindId(docID).Select(bson.M{"success": 1}).One(&existingDoc)
@@ -477,7 +477,7 @@ func (mig *modelMigration) MinionReports() (*MinionReports, error) {
 		return nil, errors.Annotate(err, "retrieving phase")
 	}
 
-	coll, closer := mig.st.getCollection(migrationsMinionSyncC)
+	coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
 	defer closer()
 	query := coll.Find(bson.M{"_id": bson.M{
 		"$regex": "^" + mig.minionReportId(phase, ".+"),
@@ -567,7 +567,7 @@ func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert fun
 	// During migrations we know that nothing there are no machines or
 	// units being provisioned or destroyed so a simple query of the
 	// collections will do.
-	coll, closer := mig.st.getCollection(collName)
+	coll, closer := mig.st.db().GetCollection(collName)
 	defer closer()
 	var docs []bson.M
 	err := coll.Find(nil).Select(bson.M{fieldName: 1}).All(&docs)
@@ -590,7 +590,7 @@ func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert fun
 func (mig *modelMigration) Refresh() error {
 	// Only the status document is updated. The modelMigDoc is static
 	// after creation.
-	statusColl, closer := mig.st.getCollection(migrationsStatusC)
+	statusColl, closer := mig.st.db().GetCollection(migrationsStatusC)
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err := statusColl.FindId(mig.doc.Id).One(&statusDoc)
@@ -767,7 +767,7 @@ func checkTargetController(st *State, targetControllerTag names.ControllerTag) e
 // LatestMigration returns the most recent ModelMigration for a model
 // (if any).
 func (st *State) LatestMigration() (ModelMigration, error) {
-	migColl, closer := st.getCollection(migrationsC)
+	migColl, closer := st.db().GetCollection(migrationsC)
 	defer closer()
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
 	query = query.Sort("-attempt").Limit(1)
@@ -798,7 +798,7 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 // Migration retrieves a specific ModelMigration by its id. See also
 // LatestMigration.
 func (st *State) Migration(id string) (ModelMigration, error) {
-	migColl, closer := st.getCollection(migrationsC)
+	migColl, closer := st.db().GetCollection(migrationsC)
 	defer closer()
 	mig, err := st.migrationFromQuery(migColl.FindId(id))
 	if err != nil {
@@ -816,7 +816,7 @@ func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 		return nil, errors.Annotate(err, "migration lookup failed")
 	}
 
-	statusColl, closer := st.getCollection(migrationsStatusC)
+	statusColl, closer := st.db().GetCollection(migrationsStatusC)
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err = statusColl.FindId(doc.Id).One(&statusDoc)
@@ -843,7 +843,7 @@ func (st *State) IsMigrationActive() (bool, error) {
 // the model with the given UUID. The State provided need not be for
 // the model in question.
 func IsMigrationActive(st *State, modelUUID string) (bool, error) {
-	active, closer := st.getCollection(migrationsActiveC)
+	active, closer := st.db().GetCollection(migrationsActiveC)
 	defer closer()
 	n, err := active.FindId(modelUUID).Count()
 	if err != nil {

@@ -222,7 +222,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSLA(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("creds"))
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 	newModel, newSt := s.importModel(c)
 

@@ -6,11 +6,11 @@ package commands
 import (
 	"runtime"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujussh "github.com/juju/juju/network/ssh"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&DebugHooksSuite{})
@@ -135,13 +135,13 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 		s.setHostChecker(t.hostChecker)
 		s.setForceAPIv1(t.forceAPIv1)
 
-		ctx, err := coretesting.RunCommand(c, newDebugHooksCommand(s.hostChecker), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, newDebugHooksCommand(s.hostChecker), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			if t.expected != nil {
-				t.expected.check(c, coretesting.Stdout(ctx))
+				t.expected.check(c, cmdtesting.Stdout(ctx))
 			}
 		}
 	}

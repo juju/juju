@@ -224,7 +224,7 @@ func (st *State) AddModelMetrics(batch ModelBatchParam) (*MetricBatch, error) {
 //                  it needs to be modified to restrict the scope of the values it
 //                  returns if it is to be used outside of tests.
 func (st *State) AllMetricBatches() ([]MetricBatch, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
 	err := c.Find(nil).All(&docs)
@@ -239,7 +239,7 @@ func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 }
 
 func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
 	err := c.Find(query).Sort("created").All(&docs)
@@ -286,7 +286,7 @@ func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch,
 
 // MetricBatch returns the metric batch with the given id.
 func (st *State) MetricBatch(id string) (*MetricBatch, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	doc := metricBatchDoc{}
 	err := c.Find(bson.M{"_id": id}).One(&doc)
@@ -303,7 +303,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	now := st.clock.Now()
-	metrics, closer := st.getCollection(metricsC)
+	metrics, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
 	// to watch them either; so in this instance it's safe to do an end run around the
@@ -325,7 +325,7 @@ func (st *State) CleanupOldMetrics() error {
 // to the collector
 func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	var docs []metricBatchDoc
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 
 	q := bson.M{
@@ -349,7 +349,7 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 // CountOfUnsentMetrics returns the number of metrics that
 // haven't been sent to the collection service.
 func (st *State) CountOfUnsentMetrics() (int, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
 		"model-uuid": st.ModelUUID(),
@@ -361,7 +361,7 @@ func (st *State) CountOfUnsentMetrics() (int, error) {
 // have been sent to the collection service and have not
 // been removed by the cleanup worker.
 func (st *State) CountOfSentMetrics() (int, error) {
-	c, closer := st.getCollection(metricsC)
+	c, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
 		"model-uuid": st.ModelUUID(),

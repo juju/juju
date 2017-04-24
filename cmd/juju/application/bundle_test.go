@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -34,8 +35,8 @@ import (
 // charm or bundle. The deployment output and error are returned.
 func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {
 	args = append([]string{id}, args...)
-	ctx, err := coretesting.RunCommand(c, NewDefaultDeployCommand(), args...)
-	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
+	ctx, err := cmdtesting.RunCommand(c, NewDefaultDeployCommand(), args...)
+	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {

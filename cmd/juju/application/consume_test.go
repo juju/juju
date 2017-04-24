@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -12,14 +13,12 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ConsumeSuite struct {
 	testing.IsolationSuite
 	mockAPI *mockConsumeAPI
-	store   *jujuclienttesting.MemStore
+	store   *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ConsumeSuite{})
@@ -31,7 +30,7 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "test-master"
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Models[controllerName] = &jujuclient.ControllerModels{
@@ -47,7 +46,7 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConsumeSuite) runConsume(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, application.NewConsumeCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, application.NewConsumeCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *ConsumeSuite) TestNoArguments(c *gc.C) {
@@ -88,7 +87,7 @@ func (s *ConsumeSuite) TestSuccessModelDotApplication(c *gc.C) {
 		{"Consume", []interface{}{"bob/booster.uke", ""}},
 		{"Close", nil},
 	})
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
 }
 
 func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *gc.C) {
@@ -99,7 +98,7 @@ func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *gc.C) {
 		{"Consume", []interface{}{"bob/booster.uke", "alias"}},
 		{"Close", nil},
 	})
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
 }
 
 type mockConsumeAPI struct {

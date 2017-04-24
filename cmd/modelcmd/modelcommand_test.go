@@ -18,20 +18,19 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/permission"
 )
 
 type ModelCommandSuite struct {
 	testing.IsolationSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "foo"
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
@@ -123,6 +122,12 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (s *ModelCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testCommand)
+	wrapped := modelcmd.Wrap(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
+}
+
 func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {
 	assert := func(in, controller, model string) {
 		outController, outModel := modelcmd.SplitModelName(in)
@@ -180,7 +185,7 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
-	store          *jujuclienttesting.MemStore
+	store          *jujuclient.MemStore
 	controllerName string
 	modelName      string
 }
@@ -197,7 +202,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	modelTag := names.NewModelTag(s.State.ModelUUID())
 	apiInfo := s.APIInfo(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers[s.controllerName] = jujuclient.ControllerDetails{
 		APIEndpoints:   apiInfo.Addrs,
 		ControllerUUID: s.State.ControllerUUID(),

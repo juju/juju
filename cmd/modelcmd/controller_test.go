@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type ControllerCommandSuite struct {
@@ -28,7 +27,7 @@ func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "bar",
@@ -40,7 +39,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *g
 func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	// Take controller name from command line arg, and it trumps the current-
 	// controller file.
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Accounts["explicit"] = jujuclient.AccountDetails{
 		User: "bar",
@@ -55,6 +54,12 @@ func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	wrapped := modelcmd.WrapController(cmd, modelcmd.WrapControllerSkipControllerFlags)
 	err := cmdtesting.InitCommand(wrapped, []string{"-s", "testsys"})
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
+}
+
+func (s *ControllerCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testControllerCommand)
+	wrapped := modelcmd.WrapController(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
 }
 
 type testControllerCommand struct {

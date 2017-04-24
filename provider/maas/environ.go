@@ -280,7 +280,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	switch {
 	case gomaasapi.IsUnsupportedVersionError(err):
 		apiVersion = apiVersion1
-		authClient, err := gomaasapi.NewAuthenticatedClient(maasServer, maasOAuth, apiVersion1)
+		_, _, includesVersion := gomaasapi.SplitVersionedURL(maasServer)
+		versionURL := maasServer
+		if !includesVersion {
+			versionURL = gomaasapi.AddAPIVersionToURL(maasServer, apiVersion1)
+		}
+		authClient, err := gomaasapi.NewAuthenticatedClient(versionURL, maasOAuth)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -70,6 +70,7 @@ func (s *remoteEndpointsSuite) assertShow(c *gc.C, expected []params.Application
 func (s *remoteEndpointsSuite) TestShow(c *gc.C) {
 	expected := []params.ApplicationOfferResult{{
 		Result: params.ApplicationOffer{
+			SourceModelTag:         "model-uuid",
 			ApplicationDescription: "description",
 			OfferURL:               "fred/prod.hosted-db2",
 			OfferName:              "hosted-db2",
@@ -92,6 +93,7 @@ func (s *remoteEndpointsSuite) TestShowPermission(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("someone")
 	expected := []params.ApplicationOfferResult{{
 		Result: params.ApplicationOffer{
+			SourceModelTag:         "model-uuid",
 			ApplicationDescription: "description",
 			OfferURL:               "fred/prod.hosted-db2",
 			OfferName:              "hosted-db2",
@@ -218,12 +220,14 @@ func (s *remoteEndpointsSuite) TestShowFoundMultiple(c *gc.C) {
 	}
 	c.Assert(results, jc.DeepEquals, []params.ApplicationOffer{
 		{
+			SourceModelTag:         "model-uuid",
 			ApplicationDescription: "description",
 			OfferName:              "hosted-" + name,
 			OfferURL:               url,
 			Access:                 "read",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}}},
 		{
+			SourceModelTag:         "model-uuid2",
 			ApplicationDescription: "description2",
 			OfferName:              "hosted-" + name2,
 			OfferURL:               url2,
@@ -254,6 +258,7 @@ func (s *remoteEndpointsSuite) TestFind(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOffer{
 		{
+			SourceModelTag:         "model-uuid",
 			ApplicationDescription: "description",
 			OfferName:              "hosted-db2",
 			OfferURL:               "fred/prod.hosted-db2",
@@ -273,6 +278,7 @@ func (s *remoteEndpointsSuite) TestFindPermission(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("someone")
 	expected := []params.ApplicationOffer{
 		{
+			SourceModelTag:         "model-uuid",
 			ApplicationDescription: "description",
 			OfferName:              "hosted-db2",
 			OfferURL:               "fred/prod.hosted-db2",
@@ -367,6 +373,7 @@ func (s *remoteEndpointsSuite) TestFindMulti(c *gc.C) {
 	c.Assert(found, jc.DeepEquals, params.FindApplicationOffersResults{
 		[]params.ApplicationOffer{
 			{
+				SourceModelTag:         "model-uuid",
 				ApplicationDescription: "db2 description",
 				OfferName:              "hosted-db2",
 				OfferURL:               "fred/prod.hosted-db2",
@@ -374,6 +381,7 @@ func (s *remoteEndpointsSuite) TestFindMulti(c *gc.C) {
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			},
 			{
+				SourceModelTag:         "model-uuid2",
 				ApplicationDescription: "mysql description",
 				OfferName:              "hosted-mysql",
 				OfferURL:               "mary/another.hosted-mysql",
@@ -381,6 +389,7 @@ func (s *remoteEndpointsSuite) TestFindMulti(c *gc.C) {
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			},
 			{
+				SourceModelTag:         "model-uuid2",
 				ApplicationDescription: "postgresql description",
 				OfferName:              "hosted-postgresql",
 				OfferURL:               "mary/another.hosted-postgresql",

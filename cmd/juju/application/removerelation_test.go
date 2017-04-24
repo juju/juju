@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -29,7 +30,7 @@ func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&RemoveRelationSuite{})
 
 func (s *RemoveRelationSuite) runRemoveRelation(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewRemoveRelationCommandForTest(s.mockAPI), args...)
+	_, err := cmdtesting.RunCommand(c, NewRemoveRelationCommandForTest(s.mockAPI), args...)
 	return err
 }
 

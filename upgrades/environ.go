@@ -30,7 +30,10 @@ func newEnvironUpgradeOpsIterator(from version.Number, context Context) (*opsIte
 			return nil, errors.Trace(err)
 		}
 		if env, ok := env.(environs.Upgrader); ok {
-			envUpgradeOps = append(envUpgradeOps, env.UpgradeOperations()...)
+			args := environs.UpgradeOperationsParams{
+				ControllerUUID: st.ControllerUUID(),
+			}
+			envUpgradeOps = append(envUpgradeOps, env.UpgradeOperations(args)...)
 		}
 	}
 	ops := make([]Operation, len(envUpgradeOps))

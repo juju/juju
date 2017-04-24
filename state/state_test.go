@@ -211,7 +211,7 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.Watch()
 
-	w := s.State.Watch()
+	w := s.State.Watch(state.WatchParams{IncludeOffers: true})
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
 	s.State.StartSync()
@@ -2471,6 +2471,35 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 		MachineIds:       []string{"0", "1", "2"},
 		VotingMachineIds: []string{"0", "1", "2"},
 	})
+}
+
+func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchControllerConfig()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg := testing.FakeControllerConfig()
+	c.Assert(cfg, jc.DeepEquals, expectedCfg)
+
+	settings := state.GetControllerSettings(s.State)
+	settings.Set("max-logs-age", "96h")
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertOneChange()
+
+	cfg, err = s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg["max-logs-age"] = "96h"
+	c.Assert(cfg, jc.DeepEquals, expectedCfg)
 }
 
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {

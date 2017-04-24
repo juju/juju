@@ -8,19 +8,19 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type BaseCloudImageMetadataSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
@@ -30,7 +30,7 @@ func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
 func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
@@ -58,7 +58,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, newListImagesCommand(), args...)
+	return cmdtesting.RunCommand(c, newListImagesCommand(), args...)
 }
 
 func (s *ListSuite) TestListDefault(c *gc.C) {
@@ -245,10 +245,10 @@ func (s *ListSuite) assertValidList(c *gc.C, expectedValid, expectedErr string, 
 	context, err := runList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Matches, expectedErr)
 
-	obtainedValid := testing.Stdout(context)
+	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Matches, expectedValid)
 }
 

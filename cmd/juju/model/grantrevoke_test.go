@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,7 +24,7 @@ type grantRevokeSuite struct {
 	fakeModelAPI  *fakeModelGrantRevokeAPI
 	fakeOffersAPI *fakeOffersGrantRevokeAPI
 	cmdFactory    func(*fakeModelGrantRevokeAPI, *fakeOffersGrantRevokeAPI) cmd.Command
-	store         *jujuclienttesting.MemStore
+	store         *jujuclient.MemStore
 }
 
 const (
@@ -45,7 +45,7 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 	// so we don't try to refresh
 	controllerName := "test-master"
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{
@@ -66,7 +66,7 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 
 func (s *grantRevokeSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := s.cmdFactory(s.fakeModelAPI, s.fakeOffersAPI)
-	return testing.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *grantRevokeSuite) TestPassesModelValues(c *gc.C) {
@@ -128,24 +128,24 @@ func (s *grantSuite) SetUpTest(c *gc.C) {
 
 func (s *grantSuite) TestInitModels(c *gc.C) {
 	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no user specified")
 
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, gc.Equals, "bob")
 	c.Assert(grantCmd.ModelNames, jc.DeepEquals, []string{"model1", "model2"})
 	c.Assert(grantCmd.OfferURLs, gc.HasLen, 0)
 
-	err = testing.InitCommand(wrappedCmd, []string{})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, `no user specified`)
 }
 
 func (s *grantSuite) TestInitOffers(c *gc.C) {
 	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
 
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "read", "fred/model.offer1", "mary/model.offer2"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "fred/model.offer1", "mary/model.offer2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, gc.Equals, "bob")
@@ -162,11 +162,11 @@ func (s *grantSuite) TestInitOffers(c *gc.C) {
 func (s *grantSuite) TestInitGrantAddModel(c *gc.C) {
 	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
 	// The documented case, add-model.
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "add-model"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model"})
 	c.Check(err, jc.ErrorIsNil)
 
 	// The backwards-compatible case, addmodel.
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(grantCmd.Access, gc.Equals, "add-model")
 }
@@ -187,16 +187,16 @@ func (s *revokeSuite) SetUpTest(c *gc.C) {
 
 func (s *revokeSuite) TestInit(c *gc.C) {
 	wrappedCmd, revokeCmd := model.NewRevokeCommandForTest(nil, nil, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no user specified")
 
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "read", "model1", "model2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(revokeCmd.User, gc.Equals, "bob")
 	c.Assert(revokeCmd.ModelNames, jc.DeepEquals, []string{"model1", "model2"})
 
-	err = testing.InitCommand(wrappedCmd, []string{})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, `no user specified`)
 
 }
@@ -206,32 +206,32 @@ func (s *revokeSuite) TestInit(c *gc.C) {
 func (s *grantSuite) TestInitRevokeAddModel(c *gc.C) {
 	wrappedCmd, revokeCmd := model.NewRevokeCommandForTest(nil, nil, s.store)
 	// The documented case, add-model.
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "add-model"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model"})
 	c.Check(err, jc.ErrorIsNil)
 
 	// The backwards-compatible case, addmodel.
-	err = testing.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
+	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(revokeCmd.Access, gc.Equals, "add-model")
 }
 
 func (s *grantSuite) TestModelAccessForController(c *gc.C) {
 	wrappedCmd, _ := model.NewRevokeCommandForTest(nil, nil, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "write"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "write"})
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Check(msg, gc.Matches, `You have specified a model access permission "write".*`)
 }
 
 func (s *grantSuite) TestControllerAccessForModel(c *gc.C) {
 	wrappedCmd, _ := model.NewRevokeCommandForTest(nil, nil, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "superuser", "default"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "superuser", "default"})
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Check(msg, gc.Matches, `You have specified a controller access permission "superuser".*`)
 }
 
 func (s *grantSuite) TestControllerAccessForOffer(c *gc.C) {
 	wrappedCmd, _ := model.NewRevokeCommandForTest(nil, nil, s.store)
-	err := testing.InitCommand(wrappedCmd, []string{"bob", "superuser", "fred/default.mysql"})
+	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "superuser", "fred/default.mysql"})
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Check(msg, gc.Matches, `You have specified a controller access permission "superuser".*`)
 }

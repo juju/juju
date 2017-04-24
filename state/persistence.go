@@ -53,7 +53,7 @@ func (st *State) newPersistence() Persistence {
 
 // One gets the identified document from the collection.
 func (sp statePersistence) One(collName, id string, doc interface{}) error {
-	coll, closeColl := sp.st.getCollection(collName)
+	coll, closeColl := sp.st.db().GetCollection(collName)
 	defer closeColl()
 
 	err := coll.FindId(id).One(doc)
@@ -68,7 +68,7 @@ func (sp statePersistence) One(collName, id string, doc interface{}) error {
 
 // All gets all documents from the collection matching the query.
 func (sp statePersistence) All(collName string, query, docs interface{}) error {
-	coll, closeColl := sp.st.getCollection(collName)
+	coll, closeColl := sp.st.db().GetCollection(collName)
 	defer closeColl()
 
 	if err := coll.Find(query).All(docs); err != nil {

@@ -15,6 +15,7 @@ import (
 	"text/template"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -27,7 +28,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -53,8 +54,8 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := bootstrap.Prepare(
-		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
-		jujuclienttesting.NewMemStore(),
+		modelcmd.BootstrapContextNoVerify(cmdtesting.Context(c)),
+		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   cfg.Name(),
@@ -120,7 +121,7 @@ var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir})
 	c.Check(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
@@ -145,7 +146,7 @@ func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {
 func (s *ToolsMetadataSuite) TestGenerateStream(c *gc.C) {
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
@@ -165,7 +166,7 @@ func (s *ToolsMetadataSuite) TestGenerateMultipleStreams(c *gc.C) {
 	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
 	toolstesting.MakeTools(c, metadataDir, "released", currentVersionStrings)
 
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
 	c.Assert(code, gc.Equals, 0)
 	code = cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "released"})
@@ -205,7 +206,7 @@ func (s *ToolsMetadataSuite) TestGenerateDeleteExisting(c *gc.C) {
 	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
 	toolstesting.MakeTools(c, metadataDir, "released", currentVersionStrings)
 
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
 	c.Assert(code, gc.Equals, 0)
 	code = cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "released"})
@@ -246,7 +247,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	toolstesting.MakeToolsWithCheckSum(c, s.publicStorageDir, "released", versionStrings)
 
 	// Run the command with no local metadata.
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	metadataDir := c.MkDir()
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
@@ -264,7 +265,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--public", "-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
@@ -291,13 +292,13 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Skipping on windows, test only set up for Linux tools")
 	}
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(stdout, gc.Matches, ".*Finding tools in .*\n")
 	stderr := ctx.Stderr.(*bytes.Buffer).String()
-	c.Assert(stderr, gc.Matches, "error: no tools available\n")
+	c.Assert(stderr, gc.Matches, "ERROR no tools available\n")
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
@@ -312,7 +313,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	}
 	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()

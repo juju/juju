@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
@@ -102,17 +102,17 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --cheese\n",
+		out:     "ERROR flag provided but not defined: --cheese\n",
 	}, {
 		summary: "unknown option after command",
 		args:    []string{"bootstrap", "--cheese"},
 		code:    2,
-		out:     "error: flag provided but not defined: --cheese\n",
+		out:     "ERROR flag provided but not defined: --cheese\n",
 	}, {
 		summary: "known option, but specified before command",
 		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --model\n",
+		out:     "ERROR flag provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-tools registered properly",
 		args:    []string{"sync-tools", "--help"},
@@ -401,12 +401,11 @@ var commandNames = []string{
 	"add-user",
 	"agree",
 	"agreements",
-	"allocate",
 	"attach",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
-	"budgets",
+	"budget",
 	"cached-images",
 	"change-user-password",
 	"charm",
@@ -416,8 +415,8 @@ var commandNames = []string{
 	"controller-config",
 	"controllers",
 	"create-backup",
-	"create-budget",
 	"create-storage-pool",
+	"create-wallet",
 	"credentials",
 	"debug-hooks",
 	"debug-log",
@@ -444,7 +443,6 @@ var commandNames = []string{
 	"list-actions",
 	"list-agreements",
 	"list-backups",
-	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
 	"list-controllers",
@@ -462,6 +460,7 @@ var commandNames = []string{
 	"list-storage-pools",
 	"list-subnets",
 	"list-users",
+	"list-wallets",
 	"login",
 	"logout",
 	"machines",
@@ -494,17 +493,16 @@ var commandNames = []string{
 	"run",
 	"run-action",
 	"scp",
-	"set-budget",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
 	"set-meter-status",
 	"set-model-constraints",
 	"set-plan",
+	"set-wallet",
 	"show-action-output",
 	"show-action-status",
 	"show-backup",
-	"show-budget",
 	"show-cloud",
 	"show-controller",
 	"show-machine",
@@ -513,6 +511,7 @@ var commandNames = []string{
 	"show-status-log",
 	"show-storage",
 	"show-user",
+	"show-wallet",
 	"sla",
 	"spaces",
 	"ssh",
@@ -521,7 +520,6 @@ var commandNames = []string{
 	"storage",
 	"storage-pools",
 	"subnets",
-	"support",
 	"switch",
 	"sync-tools",
 	"unexpose",
@@ -534,6 +532,7 @@ var commandNames = []string{
 	"upload-backup",
 	"users",
 	"version",
+	"wallets",
 	"whoami",
 }
 
@@ -656,7 +655,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	registry := &stubRegistry{stub: stub}
 	registry.names = append(registry.names, "help", "version") // implicit
-	registerCommands(registry, testing.Context(c))
+	registerCommands(registry, cmdtesting.Context(c))
 	sort.Strings(registry.names)
 
 	expected := make([]string, len(commandNames))
@@ -684,7 +683,7 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 
 func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	// There should not be any ModelCommands registered.
 	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, cmd := range commands {
@@ -707,7 +706,7 @@ func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	// - Makes the Doc content either start like a sentence, or start
 	//   godoc-like by using the command's name in lowercase.
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	for _, cmd := range commands {
 		info := cmd.Info()
 		purpose := strings.TrimSpace(info.Purpose)

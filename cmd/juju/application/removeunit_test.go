@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
@@ -33,7 +34,7 @@ func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&RemoveUnitSuite{})
 
 func runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, NewRemoveUnitCommand(), args...)
+	return cmdtesting.RunCommand(c, NewRemoveUnitCommand(), args...)
 }
 
 func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
@@ -50,7 +51,7 @@ func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 
 	ctx, err := runRemoveUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 removing unit dummy/0
 removing unit dummy/1
@@ -72,7 +73,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitInformsStorageRemoval(c *gc.C) {
 
 	ctx, err := runRemoveUnit(c, "storage-filesystem/0")
 	c.Assert(err, jc.ErrorIsNil)
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 removing unit storage-filesystem/0
 - will remove storage data/0

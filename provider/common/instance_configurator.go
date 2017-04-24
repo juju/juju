@@ -73,16 +73,25 @@ func (c *sshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) e
 	return nil
 }
 
+// ConfigureExternalIpAddressCommands returns the commands to run to configure
+// the external IP address
+func ConfigureExternalIpAddressCommands(apiPort int) []string {
+	commands := []string{
+		`printf 'auto eth1\niface eth1 inet dhcp' | sudo tee -a /etc/network/interfaces.d/eth1.cfg`,
+		"sudo ifup eth1",
+		"sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP",
+	}
+	if apiPort > 0 {
+		commands = append(commands, fmt.Sprintf(
+			"sudo iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort,
+		))
+	}
+	return commands
+}
+
 // ConfigureExternalIpAddress implements InstanceConfigurator interface.
 func (c *sshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error {
-	cmd := `printf 'auto eth1\niface eth1 inet dhcp' | sudo tee -a /etc/network/interfaces.d/eth1.cfg
-sudo ifup eth1
-sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP`
-
-	if apiPort > 0 {
-		cmd += fmt.Sprintf("\nsudo iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort)
-	}
-
+	cmd := strings.Join(ConfigureExternalIpAddressCommands(apiPort), "\n")
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
 	output, err := command.CombinedOutput()

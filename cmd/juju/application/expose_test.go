@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +31,7 @@ func (s *ExposeSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ExposeSuite{})
 
 func runExpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, NewExposeCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewExposeCommand(), args...)
 	return err
 }
 

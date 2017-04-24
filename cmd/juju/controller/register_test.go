@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -25,16 +26,14 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	apiConnection            *mockAPIConnection
-	store                    *jujuclienttesting.MemStore
+	store                    *jujuclient.MemStore
 	apiOpenError             error
 	listModels               func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
 	listModelsControllerName string
@@ -74,7 +73,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 }
 
 func (s *RegisterSuite) TearDownTest(c *gc.C) {
@@ -85,14 +84,14 @@ func (s *RegisterSuite) TearDownTest(c *gc.C) {
 func (s *RegisterSuite) TestInit(c *gc.C) {
 	registerCommand := controller.NewRegisterCommandForTest(nil, nil, nil)
 
-	err := testing.InitCommand(registerCommand, []string{})
+	err := cmdtesting.InitCommand(registerCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "registration data missing")
 
-	err = testing.InitCommand(registerCommand, []string{"foo"})
+	err = cmdtesting.InitCommand(registerCommand, []string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(registerCommand.Arg, gc.Equals, "foo")
 
-	err = testing.InitCommand(registerCommand, []string{"foo", "bar"})
+	err = cmdtesting.InitCommand(registerCommand, []string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
@@ -576,7 +575,7 @@ func (s *RegisterSuite) run(c *gc.C, stdio io.ReadWriter, args ...string) error 
 	}
 
 	command := controller.NewRegisterCommandForTest(s.apiOpen, s.listModels, s.store)
-	err := testing.InitCommand(command, args)
+	err := cmdtesting.InitCommand(command, args)
 	c.Assert(err, jc.ErrorIsNil)
 	return command.Run(&cmd.Context{
 		Dir:    c.MkDir(),

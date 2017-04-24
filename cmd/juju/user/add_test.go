@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -36,7 +37,7 @@ func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *UserAddCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	addCommand, _ := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelAPI{})
-	return testing.RunCommand(c, addCommand, args...)
+	return cmdtesting.RunCommand(c, addCommand, args...)
 }
 
 func (s *UserAddCommandSuite) TestInit(c *gc.C) {
@@ -69,7 +70,7 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 	}} {
 		c.Logf("test %d (%q)", i, test.args)
 		wrappedCommand, command := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelAPI{})
-		err := testing.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.User, gc.Equals, test.user)
@@ -92,8 +93,8 @@ Please send this command to foobar:
 
 "foobar" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, expected)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *gc.C) {
@@ -108,8 +109,8 @@ Please send this command to foobar:
 
 "Foo Bar (foobar)" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, expected)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *UserAddCommandSuite) TestUserRegistrationString(c *gc.C) {
@@ -118,7 +119,7 @@ func (s *UserAddCommandSuite) TestUserRegistrationString(c *gc.C) {
 		s.mockAPI.secretKey = []byte(strings.Repeat("X", 32+i))
 		context, err := s.run(c, "foobar", "Foo Bar")
 		c.Assert(err, jc.ErrorIsNil)
-		lines := strings.Split(testing.Stdout(context), "\n")
+		lines := strings.Split(cmdtesting.Stdout(context), "\n")
 		c.Assert(lines, gc.HasLen, 6)
 		c.Assert(lines[2], gc.Matches, `^\s+juju register [A-Za-z0-9]+$`)
 	}
@@ -153,7 +154,7 @@ func (s *UserAddCommandSuite) TestAddUserUnauthorizedMentionsJujuGrant(c *gc.C) 
 		Code:    params.CodeUnauthorized,
 	}
 	ctx, _ := s.run(c, "foobar")
-	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 

@@ -738,9 +738,9 @@ resources:
 
 func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
+	coretesting.SkipIfWindowsBug(c, "lp:1403084")
+	//TODO(hml): Fix this on S390X, intermittent there.
+	coretesting.SkipIfS390X(c, "lp:1534637")
 	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
 		return ut(description,
 			createCharm{

@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -101,8 +102,8 @@ func (*environWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 
 func testingEnvConfig(c *gc.C) *config.Config {
 	env, err := bootstrap.Prepare(
-		modelcmd.BootstrapContext(testing.Context(c)),
-		jujuclienttesting.NewMemStore(),
+		modelcmd.BootstrapContext(cmdtesting.Context(c)),
+		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",

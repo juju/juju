@@ -195,7 +195,7 @@ func updateCharmOps(
 	st *State, info CharmInfo, assert bson.D,
 ) ([]txn.Op, error) {
 
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	charmKey := info.ID.String()
@@ -269,7 +269,7 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 		return nil, errors.Trace(err)
 	}
 
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
 	var ops []txn.Op
@@ -516,7 +516,7 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	if err := validateCharmVersion(info.Charm); err != nil {
@@ -570,7 +570,7 @@ func validateCharmVersion(ch hasMeta) error {
 
 // AllCharms returns all charms in state.
 func (st *State) AllCharms() ([]*Charm, error) {
-	charmsCollection, closer := st.getCollection(charmsC)
+	charmsCollection, closer := st.db().GetCollection(charmsC)
 	defer closer()
 	var cdoc charmDoc
 	var charms []*Charm
@@ -585,7 +585,7 @@ func (st *State) AllCharms() ([]*Charm, error) {
 // Charm returns the charm with the given URL. Charms pending upload
 // to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	cdoc := &charmDoc{}
@@ -611,7 +611,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 // LatestPlaceholderCharm returns the latest charm described by the
 // given URL but which is not yet deployed.
 func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	noRevURL := curl.WithRevision(-1)
@@ -695,7 +695,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	var (
@@ -749,7 +749,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	if curl.Revision < 0 {
 		return errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -781,7 +781,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
 func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	doc := &charmDoc{}

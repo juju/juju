@@ -6,15 +6,15 @@ package state
 import (
 	"fmt"
 
-	"github.com/juju/utils/featureflag"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/feature"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/feature"
 )
 
 type cleanupKind string
@@ -64,7 +64,7 @@ func newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 
 // NeedsCleanup returns true if documents previously marked for removal exist.
 func (st *State) NeedsCleanup() (bool, error) {
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	count, err := cleanups.Count()
 	if err != nil {
@@ -78,7 +78,7 @@ func (st *State) NeedsCleanup() (bool, error) {
 // of the system.
 func (st *State) Cleanup() (err error) {
 	var doc cleanupDoc
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	iter := cleanups.Find(nil).Iter()
 	defer closeIter(iter, &err, "reading cleanup document")
@@ -278,7 +278,7 @@ func (st *State) removeApplicationsForDyingModel() (err error) {
 	// applications added to it. But we do have to remove the applications
 	// themselves via individual transactions, because they could be in any
 	// state at all.
-	applications, closer := st.getCollection(applicationsC)
+	applications, closer := st.db().GetCollection(applicationsC)
 	defer closer()
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
@@ -296,7 +296,7 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 	// This won't miss remote applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications themselves
 	// via individual transactions, because they could be in any state at all.
-	remoteApps, closer := st.getCollection(remoteApplicationsC)
+	remoteApps, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 	remoteApp := RemoteApplication{st: st}
 	sel := bson.D{{"life", Alive}}
@@ -317,7 +317,7 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err er
 	// This won't miss units, because a Dying application cannot have units
 	// added to it. But we do have to remove the units themselves via
 	// individual transactions, because they could be in any state at all.
-	units, closer := st.getCollection(unitsC)
+	units, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
 	unit := Unit{st: st}
@@ -633,7 +633,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error)
 	// have attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.getCollection(storageAttachmentsC)
+	coll, closer := st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
 	var doc storageAttachmentDoc
@@ -659,7 +659,7 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.getCollection(volumeAttachmentsC)
+	coll, closer := st.db().GetCollection(volumeAttachmentsC)
 	defer closer()
 
 	var doc volumeAttachmentDoc
@@ -685,7 +685,7 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.getCollection(filesystemAttachmentsC)
+	coll, closer := st.db().GetCollection(filesystemAttachmentsC)
 	defer closer()
 
 	var doc filesystemAttachmentDoc

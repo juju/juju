@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/testing"
 )
 
 type StatusSuite struct {
@@ -106,7 +106,7 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 
 		s.subcommand, _ = action.NewStatusCommandForTest(s.store)
 		args := append([]string{modelFlag, "admin"}, tc.args...)
-		ctx, err := testing.RunCommand(c, s.subcommand, args...)
+		ctx, err := cmdtesting.RunCommand(c, s.subcommand, args...)
 		if tc.expectError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {

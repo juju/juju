@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,6 @@ import (
 
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/charmstore"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&registrationSuite{})
@@ -47,7 +47,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 		RegisterURL:    s.server.URL,
 		IncreaseBudget: 100,
 	}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 }
 
 func (s *registrationSuite) TearDownTest(c *gc.C) {
@@ -751,7 +751,7 @@ func (s *noPlanRegistrationSuite) SetUpTest(c *gc.C) {
 		RegisterURL:    s.server.URL,
 		IncreaseBudget: 100,
 	}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 }
 
 func (s *noPlanRegistrationSuite) TearDownTest(c *gc.C) {

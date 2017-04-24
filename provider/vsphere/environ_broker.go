@@ -4,7 +4,15 @@
 package vsphere
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"sync"
+	"time"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -13,14 +21,23 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
 const (
-	DefaultCpuCores = uint64(2)
-	DefaultCpuPower = uint64(2000)
-	DefaultMemMb    = uint64(2000)
+	startInstanceUpdateProgressInterval = 30 * time.Second
+	bootstrapUpdateProgressInterval     = 5 * time.Second
 )
+
+func controllerFolderName(controllerUUID string) string {
+	return fmt.Sprintf("Juju Controller (%s)", controllerUUID)
+}
+
+func modelFolderName(modelUUID, modelName string) string {
+	return fmt.Sprintf("Model %q (%s)", modelName, modelUUID)
+}
 
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
@@ -28,7 +45,16 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *environ) StartInstance(args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
+	err = env.withSession(func(env *sessionEnviron) error {
+		result, err = env.StartInstance(args)
+		return err
+	})
+	return result, err
+}
+
+// StartInstance implements environs.InstanceBroker.
+func (env *sessionEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	img, err := findImageMetadata(env, args)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -37,17 +63,17 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Trace(err)
 	}
 
-	raw, hwc, err := env.newRawInstance(args, img)
+	vm, hw, err := env.newRawInstance(args, img)
 	if err != nil {
+		args.StatusCallback(status.ProvisioningError, fmt.Sprint(err), nil)
 		return nil, errors.Trace(err)
 	}
 
-	logger.Infof("started instance %q", raw.Name)
-	inst := newInstance(raw, env)
-
+	logger.Infof("started instance %q", vm.Name)
+	inst := newInstance(vm, env.environ)
 	result := environs.StartInstanceResult{
 		Instance: inst,
-		Hardware: hwc,
+		Hardware: hw,
 	}
 	return &result, nil
 }
@@ -57,12 +83,11 @@ var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
-func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *OvaFileMetadata) error {
+func (env *sessionEnviron) finishMachineConfig(args environs.StartInstanceParams, img *OvaFileMetadata) error {
 	envTools, err := args.Tools.Match(tools.Filter{Arch: img.Arch})
 	if err != nil {
 		return err
 	}
-
 	if err := args.InstanceConfig.SetTools(envTools); err != nil {
 		return errors.Trace(err)
 	}
@@ -72,8 +97,11 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
-	machineID, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+func (env *sessionEnviron) newRawInstance(
+	args environs.StartInstanceParams,
+	img *OvaFileMetadata,
+) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -88,89 +116,233 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 	// Make sure the hostname is resolvable by adding it to /etc/hosts.
 	cloudcfg.ManageEtcHosts(true)
 
+	// If an "external network" is specified, add the boot commands
+	// necessary to configure it.
+	externalNetwork := env.ecfg.externalNetwork()
+	if externalNetwork != "" {
+		apiPort := 0
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		}
+		commands := common.ConfigureExternalIpAddressCommands(apiPort)
+		cloudcfg.AddBootCmd(commands...)
+	}
+
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, VsphereRenderer{})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
-	rootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
-	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > rootDisk {
-		rootDisk = *args.Constraints.RootDisk
-	}
-	cpuCores := DefaultCpuCores
-	if args.Constraints.CpuCores != nil {
-		cpuCores = *args.Constraints.CpuCores
-	}
-	cpuPower := DefaultCpuPower
-	if args.Constraints.CpuPower != nil {
-		cpuPower = *args.Constraints.CpuPower
-	}
-	mem := DefaultMemMb
-	if args.Constraints.Mem != nil {
-		mem = *args.Constraints.Mem
+	// Obtain the final constraints by merging with defaults.
+	cons := args.Constraints
+	minRootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
+	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
+		cons.RootDisk = &minRootDisk
 	}
 
-	hwc := &instance.HardwareCharacteristics{
-		Arch:     &img.Arch,
-		Mem:      &mem,
-		CpuCores: &cpuCores,
-		CpuPower: &cpuPower,
-		RootDisk: &rootDisk,
-	}
+	// Identify which zones may be used, taking into
+	// account placement directives.
 	zones, err := env.parseAvailabilityZones(args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	var inst *mo.VirtualMachine
+
+	// Download and extract the OVA file. If we're bootstrapping we use
+	// a temporary directory, otherwise we cache the image for future use.
+	updateProgressInterval := startInstanceUpdateProgressInterval
+	if args.InstanceConfig.Bootstrap != nil {
+		updateProgressInterval = bootstrapUpdateProgressInterval
+	}
+	updateProgress := func(message string) {
+		args.StatusCallback(status.Provisioning, message, nil)
+	}
+	ovaDir, ovf, ovaCleanup, err := env.prepareOVA(img, args.InstanceConfig, updateProgress)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	defer ovaCleanup()
+
+	createVMArgs := vsphereclient.CreateVirtualMachineParams{
+		Name: vmName,
+		Folder: path.Join(
+			controllerFolderName(args.ControllerUUID),
+			env.modelFolderName(),
+		),
+		OVADir:                 ovaDir,
+		OVF:                    string(ovf),
+		UserData:               string(userData),
+		Metadata:               args.InstanceConfig.Tags,
+		Constraints:            cons,
+		ExternalNetwork:        externalNetwork,
+		UpdateProgress:         updateProgress,
+		UpdateProgressInterval: updateProgressInterval,
+		Clock: clock.WallClock,
+	}
+
+	// Attempt to create a VM in each of the AZs in turn.
+	var vm *mo.VirtualMachine
+	var lastError error
 	for _, zone := range zones {
-		var availZone *vmwareAvailZone
-		availZone, err = env.availZone(zone)
+		logger.Debugf("attempting to create VM in availability zone %s", zone)
+		availZone, err := env.availZone(zone)
 		if err != nil {
-			logger.Warningf("Error while getting availability zone %s: %s", zone, err)
+			logger.Warningf("failed to get availability zone %s: %s", zone, err)
+			lastError = err
 			continue
 		}
-		apiPort := 0
-		if args.InstanceConfig.Controller != nil {
-			apiPort = args.InstanceConfig.Controller.Config.APIPort()
-		}
-		spec := &instanceSpec{
-			machineID:      machineID,
-			zone:           availZone,
-			hwc:            hwc,
-			img:            img,
-			userData:       userData,
-			sshKey:         args.InstanceConfig.AuthorizedKeys,
-			isController:   args.InstanceConfig.Controller != nil,
-			controllerUUID: args.ControllerUUID,
-			apiPort:        apiPort,
-		}
-		inst, err = env.client.CreateInstance(env.ecfg, spec)
+		createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
+
+		vm, err = env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 		if err != nil {
-			logger.Warningf("Error while trying to create instance in %s availability zone: %s", zone, err)
+			logger.Warningf("failed to create instance in availability zone %s: %s", zone, err)
+			lastError = err
 			continue
 		}
+		lastError = nil
 		break
 	}
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "Can't create instance in any of availability zones, last error")
+	if lastError != nil {
+		return nil, nil, errors.Annotate(lastError, "failed to create instance in any availability zone")
 	}
-	return inst, hwc, err
+	hw := &instance.HardwareCharacteristics{
+		Arch:     &img.Arch,
+		Mem:      cons.Mem,
+		CpuCores: cons.CpuCores,
+		CpuPower: cons.CpuPower,
+		RootDisk: cons.RootDisk,
+	}
+	return vm, hw, err
+}
+
+// prepareOVA downloads and extracts the OVA, and reads the contents of the
+// .ovf file contained within it.
+func (env *environ) prepareOVA(
+	img *OvaFileMetadata,
+	instanceConfig *instancecfg.InstanceConfig,
+	updateProgress func(string),
+) (ovaDir, ovf string, cleanup func(), err error) {
+	fail := func(err error) (string, string, func(), error) {
+		return "", "", cleanup, errors.Trace(err)
+	}
+	defer func() {
+		if err != nil && cleanup != nil {
+			cleanup()
+		}
+	}()
+
+	var ovaBaseDir string
+	if instanceConfig.Bootstrap != nil {
+		ovaTempDir, err := ioutil.TempDir("", "juju-ova")
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+		cleanup = func() {
+			if err := os.RemoveAll(ovaTempDir); err != nil {
+				logger.Warningf("failed to remove temp directory: %s", err)
+			}
+		}
+		ovaBaseDir = ovaTempDir
+	} else {
+		// Lock the OVA cache directory for the remainder of the
+		// provisioning process. It's not enough to lock just
+		// around or in downloadOVA, because we refer to the
+		// contents after it returns.
+		unlock, err := env.provider.ovaCacheLocker.Lock()
+		if err != nil {
+			return fail(errors.Annotate(err, "locking OVA cache dir"))
+		}
+		cleanup = unlock
+		ovaBaseDir = env.provider.ovaCacheDir
+	}
+
+	ovaDir, ovfPath, err := downloadOVA(
+		ovaBaseDir, instanceConfig.Series, img, updateProgress,
+	)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	ovfBytes, err := ioutil.ReadFile(ovfPath)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	return ovaDir, string(ovfBytes), cleanup, nil
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances() ([]instance.Instance, error) {
-	instances, err := env.instances()
-	return instances, errors.Trace(err)
+func (env *environ) AllInstances() (instances []instance.Instance, err error) {
+	err = env.withSession(func(env *sessionEnviron) error {
+		instances, err = env.AllInstances()
+		return err
+	})
+	return instances, err
+}
+
+// AllInstances implements environs.InstanceBroker.
+func (env *sessionEnviron) AllInstances() ([]instance.Instance, error) {
+	modelFolderPath := path.Join(
+		controllerFolderName("*"),
+		env.modelFolderName(),
+	)
+	vms, err := env.client.VirtualMachines(env.ctx, modelFolderPath+"/*")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Turn mo.VirtualMachine values into *environInstance values,
+	// whether or not we got an error.
+	results := make([]instance.Instance, len(vms))
+	for i, vm := range vms {
+		results[i] = newInstance(vm, env.environ)
+	}
+	return results, err
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(instances ...instance.Id) error {
-	var ids []string
-	for _, id := range instances {
-		ids = append(ids, string(id))
-	}
+func (env *environ) StopInstances(ids ...instance.Id) error {
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.StopInstances(ids...)
+	})
+}
 
-	err := env.client.RemoveInstances(ids...)
-	return errors.Trace(err)
+// StopInstances implements environs.InstanceBroker.
+func (env *sessionEnviron) StopInstances(ids ...instance.Id) error {
+	modelFolderPath := path.Join(
+		controllerFolderName("*"),
+		env.modelFolderName(),
+	)
+	results := make([]error, len(ids))
+	var wg sync.WaitGroup
+	for i, id := range ids {
+		wg.Add(1)
+		go func(i int, id instance.Id) {
+			defer wg.Done()
+			results[i] = env.client.RemoveVirtualMachines(
+				env.ctx,
+				path.Join(modelFolderPath, string(id)),
+			)
+		}(i, id)
+	}
+	wg.Wait()
+
+	var errIds []instance.Id
+	var errs []error
+	for i, err := range results {
+		if err != nil {
+			errIds = append(errIds, ids[i])
+			errs = append(errs, err)
+		}
+	}
+	switch len(errs) {
+	case 0:
+		return nil
+	case 1:
+		return errors.Annotatef(errs[0], "failed to stop instance %s", errIds[0])
+	default:
+		return errors.Errorf(
+			"failed to stop instances %s: %s",
+			errIds, errs,
+		)
+	}
 }

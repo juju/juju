@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -321,7 +322,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	s.ControllerConfig = testing.FakeControllerConfig()
 	for key, value := range s.ControllerConfigAttrs {
 		s.ControllerConfig[key] = value

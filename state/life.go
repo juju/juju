@@ -62,7 +62,7 @@ type AgentLiving interface {
 }
 
 func isAlive(st *State, collName string, id interface{}) (bool, error) {
-	coll, closer := st.getCollection(collName)
+	coll, closer := st.db().GetCollection(collName)
 	defer closer()
 	return isAliveWithSession(coll, id)
 }
@@ -73,7 +73,7 @@ func isAliveWithSession(coll mongo.Collection, id interface{}) (bool, error) {
 }
 
 func isNotDead(st *State, collName string, id interface{}) (bool, error) {
-	coll, closer := st.getCollection(collName)
+	coll, closer := st.db().GetCollection(collName)
 	defer closer()
 	return isNotDeadWithSession(coll, id)
 }

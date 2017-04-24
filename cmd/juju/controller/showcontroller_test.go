@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/testing"
 )
 
 type ShowControllerSuite struct {
@@ -325,7 +325,7 @@ func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) 
 }
 
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
+	return cmdtesting.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string) {
@@ -336,7 +336,7 @@ func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string
 func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 	context, err := s.runShowController(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, s.expectedOutput)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, s.expectedOutput)
 }
 
 type fakeController struct {

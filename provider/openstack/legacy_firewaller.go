@@ -4,13 +4,14 @@
 package openstack
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	gooseerrors "gopkg.in/goose.v1/errors"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	gooseerrors "gopkg.in/goose.v2/errors"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -246,8 +247,11 @@ func (c *legacyNovaFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGr
 			matchingGroups = append(matchingGroups, group)
 		}
 	}
-	if len(matchingGroups) != 1 {
+	numMatching := len(matchingGroups)
+	if numMatching == 0 {
 		return nova.SecurityGroup{}, errors.NotFoundf("security groups matching %q", nameRegExp)
+	} else if numMatching > 1 {
+		return nova.SecurityGroup{}, errors.New(fmt.Sprintf("%d security groups found matching %q, expected 1", numMatching, nameRegExp))
 	}
 	return matchingGroups[0], nil
 }

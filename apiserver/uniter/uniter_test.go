@@ -2268,7 +2268,7 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSLALevel(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("creds"))
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.SLALevel()

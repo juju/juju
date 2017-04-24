@@ -46,6 +46,7 @@ type InteractiveCreateServicePrincipalFunc func(
 	sender autorest.Sender,
 	requestInspector autorest.PrepareDecorator,
 	resourceManagerEndpoint string,
+	resourceManagerResourceId string,
 	graphEndpoint string,
 	subscriptionId string,
 	clock clock.Clock,
@@ -59,6 +60,7 @@ func InteractiveCreateServicePrincipal(
 	sender autorest.Sender,
 	requestInspector autorest.PrepareDecorator,
 	resourceManagerEndpoint string,
+	resourceManagerResourceId string,
 	graphEndpoint string,
 	subscriptionId string,
 	clock clock.Clock,
@@ -90,9 +92,8 @@ func InteractiveCreateServicePrincipal(
 	// authenticated with Azure.
 	fmt.Fprintln(stderr, "Initiating interactive authentication.")
 	fmt.Fprintln(stderr)
-	armResource := TokenResource(resourceManagerEndpoint)
 	clientId := jujuApplicationId
-	deviceCode, err := azure.InitiateDeviceAuth(&client, *oauthConfig, clientId, armResource)
+	deviceCode, err := azure.InitiateDeviceAuth(&client, *oauthConfig, clientId, resourceManagerResourceId)
 	if err != nil {
 		return "", "", errors.Annotate(err, "initiating interactive authentication")
 	}
@@ -106,7 +107,7 @@ func InteractiveCreateServicePrincipal(
 	// requests to Active Directory and Resource Manager. These tokens
 	// are only valid for a short amount of time, so we must create a
 	// service principal password that can be used to obtain new tokens.
-	armSpt, err := azure.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, armResource, *token)
+	armSpt, err := azure.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, resourceManagerResourceId, *token)
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary ARM service principal token")
 	}
@@ -119,10 +120,10 @@ func InteractiveCreateServicePrincipal(
 
 	// The application requires permissions for both ARM and AD, so we
 	// can use the token for both APIs.
-	graphResource := TokenResource(graphEndpoint)
+	graphResourceId := TokenResource(graphEndpoint)
 	graphToken := armSpt.Token
-	graphToken.Resource = graphResource
-	graphSpt, err := azure.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, graphResource, graphToken)
+	graphToken.Resource = graphResourceId
+	graphSpt, err := azure.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, graphResourceId, graphToken)
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary Graph service principal token")
 	}

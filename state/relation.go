@@ -70,7 +70,7 @@ func (r *Relation) Tag() names.Tag {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
-	relations, closer := r.st.getCollection(relationsC)
+	relations, closer := r.st.db().GetCollection(relationsC)
 	defer closer()
 
 	doc := relationDoc{}
@@ -219,7 +219,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string)
 		asserts = append(hasRelation, cannotDieYet...)
 	} else {
 		// This service may require immediate removal.
-		applications, closer := r.st.getCollection(applicationsC)
+		applications, closer := r.st.db().GetCollection(applicationsC)
 		defer closer()
 
 		svc := &Application{st: r.st}
@@ -256,7 +256,7 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		asserts = append(hasRelation, isAliveDoc...)
 	} else {
 		// The remote application may require immediate removal.
-		services, closer := r.st.getCollection(remoteApplicationsC)
+		services, closer := r.st.db().GetCollection(remoteApplicationsC)
 		defer closer()
 
 		svc := &RemoteApplication{st: r.st}

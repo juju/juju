@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
@@ -16,10 +17,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/commands"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
 )
 
 type cmdRegistrationSuite struct {
@@ -31,8 +30,8 @@ func (s *cmdRegistrationSuite) TestAddUserAndRegister(c *gc.C) {
 	// that is printed out.
 
 	context := run(c, nil, "add-user", "bob", "Bob Dobbs")
-	c.Check(testing.Stderr(context), gc.Equals, "")
-	stdout := testing.Stdout(context)
+	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
+	stdout := cmdtesting.Stdout(context)
 	expectPat := `
 User "Bob Dobbs \(bob\)" added
 Please send this command to bob:
@@ -95,7 +94,7 @@ There are no models available. (.|\n)*
 
 // run runs a juju command with the given arguments.
 // If stdio is given, it will be used for all input and output
-// to the command; otherwise testing.Context will be used.
+// to the command; otherwise cmdtesting.Context will be used.
 //
 // It returns the context used to run the command.
 func run(c *gc.C, stdio io.ReadWriter, args ...string) *cmd.Context {
@@ -108,10 +107,10 @@ func run(c *gc.C, stdio io.ReadWriter, args ...string) *cmd.Context {
 			Stderr: stdio,
 		}
 	} else {
-		context = testing.Context(c)
+		context = cmdtesting.Context(c)
 	}
 	command := commands.NewJujuCommand(context)
-	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	err := command.Run(context)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stderr: %q", context.Stderr))
 	loggo.RemoveWriter("warning") // remove logger added by main command

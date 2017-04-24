@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -38,13 +38,13 @@ func (s *crossmodelSuite) TestListEndpoints(c *gc.C) {
 	ch = s.AddTestingCharm(c, "varnish")
 	s.AddTestingService(c, "varnishservice", ch)
 
-	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(), "varnishservice:webcache", "varnish")
+	_, err = cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(), "varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(wallyworld) - list with filters when supported
-	ctx, err := testing.RunCommand(c, crossmodel.NewListEndpointsCommand(),
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewListEndpointsCommand(),
 		"--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
@@ -73,15 +73,15 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	ch = s.AddTestingCharm(c, "varnish")
 	s.AddTestingService(c, "varnishservice", ch)
 
-	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
+	_, err = cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(wallyworld) - list with filters when supported
-	ctx, err := testing.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
 		"admin/controller.varnish", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
@@ -98,7 +98,7 @@ admin/controller.varnish:
 func (s *crossmodelSuite) TestShowOtherModel(c *gc.C) {
 	s.addOtherModelApplication(c)
 
-	ctx, err := testing.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
 		"otheruser/othermodel.hosted-mysql", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
@@ -117,16 +117,16 @@ func (s *crossmodelSuite) setupOffers(c *gc.C) {
 	ch = s.AddTestingCharm(c, "varnish")
 	s.AddTestingService(c, "varnishservice", ch)
 
-	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
+	_, err = cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
 }
 func (s *crossmodelSuite) TestFind(c *gc.C) {
 	s.setupOffers(c)
-	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"admin/controller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
@@ -148,7 +148,7 @@ admin/controller.varnish:
 func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
 	s.addOtherModelApplication(c)
 
-	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
@@ -165,7 +165,7 @@ func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
 	s.setupOffers(c)
 	s.addOtherModelApplication(c)
 
-	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(), "kontroll:", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(), "kontroll:", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 admin/controller.riak:
@@ -197,7 +197,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 	ch = s.AddTestingCharm(c, "mysql")
 	s.AddTestingService(c, "mysql", ch)
 
-	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"mysql:server", "me/model.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runJujuCommand(c, "add-relation", "wordpress", "me/model.hosted-mysql")
@@ -320,12 +320,12 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 }
 
 func (s *crossmodelSuite) runJujuCommndWithStdin(c *gc.C, stdin io.Reader, args ...string) {
-	context := testing.Context(c)
+	context := cmdtesting.Context(c)
 	if stdin != nil {
 		context.Stdin = stdin
 	}
 	command := commands.NewJujuCommand(context)
-	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	loggo.RemoveWriter("warning") // remove logger added by main command
 	err := command.Run(context)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stdout: %q; stderr: %q", context.Stdout, context.Stderr))
@@ -363,7 +363,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 	s.loginTestUser(c)
 	context, err := runJujuCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.NotNil)
-	c.Assert(testing.Stderr(context), jc.Contains, "You do not have permission to add a relation")
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, "You do not have permission to add a relation")
 }
 
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C) {
@@ -385,16 +385,16 @@ func (s *crossmodelSuite) TestFindOffersWithPermission(c *gc.C) {
 	s.addOtherModelApplication(c)
 	s.createTestUser(c)
 	s.loginTestUser(c)
-	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, gc.ErrorMatches, ".*no matching application offers found.*")
 
 	s.loginAdminUser(c)
-	_, err = testing.RunCommand(c, model.NewGrantCommand(), "test", "read", "otheruser/othermodel.hosted-mysql")
+	_, err = cmdtesting.RunCommand(c, model.NewGrantCommand(), "test", "read", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.loginTestUser(c)
-	ctx, err = testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+	ctx, err = cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
@@ -411,7 +411,7 @@ func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
 	s.AddTestingService(c, "riakservice", ch)
 
-	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the default access levels.
@@ -426,7 +426,7 @@ func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {
 
 	// Grant consume access.
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "bob"})
-	_, err = testing.RunCommand(c, model.NewGrantCommand(), "bob", "consume", "admin/controller.riak")
+	_, err = cmdtesting.RunCommand(c, model.NewGrantCommand(), "bob", "consume", "admin/controller.riak")
 	c.Assert(err, jc.ErrorIsNil)
 	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,7 +443,7 @@ func (s *crossmodelSuite) TestOfferRevoke(c *gc.C) {
 	offerTag := names.NewApplicationOfferTag("riak")
 
 	// Revoke consume access.
-	_, err := testing.RunCommand(c, model.NewRevokeCommand(), "bob", "consume", "admin/controller.riak")
+	_, err := cmdtesting.RunCommand(c, model.NewRevokeCommand(), "bob", "consume", "admin/controller.riak")
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
 	c.Assert(err, jc.ErrorIsNil)

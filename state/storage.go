@@ -213,7 +213,7 @@ func (st *State) StorageInstance(tag names.StorageTag) (StorageInstance, error) 
 }
 
 func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error) {
-	storageInstances, cleanup := st.getCollection(storageInstancesC)
+	storageInstances, cleanup := st.db().GetCollection(storageInstancesC)
 	defer cleanup()
 
 	s := storageInstance{st: st}
@@ -229,7 +229,7 @@ func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error)
 // AllStorageInstances lists all storage instances currently in state
 // for this Juju model.
 func (st *State) AllStorageInstances() (storageInstances []StorageInstance, err error) {
-	storageCollection, closer := st.getCollection(storageInstancesC)
+	storageCollection, closer := st.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	sdocs := []storageInstanceDoc{}
@@ -495,7 +495,7 @@ func validateStorageCountChange(
 // should be called when creating a shared storage instance, or when
 // attaching a non-shared storage instance to a unit.
 func increfEntityStorageOp(st *State, owner names.Tag, storageName string, n int) (txn.Op, error) {
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, n)
@@ -507,7 +507,7 @@ func increfEntityStorageOp(st *State, owner names.Tag, storageName string, n int
 // should be called when removing a shared storage instance, or when
 // detaching a non-shared storage instance from a unit.
 func decrefEntityStorageOp(st *State, owner names.Tag, storageName string) (txn.Op, error) {
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageRefcountKey)
@@ -759,7 +759,7 @@ func (st *State) UnitStorageAttachments(unit names.UnitTag) ([]StorageAttachment
 }
 
 func (st *State) storageAttachments(query bson.D) ([]StorageAttachment, error) {
-	coll, closer := st.getCollection(storageAttachmentsC)
+	coll, closer := st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
 	var docs []storageAttachmentDoc
@@ -783,7 +783,7 @@ func (st *State) StorageAttachment(storage names.StorageTag, unit names.UnitTag)
 }
 
 func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag) (*storageAttachment, error) {
-	coll, closer := st.getCollection(storageAttachmentsC)
+	coll, closer := st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 	var s storageAttachment
 	err := coll.FindId(storageAttachmentId(unit.Id(), storage.Id())).One(&s.doc)
@@ -1116,7 +1116,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 // removeStorageInstancesOps returns the transaction operations to remove all
 // storage instances owned by the specified entity.
 func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
-	coll, closer := st.getCollection(storageInstancesC)
+	coll, closer := st.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	var docs []storageInstanceDoc
@@ -1186,7 +1186,7 @@ func removeStorageConstraintsOp(key string) txn.Op {
 }
 
 func readStorageConstraints(st *State, key string) (map[string]StorageConstraints, error) {
-	coll, closer := st.getCollection(storageConstraintsC)
+	coll, closer := st.db().GetCollection(storageConstraintsC)
 	defer closer()
 
 	var doc storageConstraintsDoc
@@ -1652,7 +1652,7 @@ func (st *State) addUnitStorageOps(
 }
 
 func (st *State) countEntityStorageInstances(owner names.Tag, name string) (txn.Op, int, error) {
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 	key := entityStorageRefcountKey(owner, name)
 	return nsRefcounts.CurrentOp(refcounts, key)

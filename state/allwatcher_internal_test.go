@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -29,6 +30,7 @@ var (
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingApplication)(nil)
 	_ backingEntityDoc = (*backingRemoteApplication)(nil)
+	_ backingEntityDoc = (*backingApplicationOffer)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
 	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
@@ -51,7 +53,7 @@ type allWatcherBaseSuite struct {
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
 // all(Model)WatcherStateBacking.GetAll.
-func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
+func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, includeOffers bool) (entities entityInfoSlice) {
 	modelUUID := st.ModelUUID()
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
@@ -272,9 +274,42 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	}
 
 	_, remoteApplicationInfo := addTestingRemoteApplication(
-		c, st, "remote-mysql", "me/model.mysql", mysqlRelations,
+		c, st, "remote-mysql1", "me/model.mysql", "hosted-mysql", mysqlRelations, false,
 	)
 	add(&remoteApplicationInfo)
+
+	mysql := AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+	curl := applicationCharmURL(mysql)
+	add(&multiwatcher.ApplicationInfo{
+		ModelUUID: modelUUID,
+		Name:      "mysql",
+		CharmURL:  curl.String(),
+		Life:      multiwatcher.Life("alive"),
+		Config:    charm.Settings{},
+		Status: multiwatcher.StatusInfo{
+			Current: "waiting",
+			Message: "waiting for machine",
+			Data:    map[string]interface{}{},
+		},
+	})
+
+	_, applicationOfferInfo := addTestingApplicationOffer(
+		c, st, s.owner, "hosted-mysql", "mysql", curl.Name, []string{"server"}, 2,
+	)
+	if includeOffers {
+		add(&applicationOfferInfo)
+	}
+	// Set up a remote application related to the offer.
+	// It won't be included in the backing model.
+	addTestingRemoteApplication(
+		c, st, "remote-wordpress", "", "hosted-mysql", []charm.Relation{{
+			Name:      "db",
+			Role:      "requirer",
+			Scope:     charm.ScopeGlobal,
+			Interface: "mysql",
+		}}, true,
+	)
+
 	return
 }
 
@@ -291,14 +326,16 @@ var mysqlRelations = []charm.Relation{{
 }}
 
 func addTestingRemoteApplication(
-	c *gc.C, st *State, name, url string, relations []charm.Relation,
+	c *gc.C, st *State, name, url, offerName string, relations []charm.Relation, isProxy bool,
 ) (*RemoteApplication, multiwatcher.RemoteApplicationInfo) {
 
 	rs, err := st.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        name,
-		URL:         url,
-		SourceModel: testing.ModelTag,
-		Endpoints:   relations,
+		Name:            name,
+		URL:             url,
+		OfferName:       offerName,
+		SourceModel:     testing.ModelTag,
+		Endpoints:       relations,
+		IsConsumerProxy: isProxy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return rs, multiwatcher.RemoteApplicationInfo{
@@ -314,6 +351,31 @@ func addTestingRemoteApplication(
 	}
 }
 
+func addTestingApplicationOffer(
+	c *gc.C, st *State, owner names.UserTag, offerName, applicationName, charmName string, endpoints []string, connected int,
+) (*crossmodel.ApplicationOffer, multiwatcher.ApplicationOfferInfo) {
+
+	eps := make(map[string]string)
+	for _, ep := range endpoints {
+		eps[ep] = ep
+	}
+	offers := NewApplicationOffers(st)
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       offerName,
+		Owner:           owner.Name(),
+		ApplicationName: applicationName,
+		Endpoints:       eps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return offer, multiwatcher.ApplicationOfferInfo{
+		ModelUUID:       st.ModelUUID(),
+		OfferName:       offerName,
+		ApplicationName: applicationName,
+		CharmName:       charmName,
+		ConnectedCount:  connected,
+	}
+}
+
 var _ = gc.Suite(&allWatcherStateSuite{})
 
 type allWatcherStateSuite struct {
@@ -325,25 +387,41 @@ func (s *allWatcherStateSuite) reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
-func (s *allWatcherStateSuite) TestGetAll(c *gc.C) {
-	expectEntities := s.setUpScenario(c, s.state, 2)
-	s.checkGetAll(c, expectEntities)
+func (s *allWatcherStateSuite) assertGetAll(c *gc.C, includeOffers bool) {
+	expectEntities := s.setUpScenario(c, s.state, 2, includeOffers)
+	s.checkGetAll(c, expectEntities, includeOffers)
 }
 
-func (s *allWatcherStateSuite) TestGetAllMultiModel(c *gc.C) {
+func (s *allWatcherStateSuite) TestGetAll(c *gc.C) {
+	s.assertGetAll(c, false)
+}
+
+func (s *allWatcherStateSuite) TestGetAllWithOffers(c *gc.C) {
+	s.assertGetAll(c, true)
+}
+
+func (s *allWatcherStateSuite) assertGetAllMultiModel(c *gc.C, includeOffers bool) {
 	// Set up 2 models and ensure that GetAll returns the
 	// entities for the first model with no errors.
-	expectEntities := s.setUpScenario(c, s.state, 2)
+	expectEntities := s.setUpScenario(c, s.state, 2, includeOffers)
 
 	// Use more units in the second model to ensure the number of
 	// entities will mismatch if model filtering isn't in place.
-	s.setUpScenario(c, s.newState(c), 4)
+	s.setUpScenario(c, s.newState(c), 4, includeOffers)
 
-	s.checkGetAll(c, expectEntities)
+	s.checkGetAll(c, expectEntities, includeOffers)
 }
 
-func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
-	b := newAllWatcherStateBacking(s.state)
+func (s *allWatcherStateSuite) TestGetAllMultiModel(c *gc.C) {
+	s.assertGetAllMultiModel(c, false)
+}
+
+func (s *allWatcherStateSuite) TestGetAllMultiModelWithOffers(c *gc.C) {
+	s.assertGetAllMultiModel(c, true)
+}
+
+func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice, includeOffers bool) {
+	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: includeOffers})
 	all := newStore()
 	err := b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -460,7 +538,7 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 		test := changeTestFunc(c, s.state)
 
 		c.Logf("test %d. %s", i, test.about)
-		b := newAllWatcherStateBacking(s.state)
+		b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: true})
 		all := newStore()
 		for _, info := range test.initialContents {
 			all.Update(info)
@@ -504,6 +582,10 @@ func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
 	testChangeRemoteApplications(c, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestChangeApplicationOffers(c *gc.C) {
+	testChangeApplicationOffers(c, s.performChangeTestCases)
 }
 
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
@@ -625,7 +707,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	err = u.OpenPorts("tcp", 12345, 12345)
 	c.Assert(err, jc.ErrorIsNil)
 	// Create all watcher state backing.
-	b := newAllWatcherStateBacking(s.state)
+	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: false})
 	all := newStore()
 	all.Update(&multiwatcher.MachineInfo{
 		ModelUUID: s.state.ModelUUID(),
@@ -706,7 +788,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	// Init the test model.
 	app := AddTestingService(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"))
-	b := newAllWatcherStateBacking(s.state)
+	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: false})
 	all := newStore()
 	// 1st scenario part: set settings and signal change.
 	setApplicationConfigAttr(c, app, "username", "foo")
@@ -1413,8 +1495,8 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 	// Set up 2 models and ensure that GetAll returns the
 	// entities for both of them.
-	entities0 := s.setUpScenario(c, s.state, 2)
-	entities1 := s.setUpScenario(c, s.state1, 4)
+	entities0 := s.setUpScenario(c, s.state, 2, false)
+	entities1 := s.setUpScenario(c, s.state1, 4, false)
 	expectedEntities := append(entities0, entities1...)
 
 	// allModelWatcherStateBacking also watches models so add those in.
@@ -3238,7 +3320,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 				about: "no remote application in state, no remote application in store -> do nothing",
 				change: watcher.Change{
 					C:  "remoteApplications",
-					Id: st.docID("remote-mysql"),
+					Id: st.docID("remote-mysql2"),
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -3247,22 +3329,23 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.RemoteApplicationInfo{
 						ModelUUID:      st.ModelUUID(),
-						Name:           "remote-mysql",
+						Name:           "remote-mysql2",
 						ApplicationURL: "me/model.mysql",
 					},
 				},
 				change: watcher.Change{
 					C:  "remoteApplications",
-					Id: st.docID("remote-mysql"),
+					Id: st.docID("remote-mysql2"),
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			_, remoteApplicationInfo := addTestingRemoteApplication(c, st, "remote-mysql", "me/model.mysql", mysqlRelations)
+			_, remoteApplicationInfo := addTestingRemoteApplication(
+				c, st, "remote-mysql2", "me/model.mysql", "hosted-mysql", mysqlRelations, false)
 			return changeTestCase{
 				about: "remote application is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "remoteApplications",
-					Id: st.docID("remote-mysql"),
+					Id: st.docID("remote-mysql2"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&remoteApplicationInfo},
 			}
@@ -3277,10 +3360,10 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			// upon destroying.
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
-				c, st, "remote-mysql", "me/model.mysql", mysqlRelations,
+				c, st, "remote-mysql2", "me/model.mysql", "hosted-mysql", mysqlRelations, false,
 			)
 
-			eps, err := st.InferEndpoints("wordpress", "remote-mysql")
+			eps, err := st.InferEndpoints("wordpress", "remote-mysql2")
 			c.Assert(err, jc.ErrorIsNil)
 			rel, err := st.AddRelation(eps[0], eps[1])
 			c.Assert(err, jc.ErrorIsNil)
@@ -3302,14 +3385,14 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 				initialContents: []multiwatcher.EntityInfo{&initialRemoteApplicationInfo},
 				change: watcher.Change{
 					C:  "remoteApplications",
-					Id: st.docID("remote-mysql"),
+					Id: st.docID("remote-mysql2"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&remoteApplicationInfo},
 			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
-				c, st, "remote-mysql", "me/model.mysql", mysqlRelations,
+				c, st, "remote-mysql2", "me/model.mysql", "hosted-mysql", mysqlRelations, false,
 			)
 			now := time.Now()
 			sInfo := status.StatusInfo{
@@ -3340,8 +3423,104 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 	runChangeTests(c, changeTestFuncs)
 }
 
+func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
+	addOffer := func(c *gc.C, st *State) (multiwatcher.ApplicationOfferInfo, *User) {
+		owner, err := st.AddUser("owner", "owner", "password", "admin")
+		c.Assert(err, jc.ErrorIsNil)
+		AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+		_, applicationOfferInfo := addTestingApplicationOffer(
+			c, st, owner.UserTag(), "hosted-mysql", "mysql",
+			"quantal-mysql", []string{"server"}, 0)
+		return applicationOfferInfo, owner
+	}
+
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no application offer in state, no application offer in store -> do nothing",
+				change: watcher.Change{
+					C:  "applicationOffers",
+					Id: st.docID("hosted-mysql"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "application offer is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ApplicationOfferInfo{
+						ModelUUID:       st.ModelUUID(),
+						OfferName:       "hosted-mysql",
+						ApplicationName: "mysql",
+					},
+				},
+				change: watcher.Change{
+					C:  "applicationOffers",
+					Id: st.docID("hosted-mysql"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			applicationOfferInfo, _ := addOffer(c, st)
+			return changeTestCase{
+				about: "application offer is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  "applicationOffers",
+					Id: st.docID("hosted-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&applicationOfferInfo},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			applicationOfferInfo, owner := addOffer(c, st)
+			app, err := st.Application("mysql")
+			c.Assert(err, jc.ErrorIsNil)
+			curl, _ := app.CharmURL()
+			ch, err := st.Charm(curl)
+			c.Assert(err, jc.ErrorIsNil)
+			AddTestingService(c, st, "another-mysql", ch)
+			offers := NewApplicationOffers(st)
+			_, err = offers.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+				OfferName:       "hosted-mysql",
+				Owner:           owner.Name(),
+				ApplicationName: "another-mysql",
+				Endpoints:       map[string]string{"server": "server"},
+			})
+			c.Assert(err, jc.ErrorIsNil)
+
+			initialApplicationOfferInfo := applicationOfferInfo
+			applicationOfferInfo.ApplicationName = "another-mysql"
+			return changeTestCase{
+				about:           "application offer is updated if it's in backing and in multiwatcher.Store",
+				initialContents: []multiwatcher.EntityInfo{&initialApplicationOfferInfo},
+				change: watcher.Change{
+					C:  "applicationOffers",
+					Id: st.docID("hosted-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&applicationOfferInfo},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			applicationOfferInfo, _ := addOffer(c, st)
+			initialApplicationOfferInfo := applicationOfferInfo
+			addTestingRemoteApplication(
+				c, st, "remote-wordpress", "", "hosted-mysql", mysqlRelations, true)
+
+			applicationOfferInfo.ConnectedCount = 1
+			return changeTestCase{
+				about:           "application offer count is updated if it's in backing and in multiwatcher.Store",
+				initialContents: []multiwatcher.EntityInfo{&initialApplicationOfferInfo},
+				change: watcher.Change{
+					C:  "remoteApplications",
+					Id: st.docID("remote-wordpress"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&applicationOfferInfo},
+			}
+		},
+	}
+	runChangeTests(c, changeTestFuncs)
+}
+
 func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
-	return newTestWatcher(newAllWatcherStateBacking(st), st, c)
+	return newTestWatcher(newAllWatcherStateBacking(st, WatchParams{IncludeOffers: false}), st, c)
 }
 
 type testWatcher struct {

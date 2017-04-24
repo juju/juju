@@ -15,7 +15,7 @@ import (
 func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 	return bakerystorage.New(bakerystorage.Config{
 		GetCollection: func() (mongo.Collection, func()) {
-			return st.getCollection(bakeryStorageItemsC)
+			return st.db().GetCollection(bakeryStorageItemsC)
 		},
 	})
 }

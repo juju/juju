@@ -5,10 +5,10 @@ package jujuc_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -32,7 +32,7 @@ func (s *storageAddSuite) getStorageUnitAddCommand(c *gc.C) cmd.Command {
 
 func (s *storageAddSuite) TestHelp(c *gc.C) {
 	com := s.getStorageUnitAddCommand(c)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	help := `
@@ -72,7 +72,7 @@ func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: %#v", i, t.args)
 		com := s.getStorageUnitAddCommand(c)
-		testing.TestInit(c, com, t.args, t.err)
+		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
 }
 
@@ -85,7 +85,7 @@ func (s *storageAddSuite) TestAddUnitStorage(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: %#v", i, t.args)
 		com := s.getStorageUnitAddCommand(c)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, gc.Equals, t.code)
 		s.assertOutput(c, ctx, "", t.err)

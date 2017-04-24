@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ChangePasswordCommandSuite struct {
@@ -42,9 +42,9 @@ func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context,
 	changePasswordCommand, _ := user.NewChangePasswordCommandForTest(
 		newAPIConnection, s.mockAPI, s.store,
 	)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	ctx.Stdin = strings.NewReader("sekrit\nsekrit\n")
-	err := coretesting.InitCommand(changePasswordCommand, args)
+	err := cmdtesting.InitCommand(changePasswordCommand, args)
 	if err != nil {
 		return ctx, nil, err
 	}
@@ -72,7 +72,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		wrappedCommand, command := user.NewChangePasswordCommandForTest(nil, nil, s.store)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)
 		} else {
@@ -89,8 +89,8 @@ func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
 	context, args, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAPICalls(c, "current-user", "sekrit")
-	c.Assert(coretesting.Stdout(context), gc.Equals, "")
-	c.Assert(coretesting.Stderr(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
 new password: 
 type new password again: 
 Your password has been updated.

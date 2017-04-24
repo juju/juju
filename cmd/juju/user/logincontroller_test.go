@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 func (s *LoginCommandSuite) TestLoginFromDirectory(c *gc.C) {
@@ -94,7 +94,7 @@ func (s *LoginCommandSuite) TestRegisterPublicHostnameWithPort(c *gc.C) {
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3:5678")
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "error: cannot use \"0.1.2.3:5678\" as a controller name - use -c flag to choose a different one\n")
+	c.Check(stderr, gc.Equals, "ERROR cannot use \"0.1.2.3:5678\" as a controller name - use -c flag to choose a different one\n")
 	c.Check(code, gc.Equals, 1)
 }
 
@@ -129,7 +129,7 @@ func (s *LoginCommandSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	}
 	stdout, stderr, code := s.run(c, "bighost")
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `error: cannot log into "bighost": open failed\n`)
+	c.Check(stderr, gc.Matches, `ERROR cannot log into "bighost": open failed\n`)
 	c.Check(code, gc.Equals, 1)
 }
 
@@ -145,7 +145,7 @@ func (s *LoginCommandSuite) TestRegisterPublicControllerMismatch(c *gc.C) {
 	stdout, stderr, code := s.run(c, "-c", "other", "bighost")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Matches, `
-error: controller at "bighost" does not match existing controller.
+ERROR controller at "bighost" does not match existing controller.
 Please choose a different controller name with the -c flag, or
 use "juju unregister other" to remove the existing controller\.
 `[1:])

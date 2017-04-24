@@ -182,7 +182,7 @@ func combineMeterStatus(a, b MeterStatus) MeterStatus {
 }
 
 func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
-	meterStatuses, closer := u.st.getCollection(meterStatusC)
+	meterStatuses, closer := u.st.db().GetCollection(meterStatusC)
 	defer closer()
 	var status meterStatusDoc
 	err := meterStatuses.FindId(u.globalMeterStatusKey()).One(&status)

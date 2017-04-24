@@ -6,6 +6,7 @@ package block_test
 import (
 	"errors"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -41,7 +42,7 @@ func (s *enableCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		cmd := block.NewEnableCommand()
-		err := testing.InitCommand(cmd, test.args)
+		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -52,7 +53,7 @@ func (s *enableCommandSuite) TestInit(c *gc.C) {
 
 func (s *enableCommandSuite) TestRunGetAPIError(c *gc.C) {
 	cmd := block.NewEnableCommandForTest(nil, errors.New("boom"))
-	_, err := testing.RunCommand(c, cmd, "all")
+	_, err := cmdtesting.RunCommand(c, cmd, "all")
 	c.Assert(err.Error(), gc.Equals, "cannot connect to the API: boom")
 }
 
@@ -72,7 +73,7 @@ func (s *enableCommandSuite) TestRun(c *gc.C) {
 	}} {
 		mockClient := &mockUnblockClient{}
 		cmd := block.NewEnableCommandForTest(mockClient, nil)
-		_, err := testing.RunCommand(c, cmd, test.args...)
+		_, err := cmdtesting.RunCommand(c, cmd, test.args...)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(mockClient.blockType, gc.Equals, test.type_)
 	}
@@ -81,7 +82,7 @@ func (s *enableCommandSuite) TestRun(c *gc.C) {
 func (s *enableCommandSuite) TestRunError(c *gc.C) {
 	mockClient := &mockUnblockClient{err: errors.New("boom")}
 	cmd := block.NewEnableCommandForTest(mockClient, nil)
-	_, err := testing.RunCommand(c, cmd, "all")
+	_, err := cmdtesting.RunCommand(c, cmd, "all")
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 

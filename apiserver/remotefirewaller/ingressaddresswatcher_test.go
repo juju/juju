@@ -56,10 +56,12 @@ func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation 
 	s.st.relations["remote-db2:db django:db"] = rel
 	unit := newMockUnit("django/0")
 	unit.publicAddress = network.Address{Value: addr}
+	unit.machineId = "0"
 	s.st.units["django/0"] = unit
 	app := newMockApplication("django")
 	app.units = []*mockUnit{unit}
 	s.st.applications["django"] = app
+	s.st.machines["0"] = newMockMachine("0")
 	return rel
 }
 
@@ -112,7 +114,9 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.Address{Value: "54.4.5.6"}
+	unit.machineId = "1"
 	s.st.units["django/1"] = unit
+	s.st.machines["1"] = newMockMachine("1")
 
 	// Initial event.
 	wc.AssertChange()
@@ -149,7 +153,9 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.Address{Value: "54.4.5.6"}
+	unit.machineId = "1"
 	s.st.units["django/1"] = unit
+	s.st.machines["1"] = newMockMachine("1")
 	rel.ruw.changes <- params.RelationUnitsChange{
 		Changed: map[string]params.UnitSettings{
 			"django/1": {},
@@ -240,7 +246,9 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.Address{Value: "54.4.5.6"}
+	unit.machineId = "1"
 	s.st.units["django/1"] = unit
+	s.st.machines["1"] = newMockMachine("1")
 
 	// Initial event.
 	wc.AssertChange()
@@ -272,6 +280,7 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.Address{Value: "54.1.2.3"}
+	unit.machineId = "0"
 	s.st.units["django/1"] = unit
 
 	// Initial event.
@@ -300,5 +309,97 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	}
 
 	wc.AssertChange()
+	wc.AssertNoChange()
+}
+
+func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
+	rel := s.setupRelation(c, "55.1.2.3")
+	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
+	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+
+	wc.AssertChange("55.1.2.3/32")
+	wc.AssertNoChange()
+
+	// Another unit joins on the same machine.
+	unit := newMockUnit("django/1")
+	unit.machineId = "0"
+	s.st.units["django/1"] = unit
+
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/1": {},
+		},
+	}
+	// No new addresses.
+	wc.AssertNoChange()
+
+	// Machine 0 changes address.
+	s.st.units["django/0"].publicAddress = network.Address{Value: "56.1.2.3"}
+	s.st.units["django/1"].publicAddress = network.Address{Value: "56.1.2.3"}
+	s.st.machines["0"].watcher.changes <- struct{}{}
+
+	wc.AssertChange("56.1.2.3/32")
+	wc.AssertNoChange()
+}
+
+func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
+	rel := s.setupRelation(c, "2.3.4.5")
+	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
+	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+
+	wc.AssertChange("2.3.4.5/32")
+	wc.AssertNoChange()
+
+	s.st.units["django/0"].publicAddress = network.Address{Value: "5.4.3.3"}
+	s.st.machines["0"].watcher.changes <- struct{}{}
+
+	wc.AssertChange("5.4.3.3/32")
+	wc.AssertNoChange()
+}
+
+func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc.C) {
+	rel := s.setupRelation(c, "2.3.4.5")
+	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
+	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+
+	wc.AssertChange("2.3.4.5/32")
+	wc.AssertNoChange()
+
+	// Public address for the unit stays the same (maybe some other address changed).
+	s.st.machines["0"].watcher.changes <- struct{}{}
+
+	wc.AssertNoChange()
+}
+
+func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc.C) {
+	rel := s.setupRelation(c, "2.3.4.5")
+	unit := newMockUnit("django/1")
+	unit.publicAddress = network.Address{Value: "2.3.4.5"}
+	unit.machineId = "0"
+	s.st.units["django/1"] = unit
+
+	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0", "django/1")
+	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+
+	wc.AssertChange("2.3.4.5/32")
+	wc.AssertNoChange()
+
+	delete(s.st.units, "django/1")
+	s.st.units["django/0"].publicAddress = network.Address{Value: "6.7.8.9"}
+	s.st.machines["0"].watcher.changes <- struct{}{}
+
+	wc.AssertChange("6.7.8.9/32")
 	wc.AssertNoChange()
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-
+	slawire "github.com/juju/romulus/wireformat/sla"
 	"github.com/juju/testing"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -134,7 +134,7 @@ type mockapi struct {
 	macaroon *macaroon.Macaroon
 }
 
-func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*macaroon.Macaroon, error) {
+func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*slawire.SLAResponse, error) {
 	err := m.NextErr()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -149,15 +149,15 @@ func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*macaroon.M
 		return nil, errors.Trace(err)
 	}
 	m.macaroon = macaroon
-	return m.macaroon, nil
+	return &slawire.SLAResponse{Credentials: m.macaroon, Owner: "bob"}, nil
 }
 
 type mockSlaClient struct {
 	testing.Stub
 }
 
-func (m *mockSlaClient) SetSLALevel(level string, creds []byte) error {
-	m.AddCall("SetSLALevel", level, creds)
+func (m *mockSlaClient) SetSLALevel(level, owner string, creds []byte) error {
+	m.AddCall("SetSLALevel", level, owner, creds)
 	return nil
 }
 func (m *mockSlaClient) SLALevel() (string, error) {

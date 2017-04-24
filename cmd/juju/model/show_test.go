@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
@@ -24,7 +24,7 @@ import (
 type ShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake           fakeModelShowClient
-	store          *jujuclienttesting.MemStore
+	store          *jujuclient.MemStore
 	expectedOutput attrs
 }
 
@@ -126,7 +126,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
@@ -144,7 +144,7 @@ func (s *ShowCommandSuite) newShowCommand() cmd.Command {
 }
 
 func (s *ShowCommandSuite) TestShow(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newShowCommand())
+	_, err := cmdtesting.RunCommand(c, s.newShowCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
@@ -158,26 +158,44 @@ func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *gc.C) {
 		called = true
 		return nil
 	}
-	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, refresh, s.store), "unknown")
+	_, err := cmdtesting.RunCommand(c, model.NewShowCommandForTest(&s.fake, refresh, s.store), "unknown")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {
-	ctx, err := testing.RunCommand(c, s.newShowCommand(), "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
-	ctx, err := testing.RunCommand(c, s.newShowCommand(), "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newShowCommand(), "admin", "whoops")
+	_, err := cmdtesting.RunCommand(c, s.newShowCommand(), "admin", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+}
+
+type showSLACommandSuite struct {
+	ShowCommandSuite
+}
+
+var _ = gc.Suite(&showSLACommandSuite{})
+
+func (s *showSLACommandSuite) SetUpTest(c *gc.C) {
+	s.ShowCommandSuite.SetUpTest(c)
+
+	s.fake.info.SLA = &params.ModelSLAInfo{
+		Level: "next",
+		Owner: "user",
+	}
+	slaOutput := s.expectedOutput["mymodel"].(attrs)
+	slaOutput["sla"] = "next"
+	slaOutput["sla-owner"] = "user"
 }
 
 func noOpRefresh(jujuclient.ClientStore, string) error {

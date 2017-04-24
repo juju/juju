@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state/presence"
@@ -98,7 +99,7 @@ func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
 func assertStopped(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), gc.IsNil)
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
@@ -475,32 +476,6 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 	}
 }
 
-func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
-	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer assertStopped(c, w)
-	defer assertStopped(c, p)
-
-	ch := make(chan presence.Change)
-	w.Watch("a", ch)
-	assertChange(c, ch, presence.Change{"a", false})
-	c.Assert(p.Start(), gc.IsNil)
-	done := make(chan bool)
-	go func() {
-		w.Sync()
-		done <- true
-	}()
-	assertChange(c, ch, presence.Change{"a", true})
-	results, err := presence.FindAllBeings(w)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("Sync failed to returned")
-	}
-}
-
 func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	key := "a"
 	w1, p1, ch1 := s.setup(c, key)
@@ -540,16 +515,94 @@ func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	assertNoChange(c, ch1)
 }
 
-func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+func newModelTag(c *gc.C) names.ModelTag {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := uuid.String()
+	return names.NewModelTag(modelUUID)
+}
 
-	w := presence.NewWatcher(s.presence, names.NewModelTag(modelUUID))
-	p := presence.NewPinger(s.presence, names.NewModelTag(modelUUID), key)
+func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+	modelTag := newModelTag(c)
+
+	w := presence.NewWatcher(s.presence, modelTag)
+	p := presence.NewPinger(s.presence, modelTag, key)
 
 	ch := make(chan presence.Change)
 	w.Watch(key, ch)
 	assertChange(c, ch, presence.Change{key, false})
 	return w, p, ch
+}
+
+func countModelIds(c *gc.C, coll *mgo.Collection, modelTag names.ModelTag) int {
+	count, err := coll.Find(bson.M{"_id": bson.RegEx{"^" + modelTag.Id() + ":", ""}}).Count()
+	// either the error is NotFound or nil
+	if err != nil {
+		c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	}
+	return count
+}
+
+func (s *PresenceSuite) TestRemovePresenceForModel(c *gc.C) {
+	key := "a"
+
+	// Start a pinger in this model
+	w1 := presence.NewWatcher(s.presence, s.modelTag)
+	p1 := presence.NewPinger(s.presence, s.modelTag, key)
+	ch1 := make(chan presence.Change)
+	w1.Watch(key, ch1)
+	assertChange(c, ch1, presence.Change{key, false})
+	defer assertStopped(c, w1)
+	defer assertStopped(c, p1)
+	p1.Start()
+	w1.StartSync()
+	assertChange(c, ch1, presence.Change{"a", true})
+
+	// Start a second model and pinger with the same key
+	modelTag2 := newModelTag(c)
+	w2 := presence.NewWatcher(s.presence, modelTag2)
+	p2 := presence.NewPinger(s.presence, modelTag2, key)
+	ch2 := make(chan presence.Change)
+	w2.Watch(key, ch2)
+	assertChange(c, ch2, presence.Change{key, false})
+	defer assertStopped(c, w2)
+	defer assertStopped(c, p2)
+	// Start them, and check that we see they're alive
+	p2.Start()
+	w2.StartSync()
+	assertChange(c, ch2, presence.Change{"a", true})
+
+	beings := s.presence.Database.C(s.presence.Name + ".beings")
+	pings := s.presence.Database.C(s.presence.Name + ".pings")
+	seqs := s.presence.Database.C(s.presence.Name + ".seqs")
+	// we should have a being and pings for both pingers
+	c.Check(countModelIds(c, beings, s.modelTag), gc.Equals, 1)
+	c.Check(countModelIds(c, beings, modelTag2), gc.Equals, 1)
+	c.Check(countModelIds(c, pings, s.modelTag), jc.GreaterThan, 0)
+	c.Check(countModelIds(c, pings, modelTag2), jc.GreaterThan, 0)
+	c.Check(countModelIds(c, seqs, s.modelTag), gc.Equals, 1)
+	c.Check(countModelIds(c, seqs, modelTag2), gc.Equals, 1)
+
+	// kill everything in the first model
+	assertStopped(c, w1)
+	assertStopped(c, p1)
+	// And cleanup the resources
+	err := presence.RemovePresenceForModel(s.presence, s.modelTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Should not cause the second pinger to go dead
+	w2.StartSync()
+	assertNoChange(c, ch2)
+
+	// And we should only have the second model in the databases
+	c.Check(countModelIds(c, beings, s.modelTag), gc.Equals, 0)
+	c.Check(countModelIds(c, beings, modelTag2), gc.Equals, 1)
+	c.Check(countModelIds(c, pings, s.modelTag), gc.Equals, 0)
+	c.Check(countModelIds(c, pings, modelTag2), jc.GreaterThan, 0)
+	c.Check(countModelIds(c, seqs, s.modelTag), gc.Equals, 0)
+	c.Check(countModelIds(c, seqs, modelTag2), gc.Equals, 1)
+
+	// Removing a Model that is no longer there should not be an error
+	err = presence.RemovePresenceForModel(s.presence, s.modelTag)
+	c.Assert(err, jc.ErrorIsNil)
 }
