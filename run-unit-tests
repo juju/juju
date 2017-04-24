@@ -172,7 +172,7 @@ if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     done
     $FIXUP_SOURCES
 fi
-export PATH=/usr/lib/go-1.6/bin:$PATH
+export PATH=/usr/lib/go-1.8/bin:$PATH
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get install -y make gcc software-properties-common distro-info-data
@@ -188,8 +188,7 @@ else
     sudo apt-get install -y $INSTALL_DEPS
 fi
 
-# TODO(gz): Remove bzr whoami?
-bzr whoami 'J. Random Hacker <jrandom@example.org>'
+go env
 go version || gccgo -v
 make build
 export JUJU_NOTEST_MONGOJS=1

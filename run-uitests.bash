@@ -23,7 +23,7 @@ export S3_CONFIG=$CLOUD_CITY/juju-qa.s3cfg
 source $CLOUD_CITY/staging-charm-store.rc
 set -x
 
-export PATH=/usr/lib/go-1.6/bin:$PATH
+export PATH=/usr/lib/go-1.8/bin:$PATH
 
 REVISION_BUILD=${1:-$revision_build}
 SUITE=${2:-TestJujuCore}

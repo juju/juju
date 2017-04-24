@@ -89,6 +89,8 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
             print_now(env['TEMP'])
         build_cmd = ['powershell.exe', '-Command'] + build_cmd
         test_cmd = ['powershell.exe', '-Command'] + test_cmd
+        version_cmd = ['powershell.exe', '-Command'] + version_cmd
+        env_cmd = ['powershell.exe', '-Command'] + env_cmd
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:
