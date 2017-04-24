@@ -22,7 +22,7 @@ if [[ $VERSION =~ 1\..*  ]]; then
 else
     mkdir -p $WORKSPACE/artifacts/network
     mkdir -p $WORKSPACE/artifacts/grant
-    NETWORK="timeout -s INT 20m $SCRIPTS/assess_network_health.py parallel-rackspace $JUJU_BIN $WORKSPACE/artifacts/network merge-juju-network--agent-stream=revision-build-$revision_build  --series xenial --bundle 'cs:bundle/mediawiki-single'"
+    NETWORK="timeout -s INT 20m $SCRIPTS/assess_network_health.py parallel-rackspace $JUJU_BIN $WORKSPACE/artifacts/network merge-juju-network --series xenial --bundle 'cs:bundle/mediawiki-single'"
     GRANT="timeout -s INT 20m $SCRIPTS/assess_user_grant_revoke.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/grant merge-juju-grant --timeout 1500 --series xenial"
     RACE="run-unit-tests c4.4xlarge $XENIAL_AMI --force-archive --race --local $TARFILE_NAME"
     RACE="echo 'Skipping race unit tests.'"
