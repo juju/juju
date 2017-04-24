@@ -1654,6 +1654,7 @@ azure-china
 cloudsigma                                   
 google                                       
 joyent                                       
+oracle                                       
 rackspace                                    
 localhost                                    
 dummy-cloud                     joe          home
