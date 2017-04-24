@@ -27,6 +27,7 @@ endif
 define DEPENDENCIES
   ca-certificates
   bzip2
+  bzr
   distro-info-data
   git
   zip
@@ -96,7 +97,7 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Adding PPAs for golang and juju
+	@echo Adding juju PPAs for golang and juju
 	@sudo apt-add-repository --yes ppa:juju/golang
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
