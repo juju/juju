@@ -1110,10 +1110,6 @@ func diffRanges(currentRules, wantedRules []network.IngressRule) (toOpen, toClos
 			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: toOpenCidrs.SortedValues()}
 			toOpen = append(toOpen, rule)
 		}
-		// We we have any CIDRs for which to allow access, no need to close the port range.
-		if len(toOpenCidrs) > 0 {
-			continue
-		}
 		toCloseCidrs := existingCidrs.Difference(wantedCidrs)
 		if toCloseCidrs.Size() > 0 {
 			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: toCloseCidrs.SortedValues()}

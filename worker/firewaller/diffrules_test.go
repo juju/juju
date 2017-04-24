@@ -117,3 +117,15 @@ func (s *DiffRulesSuite) TestPortRangeOverlap(c *gc.C) {
 		network.MustNewIngressRule("tcp", 80, 90, "192.168.1.0/24"),
 	})
 }
+
+func (s *diffSuite) TestDiffRangesClosesPortsIfRulesAreDisjoint(c *gc.C) {
+	current := []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "35.187.158.35/32"),
+	}
+	wanted := []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "35.187.152.241/32"),
+	}
+	toOpen, toClose := diffRanges(current, wanted)
+	c.Assert(toOpen, gc.DeepEquals, wanted)
+	c.Assert(toClose, gc.DeepEquals, current)
+}
