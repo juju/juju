@@ -20,9 +20,6 @@ usage() {
     exit 1
 }
 
-# check build dependencies
-source "$SCRIPT_DIR/check-source-depends.bash"
-
 GIT_PR=$1
 JUJU_CORE_REPO=${2:-$DEFAULT_GIT_JUJU_CORE}
 
