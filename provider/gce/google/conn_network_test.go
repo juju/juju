@@ -202,7 +202,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdateSameCIDR(c *gc.C) {
 
 func (s *connSuite) TestConnectionOpenPortsUpdateAddCIDR(c *gc.C) {
 	s.FakeConn.Firewalls = []*compute.Firewall{{
-		Name:         "spam-d01a82",
+		Name:         "spam-arbitrary-name",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"192.168.1.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
@@ -219,9 +219,9 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAddCIDR(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewalls")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "UpdateFirewall")
 	sort.Strings(s.FakeConn.Calls[1].Firewall.Allowed[0].Ports)
-	c.Check(s.FakeConn.Calls[1].Name, gc.Equals, "spam-d01a82")
+	c.Check(s.FakeConn.Calls[1].Name, gc.Equals, "spam-arbitrary-name")
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
-		Name:         "spam-d01a82",
+		Name:         "spam-arbitrary-name",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
 		Allowed: []*compute.FirewallAllowed{{

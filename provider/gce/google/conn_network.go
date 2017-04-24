@@ -53,7 +53,7 @@ func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) err
 
 // FirewallNamer generates a unique name for a firewall given the firewall, a
 // prefix and a set of current firewall rule names.
-type FirewallNamer func(*firewall, string, set.Strings) (string, error)
+type FirewallNamer func(fw *firewall, prefix string, existingNames set.Strings) (string, error)
 
 // OpenPortsWithNamer adds or creates firewall rules in the same way
 // as OpenPorts, but uses the FirewallNamer passed in to generate the
@@ -130,7 +130,7 @@ func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rul
 
 // RandomSuffixNamer tries to find a unique name for the firewall by
 // appending a random suffix.
-func RandomSuffixNamer(fw *firewall, prefix string, names set.Strings) (string, error) {
+func RandomSuffixNamer(fw *firewall, prefix string, existingNames set.Strings) (string, error) {
 	// For backwards compatibility, open rules for "0.0.0.0/0"
 	// do not use any suffix in the name.
 	if len(fw.SourceCIDRs) == 0 || len(fw.SourceCIDRs) == 1 && fw.SourceCIDRs[0] == "0.0.0.0/0" {
@@ -143,7 +143,7 @@ func RandomSuffixNamer(fw *firewall, prefix string, names set.Strings) (string, 
 			return "", errors.Trace(err)
 		}
 		name := fmt.Sprintf("%s-%x", prefix, data)
-		if !names.Contains(name) {
+		if !existingNames.Contains(name) {
 			return name, nil
 		}
 	}
