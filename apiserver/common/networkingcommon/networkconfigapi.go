@@ -37,6 +37,16 @@ func (api *NetworkConfigAPI) getMachine(tag names.MachineTag) (*state.Machine, e
 }
 
 func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
+	manual, err := m.IsManual()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if manual {
+		logger.Infof("provider network config not supported on manually provisioned machines")
+		return nil, nil
+	}
+
 	instId, err := m.InstanceId()
 	if err != nil {
 		return nil, errors.Trace(err)
