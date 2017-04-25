@@ -91,7 +91,7 @@ func (w *proxyWorker) saveProxySettingsToFiles() error {
 	for _, file := range w.config.SystemdFiles {
 		err := ioutil.WriteFile(file, []byte(w.proxy.AsSystemdDefaultEnv()), 0644)
 		if err != nil {
-			logger.Errorf("Error updating systemd file %s - %v", file, err)
+			logger.Errorf("Error updating systemd file - %v", err)
 		}
 	}
 	return nil

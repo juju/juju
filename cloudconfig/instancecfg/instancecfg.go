@@ -11,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
-	"strings"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
@@ -446,7 +446,12 @@ func (cfg *InstanceConfig) APIHosts() []string {
 	}
 	if cfg.APIInfo != nil {
 		for _, addr := range cfg.APIInfo.Addrs {
-			hosts = append(hosts, strings.Split(addr, ":")[0])
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				logger.Errorf("Can't split API address %q to host:port - %q", host, err)
+				continue
+			}
+			hosts = append(hosts, host)
 		}
 	}
 	return hosts
