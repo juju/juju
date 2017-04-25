@@ -44,7 +44,7 @@ func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
 func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
-	err := runDeploy(c, ch, "riak", "--series", "quantal")
+	_, err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -61,7 +61,7 @@ func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
 
 func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem")
-	err := runDeploy(c, ch, "storage-filesystem", "--series", "quantal", "-n2", "--storage", "data=2,rootfs")
+	_, err := runDeploy(c, ch, "storage-filesystem", "--series", "quantal", "-n2", "--storage", "data=2,rootfs")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err := runRemoveApplication(c, "storage-filesystem")
@@ -98,7 +98,7 @@ func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
-	deploy := NewDefaultDeployCommand()
+	deploy := NewDeployCommand()
 	_, err := cmdtesting.RunCommand(c, deploy, ch, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runRemoveApplication(c, "metered")

@@ -4,11 +4,8 @@
 package application
 
 import (
-	"os"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -18,92 +15,78 @@ import (
 
 type CmdSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	ControllerStore *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&CmdSuite{})
 
 func (s *CmdSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.ControllerStore = jujuclient.NewMemStore()
 }
 
 var deployTests = []struct {
-	args []string
-	com  *DeployCommand
-}{
-	{
-		[]string{"charm-name"},
-		&DeployCommand{},
-	}, {
-		[]string{"charm-name", "application-name"},
-		&DeployCommand{ApplicationName: "application-name"},
-	}, {
-		[]string{"--num-units", "33", "charm-name"},
-		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 33}},
-	}, {
-		[]string{"-n", "104", "charm-name"},
-		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 104}},
-	},
-}
-
-func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
-	if com.CharmOrBundle == "" {
-		com.CharmOrBundle = "charm-name"
-	}
-	if com.NumUnits == 0 {
-		com.NumUnits = 1
-	}
-	com.SetClientStore(modelcmd.QualifyingClientStore{store})
-	com.SetModelName("controller")
-}
-
-func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCommand, error) {
-	com := &DeployCommand{}
-	com.SetClientStore(store)
-	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
-}
+	about                 string
+	args                  []string
+	expectCharmOrBundle   string
+	expectApplicationName string
+	expectNumUnits        int
+	expectError           string
+	expectConfigFile      string
+}{{
+	about:               "simple init",
+	args:                []string{"charm-name"},
+	expectCharmOrBundle: "charm-name",
+	expectNumUnits:      1,
+}, {
+	about:                 "charm and application name specified",
+	args:                  []string{"charm-name", "application-name"},
+	expectCharmOrBundle:   "charm-name",
+	expectApplicationName: "application-name",
+	expectNumUnits:        1,
+}, {
+	about:               "--num-units long form",
+	args:                []string{"--num-units", "33", "charm-name"},
+	expectNumUnits:      33,
+	expectCharmOrBundle: "charm-name",
+}, {
+	about:               "--num-units short form",
+	args:                []string{"-n", "104", "charm-name"},
+	expectNumUnits:      104,
+	expectCharmOrBundle: "charm-name",
+}, {
+	about:               "config specified",
+	args:                []string{"--config", "testconfig.yaml", "charm-name"},
+	expectCharmOrBundle: "charm-name",
+	expectNumUnits:      1,
+	expectConfigFile:    "testconfig.yaml",
+}, {
+	about:       "missing args",
+	expectError: "no charm or bundle specified",
+}, {
+	about:       "bad unit count",
+	args:        []string{"charm-name", "--num-units", "0"},
+	expectError: "--num-units must be a positive integer",
+}, {
+	about:       "bad unit count (short form)",
+	args:        []string{"charm-name", "-n", "0"},
+	expectError: "--num-units must be a positive integer",
+}}
 
 func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 	for i, t := range deployTests {
-		c.Logf("\ntest %d: args %q", i, t.args)
-		initExpectations(t.com, s.ControllerStore)
-		com, err := initDeployCommand(s.ControllerStore, t.args...)
-		// Testing that the flag set is populated is good enough for the scope
-		// of this test.
-		c.Assert(com.flagSet, gc.NotNil)
-		com.flagSet = nil
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(com, jc.DeepEquals, t.com)
+		c.Logf("\ntest %d: %s", i, t.about)
+		wrappedDeployCmd := NewDeployCommandForTest(nil, nil)
+		wrappedDeployCmd.SetClientStore(jujuclient.NewMemStore())
+		err := cmdtesting.InitCommand(wrappedDeployCmd, t.args)
+		if t.expectError != "" {
+			c.Assert(err, gc.ErrorMatches, t.expectError)
+			continue
+		}
+		deployCmd := modelcmd.InnerCommand(wrappedDeployCmd).(*DeployCommand)
+		c.Assert(deployCmd.ApplicationName, gc.Equals, t.expectApplicationName)
+		c.Assert(deployCmd.CharmOrBundle, gc.Equals, t.expectCharmOrBundle)
+		c.Assert(deployCmd.NumUnits, gc.Equals, t.expectNumUnits)
+		c.Assert(deployCmd.Config.Path, gc.Equals, t.expectConfigFile)
 	}
-
-	// test relative --config path
-	ctx := cmdtesting.Context(c)
-	expected := []byte("test: data")
-	path := ctx.AbsPath("testconfig.yaml")
-	file, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = file.Write(expected)
-	c.Assert(err, jc.ErrorIsNil)
-	file.Close()
-
-	com, err := initDeployCommand(s.ControllerStore, "--config", "testconfig.yaml", "charm-name")
-	c.Assert(err, jc.ErrorIsNil)
-	actual, err := com.Config.Read(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(expected, gc.DeepEquals, actual)
-
-	// missing args
-	_, err = initDeployCommand(s.ControllerStore)
-	c.Assert(err, gc.ErrorMatches, "no charm or bundle specified")
-
-	// bad unit count
-	_, err = initDeployCommand(s.ControllerStore, "charm-name", "--num-units", "0")
-	c.Assert(err, gc.ErrorMatches, "--num-units must be a positive integer")
-	_, err = initDeployCommand(s.ControllerStore, "charm-name", "-n", "0")
-	c.Assert(err, gc.ErrorMatches, "--num-units must be a positive integer")
-
-	// environment tested elsewhere
 }
 
 func initExposeCommand(args ...string) (*exposeCommand, error) {
