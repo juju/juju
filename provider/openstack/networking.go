@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -275,7 +275,7 @@ func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, 
 // the exact given name AND router:external boolean result.
 func networkFilter(name string, external bool) *neutron.Filter {
 	filter := neutron.NewFilter()
-	filter.Set(neutron.FilterNetwork, fmt.Sprintf("^%s$", name))
+	filter.Set(neutron.FilterNetwork, fmt.Sprintf("%s", name))
 	filter.Set(neutron.FilterRouterExternal, fmt.Sprintf("%t", external))
 	return filter
 }

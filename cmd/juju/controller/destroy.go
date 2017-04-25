@@ -277,8 +277,13 @@ type destroyCommandBase struct {
 }
 
 func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
+	// Note that some tests set c.api to a non-nil value
+	// even when c.apierr is non-nil, hence the separate test.
+	if c.apierr != nil {
+		return nil, c.apierr
+	}
 	if c.api != nil {
-		return c.api, c.apierr
+		return c.api, nil
 	}
 	root, err := c.NewAPIRoot()
 	if err != nil {

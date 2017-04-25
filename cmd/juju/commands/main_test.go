@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -401,12 +401,11 @@ var commandNames = []string{
 	"add-user",
 	"agree",
 	"agreements",
-	"allocate",
 	"attach",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
-	"budgets",
+	"budget",
 	"cached-images",
 	"change-user-password",
 	"charm",
@@ -416,8 +415,8 @@ var commandNames = []string{
 	"controller-config",
 	"controllers",
 	"create-backup",
-	"create-budget",
 	"create-storage-pool",
+	"create-wallet",
 	"credentials",
 	"debug-hooks",
 	"debug-log",
@@ -444,7 +443,6 @@ var commandNames = []string{
 	"list-actions",
 	"list-agreements",
 	"list-backups",
-	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
 	"list-controllers",
@@ -462,6 +460,7 @@ var commandNames = []string{
 	"list-storage-pools",
 	"list-subnets",
 	"list-users",
+	"list-wallets",
 	"login",
 	"logout",
 	"machines",
@@ -494,17 +493,16 @@ var commandNames = []string{
 	"run",
 	"run-action",
 	"scp",
-	"set-budget",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
 	"set-meter-status",
 	"set-model-constraints",
 	"set-plan",
+	"set-wallet",
 	"show-action-output",
 	"show-action-status",
 	"show-backup",
-	"show-budget",
 	"show-cloud",
 	"show-controller",
 	"show-machine",
@@ -513,6 +511,7 @@ var commandNames = []string{
 	"show-status-log",
 	"show-storage",
 	"show-user",
+	"show-wallet",
 	"sla",
 	"spaces",
 	"ssh",
@@ -521,7 +520,6 @@ var commandNames = []string{
 	"storage",
 	"storage-pools",
 	"subnets",
-	"support",
 	"switch",
 	"sync-tools",
 	"unexpose",
@@ -534,6 +532,7 @@ var commandNames = []string{
 	"upload-backup",
 	"users",
 	"version",
+	"wallets",
 	"whoami",
 }
 

@@ -124,6 +124,11 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 				gatewayHandled = true // write it only once
 			}
 		}
+
+		if mtu, ok := prepared.NameToMTU[name]; ok {
+			output.WriteString(fmt.Sprintf("  mtu %d\n", mtu))
+		}
+
 		for _, route := range prepared.NameToRoutes[name] {
 			output.WriteString(fmt.Sprintf("  post-up ip route add %s via %s metric %d\n",
 				route.DestinationCIDR, route.GatewayIP, route.Metric))
@@ -151,6 +156,7 @@ type PreparedConfig struct {
 	DNSSearchDomains []string
 	NameToAddress    map[string]string
 	NameToRoutes     map[string][]network.Route
+	NameToMTU        map[string]int
 	GatewayAddress   string
 }
 
@@ -164,6 +170,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	namesInOrder := make([]string, 1, len(interfaces)+1)
 	nameToAddress := make(map[string]string)
 	nameToRoutes := make(map[string][]network.Route)
+	nameToMTU := make(map[string]int)
 
 	// Always include the loopback.
 	namesInOrder[0] = "lo"
@@ -195,6 +202,10 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 			gatewayAddress = info.GatewayAddress.Value
 		}
 
+		if info.MTU != 0 && info.MTU != 1500 {
+			nameToMTU[ifaceName] = info.MTU
+		}
+
 		namesInOrder = append(namesInOrder, ifaceName)
 	}
 
@@ -202,6 +213,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 		InterfaceNames:   namesInOrder,
 		NameToAddress:    nameToAddress,
 		NameToRoutes:     nameToRoutes,
+		NameToMTU:        nameToMTU,
 		AutoStarted:      autoStarted.SortedValues(),
 		DNSServers:       dnsServers.SortedValues(),
 		DNSSearchDomains: dnsSearchDomains.SortedValues(),

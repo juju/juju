@@ -947,10 +947,10 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 		X: map[string]int{"hello": 65},
 	}
 	err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
-	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go (?:value)|(?:struct field \.X) of type \[\]string`)
 
 	err = client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
-	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go (?:value)|(?:struct field \.X) of type \[\]string`)
 
 	arg1 := struct {
 		X []string

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -18,7 +19,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	cloudfile "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
 )
@@ -249,6 +249,7 @@ func (*addSuite) TestInteractive(c *gc.C) {
 		"  maas\n"+
 		"  manual\n"+
 		"  openstack\n"+
+		"  oracle\n"+
 		"  vsphere\n"+
 		"\n"+
 		"Select cloud type: \n",

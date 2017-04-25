@@ -4,10 +4,11 @@
 package controller
 
 import (
+	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
@@ -15,8 +16,6 @@ import (
 
 	"github.com/juju/juju/cert"
 )
-
-var logger = loggo.GetLogger("juju.controller")
 
 const (
 	// MongoProfLow represents the most conservative mongo memory profile.
@@ -73,6 +72,13 @@ const (
 	// detault
 	MongoMemoryProfile = "mongo-memory-profile"
 
+	// MaxLogsAge is the maximum age for log entries, ef "72h"
+	MaxLogsAge = "max-logs-age"
+
+	// MaxLogsSize is the maximum size the log collection can grow to
+	// before it is pruned, eg "4M"
+	MaxLogsSize = "max-logs-size"
+
 	// Attribute Defaults
 
 	// DefaultAuditingEnabled contains the default value for the
@@ -91,6 +97,13 @@ const (
 
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfLow
+
+	// DefaultMaxLogsAgeDays is the maximum age in days of log entries.
+	DefaultMaxLogsAgeDays = 3
+
+	// DefaultMaxLogCollectionMB is the maximum size the log collection can
+	// grow to before being pruned.
+	DefaultMaxLogCollectionMB = 4 * 1024 // 4 GB
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -107,6 +120,8 @@ var ControllerOnlyConfigAttributes = []string{
 	SetNUMAControlPolicyKey,
 	StatePort,
 	MongoMemoryProfile,
+	MaxLogsSize,
+	MaxLogsAge,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -269,6 +284,21 @@ func (c Config) AllowModelAccess() bool {
 	return value
 }
 
+// MaxLogsAge is the maximum age of log entries before they are pruned.
+func (c Config) MaxLogsAge() time.Duration {
+	// Value has already been validated.
+	val, _ := time.ParseDuration(c.mustString(MaxLogsAge))
+	return val
+}
+
+// MaxLogSizeMB is the maximum size in MiB which the log collection
+// can grow to before being pruned.
+func (c Config) MaxLogSizeMB() int {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(MaxLogsSize))
+	return int(val)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -310,6 +340,18 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[MaxLogsAge].(string); ok {
+		if _, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid logs prune interval in configuration")
+		}
+	}
+
+	if v, ok := c[MaxLogsSize].(string); ok {
+		if _, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid max logs size in configuration")
+		}
+	}
+
 	return nil
 }
 
@@ -330,6 +372,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertDNSNameKey:      schema.String(),
 	AllowModelAccessKey:     schema.Bool(),
 	MongoMemoryProfile:      schema.String(),
+	MaxLogsAge:              schema.String(),
+	MaxLogsSize:             schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -341,4 +385,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertDNSNameKey:      schema.Omit,
 	AllowModelAccessKey:     schema.Omit,
 	MongoMemoryProfile:      schema.Omit,
+	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
+	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 })

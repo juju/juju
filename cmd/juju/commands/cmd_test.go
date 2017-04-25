@@ -10,11 +10,9 @@ import (
 	"os/exec"
 	stdtesting "testing"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/cmd/cmdtesting"
-	"github.com/juju/juju/juju/osenv"
 )
 
 // flagRunMain is used to indicate that the -run-main flag was used.
@@ -64,7 +62,6 @@ func TestRunMain(t *stdtesting.T) {
 func badrun(c *gc.C, exit int, args ...string) string {
 	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
 	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuXDGDataHomeEnvKey+"="+osenv.JujuXDGDataHome())
 	output, err := ps.CombinedOutput()
 	c.Logf("command output: %q", output)
 	if exit != 0 {

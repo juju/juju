@@ -17,13 +17,13 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/gui"
 	envgui "github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/simplestreams"

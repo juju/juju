@@ -115,7 +115,7 @@ func (ws *workers) singularManager() *lease.Manager {
 	return w.(*lease.Manager)
 }
 
-func (ws *workers) allManager() *storeManager {
+func (ws *workers) allManager(params WatchParams) *storeManager {
 	w, err := ws.Worker(allManagerWorker, nil)
 	if err == nil {
 		return w.(*storeManager)
@@ -125,9 +125,9 @@ func (ws *workers) allManager() *storeManager {
 	}
 	// Note that StartWorker is idempotent if there's a race.
 	ws.StartWorker(allManagerWorker, func() (worker.Worker, error) {
-		return newStoreManager(newAllWatcherStateBacking(ws.state)), nil
+		return newStoreManager(newAllWatcherStateBacking(ws.state, params)), nil
 	})
-	return ws.allManager()
+	return ws.allManager(params)
 }
 
 func (ws *workers) allModelManager(pool *StatePool) *storeManager {

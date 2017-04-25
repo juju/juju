@@ -9,8 +9,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -18,9 +21,12 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/constraints"
+	jujuworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 // CreateVirtualMachineParams contains the parameters required for creating
@@ -61,6 +67,14 @@ type CreateVirtualMachineParams struct {
 	// UpdateProgress is a function that should be called before/during
 	// long-running operations to provide a progress reporting.
 	UpdateProgress func(string)
+
+	// UpdateProgressInterval is the amount of time to wait between calls
+	// to UpdateProgress. This should be lower when the operation is
+	// interactive (bootstrap), and higher when non-interactive.
+	UpdateProgressInterval time.Duration
+
+	// Clock is used for controlling the timing of progress updates.
+	Clock clock.Clock
 }
 
 // CreateVirtualMachine creates and powers on a new VM.
@@ -144,16 +158,31 @@ func (c *Client) CreateVirtualMachine(
 			})
 		}
 	}
+	leaseUpdaterContext := leaseUpdaterContext{lease: lease}
 	for _, item := range uploadItems {
+		leaseUpdaterContext.total += item.item.Size
+	}
+	for _, item := range uploadItems {
+		leaseUpdaterContext.size = item.item.Size
 		if err := uploadImage(
+			ctx,
 			c.client.Client,
 			item.item,
 			args.OVADir,
 			item.url,
 			args.UpdateProgress,
+			args.UpdateProgressInterval,
+			leaseUpdaterContext,
+			args.Clock,
+			c.logger,
 		); err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(
+				err, "uploading %s to %s",
+				filepath.Base(item.item.Path),
+				item.url,
+			)
 		}
+		leaseUpdaterContext.start += leaseUpdaterContext.size
 	}
 	if err := lease.HttpNfcLeaseComplete(ctx); err != nil {
 		return nil, errors.Trace(err)
@@ -206,13 +235,12 @@ func (c *Client) createImportSpec(
 	if args.Constraints.HasMem() {
 		s.MemoryMB = int64(*args.Constraints.Mem)
 	}
-	var cpuPower int64
 	if args.Constraints.HasCpuPower() {
-		cpuPower = int64(*args.Constraints.CpuPower)
-	}
-	s.CpuAllocation = &types.ResourceAllocationInfo{
-		Limit:       cpuPower,
-		Reservation: cpuPower,
+		cpuPower := int64(*args.Constraints.CpuPower)
+		s.CpuAllocation = &types.ResourceAllocationInfo{
+			Limit:       cpuPower,
+			Reservation: cpuPower,
+		}
 	}
 	for _, d := range s.DeviceChange {
 		disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk)
@@ -273,11 +301,16 @@ func (c *Client) createImportSpec(
 // uploadImage uploads an image from the given extracted OVA directory
 // to a target URL.
 func uploadImage(
+	ctx context.Context,
 	client *vim25.Client,
 	item types.OvfFileItem,
 	ovaDir string,
 	targetURL *url.URL,
-	updateProgress func(string),
+	updateStatus func(string),
+	updateStatusInterval time.Duration,
+	leaseUpdaterContext leaseUpdaterContext,
+	clock clock.Clock,
+	logger loggo.Logger,
 ) error {
 	sourcePath := filepath.Join(ovaDir, item.Path)
 	f, err := os.Open(sourcePath)
@@ -286,72 +319,157 @@ func uploadImage(
 	}
 	defer f.Close()
 
-	// Transfer image upload progress to the UpdateProgress function.
-	progressChan := make(chan progress.Report)
-	progressSink := progressUpdater{
-		ch:     progressChan,
-		update: updateProgress,
-		action: fmt.Sprintf("uploading %s", item.Path),
+	// Transfer upload progress to the updateStatus function.
+	statusUpdater := statusUpdater{
+		ch:       make(chan progress.Report),
+		clock:    clock,
+		logger:   logger,
+		update:   updateStatus,
+		action:   fmt.Sprintf("uploading %s", item.Path),
+		interval: updateStatusInterval,
 	}
-	go progressSink.loop()
-	defer progressSink.done()
 
+	// Update the lease periodically.
+	leaseUpdater := leaseUpdater{
+		ch:                  make(chan progress.Report),
+		clock:               clock,
+		logger:              logger,
+		ctx:                 ctx,
+		leaseUpdaterContext: leaseUpdaterContext,
+	}
+
+	// Upload.
 	opts := soap.Upload{
-		Method:        "POST",
-		Type:          "application/x-vnd.vmware-streamVmdk",
 		ContentLength: item.Size,
-		Progress:      &progressSink,
+		Progress:      progress.Tee(&statusUpdater, &leaseUpdater),
 	}
-	if err := client.Upload(f, targetURL, &opts); err != nil {
-		return errors.Annotatef(err, "uploading %s to %s", item.Path, targetURL)
+	if item.Create {
+		opts.Method = "PUT"
+		opts.Headers = map[string]string{"Overwrite": "t"}
+	} else {
+		opts.Method = "POST"
+		opts.Type = "application/x-vnd.vmware-streamVmdk"
 	}
-	return nil
+	doUpload := func() error {
+		// NOTE(axw) client.Upload is not cancellable,
+		// as there is no way to inject a context. We
+		// should send a patch to govmomi to make it
+		// cancellable.
+		return errors.Trace(client.Upload(f, targetURL, &opts))
+	}
+
+	var site catacomb.Catacomb
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &site,
+		Work: doUpload,
+		Init: []worker.Worker{
+			jujuworker.NewSimpleWorker(statusUpdater.loop),
+			jujuworker.NewSimpleWorker(leaseUpdater.loop),
+		},
+	}); err != nil {
+		return errors.Trace(err)
+	}
+	return site.Wait()
 }
 
-type progressUpdater struct {
-	tomb   tomb.Tomb
-	ch     chan progress.Report
-	update func(string)
-	action string
+type statusUpdater struct {
+	clock    clock.Clock
+	logger   loggo.Logger
+	ch       chan progress.Report
+	update   func(string)
+	action   string
+	interval time.Duration
 }
 
 // Sink is part of the progress.Sinker interface.
-func (u *progressUpdater) Sink() chan<- progress.Report {
+func (u *statusUpdater) Sink() chan<- progress.Report {
 	return u.ch
 }
 
-func (u *progressUpdater) loop() {
-	defer u.tomb.Done()
-	var last float32
-	const threshold = 10 // update status every X%
+func (u *statusUpdater) loop(abort <-chan struct{}) error {
+	timer := u.clock.NewTimer(u.interval)
+	defer timer.Stop()
+	var timerChan <-chan time.Time
+
+	var message string
 	for {
 		select {
-		case <-u.tomb.Dying():
-			u.tomb.Kill(tomb.ErrDying)
-			return
+		case <-abort:
+			return tomb.ErrDying
+		case <-timerChan:
+			u.update(message)
+			timer.Reset(u.interval)
+			timerChan = nil
 		case report, ok := <-u.ch:
 			if !ok {
-				return
+				return nil
 			}
-			var message string
 			if err := report.Error(); err != nil {
 				message = fmt.Sprintf("%s: %s", u.action, err)
 			} else {
-				pc := report.Percentage()
-				if pc < 100 && (pc-last) < threshold {
-					// Don't update yet, to avoid spamming
-					// status updates.
-					continue
-				}
-				last = pc
-				message = fmt.Sprintf("%s: %.2f%% (%s)", u.action, pc, report.Detail())
+				message = fmt.Sprintf(
+					"%s: %.2f%% (%s)",
+					u.action,
+					report.Percentage(),
+					report.Detail(),
+				)
 			}
-			u.update(message)
+			timerChan = timer.Chan()
 		}
 	}
 }
 
-func (u *progressUpdater) done() {
-	u.tomb.Kill(nil)
-	u.tomb.Wait()
+type leaseUpdaterContext struct {
+	lease *object.HttpNfcLease
+	start int64
+	size  int64
+	total int64
+}
+
+type leaseUpdater struct {
+	clock  clock.Clock
+	logger loggo.Logger
+	ch     chan progress.Report
+	ctx    context.Context
+	leaseUpdaterContext
+}
+
+// Sink is part of the progress.Sinker interface.
+func (u *leaseUpdater) Sink() chan<- progress.Report {
+	return u.ch
+}
+
+func (u *leaseUpdater) loop(abort <-chan struct{}) error {
+	const interval = 2 * time.Second
+	timer := u.clock.NewTimer(interval)
+	defer timer.Stop()
+
+	var progress int32
+	for {
+		select {
+		case <-abort:
+			return tomb.ErrDying
+		case report, ok := <-u.ch:
+			if !ok {
+				return nil
+			}
+			progress = u.progress(report.Percentage())
+		case <-timer.Chan():
+			if err := u.lease.HttpNfcLeaseProgress(u.ctx, progress); err != nil {
+				// NOTE(axw) we don't bail on error here, in
+				// case it's just a transient failure. If it
+				// is not, we would expect the upload to fail
+				// to abort anyway.
+				u.logger.Debugf("failed to update lease progress: %v", err)
+			}
+			timer.Reset(interval)
+		}
+	}
+}
+
+// progress computes the overall progress based on the size of the items
+// uploaded prior, and the upload percentage of the current item.
+func (u *leaseUpdater) progress(pc float32) int32 {
+	pos := float64(u.start) + (float64(pc) * float64(u.size) / 100)
+	return int32((100 * pos) / float64(u.total))
 }

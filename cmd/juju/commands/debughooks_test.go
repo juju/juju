@@ -6,10 +6,10 @@ package commands
 import (
 	"runtime"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 

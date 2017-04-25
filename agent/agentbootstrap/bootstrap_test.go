@@ -222,6 +222,8 @@ LXC_BRIDGE="ignored"`[1:])
 		"state-port":              1234,
 		"api-port":                17777,
 		"set-numa-control-policy": false,
+		"max-logs-age":            "72h",
+		"max-logs-size":           "4G",
 	})
 
 	// Check that controller model configuration has been added, and

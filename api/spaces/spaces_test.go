@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
@@ -22,27 +21,24 @@ import (
 type SpacesSuite struct {
 	coretesting.BaseSuite
 
-	called    int
-	apiCaller base.APICallCloser
+	apiCaller *apitesting.CallChecker
 	api       *spaces.API
 }
 
 var _ = gc.Suite(&SpacesSuite{})
 
-func (s *SpacesSuite) init(c *gc.C, args *apitesting.CheckArgs, err error) {
-	s.called = 0
-	s.apiCaller = apitesting.CheckingAPICaller(c, args, &s.called, err)
+func (s *SpacesSuite) init(c *gc.C, args apitesting.APICall) {
+	s.apiCaller = apitesting.APICallChecker(c, args)
 	s.api = spaces.NewAPI(s.apiCaller)
 	c.Check(s.api, gc.NotNil)
-	c.Check(s.called, gc.Equals, 0)
+	c.Check(s.apiCaller.CallCount, gc.Equals, 0)
 }
 
 func (s *SpacesSuite) TestNewAPISuccess(c *gc.C) {
-	var called int
-	apiCaller := apitesting.CheckingAPICaller(c, nil, &called, nil)
+	apiCaller := apitesting.APICallChecker(c)
 	api := spaces.NewAPI(apiCaller)
 	c.Check(api, gc.NotNil)
-	c.Check(called, gc.Equals, 0)
+	c.Check(apiCaller.CallCount, gc.Equals, 0)
 }
 
 func (s *SpacesSuite) TestNewAPIWithNilCaller(c *gc.C) {
@@ -50,7 +46,7 @@ func (s *SpacesSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
-func makeArgs(name string, subnets []string) (string, []string, apitesting.CheckArgs) {
+func makeArgs(name string, subnets []string) (string, []string, apitesting.APICall) {
 	spaceTag := names.NewSpaceTag(name).String()
 	subnetTags := []string{}
 
@@ -70,21 +66,20 @@ func makeArgs(name string, subnets []string) (string, []string, apitesting.Check
 		Results: []params.ErrorResult{{}},
 	}
 
-	args := apitesting.CheckArgs{
+	args := apitesting.APICall{
 		Facade:  "Spaces",
 		Method:  "CreateSpaces",
 		Args:    expectArgs,
 		Results: expectResults,
 	}
-
 	return name, subnets, args
 }
 
 func (s *SpacesSuite) testCreateSpace(c *gc.C, name string, subnets []string) {
 	_, _, args := makeArgs(name, subnets)
-	s.init(c, &args, nil)
+	s.init(c, args)
 	err := s.api.CreateSpace(name, subnets, true)
-	c.Assert(s.called, gc.Equals, 1)
+	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -105,17 +100,18 @@ func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
 func (s *SpacesSuite) TestCreateSpaceEmptyResults(c *gc.C) {
 	_, _, args := makeArgs("foo", nil)
 	args.Results = params.ErrorResults{}
-	s.init(c, &args, nil)
+	s.init(c, args)
 	err := s.api.CreateSpace("foo", nil, true)
-	c.Check(s.called, gc.Equals, 1)
+	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
 func (s *SpacesSuite) TestCreateSpaceFails(c *gc.C) {
 	name, subnets, args := makeArgs("foo", []string{"1.1.1.0/24"})
-	s.init(c, &args, errors.New("bang"))
+	args.Error = errors.New("bang")
+	s.init(c, args)
 	err := s.api.CreateSpace(name, subnets, true)
-	c.Check(s.called, gc.Equals, 1)
+	c.Check(s.apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
 }
 
@@ -127,14 +123,14 @@ func (s *SpacesSuite) testListSpaces(c *gc.C, results []params.Space, err error,
 		}
 	}
 
-	args := apitesting.CheckArgs{
+	s.init(c, apitesting.APICall{
 		Facade:  "Spaces",
 		Method:  "ListSpaces",
 		Results: expectResults,
-	}
-	s.init(c, &args, err)
+		Error:   err,
+	})
 	gotResults, gotErr := s.api.ListSpaces()
-	c.Assert(s.called, gc.Equals, 1)
+	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(gotResults, jc.DeepEquals, results)
 	if expectErr != "" {
 		c.Assert(gotErr, gc.ErrorMatches, expectErr)

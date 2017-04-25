@@ -141,7 +141,7 @@ func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 	if c.configApi != nil {
 		return c.configApi, nil
 	}
-	root, err := c.NewControllerAPIRoot()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -195,6 +195,15 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer configApi.Close()
 
+	// Check if the model has an SLA set.
+	slaIsSet := false
+	slaLevel, err := configApi.SLALevel()
+	if err == nil {
+		slaIsSet = slaLevel != "" && slaLevel != slaUnsupported
+	} else {
+		ctx.Warningf("could not determine model SLA level: %v", err)
+	}
+
 	// Attempt to destroy the model.
 	ctx.Infof("Destroying model")
 	err = api.DestroyModel(names.NewModelTag(modelDetails.ModelUUID))
@@ -216,6 +225,32 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Check if the model has an sla auth.
+	if slaIsSet {
+		err = c.removeModelBudget(modelDetails.ModelUUID)
+		if err != nil {
+			ctx.Warningf("model allocation not removed: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *destroyCommand) removeModelBudget(uuid string) error {
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	budgetClient := getBudgetAPIClient(bakeryClient)
+
+	resp, err := budgetClient.DeleteBudget(uuid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if resp != "" {
+		logger.Infof(resp)
+	}
 	return nil
 }
 
@@ -280,5 +315,5 @@ func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) BudgetAPIClient {
 
 // BudgetAPIClient defines the budget API client interface.
 type BudgetAPIClient interface {
-	DeleteAllocation(string) (string, error)
+	DeleteBudget(string) (string, error)
 }

@@ -132,7 +132,7 @@ func (api *BaseAPI) ApplicationOffersFromModel(
 			return nil, errors.Trace(err)
 		}
 		offerDetails := params.ApplicationOfferDetails{
-			ApplicationOffer: makeOfferParamsFromOffer(offer, userAccess),
+			ApplicationOffer: makeOfferParamsFromOffer(offer, modelUUID, userAccess),
 			ApplicationName:  app.Name(),
 			CharmName:        curl.Name,
 			ConnectedCount:   status.ConnectionCount(),
@@ -142,8 +142,9 @@ func (api *BaseAPI) ApplicationOffersFromModel(
 	return results, nil
 }
 
-func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer, access permission.Access) params.ApplicationOffer {
+func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer, modelUUID string, access permission.Access) params.ApplicationOffer {
 	result := params.ApplicationOffer{
+		SourceModelTag:         names.NewModelTag(modelUUID).String(),
 		OfferName:              offer.OfferName,
 		ApplicationDescription: offer.ApplicationDescription,
 		Access:                 string(access),

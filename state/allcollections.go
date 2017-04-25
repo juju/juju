@@ -274,7 +274,11 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "endpoints.applicationname"},
 			}},
 		},
-		relationScopesC: {},
+		relationScopesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "key", "departing"},
+			}},
+		},
 
 		// -----
 

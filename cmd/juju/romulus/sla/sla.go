@@ -26,7 +26,7 @@ import (
 // the command uses to create an sla authorization macaroon.
 type authorizationClient interface {
 	// Authorize returns the sla authorization macaroon for the specified model,
-	Authorize(modelUUID, supportLevel, budget string) (*slawire.SLAResponse, error)
+	Authorize(modelUUID, supportLevel, wallet string) (*slawire.SLAResponse, error)
 }
 
 type slaClient interface {
@@ -34,7 +34,7 @@ type slaClient interface {
 	SLALevel() (string, error)
 }
 
-var newSlaClient = func(conn api.Connection) slaClient {
+var newSLAClient = func(conn api.Connection) slaClient {
 	return modelconfig.NewClient(conn)
 }
 
@@ -48,26 +48,24 @@ var modelId = func(conn api.Connection) string {
 	return tag.Id()
 }
 
-// TODO (mattyw) See juju/cmd/juju/storage/show.go for a better way of doing this.
-// TODO (mattyw) This should be fixed before this lands in master.
-// NewSLACommand returns a new command that is used to set sla credentials for a
+// NewSLACommand returns a new command that is used to set SLA credentials for a
 // deployed application.
 func NewSLACommand() cmd.Command {
-	slaCommand := &supportCommand{
-		newSlaClient:           newSlaClient,
+	slaCommand := &slaCommand{
+		newSLAClient:           newSLAClient,
 		newAuthorizationClient: newAuthorizationClient,
 	}
 	slaCommand.newAPIRoot = slaCommand.NewAPIRoot
 	return modelcmd.Wrap(slaCommand)
 }
 
-// supportCommand is a command-line tool for setting
+// slaCommand is a command-line tool for setting
 // Model.SLACredential for development & demonstration purposes.
-type supportCommand struct {
+type slaCommand struct {
 	modelcmd.ModelCommandBase
 
 	newAPIRoot             func() (api.Connection, error)
-	newSlaClient           func(api.Connection) slaClient
+	newSLAClient           func(api.Connection) slaClient
 	newAuthorizationClient func(options ...sla.ClientOption) (authorizationClient, error)
 
 	Level  string
@@ -75,38 +73,37 @@ type supportCommand struct {
 }
 
 // SetFlags sets additional flags for the support command.
-func (c *supportCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *slaCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Budget, "budget", "", "the maximum spend for the model")
 }
 
 // Info implements cmd.Command.
-func (c *supportCommand) Info() *cmd.Info {
+func (c *slaCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sla",
-		Aliases: []string{"support"},
 		Args:    "<level>",
-		Purpose: "Set the support level for a model.",
+		Purpose: "Set the SLA level for a model.",
 		Doc: `
 Set the support level for the model, effective immediately.
 Examples:
     juju sla essential              # set the support level to essential
-    juju sla standard --budget 1000 # set the support level to essential witha maximum budget of $1000
+    juju sla standard --wallet 1000 # set the support level to essential witha maximum wallet of $1000
     juju sla                        # display the current support level for the model.
 `,
 	}
 }
 
 // Init implements cmd.Command.
-func (c *supportCommand) Init(args []string) error {
+func (c *slaCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return nil
 	}
 	c.Level = args[0]
-	return cmd.CheckEmpty(args[1:])
+	return c.ModelCommandBase.Init(args[1:])
 }
 
-func (c *supportCommand) requestSupportCredentials(modelUUID string) (string, []byte, error) {
+func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, []byte, error) {
 	hc, err := c.BakeryClient()
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -141,12 +138,12 @@ func displayCurrentLevel(client slaClient, ctx *cmd.Context) error {
 }
 
 // Run implements cmd.Command.
-func (c *supportCommand) Run(ctx *cmd.Context) error {
+func (c *slaCommand) Run(ctx *cmd.Context) error {
 	root, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client := c.newSlaClient(root)
+	client := c.newSLAClient(root)
 	modelId := modelId(root)
 
 	if c.Level == "" {

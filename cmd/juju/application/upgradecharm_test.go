@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +25,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	charmstore "gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	macaroon "gopkg.in/macaroon.v1"
 
@@ -33,11 +35,11 @@ import (
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -120,19 +122,21 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 
 	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
-	store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
 		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
 	}
-	apiOpener := modelcmd.OpenFunc(func(store jujuclient.ClientStore, controller, model string) (api.Connection, error) {
-		s.AddCall("OpenAPI", store, controller, model)
+	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.AddCall("OpenAPI")
 		return &s.apiConnection, nil
-	})
+	}
 
 	s.cmd = NewUpgradeCharmCommandForTest(
 		store,
-		apiOpener,
+		apiOpen,
 		s.deployResources,
 		s.resolveCharm,
 		func(conn api.Connection, bakeryClient *httpbakery.Client, channel csclientparams.Channel) CharmAdder {
@@ -674,6 +678,19 @@ type mockAPIConnection struct {
 	api.Connection
 	bestFacadeVersion int
 	serverVersion     *version.Number
+}
+
+func (m *mockAPIConnection) Addr() string {
+	return "0.1.2.3:1234"
+}
+
+func (m *mockAPIConnection) AuthTag() names.Tag {
+	return names.NewUserTag("testuser")
+}
+
+func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
+	p, _ := network.ParseHostPorts(m.Addr())
+	return [][]network.HostPort{p}
 }
 
 func (m *mockAPIConnection) BestFacadeVersion(name string) int {

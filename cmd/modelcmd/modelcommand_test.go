@@ -8,13 +8,13 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -120,6 +120,12 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	// 1st position is always the flag
 	msg := fmt.Sprintf("flag provided but not defined: %v", args[0])
 	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *ModelCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testCommand)
+	wrapped := modelcmd.Wrap(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
 }
 
 func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {

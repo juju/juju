@@ -7,11 +7,14 @@ package metricsmanager
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -143,13 +146,33 @@ func (api *MetricsManagerAPI) AddJujuMachineMetrics() error {
 		return errors.Trace(err)
 	}
 	machineCount := 0
+	osMachineCount := map[os.OSType]int{}
 	for _, machine := range allMachines {
 		ct := machine.ContainerType()
 		if ct == instance.NONE || ct == "" {
 			machineCount++
+			osType, err := series.GetOSFromSeries(machine.Series())
+			if err != nil {
+				logger.Warningf("failed to resolve OS name for series %q: %v", machine.Series(), err)
+				osType = os.Unknown
+			}
+			osMachineCount[osType] = osMachineCount[osType] + 1
 		}
 	}
 	t := clock.WallClock.Now()
+	metrics := []state.Metric{{
+		Key:   "juju-machines",
+		Value: fmt.Sprintf("%d", machineCount),
+		Time:  t,
+	}}
+	for osType, osMachineCount := range osMachineCount {
+		osName := strings.ToLower(osType.String())
+		metrics = append(metrics, state.Metric{
+			Key:   "juju-" + osName + "-machines",
+			Value: fmt.Sprintf("%d", osMachineCount),
+			Time:  t,
+		})
+	}
 	metricUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
@@ -157,11 +180,7 @@ func (api *MetricsManagerAPI) AddJujuMachineMetrics() error {
 	_, err = api.state.AddModelMetrics(state.ModelBatchParam{
 		UUID:    metricUUID.String(),
 		Created: t,
-		Metrics: []state.Metric{{
-			Key:   "juju-machines",
-			Value: fmt.Sprintf("%d", machineCount),
-			Time:  t,
-		}},
+		Metrics: metrics,
 	})
 	return err
 }

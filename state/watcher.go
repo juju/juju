@@ -1321,6 +1321,11 @@ func (st *State) WatchControllerInfo() NotifyWatcher {
 	return newEntityWatcher(st, controllersC, modelGlobalKey)
 }
 
+// WatchControllerConfig returns a NotifyWatcher for controller settings.
+func (st *State) WatchControllerConfig() NotifyWatcher {
+	return newEntityWatcher(st, controllersC, controllerSettingsGlobalKey)
+}
+
 // Watch returns a watcher for observing changes to a machine.
 func (m *Machine) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, machinesC, m.doc.DocID)

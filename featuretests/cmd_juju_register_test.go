@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +16,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"

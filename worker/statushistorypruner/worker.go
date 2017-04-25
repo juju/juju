@@ -7,22 +7,30 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/statushistory"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
+
+var logger = loggo.GetLogger("juju.worker.statushistorypruner")
 
 // Facade represents an API that implements status history pruning.
 type Facade interface {
 	Prune(time.Duration, int) error
+	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
+	ModelConfig() (*config.Config, error)
 }
 
 // Config holds all necessary attributes to start a pruner worker.
 type Config struct {
-	Facade         Facade
-	MaxHistoryTime time.Duration
-	MaxHistoryMB   uint
-	PruneInterval  time.Duration
+	Facade        Facade
+	PruneInterval time.Duration
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	NewTimer jworker.NewTimerFunc
 }
@@ -36,12 +44,6 @@ func (c *Config) Validate() error {
 	if c.NewTimer == nil {
 		return errors.New("missing Timer")
 	}
-	// TODO(perrito666) this assumes out of band knowledge of how filter
-	// values are treated, expand config to support the "dont use this filter"
-	// case as an explicit statement.
-	if c.MaxHistoryMB <= 0 && c.MaxHistoryTime <= 0 {
-		return errors.New("missing prune criteria, no size or date limit provided")
-	}
 	return nil
 }
 
@@ -50,13 +52,90 @@ func New(conf Config) (worker.Worker, error) {
 	if err := conf.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	doPruning := func(stop <-chan struct{}) error {
-		err := conf.Facade.Prune(conf.MaxHistoryTime, int(conf.MaxHistoryMB))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+
+	w := &Worker{
+		config: conf,
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+	})
+	return w, errors.Trace(err)
+}
+
+// NewFacade returns a new status history facade.
+func NewFacade(caller base.APICaller) Facade {
+	return statushistory.NewFacade(caller)
+}
+
+// Worker prunes status history records at regular intervals.
+type Worker struct {
+	catacomb catacomb.Catacomb
+	config   Config
+}
+
+// Kill is defined on worker.Worker.
+func (w *Worker) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait is defined on worker.Worker.
+func (w *Worker) Wait() error {
+	return w.catacomb.Wait()
+}
+
+func (w *Worker) loop() error {
+
+	modelConfigWatcher, err := w.config.Facade.WatchForModelConfigChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = w.catacomb.Add(modelConfigWatcher)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	return jworker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer), nil
+	var (
+		maxAge             time.Duration
+		maxCollectionMB    uint
+		modelConfigChanges = modelConfigWatcher.Changes()
+		// We will also get an initial event, but need to ensure that event is
+		// received before doing any pruning.
+		haveConfig = false
+	)
+
+	timer := w.config.NewTimer(0)
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case _, ok := <-modelConfigChanges:
+			if !ok {
+				return errors.New("model configuration watcher closed")
+			}
+			modelConfig, err := w.config.Facade.ModelConfig()
+			if err != nil {
+				return errors.Annotate(err, "cannot load model configuration")
+			}
+			haveConfig = true
+			newMaxAge := modelConfig.MaxStatusHistoryAge()
+			newMaxCollectionMB := modelConfig.MaxStatusHistorySizeMB()
+			if newMaxAge != maxAge || newMaxCollectionMB != maxCollectionMB {
+				logger.Infof("status history config: max age: %v, max collection size %dM for %s (%s)",
+					newMaxAge, newMaxCollectionMB, modelConfig.Name(), modelConfig.UUID())
+				maxAge = newMaxAge
+				maxCollectionMB = newMaxCollectionMB
+			}
+			continue
+		case <-timer.CountDown():
+			if !haveConfig {
+				continue
+			}
+			err := w.config.Facade.Prune(maxAge, int(maxCollectionMB))
+			if err != nil {
+				return errors.Trace(err)
+			}
+			timer.Reset(w.config.PruneInterval)
+		}
+	}
 }

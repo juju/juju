@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,7 +15,6 @@ import (
 	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -236,6 +236,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 			"state-port":              1234,
 			"api-port":                17777,
 			"set-numa-control-policy": false,
+			"max-logs-age":            "72h",
+			"max-logs-size":           "4G",
 		})
 		boostrapped = true
 		return nil

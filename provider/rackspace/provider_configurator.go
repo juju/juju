@@ -6,7 +6,7 @@ package rackspace
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"

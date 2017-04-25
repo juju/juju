@@ -226,6 +226,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	}
 
 	cloudEndpoint := c.cloud.Endpoint
+	cloudStorageEndpoint := c.cloud.StorageEndpoint
 	cloudIdentityEndpoint := c.cloud.IdentityEndpoint
 	if len(c.cloud.Regions) > 0 {
 		// NOTE(axw) we use the first region in the cloud,
@@ -238,6 +239,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		// That would be better left to the provider, though.
 		region := c.cloud.Regions[0]
 		cloudEndpoint = region.Endpoint
+		cloudStorageEndpoint = region.StorageEndpoint
 		cloudIdentityEndpoint = region.IdentityEndpoint
 	}
 
@@ -249,6 +251,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		ctxt, environs.FinalizeCredentialParams{
 			Credential:            jujucloud.NewCredential(authType, attrs),
 			CloudEndpoint:         cloudEndpoint,
+			CloudStorageEndpoint:  cloudStorageEndpoint,
 			CloudIdentityEndpoint: cloudIdentityEndpoint,
 		},
 	)

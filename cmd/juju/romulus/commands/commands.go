@@ -8,16 +8,15 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/juju/romulus/agree"
-	"github.com/juju/juju/cmd/juju/romulus/allocate"
-	"github.com/juju/juju/cmd/juju/romulus/createbudget"
+	"github.com/juju/juju/cmd/juju/romulus/budget"
+	"github.com/juju/juju/cmd/juju/romulus/createwallet"
 	"github.com/juju/juju/cmd/juju/romulus/listagreements"
-	"github.com/juju/juju/cmd/juju/romulus/listbudgets"
 	"github.com/juju/juju/cmd/juju/romulus/listplans"
-	"github.com/juju/juju/cmd/juju/romulus/setbudget"
+	"github.com/juju/juju/cmd/juju/romulus/listwallets"
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
-	"github.com/juju/juju/cmd/juju/romulus/showbudget"
+	"github.com/juju/juju/cmd/juju/romulus/setwallet"
+	"github.com/juju/juju/cmd/juju/romulus/showwallet"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
-	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type commandRegister interface {
@@ -27,23 +26,14 @@ type commandRegister interface {
 // RegisterAll registers all romulus commands with the
 // provided command registry.
 func RegisterAll(r commandRegister) {
-	register := func(c cmd.Command) {
-		switch c := c.(type) {
-		case modelcmd.CommandBase:
-			r.Register(modelcmd.WrapBase(c))
-		default:
-			r.Register(c)
-		}
-
-	}
-	register(agree.NewAgreeCommand())
-	register(listagreements.NewListAgreementsCommand())
-	register(allocate.NewUpdateAllocationCommand())
-	register(listbudgets.NewListBudgetsCommand())
-	register(createbudget.NewCreateBudgetCommand())
-	register(listplans.NewListPlansCommand())
-	register(setbudget.NewSetBudgetCommand())
-	register(setplan.NewSetPlanCommand())
-	register(showbudget.NewShowBudgetCommand())
-	register(sla.NewSLACommand())
+	r.Register(agree.NewAgreeCommand())
+	r.Register(listagreements.NewListAgreementsCommand())
+	r.Register(budget.NewBudgetCommand())
+	r.Register(createwallet.NewCreateWalletCommand())
+	r.Register(listplans.NewListPlansCommand())
+	r.Register(setwallet.NewSetWalletCommand())
+	r.Register(setplan.NewSetPlanCommand())
+	r.Register(showwallet.NewShowWalletCommand())
+	r.Register(sla.NewSLACommand())
+	r.Register(listwallets.NewListWalletsCommand())
 }

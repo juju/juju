@@ -9,14 +9,15 @@ import (
 	"os"
 	"path"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -26,9 +27,8 @@ import (
 )
 
 const (
-	DefaultCpuCores = uint64(2)
-	DefaultCpuPower = uint64(2000)
-	DefaultMemMb    = uint64(2000)
+	startInstanceUpdateProgressInterval = 30 * time.Second
+	bootstrapUpdateProgressInterval     = 5 * time.Second
 )
 
 func controllerFolderName(controllerUUID string) string {
@@ -135,22 +135,7 @@ func (env *sessionEnviron) newRawInstance(
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
 	// Obtain the final constraints by merging with defaults.
-	uint64ptr := func(v uint64) *uint64 {
-		return &v
-	}
-	defaultCons := constraints.Value{
-		CpuCores: uint64ptr(DefaultCpuCores),
-		CpuPower: uint64ptr(DefaultCpuPower),
-		Mem:      uint64ptr(DefaultMemMb),
-	}
-	validator, err := env.ConstraintsValidator()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	cons, err := validator.Merge(defaultCons, args.Constraints)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	cons := args.Constraints
 	minRootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
 	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
 		cons.RootDisk = &minRootDisk
@@ -163,21 +148,20 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Download and extract the OVA file.
-	args.StatusCallback(status.Provisioning, fmt.Sprintf("downloading %s", img.URL), nil)
-	ovaDir, err := ioutil.TempDir("", "juju-ova")
+	// Download and extract the OVA file. If we're bootstrapping we use
+	// a temporary directory, otherwise we cache the image for future use.
+	updateProgressInterval := startInstanceUpdateProgressInterval
+	if args.InstanceConfig.Bootstrap != nil {
+		updateProgressInterval = bootstrapUpdateProgressInterval
+	}
+	updateProgress := func(message string) {
+		args.StatusCallback(status.Provisioning, message, nil)
+	}
+	ovaDir, ovf, ovaCleanup, err := env.prepareOVA(img, args.InstanceConfig, updateProgress)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	defer func() {
-		if err := os.RemoveAll(ovaDir); err != nil {
-			logger.Warningf("failed to remove temp directory: %s", err)
-		}
-	}()
-	ovf, err := downloadOva(ovaDir, img.URL)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	defer ovaCleanup()
 
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
@@ -185,15 +169,15 @@ func (env *sessionEnviron) newRawInstance(
 			controllerFolderName(args.ControllerUUID),
 			env.modelFolderName(),
 		),
-		OVADir:          ovaDir,
-		OVF:             ovf,
-		UserData:        string(userData),
-		Metadata:        args.InstanceConfig.Tags,
-		Constraints:     cons,
-		ExternalNetwork: externalNetwork,
-		UpdateProgress: func(message string) {
-			args.StatusCallback(status.Provisioning, message, nil)
-		},
+		OVADir:                 ovaDir,
+		OVF:                    string(ovf),
+		UserData:               string(userData),
+		Metadata:               args.InstanceConfig.Tags,
+		Constraints:            cons,
+		ExternalNetwork:        externalNetwork,
+		UpdateProgress:         updateProgress,
+		UpdateProgressInterval: updateProgressInterval,
+		Clock: clock.WallClock,
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
@@ -229,6 +213,61 @@ func (env *sessionEnviron) newRawInstance(
 		RootDisk: cons.RootDisk,
 	}
 	return vm, hw, err
+}
+
+// prepareOVA downloads and extracts the OVA, and reads the contents of the
+// .ovf file contained within it.
+func (env *environ) prepareOVA(
+	img *OvaFileMetadata,
+	instanceConfig *instancecfg.InstanceConfig,
+	updateProgress func(string),
+) (ovaDir, ovf string, cleanup func(), err error) {
+	fail := func(err error) (string, string, func(), error) {
+		return "", "", cleanup, errors.Trace(err)
+	}
+	defer func() {
+		if err != nil && cleanup != nil {
+			cleanup()
+		}
+	}()
+
+	var ovaBaseDir string
+	if instanceConfig.Bootstrap != nil {
+		ovaTempDir, err := ioutil.TempDir("", "juju-ova")
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+		cleanup = func() {
+			if err := os.RemoveAll(ovaTempDir); err != nil {
+				logger.Warningf("failed to remove temp directory: %s", err)
+			}
+		}
+		ovaBaseDir = ovaTempDir
+	} else {
+		// Lock the OVA cache directory for the remainder of the
+		// provisioning process. It's not enough to lock just
+		// around or in downloadOVA, because we refer to the
+		// contents after it returns.
+		unlock, err := env.provider.ovaCacheLocker.Lock()
+		if err != nil {
+			return fail(errors.Annotate(err, "locking OVA cache dir"))
+		}
+		cleanup = unlock
+		ovaBaseDir = env.provider.ovaCacheDir
+	}
+
+	ovaDir, ovfPath, err := downloadOVA(
+		ovaBaseDir, instanceConfig.Series, img, updateProgress,
+	)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	ovfBytes, err := ioutil.ReadFile(ovfPath)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	return ovaDir, string(ovfBytes), cleanup, nil
 }
 
 // AllInstances implements environs.InstanceBroker.

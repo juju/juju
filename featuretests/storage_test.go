@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -514,7 +514,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitInvalidUnitName(c *gc.C) {
 	context, err := runJujuCommand(c, cmdArgs...)
 	c.Assert(err, gc.ErrorMatches, `unit name "fluffyunit-0" not valid`)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "error: unit name \"fluffyunit-0\" not valid\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ERROR unit name \"fluffyunit-0\" not valid\n")
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {

@@ -6,6 +6,7 @@ package featuretests
 import (
 	"fmt"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -15,7 +16,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

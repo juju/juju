@@ -135,6 +135,18 @@ var testUnits = []struct {
 }, {},
 }
 
+func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
+	s.State.SetModelMeterStatus("RED", "thing")
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	modelMeterStatus := status.Model.MeterStatus
+	c.Assert(modelMeterStatus.Color, gc.Equals, "red")
+	c.Assert(modelMeterStatus.Message, gc.Equals, "thing")
+}
+
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})

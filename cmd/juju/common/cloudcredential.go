@@ -75,6 +75,7 @@ func GetOrDetectCredential(
 		ctx, environs.FinalizeCredentialParams{
 			Credential:            oneCredential,
 			CloudEndpoint:         region.Endpoint,
+			CloudStorageEndpoint:  region.StorageEndpoint,
 			CloudIdentityEndpoint: region.IdentityEndpoint,
 		},
 	)

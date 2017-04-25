@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -618,6 +620,83 @@ func RemoveNilValueApplicationSettings(st *State) error {
 			settingsChanged = true
 			delete(doc.Settings, key)
 		}
+		if settingsChanged {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// AddControllerLogPruneSettings adds the controller
+// settings to control log pruning if they are missing.
+func AddControllerLogPruneSettings(st *State) error {
+	coll, closer := st.getRawCollection(controllersC)
+	defer closer()
+	var doc settingsDoc
+	if err := coll.FindId(controllerSettingsGlobalKey).One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	settingsChanged := maybeUpdateSettings(doc.Settings, controller.MaxLogsAge, fmt.Sprintf("%vh", controller.DefaultMaxLogsAgeDays*24))
+	settingsChanged =
+		maybeUpdateSettings(doc.Settings, controller.MaxLogsSize, fmt.Sprintf("%vM", controller.DefaultMaxLogCollectionMB)) || settingsChanged
+	if settingsChanged {
+		ops = append(ops, txn.Op{
+			C:      controllersC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+func maybeUpdateSettings(settings map[string]interface{}, key string, value interface{}) bool {
+	if _, ok := settings[key]; !ok {
+		settings[key] = value
+		return true
+	}
+	return false
+}
+
+// AddStatusHistoryPruneSettings adds the model settings
+// to control log pruning if they are missing.
+func AddStatusHistoryPruneSettings(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	models, err := st.AllModels()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var ids []string
+	for _, m := range models {
+		ids = append(ids, m.UUID()+":e")
+	}
+
+	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		settingsChanged :=
+			maybeUpdateSettings(doc.Settings, config.MaxStatusHistoryAge, config.DefaultStatusHistoryAge)
+		settingsChanged =
+			maybeUpdateSettings(doc.Settings, config.MaxStatusHistorySize, config.DefaultStatusHistorySize) || settingsChanged
 		if settingsChanged {
 			ops = append(ops, txn.Op{
 				C:      settingsC,

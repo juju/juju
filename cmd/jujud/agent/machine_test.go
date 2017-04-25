@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
@@ -437,7 +438,7 @@ func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started.assertTriggered(c, "peergrouperworker to start")
 }
 
-func (s *MachineSuite) TestManageModelRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsDbLogPruner(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1412,7 +1413,12 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
-	newSt = s.Factory.MakeModel(c, nil)
+	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
+		ConfigAttrs: coretesting.Attrs{
+			"max-status-history-age":  "2h",
+			"max-status-history-size": "4M",
+		},
+	})
 	return newSt, func() {
 		err := newSt.Close()
 		c.Check(err, jc.ErrorIsNil)

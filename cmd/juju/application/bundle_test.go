@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"

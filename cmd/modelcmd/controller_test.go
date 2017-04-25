@@ -5,12 +5,12 @@ package modelcmd_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -54,6 +54,12 @@ func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	wrapped := modelcmd.WrapController(cmd, modelcmd.WrapControllerSkipControllerFlags)
 	err := cmdtesting.InitCommand(wrapped, []string{"-s", "testsys"})
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
+}
+
+func (s *ControllerCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testControllerCommand)
+	wrapped := modelcmd.WrapController(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
 }
 
 type testControllerCommand struct {

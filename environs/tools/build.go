@@ -111,17 +111,6 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-func setenv(env []string, val string) []string {
-	prefix := val[0 : strings.Index(val, "=")+1]
-	for i, eval := range env {
-		if strings.HasPrefix(eval, prefix) {
-			env[i] = val
-			return env
-		}
-	}
-	return append(env, val)
-}
-
 func findExecutable(execFile string) (string, error) {
 	logger.Debugf("looking for: %s", execFile)
 	if filepath.IsAbs(execFile) {

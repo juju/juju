@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -139,6 +140,14 @@ const (
 	// ExtraInfoKey is the key for arbitrary user specified string data that
 	// is stored against the model.
 	ExtraInfoKey = "extra-info"
+
+	// MaxStatusHistoryAge is the maximum age of status history values
+	// to keep when pruning, ef "72h"
+	MaxStatusHistoryAge = "max-status-history-age"
+
+	// MaxStatusHistorySize is the maximum size the status history
+	// collection can grow to before it is pruned, eg "5M"
+	MaxStatusHistorySize = "max-status-history-size"
 
 	//
 	// Deprecated Settings Attributes
@@ -288,6 +297,14 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	return c, nil
 }
 
+const (
+	// DefaultStatusHistoryAge is the default value for MaxStatusHistoryAge.
+	DefaultStatusHistoryAge = "336h" // 2 weeks
+
+	// DefaultStatusHistorySize is the default value for MaxStatusHistorySize.
+	DefaultStatusHistorySize = "5G"
+)
+
 var defaultConfigValues = map[string]interface{}{
 	// Network.
 	"firewall-mode":              FwInstance,
@@ -345,6 +362,10 @@ var defaultConfigValues = map[string]interface{}{
 	AptFTPProxyKey:   "",
 	AptNoProxyKey:    "",
 	"apt-mirror":     "",
+
+	// Status history settings
+	MaxStatusHistoryAge:  DefaultStatusHistoryAge,
+	MaxStatusHistorySize: DefaultStatusHistorySize,
 }
 
 // ConfigDefaults returns the config default values
@@ -480,6 +501,18 @@ func Validate(cfg, old *Config) error {
 	// Ensure the resource tags have the expected k=v format.
 	if _, err := cfg.resourceTags(); err != nil {
 		return errors.Annotate(err, "validating resource tags")
+	}
+
+	if v, ok := cfg.defined[MaxStatusHistoryAge].(string); ok {
+		if _, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid max status history age in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[MaxStatusHistorySize].(string); ok {
+		if _, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid max status history size in model configuration")
+		}
 	}
 
 	// Check the immutable config values.  These can't change
@@ -903,6 +936,22 @@ func (c *Config) resourceTags() (map[string]string, error) {
 	return v, nil
 }
 
+// MaxStatusHistoryAge is the maximum age of status history entries
+// before being pruned.
+func (c *Config) MaxStatusHistoryAge() time.Duration {
+	// Value has already been validated.
+	val, _ := time.ParseDuration(c.mustString(MaxStatusHistoryAge))
+	return val
+}
+
+// MaxStatusHistorySizeMB is the maximum size in MiB which the status history
+// collection can grow to before being pruned.
+func (c *Config) MaxStatusHistorySizeMB() uint {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(MaxStatusHistorySize))
+	return uint(val)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1008,6 +1057,8 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
 	NetBondReconfigureDelayKey:   schema.Omit,
+	MaxStatusHistoryAge:          schema.Omit,
+	MaxStatusHistorySize:         schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1377,6 +1428,16 @@ data of the store. (default false)`,
 	NetBondReconfigureDelayKey: {
 		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
 		Type:        environschema.Tint,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxStatusHistoryAge: {
+		Description: "The maximum age for status history entries before they are pruned, in human-readable time format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxStatusHistorySize: {
+		Description: "The maximum size for the status history collection, in human-readable memory format",
+		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -23,7 +24,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/migration"
@@ -2876,7 +2876,7 @@ var statusTests = []testCase{
 						"since":   "01 Apr 15 01:23+10:00",
 					},
 					"meter-status": M{
-						"color":   "RED",
+						"color":   "red",
 						"message": "status message",
 					},
 					"sla": "unsupported",
@@ -4209,9 +4209,9 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		"foo/0                                                   \n"+
 		"foo/1                                                   \n"+
 		"\n"+
-		"Meter  Status   Message\n"+
-		"foo/0  strange  warning: stable strangelets  \n"+
-		"foo/1  up       things are looking up        \n"+
+		"Entity  Meter status  Message\n"+
+		"foo/0   strange       warning: stable strangelets  \n"+
+		"foo/1   up            things are looking up        \n"+
 		"\n"+
 		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
 }

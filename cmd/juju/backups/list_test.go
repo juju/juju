@@ -5,11 +5,11 @@ package backups_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/backups"
 )
 
@@ -27,7 +27,6 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 
 func (s *listSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
-	ctx := cmdtesting.Context(c)
 	ctx, err := cmdtesting.RunCommand(c, s.subcommand, []string{"--verbose"}...)
 	c.Assert(err, jc.ErrorIsNil)
 

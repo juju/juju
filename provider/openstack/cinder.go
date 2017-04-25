@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/goose.v1/cinder"
-	"gopkg.in/goose.v1/identity"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/cinder"
+	"gopkg.in/goose.v2/identity"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"

@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"

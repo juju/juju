@@ -73,7 +73,7 @@ type Backend interface {
 	Subnet(string) (*state.Subnet, error)
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
-	Watch() *state.Multiwatcher
+	Watch(params state.WatchParams) *state.Multiwatcher
 }
 
 func NewStateBackend(st *state.State) Backend {
