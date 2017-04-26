@@ -4,16 +4,18 @@
 package ec2_test
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
 	awsec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
@@ -21,86 +23,64 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/environs/jujutest"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type ebsSuite struct {
 	testing.BaseSuite
-	// TODO(axw) the EBS tests should not be embedding jujutest.Tests.
-	jujutest.Tests
-	srv    localServer
-	client *awsec2.EC2
-
-	instanceId string
+	srv         localServer
+	modelConfig *config.Config
+	instanceId  string
 }
 
 var _ = gc.Suite(&ebsSuite{})
 
-func (s *ebsSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.Tests.SetUpSuite(c)
-	s.Credential = cloud.NewCredential(
+func (s *ebsSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
+
+	modelConfig, err := config.New(config.NoDefaults, testing.FakeConfig().Merge(
+		testing.Attrs{"type": "ec2"},
+	))
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfig = modelConfig
+
+	s.srv.startServer(c)
+	s.AddCleanup(func(c *gc.C) { s.srv.stopServer(c) })
+
+	restoreEC2Patching := patchEC2ForTesting(c, s.srv.region)
+	s.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
+}
+
+func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
+	provider, err := environs.Provider("ec2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
 			"access-key": "x",
 			"secret-key": "x",
 		},
 	)
-
-	// Upload arches that ec2 supports; add to this
-	// as ec2 coverage expands.
-	s.UploadArches = []string{arch.AMD64, arch.I386}
-	s.TestConfig = localConfigAttrs.Merge(testing.Attrs{
-		"access-key": "x",
-		"secret-key": "x",
-		"region":     "test",
+	env, err := provider.Open(environs.OpenParams{
+		Cloud: environs.CloudSpec{
+			Type:       "ec2",
+			Name:       "ec2test",
+			Region:     s.srv.region.Name,
+			Endpoint:   s.srv.region.EC2Endpoint,
+			Credential: &credential,
+		},
+		Config: s.modelConfig,
 	})
-	s.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	s.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	imagetesting.PatchOfficialDataSources(&s.BaseSuite.CleanupSuite, "test:")
-	s.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
-}
+	c.Assert(err, jc.ErrorIsNil)
 
-func (s *ebsSuite) TearDownSuite(c *gc.C) {
-	s.Tests.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *ebsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.BaseSuite.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	s.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.LatestLts() })
-	s.srv.startServer(c)
-	s.Tests.SetUpTest(c)
-	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
-
-	region := s.srv.region()
-	s.CloudRegion = region.Name
-	s.CloudEndpoint = region.EC2Endpoint
-	s.client = s.srv.client()
-	restoreEC2Patching := patchEC2ForTesting(c, region)
-	s.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
-}
-
-func (s *ebsSuite) TearDownTest(c *gc.C) {
-	s.Tests.TearDownTest(c)
-	s.srv.stopServer(c)
-	s.BaseSuite.TearDownTest(c)
-}
-
-func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
-	env := s.Prepare(c)
 	p, err := env.StorageProvider(ec2.EBS_ProviderType)
 	c.Assert(err, jc.ErrorIsNil)
 	return p
@@ -150,7 +130,7 @@ func (s *ebsSuite) createVolumes(vs storage.VolumeSource, instanceId string) ([]
 			},
 		},
 		ResourceTags: map[string]string{
-			tags.JujuModel: s.TestConfig["uuid"].(string),
+			tags.JujuModel: s.modelConfig.UUID(),
 		},
 	}, {
 		Tag:      volume1,
@@ -293,14 +273,14 @@ func (s *ebsSuite) TestVolumeTags(c *gc.C) {
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
 		{"juju-model-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
-		{"Name", "juju-sample-volume-0"},
+		{"Name", "juju-testenv-volume-0"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
 		{"juju-model-uuid", "something-else"},
-		{"Name", "juju-sample-volume-1"},
+		{"Name", "juju-testenv-volume-1"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
-		{"Name", "juju-sample-volume-2"},
+		{"Name", "juju-testenv-volume-2"},
 		{"abc", "123"},
 	})
 }
@@ -434,8 +414,8 @@ func (s *ebsSuite) TestListVolumesIgnoresRootDisks(c *gc.C) {
 	s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)
 
 	// Tag the root disk with the model UUID.
-	_, err := s.client.CreateTags([]string{"vol-0"}, []awsec2.Tag{
-		{tags.JujuModel, s.TestConfig["uuid"].(string)},
+	_, err := s.srv.client.CreateTags([]string{"vol-0"}, []awsec2.Tag{
+		{tags.JujuModel, s.modelConfig.UUID()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -639,8 +619,47 @@ func (s *ebsSuite) TestAttachVolumes(c *gc.C) {
 	})
 }
 
-// TODO(axw) add tests for attempting to attach while
-// a volume is still in the "creating" state.
+func (s *ebsSuite) TestAttachVolumesCreating(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	var calls int
+	s.srv.proxy.ModifyResponse = makeDescribeVolumesResponseModifier(func(resp *awsec2.VolumesResp) error {
+		if len(resp.Volumes) != 1 {
+			return errors.New("expected one volume")
+		}
+		calls++
+		if calls == 1 {
+			resp.Volumes[0].Status = "creating"
+		} else {
+			resp.Volumes[0].Status = "available"
+		}
+		return nil
+	})
+	result, err := vs.AttachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Error, jc.ErrorIsNil)
+	c.Assert(calls, gc.Equals, 2)
+}
+
+func (s *ebsSuite) TestAttachVolumesDetaching(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	s.srv.proxy.ModifyResponse = makeDescribeVolumesResponseModifier(func(resp *awsec2.VolumesResp) error {
+		if len(resp.Volumes) != 1 {
+			return errors.New("expected one volume")
+		}
+		resp.Volumes[0].Status = "in-use"
+		resp.Volumes[0].Attachments = append(resp.Volumes[0].Attachments, awsec2.VolumeAttachment{
+			InstanceId: "something else",
+		})
+		return nil
+	})
+	result, err := vs.AttachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Error, gc.ErrorMatches, "volume vol-0 is attached to something else")
+}
 
 func (s *ebsSuite) TestDetachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
@@ -660,6 +679,31 @@ func (s *ebsSuite) TestDetachVolumes(c *gc.C) {
 
 	// Test idempotent
 	errs, err = vs.DetachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+}
+
+func (s *ebsSuite) TestDetachVolumesIncorrectState(c *gc.C) {
+	s.testDetachVolumesDetachedState(c, "IncorrectState")
+}
+
+func (s *ebsSuite) TestDetachVolumesAttachmentNotFound(c *gc.C) {
+	s.testDetachVolumesDetachedState(c, "InvalidAttachment.NotFound")
+}
+
+func (s *ebsSuite) testDetachVolumesDetachedState(c *gc.C, errorCode string) {
+	vs := s.volumeSource(c, nil)
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	_, err := vs.AttachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.srv.proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.StatusCode = http.StatusBadRequest
+		return replaceResponseBody(resp, ec2Errors{[]awsec2.Error{{
+			Code: errorCode,
+		}}})
+	}
+	errs, err := vs.DetachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
@@ -765,4 +809,59 @@ func (*blockDeviceMappingSuite) TestGetBlockDeviceMappingsController(c *gc.C) {
 		VirtualName: "ephemeral3",
 		DeviceName:  "/dev/sde",
 	}})
+}
+
+func makeDescribeVolumesResponseModifier(modify func(*awsec2.VolumesResp) error) func(*http.Response) error {
+	return func(resp *http.Response) error {
+		if resp.Request.URL.Query().Get("Action") != "DescribeVolumes" {
+			return nil
+		}
+		var respDecoded struct {
+			XMLName xml.Name
+			awsec2.VolumesResp
+		}
+		if err := xml.NewDecoder(resp.Body).Decode(&respDecoded); err != nil {
+			return err
+		}
+		resp.Body.Close()
+
+		if err := modify(&respDecoded.VolumesResp); err != nil {
+			return err
+		}
+		return replaceResponseBody(resp, &respDecoded)
+	}
+}
+
+func makeDetachVolumeResponseModifier(modify func(*awsec2.VolumeAttachmentResp) error) func(*http.Response) error {
+	return func(resp *http.Response) error {
+		if resp.Request.URL.Query().Get("Action") != "DetachVolume" {
+			return nil
+		}
+		var respDecoded struct {
+			XMLName xml.Name
+			awsec2.VolumeAttachmentResp
+		}
+		if err := xml.NewDecoder(resp.Body).Decode(&respDecoded); err != nil {
+			return err
+		}
+		resp.Body.Close()
+
+		if err := modify(&respDecoded.VolumeAttachmentResp); err != nil {
+			return err
+		}
+		return replaceResponseBody(resp, &respDecoded)
+	}
+}
+
+func replaceResponseBody(resp *http.Response, value interface{}) error {
+	var buf bytes.Buffer
+	if err := xml.NewEncoder(&buf).Encode(value); err != nil {
+		return err
+	}
+	resp.Body = ioutil.NopCloser(&buf)
+	return nil
+}
+
+type ec2Errors struct {
+	Errors []awsec2.Error `xml:"Errors>Error"`
 }
