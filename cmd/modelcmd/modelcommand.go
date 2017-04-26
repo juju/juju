@@ -67,7 +67,7 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 
 // ModelCommand extends cmd.Command with a SetModelName method.
 type ModelCommand interface {
-	CommandBase
+	Command
 
 	// SetClientStore is called prior to the wrapped command's Init method
 	// with the default controller store. It may also be called to override the
@@ -100,7 +100,7 @@ type ModelCommand interface {
 // ModelCommandBase is a convenience type for embedding in commands
 // that wish to implement ModelCommand.
 type ModelCommandBase struct {
-	JujuCommandBase
+	CommandBase
 
 	// store is the client controller store that contains information
 	// about controllers, models, etc.
@@ -204,7 +204,7 @@ func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) 
 		}
 		return nil, errors.Trace(ErrNoCurrentController)
 	}
-	return c.JujuCommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
+	return c.CommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.

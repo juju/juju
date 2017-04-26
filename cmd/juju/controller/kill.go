@@ -41,7 +41,7 @@ See also:
 
 // NewKillCommand returns a command to kill a controller. Killing is a
 // forceful destroy.
-func NewKillCommand() modelcmd.CommandBase {
+func NewKillCommand() modelcmd.Command {
 	return wrapKillCommand(&killCommand{
 		clock: clock.WallClock,
 	})
@@ -49,7 +49,7 @@ func NewKillCommand() modelcmd.CommandBase {
 
 // wrapKillCommand provides the common wrapping used by tests and
 // the default NewKillCommand above.
-func wrapKillCommand(kill *killCommand) modelcmd.CommandBase {
+func wrapKillCommand(kill *killCommand) modelcmd.Command {
 	return modelcmd.WrapController(
 		kill,
 		modelcmd.WrapControllerSkipControllerFlags,

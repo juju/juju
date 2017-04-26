@@ -37,7 +37,7 @@ Please use "juju switch" to select a controller.
 // ControllerCommand is intended to be a base for all commands
 // that need to operate on controllers as opposed to models.
 type ControllerCommand interface {
-	CommandBase
+	Command
 
 	// SetClientStore is called prior to the wrapped command's Init method
 	// with the default controller store. It may also be called to override the
@@ -62,7 +62,7 @@ type ControllerCommand interface {
 // ControllerCommandBase is a convenience type for embedding in commands
 // that wish to implement ControllerCommand.
 type ControllerCommandBase struct {
-	JujuCommandBase
+	CommandBase
 
 	store          jujuclient.ClientStore
 	controllerName string
@@ -164,7 +164,7 @@ func (c *ControllerCommandBase) newAPIRoot(modelName string) (api.Connection, er
 		}
 		return nil, errors.Trace(ErrNoCurrentController)
 	}
-	return c.JujuCommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
+	return c.CommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.
@@ -214,7 +214,7 @@ func wrapControllerSkipDefaultController(w *sysCommandWrapper) {
 
 // WrapController wraps the specified ControllerCommand, returning a Command
 // that proxies to each of the ControllerCommand methods.
-func WrapController(c ControllerCommand, options ...WrapControllerOption) CommandBase {
+func WrapController(c ControllerCommand, options ...WrapControllerOption) Command {
 	wrapper := &sysCommandWrapper{
 		ControllerCommand:    c,
 		setControllerFlags:   true,
