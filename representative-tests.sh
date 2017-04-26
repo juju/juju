@@ -8,9 +8,9 @@ export GOPATH=$(dirname $(find $WORKSPACE -type d -name src -regex '.*juju-core[
 if ! go install github.com/juju/juju/...; then
     exit 127
 fi
+JUJU_BIN=$GOPATH/bin/juju
 export PATH=$(dirname $JUJU_BIN):$PATH
 export GOCOOKIES=$WORKSPACE/.go-cookies
-JUJU_BIN=$GOPATH/bin/juju
 
 XENIAL_AMI=$($SCRIPTS/get_ami.py xenial amd64 --virt hvm)
 
@@ -28,7 +28,7 @@ else
     RACE="echo 'Skipping race unit tests.'"
 fi
 timeout 180m concurrently.py -v -l $WORKSPACE/artifacts \
-    xenial="$SCRIPTS/run-unit-tests c4.4xlarge $XENIAL_AMI --local $TARFILE_NAME --use-tmpfs --force-archive" \
+    xenial="$SCRIPTS/run-unit-tests c4.4xlarge $XENIAL_AMI --local $TARFILE_NAME --use-tmpfs --use-ppa ppa:juju/golang --force-archive" \
     windows="$SCRIPTS/gotestwin.py developer-win-unit-tester.vapour.ws $TARFILE_NAME github.com/juju/juju/cmd" \
     network="$NETWORK" \
     grant="$GRANT" \
