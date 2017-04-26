@@ -39,7 +39,7 @@ func runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, "-n", "2", ch, "dummy", "--series", series.LatestLts())
+	_, err := runDeploy(c, "-n", "2", ch, "dummy", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	svc, _ := s.AssertService(c, "dummy", curl, 2, 0)
@@ -68,7 +68,7 @@ removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
 
 func (s *RemoveUnitSuite) TestRemoveUnitInformsStorageRemoval(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem")
-	err := runDeploy(c, ch, "storage-filesystem", "--series", "quantal", "--storage", "data=rootfs,2")
+	_, err := runDeploy(c, ch, "storage-filesystem", "--series", "quantal", "--storage", "data=rootfs,2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err := runRemoveUnit(c, "storage-filesystem/0")

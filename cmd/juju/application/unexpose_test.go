@@ -44,7 +44,7 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	_, err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-application-name", curl, 1, 0)
@@ -66,7 +66,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	_, err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-application-name", curl, 1, 0)

@@ -182,20 +182,29 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 	return a.annotationsClient.Set(annotations)
 }
 
-type NewAPIRootFn func() (DeployAPI, error)
+func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+	if newAPIRoot == nil {
+		newAPIRoot = func() (DeployAPI, error) {
+			return nil, errors.New("no API available")
+		}
+	}
+	return modelcmd.Wrap(&DeployCommand{
+		NewAPIRoot: newAPIRoot,
+		Steps:      steps,
+	})
+}
 
-func NewDefaultDeployCommand() cmd.Command {
-	return NewDeployCommandWithDefaultAPI([]DeployStep{
+// NewDeployCommand returns a command to deploy services.
+func NewDeployCommand() modelcmd.ModelCommand {
+	steps := []DeployStep{
 		&RegisterMeteredCharm{
 			RegisterURL: planURL + "/plan/authorize",
 			QueryURL:    planURL + "/charm",
 		},
-	})
-}
-
-func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
-	deployCmd := &DeployCommand{Steps: steps}
-	cmd := modelcmd.Wrap(deployCmd)
+	}
+	deployCmd := &DeployCommand{
+		Steps: steps,
+	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 		if err != nil {
@@ -207,7 +216,7 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 		}
 		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
 
-		adapter := &deployAPIAdapter{
+		return &deployAPIAdapter{
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
@@ -216,19 +225,10 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
-		}
-
-		return adapter, nil
+		}, nil
 	}
-	return cmd
-}
 
-// NewDeployCommand returns a command to deploy services.
-func NewDeployCommand(newAPIRoot NewAPIRootFn, steps []DeployStep) cmd.Command {
-	return modelcmd.Wrap(&DeployCommand{
-		Steps:      steps,
-		NewAPIRoot: newAPIRoot,
-	})
+	return modelcmd.Wrap(deployCmd)
 }
 
 type DeployCommand struct {
@@ -274,7 +274,7 @@ type DeployCommand struct {
 	Steps    []DeployStep
 
 	// NewAPIRoot stores a function which returns a new API root.
-	NewAPIRoot NewAPIRootFn
+	NewAPIRoot func() (DeployAPI, error)
 
 	flagSet *gnuflag.FlagSet
 }

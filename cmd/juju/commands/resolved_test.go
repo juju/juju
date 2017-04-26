@@ -38,7 +38,7 @@ func runResolved(c *gc.C, args []string) error {
 }
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, application.NewDefaultDeployCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewDeployCommand(), args...)
 	return err
 }
 
