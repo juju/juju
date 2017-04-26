@@ -139,7 +139,7 @@ type ModelInfo struct {
 	Life Life `json:"life"`
 
 	// Status is the current status of the model.
-	Status *EntityStatus `json:"status,omitempty"`
+	Status EntityStatus `json:"status,omitempty"`
 
 	// Users contains information about the users that have access
 	// to the model. Owners and administrators can see all users

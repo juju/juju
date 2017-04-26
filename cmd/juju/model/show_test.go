@@ -59,7 +59,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			CloudRegion:    "some-region",
 			ProviderType:   "openstack",
 			Life:           params.Alive,
-			Status: &params.EntityStatus{
+			Status: params.EntityStatus{
 				Status: status.Active,
 				Since:  &statusSince,
 			},
@@ -496,7 +496,7 @@ func createBasicModelInfo() *params.ModelInfo {
 
 func createBasicModelInfoWithStatus() *params.ModelInfo {
 	basicAndStatusInfo := createBasicModelInfo()
-	basicAndStatusInfo.Status = &params.EntityStatus{
+	basicAndStatusInfo.Status = params.EntityStatus{
 		Status: status.Busy,
 	}
 	return basicAndStatusInfo

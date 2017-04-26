@@ -160,7 +160,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
 		DefaultSeries:      series.LatestLts(),
 		Life:               params.Dying,
-		Status: &params.EntityStatus{
+		Status: params.EntityStatus{
 			Status: status.Destroying,
 			Since:  &time.Time{},
 		},

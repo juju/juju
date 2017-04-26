@@ -75,7 +75,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 				UUID:     model.UUID,
 				OwnerTag: names.NewUserTag(model.Owner).String(),
 				CloudTag: "cloud-dummy",
-				Status:   &params.EntityStatus{},
+				Status:   params.EntityStatus{},
 			}
 			switch model.Name {
 			case "test-model1":
@@ -281,7 +281,7 @@ func createBasicModelInfo() *params.ModelInfo {
 
 func (s *ModelsSuite) TestWithIncompleteModels(c *gc.C) {
 	basicAndStatusInfo := createBasicModelInfo()
-	basicAndStatusInfo.Status = &params.EntityStatus{
+	basicAndStatusInfo.Status = params.EntityStatus{
 		Status: status.Busy,
 	}
 

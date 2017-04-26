@@ -581,12 +581,9 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 
 	// If model is not alive - dying or dead - or if it is being imported,
 	// there is no guarantee that the rest of the call will succeed.
-	// For these models we can ignore NotFound errors coming from persistent layer.
+	// For these models we can ignore NotFound errors coming from persistence layer.
 	// However, for Alive models, these errors are genuine and cannot be ignored.
-	ignoreNotFoundError := false
-	if model.Life() != state.Alive || model.MigrationMode() == state.MigrationModeImporting {
-		ignoreNotFoundError = true
-	}
+	ignoreNotFoundError := model.Life() != state.Alive || model.MigrationMode() == state.MigrationModeImporting
 
 	// If we received an an error and cannot ignore it, we should consider it fatal and surface it.
 	// We should do the same if we can ignore NotFound errors but the given error is of some other type.
@@ -594,7 +591,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		if thisErr == nil {
 			return false
 		}
-		return !ignoreNotFoundError || (ignoreNotFoundError && !errors.IsNotFound(thisErr))
+		return !ignoreNotFoundError || !errors.IsNotFound(thisErr)
 	}
 	cfg, err := model.Config()
 	if shouldErr(err) {
@@ -611,7 +608,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	}
 	if err == nil {
 		entityStatus := common.EntityStatusFromState(status)
-		info.Status = &entityStatus
+		info.Status = entityStatus
 	}
 
 	authorizedOwner := m.authCheck(owner) == nil

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
+	"reflect"
 )
 
 // ModelInfo contains information about a model.
@@ -85,7 +86,10 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
 	}
-	if info.Status != nil {
+	// Although this may be more performance intensive, w have to use reflection
+	// since structs containing map[string]interface {} cannot be compared, i.e
+	// cannot use simple '==' here.
+	if !reflect.DeepEqual(info.Status, params.EntityStatus{}) {
 		modelInfo.Status = &ModelStatus{
 			Current: info.Status.Status,
 			Message: info.Status.Info,
