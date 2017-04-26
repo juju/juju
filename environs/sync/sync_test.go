@@ -5,6 +5,8 @@ package sync_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -466,27 +468,29 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	builtTools, err := buildToolsFunc(nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
 
-	builtTools.Dir = ""
-
-	expectedBuiltTools := &sync.BuiltTools{
-		StorageName: "name",
-		Version:     version.Current,
-		Size:        127,
-		Sha256Hash:  "6a19d08ca4913382ca86508aa38eb8ee5b9ae2d74333fe8d862c0f9e29b82c39",
-	}
-	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+	c.Assert(builtTools.Dir, gc.Not(gc.Equals), "")
+	c.Assert(builtTools.StorageName, gc.Equals, "name")
+	c.Assert(builtTools.Version, gc.Equals, version.Current)
+	contents, err := ioutil.ReadFile(filepath.Join(builtTools.Dir, "name"))
+	c.Assert(err, jc.ErrorIsNil)
+	hash := sha256.New()
+	hash.Write(contents)
+	c.Assert(builtTools.Size, gc.Equals, int64(len(contents)))
+	c.Assert(builtTools.Sha256Hash, gc.Equals, fmt.Sprintf("%x", hash.Sum(nil)))
 
 	vers := version.MustParseBinary("1.5.3-trusty-amd64")
 	builtTools, err = buildToolsFunc(&vers.Number, "released")
 	c.Assert(err, jc.ErrorIsNil)
-	builtTools.Dir = ""
-	expectedBuiltTools = &sync.BuiltTools{
-		StorageName: "name",
-		Version:     vers,
-		Size:        127,
-		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
-	}
-	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+
+	c.Assert(builtTools.Dir, gc.Not(gc.Equals), "")
+	c.Assert(builtTools.StorageName, gc.Equals, "name")
+	c.Assert(builtTools.Version, gc.Equals, vers)
+	contents, err = ioutil.ReadFile(filepath.Join(builtTools.Dir, "name"))
+	c.Assert(err, jc.ErrorIsNil)
+	hash = sha256.New()
+	hash.Write(contents)
+	c.Assert(builtTools.Size, gc.Equals, int64(len(contents)))
+	c.Assert(builtTools.Sha256Hash, gc.Equals, fmt.Sprintf("%x", hash.Sum(nil)))
 }
 
 func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *gc.C) {
