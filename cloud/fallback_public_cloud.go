@@ -71,6 +71,8 @@ clouds:
         endpoint: https://www.googleapis.com
       asia-northeast1:
         endpoint: https://www.googleapis.com
+      asia-southeast1:
+        endpoint: https://www.googleapis.com
   azure:
     type: azure
     description: Microsoft Azure
