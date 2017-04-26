@@ -4,12 +4,9 @@
 package application
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -38,24 +35,24 @@ func runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	_, err := runDeploy(c, "-n", "2", ch, "dummy", "--series", series.LatestLts())
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	_, err := runDeploy(c, "-n", "2", ch, "multi-series", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
-	svc, _ := s.AssertService(c, "dummy", curl, 2, 0)
+	curl := charm.MustParseURL("local:precise/multi-series-1")
+	svc, _ := s.AssertService(c, "multi-series", curl, 2, 0)
 	return svc
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 	svc := s.setupUnitForRemove(c)
 
-	ctx, err := runRemoveUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
+	ctx, err := runRemoveUnit(c, "multi-series/0", "multi-series/1", "multi-series/2", "sillybilly/17")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing unit dummy/0
-removing unit dummy/1
-removing unit dummy/2 failed: unit "dummy/2" does not exist
+removing unit multi-series/0
+removing unit multi-series/1
+removing unit multi-series/2 failed: unit "multi-series/2" does not exist
 removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
 `[1:])
 
@@ -67,8 +64,8 @@ removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnitInformsStorageRemoval(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem")
-	_, err := runDeploy(c, ch, "storage-filesystem", "--series", "quantal", "--storage", "data=rootfs,2")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
+	_, err := runDeploy(c, ch, "storage-filesystem", "--storage", "data=rootfs,2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err := runRemoveUnit(c, "storage-filesystem/0")
