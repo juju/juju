@@ -6,6 +6,7 @@ package model_test
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -123,13 +124,13 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
 		command := model.NewRetryProvisioningCommandForTest(s.fake)
-		context, err := testing.RunCommand(c, command, t.args...)
+		context, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
-		output := testing.Stderr(context)
+		output := cmdtesting.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
 		c.Check(stripped, gc.Equals, t.stdErr)
 		if t.args[0] == "0" {
@@ -146,7 +147,7 @@ func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
-		_, err := testing.RunCommand(c, command, t.args...)
+		_, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

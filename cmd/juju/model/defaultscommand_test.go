@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,27 +14,26 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type DefaultsCommandSuite struct {
 	fakeModelDefaultEnvSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&DefaultsCommandSuite{})
 
 func (s *DefaultsCommandSuite) SetUpTest(c *gc.C) {
 	s.fakeModelDefaultEnvSuite.SetUpTest(c)
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "controller"
 	s.store.Controllers["controller"] = jujuclient.ControllerDetails{}
 }
 
 func (s *DefaultsCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := model.NewDefaultsCommandForTest(s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store)
-	return testing.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
@@ -219,7 +219,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, test.description)
 		cmd := model.NewDefaultsCommandForTest(s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store)
-		err := testing.InitCommand(cmd, test.args)
+		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.nilErr {
 			c.Check(err, jc.ErrorIsNil)
 			continue
@@ -233,7 +233,7 @@ func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `key "weird" is not defined in the known model configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)
-	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
+	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
@@ -248,7 +248,7 @@ func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
 			Value: "another-value",
 		}}},
 	})
-	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
+	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetRegionAttr(c *gc.C) {
@@ -263,7 +263,7 @@ func (s *DefaultsCommandSuite) TestResetRegionAttr(c *gc.C) {
 			Value: "another-value",
 		}}},
 	})
-	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
+	c.Check(cmdtesting.Stdout(ctx), jc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetBlockedError(c *gc.C) {
@@ -328,7 +328,7 @@ func (s *DefaultsCommandSuite) TestGetSingleValue(c *gc.C) {
 	context, err := s.run(c, "attr2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
 		"Attribute         Default        Controller\n" +
 		"attr2             -              bar\n" +
@@ -341,7 +341,7 @@ func (s *DefaultsCommandSuite) TestGetSingleValueJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json", "attr2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, gc.Equals,
 		`{"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"},{"name":"another-region","value":"another-value"}]}}`)
 }
@@ -350,7 +350,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesYAML(c *gc.C) {
 	context, err := s.run(c, "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
 		"attr:\n" +
 		"  default: foo\n" +
@@ -368,7 +368,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `{"attr":{"default":"foo"},"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"},{"name":"another-region","value":"another-value"}]}}`
 	c.Assert(output, gc.Equals, expected)
 }
@@ -377,7 +377,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesTabular(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
 		"Attribute         Default        Controller\n" +
 		"attr              foo            -\n" +
@@ -391,7 +391,7 @@ func (s *DefaultsCommandSuite) TestGetRegionValuesTabular(c *gc.C) {
 	context, err := s.run(c, "dummy-region")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
 		"Attribute       Default      Controller\n" +
 		"attr2           -            bar\n" +
@@ -404,11 +404,11 @@ func (s *DefaultsCommandSuite) TestGetRegionNoValuesTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := s.run(c, "dummy-region")
 	c.Assert(err, gc.ErrorMatches, `there are no default model values in region "dummy-region"`)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *DefaultsCommandSuite) TestGetRegionOneArgNoValuesTabular(c *gc.C) {
 	ctx, err := s.run(c, "dummy-region", "attr")
 	c.Assert(err, gc.ErrorMatches, `there are no default model values for "attr" in region "dummy-region"`)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

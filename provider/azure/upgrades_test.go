@@ -52,7 +52,7 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	ops := upgrader.UpgradeOperations()
+	ops := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, gc.Equals, version.MustParse("2.2-alpha1"))
 	c.Assert(ops[0].Steps, gc.HasLen, 1)
@@ -61,7 +61,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	op0 := upgrader.UpgradeOperations()[0]
+	op0 := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})[0]
 
 	// The existing NSG has two rules: one for Juju API traffic,
 	// and an application-specific rule. Only the latter should
@@ -200,6 +200,6 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	vmListSender.PathPattern = ".*/virtualMachines"
 	s.sender = append(s.sender, vmListSender)
 
-	op0 := upgrader.UpgradeOperations()[0]
+	op0 := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})[0]
 	c.Assert(op0.Steps[0].Run(), jc.ErrorIsNil)
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type ListControllersSuite struct {
@@ -28,7 +28,7 @@ type ListControllersSuite struct {
 var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	_, err := s.runListControllers(c)
 	c.Check(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
@@ -261,7 +261,7 @@ another controller that you have been given access to using "juju register".
 }
 
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
+	return cmdtesting.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {
@@ -272,7 +272,7 @@ func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...stri
 func (s *ListControllersSuite) assertListControllers(c *gc.C, args ...string) string {
 	context, err := s.runListControllers(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	if s.expectedOutput != "" {
 		c.Assert(output, gc.Equals, s.expectedOutput)
 	}

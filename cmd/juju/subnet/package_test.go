@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
@@ -70,9 +71,9 @@ func (s *BaseSubnetSuite) RunCommand(c *gc.C, args ...string) (string, string, e
 	if s.command == nil {
 		panic("command is nil")
 	}
-	ctx, err := coretesting.RunCommand(c, s.command, args...)
+	ctx, err := cmdtesting.RunCommand(c, s.command, args...)
 	if ctx != nil {
-		return coretesting.Stdout(ctx), coretesting.Stderr(ctx), err
+		return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
 	}
 	return "", "", err
 }

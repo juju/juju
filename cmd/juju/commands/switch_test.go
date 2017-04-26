@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,7 +23,7 @@ import (
 type SwitchSimpleSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	testing.Stub
-	store     *jujuclienttesting.MemStore
+	store     *jujuclient.MemStore
 	stubStore *jujuclienttesting.StubStore
 	onRefresh func()
 }
@@ -32,7 +33,7 @@ var _ = gc.Suite(&SwitchSimpleSuite{})
 func (s *SwitchSimpleSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.stubStore = jujuclienttesting.WrapClientStore(s.store)
 	s.onRefresh = nil
 }
@@ -50,7 +51,7 @@ func (s *SwitchSimpleSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 		Store:         s.stubStore,
 		RefreshModels: s.refreshModels,
 	}
-	return coretesting.RunCommand(c, modelcmd.WrapBase(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.WrapBase(cmd), args...)
 }
 
 func (s *SwitchSimpleSuite) TestNoArgs(c *gc.C) {
@@ -63,7 +64,7 @@ func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *gc.C) {
 	s.store.CurrentControllerName = "a-controller"
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "a-controller\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "a-controller\n")
 }
 
 func (s *SwitchSimpleSuite) TestUnknownControllerNameReturnsError(c *gc.C) {
@@ -82,14 +83,14 @@ func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *gc.C) {
 	}
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "a-controller:admin/mymodel\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "a-controller:admin/mymodel\n")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {
 	s.addController(c, "a-controller")
 	context, err := s.run(c, "a-controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, " -> a-controller (controller)\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, " -> a-controller (controller)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"a-controller"}},
@@ -103,7 +104,7 @@ func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
 	s.addController(c, "new")
 	context, err := s.run(c, "new")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
@@ -111,7 +112,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
 	s.addController(c, "new")
 	context, err := s.run(c, "new")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
@@ -119,7 +120,7 @@ func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
 	s.addController(c, "same")
 	context, err := s.run(c, "same")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "same (controller) (no change)\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same (controller) (no change)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"CurrentModel", []interface{}{"same"}},
@@ -135,7 +136,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
 	}
 	context, err := s.run(c, "mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "ctrl (controller) -> ctrl:admin/mymodel\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ctrl (controller) -> ctrl:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"CurrentModel", []interface{}{"ctrl"}},
@@ -154,7 +155,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 	}
 	context, err := s.run(c, "new:mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"CurrentModel", []interface{}{"old"}},
@@ -175,7 +176,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 	}
 	context, err := s.run(c, "new:mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"CurrentModel", []interface{}{"old"}},
@@ -197,7 +198,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 	}
 	context, err := s.run(c, "new:mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"CurrentModel", []interface{}{"old"}},
@@ -221,7 +222,7 @@ func (s *SwitchSimpleSuite) TestSwitchToModelDifferentOwner(c *gc.C) {
 	}
 	context, err := s.run(c, "bianca/mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "same:admin/mymodel -> same:bianca/mymodel\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same:admin/mymodel -> same:bianca/mymodel\n")
 	c.Assert(s.store.Models["same"].CurrentModel, gc.Equals, "bianca/mymodel")
 }
 
@@ -244,7 +245,7 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModels(c *g
 	}
 	ctx, err := s.run(c, "unknown")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "ctrl (controller) -> ctrl:admin/unknown\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "ctrl (controller) -> ctrl:admin/unknown\n")
 	s.CheckCallNames(c, "RefreshModels")
 }
 

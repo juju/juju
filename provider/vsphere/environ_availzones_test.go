@@ -1,34 +1,33 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/vmware/govmomi/vim25/mo"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/vsphere"
+	"github.com/juju/juju/provider/common"
 )
 
 type environAvailzonesSuite struct {
-	vsphere.BaseSuite
+	EnvironFixture
 }
 
 var _ = gc.Suite(&environAvailzonesSuite{})
 
-func (s *environAvailzonesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
 func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
-	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
-	c.Assert(err, jc.ErrorIsNil)
-	defer closer()
-	s.FakeClient = client
-	s.FakeAvailabilityZones(client, "z1", "z2")
-	zones, err := s.Env.AvailabilityZones()
+	s.client.computeResources = []*mo.ComputeResource{
+		newComputeResource("z1"),
+		newComputeResource("z2"),
+	}
 
+	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	zonedEnviron := s.env.(common.ZonedEnviron)
+	zones, err := zonedEnviron.AvailabilityZones()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(zones), gc.Equals, 2)
 	c.Assert(zones[0].Name(), gc.Equals, "z1")
@@ -36,22 +35,25 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
-	c.Assert(err, jc.ErrorIsNil)
-	defer closer()
-	s.FakeClient = client
-	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	namespace, err := instance.NewNamespace(s.Env.Config().UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	vmName, err := namespace.Hostname("1")
-	c.Assert(err, jc.ErrorIsNil)
-	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName, Rp: "rp1"})
-	s.FakeClient.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
-	s.FakeAvailabilityZonesWithResourcePool(client, vsphere.ZoneRp{Zone: "z1", Rp: "rp1"}, vsphere.ZoneRp{Zone: "z2", Rp: "rp2"})
+	z1 := newComputeResource("z1")
+	z2 := newComputeResource("z2")
+	s.client.computeResources = []*mo.ComputeResource{z1, z2}
 
-	zones, err := s.Env.InstanceAvailabilityZoneNames([]instance.Id{instance.Id(vmName)})
+	s.client.virtualMachines = []*mo.VirtualMachine{
+		buildVM("inst-0").resourcePool(z2.ResourcePool).vm(),
+		buildVM("inst-1").resourcePool(z1.ResourcePool).vm(),
+		buildVM("inst-2").vm(),
+	}
+	ids := []instance.Id{"inst-0", "inst-1", "inst-2", "inst-3"}
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(zones), gc.Equals, 1)
-	c.Assert(zones[0], gc.Equals, "z1")
+	zonedEnviron := s.env.(common.ZonedEnviron)
+	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(ids)
+	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(zones, jc.DeepEquals, []string{"z2", "z1", "", ""})
+}
+
+func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *gc.C) {
+	zonedEnviron := s.env.(common.ZonedEnviron)
+	_, err := zonedEnviron.InstanceAvailabilityZoneNames([]instance.Id{"inst-0"})
+	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }

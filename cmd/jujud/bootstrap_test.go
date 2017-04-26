@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
@@ -335,7 +336,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		args = []string{s.bootstrapParamsFile}
 	}
 	cmd = NewBootstrapCommand()
-	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
+	err = cmdtesting.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }
 

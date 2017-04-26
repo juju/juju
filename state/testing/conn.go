@@ -22,6 +22,7 @@ import (
 type InitializeArgs struct {
 	Owner                     names.UserTag
 	InitialConfig             *config.Config
+	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
 	RegionConfig              cloud.RegionConfig
 	NewPolicy                 state.NewPolicyFunc
@@ -55,6 +56,9 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 	dialOpts := mongotest.DialOpts()
 
 	controllerCfg := testing.FakeControllerConfig()
+	for k, v := range args.ControllerConfig {
+		controllerCfg[k] = v
+	}
 	st, err := state.Initialize(state.InitializeParams{
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,

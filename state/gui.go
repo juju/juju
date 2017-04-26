@@ -30,7 +30,7 @@ func (st *State) GUISetVersion(vers version.Number) error {
 	}
 
 	// Set the current version.
-	settings, closer := st.getCollection(guisettingsC)
+	settings, closer := st.db().GetCollection(guisettingsC)
 	defer closer()
 	if _, err = settings.Writeable().Upsert(nil, bson.D{{"current-version", vers}}); err != nil {
 		return errors.Annotate(err, "cannot set current GUI version")
@@ -40,7 +40,7 @@ func (st *State) GUISetVersion(vers version.Number) error {
 
 // GUIVersion returns the Juju GUI version currently served by the controller.
 func (st *State) GUIVersion() (vers version.Number, err error) {
-	settings, closer := st.getCollection(guisettingsC)
+	settings, closer := st.db().GetCollection(guisettingsC)
 	defer closer()
 
 	// Retrieve the settings document.

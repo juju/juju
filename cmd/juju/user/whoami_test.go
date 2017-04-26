@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +31,7 @@ There is no current controller.
 Run juju list-controllers to see available controllers.
 `[1:]
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.assertWhoAmI(c)
 }
 
@@ -40,7 +41,7 @@ There is no current controller.
 Run juju list-controllers to see available controllers.
 `[1:]
 
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
@@ -55,7 +56,7 @@ Model:       <no-current-model>
 User:        admin
 `[1:]
 
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
@@ -82,7 +83,7 @@ You are not logged in to controller "controller" and model "admin/model".
 Run juju login if you want to login.
 `[1:]
 
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
@@ -100,7 +101,7 @@ Run juju login if you want to login.
 }
 
 func (s *WhoAmITestSuite) assertWhoAmIForUser(c *gc.C, user, format string) {
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
@@ -167,7 +168,7 @@ func (s *WhoAmITestSuite) TestFromStoreErr(c *gc.C) {
 }
 
 func (s *WhoAmITestSuite) runWhoAmI(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, user.NewWhoAmICommandForTest(s.store), args...)
+	return cmdtesting.RunCommand(c, user.NewWhoAmICommandForTest(s.store), args...)
 }
 
 func (s *WhoAmITestSuite) assertWhoAmIFailed(c *gc.C, args ...string) {
@@ -178,9 +179,9 @@ func (s *WhoAmITestSuite) assertWhoAmIFailed(c *gc.C, args ...string) {
 func (s *WhoAmITestSuite) assertWhoAmI(c *gc.C, args ...string) string {
 	context, err := s.runWhoAmI(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	if output == "" {
-		output = testing.Stderr(context)
+		output = cmdtesting.Stderr(context)
 	}
 	if s.expectedOutput != "" {
 		c.Assert(output, gc.Equals, s.expectedOutput)

@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -31,7 +31,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewListCommandForTest(s.mockAPI, s.store), args...)
+	return cmdtesting.RunCommand(c, storage.NewListCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *ListSuite) TestList(c *gc.C) {
@@ -280,9 +280,9 @@ func (s *ListSuite) TestListError(c *gc.C) {
 	s.mockAPI.listErrors = true
 	context, err := s.runList(c, nil)
 	c.Assert(err, gc.ErrorMatches, "list fails")
-	stderr := testing.Stderr(context)
+	stderr := cmdtesting.Stderr(context)
 	c.Assert(stderr, gc.Equals, "")
-	stdout := testing.Stdout(context)
+	stdout := cmdtesting.Stdout(context)
 	c.Assert(stdout, gc.Equals, "")
 }
 
@@ -290,10 +290,10 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid string
 	context, err := s.runList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, "")
 
-	obtainedValid := testing.Stdout(context)
+	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Matches, expectedValid)
 }
 

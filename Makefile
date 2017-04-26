@@ -10,7 +10,7 @@ PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
 ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
-	GO_C := golang-1.[6-9]
+	GO_C := golang-1.8
 	INSTALL_FLAGS :=
 else
 	GO_C := gccgo-4.9  gccgo-go
@@ -29,8 +29,7 @@ define DEPENDENCIES
   bzip2
   bzr
   distro-info-data
-  git-core
-  mercurial
+  git
   zip
   $(GO_C)
 endef
@@ -56,7 +55,7 @@ build: godeps
 	go build $(PROJECT)/...
 
 check: godeps
-	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/... 
+	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
 install: godeps
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
@@ -98,14 +97,12 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-ifeq ($(shell lsb_release -cs|sed -r 's/precise|wily/old/'),old)
-	@echo Adding juju PPAs for golang and mongodb-server
+	@echo Adding juju PPAs for golang and juju
 	@sudo apt-add-repository --yes ppa:juju/golang
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
-endif
 	@echo Installing dependencies
-	@sudo apt-get --yes install --no-install-recommends \
+	@sudo apt-get --yes install  \
 	$(strip $(DEPENDENCIES)) \
 	$(shell apt-cache madison juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 

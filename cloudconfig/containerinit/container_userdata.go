@@ -124,6 +124,11 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 				gatewayHandled = true // write it only once
 			}
 		}
+
+		if mtu, ok := prepared.NameToMTU[name]; ok {
+			output.WriteString(fmt.Sprintf("  mtu %d\n", mtu))
+		}
+
 		for _, route := range prepared.NameToRoutes[name] {
 			output.WriteString(fmt.Sprintf("  post-up ip route add %s via %s metric %d\n",
 				route.DestinationCIDR, route.GatewayIP, route.Metric))
@@ -151,6 +156,7 @@ type PreparedConfig struct {
 	DNSSearchDomains []string
 	NameToAddress    map[string]string
 	NameToRoutes     map[string][]network.Route
+	NameToMTU        map[string]int
 	GatewayAddress   string
 }
 
@@ -164,25 +170,27 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	namesInOrder := make([]string, 1, len(interfaces)+1)
 	nameToAddress := make(map[string]string)
 	nameToRoutes := make(map[string][]network.Route)
+	nameToMTU := make(map[string]int)
 
 	// Always include the loopback.
 	namesInOrder[0] = "lo"
 	autoStarted := set.NewStrings("lo")
 
 	for _, info := range interfaces {
-		cleanIfaceName := strings.Replace(info.MACAddress, ":", "_", -1)
+		ifaceName := strings.Replace(info.MACAddress, ":", "_", -1)
 		// prepend eth because .format of python wont like a tag starting with numbers.
-		cleanIfaceName = fmt.Sprintf("{eth%s}", cleanIfaceName)
+		ifaceName = fmt.Sprintf("{eth%s}", ifaceName)
+
 		if !info.NoAutoStart {
-			autoStarted.Add(cleanIfaceName)
+			autoStarted.Add(ifaceName)
 		}
 
 		if cidr := info.CIDRAddress(); cidr != "" {
-			nameToAddress[cleanIfaceName] = cidr
+			nameToAddress[ifaceName] = cidr
 		} else if info.ConfigType == network.ConfigDHCP {
-			nameToAddress[cleanIfaceName] = string(network.ConfigDHCP)
+			nameToAddress[ifaceName] = string(network.ConfigDHCP)
 		}
-		nameToRoutes[cleanIfaceName] = info.Routes
+		nameToRoutes[ifaceName] = info.Routes
 
 		for _, dns := range info.DNSServers {
 			dnsServers.Add(dns.Value)
@@ -194,13 +202,18 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 			gatewayAddress = info.GatewayAddress.Value
 		}
 
-		namesInOrder = append(namesInOrder, cleanIfaceName)
+		if info.MTU != 0 && info.MTU != 1500 {
+			nameToMTU[ifaceName] = info.MTU
+		}
+
+		namesInOrder = append(namesInOrder, ifaceName)
 	}
 
 	prepared := &PreparedConfig{
 		InterfaceNames:   namesInOrder,
 		NameToAddress:    nameToAddress,
 		NameToRoutes:     nameToRoutes,
+		NameToMTU:        nameToMTU,
 		AutoStarted:      autoStarted.SortedValues(),
 		DNSServers:       dnsServers.SortedValues(),
 		DNSSearchDomains: dnsSearchDomains.SortedValues(),
@@ -228,7 +241,6 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".templ", config, 0644)
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", NetworkInterfacesScript, 0744)
 		cloudConfig.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
-		//cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
 	}
 
 	return cloudConfig, nil
@@ -362,39 +374,19 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 	return cmds, nil
 }
 
-// raiseJujuNetworkInterfacesScript returns a cloud-init script to
-// raise Juju's network interfaces supplied via cloud-init.
-//
 // Note: we sleep to mitigate against LP #1337873 and LP #1269921.
-func raiseJujuNetworkInterfacesScript(oldInterfacesFile, newInterfacesFile string) string {
-	return fmt.Sprintf(`
-if [ -f %[2]s ]; then
-    echo "stopping all interfaces"
-    ifdown -a
-    sleep 1.5
-    if ifup -a --interfaces=%[2]s; then
-        echo "ifup with %[2]s succeeded, renaming to %[1]s"
-        cp %[1]s %[1]s-orig
-        cp %[2]s %[1]s
-    else
-        echo "ifup with %[2]s failed, leaving old %[1]s alone"
-        ifup -a
-    fi
-else
-    echo "did not find %[2]s, not reconfiguring networking"
-fi`[1:],
-		oldInterfacesFile, newInterfacesFile)
-}
-
 func populateNetworkInterfaces(networkFile string) string {
 	s := `
+ifdown -a
+sleep 1.5
 if [ -f /usr/bin/python ]; then
-    python %s.py --interfaces-file %s
+    python %[1]s.py --interfaces-file %[1]s
 else
-    python3 %s.py --interfaces-file %s
+    python3 %[1]s.py --interfaces-file %[1]s
 fi
+ifup -a
 `
-	return fmt.Sprintf(s, networkFile, networkFile, networkFile, networkFile)
+	return fmt.Sprintf(s, networkFile)
 }
 
 const NetworkInterfacesScript = `from __future__ import print_function, unicode_literals
@@ -402,7 +394,7 @@ import subprocess, re, argparse, os, time
 from string import Formatter
 
 INTERFACES_FILE="/etc/network/interfaces"
-IP_LINE = re.compile(r"^\d: (.*?):")
+IP_LINE = re.compile(r"^\d+: (.*?):")
 IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
 COMMAND = "ip -oneline link"
 RETRIES = 3
@@ -424,7 +416,7 @@ def ip_parse(ip_output):
         match = IP_LINE.match(ip_line_str)
         if match is None:
             continue
-        nic_name = match.group(1)
+        nic_name = match.group(1).split('@')[0]
         match = IP_HWADDR.match(ip_line_str)
         if match is None:
             continue
@@ -487,4 +479,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+`
+
+const CloudInitNetworkConfigDisabled = `network:
+  config: "disabled"
 `

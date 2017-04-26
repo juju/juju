@@ -455,8 +455,8 @@ var _ = gc.Suite(&clientSuite{})
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
 func clearSinceTimes(status *params.FullStatus) {
-	for applicationId, service := range status.Applications {
-		for unitId, unit := range service.Units {
+	for applicationId, application := range status.Applications {
+		for unitId, unit := range application.Units {
 			unit.WorkloadStatus.Since = nil
 			unit.AgentStatus.Since = nil
 			for id, subord := range unit.Subordinates {
@@ -464,10 +464,14 @@ func clearSinceTimes(status *params.FullStatus) {
 				subord.AgentStatus.Since = nil
 				unit.Subordinates[id] = subord
 			}
-			service.Units[unitId] = unit
+			application.Units[unitId] = unit
 		}
-		service.Status.Since = nil
-		status.Applications[applicationId] = service
+		application.Status.Since = nil
+		status.Applications[applicationId] = application
+	}
+	for applicationId, application := range status.RemoteApplications {
+		application.Status.Since = nil
+		status.RemoteApplications[applicationId] = application
 	}
 	for id, machine := range status.Machines {
 		machine.AgentStatus.Since = nil
@@ -637,7 +641,7 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 	s.baseSuite.TearDownTest(c)
 }
 
-func (s *clientSuite) TestClientWatchAll(c *gc.C) {
+func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
@@ -645,7 +649,15 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	watcher, err := s.APIState.Client().WatchAll()
+
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: "ro-password",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	roClient := s.OpenAPIAs(c, user.UserTag(), "ro-password").Client()
+	defer roClient.Close()
+
+	watcher, err := roClient.WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
@@ -678,6 +690,101 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			WantsVote:               true,
 		},
 	}}) {
+		c.Logf("got:")
+		for _, d := range deltas {
+			c.Logf("%#v\n", d.Entity)
+		}
+	}
+}
+
+func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+	// A very simple end-to-end test, because
+	// all the logic is tested elsewhere.
+	m, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Include a remote app that needs admin access to see.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-db2",
+		OfferName:   "hosted-db2",
+		URL:         "admin/prod.db2",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{
+			{
+				Name:      "database",
+				Interface: "db2",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher, err := s.APIState.Client().WatchAll()
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := watcher.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+	deltas, err := watcher.Next()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(deltas), gc.Equals, 2)
+	mIndex := 0
+	aIndex := 1
+	dMachine, ok0 := deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
+	dApp, ok1 := deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+	if !ok0 {
+		mIndex = 1
+		aIndex = 0
+		dMachine, ok0 = deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
+		dApp, ok1 = deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+	}
+	c.Assert(ok0, jc.IsTrue)
+	c.Assert(ok1, jc.IsTrue)
+	dMachine.AgentStatus.Since = nil
+	dMachine.InstanceStatus.Since = nil
+	dApp.Status.Since = nil
+
+	if !c.Check(deltas[mIndex], jc.DeepEquals, multiwatcher.Delta{
+		Entity: &multiwatcher.MachineInfo{
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			AgentStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+			},
+			InstanceStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+			},
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "quantal",
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []multiwatcher.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
+		},
+	}) {
+		c.Logf("got:")
+		for _, d := range deltas {
+			c.Logf("%#v\n", d.Entity)
+		}
+	}
+	if !c.Check(deltas[aIndex], jc.DeepEquals, multiwatcher.Delta{
+		Entity: &multiwatcher.RemoteApplicationInfo{
+			Name:           "remote-db2",
+			ModelUUID:      s.State.ModelUUID(),
+			ApplicationURL: "admin/prod.db2",
+			Life:           "alive",
+			Status: multiwatcher.StatusInfo{
+				Current: status.Unknown,
+				Message: "waiting for remote connection",
+			},
+		},
+	}) {
 		c.Logf("got:")
 		for _, d := range deltas {
 			c.Logf("%#v\n", d.Entity)

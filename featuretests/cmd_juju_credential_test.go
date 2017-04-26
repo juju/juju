@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type cmdCredentialSuite struct {
@@ -24,9 +24,9 @@ type cmdCredentialSuite struct {
 }
 
 func (s *cmdCredentialSuite) run(c *gc.C, args ...string) *cmd.Context {
-	context := testing.Context(c)
+	context := cmdtesting.Context(c)
 	command := commands.NewJujuCommand(context)
-	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	c.Assert(command.Run(context), jc.ErrorIsNil)
 	loggo.RemoveWriter("warning")
 	return context

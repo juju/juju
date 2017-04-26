@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/httprequest"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/gui"
 	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type guiSuite struct {
@@ -30,7 +30,7 @@ var _ = gc.Suite(&guiSuite{})
 
 // run executes the gui command passing the given args.
 func (s *guiSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := coretesting.RunCommand(c, gui.NewGUICommandForTest(
+	ctx, err := cmdtesting.RunCommand(c, gui.NewGUICommandForTest(
 		func(connection api.Connection) ([]params.GUIArchiveVersion, error) {
 			return []params.GUIArchiveVersion{
 				{
@@ -42,7 +42,7 @@ func (s *guiSuite) run(c *gc.C, args ...string) (string, error) {
 				},
 			}, nil
 		}), args...)
-	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
+	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
 func (s *guiSuite) patchClient(f func(*httprequest.Client, string) error) {

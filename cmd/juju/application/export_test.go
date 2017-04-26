@@ -16,7 +16,7 @@ import (
 
 func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,
-	apiOpener modelcmd.APIOpener,
+	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
@@ -35,7 +35,7 @@ func NewUpgradeCharmCommandForTest(
 		NewResourceLister:     newResourceLister,
 	}
 	cmd.SetClientStore(store)
-	cmd.SetAPIOpener(apiOpener)
+	cmd.SetAPIOpen(apiOpen)
 	return modelcmd.Wrap(cmd)
 }
 

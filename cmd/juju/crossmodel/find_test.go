@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/testing"
 )
 
 type findSuite struct {
@@ -35,7 +35,7 @@ func (s *findSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *findSuite) TestFindNoArgs(c *gc.C) {
@@ -158,7 +158,7 @@ func (s *findSuite) assertFind(c *gc.C, args []string, expected string) {
 	context, err := s.runFind(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained := testing.Stdout(context)
+	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, gc.Matches, expected)
 }
 

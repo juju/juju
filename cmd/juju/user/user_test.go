@@ -8,19 +8,18 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"0.1.2.3:12345"},

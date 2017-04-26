@@ -5,6 +5,7 @@ package crossmodel_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -12,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/testing"
 )
 
 type offerSuite struct {
@@ -60,7 +60,7 @@ func (s *offerSuite) assertOfferErrorOutput(c *gc.C, expected string) {
 }
 
 func (s *offerSuite) runOffer(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewOfferCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, crossmodel.NewOfferCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *offerSuite) TestOfferCallErred(c *gc.C) {

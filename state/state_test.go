@@ -211,7 +211,7 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.Watch()
 
-	w := s.State.Watch()
+	w := s.State.Watch(state.WatchParams{IncludeOffers: true})
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
 	s.State.StartSync()
@@ -616,7 +616,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "subnets",
 			getWatcher: func(st *state.State) interface{} {
-				return st.WatchSubnets()
+				return st.WatchSubnets(nil)
 			},
 			triggerEvent: func(st *state.State) {
 				_, err := st.AddSubnet(state.SubnetInfo{
@@ -2473,6 +2473,35 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	})
 }
 
+func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchControllerConfig()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg := testing.FakeControllerConfig()
+	c.Assert(cfg, jc.DeepEquals, expectedCfg)
+
+	settings := state.GetControllerSettings(s.State)
+	settings.Set("max-logs-age", "96h")
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertOneChange()
+
+	cfg, err = s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg["max-logs-age"] = "96h"
+	c.Assert(cfg, jc.DeepEquals, expectedCfg)
+}
+
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
@@ -3314,7 +3343,10 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchSubnets(c *gc.C) {
-	w := s.State.WatchSubnets()
+	filter := func(id interface{}) bool {
+		return id != "10.20.0.0/24"
+	}
+	w := s.State.WatchSubnets(filter)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 
@@ -3322,10 +3354,19 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.0.0.0/24"})
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.20.0.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{CIDR: "10.0.0.0/24"})
 	wc.AssertChange("10.0.0.0/24")
 	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchSubnetsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+		w := st.WatchSubnets(nil)
+		<-w.Changes()
+		return w
+	})
 }
 
 func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsWatcherC) (*state.RemoteApplication, *state.Application, *state.Relation) {

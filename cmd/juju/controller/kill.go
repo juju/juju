@@ -39,31 +39,21 @@ See also:
     unregister
 `
 
-// NewKillCommand returns a command to kill a controller. Killing is a forceful
-// destroy.
-func NewKillCommand() cmd.Command {
-	// Even though this command is all about killing a controller we end up
-	// needing environment endpoints so we can fall back to the client destroy
-	// environment method. This shouldn't really matter in practice as the
-	// user trying to take down the controller will need to have access to the
-	// controller environment anyway.
+// NewKillCommand returns a command to kill a controller. Killing is a
+// forceful destroy.
+func NewKillCommand() modelcmd.CommandBase {
 	return wrapKillCommand(&killCommand{
 		clock: clock.WallClock,
-	}, nil, clock.WallClock)
+	})
 }
 
 // wrapKillCommand provides the common wrapping used by tests and
 // the default NewKillCommand above.
-func wrapKillCommand(kill *killCommand, apiOpen modelcmd.APIOpener, clock clock.Clock) cmd.Command {
-	if apiOpen == nil {
-		apiOpen = modelcmd.OpenFunc(kill.JujuCommandBase.NewAPIRoot)
-	}
-	openStrategy := modelcmd.NewTimeoutOpener(apiOpen, clock, 10*time.Second)
+func wrapKillCommand(kill *killCommand) modelcmd.CommandBase {
 	return modelcmd.WrapController(
 		kill,
 		modelcmd.WrapControllerSkipControllerFlags,
 		modelcmd.WrapControllerSkipDefaultController,
-		modelcmd.WrapControllerAPIOpener(openStrategy),
 	)
 }
 
@@ -97,6 +87,8 @@ func (c *killCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
+var errConnTimedOut = errors.New("open connection timed out")
+
 // Run implements Command.Run
 func (c *killCommand) Run(ctx *cmd.Context) error {
 	controllerName := c.ControllerName()
@@ -108,18 +100,14 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to connect to the API.
-	api, err := c.getControllerAPI()
-	switch {
-	case err == nil:
+	api, err := c.getControllerAPIWithTimeout(10 * time.Second)
+	switch errors.Cause(err) {
+	case nil:
 		defer api.Close()
-	case errors.Cause(err) == common.ErrPerm:
+	case common.ErrPerm:
 		return errors.Annotate(err, "cannot destroy controller")
 	default:
-		if errors.Cause(err) != modelcmd.ErrConnTimedOut {
-			logger.Debugf("unable to open api: %s", err)
-		}
 		ctx.Infof("Unable to open API: %s\n", err)
-		api = nil
 	}
 
 	// Obtain controller environ so we can clean up afterwards.
@@ -148,6 +136,32 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		c.DirectDestroyRemaining(ctx, api)
 	}
 	return environs.Destroy(controllerName, controllerEnviron, store)
+}
+
+func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destroyControllerAPI, error) {
+	type result struct {
+		c   destroyControllerAPI
+		err error
+	}
+	resultc := make(chan result)
+	done := make(chan struct{})
+	go func() {
+		api, err := c.getControllerAPI()
+		select {
+		case resultc <- result{api, err}:
+		case <-done:
+			if api != nil {
+				api.Close()
+			}
+		}
+	}()
+	select {
+	case r := <-resultc:
+		return r.c, r.err
+	case <-c.clock.After(timeout):
+		close(done)
+		return nil, errConnTimedOut
+	}
 }
 
 // DirectDestroyRemaining will attempt to directly destroy any remaining

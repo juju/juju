@@ -4,6 +4,7 @@
 package subnet_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/feature"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type CreateSuite struct {
@@ -126,7 +126,7 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
 		wrappedCommand, command := subnet.NewCreateCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {

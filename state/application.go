@@ -272,10 +272,6 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 			Id:     a.doc.DocID,
 			Assert: asserts,
 			Remove: true,
-		}, {
-			C:      settingsC,
-			Id:     a.settingsKey(),
-			Remove: true,
 		},
 	}
 	// Note that appCharmDecRefOps might not catch the final decref
@@ -290,7 +286,6 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, charmOps...)
-	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
 	globalKey := a.globalKey()
 	ops = append(ops,
@@ -1000,7 +995,7 @@ func (a *Application) String() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
 func (a *Application) Refresh() error {
-	applications, closer := a.st.getCollection(applicationsC)
+	applications, closer := a.st.db().GetCollection(applicationsC)
 	defer closer()
 
 	err := applications.FindId(a.doc.DocID).One(&a.doc)
@@ -1320,7 +1315,7 @@ func (a *Application) AllUnits() (units []*Unit, err error) {
 }
 
 func allUnits(st *State, application string) (units []*Unit, err error) {
-	unitsCollection, closer := st.getCollection(unitsC)
+	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -1341,7 +1336,7 @@ func (a *Application) Relations() (relations []*Relation, err error) {
 
 func applicationRelations(st *State, name string) (relations []*Relation, err error) {
 	defer errors.DeferredAnnotatef(&err, "can't get relations for application %q", name)
-	relationsCollection, closer := st.getCollection(relationsC)
+	relationsCollection, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	docs := []relationDoc{}
@@ -1604,7 +1599,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
 func (a *Application) Status() (status.StatusInfo, error) {
-	statuses, closer := a.st.getCollection(statusesC)
+	statuses, closer := a.st.db().GetCollection(statusesC)
 	defer closer()
 	query := statuses.Find(bson.D{{"_id", a.globalKey()}, {"neverset", true}})
 	if count, err := query.Count(); err != nil {

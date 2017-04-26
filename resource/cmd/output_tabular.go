@@ -75,8 +75,8 @@ func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%v\t%v\t%v\n",
 			r.Name,
-			r.combinedOrigin,
-			r.combinedRevision,
+			r.CombinedOrigin,
+			r.CombinedRevision,
 		)
 	}
 
@@ -121,7 +121,7 @@ func formatUnitTabular(writer io.Writer, resources []FormattedUnitResource) {
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%v\t%v\n",
 			r.Name,
-			r.combinedRevision,
+			r.CombinedRevision,
 		)
 	}
 	tw.Flush()
@@ -142,10 +142,10 @@ func formatServiceDetailTabular(writer io.Writer, resources FormattedServiceDeta
 
 	for _, r := range resources.Resources {
 		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
-			r.unitNumber,
+			r.UnitNumber,
 			r.Expected.Name,
-			r.Unit.combinedRevision,
-			r.revProgress,
+			r.Unit.CombinedRevision,
+			r.RevProgress,
 		)
 	}
 	tw.Flush()
@@ -169,8 +169,8 @@ func formatUnitDetailTabular(writer io.Writer, resources FormattedUnitDetails) {
 	for _, r := range resources {
 		fmt.Fprintf(tw, "%v\t%v\t%v\n",
 			r.Expected.Name,
-			r.Unit.combinedRevision,
-			r.revProgress,
+			r.Unit.CombinedRevision,
+			r.RevProgress,
 		)
 	}
 	tw.Flush()
@@ -182,8 +182,8 @@ func (b byUnitID) Len() int      { return len(b) }
 func (b byUnitID) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 func (b byUnitID) Less(i, j int) bool {
-	if b[i].unitNumber != b[j].unitNumber {
-		return b[i].unitNumber < b[j].unitNumber
+	if b[i].UnitNumber != b[j].UnitNumber {
+		return b[i].UnitNumber < b[j].UnitNumber
 	}
 	return b[i].Expected.Name < b[j].Expected.Name
 }

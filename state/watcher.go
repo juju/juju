@@ -1321,6 +1321,11 @@ func (st *State) WatchControllerInfo() NotifyWatcher {
 	return newEntityWatcher(st, controllersC, modelGlobalKey)
 }
 
+// WatchControllerConfig returns a NotifyWatcher for controller settings.
+func (st *State) WatchControllerConfig() NotifyWatcher {
+	return newEntityWatcher(st, controllersC, controllerSettingsGlobalKey)
+}
+
 // Watch returns a watcher for observing changes to a machine.
 func (m *Machine) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
@@ -1343,7 +1348,7 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
 }
 
-// Watch returns a watcher for observing changes to an model.
+// Watch returns a watcher for observing changes to a model.
 func (e *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
 }
@@ -1364,6 +1369,12 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 // Config to change.
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
+}
+
+// WatchModelEntityReferences returns a NotifyWatcher waiting for the Model
+// Entity references to change for specified model.
+func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {
+	return newEntityWatcher(st, modelEntityRefsC, mUUID)
 }
 
 // WatchForUnitAssignment watches for new services that request units to be
@@ -2690,8 +2701,19 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 
 // WatchSubnets returns a StringsWatcher that notifies of changes to
 // the lifecycles of the subnets in the model.
-func (st *State) WatchSubnets() StringsWatcher {
-	return newLifecycleWatcher(st, subnetsC, nil, isLocalID(st), nil)
+func (st *State) WatchSubnets(subnetFilter func(id interface{}) bool) StringsWatcher {
+	filter := func(id interface{}) bool {
+		subnet, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		if subnetFilter == nil {
+			return true
+		}
+		return subnetFilter(subnet)
+	}
+
+	return newLifecycleWatcher(st, subnetsC, nil, filter, nil)
 }
 
 // isLocalID returns a watcher filter func that rejects ids not specific

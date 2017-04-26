@@ -86,7 +86,7 @@ func (st *State) newMetricsManager() (*MetricsManager, error) {
 }
 
 func (st *State) getMetricsManager() (*MetricsManager, error) {
-	coll, closer := st.getCollection(metricsManagerC)
+	coll, closer := st.db().GetCollection(metricsManagerC)
 	defer closer()
 	var doc metricsManagerDoc
 	err := coll.FindId(metricsManagerKey).One(&doc)

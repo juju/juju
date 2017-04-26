@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,7 +24,7 @@ var _ = gc.Suite(&ConfigCommandSuite{})
 
 func (s *ConfigCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := model.NewConfigCommandForTest(s.fake)
-	return testing.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *ConfigCommandSuite) TestInit(c *gc.C) {
@@ -84,7 +85,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, test.desc)
 		cmd := model.NewConfigCommandForTest(s.fake)
-		err := testing.InitCommand(cmd, test.args)
+		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.nilErr {
 			c.Check(err, jc.ErrorIsNil)
 			continue
@@ -99,7 +100,7 @@ func (s *ConfigCommandSuite) TestSingleValue(c *gc.C) {
 	context, err := s.run(c, "special")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "multi\nline\n")
 }
 
@@ -119,7 +120,7 @@ func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
 	context, err := s.run(c, "unknown")
 	c.Assert(err, gc.ErrorMatches, `key "unknown" not found in {<nil> ""} model.`)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
 }
 
@@ -128,7 +129,7 @@ func (s *ConfigCommandSuite) TestSingleValueJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	want := "{\"special\":{\"Value\":\"special value\",\"Source\":\"model\"}}\n"
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, want)
 }
 
@@ -141,7 +142,7 @@ func (s *ConfigCommandSuite) TestSingleValueYAML(c *gc.C) {
 		"  value: special value\n" +
 		"  source: model\n"
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, want)
 }
 
@@ -149,7 +150,7 @@ func (s *ConfigCommandSuite) TestAllValuesYAML(c *gc.C) {
 	context, err := s.run(c, "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	expected := "" +
 		"running:\n" +
 		"  value: true\n" +
@@ -164,7 +165,7 @@ func (s *ConfigCommandSuite) TestAllValuesJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	expected := `{"running":{"Value":true,"Source":"model"},"special":{"Value":"special value","Source":"model"}}` + "\n"
 	c.Assert(output, gc.Equals, expected)
 }
@@ -173,7 +174,7 @@ func (s *ConfigCommandSuite) TestAllValuesTabular(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	expected := "" +
 		"Attribute  From   Value\n" +
 		"running    model  true\n" +

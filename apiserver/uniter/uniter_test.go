@@ -2268,12 +2268,110 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSLALevel(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("creds"))
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.SLALevel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResult{Result: "essential"})
+}
+
+func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
+	s.makeRemoteWordpress(c)
+	thisUniter := s.makeMysqlUniter(c)
+
+	// Set mysql's addresses first.
+	err := s.machine1.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("mysql", "remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, false)
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := thisUniter.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	// Verify the scope changes and settings.
+	s.assertInScope(c, relUnit, true)
+	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "4.3.2.1",
+	})
+}
+
+func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
+	s.makeRemoteWordpress(c)
+	thisUniter := s.makeMysqlUniter(c)
+
+	// Set mysql's addresses first - no public address.
+	err := s.machine1.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("mysql", "remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, false)
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := thisUniter.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	// Verify that we fell back to the private address.
+	s.assertInScope(c, relUnit, true)
+	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "1.2.3.4",
+	})
+}
+
+func (s *uniterSuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPIV3 {
+	authorizer := s.authorizer
+	authorizer.Tag = s.mysqlUnit.Tag()
+	result, err := uniter.NewUniterAPI(s.State, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	return result
+}
+
+func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
+		OfferName:       "chapo",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type unitMetricBatchesSuite struct {

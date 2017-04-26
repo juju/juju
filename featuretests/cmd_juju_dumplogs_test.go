@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -61,7 +61,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 
 	// Run the juju-dumplogs command
 	command := dumplogs.NewCommand()
-	context, err := testing.RunCommand(c, command, "--data-dir", s.DataDir())
+	context, err := cmdtesting.RunCommand(c, command, "--data-dir", s.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the log file for each environment

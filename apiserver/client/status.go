@@ -340,6 +340,8 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
 	}
 
+	info.SLA = m.SLALevel()
+
 	info.ModelStatus = params.DetailedStatus{
 		Status: status.Status.String(),
 		Info:   status.Message,
@@ -348,7 +350,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 	}
 	ms := m.MeterStatus()
 	if isColorStatus(ms.Code) {
-		info.MeterStatus = params.MeterStatus{Color: ms.Code.String(), Message: ms.Info}
+		info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
 	}
 
 	return info, nil
@@ -894,6 +896,7 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 			Name:      ep.Name,
 			Interface: ep.Interface,
 			Role:      ep.Role,
+			Scope:     ep.Scope,
 		}
 	}
 	status.Life = processLife(application)

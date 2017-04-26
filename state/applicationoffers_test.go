@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type applicationOffersSuite struct {
@@ -260,6 +261,29 @@ func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterIniti
 		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
+}
+
+func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           owner.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
+	offer, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "foo",
+		Owner:           owner.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "foo",
+		Endpoints:       map[string]charm.Relation{},
+	})
 }
 
 func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {

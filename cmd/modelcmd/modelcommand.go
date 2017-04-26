@@ -95,10 +95,6 @@ type ModelCommand interface {
 	// ControllerName returns the name of the controller that contains
 	// the model returned by ModelName().
 	ControllerName() string
-
-	// SetAPIOpener allows the replacement of the default API opener,
-	// which ends up calling NewAPIRoot
-	SetAPIOpener(opener APIOpener)
 }
 
 // ModelCommandBase is a convenience type for embedding in commands
@@ -112,9 +108,6 @@ type ModelCommandBase struct {
 
 	modelName      string
 	controllerName string
-
-	// opener is the strategy used to open the API connection.
-	opener APIOpener
 }
 
 // SetClientStore implements the ModelCommand interface.
@@ -157,12 +150,6 @@ func (c *ModelCommandBase) ModelName() string {
 // ControllerName implements the ModelCommand interface.
 func (c *ModelCommandBase) ControllerName() string {
 	return c.controllerName
-}
-
-// SetAPIOpener specifies the strategy used by the command to open
-// the API connection.
-func (c *ModelCommandBase) SetAPIOpener(opener APIOpener) {
-	c.opener = opener
 }
 
 func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
@@ -217,11 +204,7 @@ func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) 
 		}
 		return nil, errors.Trace(ErrNoCurrentController)
 	}
-	opener := c.opener
-	if opener == nil {
-		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
-	}
-	return opener.Open(c.store, c.controllerName, modelName)
+	return c.JujuCommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.
@@ -254,11 +237,11 @@ func wrapSkipDefaultModel(w *modelCommandWrapper) {
 	w.useDefaultModel = false
 }
 
-// Wrap wraps the specified ModelCommand, returning a Command
+// Wrap wraps the specified ModelCommand, returning a ModelCommand
 // that proxies to each of the ModelCommand methods.
 // Any provided options are applied to the wrapped command
 // before it is returned.
-func Wrap(c ModelCommand, options ...WrapOption) cmd.Command {
+func Wrap(c ModelCommand, options ...WrapOption) ModelCommand {
 	wrapper := &modelCommandWrapper{
 		ModelCommand:    c,
 		skipModelFlags:  false,
@@ -267,7 +250,21 @@ func Wrap(c ModelCommand, options ...WrapOption) cmd.Command {
 	for _, option := range options {
 		option(wrapper)
 	}
-	return WrapBase(wrapper)
+	// Define a new type so that we can embed the ModelCommand
+	// interface one level deeper than cmd.Command, so that
+	// we'll get the Command methods from WrapBase
+	// and all the ModelCommand methods not in cmd.Command
+	// from modelCommandWrapper.
+	type embed struct {
+		*modelCommandWrapper
+	}
+	return struct {
+		embed
+		cmd.Command
+	}{
+		Command: WrapBase(wrapper),
+		embed:   embed{wrapper},
+	}
 }
 
 type modelCommandWrapper struct {
@@ -276,6 +273,10 @@ type modelCommandWrapper struct {
 	skipModelFlags  bool
 	useDefaultModel bool
 	modelName       string
+}
+
+func (w *modelCommandWrapper) inner() cmd.Command {
+	return w.ModelCommand
 }
 
 func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {

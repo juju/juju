@@ -6,6 +6,7 @@ package featuretests
 import (
 	"fmt"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type ApplicationConfigSuite struct {
@@ -86,9 +86,9 @@ func (s *ApplicationConfigSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ApplicationConfigSuite) configCommandOutput(c *gc.C, args ...string) string {
-	context, err := testing.RunCommand(c, application.NewConfigCommand(), args...)
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), args...)
 	c.Assert(err, jc.ErrorIsNil)
-	return testing.Stdout(context)
+	return cmdtesting.Stdout(context)
 }
 
 func (s *ApplicationConfigSuite) getHookOutput(c *gc.C) charm.Settings {

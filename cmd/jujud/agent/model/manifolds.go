@@ -84,9 +84,7 @@ type ManifoldsConfig struct {
 
 	// StatusHistoryPruner* values control status-history pruning
 	// behaviour.
-	StatusHistoryPrunerMaxHistoryTime time.Duration
-	StatusHistoryPrunerMaxHistoryMB   uint
-	StatusHistoryPrunerInterval       time.Duration
+	StatusHistoryPrunerInterval time.Duration
 
 	// SpacesImportedGate will be unlocked when spaces are known to
 	// have been imported.
@@ -289,10 +287,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 		statusHistoryPrunerName: ifNotMigrating(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			MaxHistoryTime: config.StatusHistoryPrunerMaxHistoryTime,
-			MaxHistoryMB:   config.StatusHistoryPrunerMaxHistoryMB,
-			PruneInterval:  config.StatusHistoryPrunerInterval,
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			NewWorker:     statushistorypruner.New,
+			NewFacade:     statushistorypruner.NewFacade,
+			PruneInterval: config.StatusHistoryPrunerInterval,
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: jworker.NewTimer,
 		})),

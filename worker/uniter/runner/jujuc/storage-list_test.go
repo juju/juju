@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
@@ -78,7 +78,7 @@ func (s *storageListSuite) testOutputFormat(c *gc.C, args []string, format int, 
 	hctx := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-list"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, args)
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -102,7 +102,7 @@ func (s *storageListSuite) TestHelp(c *gc.C) {
 	hctx := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-list"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-list [options] [<storage-name>]

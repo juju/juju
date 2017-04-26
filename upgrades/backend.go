@@ -16,6 +16,7 @@ import (
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
 	AllModels() ([]Model, error)
+	ControllerUUID() string
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
@@ -26,6 +27,8 @@ type StateBackend interface {
 	UpgradeNoProxyDefaults() error
 	AddNonDetachableStorageMachineId() error
 	RemoveNilValueApplicationSettings() error
+	AddControllerLogPruneSettings() error
+	AddStatusHistoryPruneSettings() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -54,6 +57,10 @@ func (s stateBackend) AllModels() ([]Model, error) {
 		out[i] = &modelShim{s.st, m}
 	}
 	return out, nil
+}
+
+func (s stateBackend) ControllerUUID() string {
+	return s.st.ControllerUUID()
 }
 
 func (s stateBackend) StripLocalUserDomain() error {
@@ -90,6 +97,14 @@ func (s stateBackend) AddNonDetachableStorageMachineId() error {
 
 func (s stateBackend) RemoveNilValueApplicationSettings() error {
 	return state.RemoveNilValueApplicationSettings(s.st)
+}
+
+func (s stateBackend) AddControllerLogPruneSettings() error {
+	return state.AddControllerLogPruneSettings(s.st)
+}
+
+func (s stateBackend) AddStatusHistoryPruneSettings() error {
+	return state.AddStatusHistoryPruneSettings(s.st)
 }
 
 type modelShim struct {

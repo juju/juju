@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -46,11 +46,11 @@ func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
 	hctx := &nonActionSettingContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"oops=nope"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	expect := fmt.Sprintf(`(\n)*error: %s\n`, "not running an action")
+	expect := fmt.Sprintf(`(\n)*ERROR %s\n`, "not running an action")
 	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 }
 
@@ -64,12 +64,12 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	}{{
 		summary: "bare value(s) are an Init error",
 		command: []string{"result"},
-		errMsg:  "error: argument \"result\" must be of the form key...=value\n",
+		errMsg:  "ERROR argument \"result\" must be of the form key...=value\n",
 		code:    2,
 	}, {
 		summary: "invalid keys are an error",
 		command: []string{"result-Value=5"},
-		errMsg:  "error: key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods\n",
+		errMsg:  "ERROR key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods\n",
 		code:    2,
 	}, {
 		summary: "empty values are not an error",
@@ -127,7 +127,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 		hctx := &actionSettingContext{}
 		com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		c.Logf("  command list: %#v", t.command)
 		code := cmd.Main(com, ctx, t.command)
 		c.Check(code, gc.Equals, t.code)
@@ -140,7 +140,7 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	hctx := &actionSettingContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-set <key>=<value> [<key>=<value> ...]

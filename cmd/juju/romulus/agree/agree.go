@@ -48,7 +48,7 @@ Examples:
 // NewAgreeCommand returns a new command that can be
 // used to create user agreements.
 func NewAgreeCommand() cmd.Command {
-	return &agreeCommand{}
+	return modelcmd.WrapBase(&agreeCommand{})
 }
 
 type term struct {
@@ -102,7 +102,7 @@ func (c *agreeCommand) Init(args []string) error {
 	if len(c.terms) == 0 {
 		return errors.New("must specify a valid term revision")
 	}
-	return nil
+	return c.JujuCommandBase.Init([]string{})
 }
 
 // Run implements Command.Run.

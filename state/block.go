@@ -175,7 +175,7 @@ func (st *State) SwitchBlockOff(t BlockType) error {
 //     found -> block, true, nil
 //     error -> nil, false, err
 func (st *State) GetBlockForType(t BlockType) (Block, bool, error) {
-	all, closer := st.getCollection(blocksC)
+	all, closer := st.db().GetCollection(blocksC)
 	defer closer()
 
 	doc := blockDoc{}
@@ -193,7 +193,7 @@ func (st *State) GetBlockForType(t BlockType) (Block, bool, error) {
 
 // AllBlocks returns all blocks in the model.
 func (st *State) AllBlocks() ([]Block, error) {
-	blocksCollection, closer := st.getCollection(blocksC)
+	blocksCollection, closer := st.db().GetCollection(blocksC)
 	defer closer()
 
 	var bdocs []blockDoc

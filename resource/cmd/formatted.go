@@ -42,11 +42,9 @@ type FormattedSvcResource struct {
 	Timestamp     time.Time `json:"timestamp,omitempty" yaml:"timestamp,omitempty"`
 	Username      string    `json:"username,omitempty" yaml:"username,omitempty"`
 
-	// These fields are not exported so they won't be serialized, since they are
-	// specific to the tabular output.
-	combinedRevision string
-	usedYesNo        string
-	combinedOrigin   string
+	CombinedRevision string `json:"-"`
+	UsedYesNo        string `json:"-"`
+	CombinedOrigin   string `json:"-"`
 }
 
 // FormattedUnitResource holds the formatted representation of a resource's info.
@@ -59,9 +57,8 @@ type FormattedDetailResource struct {
 	Unit        FormattedSvcResource `json:"unit" yaml:"unit"`
 	Expected    FormattedSvcResource `json:"expected" yaml:"expected"`
 	Progress    int64                `json:"progress,omitempty" yaml:"progress,omitempty"`
-	unitNumber  int
-	progress    string
-	revProgress string
+	UnitNumber  int                  `json:"-"`
+	RevProgress string               `json:"-"`
 }
 
 // FormattedServiceDetails is the data for the tabular output for juju resources

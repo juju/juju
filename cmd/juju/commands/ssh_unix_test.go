@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	jujussh "github.com/juju/juju/network/ssh"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type SSHSuite struct {
@@ -179,13 +179,13 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		s.setHostChecker(t.hostChecker)
 		s.setForceAPIv1(t.forceAPIv1)
 
-		ctx, err := coretesting.RunCommand(c, newSSHCommand(s.hostChecker), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), t.args...)
 		if t.expectedErr != "" {
 			c.Check(err, gc.ErrorMatches, t.expectedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(coretesting.Stderr(ctx), gc.Equals, "")
-			stdout := coretesting.Stdout(ctx)
+			c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+			stdout := cmdtesting.Stdout(ctx)
 			t.expected.check(c, stdout)
 		}
 	}
@@ -200,9 +200,9 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 
 	s.setForceAPIv1(true)
 
-	ctx, err := coretesting.RunCommand(c, newSSHCommand(s.hostChecker), "0")
+	ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), "0")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs := argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
@@ -210,14 +210,14 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 		withProxy:       true,
 		args:            "ubuntu@0.private", // as set by setAddresses()
 	}
-	expectedArgs.check(c, coretesting.Stdout(ctx))
+	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
 	s.setForceAPIv1(false)
-	ctx, err = coretesting.RunCommand(c, newSSHCommand(s.hostChecker), "0")
+	ctx, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), "0")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
-	expectedArgs.check(c, coretesting.Stdout(ctx))
+	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
 }
 
@@ -287,7 +287,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// Ensure that the ssh command waits for a public (private with proxy=true)
 	// address, or the attempt strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	_, err := coretesting.RunCommand(c, newSSHCommand(s.hostChecker), args...)
+	_, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), args...)
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
 	c.Assert(called, gc.Equals, 2)
 
@@ -306,7 +306,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		return true
 	}
 
-	_, err = coretesting.RunCommand(c, newSSHCommand(s.hostChecker), args...)
+	_, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 2)
 }

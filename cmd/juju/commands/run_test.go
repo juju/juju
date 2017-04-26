@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -121,7 +122,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
 		runCmd := modelcmd.Wrap(cmd)
-		testing.TestInit(c, runCmd, test.args, test.errMatch)
+		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(cmd.all, gc.Equals, test.all)
 			c.Check(cmd.machines, gc.DeepEquals, test.machines)
@@ -158,7 +159,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
 		runCmd := modelcmd.Wrap(cmd)
-		testing.TestInit(c, runCmd, test.args, test.errMatch)
+		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(cmd.timeout, gc.Equals, test.timeout)
 		}
@@ -265,19 +266,19 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}),
+	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stdout(context), gc.Equals, buff.String())
+	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
 }
 
 func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}),
+	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
@@ -325,11 +326,11 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
+	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stdout(context), gc.Equals, buff.String())
-	c.Check(testing.Stderr(context), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
+	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *RunSuite) TestTimeout(c *gc.C) {
@@ -369,14 +370,14 @@ func (s *RunSuite) TestTimeout(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var clock mockClock
-	context, err := testing.RunCommand(
+	context, err := cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock),
 		"--format=json", "--all", "hostname", "--timeout", "99s",
 	)
 	c.Assert(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
 
-	c.Check(testing.Stdout(context), gc.Equals, buf.String())
-	c.Check(testing.Stderr(context), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(context), gc.Equals, buf.String())
+	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
 	clock.CheckCalls(c, []gitjujutesting.StubCall{
 		{"After", []interface{}{99 * time.Second}},
 		{"After", []interface{}{1 * time.Second}},
@@ -420,7 +421,7 @@ func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
+	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
@@ -479,14 +480,14 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 			args = append(args, "--format", test.format)
 		}
 		args = append(args, "--all", "ignored")
-		context, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}), args...)
+		context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), args...)
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
-		c.Check(testing.Stdout(context), gc.Equals, test.stdout)
-		c.Check(testing.Stderr(context), gc.Equals, test.stderr)
+		c.Check(cmdtesting.Stdout(context), gc.Equals, test.stdout)
+		c.Check(cmdtesting.Stderr(context), gc.Equals, test.stderr)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
@@ -43,7 +44,7 @@ func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *gc.C) {
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	_, err := common.ReadAuthorizedKeys(ctx, "")
 	c.Assert(err, gc.ErrorMatches, "no public ssh keys found")
 	c.Assert(err, gc.Equals, common.ErrNoAuthorizedKeys)
@@ -58,7 +59,7 @@ func writeFile(c *gc.C, filename string, contents string) {
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *gc.C) {
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "id_rsa")
 	writeFile(c, filepath.Join(s.dotssh, "identity.pub"), "identity")
 	writeFile(c, filepath.Join(s.dotssh, "test.pub"), "test")
@@ -71,7 +72,7 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *gc.C) {
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *gc.C) {
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	keydir := filepath.Join(s.dotssh, "juju")
 	err := ssh.LoadClientKeys(keydir) // auto-generates a key pair
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,7 +97,7 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *gc.C) {
 
 func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysNoop(c *gc.C) {
 	attrs := map[string]interface{}{"authorized-keys": "meep"}
-	err := common.FinalizeAuthorizedKeys(testing.Context(c), attrs)
+	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"authorized-keys": "meep"})
 }
@@ -104,7 +105,7 @@ func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysNoop(c *gc.C) {
 func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysPath(c *gc.C) {
 	writeFile(c, filepath.Join(s.dotssh, "whatever"), "meep")
 	attrs := map[string]interface{}{"authorized-keys-path": "whatever"}
-	err := common.FinalizeAuthorizedKeys(testing.Context(c), attrs)
+	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"authorized-keys": "meep\n"})
 }
@@ -112,13 +113,13 @@ func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysPath(c *gc.C) {
 func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysDefault(c *gc.C) {
 	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "meep")
 	attrs := map[string]interface{}{}
-	err := common.FinalizeAuthorizedKeys(testing.Context(c), attrs)
+	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"authorized-keys": "meep\n"})
 }
 
 func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysConflict(c *gc.C) {
 	attrs := map[string]interface{}{"authorized-keys": "foo", "authorized-keys-path": "bar"}
-	err := common.FinalizeAuthorizedKeys(testing.Context(c), attrs)
+	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
 	c.Assert(err, gc.ErrorMatches, `"authorized-keys" and "authorized-keys-path" may not both be specified`)
 }

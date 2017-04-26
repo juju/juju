@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	model "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -140,17 +140,17 @@ func (s *ListSuite) createOfferItem(name, store string, count int) *model.Applic
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewListEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, crossmodel.NewListEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {
 	context, err := s.runList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedErr := strings.Replace(testing.Stderr(context), "\n", "", -1)
+	obtainedErr := strings.Replace(cmdtesting.Stderr(context), "\n", "", -1)
 	c.Assert(obtainedErr, gc.Matches, expectedErr)
 
-	obtainedValid := testing.Stdout(context)
+	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Matches, expectedValid)
 }
 

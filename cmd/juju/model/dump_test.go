@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -11,14 +12,13 @@ import (
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type DumpCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake  fakeDumpClient
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&DumpCommandSuite{})
@@ -46,7 +46,7 @@ func (f *fakeDumpClient) DumpModel(model names.ModelTag) (map[string]interface{}
 func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake.ResetCalls()
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
@@ -60,13 +60,13 @@ func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DumpCommandSuite) TestDump(c *gc.C) {
-	ctx, err := testing.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store))
+	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
 		{"DumpModel", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
 
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, "model-uuid: fake uuid\n")
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,7 +28,7 @@ type MigrateSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api                 *fakeMigrateAPI
 	targetControllerAPI *fakeTargetControllerAPI
-	store               *jujuclienttesting.MemStore
+	store               *jujuclient.MemStore
 	password            string
 }
 
@@ -40,7 +40,7 @@ const targetControllerUUID = "beefdead-0bad-400d-8000-4b1d0d06f00d"
 func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 
 	// Define the source controller in the config and set it as the default.
 	err := s.store.AddController("source", jujuclient.ControllerDetails{
@@ -143,7 +143,7 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 	ctx, err := s.makeAndRun(c, "model", "target")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: targetControllerUUID,
@@ -164,7 +164,7 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 	ctx, err := s.makeAndRun(c, "model", "target")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: targetControllerUUID,
@@ -192,7 +192,7 @@ func (s *MigrateSuite) TestMultipleModelMatch(c *gc.C) {
 		"Multiple potential matches found, please specify owner to disambiguate:\n" +
 		"  alpha/production\n" +
 		"  omega/production\n"
-	c.Check(testing.Stderr(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, expected)
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
 }
 
@@ -200,7 +200,7 @@ func (s *MigrateSuite) TestSpecifyOwner(c *gc.C) {
 	ctx, err := s.makeAndRun(c, "omega/production", "target")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
 	c.Check(s.api.specSeen.ModelUUID, gc.Equals, "prod-2-uuid")
 }
 
@@ -226,7 +226,7 @@ func (s *MigrateSuite) makeCommand() *migrateCommand {
 }
 
 func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, modelcmd.WrapController(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
 }
 
 type fakeMigrateAPI struct {

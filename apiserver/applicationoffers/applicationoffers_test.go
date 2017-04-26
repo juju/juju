@@ -179,6 +179,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 		[]params.ApplicationOfferDetails{
 			{
 				ApplicationOffer: params.ApplicationOffer{
+					SourceModelTag:         "model-uuid",
 					ApplicationDescription: "description",
 					OfferName:              "hosted-db2",
 					OfferURL:               "fred/prod.hosted-db2",

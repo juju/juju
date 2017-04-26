@@ -228,6 +228,11 @@ func (mock *mockStateBackend) AllModels() ([]upgrades.Model, error) {
 	return mock.models, mock.NextErr()
 }
 
+func (mock *mockStateBackend) ControllerUUID() string {
+	mock.MethodCall(mock, "ControllerUUID")
+	return "a-b-c-d"
+}
+
 type mockModel struct {
 	testing.Stub
 	config    *config.Config
@@ -250,8 +255,8 @@ type mockUpgradeableEnviron struct {
 	ops []environs.UpgradeOperation
 }
 
-func (m *mockUpgradeableEnviron) UpgradeOperations() []environs.UpgradeOperation {
-	m.MethodCall(m, "UpgradeOperations")
+func (m *mockUpgradeableEnviron) UpgradeOperations(args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
+	m.MethodCall(m, "UpgradeOperations", args)
 	return m.ops
 }
 
@@ -690,7 +695,7 @@ func (s *upgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	err := upgrades.PerformUpgrade(fromVers, targets(upgrades.DatabaseMaster), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	state.CheckCallNames(c, "AllModels")
+	state.CheckCallNames(c, "AllModels", "ControllerUUID")
 	model0.CheckCallNames(c, "Config", "CloudSpec")
 	model1.CheckCallNames(c, "Config", "CloudSpec")
 	newEnvironStub.CheckCallNames(c, "NewEnviron", "NewEnviron")
@@ -721,7 +726,7 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"2.0.0",
+		"2.0.0", "2.2.0",
 	})
 }
 

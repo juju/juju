@@ -9,91 +9,87 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 )
 
-// Instances returns the available instances in the environment that
-// match the provided instance IDs. For IDs that did not match any
-// instances, the result at the corresponding index will be nil. In that
-// case the error will be environs.ErrPartialInstances (or
-// ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+// Instances is part of the environs.Environ interface.
+func (env *environ) Instances(ids []instance.Id) (instances []instance.Instance, err error) {
+	if len(ids) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	err = env.withSession(func(env *sessionEnviron) error {
+		instances, err = env.Instances(ids)
+		return err
+	})
+	return instances, err
+}
+
+// Instances is part of the environs.Environ interface.
+func (env *sessionEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := env.instances()
+	allInstances, err := env.AllInstances()
 	if err != nil {
-		// We don't return the error since we need to pack one instance
-		// for each ID into the result. If there is a problem then we
-		// will return either ErrPartialInstances or ErrNoInstances.
-		// TODO(ericsnow) Skip returning here only for certain errors?
-		logger.Errorf("failed to get instances from vmware: %v", err)
-		err = errors.Trace(err)
+		return nil, errors.Annotate(err, "failed to get instances")
+	}
+	findInst := func(id instance.Id) instance.Instance {
+		for _, inst := range allInstances {
+			if id == inst.Id() {
+				return inst
+			}
+		}
+		return nil
 	}
 
-	// Build the result, matching the provided instance IDs.
-	numFound := 0 // This will never be greater than len(ids).
+	var numFound int
 	results := make([]instance.Instance, len(ids))
 	for i, id := range ids {
-		inst := findInst(id, instances)
-		if inst != nil {
+		if inst := findInst(id); inst != nil {
+			results[i] = inst
 			numFound++
 		}
-		results[i] = inst
 	}
-
 	if numFound == 0 {
-		if err == nil {
-			err = environs.ErrNoInstances
-		}
+		return nil, environs.ErrNoInstances
 	} else if numFound != len(ids) {
 		err = environs.ErrPartialInstances
 	}
 	return results, err
 }
 
-// instances returns a list of all "alive" instances in the environment.
-// This means only instances where the IDs match
-// "juju-<env name>-machine-*". This is important because otherwise juju
-// will see they are not tracked in state, assume they're stale/rogue,
-// and shut them down.
-func (env *environ) instances() ([]instance.Instance, error) {
-	prefix := env.namespace.Prefix()
-	instances, err := env.client.Instances(prefix)
-	err = errors.Trace(err)
-
-	// Turn mo.VirtualMachine values into *environInstance values,
-	// whether or not we got an error.
-	var results []instance.Instance
-	for _, base := range instances {
-		inst := newInstance(base, env)
-		results = append(results, inst)
-	}
-
-	return results, err
+// ControllerInstances is part of the environs.Environ interface.
+func (env *environ) ControllerInstances(controllerUUID string) (ids []instance.Id, err error) {
+	err = env.withSession(func(env *sessionEnviron) error {
+		ids, err = env.ControllerInstances(controllerUUID)
+		return err
+	})
+	return ids, err
 }
 
-// ControllerInstances returns the IDs of the instances corresponding
-// to juju controllers.
-func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.client.Instances("juju-")
+// ControllerInstances is part of the environs.Environ interface.
+func (env *sessionEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+	instances, err := env.AllInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []instance.Id
 	for _, inst := range instances {
-		metadata := inst.Config.ExtraConfig
+		vm := inst.(*environInstance).base
+		metadata := vm.Config.ExtraConfig
+		var isController bool
 		for _, item := range metadata {
 			value := item.GetOptionValue()
-			if value.Key == metadataKeyControllerUUID && value.Value != controllerUUID {
-				continue
-			}
-			if value.Key == metadataKeyIsController && value.Value == metadataValueIsController {
-				results = append(results, instance.Id(inst.Name))
+			if value.Key == tags.JujuIsController && value.Value == "true" {
+				isController = true
 				break
 			}
+		}
+		if isController {
+			results = append(results, inst.Id())
 		}
 	}
 	if len(results) == 0 {
@@ -105,7 +101,7 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(placement string) (*vmwareAvailZone, error) {
+func (env *sessionEnviron) parsePlacement(placement string) (*vmwareAvailZone, error) {
 	if placement == "" {
 		return nil, nil
 	}
@@ -121,7 +117,12 @@ func (env *environ) parsePlacement(placement string) (*vmwareAvailZone, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return zone, nil
+		return zone.(*vmwareAvailZone), nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
+}
+
+func (env *sessionEnviron) modelFolderName() string {
+	cfg := env.Config()
+	return modelFolderName(cfg.UUID(), cfg.Name())
 }

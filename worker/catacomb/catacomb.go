@@ -167,17 +167,23 @@ func (catacomb *Catacomb) add(w worker.Worker) {
 	// We must wait for _both_ goroutines to exit in
 	// arbitrary order depending on the order of the worker
 	// and the catacomb shutting down.
+	workerDone := make(chan struct{})
 	catacomb.wg.Add(2)
 	go func() {
 		defer catacomb.wg.Done()
+		defer close(workerDone)
 		if err := w.Wait(); err != nil {
 			catacomb.Kill(err)
 		}
 	}()
 	go func() {
 		defer catacomb.wg.Done()
-		<-catacomb.tomb.Dying()
-		worker.Stop(w)
+		select {
+		case <-catacomb.tomb.Dying():
+			worker.Stop(w)
+		case <-workerDone:
+			// Exit the go routine to release the worker's memory.
+		}
 	}()
 }
 
@@ -196,6 +202,12 @@ func (catacomb *Catacomb) Dead() <-chan struct{} {
 // non-tomb.ErrDying error passed to Kill before Invoke finished.
 func (catacomb *Catacomb) Wait() error {
 	return catacomb.tomb.Wait()
+}
+
+// Err returns the reason for the catacomb death provided via Kill
+// or Killf, or ErrStillAlive when the catacomb is still alive.
+func (catacomb *Catacomb) Err() error {
+	return catacomb.tomb.Err()
 }
 
 // Kill kills the Catacomb's internal tomb with the supplied error, or one

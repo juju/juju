@@ -235,7 +235,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSLAs(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("creds"))
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()

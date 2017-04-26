@@ -8,10 +8,10 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -116,7 +116,7 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Logf(bufferString(ctx.Stderr))
 		c.Assert(code, gc.Equals, t.code)
@@ -129,7 +129,7 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.out)
+			expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, t.out)
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
@@ -161,7 +161,7 @@ Options:
 		hctx, _ := s.newHookContext(relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		expect := fmt.Sprintf(template, t.usage, t.doc)

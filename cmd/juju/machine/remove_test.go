@@ -5,6 +5,7 @@ package machine_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -28,7 +29,7 @@ func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	remove, _ := machine.NewRemoveCommandForTest(s.fake)
-	return testing.RunCommand(c, remove, args...)
+	return cmdtesting.RunCommand(c, remove, args...)
 }
 
 func (s *RemoveMachineSuite) TestInit(c *gc.C) {
@@ -64,7 +65,7 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.fake)
-		err := testing.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(removeCmd.Force, gc.Equals, test.force)
@@ -96,7 +97,7 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	}}
 	ctx, err := s.run(c, "1", "2/lxd/1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 removing machine 1 failed: oy vey
 removing machine 2/lxd/1

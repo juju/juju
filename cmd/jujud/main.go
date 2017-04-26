@@ -65,7 +65,7 @@ const (
 func getenv(name string) (string, error) {
 	value := os.Getenv(name)
 	if value == "" {
-		return "", fmt.Errorf("%s not set", name)
+		return "", errors.Errorf("%s not set", name)
 	}
 	return value, nil
 }
@@ -206,7 +206,7 @@ func Main(args []string) int {
 
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		os.Exit(exit_err)
 	}
 
@@ -218,7 +218,7 @@ func Main(args []string) int {
 	case names.Jujuc:
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = exit_err
-		err = fmt.Errorf("jujuc should not be called directly")
+		err = errors.New("jujuc should not be called directly")
 	case names.JujuRun:
 		run := &RunCommand{
 			MachineLockName: agent.MachineLockName,
@@ -230,7 +230,7 @@ func Main(args []string) int {
 		code, err = jujuCMain(commandName, ctx, args)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 	}
 	return code
 }

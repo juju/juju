@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -48,23 +49,23 @@ func (s *leaderGetSuite) TestInitEmpty(c *gc.C) {
 }
 
 func (s *leaderGetSuite) TestFormatError(c *gc.C) {
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(s.command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, `error: invalid value "bad" for flag --format: unknown format "bad"`+"\n")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, `ERROR invalid value "bad" for flag --format: unknown format "bad"`+"\n")
 }
 
 func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
 	jujucContext := newLeaderGetContext(errors.New("zap"))
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "error: cannot read leadership settings: zap\n")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR cannot read leadership settings: zap\n")
 }
 
 func (s *leaderGetSuite) TestSettingsFormatDefaultMissingKey(c *gc.C) {
@@ -139,7 +140,7 @@ func (s *leaderGetSuite) testParseOutput(c *gc.C, args []string, checker gc.Chec
 	jujucContext := newLeaderGetContext(nil)
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.called, jc.IsTrue)

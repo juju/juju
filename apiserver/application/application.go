@@ -946,56 +946,32 @@ func (api *API) sameControllerSourceModel(userName, modelName string) (names.Mod
 // of the application and endpoint. These details are saved to the state model so relations to
 // the remote application can be created.
 func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
-	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ConsumeAccess)
+	offer, sourceModelTag, err := api.offeredApplicationDetails(url, permission.ConsumeAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer releaser()
 
-	eps, err := app.Endpoints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	endpoints := make([]params.RemoteEndpoint, len(eps))
-	for i, ep := range eps {
-		endpoints[i] = params.RemoteEndpoint{
-			Name:      ep.Name,
-			Scope:     ep.Scope,
-			Interface: ep.Interface,
-			Role:      ep.Role,
-			Limit:     ep.Limit,
-		}
-	}
 	appName := alias
 	if appName == "" {
 		appName = url.ApplicationName
 	}
-	remoteApp, err := api.saveRemoteApplication(sourceModelTag, appName, url.ApplicationName, url.String(), endpoints)
+	remoteApp, err := api.saveRemoteApplication(sourceModelTag, appName, url.ApplicationName, url.String(), offer.Endpoints)
 	return remoteApp, err
 }
 
-// sameControllerOfferedApplication looks in the specified model on the same controller
-// and returns the specified application and a reference to its state.State.
+// offeredApplicationDetails returns details of the application offered at the specified URL.
 // The user is required to have the specified permission on the offer.
-func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
-	_ *state.Application,
-	releaser func(),
+func (api *API) offeredApplicationDetails(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
+	offer *params.ApplicationOffer,
 	sourceModelTag names.ModelTag,
 	err error,
 ) {
-	defer func() {
-		if err != nil && releaser != nil {
-			releaser()
-		}
-	}()
-
 	fail := func(err error) (
-		*state.Application,
-		func(),
+		*params.ApplicationOffer,
 		names.ModelTag,
 		error,
 	) {
-		return nil, releaser, sourceModelTag, err
+		return nil, sourceModelTag, err
 	}
 
 	// We require the hosting model to be specified.
@@ -1012,8 +988,107 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 
 	// Get the hosting model from the name.
 	sourceModelTag, err = api.sameControllerSourceModel(userName, url.ModelName)
-	if err != nil {
+	if err == nil {
+		app, releaser, err := api.sameControllerOfferedApplication(sourceModelTag, url.ApplicationName, perm)
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+		defer releaser()
+		offer, err := api.makeOfferParamsFromApplication(url.ApplicationName, app)
+		return offer, sourceModelTag, err
+	}
+	if !errors.IsNotFound(err) {
 		return fail(errors.Trace(err))
+	}
+	return api.differentControllerOfferedApplication(userName, url.ModelName, url.ApplicationName)
+}
+
+func (api *API) differentControllerOfferedApplication(userName, modelName, offerName string) (
+	*params.ApplicationOffer,
+	names.ModelTag,
+	error,
+) {
+	fail := func(err error) (
+		*params.ApplicationOffer,
+		names.ModelTag,
+		error,
+	) {
+		return nil, names.ModelTag{}, err
+	}
+
+	// TODO(wallyworld) - we need a way to pass in the JEM api Info
+	// For now act as if the offer is not found.
+	return fail(errors.NotFoundf("application offer at %s/%s.%s", userName, modelName, offerName))
+
+	//dialOpts := jujuapi.DefaultDialOpts()
+	//conn, err := jujuapi.Open(nil, dialOpts)
+	//if err != nil {
+	//	return fail(errors.Trace(err))
+	//}
+	//client := remoteendpoints.NewClient(conn)
+	//filter := jujucrossmodel.ApplicationOfferFilter{
+	//	OwnerName: userName,
+	//	ModelName: modelName,
+	//	OfferName: offerName,
+	//}
+	//offers, err := client.FindApplicationOffers(filter)
+	//if err != nil {
+	//	return fail(errors.Trace(err))
+	//}
+	//offerPath := fmt.Sprintf("%s/%s.%s", userName, modelName, offerName)
+	//if len(offers) == 0 {
+	//	return fail(errors.NotFoundf("application offer at %s", offerPath))
+	//}
+	//if len(offers) != 1 {
+	//	return fail(errors.Errorf("unexpected: %d matching offers at %s", len(offers), offerPath))
+	//}
+	//sourceModelTag, err := names.ParseModelTag(offers[0].SourceModelTag)
+	//if err != nil {
+	//	return fail(errors.Trace(err))
+	//}
+	//return &offers[0], sourceModelTag, nil
+}
+
+func (api *API) makeOfferParamsFromApplication(offerName string, app *state.Application) (*params.ApplicationOffer, error) {
+	ch, _, err := app.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := params.ApplicationOffer{
+		SourceModelTag:         api.backend.ModelTag().String(),
+		OfferName:              offerName,
+		ApplicationDescription: ch.Meta().Description,
+	}
+	eps, err := app.Endpoints()
+	for _, ep := range eps {
+		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+			Scope:     ep.Scope,
+			Limit:     ep.Limit,
+		})
+	}
+	return &result, nil
+}
+
+func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, offerName string, perm permission.Access) (
+	_ *state.Application,
+	releaser func(),
+	err error,
+) {
+	defer func() {
+		if err != nil && releaser != nil {
+			releaser()
+		}
+	}()
+
+	fail := func(err error) (
+		*state.Application,
+		func(),
+		error,
+	) {
+		return nil, releaser, err
 	}
 
 	// Get the backend state for the source model so we can lookup the application.
@@ -1028,7 +1103,7 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 	applicationOffers := state.NewApplicationOffers(st)
 	offers, err := applicationOffers.ListOffers(
 		jujucrossmodel.ApplicationOfferFilter{
-			OfferName: url.ApplicationName,
+			OfferName: offerName,
 		},
 	)
 	if err != nil {
@@ -1037,11 +1112,11 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 
 	// The offers query succeeded but there were no offers matching the required offer name.
 	if len(offers) == 0 {
-		return fail(errors.NotFoundf("application offer %q", url.ApplicationName))
+		return fail(errors.NotFoundf("application offer %q", offerName))
 	}
 	// Sanity check - this should never happen.
 	if len(offers) > 1 {
-		return fail(errors.Errorf("unexpected: %d matching offers for %q", len(offers), url.ApplicationName))
+		return fail(errors.Errorf("unexpected: %d matching offers for %q", len(offers), offerName))
 	}
 
 	// Check the permissions - a user can access the offer if they are an admin
@@ -1073,7 +1148,7 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	return app, releaser, sourceModelTag, err
+	return app, releaser, err
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -1188,37 +1263,18 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 	}
 
 	// We need at least read access to the model to see the application details.
-	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ReadAccess)
+	offer, sourceModelTag, err := api.offeredApplicationDetails(url, permission.ReadAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer releaser()
 
-	eps, err := app.Endpoints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	endpoints := make([]params.RemoteEndpoint, len(eps))
-	for i, ep := range eps {
-		endpoints[i] = params.RemoteEndpoint{
-			Name:      ep.Name,
-			Scope:     ep.Scope,
-			Interface: ep.Interface,
-			Role:      ep.Role,
-			Limit:     ep.Limit,
-		}
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &params.RemoteApplicationInfo{
 		ModelTag:         sourceModelTag.String(),
 		Name:             url.ApplicationName,
-		Description:      ch.Meta().Description,
+		Description:      offer.ApplicationDescription,
 		ApplicationURL:   url.String(),
 		SourceModelLabel: url.ModelName,
-		Endpoints:        endpoints,
+		Endpoints:        offer.Endpoints,
 		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
 	}, nil
 }

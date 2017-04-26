@@ -149,7 +149,7 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	export.model.SetSLA(dbModel.SLALevel(), string(dbModel.SLACredential()))
+	export.model.SetSLA(dbModel.SLALevel(), dbModel.SLAOwner(), string(dbModel.SLACredential()))
 	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
 
 	if featureflag.Enabled(feature.StrictMigration) {
@@ -179,7 +179,7 @@ type exporter struct {
 }
 
 func (e *exporter) sequences() error {
-	sequences, closer := e.st.getCollection(sequenceC)
+	sequences, closer := e.st.db().GetCollection(sequenceC)
 	defer closer()
 
 	var docs []sequenceDoc
@@ -194,7 +194,7 @@ func (e *exporter) sequences() error {
 }
 
 func (e *exporter) readBlocks() (map[string]string, error) {
-	blocks, closer := e.st.getCollection(blocksC)
+	blocks, closer := e.st.db().GetCollection(blocksC)
 	defer closer()
 
 	var docs []blockDoc
@@ -264,7 +264,7 @@ func (e *exporter) machines() error {
 	}
 
 	// Read all the open ports documents.
-	openedPorts, closer := e.st.getCollection(openedPortsC)
+	openedPorts, closer := e.st.db().GetCollection(openedPortsC)
 	defer closer()
 	var portsData []portsDoc
 	if err := openedPorts.Find(nil).All(&portsData); err != nil {
@@ -301,7 +301,7 @@ func (e *exporter) machines() error {
 }
 
 func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
-	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
+	instanceDataCollection, closer := e.st.db().GetCollection(instanceDataC)
 	defer closer()
 
 	var instData []instanceData
@@ -317,7 +317,7 @@ func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
 }
 
 func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
-	coll, closer := e.st.getCollection(blockDevicesC)
+	coll, closer := e.st.db().GetCollection(blockDevicesC)
 	defer closer()
 
 	var deviceData []blockDevicesDoc
@@ -564,7 +564,7 @@ func (e *exporter) applications() error {
 }
 
 func (e *exporter) readAllStorageConstraints() error {
-	coll, closer := e.st.getCollection(storageConstraintsC)
+	coll, closer := e.st.db().GetCollection(storageConstraintsC)
 	defer closer()
 
 	storageConstraints := make(map[string]storageConstraintsDoc)
@@ -1050,7 +1050,7 @@ func (e *exporter) actions() error {
 }
 
 func (e *exporter) readAllRelationScopes() (set.Strings, error) {
-	relationScopes, closer := e.st.getCollection(relationScopesC)
+	relationScopes, closer := e.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	docs := []relationScopeDoc{}
@@ -1068,7 +1068,7 @@ func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 }
 
 func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
-	unitsCollection, closer := e.st.getCollection(unitsC)
+	unitsCollection, closer := e.st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -1086,7 +1086,7 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 }
 
 func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
-	bindings, closer := e.st.getCollection(endpointBindingsC)
+	bindings, closer := e.st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
 	docs := []endpointBindingsDoc{}
@@ -1103,7 +1103,7 @@ func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
 }
 
 func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
-	meterStatuses, closer := e.st.getCollection(meterStatusC)
+	meterStatuses, closer := e.st.db().GetCollection(meterStatusC)
 	defer closer()
 
 	docs := []meterStatusDoc{}
@@ -1120,7 +1120,7 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
-	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
+	lastConnections, closer := e.st.db().GetCollection(modelUserLastConnectionC)
 	defer closer()
 
 	var docs []modelUserLastConnectionDoc
@@ -1136,7 +1136,7 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 }
 
 func (e *exporter) readAllAnnotations() error {
-	annotations, closer := e.st.getCollection(annotationsC)
+	annotations, closer := e.st.db().GetCollection(annotationsC)
 	defer closer()
 
 	var docs []annotatorDoc
@@ -1153,7 +1153,7 @@ func (e *exporter) readAllAnnotations() error {
 }
 
 func (e *exporter) readAllConstraints() error {
-	constraintsCollection, closer := e.st.getCollection(constraintsC)
+	constraintsCollection, closer := e.st.db().GetCollection(constraintsC)
 	defer closer()
 
 	// Since the constraintsDoc doesn't include any global key or _id
@@ -1191,7 +1191,7 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 }
 
 func (e *exporter) readAllSettings() error {
-	settings, closer := e.st.getCollection(settingsC)
+	settings, closer := e.st.db().GetCollection(settingsC)
 	defer closer()
 
 	var docs []settingsDoc
@@ -1208,7 +1208,7 @@ func (e *exporter) readAllSettings() error {
 }
 
 func (e *exporter) readAllStatuses() error {
-	statuses, closer := e.st.getCollection(statusesC)
+	statuses, closer := e.st.db().GetCollection(statusesC)
 	defer closer()
 
 	var docs []bson.M
@@ -1232,7 +1232,7 @@ func (e *exporter) readAllStatuses() error {
 }
 
 func (e *exporter) readAllStatusHistory() error {
-	statuses, closer := e.st.getCollection(statusesHistoryC)
+	statuses, closer := e.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 
 	count := 0
@@ -1457,7 +1457,7 @@ func (e *exporter) storage() error {
 }
 
 func (e *exporter) volumes() error {
-	coll, closer := e.st.getCollection(volumesC)
+	coll, closer := e.st.db().GetCollection(volumesC)
 	defer closer()
 
 	attachments, err := e.readVolumeAttachments()
@@ -1546,7 +1546,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 }
 
 func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, error) {
-	coll, closer := e.st.getCollection(volumeAttachmentsC)
+	coll, closer := e.st.db().GetCollection(volumeAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]volumeAttachmentDoc)
@@ -1566,7 +1566,7 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 }
 
 func (e *exporter) filesystems() error {
-	coll, closer := e.st.getCollection(filesystemsC)
+	coll, closer := e.st.db().GetCollection(filesystemsC)
 	defer closer()
 
 	attachments, err := e.readFilesystemAttachments()
@@ -1649,7 +1649,7 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 }
 
 func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmentDoc, error) {
-	coll, closer := e.st.getCollection(filesystemAttachmentsC)
+	coll, closer := e.st.db().GetCollection(filesystemAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]filesystemAttachmentDoc)
@@ -1669,7 +1669,7 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 }
 
 func (e *exporter) storageInstances() error {
-	coll, closer := e.st.getCollection(storageInstancesC)
+	coll, closer := e.st.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	attachments, err := e.readStorageAttachments()
@@ -1709,7 +1709,7 @@ func (e *exporter) addStorage(instance *storageInstance, attachments []names.Uni
 }
 
 func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) {
-	coll, closer := e.st.getCollection(storageAttachmentsC)
+	coll, closer := e.st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]names.UnitTag)

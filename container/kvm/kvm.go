@@ -166,6 +166,7 @@ func (manager *containerManager) CreateContainer(
 	startParams.Series = series
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename
+	startParams.NetworkConfigData = containerinit.CloudInitNetworkConfigDisabled
 	startParams.StatusCallback = callback
 
 	// If the Simplestream requested is anything but released, update

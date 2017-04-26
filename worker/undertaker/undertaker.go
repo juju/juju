@@ -4,6 +4,8 @@
 package undertaker
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
@@ -154,6 +156,7 @@ func (u *Undertaker) processDyingModel() error {
 	}
 	defer watcher.Kill() // The watcher is not needed once this func returns.
 
+	attempt := 1
 	for {
 		select {
 		case <-u.catacomb.Dying():
@@ -172,7 +175,10 @@ func (u *Undertaker) processDyingModel() error {
 				// destroy any remaining environ resources.
 				return nil
 			}
-			// Yes, we ignore the error. See comment above.
+			// Yes, we ignore the error. See comment above. But let's at least
+			// surface it in status.
+			u.setStatus(status.Destroying, fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err))
 		}
+		attempt++
 	}
 }

@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -73,7 +73,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -107,7 +107,7 @@ func (s *PortsSuite) TestBadArgs(c *gc.C) {
 			hctx := s.GetHookContext(c, -1, "")
 			com, err := jujuc.NewCommand(hctx, cmdString(name))
 			c.Assert(err, jc.ErrorIsNil)
-			err = testing.InitCommand(com, t.args)
+			err = cmdtesting.InitCommand(com, t.args)
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
@@ -117,7 +117,7 @@ func (s *PortsSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	open, err := jujuc.NewCommand(hctx, cmdString("open-port"))
 	c.Assert(err, jc.ErrorIsNil)
-	flags := testing.NewFlagSet()
+	flags := cmdtesting.NewFlagSet()
 	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
 Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
 
@@ -153,10 +153,10 @@ func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, cmdString(name))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, gc.Equals, 0)
-		c.Assert(testing.Stdout(ctx), gc.Equals, "")
-		c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \""+name+"\"")
+		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \""+name+"\"")
 	}
 }

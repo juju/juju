@@ -3,6 +3,11 @@
 
 package upgrades
 
+import (
+	"os"
+	"path/filepath"
+)
+
 // stateStepsFor22 returns upgrade steps for Juju 2.2 that manipulate state directly.
 func stateStepsFor22() []Step {
 	return []Step{
@@ -20,5 +25,37 @@ func stateStepsFor22() []Step {
 				return context.State().RemoveNilValueApplicationSettings()
 			},
 		},
+		&upgradeStep{
+			description: "add controller log pruning config settings",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddControllerLogPruneSettings()
+			},
+		},
+		&upgradeStep{
+			description: "add status history pruning config settings",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddStatusHistoryPruneSettings()
+			},
+		},
 	}
+}
+
+// stepsFor22 returns upgrade steps for Juju 2.2 that only need the API.
+func stepsFor22() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "remove meter status file",
+			targets:     []Target{AllMachines},
+			run:         removeMeterStatusFile,
+		},
+	}
+}
+
+// removeMeterStatusFile removes the meter status file from the agent data directory.
+func removeMeterStatusFile(context Context) error {
+	dataDir := context.AgentConfig().DataDir()
+	meterStatusFile := filepath.Join(dataDir, "meter-status.yaml")
+	return os.RemoveAll(meterStatusFile)
 }

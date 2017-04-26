@@ -42,11 +42,13 @@ func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 
 func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
+	s.State.SetSLA("essential", "test-user", []byte(""))
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
+	c.Check(status.Model.SLA, gc.Equals, "essential")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
@@ -131,6 +133,18 @@ var testUnits = []struct {
 	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
 	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
 }, {},
+}
+
+func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
+	s.State.SetModelMeterStatus("RED", "thing")
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	modelMeterStatus := status.Model.MeterStatus
+	c.Assert(modelMeterStatus.Color, gc.Equals, "red")
+	c.Assert(modelMeterStatus.Message, gc.Equals, "thing")
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {

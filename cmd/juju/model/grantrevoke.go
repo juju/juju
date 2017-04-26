@@ -4,12 +4,13 @@
 package model
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
-	"fmt"
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"

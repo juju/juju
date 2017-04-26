@@ -26,17 +26,16 @@ type InstancePollerSuite struct {
 var _ = gc.Suite(&InstancePollerSuite{})
 
 func (s *InstancePollerSuite) TestNewAPI(c *gc.C) {
-	var called int
-	apiCaller := clientErrorAPICaller(c, "Life", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "Life", nil)
 	api := instancepoller.NewAPI(apiCaller)
 	c.Check(api, gc.NotNil)
-	c.Check(called, gc.Equals, 0)
+	c.Check(apiCaller.CallCount, gc.Equals, 0)
 
 	// Nothing happens until we actually call something else.
 	m, err := api.Machine(names.MachineTag{})
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(m, gc.IsNil)
-	c.Assert(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *InstancePollerSuite) TestNewAPIWithNilCaller(c *gc.C) {
@@ -47,22 +46,20 @@ func (s *InstancePollerSuite) TestNewAPIWithNilCaller(c *gc.C) {
 func (s *InstancePollerSuite) TestMachineCallsLife(c *gc.C) {
 	// We have tested separately the Life method, here we just check
 	// it's called internally.
-	var called int
 	expectedResults := params.LifeResults{
 		Results: []params.LifeResult{{Life: "working"}},
 	}
-	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults, &called)
+	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancepoller.NewAPI(apiCaller)
 	m, err := api.Machine(names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(m.Life(), gc.Equals, params.Life("working"))
 	c.Assert(m.Id(), gc.Equals, "42")
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	// We're not testing the watcher logic here as it's already tested elsewhere.
-	var numFacadeCalls int
 	var numWatcherCalls int
 	expectResult := params.StringsWatchResult{
 		StringsWatcherId: "42",
@@ -76,111 +73,104 @@ func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	}
 	s.PatchValue(instancepoller.NewStringsWatcher, watcherFunc)
 
-	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectResult, &numFacadeCalls)
+	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectResult)
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(numFacadeCalls, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(numWatcherCalls, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachinesClientError(c *gc.C) {
-	var called int
-	apiCaller := clientErrorAPICaller(c, "WatchModelMachines", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "WatchModelMachines", nil)
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(w, gc.IsNil)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachinesServerError(c *gc.C) {
-	var called int
 	expectedResults := params.StringsWatchResult{
 		Error: apiservertesting.ServerError("server boom!"),
 	}
-	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectedResults, &called)
+	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectedResults)
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "server boom!")
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)
 }
 
 func (s *InstancePollerSuite) TestWatchForModelConfigChangesClientError(c *gc.C) {
 	// We're not testing the success case as we're not patching the
 	// NewNotifyWatcher call the embedded ModelWatcher is calling.
-	var called int
-	apiCaller := clientErrorAPICaller(c, "WatchForModelConfigChanges", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "WatchForModelConfigChanges", nil)
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchForModelConfigChanges()
 	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)
 }
 
 func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
-	var called int
 	expectedConfig := coretesting.ModelConfig(c)
 	expectedResults := params.ModelConfigResult{
 		Config: params.ModelConfig(expectedConfig.AllAttrs()),
 	}
-	apiCaller := successAPICaller(c, "ModelConfig", nil, expectedResults, &called)
+	apiCaller := successAPICaller(c, "ModelConfig", nil, expectedResults)
 
 	api := instancepoller.NewAPI(apiCaller)
 	cfg, err := api.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(cfg, jc.DeepEquals, expectedConfig)
 }
 
 func (s *InstancePollerSuite) TestModelConfigClientError(c *gc.C) {
-	var called int
-	apiCaller := clientErrorAPICaller(c, "ModelConfig", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "ModelConfig", nil)
 	api := instancepoller.NewAPI(apiCaller)
 	cfg, err := api.ModelConfig()
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(cfg, gc.IsNil)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *InstancePollerSuite) TestModelConfigServerError(c *gc.C) {
-	var called int
 	expectResults := params.ModelConfigResult{
 		Config: params.ModelConfig{"type": "foo"},
 	}
-	apiCaller := successAPICaller(c, "ModelConfig", nil, expectResults, &called)
+	apiCaller := successAPICaller(c, "ModelConfig", nil, expectResults)
 
 	api := instancepoller.NewAPI(apiCaller)
 	cfg, err := api.ModelConfig()
 	c.Assert(err, gc.NotNil) // the actual error doesn't matter
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(cfg, gc.IsNil)
 }
 
-func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}, numCalls *int) base.APICaller {
-	args := &apitesting.CheckArgs{
+func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}) *apitesting.CallChecker {
+	return apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        "InstancePoller",
 		VersionIsZero: true,
 		IdIsEmpty:     true,
 		Method:        method,
 		Args:          expectArgs,
-	}
-	return apitesting.CheckingAPICaller(c, args, numCalls, errors.New("client error!"))
+		Error:         errors.New("client error!"),
+	})
 }
 
-func successAPICaller(c *gc.C, method string, expectArgs, useResults interface{}, numCalls *int) base.APICaller {
-	args := &apitesting.CheckArgs{
+func successAPICaller(c *gc.C, method string, expectArgs, useResults interface{}) *apitesting.CallChecker {
+	return apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        "InstancePoller",
 		VersionIsZero: true,
 		IdIsEmpty:     true,
 		Method:        method,
 		Args:          expectArgs,
 		Results:       useResults,
-	}
-	return apitesting.CheckingAPICaller(c, args, numCalls, nil)
+	})
 }

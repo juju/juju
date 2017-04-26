@@ -4,14 +4,15 @@
 package openstack
 
 import (
+	"fmt"
 	"net"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -29,8 +30,9 @@ type Networking interface {
 	DefaultNetworks() ([]nova.ServerNetworks, error)
 
 	// ResolveNetwork takes either a network ID or label
+	// with a string to specify whether the network is external
 	// and returns the corresponding network ID.
-	ResolveNetwork(string) (string, error)
+	ResolveNetwork(string, bool) (string, error)
 
 	// Subnets returns basic information about subnets known
 	// by OpenStack for the environment.
@@ -102,11 +104,11 @@ func (n *switchingNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *switchingNetworking) ResolveNetwork(name string) (string, error) {
+func (n *switchingNetworking) ResolveNetwork(name string, external bool) (string, error) {
 	if err := n.initNetworking(); err != nil {
 		return "", errors.Trace(err)
 	}
-	return n.networking.ResolveNetwork(name)
+	return n.networking.ResolveNetwork(name, external)
 }
 
 // Subnets is part of the Networking interface.
@@ -202,6 +204,14 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 	return nil, lastErr
 }
 
+// externalNetworkFilter returns a neutron.Filter to match Neutron Networks with
+// router:external = true.
+func externalNetworkFilter() *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterRouterExternal, "true")
+	return filter
+}
+
 // getExternalNeutronNetworksByAZ returns all external networks within the
 // given availability zone. If azName is empty, return all external networks.
 func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error) {
@@ -209,7 +219,7 @@ func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error)
 	externalNetwork := e.ecfg().externalNetwork()
 	if externalNetwork != "" {
 		// the config specified an external network, try it first.
-		netId, err := resolveNeutronNetwork(neutron, externalNetwork)
+		netId, err := resolveNeutronNetwork(neutron, externalNetwork, true)
 		if err != nil {
 			logger.Debugf("external network %s not found, search for one", externalNetwork)
 		} else {
@@ -228,18 +238,20 @@ func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error)
 		}
 	}
 	// Find all external networks in availability zone
-	networks, err := neutron.ListNetworksV2()
+	networks, err := neutron.ListNetworksV2(externalNetworkFilter())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	netIds := make([]string, 0)
 	for _, network := range networks {
-		if network.External == true {
-			for _, netAZ := range network.AvailabilityZones {
-				if azName == netAZ {
-					netIds = append(netIds, network.Id)
-					break
-				}
+		// TODO (hml): OpenStack Compute and Network AZs have no direct relation,
+		// though they can be named the same.  The default AZ is named "nova" in
+		// either case. It's possible that a compute AZ was configured but not a
+		// network one.  Need to account for this.
+		for _, netAZ := range network.AvailabilityZones {
+			if azName == netAZ {
+				netIds = append(netIds, network.Id)
+				break
 			}
 		}
 	}
@@ -255,23 +267,30 @@ func (n *NeutronNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *NeutronNetworking) ResolveNetwork(name string) (string, error) {
-	return resolveNeutronNetwork(n.env.neutron(), name)
+func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, error) {
+	return resolveNeutronNetwork(n.env.neutron(), name, external)
 }
 
-func resolveNeutronNetwork(neutron *neutron.Client, name string) (string, error) {
+// networkFilter returns a neutron.Filter to match Neutron Networks with
+// the exact given name AND router:external boolean result.
+func networkFilter(name string, external bool) *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterNetwork, fmt.Sprintf("%s", name))
+	filter.Set(neutron.FilterRouterExternal, fmt.Sprintf("%t", external))
+	return filter
+}
+
+func resolveNeutronNetwork(neutron *neutron.Client, name string, external bool) (string, error) {
 	if utils.IsValidUUIDString(name) {
 		return name, nil
 	}
-	var networkIds []string
-	networks, err := neutron.ListNetworksV2()
+	networks, err := neutron.ListNetworksV2(networkFilter(name, external))
 	if err != nil {
 		return "", err
 	}
+	var networkIds []string
 	for _, network := range networks {
-		if network.Name == name {
-			networkIds = append(networkIds, network.Id)
-		}
+		networkIds = append(networkIds, network.Id)
 	}
 	return processResolveNetworkIds(name, networkIds)
 }

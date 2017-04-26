@@ -147,11 +147,26 @@ func NewClient(
 	return client, nil
 }
 
+// WatchAll initiates a watcher for entities in the connected model.
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
-	w := c.api.stateAccessor.Watch()
+	model, err := c.api.stateAccessor.Model()
+	if err != nil {
+		return params.AllWatcherId{}, errors.Trace(err)
+	}
+
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := c.api.auth.GetAuthTag().(names.UserTag)
+	isAdmin, err := common.HasModelAdmin(c.api.auth, apiUser, c.api.stateAccessor.ControllerTag(), model)
+	if err != nil {
+		return params.AllWatcherId{}, errors.Trace(err)
+	}
+	watchParams := state.WatchParams{IncludeOffers: isAdmin}
+
+	w := c.api.stateAccessor.Watch(watchParams)
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
 	}, nil

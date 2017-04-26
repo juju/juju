@@ -32,7 +32,7 @@ func userGlobalKey(userID string) string {
 }
 
 func (st *State) checkUserExists(name string) (bool, error) {
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	var count int
@@ -185,7 +185,7 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	name = strings.ToLower(name)
@@ -224,7 +224,7 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	var result []*User
 
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	var query bson.D
@@ -379,7 +379,7 @@ func (u *User) UpdateLastLogin() (err error) {
 	if err := u.ensureNotDeleted(); err != nil {
 		return errors.Annotate(err, "cannot update last login")
 	}
-	lastLogins, closer := u.st.getCollection(userLastLoginC)
+	lastLogins, closer := u.st.db().GetCollection(userLastLoginC)
 	defer closer()
 
 	lastLoginsW := lastLogins.Writeable()

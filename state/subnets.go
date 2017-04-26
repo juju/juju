@@ -189,7 +189,7 @@ func (s *Subnet) Validate() error {
 // state. It an error that satisfies errors.IsNotFound if the Subnet has
 // been removed.
 func (s *Subnet) Refresh() error {
-	subnets, closer := s.st.getCollection(subnetsC)
+	subnets, closer := s.st.db().GetCollection(subnetsC)
 	defer closer()
 
 	err := subnets.FindId(s.doc.DocID).One(&s.doc)
@@ -287,7 +287,7 @@ func (st *State) addSubnetOps(args SubnetInfo) []txn.Op {
 
 // Subnet returns the subnet specified by the cidr.
 func (st *State) Subnet(cidr string) (*Subnet, error) {
-	subnets, closer := st.getCollection(subnetsC)
+	subnets, closer := st.db().GetCollection(subnetsC)
 	defer closer()
 
 	doc := &subnetDoc{}
@@ -303,7 +303,7 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 
 // AllSubnets returns all known subnets in the model.
 func (st *State) AllSubnets() (subnets []*Subnet, err error) {
-	subnetsCollection, closer := st.getCollection(subnetsC)
+	subnetsCollection, closer := st.db().GetCollection(subnetsC)
 	defer closer()
 
 	docs := []subnetDoc{}

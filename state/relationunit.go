@@ -15,6 +15,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -204,7 +206,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 // exists and is Alive, its name will be returned as well; if one exists
 // but is not Alive, ErrCannotEnterScopeYet is returned.
 func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
-	units, closer := ru.st.getCollection(unitsC)
+	units, closer := ru.st.db().GetCollection(unitsC)
 	defer closer()
 
 	if !ru.isPrincipal || ru.endpoint.Scope != charm.ScopeContainer {
@@ -243,7 +245,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 // but does not *actually* leave the scope, to avoid triggering relation
 // cleanup.
 func (ru *RelationUnit) PrepareLeaveScope() error {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	key := ru.key()
@@ -266,7 +268,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	key := ru.key()
@@ -356,7 +358,7 @@ func (ru *RelationUnit) Joined() (bool, error) {
 // inScope returns whether a scope document exists satisfying the supplied
 // selector.
 func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	sel = append(sel, bson.D{{"_id", ru.key()}}...)
@@ -410,6 +412,40 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	return node.Map(), nil
 }
 
+// SettingsAddress returns the address that should be set as
+// `private-address` in the settings for the this unit in the context
+// of this relation. Generally this will be the cloud-local address of
+// the unit, but if this is a cross-model relation then it will be the
+// public address. If this is cross-model and there's no public
+// address for the unit, return an error.
+func (ru *RelationUnit) SettingsAddress() (network.Address, error) {
+	unit, err := ru.st.Unit(ru.unitName)
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+	if crossmodel, err := ru.relation.IsCrossModel(); err != nil {
+		return network.Address{}, errors.Trace(err)
+	} else if !crossmodel {
+		return unit.PrivateAddress()
+	}
+
+	address, err := unit.PublicAddress()
+	if err != nil {
+		// TODO(wallyworld) - it's ok to return a private address sometimes
+		// TODO return an error when it's not possible to use the private address
+		logger.Warningf("no public address available for unit %q in cross model relation %q , using private address", unit.Name(), ru.relation)
+		return unit.PrivateAddress()
+	}
+	if address.Scope != network.ScopePublic {
+		logger.Debugf(
+			"no public address for unit %q in cross-model relation %q",
+			unit.Name(),
+			ru.relation,
+		)
+	}
+	return address, nil
+}
+
 // unitKey returns a string, based on the relation and the supplied unit name,
 // which is used as a key for that unit within this relation in the settings,
 // presence, and relationScopes collections.
@@ -441,7 +477,7 @@ type relationScopeDoc struct {
 	DocID     string `bson:"_id"`
 	Key       string `bson:"key"`
 	ModelUUID string `bson:"model-uuid"`
-	Departing bool
+	Departing bool   `bson:"departing"`
 }
 
 func (d *relationScopeDoc) unitName() string {

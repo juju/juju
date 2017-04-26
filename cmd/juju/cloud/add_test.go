@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -20,7 +21,6 @@ import (
 	cloudfile "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/testing"
 )
 
 type addSuite struct {
@@ -64,7 +64,7 @@ func (f *fakeCloudMetadataStore) ParseOneCloud(data []byte) (cloudfile.Cloud, er
 }
 
 func (s *addSuite) TestAddBadArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(nil), "cloud", "cloud.yaml", "extra")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(nil), "cloud", "cloud.yaml", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
@@ -133,7 +133,7 @@ func (*addSuite) TestAddBadFilename(c *gc.C) {
 	fake.Call("ParseCloudMetadataFile", "somefile.yaml").Returns(map[string]cloudfile.Cloud{}, badFileErr)
 
 	addCmd := cloud.NewAddCloudCommand(fake)
-	_, err := testing.RunCommand(c, addCmd, "cloud", "somefile.yaml")
+	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "somefile.yaml")
 	c.Check(err, gc.Equals, badFileErr)
 }
 
@@ -142,7 +142,7 @@ func (*addSuite) TestAddBadCloudName(c *gc.C) {
 	fake.Call("ParseCloudMetadataFile", "testFile").Returns(map[string]cloudfile.Cloud{}, nil)
 
 	addCmd := cloud.NewAddCloudCommand(fake)
-	_, err := testing.RunCommand(c, addCmd, "cloud", "testFile")
+	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "testFile")
 	c.Assert(err, gc.ErrorMatches, `cloud "cloud" not found in file .*`)
 }
 
@@ -152,7 +152,7 @@ func (*addSuite) TestAddExisting(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
 
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", "fake.yaml")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", "fake.yaml")
 	c.Assert(err, gc.ErrorMatches, `"homestack" already exists; use --replace to replace this existing cloud`)
 }
 
@@ -162,7 +162,7 @@ func (*addSuite) TestAddExistingReplace(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", homestackMetadata()).Returns(nil)
 
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", "fake.yaml", "--replace")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", "fake.yaml", "--replace")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
@@ -174,7 +174,7 @@ func (*addSuite) TestAddExistingPublic(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(awsMetadata(), false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", "fake.yaml")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", "fake.yaml")
 	c.Assert(err, gc.ErrorMatches, `"aws" is the name of a public cloud; use --replace to override this definition`)
 }
 
@@ -184,7 +184,7 @@ func (*addSuite) TestAddExistingBuiltin(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "localhost", "fake.yaml")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "localhost", "fake.yaml")
 	c.Assert(err, gc.ErrorMatches, `"localhost" is the name of a built-in cloud; use --replace to override this definition`)
 }
 
@@ -195,7 +195,7 @@ func (*addSuite) TestAddExistingPublicReplace(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 	writeCall := fake.Call("WritePersonalCloudMetadata", awsMetadata()).Returns(nil)
 
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", "fake.yaml", "--replace")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", "fake.yaml", "--replace")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(writeCall(), gc.Equals, 1)
@@ -208,7 +208,7 @@ func (*addSuite) TestAddNew(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", garageMAASMetadata()).Returns(nil)
 
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "garage-maas", "fake.yaml")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "garage-maas", "fake.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
@@ -224,13 +224,13 @@ func (*addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 	fileClouds := map[string]cloudfile.Cloud{"fakecloud": fakeCloud}
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(fileClouds, nil)
 
-	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", "fake.yaml")
+	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", "fake.yaml")
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth type "user-pass" not supported`))
 }
 
 func (*addSuite) TestInteractive(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out := &bytes.Buffer{}
@@ -249,6 +249,7 @@ func (*addSuite) TestInteractive(c *gc.C) {
 		"  maas\n"+
 		"  manual\n"+
 		"  openstack\n"+
+		"  oracle\n"+
 		"  vsphere\n"+
 		"\n"+
 		"Select cloud type: \n",
@@ -287,7 +288,7 @@ func (*addSuite) TestInteractiveOpenstack(c *gc.C) {
 	command.Ping = func(environs.EnvironProvider, string) error {
 		return nil
 	}
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -328,7 +329,7 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	command.Ping = func(environs.EnvironProvider, string) error {
 		return nil
 	}
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -361,7 +362,7 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	command.Ping = func(environs.EnvironProvider, string) error {
 		return nil
 	}
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -415,7 +416,7 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	command.Ping = func(environs.EnvironProvider, string) error {
 		return nil
 	}
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var stdout bytes.Buffer
@@ -463,7 +464,7 @@ func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
 	command.Ping = func(environs.EnvironProvider, string) error {
 		return nil
 	}
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -503,7 +504,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	command.Ping = func(environs.EnvironProvider, string) error {
 		return nil
 	}
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out bytes.Buffer
@@ -553,7 +554,7 @@ func (*addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 func (*addSuite) TestSpecifyingCloudFileThroughFlag_CorrectlySetsMemberVar(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
 	runCmd := func() {
-		testing.RunCommand(c, command, "garage-maas", "-f", "fake.yaml")
+		cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml")
 	}
 	c.Assert(runCmd, gc.PanicMatches, "runtime error: invalid memory address or nil pointer dereference")
 	c.Check(command.CloudFile, gc.Equals, "fake.yaml")
@@ -561,6 +562,6 @@ func (*addSuite) TestSpecifyingCloudFileThroughFlag_CorrectlySetsMemberVar(c *gc
 
 func (*addSuite) TestSpecifyingCloudFileThroughFlagAndArgument_Errors(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
-	_, err := testing.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
+	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
 	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with flag and argument")
 }

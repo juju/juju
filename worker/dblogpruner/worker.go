@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
@@ -14,24 +15,19 @@ import (
 	jworker "github.com/juju/juju/worker"
 )
 
+var logger = loggo.GetLogger("juju.worker.dblogpruner")
+
 // LogPruneParams specifies how logs should be pruned.
 type LogPruneParams struct {
-	MaxLogAge       time.Duration
-	MaxCollectionMB int
-	PruneInterval   time.Duration
+	PruneInterval time.Duration
 }
 
-const DefaultMaxLogAge = 3 * 24 * time.Hour // 3 days
-const DefaultMaxCollectionMB = 4 * 1024     // 4 GB
 const DefaultPruneInterval = 5 * time.Minute
 
-// NewLogPruneParams returns a LogPruneParams initialised with default
-// values.
+// NewLogPruneParams returns a LogPruneParams initialised with default values.
 func NewLogPruneParams() *LogPruneParams {
 	return &LogPruneParams{
-		MaxLogAge:       DefaultMaxLogAge,
-		MaxCollectionMB: DefaultMaxCollectionMB,
-		PruneInterval:   DefaultPruneInterval,
+		PruneInterval: DefaultPruneInterval,
 	}
 }
 
@@ -52,15 +48,48 @@ type pruneWorker struct {
 }
 
 func (w *pruneWorker) loop(stopCh <-chan struct{}) error {
+
+	controllerConfigWatcher := w.st.WatchControllerConfig()
+	defer worker.Stop(controllerConfigWatcher)
+
+	var (
+		maxLogAge               time.Duration
+		maxCollectionMB         int
+		controllerConfigChanges = controllerConfigWatcher.Changes()
+		// We will also get an initial event, but need to ensure that event is
+		// received before doing any pruning.
+		haveConfig = false
+	)
 	p := w.params
+
 	for {
 		select {
 		case <-stopCh:
 			return tomb.ErrDying
+		case _, ok := <-controllerConfigChanges:
+			if !ok {
+				return errors.New("controller configuration watcher closed")
+			}
+			controllerConfig, err := w.st.ControllerConfig()
+			if err != nil {
+				return errors.Annotate(err, "cannot load controller configuration")
+			}
+			haveConfig = true
+			newMaxAge := controllerConfig.MaxLogsAge()
+			newMaxCollectionMB := controllerConfig.MaxLogSizeMB()
+			if newMaxAge != maxLogAge || newMaxCollectionMB != maxCollectionMB {
+				logger.Infof("log pruning config: max age: %v, max collection size %dM", newMaxAge, newMaxCollectionMB)
+				maxLogAge = newMaxAge
+				maxCollectionMB = newMaxCollectionMB
+			}
+			continue
 		case <-time.After(p.PruneInterval):
+			if !haveConfig {
+				continue
+			}
 			// TODO(fwereade): 2016-03-17 lp:1558657
-			minLogTime := time.Now().Add(-p.MaxLogAge)
-			err := state.PruneLogs(w.st, minLogTime, p.MaxCollectionMB)
+			minLogTime := time.Now().Add(-maxLogAge)
+			err := state.PruneLogs(w.st, minLogTime, maxCollectionMB)
 			if err != nil {
 				return errors.Trace(err)
 			}

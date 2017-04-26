@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/testing"
 )
 
 var (
@@ -166,7 +166,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			c.Logf("test %d: should %s:\n$ juju run-action %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
-			err := testing.InitCommand(wrappedCommand, args)
+			err := cmdtesting.InitCommand(wrappedCommand, args)
 			if t.expectError == "" {
 				c.Check(command.UnitTag(), gc.Equals, t.expectUnit)
 				c.Check(command.ActionName(), gc.Equals, t.expectAction)
@@ -367,7 +367,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 
 				wrappedCommand, _ := action.NewRunCommandForTest(s.store)
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
-				ctx, err := testing.RunCommand(c, wrappedCommand, args...)
+				ctx, err := cmdtesting.RunCommand(c, wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {
 					c.Check(err, gc.ErrorMatches, t.expectedErr)

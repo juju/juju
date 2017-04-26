@@ -35,8 +35,8 @@ List terms the user has agreed to.
 
 // NewListAgreementsCommand returns a new command that can be
 // used to list agreements a user has made.
-func NewListAgreementsCommand() *listAgreementsCommand {
-	return &listAgreementsCommand{}
+func NewListAgreementsCommand() cmd.Command {
+	return modelcmd.WrapBase(&listAgreementsCommand{})
 }
 
 type term struct {
