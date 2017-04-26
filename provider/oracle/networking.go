@@ -53,7 +53,7 @@ func (o *OracleEnviron) DeleteMachineVnicSet(machineId string) error {
 
 func (o *OracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
 	if access, err := o.SupportsSpaces(); err != nil || access == false {
-		logger.Warningf("spaces is not supported on this API endpoint. SupportsSpaces returned: %v; %s", access, err)
+		logger.Debugf("Spaces is not supported on this API endpoint.")
 		return ociResponse.VnicSet{}, nil
 	}
 
