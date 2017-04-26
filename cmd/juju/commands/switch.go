@@ -19,12 +19,12 @@ func newSwitchCommand() cmd.Command {
 	cmd := &switchCommand{
 		Store: jujuclient.NewFileClientStore(),
 	}
-	cmd.RefreshModels = cmd.JujuCommandBase.RefreshModels
+	cmd.RefreshModels = cmd.CommandBase.RefreshModels
 	return modelcmd.WrapBase(cmd)
 }
 
 type switchCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 	RefreshModels func(jujuclient.ClientStore, string) error
 
 	Store  jujuclient.ClientStore

@@ -51,7 +51,7 @@ func (c *whoAmICommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *whoAmICommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -120,7 +120,7 @@ func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 }
 
 type whoAmICommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 
 	out   cmd.Output
 	store jujuclient.ClientStore

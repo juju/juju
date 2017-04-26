@@ -49,13 +49,13 @@ var _ cmd.Command = (*listAgreementsCommand)(nil)
 // listAgreementsCommand creates a user agreement to the specified
 // Terms and Conditions document.
 type listAgreementsCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 	out cmd.Output
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *listAgreementsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "json", map[string]cmd.Formatter{
 		"json": formatJSON,
 		"yaml": cmd.FormatYaml,

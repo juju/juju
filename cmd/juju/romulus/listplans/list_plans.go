@@ -45,7 +45,7 @@ Examples:
 
 // ListPlansCommand retrieves plans that are available for the specified charm
 type ListPlansCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 
 	out      cmd.Output
 	CharmURL string
@@ -81,12 +81,12 @@ func (c *ListPlansCommand) Init(args []string) error {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
 	}
 	c.CharmURL = charmURL
-	return c.JujuCommandBase.Init(args)
+	return c.CommandBase.Init(args)
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *ListPlansCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

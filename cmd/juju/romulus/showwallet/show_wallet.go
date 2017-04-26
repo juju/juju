@@ -31,7 +31,7 @@ func NewShowWalletCommand() cmd.Command {
 }
 
 type showWalletCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 
 	out    cmd.Output
 	wallet string
@@ -61,12 +61,12 @@ func (c *showWalletCommand) Init(args []string) error {
 	}
 	c.wallet, args = args[0], args[1:]
 
-	return c.JujuCommandBase.Init(args)
+	return c.CommandBase.Init(args)
 }
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *showWalletCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": c.formatTabular,
 		"json":    cmd.FormatJson,

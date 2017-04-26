@@ -48,7 +48,7 @@ func (o *AuthOpts) SetFlags(f *gnuflag.FlagSet) {
 // will be supported.
 //
 // This function is provided for use by commands that cannot use
-// JujuCommandBase. Most clients should use that instead.
+// CommandBase. Most clients should use that instead.
 func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
 	jar0, err := cookiejar.New(&cookiejar.Options{
 		Filename: cookieFile(),
