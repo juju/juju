@@ -128,6 +128,7 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	// logical cores due to hyperthreading.
 	recorded := make(map[string]bool)
 	var physicalId string
+	var processorEntries uint64
 	hc.CpuCores = new(uint64)
 	for _, line := range lines[3:] {
 		if strings.HasPrefix(line, "physical id") {
@@ -142,12 +143,14 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 				*hc.CpuCores += cores
 				recorded[physicalId] = true
 			}
+		} else if strings.HasPrefix(line, "processor") {
+			processorEntries++
 		}
 	}
 	if *hc.CpuCores == 0 {
-		// In the case of a single-core, non-HT CPU, we'll see no
-		// "physical id" or "cpu cores" lines.
-		*hc.CpuCores = 1
+		// As a fallback, if there're no `physical id` entries, we count `processor` entries
+		// This happens on arm, arm64, ppc, see lp:1664434
+		*hc.CpuCores = processorEntries
 	}
 
 	// TODO(axw) calculate CpuPower. What algorithm do we use?
