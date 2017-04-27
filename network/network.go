@@ -282,6 +282,26 @@ type Route struct {
 	Metric int
 }
 
+// InterfaceAddress represents the single address attached to the interface
+type InterfaceAddress struct {
+	Address string
+	CIDR    string
+}
+
+// NetworkInfo describes one interface with assigned IP addresses, it's a mirror of params.NetworkInfo
+type NetworkInfo struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// InterfaceName is the raw OS-specific network device name (e.g.
+	// "eth1", even for a VLAN eth1.42 virtual interface).
+	InterfaceName string
+
+	// Addresses contains a list of addresses configured on the interface
+	Addresses []InterfaceAddress
+}
+
 // Validate that this Route is properly formed.
 func (r Route) Validate() error {
 	// Make sure the CIDR is actually a CIDR not just an IP or hostname

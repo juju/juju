@@ -380,6 +380,7 @@ func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
 	return nhpm
 }
 
+// TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead
 // UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
 // API.
 type UnitsNetworkConfig struct {
@@ -661,4 +662,39 @@ type ProxyConfigResult struct {
 // ProxyConfigResults contains information needed to configure multiple clients proxy settings
 type ProxyConfigResults struct {
 	Results []ProxyConfigResult `json:"results"`
+}
+
+// InterfaceAddress represents the single address attached to the interface
+type InterfaceAddress struct {
+	Address string `json:"value"`
+	CIDR    string `json:"cidr"`
+}
+
+// NetworkInfo describes one interface with IP addresses
+type NetworkInfo struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string `json:"mac-address"`
+
+	// InterfaceName is the raw OS-specific network device name (e.g.
+	// "eth1", even for a VLAN eth1.42 virtual interface).
+	InterfaceName string `json:"interface-name"`
+
+	// Addresses contains a list of addresses configured on the interface
+	Addresses []InterfaceAddress `json:"addresses"`
+}
+
+type NetworkInfoResult struct {
+	Error *Error        `json:"error,omitempty"`
+	Info  []NetworkInfo `json:"network-info"`
+}
+
+// NetworkInfoResult holds a mapping from binding name to NetworkInfoResult
+type NetworkInfoResults struct {
+	Results map[string]NetworkInfoResult `json:"results"`
+}
+
+type NetworkInfoParams struct {
+	Unit     string   `json:"unit"`
+	Bindings []string `json:"bindings"`
 }

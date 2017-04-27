@@ -69,6 +69,11 @@ func (*RestrictedContext) NetworkConfig(bindingName string) ([]params.NetworkCon
 	return nil, ErrRestrictedContext
 }
 
+// NetworkInfo implements jujuc.Context.
+func (*RestrictedContext) NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error) {
+	return map[string]params.NetworkInfoResult{}, ErrRestrictedContext
+}
+
 // IsLeader implements jujuc.Context.
 func (*RestrictedContext) IsLeader() (bool, error) { return false, ErrRestrictedContext }
 

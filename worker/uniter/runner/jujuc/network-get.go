@@ -68,16 +68,25 @@ func (c *NetworkGetCommand) Init(args []string) error {
 }
 
 func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
-	netConfig, err := c.ctx.NetworkConfig(c.bindingName)
+	netInfo, err := c.ctx.NetworkInfo([]string{c.bindingName})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(netConfig) < 1 {
+
+	ni, ok := netInfo[c.bindingName]
+
+	if !ok {
 		return fmt.Errorf("no network config found for binding %q", c.bindingName)
+	}
+	if ni.Error != nil {
+		return errors.Trace(ni.Error)
 	}
 
 	if c.primaryAddress {
-		return c.out.Write(ctx, netConfig[0].Address)
+		if len(ni.Info[0].Addresses) == 0 {
+			return fmt.Errorf("No addresses attached to space for binding %q", c.bindingName)
+		}
+		return c.out.Write(ctx, ni.Info[0].Addresses[0])
 	}
 
 	return nil // never reached as --primary-address is required.

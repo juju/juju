@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -432,4 +433,32 @@ func mergeObservedAndProviderAddressConfig(observedConfig, providerConfig params
 	}
 
 	return finalConfig
+}
+
+func networkNetworkInfoToNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
+	addresses := make([]params.InterfaceAddress, len(info.Addresses))
+	for i, addr := range info.Addresses {
+		addresses[i] = params.InterfaceAddress{
+			Address: addr.Address,
+			CIDR:    addr.CIDR,
+		}
+	}
+	return params.NetworkInfo{
+		MACAddress:    info.MACAddress,
+		InterfaceName: info.InterfaceName,
+		Addresses:     addresses,
+	}
+}
+
+func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkInfoResult) params.NetworkInfoResult {
+	if inResult.Error != nil {
+		return params.NetworkInfoResult{Error: common.ServerError(*inResult.Error)}
+	}
+	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
+	for i, info := range inResult.NetworkInfos {
+		infos[i] = networkNetworkInfoToNetworkInfo(info)
+	}
+	return params.NetworkInfoResult{
+		Info: infos,
+	}
 }

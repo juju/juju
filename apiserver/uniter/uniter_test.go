@@ -37,7 +37,8 @@ type uniterSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
-	uniter     *uniter.UniterAPIV3
+	uniter     *uniter.UniterAPI
+	uniterv3   *uniter.UniterAPIV3
 
 	machine0      *state.Machine
 	machine1      *state.Machine
@@ -114,13 +115,20 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPIV3, err := uniter.NewUniterAPI(
+	uniterAPI, err := uniter.NewUniterAPI(
 		s.State,
 		s.resources,
 		s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.uniter = uniterAPIV3
+	s.uniter = uniterAPI
+	uniterAPIV3, err := uniter.NewUniterAPIV3(
+		s.State,
+		s.resources,
+		s.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.uniterv3 = uniterAPIV3
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
@@ -2349,7 +2357,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPIV3 {
+func (s *uniterSuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPI {
 	authorizer := s.authorizer
 	authorizer.Tag = s.mysqlUnit.Tag()
 	result, err := uniter.NewUniterAPI(s.State, s.resources, authorizer)
@@ -2377,7 +2385,7 @@ func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
 type unitMetricBatchesSuite struct {
 	uniterSuite
 	*commontesting.ModelWatcherTest
-	uniter *uniter.UniterAPIV3
+	uniter *uniter.UniterAPI
 }
 
 var _ = gc.Suite(&unitMetricBatchesSuite{})
@@ -2659,7 +2667,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.base.uniter, err = uniter.NewUniterAPI(
+	s.base.uniterv3, err = uniter.NewUniterAPIV3(
 		s.base.State,
 		s.base.resources,
 		s.base.authorizer,
@@ -2678,7 +2686,7 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
 		{BindingName: "unknown", UnitTag: s.base.wordpressUnit.Tag().String()},
 	}}
 
-	result, err := s.base.uniter.NetworkConfig(args)
+	result, err := s.base.uniterv3.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
@@ -2724,7 +2732,7 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForExplicitlyBoundEndpoint(c
 		{Address: "8.8.4.10"},
 	}
 
-	result, err := s.base.uniter.NetworkConfig(args)
+	result, err := s.base.uniterv3.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
@@ -2755,11 +2763,391 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c
 
 	expectedConfig := []params.NetworkConfig{{Address: privateAddress.Value}}
 
-	result, err := s.base.uniter.NetworkConfig(args)
+	result, err := s.base.uniterv3.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
 			{Config: expectedConfig},
+		},
+	})
+}
+
+type uniterNetworkInfoSuite struct {
+	base uniterSuite
+}
+
+var _ = gc.Suite(&uniterNetworkInfoSuite{})
+
+func (s *uniterNetworkInfoSuite) SetUpSuite(c *gc.C) {
+	s.base.SetUpSuite(c)
+}
+
+func (s *uniterNetworkInfoSuite) TearDownSuite(c *gc.C) {
+	s.base.TearDownSuite(c)
+}
+
+func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
+	s.base.JujuConnSuite.SetUpTest(c)
+
+	// Add the spaces and subnets used by the test.
+	subnetInfos := []state.SubnetInfo{{
+		CIDR:      "8.8.0.0/16",
+		SpaceName: "public",
+	}, {
+		CIDR:      "10.0.0.0/24",
+		SpaceName: "internal",
+	}, {
+		CIDR:      "100.64.0.0/16",
+		SpaceName: "wp-default",
+	}, {
+		SpaceName: "layertwo",
+	}}
+	for _, info := range subnetInfos {
+		_, err := s.base.State.AddSpace(info.SpaceName, "", nil, false)
+		c.Assert(err, jc.ErrorIsNil)
+		if info.CIDR != "" {
+			_, err = s.base.State.AddSubnet(info)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	s.base.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
+
+	factory := jujuFactory.NewFactory(s.base.State)
+	s.base.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "wordpress-extra-bindings",
+		URL:  "cs:quantal/wordpress-extra-bindings-4",
+	})
+	var err error
+	s.base.wordpress, err = s.base.State.AddApplication(state.AddApplicationArgs{
+		Name:  "wordpress",
+		Charm: s.base.wpCharm,
+		EndpointBindings: map[string]string{
+			"db":        "internal",   // relation name
+			"admin-api": "public",     // extra-binding name
+			"foo-bar":   "layertwo",   // extra-binding to L2
+			"":          "wp-default", // explicitly specified default space
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Application: s.base.wordpress,
+		Machine:     s.base.machine0,
+	})
+
+	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
+
+	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "mysql",
+	})
+	s.base.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+		Name:  "mysql",
+		Charm: mysqlCharm,
+	})
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Application: s.base.wordpress,
+		Machine:     s.base.machine0,
+	})
+	s.base.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Application: s.base.mysql,
+		Machine:     s.base.machine1,
+	})
+
+	// Create the resource registry separately to track invocations to
+	// Register.
+	s.base.resources = common.NewResources()
+	s.base.AddCleanup(func(_ *gc.C) { s.base.resources.StopAll() })
+
+	s.setupUniterAPIForUnit(c, s.base.wordpressUnit)
+}
+
+func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
+	machine, err := s.base.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
+	err = machine.SetInstanceInfo("i-am", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineAddrs, err := machine.AllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	netAddrs := make([]network.Address, len(machineAddrs))
+	for i, addr := range machineAddrs {
+		netAddrs[i] = network.NewAddress(addr.Value())
+	}
+	err = machine.SetProviderAddresses(netAddrs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return machine
+}
+
+func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix int) ([]state.LinkLayerDeviceArgs, []state.LinkLayerDeviceAddress) {
+	return []state.LinkLayerDeviceArgs{{
+			Name:       "eth0",
+			Type:       state.EthernetDevice,
+			MACAddress: "00:11:22:33:44:50",
+		}, {
+			Name:       "eth0.100",
+			Type:       state.VLAN_8021QDevice,
+			ParentName: "eth0",
+			MACAddress: "00:11:22:33:44:50",
+		}, {
+			Name:       "eth1",
+			Type:       state.EthernetDevice,
+			MACAddress: "00:11:22:33:44:51",
+		}, {
+			Name:       "eth1.100",
+			Type:       state.VLAN_8021QDevice,
+			ParentName: "eth1",
+			MACAddress: "00:11:22:33:44:52",
+		}, {
+			Name:       "eth2",
+			Type:       state.EthernetDevice,
+			MACAddress: "00:11:22:33:44:52",
+		}, {
+			Name:       "eth3",
+			Type:       state.EthernetDevice,
+			MACAddress: "00:11:22:33:44:53",
+		}},
+		[]state.LinkLayerDeviceAddress{{
+			DeviceName:   "eth0",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("8.8.8.%d/16", addrSuffix),
+		}, {
+			DeviceName:   "eth0.100",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix),
+		}, {
+			DeviceName:   "eth1",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix),
+		}, {
+			DeviceName:   "eth1",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix+1),
+		}, {
+			DeviceName:   "eth1.100",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix+1),
+		}, {
+			DeviceName:   "eth2",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("100.64.0.%d/16", addrSuffix),
+		}}
+}
+
+func (s *uniterNetworkInfoSuite) TearDownTest(c *gc.C) {
+	s.base.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *uniterNetworkInfoSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state.Unit) {
+	// Create a FakeAuthorizer so we can check permissions, set up assuming the
+	// given unit agent has logged in.
+	s.base.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: givenUnit.Tag(),
+	}
+
+	var err error
+	s.base.uniter, err = uniter.NewUniterAPI(
+		s.base.State,
+		s.base.resources,
+		s.base.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	args := []params.NetworkInfoParams{
+		{Unit: "unit-foo-0", Bindings: []string{"foo"}},
+		{Unit: "invalid", Bindings: []string{"db-client"}},
+		{Unit: "unit-mysql-0", Bindings: []string{"juju-info"}},
+		{Unit: s.base.wordpressUnit.Tag().String(), Bindings: []string{"unknown"}},
+	}
+
+	results := []params.NetworkInfoResults{
+		{},
+		{},
+		{},
+		{Results: map[string]params.NetworkInfoResult{
+			"unknown": {
+				Error: &params.Error{
+					Message: `binding name "unknown" not defined by the unit's charm`,
+				},
+			},
+		},
+		},
+	}
+
+	errors := []string{
+		"permission denied",
+		`"invalid" is not a valid tag`,
+		"permission denied",
+		"",
+	}
+
+	for i, arg := range args {
+		result, err := s.base.uniter.NetworkInfo(arg)
+		if errors[i] != "" {
+			c.Assert(err, gc.ErrorMatches, errors[i])
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(result, jc.DeepEquals, results[i])
+		}
+	}
+}
+
+func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
+	// Add a relation between wordpress and mysql and enter scope with
+	// mysqlUnit.
+	rel := s.base.addRelation(c, "wordpress", "mysql")
+	wpRelUnit, err := rel.Unit(s.base.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, wpRelUnit, true)
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDefaultSpace(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	args := params.NetworkInfoParams{
+		Unit:     s.base.wordpressUnit.Tag().String(),
+		Bindings: []string{"db", "admin-api", "db-client"},
+	}
+	// For the relation "wordpress:db mysql:server" we expect to see only
+	// ifaces ibn the "internal" space, where the "db" endpoint itself
+	// is bound to.
+	expectedConfigWithRelationName := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:50",
+				InterfaceName: "eth0.100",
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.10", CIDR: "10.0.0.0/24"},
+				},
+			},
+			{
+				MACAddress:    "00:11:22:33:44:52",
+				InterfaceName: "eth1.100",
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.11", CIDR: "10.0.0.0/24"},
+				},
+			},
+		},
+	}
+	// For the "admin-api" extra-binding we expect to see only interfaces from
+	// the "public" space.
+	expectedConfigWithExtraBindingName := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:50",
+				InterfaceName: "eth0",
+				Addresses: []params.InterfaceAddress{
+					{Address: "8.8.8.10", CIDR: "8.8.0.0/16"},
+				},
+			},
+			{
+				MACAddress:    "00:11:22:33:44:51",
+				InterfaceName: "eth1",
+				Addresses: []params.InterfaceAddress{
+					{Address: "8.8.4.10", CIDR: "8.8.0.0/16"},
+					{Address: "8.8.4.11", CIDR: "8.8.0.0/16"},
+				},
+			},
+		},
+	}
+
+	// For the "db-client" extra-binding we expect to see interfaces from default
+	// "wp-default" space
+	expectedConfigWithDefaultSpace := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:52",
+				InterfaceName: "eth2",
+				Addresses: []params.InterfaceAddress{
+					{Address: "100.64.0.10", CIDR: "100.64.0.0/16"},
+				},
+			},
+		},
+	}
+
+	result, err := s.base.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"db":        expectedConfigWithRelationName,
+			"admin-api": expectedConfigWithExtraBindingName,
+			"db-client": expectedConfigWithDefaultSpace,
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
+	c.Skip("L2 not supported yet")
+	s.addRelationAndAssertInScope(c)
+
+	args := params.NetworkInfoParams{
+		Unit:     s.base.wordpressUnit.Tag().String(),
+		Bindings: []string{"foo-bar"},
+	}
+
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:50",
+				InterfaceName: "eth2",
+			},
+		},
+	}
+
+	result, err := s.base.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"foo-bar": expectedInfo,
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc.C) {
+	// Since wordpressUnit has explicit binding for "db", switch the API to
+	// mysqlUnit and check "mysql:server" uses the machine preferred private
+	// address.
+	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
+	rel := s.base.addRelation(c, "mysql", "wordpress")
+	mysqlRelUnit, err := rel.Unit(s.base.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, mysqlRelUnit, true)
+
+	args := params.NetworkInfoParams{
+		Unit:     s.base.mysqlUnit.Tag().String(),
+		Bindings: []string{"server"},
+	}
+
+	privateAddress, err := s.base.machine1.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:50",
+				InterfaceName: "eth0.100",
+				Addresses: []params.InterfaceAddress{
+					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
+				},
+			},
+		},
+	}
+
+	result, err := s.base.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"server": expectedInfo,
 		},
 	})
 }

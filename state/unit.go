@@ -2472,3 +2472,24 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 	}
 	return statusHistory(args)
 }
+
+func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
+	service, err := u.Application()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	bindings, err := service.EndpointBindings()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	boundSpace, known := bindings[bindingName]
+	if !known {
+		// If default binding is not explicitly defined we'll use default space
+		if bindingName == "" {
+			return "", nil
+		}
+		return "", errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
+	}
+	return boundSpace, nil
+}

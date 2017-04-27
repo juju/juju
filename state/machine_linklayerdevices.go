@@ -1120,3 +1120,95 @@ func generateMACAddress() string {
 	}
 	return fmt.Sprintf(macAddressTemplate, digits...)
 }
+
+type MachineNetworkInfoResult struct {
+	NetworkInfos []network.NetworkInfo
+	Error        *error
+}
+
+// Add address to a device in list or create a new device with this address
+func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) []network.NetworkInfo {
+	ifaceAddress := network.InterfaceAddress{
+		Address: address.Value(),
+		CIDR:    address.SubnetCIDR(),
+	}
+	for i := range networkInfos {
+		networkInfo := &networkInfos[i]
+		if networkInfo.InterfaceName == address.DeviceName() {
+			networkInfo.Addresses = append(networkInfo.Addresses, ifaceAddress)
+			return networkInfos
+		}
+	}
+
+	MAC := ""
+	if device, err := address.Device(); err == nil {
+		MAC = device.MACAddress()
+	}
+	networkInfo := network.NetworkInfo{
+		InterfaceName: address.DeviceName(),
+		MACAddress:    MAC,
+		Addresses:     []network.InterfaceAddress{ifaceAddress},
+	}
+	return append(networkInfos, networkInfo)
+}
+
+// For each space in spaces this function returns MachineNetworkInfoResult with a list of devices in this space
+// TODO(wpk): 2017-05-04 This does not work for L2-only devices as it iterates over addresses, needs to be fixed.
+func (m *Machine) GetNetworkInfoForSpaces(spaces []string) map[string](MachineNetworkInfoResult) {
+	results := make(map[string](MachineNetworkInfoResult))
+	defaultError := errors.NotFoundf("Address")
+	spacesmap := make(map[string]bool)
+
+	for _, space := range spaces {
+		spacesmap[space] = true
+	}
+
+	var privateAddress network.Address
+
+	if spacesmap[""] {
+		var err error
+		privateAddress, err = m.PrivateAddress()
+		if err != nil {
+			error := errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())
+			results[""] = MachineNetworkInfoResult{Error: &error}
+			delete(spacesmap, "")
+		}
+	}
+
+	addresses, err := m.AllAddresses()
+	logger.Debugf("Looking for something from spaces %v in %v", spacesmap, addresses)
+	if err != nil {
+		defaultError = errors.Annotate(err, "cannot get devices addresses")
+	}
+
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		switch {
+		case errors.IsNotFound(err):
+			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+		case err != nil:
+			logger.Errorf("cannot get subnet for address %q", addr)
+		default:
+			space := subnet.SpaceName()
+			if _, ok := spacesmap[space]; ok {
+				r := results[space]
+				r.NetworkInfos = addAddressToResult(r.NetworkInfos, addr)
+				results[space] = r
+			}
+			if spacesmap[""] && privateAddress.Value == addr.Value() {
+				r := results[""]
+				r.NetworkInfos = addAddressToResult(r.NetworkInfos, addr)
+				results[""] = r
+			}
+		}
+	}
+
+	defaultErrorResult := MachineNetworkInfoResult{Error: &defaultError}
+	for _, space := range spaces {
+		if _, ok := results[space]; !ok {
+			results[space] = defaultErrorResult
+		}
+	}
+
+	return results
+}
