@@ -42,13 +42,13 @@ def _get_new_budget_limit(client):
 
 
 def _get_budgets(client):
-    return json.loads(list_budgets(client))['budgets']
+    return json.loads(list_budgets(client))['wallets']
 
 
 def _set_budget_value_expectations(expected_budgets, name, value):
     # Update our expectations accordingly
     for budget in expected_budgets:
-        if budget['budget'] == name:
+        if budget['wallet'] == name:
             # For now, we assume we aren't spending down the budget
             budget['limit'] = value
             budget['unallocated'] = value
@@ -64,7 +64,7 @@ def _try_setting_budget(client, name, value):
         output = [e.output, getattr(e, 'stderr', '')]
         raise JujuAssertionError('Could not set budget {}'.format(output))
 
-    if 'budget limit updated' not in output:
+    if 'wallet limit updated' not in output:
         raise JujuAssertionError('Error calling set-wallet {}'.format(output))
 
 
@@ -126,7 +126,7 @@ def assert_set_budget(client, name, limit, error_strings):
 
 def create_budget(client, name, value):
     """Create a budget"""
-    return client.get_juju_output('create-budget', name, value,
+    return client.get_juju_output('create-wallet', name, value,
                                   include_e=False)
 
 
@@ -151,7 +151,7 @@ def assess_budget(client):
     # Since we can't remove budgets until lp:1663258
     # is fixed, we avoid creating new random budgets and hardcode.
     # We also, zero out the previous budget
-    budget_name = 'test'
+    budget_name = 'personal'
     _try_setting_budget(client, budget_name, '0')
 
     budget_limit = _get_new_budget_limit(client)
