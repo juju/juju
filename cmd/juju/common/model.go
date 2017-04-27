@@ -5,6 +5,7 @@ package common
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,10 +24,10 @@ type ModelInfo struct {
 	Owner          string                      `json:"owner" yaml:"owner"`
 	Cloud          string                      `json:"cloud" yaml:"cloud"`
 	CloudRegion    string                      `json:"region,omitempty" yaml:"region,omitempty"`
-	ProviderType   string                      `json:"type" yaml:"type"`
+	ProviderType   string                      `json:"type,omitempty" yaml:"type,omitempty"`
 	Life           string                      `json:"life" yaml:"life"`
-	Status         ModelStatus                 `json:"status" yaml:"status"`
-	Users          map[string]ModelUserInfo    `json:"users" yaml:"users"`
+	Status         *ModelStatus                `json:"status,omitempty" yaml:"status,omitempty"`
+	Users          map[string]ModelUserInfo    `json:"users,omitempty" yaml:"users,omitempty"`
 	Machines       map[string]ModelMachineInfo `json:"machines,omitempty" yaml:"machines,omitempty"`
 	SLA            string                      `json:"sla,omitempty" yaml:"sla,omitempty"`
 	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
@@ -41,7 +42,7 @@ type ModelMachineInfo struct {
 
 // ModelStatus contains the current status of a model.
 type ModelStatus struct {
-	Current        status.Status `json:"current" yaml:"current"`
+	Current        status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message        string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since          string        `json:"since,omitempty" yaml:"since,omitempty"`
 	Migration      string        `json:"migration,omitempty" yaml:"migration,omitempty"`
@@ -72,35 +73,55 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	if err != nil {
 		return ModelInfo{}, errors.Trace(err)
 	}
-	status := ModelStatus{
-		Current: info.Status.Status,
-		Message: info.Status.Info,
-		Since:   friendlyDuration(info.Status.Since, now),
-	}
-	if info.Migration != nil {
-		status.Migration = info.Migration.Status
-		status.MigrationStart = friendlyDuration(info.Migration.Start, now)
-		status.MigrationEnd = friendlyDuration(info.Migration.End, now)
-	}
 	cloudTag, err := names.ParseCloudTag(info.CloudTag)
 	if err != nil {
 		return ModelInfo{}, errors.Trace(err)
 	}
-	return ModelInfo{
+	modelInfo := ModelInfo{
 		Name:           info.Name,
 		UUID:           info.UUID,
 		ControllerUUID: info.ControllerUUID,
 		Owner:          tag.Id(),
 		Life:           string(info.Life),
-		Status:         status,
 		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
-		ProviderType:   info.ProviderType,
-		Users:          ModelUserInfoFromParams(info.Users, now),
-		Machines:       ModelMachineInfoFromParams(info.Machines),
-		SLA:            modelSLAFromParams(info.SLA),
-		SLAOwner:       modelSLAOwnerFromParams(info.SLA),
-	}, nil
+	}
+	// Although this may be more performance intensive, we have to use reflection
+	// since structs containing map[string]interface {} cannot be compared, i.e
+	// cannot use simple '==' here.
+	if !reflect.DeepEqual(info.Status, params.EntityStatus{}) {
+		modelInfo.Status = &ModelStatus{
+			Current: info.Status.Status,
+			Message: info.Status.Info,
+			Since:   friendlyDuration(info.Status.Since, now),
+		}
+	}
+	if info.Migration != nil {
+		status := modelInfo.Status
+		if status == nil {
+			status = &ModelStatus{}
+			modelInfo.Status = status
+		}
+		status.Migration = info.Migration.Status
+		status.MigrationStart = friendlyDuration(info.Migration.Start, now)
+		status.MigrationEnd = friendlyDuration(info.Migration.End, now)
+	}
+
+	if info.ProviderType != "" {
+		modelInfo.ProviderType = info.ProviderType
+
+	}
+	if len(info.Users) != 0 {
+		modelInfo.Users = ModelUserInfoFromParams(info.Users, now)
+	}
+	if len(info.Machines) != 0 {
+		modelInfo.Machines = ModelMachineInfoFromParams(info.Machines)
+	}
+	if info.SLA != nil {
+		modelInfo.SLA = modelSLAFromParams(info.SLA)
+		modelInfo.SLAOwner = modelSLAOwnerFromParams(info.SLA)
+	}
+	return modelInfo, nil
 }
 
 // ModelMachineInfoFromParams translates []params.ModelMachineInfo to a map of
