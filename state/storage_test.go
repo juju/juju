@@ -743,26 +743,29 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	u2, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Assign the second unit to a machine so that when we
-	// attach the storage to the unit, it will create a volume
-	// and volume attachment.
-	err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-	machineId, err := u2.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machineTag := names.NewMachineTag(machineId)
-
 	// Detach, but do not destroy, the storage.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Assign the second unit to a machine so that when we
+	// attach the storage to the unit, it will create a volume
+	// and volume attachment.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
 	// Now attach the storage to the second unit. There should now be a
 	// volume and volume attachment.
 	err = s.State.AttachStorage(storageTag, u2.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
+
 	volume := s.storageInstanceVolume(c, storageTag)
+	machineId, err := u2.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := names.NewMachineTag(machineId)
 	s.volumeAttachment(c, machineTag, volume.VolumeTag())
 }
 
@@ -782,15 +785,6 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	oldMachineTag := names.NewMachineTag(oldMachineId)
 	volume := s.storageInstanceVolume(c, storageTag)
 
-	// Assign the second unit to a machine so that when we
-	// attach the storage to the unit, it will attach the
-	// existing volume to the machine.
-	err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-	machineId, err := u2.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machineTag := names.NewMachineTag(machineId)
-
 	// Detach, but do not destroy, the storage.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -799,10 +793,22 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	err = s.State.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Assign the second unit to a machine so that when we
+	// attach the storage to the unit, it will attach the
+	// existing volume to the machine.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
 	// Now attach the storage to the second unit. This should attach
 	// the existing volume to the unit's machine.
 	err = s.State.AttachStorage(storageTag, u2.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
+
+	machineId, err := u2.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := names.NewMachineTag(machineId)
 	s.volumeAttachment(c, machineTag, volume.VolumeTag())
 }
 
