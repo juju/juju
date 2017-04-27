@@ -1119,6 +1119,17 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
 		},
 	)
+	// If we aren't on amd64, this should correctly fail. See also:
+	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
+	if arch.HostArch() != "amd64" {
+		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
+			env.Config().Name(),
+			env.Config().Type(),
+			arch.HostArch())
+		c.Assert(err, gc.ErrorMatches, wantErr)
+		c.SucceedNow()
+	}
+	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Series, gc.Equals, "quantal")
