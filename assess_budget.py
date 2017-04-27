@@ -143,7 +143,7 @@ def set_budget(client, name, value):
 
 def show_budget(client, name):
     """Return specified budget as json."""
-    return client.get_juju_output('show-budget', name, '--format', 'json',
+    return client.get_juju_output('show-wallet', name, '--format', 'json',
                                   include_e=False)
 
 
@@ -219,7 +219,7 @@ def assess_set_budget(client, budget_name, budget_value, budget_limit):
 
 
 def assess_show_budget(client, budget_name, budget_value):
-    log.info('show-budget "{}" with value {}'.format(budget_name,
+    log.info('show-wallet "{}" with value {}'.format(budget_name,
                                                      budget_value))
 
     budget = json.loads(show_budget(client, budget_name))
