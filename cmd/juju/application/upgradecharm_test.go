@@ -287,7 +287,7 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidService(c *gc.C) {
 
 func (s *UpgradeCharmErrorsStateSuite) deployService(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	_, err := runDeploy(c, ch, "riak", "--series", "quantal", "--force")
+	_, err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -355,7 +355,7 @@ var _ = gc.Suite(&UpgradeCharmSuccessStateSuite{})
 func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.path = testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	_, err := runDeploy(c, s.path, "--series", "quantal", "--force")
+	_, err := runDeploy(c, s.path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	s.riak, err = s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)

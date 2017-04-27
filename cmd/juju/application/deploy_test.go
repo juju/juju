@@ -170,10 +170,22 @@ func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
+	// Update the model default series to be unset.
+	updateAttrs := map[string]interface{}{"default-series": ""}
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
+	_, err = runDeploy(c, path)
+	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
+}
+
+func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	_, err := runDeploy(c, path)
-	errMsg := fmt.Sprintf("series \"%s\" not supported by charm, supported series are: <none defined>", series.LatestLts())
-	c.Assert(err, gc.ErrorMatches, errMsg)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
+	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
@@ -218,7 +230,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	dirPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-	_, err := runDeploy(c, dirPath, "--series", "quantal", "--force")
+	_, err := runDeploy(c, dirPath, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	upgradedRev := dummyCharm.Revision() + 1
 	curl := dummyCharm.URL().WithRevision(upgradedRev)
@@ -239,7 +251,7 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	_, err := runDeploy(c, ch, "--series", "trusty", "--force")
+	_, err := runDeploy(c, ch, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/logging-1")
 	s.AssertService(c, "logging", curl, 0, 0)
@@ -347,7 +359,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal", "--force")
+	_, err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc, err := s.State.Application("dummy")
@@ -368,7 +380,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	_, err := runDeploy(c, ch, "--constraints", "mem=1G", "--series", "quantal", "--force")
+	_, err := runDeploy(c, ch, "--constraints", "mem=1G", "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot use --constraints with subordinate application")
 }
 
@@ -382,7 +394,7 @@ func (s *DeploySuite) TestNumUnits(c *gc.C) {
 
 func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	_, err := runDeploy(c, "--num-units", "3", ch, "--series", "quantal", "--force")
+	_, err := runDeploy(c, "--num-units", "3", ch, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
 	_, err = s.State.Application("dummy")
 	c.Assert(err, gc.ErrorMatches, `application "dummy" not found`)
@@ -410,7 +422,7 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", series.LatestLts(), "--force")
+	_, err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -423,7 +435,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.LatestLts(), "--force")
+	_, err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -435,7 +447,7 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts(), "--force")
+	_, err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxd/0")
 
@@ -464,7 +476,7 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	_, err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal", "--force")
+	_, err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")
 
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
 	_, err = s.State.Application("dummy")
@@ -478,7 +490,7 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 
 func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "terms1")
-	output, err := runDeploy(c, ch, "--series", "trusty", "--force")
+	output, err := runDeploy(c, ch, "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(output, gc.Equals, `Deploying charm "local:trusty/terms1-1".`)

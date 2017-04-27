@@ -809,17 +809,15 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	// needed for a more elegant fix.
 
 	ch, err := charm.ReadCharm(c.CharmOrBundle)
-	var series string
-	if err != nil {
-		series = c.Series
-	} else {
+	series := c.Series
+	if err == nil {
 		modelCfg, err := getModelConfig(apiRoot)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		seriesSelector := seriesSelector{
-			seriesFlag:      c.Series,
+			seriesFlag:      series,
 			supportedSeries: ch.Meta().Series,
 			force:           c.Force,
 			conf:            modelCfg,
