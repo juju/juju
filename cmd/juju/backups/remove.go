@@ -33,7 +33,7 @@ func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-backup",
 		Args:    "<ID>",
-		Purpose: "Remove the spcified backup from remote storage.",
+		Purpose: "Remove the specified backup from remote storage.",
 		Doc:     removeDoc,
 	}
 }
