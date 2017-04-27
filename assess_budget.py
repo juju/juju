@@ -65,7 +65,7 @@ def _try_setting_budget(client, name, value):
         raise JujuAssertionError('Could not set budget {}'.format(output))
 
     if 'budget limit updated' not in output:
-        raise JujuAssertionError('Error calling set-budget {}'.format(output))
+        raise JujuAssertionError('Error calling set-wallet {}'.format(output))
 
 
 def _try_creating_budget(client, name, value):
@@ -138,7 +138,7 @@ def list_budgets(client):
 
 def set_budget(client, name, value):
     """Change an existing budgets allocation."""
-    return client.get_juju_output('set-budget', name, value, include_e=False)
+    return client.get_juju_output('set-wallet', name, value, include_e=False)
 
 
 def show_budget(client, name):
@@ -202,8 +202,8 @@ def assess_list_budgets(client, expected_budgets):
 
 
 def assess_set_budget(client, budget_name, budget_value, budget_limit):
-    """Test set-budget command"""
-    log.info('set-budget "{}" with value {}, limit {}'.format(budget_name,
+    """Test set-wallet command"""
+    log.info('set-wallet "{}" with value {}, limit {}'.format(budget_name,
                                                               budget_value,
                                                               budget_limit))
     _try_setting_budget(client, budget_name, budget_value)
@@ -211,10 +211,10 @@ def assess_set_budget(client, budget_name, budget_value, budget_limit):
     # Check some bounds
     # Since budgetting is important, and the functional test is cheap,
     # let's test some basic bounds
-    log.info('Trying set-budget with value greater than budget limit')
+    log.info('Trying set-wallet with value greater than budget limit')
     _try_greater_than_limit_budget(client, budget_name, budget_limit)
 
-    log.info('Trying set-budget with negative value')
+    log.info('Trying set-wallet with negative value')
     _try_negative_budget(client, budget_name)
 
 
