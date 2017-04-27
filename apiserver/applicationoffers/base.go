@@ -1,9 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodelcommon
+package applicationoffers
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/juju/errors"
@@ -16,16 +17,16 @@ import (
 	"github.com/juju/juju/permission"
 )
 
-// BaseAPI provides common facade functionality for cross model relations related facades.
+// BaseAPI provides various boilerplate methods used by the facade business logic.
 type BaseAPI struct {
 	Authorizer           facade.Authorizer
 	GetApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers
-	Backend              Backend
+	ControllerModel      Backend
 	StatePool            StatePool
 }
 
-// CheckPermission ensures that the logged in user holds the given permission on an entity.
-func (api *BaseAPI) CheckPermission(tag names.Tag, perm permission.Access) error {
+// checkPermission ensures that the logged in user holds the given permission on an entity.
+func (api *BaseAPI) checkPermission(tag names.Tag, perm permission.Access) error {
 	allowed, err := api.Authorizer.HasPermission(perm, tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -36,8 +37,8 @@ func (api *BaseAPI) CheckPermission(tag names.Tag, perm permission.Access) error
 	return nil
 }
 
-// CheckAdmin ensures that the logged in user is a model or controller admin.
-func (api *BaseAPI) CheckAdmin(backend Backend) error {
+// checkAdmin ensures that the logged in user is a model or controller admin.
+func (api *BaseAPI) checkAdmin(backend Backend) error {
 	allowed, err := api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -54,19 +55,19 @@ func (api *BaseAPI) CheckAdmin(backend Backend) error {
 	return nil
 }
 
-// ModelForName looks up the model details for the named model.
-func (api *BaseAPI) ModelForName(modelName, ownerName string) (Model, bool, error) {
+// modelForName looks up the model details for the named model.
+func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	if ownerName == "" {
 		ownerName = user.Name()
 	}
 	var model Model
-	models, err := api.Backend.AllModels()
+	models, err := api.ControllerModel.AllModels()
 	if err != nil {
 		return nil, false, err
 	}
 	for _, m := range models {
-		if m.Name() == modelName && m.Owner().Name() == ownerName {
+		if m.Name() == modelName && m.Owner().Id() == ownerName {
 			model = m
 			break
 		}
@@ -74,25 +75,23 @@ func (api *BaseAPI) ModelForName(modelName, ownerName string) (Model, bool, erro
 	return model, model != nil, nil
 }
 
-// ApplicationOffersFromModel gets details about remote applications that match given filters.
-func (api *BaseAPI) ApplicationOffersFromModel(
+// applicationOffersFromModel gets details about remote applications that match given filters.
+func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
 	requireAdmin bool,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
 ) ([]params.ApplicationOfferDetails, error) {
-	backend := api.Backend
-	if modelUUID != api.Backend.ModelUUID() {
-		st, releaser, err := api.StatePool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		backend = st
-		defer releaser()
+	// Get the relevant backend for the specified model.
+	backend, releaser, err := api.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	defer releaser()
+
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
 	isAdmin := false
-	err := api.CheckAdmin(backend)
+	err = api.checkAdmin(backend)
 	if err != nil && err != common.ErrPerm {
 		return nil, errors.Trace(err)
 	}
@@ -162,6 +161,45 @@ func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer, modelUUID s
 	return result
 }
 
+type offerModel struct {
+	model Model
+	err   error
+}
+
+// getModelsFromOffers returns a slice of models corresponding to the
+// specified offer URLs. Each result item has either a model or an error.
+func (api *BaseAPI) getModelsFromOffers(offerURLs []string) ([]offerModel, error) {
+	// Cache the models found so far so we don't look them up more than once.
+	modelsCache := make(map[string]Model)
+	oneModel := func(offerURL string) (Model, error) {
+		url, err := jujucrossmodel.ParseApplicationURL(offerURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelPath := fmt.Sprintf("%s/%s", url.User, url.ModelName)
+		if model, ok := modelsCache[modelPath]; ok {
+			return model, nil
+		}
+
+		model, ok, err := api.modelForName(url.ModelName, url.User)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !ok {
+			return nil, errors.NotFoundf("model %q", modelPath)
+		}
+		return model, nil
+	}
+
+	result := make([]offerModel, len(offerURLs))
+	for i, offerURL := range offerURLs {
+		var om offerModel
+		om.model, om.err = oneModel(offerURL)
+		result[i] = om
+	}
+	return result, nil
+}
+
 // getModelFilters splits the specified filters per model and returns
 // the model and filter details for each.
 func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
@@ -176,34 +214,27 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 	// for that model.
 	modelUUIDs := make(map[string]string)
 	for _, f := range filters.Filters {
-		// Default model is the current model.
-		modelUUID := api.Backend.ModelUUID()
-		model, ok := models[modelUUID]
-		if !ok {
+		if f.ModelName == "" {
+			return nil, nil, errors.New("application offer filter must specify a model name")
+		}
+		var (
+			modelUUID string
+			ok        bool
+		)
+		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, err = api.Backend.Model()
+			model, ok, err := api.modelForName(f.ModelName, f.OwnerName)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			models[modelUUID] = model
-		}
-		// If the filter contains a model name, look up the details.
-		if f.ModelName != "" {
-			if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
-				var err error
-				model, ok, err := api.ModelForName(f.ModelName, f.OwnerName)
-				if err != nil {
-					return nil, nil, errors.Trace(err)
-				}
-				if !ok {
-					err := errors.NotFoundf("model %q", f.ModelName)
-					return nil, nil, errors.Trace(err)
-				}
-				// Record the UUID and model for next time.
-				modelUUID = model.UUID()
-				modelUUIDs[f.ModelName] = modelUUID
-				models[modelUUID] = model
+			if !ok {
+				err := errors.NotFoundf("model %q", f.ModelName)
+				return nil, nil, errors.Trace(err)
 			}
+			// Record the UUID and model for next time.
+			modelUUID = model.UUID()
+			modelUUIDs[f.ModelName] = modelUUID
+			models[modelUUID] = model
 		}
 
 		// Record the filter and model details against the model UUID.
@@ -214,25 +245,23 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 	return models, filtersPerModel, nil
 }
 
-// GetApplicationOffersDetails gets details about remote applications that match given filter.
-func (api *BaseAPI) GetApplicationOffersDetails(
+// getApplicationOffersDetails gets details about remote applications that match given filter.
+func (api *BaseAPI) getApplicationOffersDetails(
 	filters params.OfferFilters,
 	requireAdmin bool,
 ) ([]params.ApplicationOfferDetails, error) {
+
+	// If there are no filters specified, that's an error since the
+	// caller is expected to specify at the least one or more models
+	// to avoid an unbounded query across all models.
+	if len(filters.Filters) == 0 {
+		return nil, common.ServerError(errors.New("at least one offer filter is required"))
+	}
+
 	// Gather all the filter details for doing a query for each model.
 	models, filtersPerModel, err := api.getModelFilters(filters)
 	if err != nil {
 		return nil, common.ServerError(errors.Trace(err))
-	}
-
-	if len(filtersPerModel) == 0 {
-		thisModelUUID := api.Backend.ModelUUID()
-		filtersPerModel[thisModelUUID] = []jujucrossmodel.ApplicationOfferFilter{}
-		model, err := api.Backend.Model()
-		if err != nil {
-			return nil, common.ServerError(errors.Trace(err))
-		}
-		models[thisModelUUID] = model
 	}
 
 	// Ensure the result is deterministic.
@@ -246,7 +275,7 @@ func (api *BaseAPI) GetApplicationOffersDetails(
 	var result []params.ApplicationOfferDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
-		offers, err := api.ApplicationOffersFromModel(modelUUID, requireAdmin, filters...)
+		offers, err := api.applicationOffersFromModel(modelUUID, requireAdmin, filters...)
 		if err != nil {
 			return nil, common.ServerError(errors.Trace(err))
 		}

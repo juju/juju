@@ -15,11 +15,11 @@ import (
 // independently of individual models.
 var controllerFacadeNames = set.NewStrings(
 	"AllModelWatcher",
+	"ApplicationOffers",
 	"Cloud",
 	"Controller",
 	"MigrationTarget",
 	"ModelManager",
-	"RemoteEndpoints",
 	"UserManager",
 )
 

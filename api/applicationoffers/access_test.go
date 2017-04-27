@@ -23,7 +23,7 @@ type accessFunc func(string, string, ...string) error
 var _ = gc.Suite(&accessSuite{})
 
 const (
-	someOffer = "hosted-mysql"
+	someOffer = "user/prod.hosted-mysql"
 )
 
 func accessCall(client *applicationoffers.Client, action params.OfferAction, user, access string, offerURLs ...string) error {
@@ -72,7 +72,7 @@ func (s *accessSuite) readOnlyUser(c *gc.C, action params.OfferAction) {
 			c.Assert(req.Changes, gc.HasLen, 1)
 			c.Assert(string(req.Changes[0].Action), gc.Equals, string(action))
 			c.Assert(string(req.Changes[0].Access), gc.Equals, string(params.OfferReadAccess))
-			c.Assert(req.Changes[0].OfferTag, gc.Equals, names.NewApplicationOfferTag(someOffer).String())
+			c.Assert(req.Changes[0].OfferURL, gc.Equals, someOffer)
 
 			resp := assertResponse(c, result)
 			*resp = params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
@@ -101,7 +101,7 @@ func (s *accessSuite) adminUser(c *gc.C, action params.OfferAction) {
 			c.Assert(req.Changes, gc.HasLen, 1)
 			c.Assert(string(req.Changes[0].Action), gc.Equals, string(action))
 			c.Assert(string(req.Changes[0].Access), gc.Equals, string(params.OfferConsumeAccess))
-			c.Assert(req.Changes[0].OfferTag, gc.Equals, names.NewApplicationOfferTag(someOffer).String())
+			c.Assert(req.Changes[0].OfferURL, gc.Equals, someOffer)
 
 			resp := assertResponse(c, result)
 			*resp = params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
@@ -131,7 +131,7 @@ func (s *accessSuite) threeOffers(c *gc.C, action params.OfferAction) {
 			for i := range req.Changes {
 				c.Assert(string(req.Changes[i].Action), gc.Equals, string(action))
 				c.Assert(string(req.Changes[i].Access), gc.Equals, string(params.OfferReadAccess))
-				c.Assert(req.Changes[i].OfferTag, gc.Equals, names.NewApplicationOfferTag(someOffer).String())
+				c.Assert(req.Changes[i].OfferURL, gc.Equals, someOffer)
 			}
 
 			resp := assertResponse(c, result)
@@ -161,7 +161,7 @@ func (s *accessSuite) errorResult(c *gc.C, action params.OfferAction) {
 			c.Assert(req.Changes, gc.HasLen, 1)
 			c.Assert(string(req.Changes[0].Action), gc.Equals, string(action))
 			c.Assert(req.Changes[0].UserTag, gc.Equals, names.NewUserTag("aaa").String())
-			c.Assert(req.Changes[0].OfferTag, gc.Equals, names.NewApplicationOfferTag(someOffer).String())
+			c.Assert(req.Changes[0].OfferURL, gc.Equals, someOffer)
 
 			resp := assertResponse(c, result)
 			err := &params.Error{Message: "unfortunate mishap"}

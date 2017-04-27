@@ -44,6 +44,17 @@ func (s *offerSuite) TestOfferInvalidApplication(c *gc.C) {
 	s.assertOfferErrorOutput(c, `.*application name "123" not valid.*`)
 }
 
+func (s *offerSuite) TestOfferInvalidModel(c *gc.C) {
+	s.args = []string{"$model.123:db"}
+	s.assertOfferErrorOutput(c, `.*model name "\$model" not valid.*`)
+}
+
+func (s *offerSuite) TestOfferNoCurrentModel(c *gc.C) {
+	s.store.Models["test-master"].CurrentModel = ""
+	s.args = []string{"app:db"}
+	s.assertOfferErrorOutput(c, `no current model, use juju switch to select a model on which to operate`)
+}
+
 func (s *offerSuite) TestOfferInvalidEndpoints(c *gc.C) {
 	s.args = []string{"tst/123"}
 	s.assertOfferErrorOutput(c, `.*endpoints must conform to format.*`)
@@ -78,6 +89,7 @@ func (s *offerSuite) TestOfferDataErred(c *gc.C) {
 func (s *offerSuite) TestOfferValid(c *gc.C) {
 	s.args = []string{"tst:db"}
 	s.assertOfferOutput(c, "test", "tst", "tst", []string{"db"})
+	c.Assert(s.mockAPI.modelUUID, gc.Equals, "fred-uuid")
 }
 
 func (s *offerSuite) TestOfferWithAlias(c *gc.C) {
@@ -86,7 +98,7 @@ func (s *offerSuite) TestOfferWithAlias(c *gc.C) {
 }
 
 func (s *offerSuite) TestOfferExplicitModel(c *gc.C) {
-	s.args = []string{"prod.tst:db"}
+	s.args = []string{"bob/prod.tst:db"}
 	s.assertOfferOutput(c, "prod", "tst", "tst", []string{"db"})
 }
 
@@ -103,6 +115,7 @@ func (s *offerSuite) assertOfferOutput(c *gc.C, expectedModel, expectedOffer, ex
 
 type mockOfferAPI struct {
 	errCall, errData bool
+	modelUUID        string
 	offers           map[string][]string
 	applications     map[string]string
 	descs            map[string]string
@@ -120,7 +133,7 @@ func (s *mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s *mockOfferAPI) Offer(application string, endpoints []string, offerName, desc string) ([]params.ErrorResult, error) {
+func (s *mockOfferAPI) Offer(modelUUID, application string, endpoints []string, offerName, desc string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}
@@ -129,6 +142,7 @@ func (s *mockOfferAPI) Offer(application string, endpoints []string, offerName, 
 		result[0].Error = common.ServerError(errors.New("failed"))
 		return result, nil
 	}
+	s.modelUUID = modelUUID
 	if offerName == "" {
 		offerName = application
 	}
