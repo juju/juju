@@ -536,7 +536,8 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Trace(err)
 	}
 	id.Channel = channel
-	if !c.ForceSeries && deployedSeries != "" && newURL.Series == "" && !isSeriesSupported(deployedSeries, supportedSeries) {
+	_, seriesSupportedErr := charm.SeriesForCharm(deployedSeries, supportedSeries)
+	if !c.ForceSeries && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
 		series := []string{"no series"}
 		if len(supportedSeries) > 0 {
 			series = supportedSeries

@@ -19,145 +19,150 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 
 		seriesSelector
 
-		ltsSeries      string
 		expectedSeries string
-		message        string
 		err            string
 	}{{
-		title: "use charm default, e.g. juju deploy ubuntu",
+		// Simple selectors first, no supported series.
+
+		title: "juju deploy simple   # no default series, no supported series",
 		seriesSelector: seriesSelector{
-			supportedSeries: []string{"trusty", "precise"},
-			conf:            defaultSeries{"wily", true},
+			conf: defaultSeries{},
 		},
-		ltsSeries:      "precise",
+		err: "series not specified and charm does not define any",
+	}, {
+		title: "juju deploy simple   # default series set, no supported series",
+		seriesSelector: seriesSelector{
+			conf: defaultSeries{"wily", true},
+		},
+		expectedSeries: "wily",
+	}, {
+		title: "juju deploy simple --series=precise   # default series set, no supported series",
+		seriesSelector: seriesSelector{
+			seriesFlag: "precise",
+			conf:       defaultSeries{"wily", true},
+		},
+		expectedSeries: "precise",
+	}, {
+		title: "juju deploy trusty/simple   # charm series set, default series set, no supported series",
+		seriesSelector: seriesSelector{
+			charmURLSeries: "trusty",
+			conf:           defaultSeries{"wily", true},
+		},
 		expectedSeries: "trusty",
-		message:        "with the default charm metadata series %q",
 	}, {
-		title: "use supported requested, e.g. juju deploy ubuntu --series trusty",
+		title: "juju deploy trusty/simple --series=precise   # series specified, charm series set, default series set, no supported series",
 		seriesSelector: seriesSelector{
-			seriesFlag:      "trusty",
-			supportedSeries: []string{"trusty"},
-			conf:            defaultSeries{},
+			seriesFlag:     "precise",
+			charmURLSeries: "trusty",
+			conf:           defaultSeries{"wily", true},
 		},
-		expectedSeries: "trusty",
-		message:        "with the user specified series %q",
+		expectedSeries: "precise",
 	}, {
-		title: "unsupported requested, e.g. juju deploy ubuntu --series quantal",
-		seriesSelector: seriesSelector{
-			seriesFlag:      "quantal",
-			supportedSeries: []string{"trusty", "precise"},
-			conf:            defaultSeries{},
-		},
-		err: `series "quantal" not supported by charm, supported series are: trusty,precise`,
-	}, {
-		title: "charm without series specified or requested, with --force",
+		title: "juju deploy simple --force   # no default series, no supported series, use LTS (xenial)",
 		seriesSelector: seriesSelector{
 			force: true,
 			conf:  defaultSeries{},
 		},
-		ltsSeries:      "quantal",
-		expectedSeries: "quantal",
-		message:        "with the latest LTS series %q",
-	}, {
-		title: "charm without series specified or requested, without --force",
-		seriesSelector: seriesSelector{
-			conf: defaultSeries{},
-		},
-		ltsSeries:      "quantal",
-		expectedSeries: "quantal",
-		err:            `series "quantal" not supported by charm, supported series are: <none defined>`,
-	}, {
-		title: "charm without series specified, series requested, without --force",
-		seriesSelector: seriesSelector{
-			seriesFlag: "xenial",
-			conf:       defaultSeries{},
-		},
-		ltsSeries:      "quantal",
-		expectedSeries: "quantal",
-		err:            `series "xenial" not supported by charm, supported series are: <none defined>`,
-	}, {
-		title: "charm without series specified, series requested, with --force",
-		seriesSelector: seriesSelector{
-			seriesFlag: "xenial",
-			conf:       defaultSeries{},
-			force:      true,
-		},
-		ltsSeries:      "quantal",
 		expectedSeries: "xenial",
-		message:        "with the user specified series %q",
 	}, {
-		title: "no requested series, default to model series if supported",
+		// Now charms with supported series.
+
+		title: "juju deploy multiseries   # use charm default, nothing specified, no default series",
 		seriesSelector: seriesSelector{
-			conf:            defaultSeries{"xenial", true},
-			supportedSeries: []string{"precise", "xenial"},
+			supportedSeries: []string{"utopic", "vivid"},
+			conf:            defaultSeries{},
 		},
-		expectedSeries: "xenial",
-		message:        "with the configured model default series %q",
+		expectedSeries: "utopic",
 	}, {
-		title: "juju deploy --force --series=wily for unsupported series",
+		title: "juju deploy multiseries   # use charm defaults used if default series doesn't match, nothing specified",
 		seriesSelector: seriesSelector{
-			seriesFlag:      "wily",
-			supportedSeries: []string{"trusty"},
+			supportedSeries: []string{"utopic", "vivid"},
+			conf:            defaultSeries{"wily", true},
+		},
+		expectedSeries: "utopic",
+	}, {
+		title: "juju deploy multiseries   # use model series defaults if supported by charm",
+		seriesSelector: seriesSelector{
+			supportedSeries: []string{"utopic", "vivid", "wily"},
+			conf:            defaultSeries{"wily", true},
+		},
+		expectedSeries: "wily",
+	}, {
+		title: "juju deploy multiseries --series=precise   # use supported requested",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "precise",
+			supportedSeries: []string{"utopic", "vivid", "precise"},
+			conf:            defaultSeries{},
+		},
+		expectedSeries: "precise",
+	}, {
+		title: "juju deploy multiseries --series=precise   # unsupported requested",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "precise",
+			supportedSeries: []string{"utopic", "vivid"},
+			conf:            defaultSeries{},
+		},
+		err: `series "precise" not supported by charm, supported series are: utopic,vivid`,
+	}, {
+		title: "juju deploy multiseries --series=precise --force   # unsupported forced",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "precise",
+			supportedSeries: []string{"utopic", "vivid"},
 			force:           true,
 			conf:            defaultSeries{},
 		},
-		expectedSeries: "wily",
-		message:        "with the user specified series %q",
+		expectedSeries: "precise",
 	}, {
-		title: "juju deploy --series=precise for non-default but supported series",
+		title: "juju deploy trusty/multiseries  # non-default but supported series",
+		seriesSelector: seriesSelector{
+			charmURLSeries:  "trusty",
+			supportedSeries: []string{"utopic", "vivid", "trusty"},
+			conf:            defaultSeries{},
+		},
+		expectedSeries: "trusty",
+	}, {
+		title: "juju deploy trusty/multiseries --series=precise  # non-default but supported series",
 		seriesSelector: seriesSelector{
 			seriesFlag:      "precise",
-			supportedSeries: []string{"trusty", "precise"},
+			charmURLSeries:  "trusty",
+			supportedSeries: []string{"utopic", "vivid", "trusty", "precise"},
 			conf:            defaultSeries{},
 		},
 		expectedSeries: "precise",
-		message:        "with the user specified series %q",
 	}, {
-		title: "juju deploy precise/ubuntu for non-default but supported series",
+		title: "juju deploy trusty/multiseries --series=precise  # unsupported series",
 		seriesSelector: seriesSelector{
-			charmURLSeries:  "precise",
-			supportedSeries: []string{"trusty", "precise"},
+			seriesFlag:      "precise",
+			charmURLSeries:  "trusty",
+			supportedSeries: []string{"trusty", "utopic", "vivid"},
+			conf:            defaultSeries{},
+		},
+		err: `series "precise" not supported by charm, supported series are: trusty,utopic,vivid`,
+	}, {
+		title: "juju deploy trusty/multiseries --series=precise --force  # unsupported series forced",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "precise",
+			charmURLSeries:  "trusty",
+			supportedSeries: []string{"trusty", "utopic", "vivid"},
+			force:           true,
 			conf:            defaultSeries{},
 		},
 		expectedSeries: "precise",
-		message:        "with the user specified series %q",
-	}, {
-		title: "juju deploy precise/ubuntu --series=wily for non-default but supported series",
-		seriesSelector: seriesSelector{
-			charmURLSeries:  "precise",
-			seriesFlag:      "wily",
-			supportedSeries: []string{"trusty", "wily"},
-			conf:            defaultSeries{},
-		},
-		expectedSeries: "wily",
-		message:        "with the user specified series %q",
-	}, {
-		title: "juju deploy precise/ubuntu --series=quantal for usupported series",
-		seriesSelector: seriesSelector{
-			charmURLSeries:  "precise",
-			seriesFlag:      "quantal",
-			supportedSeries: []string{"trusty", "precise"},
-			conf:            defaultSeries{},
-		},
-		err: `series "quantal" not supported by charm, supported series are: trusty,precise`,
 	}}
 
-	for i, test := range deploySeriesTests {
+	// Use xenial for LTS for all calls.
+	previous := series.SetLatestLtsForTesting("xenial")
+	defer series.SetLatestLtsForTesting(previous)
 
-		func() {
-			c.Logf("test %d [%s]", i, test.title)
-			if test.ltsSeries != "" {
-				previous := series.SetLatestLtsForTesting(test.ltsSeries)
-				defer series.SetLatestLtsForTesting(previous)
-			}
-			series, err := test.seriesSelector.charmSeries()
-			if test.err != "" {
-				c.Check(err, gc.ErrorMatches, test.err)
-				return
-			}
+	for i, test := range deploySeriesTests {
+		c.Logf("test %d [%s]", i, test.title)
+		series, err := test.seriesSelector.charmSeries()
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+		} else {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(series, gc.Equals, test.expectedSeries)
-		}()
+		}
 	}
 }
 

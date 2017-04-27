@@ -21,15 +21,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
-	for _, series := range supportedSeries {
-		if series == requestedSeries {
-			return true
-		}
-	}
-	return false
-}
-
 // TODO(ericsnow) Return charmstore.CharmID from resolve()?
 
 // ResolveCharmFunc is the type of a function that resolves a charm URL.
