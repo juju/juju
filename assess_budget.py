@@ -132,7 +132,7 @@ def create_budget(client, name, value):
 
 def list_budgets(client):
     """Return defined budgets as json."""
-    return client.get_juju_output('list-budgets', '--format', 'json',
+    return client.get_juju_output('list-wallets', '--format', 'json',
                                   include_e=False)
 
 
@@ -193,7 +193,7 @@ def assess_create_budget(client, budget_name, budget_value, budget_limit):
 
 
 def assess_list_budgets(client, expected_budgets):
-    log.info('list-budgets testing expected values')
+    log.info('list-wallets testing expected values')
     # Since we can't remove budgets until lp:1663258
     # is fixed, we don't modify the list contents or count
     # Nonetheless, we assert on it for future use
