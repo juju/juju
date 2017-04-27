@@ -77,7 +77,7 @@ class TestAssess(TestCase):
     def setUp(self):
         super(TestAssess, self).setUp()
         self.fake_client = fake_juju_client()
-        self.budget_name = 'test'
+        self.budget_name = 'personal'
         self.budget_limit = randint(1000, 10000)
         self.budget_value = str(randint(100, 900))
 
@@ -179,12 +179,12 @@ class TestAssessListBudgets(TestAssess):
 
     def setUp(self):
         super(TestAssessListBudgets, self).setUp()
-        snippet = '[{"budget": "test", "limit": "300"}]'
-        self.fake_budgets_json = json.loads('{"budgets":' + snippet + '}')
+        snippet = '[{"wallet": "personal", "limit": "300"}]'
+        self.fake_budgets_json = json.loads('{"wallets":' + snippet + '}')
         self.fake_budget_json = json.loads(snippet)
-        unexpected_snippet = '[{"budget": "test", "limit": "100"}]'
+        unexpected_snippet = '[{"wallet": "personal", "limit": "100"}]'
         self.fake_unexpected_budgets_json = json.loads(
-            '{"budgets":' + unexpected_snippet + '}')
+            '{"wallets":' + unexpected_snippet + '}')
         self.fake_unexpected_budget_json = json.loads(unexpected_snippet)
 
     def test_assess_list_budgets(self):

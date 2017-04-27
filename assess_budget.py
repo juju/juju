@@ -42,13 +42,13 @@ def _get_new_budget_limit(client):
 
 
 def _get_budgets(client):
-    return json.loads(list_budgets(client))['budgets']
+    return json.loads(list_budgets(client))['wallets']
 
 
 def _set_budget_value_expectations(expected_budgets, name, value):
     # Update our expectations accordingly
     for budget in expected_budgets:
-        if budget['budget'] == name:
+        if budget['wallet'] == name:
             # For now, we assume we aren't spending down the budget
             budget['limit'] = value
             budget['unallocated'] = value
@@ -64,8 +64,8 @@ def _try_setting_budget(client, name, value):
         output = [e.output, getattr(e, 'stderr', '')]
         raise JujuAssertionError('Could not set budget {}'.format(output))
 
-    if 'budget limit updated' not in output:
-        raise JujuAssertionError('Error calling set-budget {}'.format(output))
+    if 'wallet limit updated' not in output:
+        raise JujuAssertionError('Error calling set-wallet {}'.format(output))
 
 
 def _try_creating_budget(client, name, value):
@@ -126,24 +126,24 @@ def assert_set_budget(client, name, limit, error_strings):
 
 def create_budget(client, name, value):
     """Create a budget"""
-    return client.get_juju_output('create-budget', name, value,
+    return client.get_juju_output('create-wallet', name, value,
                                   include_e=False)
 
 
 def list_budgets(client):
     """Return defined budgets as json."""
-    return client.get_juju_output('list-budgets', '--format', 'json',
+    return client.get_juju_output('list-wallets', '--format', 'json',
                                   include_e=False)
 
 
 def set_budget(client, name, value):
     """Change an existing budgets allocation."""
-    return client.get_juju_output('set-budget', name, value, include_e=False)
+    return client.get_juju_output('set-wallet', name, value, include_e=False)
 
 
 def show_budget(client, name):
     """Return specified budget as json."""
-    return client.get_juju_output('show-budget', name, '--format', 'json',
+    return client.get_juju_output('show-wallet', name, '--format', 'json',
                                   include_e=False)
 
 
@@ -151,7 +151,7 @@ def assess_budget(client):
     # Since we can't remove budgets until lp:1663258
     # is fixed, we avoid creating new random budgets and hardcode.
     # We also, zero out the previous budget
-    budget_name = 'test'
+    budget_name = 'personal'
     _try_setting_budget(client, budget_name, '0')
 
     budget_limit = _get_new_budget_limit(client)
@@ -193,7 +193,7 @@ def assess_create_budget(client, budget_name, budget_value, budget_limit):
 
 
 def assess_list_budgets(client, expected_budgets):
-    log.info('list-budgets testing expected values')
+    log.info('list-wallets testing expected values')
     # Since we can't remove budgets until lp:1663258
     # is fixed, we don't modify the list contents or count
     # Nonetheless, we assert on it for future use
@@ -202,8 +202,8 @@ def assess_list_budgets(client, expected_budgets):
 
 
 def assess_set_budget(client, budget_name, budget_value, budget_limit):
-    """Test set-budget command"""
-    log.info('set-budget "{}" with value {}, limit {}'.format(budget_name,
+    """Test set-wallet command"""
+    log.info('set-wallet "{}" with value {}, limit {}'.format(budget_name,
                                                               budget_value,
                                                               budget_limit))
     _try_setting_budget(client, budget_name, budget_value)
@@ -211,15 +211,15 @@ def assess_set_budget(client, budget_name, budget_value, budget_limit):
     # Check some bounds
     # Since budgetting is important, and the functional test is cheap,
     # let's test some basic bounds
-    log.info('Trying set-budget with value greater than budget limit')
+    log.info('Trying set-wallet with value greater than budget limit')
     _try_greater_than_limit_budget(client, budget_name, budget_limit)
 
-    log.info('Trying set-budget with negative value')
+    log.info('Trying set-wallet with negative value')
     _try_negative_budget(client, budget_name)
 
 
 def assess_show_budget(client, budget_name, budget_value):
-    log.info('show-budget "{}" with value {}'.format(budget_name,
+    log.info('show-wallet "{}" with value {}'.format(budget_name,
                                                      budget_value))
 
     budget = json.loads(show_budget(client, budget_name))

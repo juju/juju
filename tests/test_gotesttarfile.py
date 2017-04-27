@@ -69,10 +69,14 @@ class GotesttarfileTestCase(TestCase):
                     returncode = go_test_package(
                         'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
-        self.assertEqual(run_mock.call_count, 3)
+        self.assertEqual(run_mock.call_count, 5)
         args, kwargs = run_mock.call_args_list[0]
-        self.assertEqual((['go', 'test', '-i', './...'],), args)
+        self.assertEqual((['go', 'version'],), args)
         args, kwargs = run_mock.call_args_list[1]
+        self.assertEqual((['go', 'env'],), args)
+        args, kwargs = run_mock.call_args_list[2]
+        self.assertEqual((['go', 'test', '-i', './...'],), args)
+        args, kwargs = run_mock.call_args_list[3]
         self.assertEqual(
             (['go', 'test', '-timeout=1200s', './...'],), args)
         self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
@@ -94,12 +98,18 @@ class GotesttarfileTestCase(TestCase):
                             returncode = go_test_package(
                                 'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
-        self.assertEqual(run_mock.call_count, 3)
+        self.assertEqual(run_mock.call_count, 5)
         args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual(
+            (['powershell.exe', '-Command', 'go', 'version'],),
+            args)
+        args, kwargs = run_mock.call_args_list[1]
+        self.assertEqual((['powershell.exe', '-Command', 'go', 'env'],), args)
+        args, kwargs = run_mock.call_args_list[2]
         self.assertEqual(
             (['powershell.exe', '-Command', 'go', 'test', '-i', './...'], ),
             args)
-        args, kwargs = run_mock.call_args_list[1]
+        args, kwargs = run_mock.call_args_list[3]
         self.assertEqual(
             (['powershell.exe', '-Command', 'go', 'test',
               '-timeout=1200s', './...'], ),
@@ -124,8 +134,12 @@ class GotesttarfileTestCase(TestCase):
                     returncode = go_test_package(
                         'github.com/juju/juju', 'go', gopath)
         self.assertEqual(1, returncode)
-        self.assertEqual(run_mock.call_count, 1)
+        self.assertEqual(run_mock.call_count, 3)
         args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual((['go', 'version'],), args)
+        args, kwargs = run_mock.call_args_list[1]
+        self.assertEqual((['go', 'env'],), args)
+        args, kwargs = run_mock.call_args_list[2]
         self.assertEqual((['go', 'test', '-i', './...'],), args)
 
     def test_parse_args(self):
