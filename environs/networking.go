@@ -42,6 +42,18 @@ type Networking interface {
 	// provider that have subnets available.
 	Spaces() ([]network.SpaceInfo, error)
 
+	// ProviderSpaceInfo returns the details of the space requested as
+	// a ProviderSpaceInfo. This will contain everything needed to
+	// decide whether an Environ of the same type in another
+	// controller could route to the space. If "" is passed as
+	// ProviderSpaceId, details for the default space will be
+	// returned.
+	ProviderSpaceInfo(providerSpaceId string) (ProviderSpaceInfo, error)
+
+	// IsRoutable returns whether this Environ can connect to the
+	// given space via cloud-local addresses.
+	IsRoutable(targetSpace ProviderSpaceInfo) (bool, error)
+
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also
 	// return an IsNotSupported error.
@@ -104,4 +116,20 @@ func SupportsContainerAddresses(env Environ) bool {
 		return false
 	}
 	return ok
+}
+
+// ProviderSpaceInfo contains all the information about a space needed
+// by another environ to decide whether it can be routed to.
+type ProviderSpaceInfo struct {
+	network.SpaceInfo
+
+	// This identifies the cloud containing the space. Care must be
+	// taken by providers that the credential information doesn't
+	// include any secrets - this struct may be sent outside the
+	// local controller.
+	CloudSpec CloudSpec
+
+	// Any provider-specific information to needed to identify the
+	// network within the cloud, e.g. VPC ID for EC2.
+	ProviderAttributes map[string]interface{}
 }

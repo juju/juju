@@ -1644,3 +1644,13 @@ func (e *Environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("release container address")
 }
+
+// ProviderSpaceInfo is specified on environs.NetworkingEnviron.
+func (*Environ) ProviderSpaceInfo(string) (environs.ProviderSpaceInfo, error) {
+	return environs.ProviderSpaceInfo{}, errors.NotSupportedf("provider space info")
+}
+
+// IsRoutable is specified on environs.NetworkingEnviron.
+func (*Environ) IsRoutable(targetSpace environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}

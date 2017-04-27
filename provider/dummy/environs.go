@@ -1666,3 +1666,13 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(string) (environs.ProviderSpaceInfo, error) {
+	return environs.ProviderSpaceInfo{}, errors.NotSupportedf("provider space info")
+}
+
+// IsRoutable implements NetworkingEnviron.
+func (*environ) IsRoutable(targetSpace environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
