@@ -153,7 +153,6 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 	}{
 		{http.StatusBadRequest, "failed to send metrics http 400"},
 		{http.StatusServiceUnavailable, "failed to send metrics http 503"},
-		{http.StatusMovedPermanently, "failed to send metrics http 301"},
 	}
 
 	for _, test := range tests {

@@ -213,25 +213,25 @@ func (*HostPortSuite) TestParseHostPortsErrors(c *gc.C) {
 		err   string
 	}{{
 		input: "",
-		err:   `cannot parse "" as address:port: missing port in address`,
+		err:   `cannot parse "" as address:port: .*missing port in address.*`,
 	}, {
 		input: " ",
-		err:   `cannot parse " " as address:port: missing port in address  `,
+		err:   `cannot parse " " as address:port: .*missing port in address.*`,
 	}, {
 		input: ":",
 		err:   `cannot parse ":" port: strconv.(ParseInt|Atoi): parsing "": invalid syntax`,
 	}, {
 		input: "host",
-		err:   `cannot parse "host" as address:port: missing port in address host`,
+		err:   `cannot parse "host" as address:port: .*missing port in address.*`,
 	}, {
 		input: "host:port",
 		err:   `cannot parse "host:port" port: strconv.(ParseInt|Atoi): parsing "port": invalid syntax`,
 	}, {
 		input: "::1",
-		err:   `cannot parse "::1" as address:port: too many colons in address ::1`,
+		err:   `cannot parse "::1" as address:port: .*too many colons in address.*`,
 	}, {
 		input: "1.2.3.4",
-		err:   `cannot parse "1.2.3.4" as address:port: missing port in address 1.2.3.4`,
+		err:   `cannot parse "1.2.3.4" as address:port: .*missing port in address.*`,
 	}, {
 		input: "1.2.3.4:foo",
 		err:   `cannot parse "1.2.3.4:foo" port: strconv.(ParseInt|Atoi): parsing "foo": invalid syntax`,
@@ -244,7 +244,7 @@ func (*HostPortSuite) TestParseHostPortsErrors(c *gc.C) {
 	}
 	// Finally, test with mixed valid and invalid args.
 	hps, err := network.ParseHostPorts("1.2.3.4:42", "[fc00::1]:12", "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot parse "foo" as address:port: missing port in address foo`)
+	c.Assert(err, gc.ErrorMatches, `cannot parse "foo" as address:port: .*missing port in address.*`)
 	c.Assert(hps, gc.IsNil)
 }
 

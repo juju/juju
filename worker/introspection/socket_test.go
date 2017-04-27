@@ -108,7 +108,7 @@ func (s *introspectionSuite) TestCmdLine(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/goroutine")
+	buf := s.call(c, "/debug/pprof/goroutine?debug=1")
 	c.Assert(buf, gc.NotNil)
 	matches(c, buf, `^goroutine profile: total \d+`)
 }
@@ -126,7 +126,7 @@ func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/juju/state/tracker")
+	buf := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
 	matches(c, buf, "200 OK")
 	matches(c, buf, "juju/state/tracker profile: total")
 }

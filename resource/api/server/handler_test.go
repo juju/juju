@@ -113,7 +113,6 @@ func (s *HTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 3, "WriteHeader", http.StatusInternalServerError)
 	s.stub.CheckCall(c, 4, "Write", expected)
-	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/json"},
 		"Content-Length": []string{strconv.Itoa(len(expected))},
@@ -142,7 +141,6 @@ func (s *HTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 3, "WriteHeader", http.StatusMethodNotAllowed)
 	s.stub.CheckCall(c, 4, "Write", expected)
-	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/json"},
 		"Content-Length": []string{strconv.Itoa(len(expected))},
@@ -167,7 +165,6 @@ func (s *HTTPHandlerSuite) TestServeHTTPGetSuccess(c *gc.C) {
 		{"Write", []interface{}{downloadContent}},
 		{"Close", nil},
 	})
-	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/octet-stream"},
 		"Content-Length": []string{fmt.Sprint(len(downloadContent))},
@@ -201,7 +198,6 @@ func (s *HTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
 	s.stub.CheckCall(c, 4, "WriteHeader", http.StatusOK)
 	s.stub.CheckCall(c, 5, "Write", string(expected))
-	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/json"},
 		"Content-Length": []string{fmt.Sprint(len(expected))},
@@ -234,7 +230,6 @@ func (s *HTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
 	s.stub.CheckCall(c, 4, "WriteHeader", http.StatusInternalServerError)
 	s.stub.CheckCall(c, 5, "Write", expected)
-	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/json"},
 		"Content-Length": []string{strconv.Itoa(len(expected))},
