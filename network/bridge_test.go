@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/testing"
-	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
