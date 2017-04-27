@@ -552,8 +552,8 @@ func validateExistingDevice(netInfo []network.InterfaceInfo, device gomaasapi.De
 // checkForExistingDevice checks to see if we've already registered a device
 // with this name, and if its information is appropriately populated. If we
 // have, then we just return the existing interface info. If we find it, but
-// it doesn't match, then we ask MAAS to remove it. And request that we
-// create it again.
+// it doesn't match, then we ask MAAS to remove it, which should cause the
+// calling code to create it again.
 func (env *maasEnviron) checkForExistingDevice(params deviceCreatorParams) (gomaasapi.Device, error) {
 	devicesArgs := gomaasapi.DevicesArgs{
 		Hostname: []string{params.Name},
@@ -561,7 +561,7 @@ func (env *maasEnviron) checkForExistingDevice(params deviceCreatorParams) (goma
 	maybeDevices, err := params.Machine.Devices(devicesArgs)
 	if err != nil {
 		logger.Warningf("error while trying to lookup %q: %v", params.Name, err)
-		// treated as not fatal, since we'll try to create it
+		// not considered fatal, since we'll attempt to create the device if we didn't find it
 		return nil, nil
 	}
 	if len(maybeDevices) == 0 {
