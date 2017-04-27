@@ -16,6 +16,7 @@ REVISION_BUILD="none"
 USE_PPA=""
 INSTALL_DEPS=""
 USE_TMPFS="false"
+USE_MONGO32="false"
 GOTESTCMD="go test"
 LOG_FILE_PATH="/usr/share/distro-info/ubuntu.csv"
 LOG_TXT="19.04,Angsty Antelope,angsty,2018-10-23,2017-04-30,2020-01-29"
@@ -81,6 +82,9 @@ tarfile_path=$(readlink -f $tarfile)
 tarfile_basename=$(basename $tarfile)
 juju_version=$(basename $tarfile .tar.gz)
 
+if [[ $juju_version =~ ^juju-core_2\..*$ ]]; then
+    USE_MONGO32="true"
+fi
 
 if [[ $INSTANCE_TYPE == "lxc" ]]; then
     instance_id="juju-ci-unit-tester"
@@ -126,7 +130,6 @@ else
     $SCRIPTS/wait-for-port $instance_name 22
 fi
 
-
 # Define the common vars before the embedded scripts; do not make them evalaute
 # what is already know in the outer script.
 set -x
@@ -150,6 +153,10 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     fi
     sudo rm -rf /mnt/tmp/* || true
     export TMPDIR=/mnt/tmp
+fi
+if [[ "$USE_MONGO32" == "true" ]]; then
+    # Ensure juju 2.* uses the correct mongo.
+    export JUJU_MONGOD=/usr/lib/juju/mongo3.2/bin/mongod
 fi
 export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH ]]; then
