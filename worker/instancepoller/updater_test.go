@@ -91,11 +91,16 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	}
 }
 
-func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
+func (s *updaterSuite) TestManualMachinesStatusChangedAndIgnored(c *gc.C) {
 	waitStatus := make(chan struct{})
+	statusCalled := 0
 	s.PatchValue(&MachineStatus, func(m *testMachine) (params.StatusResult, error) {
-		// Signal that we're in Status.
-		waitStatus <- struct{}{}
+		// Signal that we're in -second- Status, the first one is always there
+		// as updater checks if the status of manually provisioned machine is
+		// not running
+		if statusCalled += 1; statusCalled > 1 {
+			waitStatus <- struct{}{}
+		}
 		return params.StatusResult{
 			Status: status.Pending.String(),
 			Info:   "",
@@ -107,6 +112,7 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 		tag:        names.NewMachineTag("99"),
 		instanceId: "manual:1234",
 		life:       params.Alive,
+		status:     status.Pending,
 	}
 	dyingc := make(chan struct{})
 	context := &testUpdaterContext{
@@ -144,6 +150,9 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}
+	c.Assert(m.instStatus, gc.Equals, status.Running)
+	c.Assert(m.instStatusInfo, gc.Equals, "Manually provisioned machine")
+	c.Assert(statusCalled, gc.Equals, 1)
 }
 
 type testUpdaterContext struct {
