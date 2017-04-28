@@ -54,18 +54,7 @@ func (c *showCommand) Init(args []string) (err error) {
 	if len(args) != 1 {
 		return errors.New("must specify endpoint URL")
 	}
-
-	urlStr := args[0]
-	if url, err := crossmodel.ParseApplicationURL(urlStr); err != nil {
-		return err
-	} else {
-		// For now we only support offers on the current controller.
-		if url.Source != "" && url.Source != c.ControllerName() {
-			return errors.NotSupportedf("showing endpoints from another controller %q", url.Source)
-		}
-		url.Source = ""
-	}
-	c.url = urlStr
+	c.url = args[0]
 	return nil
 }
 
@@ -90,6 +79,9 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
+	if err := c.validateSource(); err != nil {
+		return errors.Trace(err)
+	}
 	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -106,6 +98,24 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	return c.out.Write(ctx, output)
+}
+
+// validateSource checks that the offer is from the
+// current controller.
+func (c *showCommand) validateSource() error {
+	url, err := crossmodel.ParseApplicationURL(c.url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// For now we only support offers on the current controller.
+	if url.Source != "" && url.Source != controllerName {
+		return errors.NotSupportedf("showing endpoints from another controller %q", url.Source)
+	}
+	return nil
 }
 
 // ShowAPI defines the API methods that cross model show command uses.

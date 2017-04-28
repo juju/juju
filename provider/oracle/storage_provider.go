@@ -4,11 +4,11 @@
 package oracle
 
 import (
-	ociCommon "github.com/juju/go-oracle-cloud/common"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
+	ociCommon "github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/utils/clock"
+
+	"github.com/juju/juju/storage"
 )
 
 type poolType string

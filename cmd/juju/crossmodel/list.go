@@ -124,7 +124,10 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	// For now, all offers come from the one controller.
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	data, err := formatApplicationOfferDetails(controllerName, valid)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found applications")

@@ -4,10 +4,10 @@
 package oracle
 
 import (
+	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 )
 

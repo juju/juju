@@ -8,6 +8,12 @@ import (
 	"fmt"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils/arch"
+	//"github.com/juju/utils/clock"
+	"github.com/juju/version"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -15,11 +21,6 @@ import (
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils/arch"
-	//"github.com/juju/utils/clock"
-	"github.com/juju/version"
-	gc "gopkg.in/check.v1"
 )
 
 type environSuite struct{}

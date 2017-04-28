@@ -142,18 +142,10 @@ func (c *accessCommand) Init(args []string) error {
 
 	c.User = args[0]
 	c.Access = args[1]
-
 	// The remaining args are either model names or offer names.
 	for _, arg := range args[2:] {
 		if featureflag.Enabled(feature.CrossModelRelations) {
 			url, err := crossmodel.ParseApplicationURL(arg)
-			if err == nil && url.User == "" {
-				details, err := c.ClientStore().AccountDetails(c.ControllerName())
-				if err != nil {
-					return err
-				}
-				url.User = details.User
-			}
 			if err == nil {
 				c.OfferURLs = append(c.OfferURLs, url)
 				continue
@@ -280,6 +272,9 @@ func (c *grantCommand) Run(ctx *cmd.Context) error {
 		return c.runForModel()
 	}
 	if len(c.OfferURLs) > 0 {
+		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
+			return errors.Trace(err)
+		}
 		return c.runForOffers()
 	}
 	return c.runForController()
@@ -406,6 +401,9 @@ func (c *revokeCommand) Run(ctx *cmd.Context) error {
 		return c.runForModel()
 	}
 	if len(c.OfferURLs) > 0 {
+		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
+			return errors.Trace(err)
+		}
 		return c.runForOffers()
 	}
 	return c.runForController()
@@ -433,6 +431,30 @@ func (c *revokeCommand) runForModel() error {
 		return err
 	}
 	return block.ProcessBlockedError(client.RevokeModel(c.User, c.Access, models...), block.BlockChange)
+}
+
+type accountDetailsGetter interface {
+	CurrentAccountDetails() (*jujuclient.AccountDetails, error)
+}
+
+// setUnsetUsers sets any empty user entries in the given offer URLs
+// to the currently logged in user.
+func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.ApplicationURL) error {
+	var currentAccountDetails *jujuclient.AccountDetails
+	for _, url := range offerURLs {
+		if url.User != "" {
+			continue
+		}
+		if currentAccountDetails == nil {
+			var err error
+			currentAccountDetails, err = c.CurrentAccountDetails()
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		url.User = currentAccountDetails.User
+	}
+	return nil
 }
 
 // offersForModel group the offer URLs per model.

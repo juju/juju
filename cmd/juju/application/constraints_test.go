@@ -22,27 +22,27 @@ func (s *ServiceConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
-	}{
-		{
-			args: []string{"--application", "mysql", "mem=4G"},
-			err:  `flag provided but not defined: --application`,
-		}, {
-			args: []string{"-s", "mysql", "mem=4G"},
-			err:  `flag provided but not defined: -s`,
-		}, {
-			args: []string{},
-			err:  `no application name specified`,
-		}, {
-			args: []string{"mysql", "="},
-			err:  `malformed constraint "="`,
-		}, {
-			args: []string{"cpu-power=250"},
-			err:  `invalid application name "cpu-power=250"`,
-		}, {
-			args: []string{"mysql", "cpu-power=250"},
-		},
-	} {
-		err := cmdtesting.InitCommand(application.NewServiceSetConstraintsCommand(), test.args)
+	}{{
+		args: []string{"--application", "mysql", "mem=4G"},
+		err:  `flag provided but not defined: --application`,
+	}, {
+		args: []string{"-s", "mysql", "mem=4G"},
+		err:  `flag provided but not defined: -s`,
+	}, {
+		args: []string{},
+		err:  `no application name specified`,
+	}, {
+		args: []string{"mysql", "="},
+		err:  `malformed constraint "="`,
+	}, {
+		args: []string{"cpu-power=250"},
+		err:  `invalid application name "cpu-power=250"`,
+	}, {
+		args: []string{"mysql", "cpu-power=250"},
+	}} {
+		cmd := application.NewServiceSetConstraintsCommand()
+		cmd.SetClientStore(application.NewMockStore())
+		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -72,7 +72,9 @@ func (s *ServiceConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 			args: []string{"mysql"},
 		},
 	} {
-		err := cmdtesting.InitCommand(application.NewServiceGetConstraintsCommand(), test.args)
+		cmd := application.NewServiceGetConstraintsCommand()
+		cmd.SetClientStore(application.NewMockStore())
+		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

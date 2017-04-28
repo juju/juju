@@ -5,6 +5,7 @@ package modelcmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -84,17 +86,25 @@ type ModelCommand interface {
 	// unqualified, in which case it will be assumed to be within the
 	// current controller.
 	//
+	// Passing an empty model name will choose the default
+	// model, or return an error if there isn't one.
+	//
 	// SetModelName is called prior to the wrapped command's Init method
 	// with the active model name. The model name is guaranteed
 	// to be non-empty at entry of Init.
-	SetModelName(modelName string) error
+	SetModelName(modelName string, allowDefault bool) error
 
 	// ModelName returns the name of the model.
-	ModelName() string
+	ModelName() (string, error)
 
 	// ControllerName returns the name of the controller that contains
 	// the model returned by ModelName().
-	ControllerName() string
+	ControllerName() (string, error)
+
+	// initModel initializes the model name, resolving empty
+	// model or controller parts to the current model or controller if
+	// needed. It fails a model cannot be determined.
+	initModel() error
 }
 
 // ModelCommandBase is a convenience type for embedding in commands
@@ -106,8 +116,21 @@ type ModelCommandBase struct {
 	// about controllers, models, etc.
 	store jujuclient.ClientStore
 
-	modelName      string
-	controllerName string
+	// _modelName and _controllerName hold the current
+	// model and controller names. They are only valid
+	// after initModel is called, and should in general
+	// not be accessed directly, but through ModelName and
+	// ControllerName respectively.
+	_modelName      string
+	_controllerName string
+
+	allowDefaultModel bool
+
+	// doneInitModel holds whether initModel has been called.
+	doneInitModel bool
+
+	// initModelError holds the result of the initModel call.
+	initModelError error
 }
 
 // SetClientStore implements the ModelCommand interface.
@@ -117,39 +140,89 @@ func (c *ModelCommandBase) SetClientStore(store jujuclient.ClientStore) {
 
 // ClientStore implements the ModelCommand interface.
 func (c *ModelCommandBase) ClientStore() jujuclient.ClientStore {
+	c.assertRunStarted()
 	return c.store
 }
 
-// SetModelName implements the ModelCommand interface.
-func (c *ModelCommandBase) SetModelName(modelName string) error {
-	controllerName, modelName := SplitModelName(modelName)
+func (c *ModelCommandBase) initModel() error {
+	if c.doneInitModel {
+		return errors.Trace(c.initModelError)
+	}
+	c.doneInitModel = true
+	c.initModelError = c.initModel0()
+	return errors.Trace(c.initModelError)
+}
+
+func (c *ModelCommandBase) initModel0() error {
+	if c._modelName == "" && !c.allowDefaultModel {
+		return errors.Trace(ErrNoModelSpecified)
+	}
+	controllerName, modelName := SplitModelName(c._modelName)
 	if controllerName == "" {
 		currentController, err := c.store.CurrentController()
-		if errors.IsNotFound(err) {
-			return errors.Errorf("no current controller, and none specified")
-		} else if err != nil {
-			return errors.Trace(err)
+		if err != nil {
+			return errors.Trace(translateControllerError(c.store, err))
 		}
 		controllerName = currentController
-	} else {
-		var err error
-		if _, err = c.store.ControllerByName(controllerName); err != nil {
+	} else if _, err := c.store.ControllerByName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	c._controllerName = controllerName
+	if modelName == "" {
+		currentModel, err := c.store.CurrentModel(controllerName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelName = currentModel
+	}
+	c._modelName = modelName
+	return nil
+}
+
+// SetModelName implements the ModelCommand interface.
+func (c *ModelCommandBase) SetModelName(modelName string, allowDefault bool) error {
+	c._modelName = modelName
+	c.allowDefaultModel = allowDefault
+	if c.runStarted {
+		if err := c.initModel(); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	c.controllerName = controllerName
-	c.modelName = modelName
 	return nil
 }
 
 // ModelName implements the ModelCommand interface.
-func (c *ModelCommandBase) ModelName() string {
-	return c.modelName
+func (c *ModelCommandBase) ModelName() (string, error) {
+	c.assertRunStarted()
+	if err := c.initModel(); err != nil {
+		return "", errors.Trace(err)
+	}
+	return c._modelName, nil
 }
 
 // ControllerName implements the ModelCommand interface.
-func (c *ModelCommandBase) ControllerName() string {
-	return c.controllerName
+func (c *ModelCommandBase) ControllerName() (string, error) {
+	c.assertRunStarted()
+	if err := c.initModel(); err != nil {
+		return "", errors.Trace(err)
+	}
+	return c._controllerName, nil
+}
+
+func (c *ModelCommandBase) BakeryClient() (*httpbakery.Client, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.CommandBase.BakeryClient(c.ClientStore(), controllerName)
+}
+
+func (c *ModelCommandBase) CookieJar() (http.CookieJar, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.CommandBase.CookieJar(c.ClientStore(), controllerName)
 }
 
 func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
@@ -163,24 +236,32 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 // NewAPIRoot returns a new connection to the API server for the environment
 // directed to the model specified on the command line.
 func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
+	modelName, err := c.ModelName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// This is work in progress as we remove the ModelName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
-	if c.modelName == "" {
+	if modelName == "" {
 		return nil, errors.Trace(ErrNoModelSpecified)
 	}
-	_, err := c.store.ModelByName(c.controllerName, c.modelName)
+	_, err = c.store.ModelByName(controllerName, modelName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
 		// The model isn't known locally, so query the models
 		// available in the controller, and cache them locally.
-		if err := c.RefreshModels(c.store, c.controllerName); err != nil {
+		if err := c.RefreshModels(c.store, controllerName); err != nil {
 			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
-	return c.newAPIRoot(c.modelName)
+	return c.newAPIRoot(modelName)
 }
 
 // NewControllerAPIRoot returns a new connection to the API server for the environment
@@ -194,25 +275,21 @@ func (c *ModelCommandBase) NewControllerAPIRoot() (api.Connection, error) {
 // newAPIRoot is the internal implementation of NewAPIRoot and NewControllerAPIRoot;
 // if modelName is empty, it makes a controller-only connection.
 func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
-	if c.controllerName == "" {
-		controllers, err := c.store.AllControllers()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(controllers) == 0 {
-			return nil, errors.Trace(ErrNoControllersDefined)
-		}
-		return nil, errors.Trace(ErrNoCurrentController)
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return c.CommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
+	return c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
 }
 
-// ConnectionName returns the name of the connection if there is one.
-// It is possible that the name of the connection is empty if the
-// connection information is supplied through command line arguments
-// or environment variables.
-func (c *ModelCommandBase) ConnectionName() string {
-	return c.modelName
+// CurrentAccountDetails returns details of the account associated with
+// the current controller.
+func (c *ModelCommandBase) CurrentAccountDetails() (*jujuclient.AccountDetails, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.ClientStore().AccountDetails(controllerName)
 }
 
 // WrapOption specifies an option to the Wrap function.
@@ -279,7 +356,26 @@ func (w *modelCommandWrapper) inner() cmd.Command {
 	return w.ModelCommand
 }
 
+func (w *modelCommandWrapper) Init(args []string) error {
+	if !w.skipModelFlags {
+		if err := w.ModelCommand.SetModelName(w.modelName, w.useDefaultModel); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := w.ModelCommand.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
+	w.setRunStarted()
+	store := w.ClientStore()
+	if store == nil {
+		store = jujuclient.NewFileClientStore()
+	}
+	store = QualifyingClientStore{store}
+	w.SetClientStore(store)
 	return w.ModelCommand.Run(ctx)
 }
 
@@ -289,34 +385,6 @@ func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&w.modelName, "model", "", "")
 	}
 	w.ModelCommand.SetFlags(f)
-}
-
-func (w *modelCommandWrapper) Init(args []string) error {
-	store := w.ClientStore()
-	if store == nil {
-		store = jujuclient.NewFileClientStore()
-	}
-	store = QualifyingClientStore{store}
-	w.SetClientStore(store)
-	if !w.skipModelFlags {
-		if w.modelName == "" && w.useDefaultModel {
-			// Look for the default.
-			defaultModel, err := GetCurrentModel(store)
-			if err != nil {
-				return err
-			}
-			w.modelName = defaultModel
-		}
-		if w.modelName == "" && !w.useDefaultModel {
-			return errors.Trace(ErrNoModelSpecified)
-		}
-	}
-	if w.modelName != "" {
-		if err := w.SetModelName(w.modelName); err != nil {
-			return translateControllerError(store, err)
-		}
-	}
-	return w.ModelCommand.Init(args)
 }
 
 type bootstrapContext struct {

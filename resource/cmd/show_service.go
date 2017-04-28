@@ -90,7 +90,7 @@ func (c *ShowServiceCommand) Init(args []string) error {
 func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.deps.NewClient(c)
 	if err != nil {
-		return errors.Annotatef(err, "can't connect to %s", c.ConnectionName())
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 

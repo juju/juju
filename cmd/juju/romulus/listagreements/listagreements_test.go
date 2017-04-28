@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/terms-client/api/wireformat"
 	jujutesting "github.com/juju/testing"
@@ -15,6 +16,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/juju/romulus/listagreements"
+	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -59,14 +61,15 @@ const (
 )
 
 func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
+	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No agreements to display.\n")
 	c.Assert(s.client.called, jc.IsTrue)
 
 	s.client.setError("well, this is embarassing")
-	ctx, err = cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
+
+	ctx, err = s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarassing")
 	c.Assert(s.client.called, jc.IsTrue)
 
@@ -78,13 +81,13 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 	}}
 	s.client.setAgreements(agreements)
 
-	ctx, err = cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
+	ctx, err = s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsJSONOutput)
 	c.Assert(s.client.called, jc.IsTrue)
 
-	ctx, err = cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand(), "--format", "yaml")
+	ctx, err = s.runCommand(c, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "- user: test-user\n  term: test-term\n  revision: 1\n  createdon: 2015-12-25T00:00:00Z\n")
@@ -93,7 +96,7 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 
 func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
 	s.client.setError("well, this is embarassing")
-	ctx, err := cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
+	ctx, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarassing")
 	c.Assert(s.client.called, jc.IsTrue)
 
@@ -106,17 +109,23 @@ func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
 	}}
 	s.client.setAgreements(agreements)
 
-	ctx, err = cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
+	ctx, err = s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsJSONOutputWithOwner)
 	c.Assert(s.client.called, jc.IsTrue)
 
-	ctx, err = cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand(), "--format", "yaml")
+	ctx, err = s.runCommand(c, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "- user: test-user\n  owner: owner\n  term: test-term\n  revision: 1\n  createdon: 2015-12-25T00:00:00Z\n")
 	c.Assert(s.client.called, jc.IsTrue)
+}
+
+func (s *listAgreementsSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmd := listagreements.NewListAgreementsCommand()
+	cmd.SetClientStore(newMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 type mockClient struct {
@@ -144,4 +153,13 @@ func (c *mockClient) GetUsersAgreements() ([]wireformat.AgreementResponse, error
 		return nil, errors.New(c.err)
 	}
 	return c.agreements, nil
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	return store
 }

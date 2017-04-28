@@ -91,7 +91,10 @@ var errConnTimedOut = errors.New("open connection timed out")
 
 // Run implements Command.Run
 func (c *killCommand) Run(ctx *cmd.Context) error {
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	if !c.assumeYes {
 		if err := confirmDestruction(ctx, controllerName); err != nil {

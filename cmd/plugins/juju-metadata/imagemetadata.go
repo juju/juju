@@ -28,12 +28,16 @@ type imageMetadataCommandBase struct {
 }
 
 func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		context, c.ClientStore(), environs.GlobalProviderRegistry(),
-	)(c.ControllerName())
+	)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -21,12 +21,12 @@ import (
 
 // NewListWalletsCommand returns a new command that is used
 // to list wallets a user has access to.
-func NewListWalletsCommand() cmd.Command {
-	return modelcmd.WrapBase(&listWalletsCommand{})
+func NewListWalletsCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&listWalletsCommand{})
 }
 
 type listWalletsCommand struct {
-	modelcmd.CommandBase
+	modelcmd.ControllerCommandBase
 
 	out cmd.Output
 }

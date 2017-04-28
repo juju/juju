@@ -4,6 +4,7 @@
 package createwallet_test
 
 import (
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -11,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/createwallet"
+	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -31,8 +33,7 @@ func (s *createWalletSuite) SetUpTest(c *gc.C) {
 
 func (s *createWalletSuite) TestCreateWallet(c *gc.C) {
 	s.mockAPI.resp = "name wallet set to 5"
-	createCmd := createwallet.NewCreateWalletCommand()
-	ctx, err := cmdtesting.RunCommand(c, createCmd, "name", "5")
+	ctx, err := s.runCommand(c, "name", "5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "name wallet set to 5\n")
 	s.mockAPI.CheckCall(c, 0, "CreateWallet", "name", "5")
@@ -40,8 +41,7 @@ func (s *createWalletSuite) TestCreateWallet(c *gc.C) {
 
 func (s *createWalletSuite) TestCreateWalletAPIError(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New("something failed"))
-	createCmd := createwallet.NewCreateWalletCommand()
-	_, err := cmdtesting.RunCommand(c, createCmd, "name", "5")
+	_, err := s.runCommand(c, "name", "5")
 	c.Assert(err, gc.ErrorMatches, "failed to create the wallet: something failed")
 	s.mockAPI.CheckCall(c, 0, "CreateWallet", "name", "5")
 }
@@ -73,11 +73,16 @@ func (s *createWalletSuite) TestCreateWalletErrors(c *gc.C) {
 		if test.expectedError != "" {
 			s.mockAPI.SetErrors(errors.New(test.expectedError))
 		}
-		createCmd := createwallet.NewCreateWalletCommand()
-		_, err := cmdtesting.RunCommand(c, createCmd, test.args...)
+		_, err := s.runCommand(c, test.args...)
 		c.Assert(err, gc.ErrorMatches, test.expectedError)
 		s.mockAPI.CheckNoCalls(c)
 	}
+}
+
+func (s *createWalletSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmd := createwallet.NewCreateWalletCommand()
+	cmd.SetClientStore(newMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 func newMockAPI(s *testing.Stub) *mockapi {
@@ -92,4 +97,13 @@ type mockapi struct {
 func (api *mockapi) CreateWallet(name, value string) (string, error) {
 	api.MethodCall(api, "CreateWallet", name, value)
 	return api.resp, api.NextErr()
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	return store
 }

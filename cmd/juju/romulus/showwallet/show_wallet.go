@@ -26,12 +26,12 @@ var logger = loggo.GetLogger("romulus.cmd.showwallet")
 
 // NewShowWalletCommand returns a new command that is used
 // to show details of the specified wireformat.
-func NewShowWalletCommand() cmd.Command {
-	return modelcmd.WrapBase(&showWalletCommand{})
+func NewShowWalletCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&showWalletCommand{})
 }
 
 type showWalletCommand struct {
-	modelcmd.CommandBase
+	modelcmd.ControllerCommandBase
 
 	out    cmd.Output
 	wallet string

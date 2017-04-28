@@ -47,8 +47,8 @@ Examples:
 
 // NewAgreeCommand returns a new command that can be
 // used to create user agreements.
-func NewAgreeCommand() cmd.Command {
-	return modelcmd.WrapBase(&agreeCommand{})
+func NewAgreeCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&agreeCommand{})
 }
 
 type term struct {
@@ -59,7 +59,7 @@ type term struct {
 
 // agreeCommand creates a user agreement to the specified terms.
 type agreeCommand struct {
-	modelcmd.CommandBase
+	modelcmd.ControllerCommandBase
 
 	terms           []term
 	termIds         []string

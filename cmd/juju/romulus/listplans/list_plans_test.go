@@ -6,6 +6,7 @@ package listplans_test
 import (
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	api "github.com/juju/romulus/api/plan"
 	wireformat "github.com/juju/romulus/wireformat/plan"
@@ -14,7 +15,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/listplans"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -60,13 +64,10 @@ func (s *ListPlansCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListPlansCommandSuite) TestTabularOutput(c *gc.C) {
-	listPlans := &listplans.ListPlansCommand{
-		CharmResolver: &mockCharmResolver{
-			ResolvedURL: "series/some-charm-url",
-			Stub:        s.stub,
-		},
-	}
-	ctx, err := cmdtesting.RunCommand(c, listPlans, "some-charm-url")
+	ctx, err := s.runCommand(c, &mockCharmResolver{
+		ResolvedURL: "series/some-charm-url",
+		Stub:        s.stub,
+	}, "some-charm-url")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		`Plan             	Price	Description                                       
@@ -117,6 +118,22 @@ bob/test-plan-1  	     	Lorem ipsum dolor sit amet,
                  	     	                                                  
 carol/test-plan-2	     	                                                  
 `)
+}
+
+func (s *ListPlansCommandSuite) runCommand(c *gc.C, resolver rcmd.CharmResolver, args ...string) (*cmd.Context, error) {
+	cmd := listplans.NewListPlansCommand()
+	cmd.SetClientStore(newMockStore())
+	modelcmd.InnerCommand(cmd).(*listplans.ListPlansCommand).CharmResolver = resolver
+	return cmdtesting.RunCommand(c, cmd, args...)
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	return store
 }
 
 func (s *ListPlansCommandSuite) TestGetCommands(c *gc.C) {
@@ -172,13 +189,10 @@ func (s *ListPlansCommandSuite) TestGetCommands(c *gc.C) {
 		c.Logf("Running test %d %s", i, t.about)
 		s.mockAPI.reset()
 
-		listPlans := &listplans.ListPlansCommand{
-			CharmResolver: &mockCharmResolver{
-				ResolvedURL: t.resolvedCharmURL,
-				Stub:        s.stub,
-			},
-		}
-		_, err := cmdtesting.RunCommand(c, listPlans, t.args...)
+		_, err := s.runCommand(c, &mockCharmResolver{
+			ResolvedURL: t.resolvedCharmURL,
+			Stub:        s.stub,
+		}, t.args...)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {

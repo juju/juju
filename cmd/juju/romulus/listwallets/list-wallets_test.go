@@ -4,6 +4,7 @@
 package listwallets_test
 
 import (
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/wireformat/budget"
@@ -12,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/listwallets"
+	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -31,15 +33,13 @@ func (s *listWalletsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *listWalletsSuite) TestUnexpectedParameters(c *gc.C) {
-	listWallets := listwallets.NewListWalletsCommand()
-	_, err := cmdtesting.RunCommand(c, listWallets, "unexpected")
+	_, err := s.runCommand(c, "unexpected")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["unexpected"\]`)
 }
 
 func (s *listWalletsSuite) TestAPIError(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New("well, this is embarrassing"))
-	listWallets := listwallets.NewListWalletsCommand()
-	_, err := cmdtesting.RunCommand(c, listWallets)
+	_, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "failed to retrieve wallets: well, this is embarrassing")
 }
 
@@ -94,9 +94,7 @@ func (s *listWalletsSuite) TestListWalletsOutput(c *gc.C) {
 		"             \t       \t        \t         \t     \n" +
 		"Credit limit:\t    400\t        \t         \t     \n"
 
-	listWallets := listwallets.NewListWalletsCommand()
-
-	ctx, err := cmdtesting.RunCommand(c, listWallets)
+	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, expected)
 	s.mockAPI.CheckCallNames(c, "ListWallets")
@@ -120,21 +118,32 @@ func (s *listWalletsSuite) TestListWalletsOutputNoWallets(c *gc.C) {
 		"             \t       \t        \t         \t     \n" +
 		"Credit limit:\t      0\t        \t         \t     \n"
 
-	listWallets := listwallets.NewListWalletsCommand()
-
-	ctx, err := cmdtesting.RunCommand(c, listWallets)
+	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, expected)
 	s.mockAPI.CheckCallNames(c, "ListWallets")
 }
 
 func (s *listWalletsSuite) TestListWalletsNoOutput(c *gc.C) {
-	listWallets := listwallets.NewListWalletsCommand()
-
-	ctx, err := cmdtesting.RunCommand(c, listWallets)
+	ctx, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, `no wallet information available`)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, ``)
 	s.mockAPI.CheckCallNames(c, "ListWallets")
+}
+
+func (s *listWalletsSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmd := listwallets.NewListWalletsCommand()
+	cmd.SetClientStore(newMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	return store
 }
 
 type mockapi struct {

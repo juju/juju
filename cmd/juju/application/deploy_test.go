@@ -513,7 +513,7 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	})
 	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
 	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
-	declaredFlags = append(declaredFlags, modelCommandBaseFlags...)
+	declaredFlags = append(declaredFlags, "B", "no-browser-login")
 	sort.Strings(declaredFlags)
 	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
 }
@@ -1267,7 +1267,7 @@ func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 }
 
-func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc.C) {
+func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.C) {
 	// Copy multi-series charm to path where we can deploy it from
 	charmsPath := c.MkDir()
 	charmDir := testcharms.Repo.ClonedDir(charmsPath, "multi-series")
@@ -1286,6 +1286,7 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc
 	cmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
+	cmd.SetClientStore(NewMockStore())
 	context, err := cmdtesting.RunCommand(c, cmd, charmDir.Path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1309,6 +1310,7 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
+	deployCmd.SetClientStore(NewMockStore())
 	_, err := cmdtesting.RunCommand(c, deployCmd, charmDir.Path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1320,7 +1322,7 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 	}
 }
 
-func (s *DeployUnitTestSuite) TestRedeployLocalCharm_SucceedsWhenDeployed(c *gc.C) {
+func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C) {
 	charmsPath := c.MkDir()
 	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
 
@@ -1336,6 +1338,7 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharm_SucceedsWhenDeployed(c *gc.
 	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
+	deployCmd.SetClientStore(NewMockStore())
 	context, err := cmdtesting.RunCommand(c, deployCmd, dummyURL.String())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1396,6 +1399,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
+	deployCmd.SetClientStore(NewMockStore())
 	context, err := cmdtesting.RunCommand(c, deployCmd, "cs:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 

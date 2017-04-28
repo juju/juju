@@ -39,9 +39,13 @@ type Command interface {
 	// SetAPIOpen sets the function used for opening an API connection.
 	SetAPIOpen(opener api.OpenFunc)
 
-	// closeContext closes the command's API context.
-	closeContext()
+	// SetModelAPI sets the api used to access model information.
+	SetModelAPI(api ModelAPI)
+
+	// closeAPIContexts closes any API contexts that have been opened.
+	closeAPIContexts()
 	setCmdContext(*cmd.Context)
+	setRunStarted()
 }
 
 // ModelAPI provides access to the model client facade methods.
@@ -55,19 +59,31 @@ type ModelAPI interface {
 type CommandBase struct {
 	cmd.CommandBase
 	cmdContext  *cmd.Context
-	apiContext  *APIContext
+	apiContexts map[string]*apiContext
 	modelAPI_   ModelAPI
 	apiOpenFunc api.OpenFunc
 	authOpts    AuthOpts
+	runStarted  bool
 }
 
-// closeContext closes the command's API context
-// if it has actually been created.
-func (c *CommandBase) closeContext() {
-	if c.apiContext != nil {
-		if err := c.apiContext.Close(); err != nil {
+func (c *CommandBase) assertRunStarted() {
+	if !c.runStarted {
+		panic("inappropriate method called at init time")
+	}
+}
+
+func (c *CommandBase) setRunStarted() {
+	c.runStarted = true
+}
+
+// closeAPIContexts closes any API contexts that have
+// been created.
+func (c *CommandBase) closeAPIContexts() {
+	for name, ctx := range c.apiContexts {
+		if err := ctx.Close(); err != nil {
 			logger.Errorf("%v", err)
 		}
+		delete(c.apiContexts, name)
 	}
 }
 
@@ -87,6 +103,7 @@ func (c *CommandBase) SetAPIOpen(apiOpen api.OpenFunc) {
 }
 
 func (c *CommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
+	c.assertRunStarted()
 	if c.modelAPI_ != nil {
 		return c.modelAPI_, nil
 	}
@@ -104,6 +121,7 @@ func (c *CommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
 ) (api.Connection, error) {
+	c.assertRunStarted()
 	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -166,7 +184,8 @@ func (c *CommandBase) NewAPIConnectionParams(
 	controllerName, modelName string,
 	accountDetails *jujuclient.AccountDetails,
 ) (juju.NewAPIConnectionParams, error) {
-	bakeryClient, err := c.BakeryClient()
+	c.assertRunStarted()
+	bakeryClient, err := c.BakeryClient(store, controllerName)
 	if err != nil {
 		return juju.NewAPIConnectionParams{}, errors.Trace(err)
 	}
@@ -197,8 +216,9 @@ func (c *CommandBase) NewAPIConnectionParams(
 // connecting to the Juju API itself because it does not
 // have the correct TLS setup - use api.Connection.HTTPClient
 // for that.
-func (c *CommandBase) HTTPClient() (*http.Client, error) {
-	bakeryClient, err := c.BakeryClient()
+func (c *CommandBase) HTTPClient(store jujuclient.ClientStore, controllerName string) (*http.Client, error) {
+	c.assertRunStarted()
+	bakeryClient, err := c.BakeryClient(store, controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -207,25 +227,36 @@ func (c *CommandBase) HTTPClient() (*http.Client, error) {
 
 // BakeryClient returns a macaroon bakery client that
 // uses the same HTTP client returned by HTTPClient.
-func (c *CommandBase) BakeryClient() (*httpbakery.Client, error) {
-	if err := c.initAPIContext(); err != nil {
+func (c *CommandBase) BakeryClient(store jujuclient.CookieStore, controllerName string) (*httpbakery.Client, error) {
+	c.assertRunStarted()
+	ctx, err := c.getAPIContext(store, controllerName)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.NewBakeryClient(), nil
+	return ctx.NewBakeryClient(), nil
 }
 
 // APIOpen establishes a connection to the API server using the
-// the given api.Info and api.DialOpts.
+// the given api.Info and api.DialOpts, and associating any stored
+// authorization tokens with the given controller name.
 func (c *CommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	if err := c.initAPIContext(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	c.assertRunStarted()
 	return c.apiOpen(info, opts)
+}
+
+// apiOpen establishes a connection to the API server using the
+// the give api.Info and api.DialOpts.
+func (c *CommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	if c.apiOpenFunc != nil {
+		return c.apiOpenFunc(info, opts)
+	}
+	return api.Open(info, opts)
 }
 
 // RefreshModels refreshes the local models cache for the current user
 // on the specified controller.
 func (c *CommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
+	c.assertRunStarted()
 	modelManager, err := c.modelAPI(store, controllerName)
 	if err != nil {
 		return errors.Trace(err)
@@ -252,58 +283,52 @@ func (c *CommandBase) RefreshModels(store jujuclient.ClientStore, controllerName
 	return nil
 }
 
-// initAPIContext lazily initializes c.apiContext. Doing this lazily means that
-// we avoid unnecessarily loading and saving the cookies
-// when a command does not actually make an API connection.
-func (c *CommandBase) initAPIContext() error {
-	if c.apiContext != nil {
-		return nil
+// getAPIContext returns an apiContext for the given controller.
+// It will return the same context if called twice for the same controller.
+// The context will be closed when closeAPIContexts is called.
+func (c *CommandBase) getAPIContext(store jujuclient.CookieStore, controllerName string) (*apiContext, error) {
+	c.assertRunStarted()
+	if ctx := c.apiContexts[controllerName]; ctx != nil {
+		return ctx, nil
 	}
-	apiContext, err := NewAPIContext(c.cmdContext, &c.authOpts)
+	if controllerName == "" {
+		return nil, errors.New("cannot get API context from empty controller name")
+	}
+	ctx, err := newAPIContext(c.cmdContext, &c.authOpts, store, controllerName)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	c.apiContext = apiContext
-	return nil
-}
-
-// APIContext returns the API context used by the command.
-// It should only be called while the Run method is being called.
-//
-// The returned APIContext should not be closed (it will be
-// closed when the Run method completes).
-func (c *CommandBase) APIContext() (*APIContext, error) {
-	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext, nil
+	if c.apiContexts == nil {
+		c.apiContexts = make(map[string]*apiContext)
+	}
+	c.apiContexts[controllerName] = ctx
+	return ctx, nil
+}
+
+// CookieJar returns the cookie jar that is used to store auth credentials
+// when connecting to the API.
+func (c *CommandBase) CookieJar(store jujuclient.CookieStore, controllerName string) (http.CookieJar, error) {
+	ctx, err := c.getAPIContext(store, controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ctx.CookieJar(), nil
 }
 
 // ClearControllerMacaroons will remove all macaroons stored
-// for the controller from the persistent cookie jar.
+// for the given controller from the persistent cookie jar.
 // This is called both from 'juju logout' and a failed 'juju register'.
-func (c *CommandBase) ClearControllerMacaroons(endpoints []string) error {
-	apictx, err := c.APIContext()
+func (c *CommandBase) ClearControllerMacaroons(store jujuclient.CookieStore, controllerName string) error {
+	ctx, err := c.getAPIContext(store, controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, s := range endpoints {
-		apictx.jar.RemoveAllHost(s)
-	}
+	ctx.jar.RemoveAll()
 	return nil
 }
 
 func (c *CommandBase) setCmdContext(ctx *cmd.Context) {
 	c.cmdContext = ctx
-}
-
-// apiOpen establishes a connection to the API server using the
-// the give api.Info and api.DialOpts.
-func (c *CommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	if c.apiOpenFunc != nil {
-		return c.apiOpenFunc(info, opts)
-	}
-	return api.Open(info, opts)
 }
 
 // WrapBase wraps the specified Command. This should be
@@ -325,19 +350,10 @@ func (w *baseCommandWrapper) inner() cmd.Command {
 
 // Run implements Command.Run.
 func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
-	defer w.closeContext()
+	defer w.closeAPIContexts()
 	w.setCmdContext(ctx)
+	w.setRunStarted()
 	return w.Command.Run(ctx)
-}
-
-// SetFlags implements Command.SetFlags.
-func (w *baseCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	w.Command.SetFlags(f)
-}
-
-// Init implements Command.Init.
-func (w *baseCommandWrapper) Init(args []string) error {
-	return w.Command.Init(args)
 }
 
 func newAPIConnectionParams(

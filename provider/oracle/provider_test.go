@@ -4,14 +4,14 @@
 package oracle_test
 
 import (
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type environProviderSuite struct{}
