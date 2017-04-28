@@ -4,6 +4,8 @@
 package remotefirewaller_test
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"github.com/juju/utils/set"
@@ -235,6 +237,7 @@ func (st *mockState) KeyRelation(key string) (remotefirewaller.Relation, error) 
 
 type mockUnit struct {
 	testing.Stub
+	mu            sync.Mutex
 	name          string
 	assigned      bool
 	publicAddress network.Address
@@ -255,6 +258,9 @@ func (u *mockUnit) Name() string {
 
 func (u *mockUnit) PublicAddress() (network.Address, error) {
 	u.MethodCall(u, "PublicAddress")
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	if err := u.NextErr(); err != nil {
 		return network.Address{}, err
 	}
@@ -278,6 +284,13 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 	return u.machineId, nil
 }
 
+func (u *mockUnit) updateAddress(value string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	u.publicAddress = network.Address{Value: value}
+}
+
 type mockMachine struct {
 	testing.Stub
 	id      string
@@ -285,7 +298,10 @@ type mockMachine struct {
 }
 
 func newMockMachine(id string) *mockMachine {
-	return &mockMachine{id: id}
+	return &mockMachine{
+		id:      id,
+		watcher: newMockAddressWatcher(),
+	}
 }
 
 func (m *mockMachine) Id() string {
@@ -295,9 +311,6 @@ func (m *mockMachine) Id() string {
 
 func (m *mockMachine) WatchAddresses() state.NotifyWatcher {
 	m.MethodCall(m, "WatchAddresses")
-	if m.watcher == nil {
-		m.watcher = newMockAddressWatcher()
-	}
 	return m.watcher
 }
 
