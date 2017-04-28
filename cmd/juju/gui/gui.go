@@ -6,6 +6,7 @@ package gui
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -99,7 +100,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	store := modelcmd.QualifyingClientStore{c.ClientStore()}
 	details, err := store.ModelByName(c.ControllerName(), c.ModelName())
 	if err != nil {
-		return errors.Annotate(err, "cannot retrieve model details")
+		return errors.Annotate(err, "cannot retrieve model details: please make sure you switched to a valid model")
 	}
 
 	// Make 2 URLs to try - the old and the new.
@@ -108,6 +109,8 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot construct model name")
 	}
+	// Do not include any possible "@external" fragment in the path.
+	qualifiedModelName = strings.Replace(qualifiedModelName, "@external/", "/", 1)
 	newRawURL := fmt.Sprintf("https://%s/gui/u/%s", conn.Addr(), qualifiedModelName)
 
 	// Check that the Juju GUI is available.
