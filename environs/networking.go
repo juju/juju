@@ -16,6 +16,9 @@ import (
 // Networking in this case.
 var SupportsNetworking = supportsNetworking
 
+// DefaultProviderSpaceId is the provider id for the default space.
+const DefaultProviderSpaceId = ""
+
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
@@ -45,14 +48,15 @@ type Networking interface {
 	// ProviderSpaceInfo returns the details of the space requested as
 	// a ProviderSpaceInfo. This will contain everything needed to
 	// decide whether an Environ of the same type in another
-	// controller could route to the space. If "" is passed as
-	// ProviderSpaceId, details for the default space will be
-	// returned.
-	ProviderSpaceInfo(providerSpaceId string) (ProviderSpaceInfo, error)
+	// controller could route to the space. Details for the default
+	// space can be retrieved by specifying DefaultProviderSpaceId.
+	// This method can often be implemented even if the provider
+	// doesn't support spaces fully.
+	ProviderSpaceInfo(providerSpaceId string) (*ProviderSpaceInfo, error)
 
 	// IsRoutable returns whether this Environ can connect to the
 	// given space via cloud-local addresses.
-	IsRoutable(targetSpace ProviderSpaceInfo) (bool, error)
+	IsSpaceRoutable(targetSpace *ProviderSpaceInfo) (bool, error)
 
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also

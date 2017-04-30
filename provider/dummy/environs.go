@@ -1668,11 +1668,11 @@ func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfa
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(string) (environs.ProviderSpaceInfo, error) {
-	return environs.ProviderSpaceInfo{}, errors.NotSupportedf("provider space info")
+func (*environ) ProviderSpaceInfo(string) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
 }
 
-// IsRoutable implements NetworkingEnviron.
-func (*environ) IsRoutable(targetSpace environs.ProviderSpaceInfo) (bool, error) {
+// IsSpaceRoutable implements NetworkingEnviron.
+func (*environ) IsSpaceRoutable(targetSpace *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
