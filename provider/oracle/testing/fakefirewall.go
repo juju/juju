@@ -11,15 +11,6 @@ import (
 	"github.com/juju/juju/provider/oracle/network"
 )
 
-// FakeComposer implements common.Composer interface
-type FakeComposer struct {
-	Compose string
-}
-
-func (f FakeComposer) ComposeName(name string) string {
-	return f.Compose
-}
-
 // FakeRules implement common.RuleAPI interface
 type FakeRules struct {
 	All       response.AllSecRules

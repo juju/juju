@@ -22,8 +22,8 @@ const (
 	providerType = "oracle-compute"
 )
 
-// environProvider type implements environs.EnvironProvider interface
-type environProvider struct{}
+// EnvironProvider type implements environs.EnvironProvider interface
+type EnvironProvider struct{}
 
 var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
@@ -44,17 +44,17 @@ var cloudSchema = &jsonschema.Schema{
 }
 
 // CloudSchema is defined on the environs.EnvironProvider interface.
-func (e environProvider) CloudSchema() *jsonschema.Schema {
+func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
 
 // Ping is defined on the environs.EnvironProvider interface.
-func (e environProvider) Ping(endpoint string) error {
+func (e EnvironProvider) Ping(endpoint string) error {
 	return nil
 }
 
 // PrepareConfig is defined on the environs.EnvironProvider interface.
-func (e environProvider) PrepareConfig(config environs.PrepareConfigParams) (*config.Config, error) {
+func (e EnvironProvider) PrepareConfig(config environs.PrepareConfigParams) (*config.Config, error) {
 	if err := e.validateCloudSpec(config.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
@@ -63,7 +63,7 @@ func (e environProvider) PrepareConfig(config environs.PrepareConfigParams) (*co
 }
 
 // validateCloudSpec validates the given configuration against the oracle cloud spec
-func (e environProvider) validateCloudSpec(spec environs.CloudSpec) error {
+func (e EnvironProvider) validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -84,7 +84,7 @@ func (e environProvider) validateCloudSpec(spec environs.CloudSpec) error {
 }
 
 // Open is defined on the environs.EnvironProvider interface.
-func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, error) {
+func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", params.Config.Name())
 	if err := e.validateCloudSpec(params.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
@@ -104,11 +104,11 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 		return nil, errors.Trace(err)
 	}
 
-	return newOracleEnviron(e, params, cli, clock.WallClock)
+	return NewOracleEnviron(e, params, cli, clock.WallClock)
 }
 
 // Validate is defined on the config.Validator interface.
-func (e environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (e EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
@@ -140,17 +140,17 @@ var credentials = map[cloud.AuthType]cloud.CredentialSchema{
 }
 
 // CredentialSchemas is defined on the environs.ProviderCredentials interface.
-func (e environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+func (e EnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return credentials
 }
 
 // DetectCredentials is defined on the environs.ProviderCredentials interface.
-func (e environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }
 
 // FinalizeCredential is defined on the environs.ProviderCredentials interface.
-func (e environProvider) FinalizeCredential(
+func (e EnvironProvider) FinalizeCredential(
 	cfx environs.FinalizeCredentialContext,
 	params environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {

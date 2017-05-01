@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
+	oracletesting "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -17,11 +18,11 @@ var _ = gc.Suite(&networkingSuite{})
 
 func (n networkingSuite) TestDeleteMachineVnicSet(c *gc.C) {
 	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
+		&oracle.EnvironProvider{},
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		DefaultEnvironAPI,
+		oracletesting.DefaultEnvironAPI,
 		&advancingClock,
 	)
 

@@ -7,7 +7,16 @@ import (
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 )
+
+type OracleInstancer interface {
+	environs.Environ
+
+	ProviderID(id instance.Id) (string, error)
+}
 
 // Instancer used to retrieve details from a given instance
 // in the oracle cloud infrastructure

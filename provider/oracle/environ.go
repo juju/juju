@@ -43,7 +43,7 @@ type OracleEnviron struct {
 	oraclenet.Firewaller
 
 	mutex     *sync.Mutex
-	p         *environProvider
+	p         *EnvironProvider
 	spec      environs.CloudSpec
 	cfg       *config.Config
 	client    EnvironAPI
@@ -78,6 +78,15 @@ type EnvironAPI interface {
 	StorageAPI
 }
 
+func (o *OracleEnviron) SetEnvironAPI(client EnvironAPI) {
+	if o == nil {
+		return
+	}
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	o.client = client
+}
+
 // AvailabilityZones is defined in the common.ZonedEnviron interface
 func (o *OracleEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
@@ -98,8 +107,8 @@ func (o *OracleEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]stri
 	return zones, nil
 }
 
-// newOracleEnviron returns a new OracleEnviron
-func newOracleEnviron(p *environProvider, args environs.OpenParams, client EnvironAPI, c clock.Clock) (env *OracleEnviron, err error) {
+// NewOracleEnviron returns a new OracleEnviron
+func NewOracleEnviron(p *EnvironProvider, args environs.OpenParams, client EnvironAPI, c clock.Clock) (env *OracleEnviron, err error) {
 	if client == nil {
 		return nil, errors.NotFoundf("oracle client")
 	}
@@ -119,7 +128,7 @@ func newOracleEnviron(p *environProvider, args environs.OpenParams, client Envir
 		return nil, errors.Trace(err)
 	}
 	env.Firewaller = oraclenet.NewFirewall(env, client, c)
-	env.Networking = oraclenet.NewEnviron(client)
+	env.Networking = oraclenet.NewEnviron(client, env)
 
 	source := rand.NewSource(env.clock.Now().UTC().UnixNano())
 	r := rand.New(source)
@@ -206,7 +215,9 @@ func (e *OracleEnviron) getCloudInitConfig(series string, networks map[string]oc
 // buildSpacesMap builds a map with juju converted names from provider space names
 //
 // shamelessly copied from the MAAS provider
-func (e *OracleEnviron) buildSpacesMap() (map[string]network.SpaceInfo, error) {
+func (e *OracleEnviron) buildSpacesMap() (map[string]network.SpaceInfo, map[string]string, error) {
+	empty := set.Strings{}
+	providerIdMap := map[string]string{}
 	// NOTE (gsamfira): This seems brittle to me, and I would much rather get this
 	// from state, as that information should already be there from the discovered spaces
 	// and that is the information that gets presented to the user when running:
@@ -215,16 +226,16 @@ func (e *OracleEnviron) buildSpacesMap() (map[string]network.SpaceInfo, error) {
 	// without creating a facade. Someone with more knowledge on this might be able to chip in.
 	spaces, err := e.Spaces()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, providerIdMap, errors.Trace(err)
 	}
 	spaceMap := make(map[string]network.SpaceInfo)
-	empty := set.Strings{}
 	for _, space := range spaces {
 		jujuName := network.ConvertSpaceName(space.Name, empty)
 		spaceMap[jujuName] = space
 		empty.Add(jujuName)
+		providerIdMap[string(space.ProviderId)] = space.Name
 	}
-	return spaceMap, nil
+	return spaceMap, providerIdMap, nil
 
 }
 
@@ -247,31 +258,51 @@ func (e *OracleEnviron) getInstanceNetworks(
 			Seclists: secLists,
 		},
 	}
-	spaces := map[string]bool{}
-	if len(args.EndpointBindings) != 0 {
-		for _, spaceProviderID := range args.EndpointBindings {
-			logger.Debugf("Adding space %s", string(spaceProviderID))
-			spaces[string(spaceProviderID)] = true
-		}
-	}
+	spaces := set.Strings{}
 	if s := args.Constraints.IncludeSpaces(); len(s) != 0 {
 		for _, val := range s {
-			logger.Debugf("Adding space %s", val)
-			spaces[val] = true
+			logger.Debugf("Adding space from constraints %s", val)
+			spaces.Add(val)
 		}
 	}
-	// No spaces specified by user. Just return the default NIC
-	if len(spaces) == 0 {
-		return networking, nil
-	}
 
-	providerSpaces, err := e.buildSpacesMap()
+	// NOTE (gsamfira): The way spaces works seems really iffy to me. We currently
+	// rely on two sources of truth to determine the spaces to which we should attach
+	// an instance. This becomes evident then we try to use --constraints and --bind
+	// to specify the space.
+	// In both cases, the user specifies the space name that comes up in juju spaces
+	// When fetching the space using constraints inside the provider, we get the actual
+	// space name passed in by the user. However, when we go through args.EndpointBindings
+	// we get a mapping between the endpoint binding name (not the space name) and the ProviderID
+	// of the space (unlike constraints where you get the name). All this without being able to access
+	// the source of truth the user used when selecting the space, which is juju state. So we need to:
+	// 1) fetch spaces from the provider
+	// 2) parse the name and mutate it to match what the discover spaces worker does (and hope
+	// that the API returns the spaces in the same order every time)
+	// 3) create a map of those spaces both name-->space and providerID-->name to be able to match
+	// both cases. This all seems really brittle to me.
+	providerSpaces, providerIds, err := e.buildSpacesMap()
 	if err != nil {
 		return map[string]oci.Networker{}, err
 	}
+
+	if len(args.EndpointBindings) != 0 {
+		for _, providerID := range args.EndpointBindings {
+			if name, ok := providerIds[string(providerID)]; ok {
+				logger.Debugf("Adding space from bindings %s", name)
+				spaces.Add(name)
+			}
+		}
+	}
+
+	// No spaces specified by user. Just return the default NIC
+	if spaces.IsEmpty() {
+		return networking, nil
+	}
+
 	//start from 1. eth0 is the default nic that gets attached by default.
 	idx := 1
-	for space, _ := range spaces {
+	for _, space := range spaces.Values() {
 		providerSpace, ok := providerSpaces[space]
 		if !ok {
 			return map[string]oci.Networker{},
@@ -428,10 +459,10 @@ func (o *OracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 				Imagelist:   imageName,
 				Name:        machineName,
 				Label:       args.InstanceConfig.MachineAgentServiceName,
-				Hostname:    args.InstanceConfig.MachineAgentServiceName,
+				Hostname:    hostname,
 				Tags:        tags,
 				Attributes:  attributes,
-				Reverse_dns: false,
+				Reverse_dns: true,
 				Networking:  networking,
 			},
 		},
@@ -532,24 +563,6 @@ func (o *OracleEnviron) allControllerManagedInstances(controllerUUID string) ([]
 // specified IDs.
 func (o *OracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstance, error) {
 	ret := make([]*oracleInstance, 0, len(ids))
-
-	// if the caller passed one instance
-	if len(ids) == 1 {
-		// get the instance
-		inst, err := o.client.InstanceDetails(string(ids[0]))
-		if err != nil {
-			return nil, environs.ErrNoInstances
-		}
-
-		// parse the instance from the raw response
-		oInst, err := newInstance(inst, o)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ret = append(ret, oInst)
-		return ret, nil
-	}
-
 	resp, err := o.client.AllInstances(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -561,11 +574,11 @@ func (o *OracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 
 	for _, val := range resp.Result {
 		for _, id := range ids {
-			if val.Name == string(id) {
-				oInst, err := newInstance(val, o)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
+			oInst, err := newInstance(val, o)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if oInst.Id() == id {
 				ret = append(ret, oInst)
 				break
 			}
@@ -676,6 +689,15 @@ func (o *OracleEnviron) SetConfig(cfg *config.Config) error {
 	}
 	o.cfg = cfg
 	return nil
+}
+
+func (o *OracleEnviron) ProviderID(id instance.Id) (string, error) {
+	inst, err := o.getOracleInstances(id)
+	if err != nil {
+		return "", err
+	}
+
+	return inst[0].machine.Name, nil
 }
 
 // Instances is part of the environs.Environ interface.

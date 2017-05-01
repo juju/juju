@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle/network"
-	providertest "github.com/juju/juju/provider/oracle/network/testing"
+	providertest "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/testing"
 )
 
