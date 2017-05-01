@@ -732,7 +732,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	subnetCIDR := ipNet.String()
 	subnet, err := m.st.Subnet(subnetCIDR)
 	if errors.IsNotFound(err) {
-		logger.Infof(
+		logger.Debugf(
 			"address %q on machine %q uses unknown or machine-local subnet %q",
 			addressValue, m.Id(), subnetCIDR,
 		)

@@ -131,8 +131,9 @@ func stateInfo() *mongo.MongoInfo {
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  addrs,
-			CACert: testing.CACert,
+			Addrs:      addrs,
+			CACert:     testing.CACert,
+			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 }

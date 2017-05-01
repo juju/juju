@@ -71,6 +71,8 @@ clouds:
         endpoint: https://www.googleapis.com
       asia-northeast1:
         endpoint: https://www.googleapis.com
+      asia-southeast1:
+        endpoint: https://www.googleapis.com
   azure:
     type: azure
     description: Microsoft Azure
@@ -235,8 +237,8 @@ clouds:
         endpoint: https://wdc.cloudsigma.com/api/2.0/
       zrh:
         endpoint: https://zrh.cloudsigma.com/api/2.0/
-  oracle:
-    type: oracle
+  oracle-compute:
+    type: oracle-compute
     description: Oracle Cloud
     auth-types: [ userpass ]
     regions:

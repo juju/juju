@@ -109,8 +109,9 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 func NewMongoInfo() *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{jujutesting.MgoServer.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 }

@@ -20,7 +20,7 @@ import (
 
 func newMigrateCommand() cmd.Command {
 	var cmd migrateCommand
-	cmd.newAPIRoot = cmd.JujuCommandBase.NewAPIRoot
+	cmd.newAPIRoot = cmd.CommandBase.NewAPIRoot
 	return modelcmd.WrapController(&cmd)
 }
 

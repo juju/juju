@@ -52,7 +52,7 @@ func NewRegisterCommand() cmd.Command {
 // registerCommand logs in to a Juju controller and caches the connection
 // information.
 type registerCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 	apiOpen        api.OpenFunc
 	listModelsFunc func(_ jujuclient.ClientStore, controller, user string) ([]base.UserModel, error)
 	store          jujuclient.ClientStore

@@ -325,6 +325,18 @@ func (cfg *cloudConfig) SetSSHAuthorizedKeys(rawKeys string) {
 	}
 }
 
+// SetSSHKeys is defined on the SSHKeysConfig interface.
+func (cfg *cloudConfig) SetSSHKeys(keys SSHKeys) {
+	if keys.RSA != nil {
+		cfg.SetAttr("ssh_keys", map[string]interface{}{
+			string(RSAPrivate): keys.RSA.Private,
+			string(RSAPublic):  keys.RSA.Public,
+		})
+	} else {
+		cfg.UnsetAttr("ssh_keys")
+	}
+}
+
 // SetDisableRoot is defined on the RootUserConfig interface.
 func (cfg *cloudConfig) SetDisableRoot(disable bool) {
 	cfg.SetAttr("disable_root", disable)

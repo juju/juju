@@ -182,20 +182,29 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 	return a.annotationsClient.Set(annotations)
 }
 
-type NewAPIRootFn func() (DeployAPI, error)
+func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+	if newAPIRoot == nil {
+		newAPIRoot = func() (DeployAPI, error) {
+			return nil, errors.New("no API available")
+		}
+	}
+	return modelcmd.Wrap(&DeployCommand{
+		NewAPIRoot: newAPIRoot,
+		Steps:      steps,
+	})
+}
 
-func NewDefaultDeployCommand() cmd.Command {
-	return NewDeployCommandWithDefaultAPI([]DeployStep{
+// NewDeployCommand returns a command to deploy services.
+func NewDeployCommand() modelcmd.ModelCommand {
+	steps := []DeployStep{
 		&RegisterMeteredCharm{
 			RegisterURL: planURL + "/plan/authorize",
 			QueryURL:    planURL + "/charm",
 		},
-	})
-}
-
-func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
-	deployCmd := &DeployCommand{Steps: steps}
-	cmd := modelcmd.Wrap(deployCmd)
+	}
+	deployCmd := &DeployCommand{
+		Steps: steps,
+	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 		if err != nil {
@@ -207,7 +216,7 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 		}
 		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
 
-		adapter := &deployAPIAdapter{
+		return &deployAPIAdapter{
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
@@ -216,19 +225,10 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
-		}
-
-		return adapter, nil
+		}, nil
 	}
-	return cmd
-}
 
-// NewDeployCommand returns a command to deploy services.
-func NewDeployCommand(newAPIRoot NewAPIRootFn, steps []DeployStep) cmd.Command {
-	return modelcmd.Wrap(&DeployCommand{
-		Steps:      steps,
-		NewAPIRoot: newAPIRoot,
-	})
+	return modelcmd.Wrap(deployCmd)
 }
 
 type DeployCommand struct {
@@ -274,7 +274,7 @@ type DeployCommand struct {
 	Steps    []DeployStep
 
 	// NewAPIRoot stores a function which returns a new API root.
-	NewAPIRoot NewAPIRootFn
+	NewAPIRoot func() (DeployAPI, error)
 
 	flagSet *gnuflag.FlagSet
 }
@@ -663,7 +663,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	deploy, err := findDeployerFIFO(
 		c.maybeReadLocalBundle,
-		c.maybeReadLocalCharm,
+		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
 		c.maybePredeployedLocalCharm,
 		c.maybeReadCharmstoreBundleFn(apiRoot),
 		c.charmStoreCharm, // This always returns a deployer
@@ -794,16 +794,51 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	}, nil
 }
 
-func (c *DeployCommand) maybeReadLocalCharm() (deployFn, error) {
+func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error) {
+	// NOTE: Here we select the series using the algorithm defined by
+	// `seriesSelector.CharmSeries`. This serves to override the algorithm found in
+	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
+	// called since the code is coupled with path interpretation logic which
+	// cannot easily be factored out).
+
+	// NOTE: Reading the charm here is only meant to aid in inferring the correct
+	// series, if this fails we fall back to the argument series. If reading
+	// the charm fails here it will also fail below (the charm is read again
+	// below) where it is handled properly. This is just an expedient to get
+	// the correct series. A proper refactoring of the charmrepo package is
+	// needed for a more elegant fix.
+
+	ch, err := charm.ReadCharm(c.CharmOrBundle)
+	series := c.Series
+	if err == nil {
+		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		seriesSelector := seriesSelector{
+			seriesFlag:      series,
+			supportedSeries: ch.Meta().Series,
+			force:           c.Force,
+			conf:            modelCfg,
+			fromBundle:      false,
+		}
+
+		series, err = seriesSelector.charmSeries()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
+	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, series, c.Force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
 	if charm.IsMissingSeriesError(err) {
 		return nil, err
 	} else if charm.IsUnsupportedSeriesError(err) {
-		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
+		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", c.CharmOrBundle)
 	} else if _, ok := err.(*charmrepo.NotFoundError); ok {

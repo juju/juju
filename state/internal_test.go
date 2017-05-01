@@ -58,8 +58,9 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	// Copied from NewMongoInfo (due to import loops).
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{jujutesting.MgoServer.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 	modelCfg := testing.ModelConfig(c)

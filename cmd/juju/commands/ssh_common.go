@@ -172,7 +172,7 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 
 	if c.noHostKeyChecks {
 		options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
-		options.SetKnownHostsFile("/dev/null")
+		options.SetKnownHostsFile(os.DevNull)
 	} else {
 		knownHostsPath, err := c.generateKnownHosts(targets)
 		if err != nil {
@@ -189,10 +189,6 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 			// strict host key checking.
 			options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
 			options.SetKnownHostsFile(knownHostsPath)
-		} else {
-			// If the user's personal known_hosts is used, also use
-			// the user's personal StrictHostKeyChecking preferences.
-			options.SetStrictHostKeyChecking(ssh.StrictHostChecksUnset)
 		}
 	}
 

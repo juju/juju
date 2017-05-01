@@ -92,8 +92,11 @@ func WithOdataErrorUnlessStatusCode(codes ...int) autorest.RespondDecorator {
 				}
 
 				e := azure.RequestError{
-					ServiceError: &azure.ServiceError{Code: oe.ServiceError.Code},
-					RequestID:    azure.ExtractRequestID(resp),
+					ServiceError: &azure.ServiceError{
+						Code:    oe.ServiceError.Code,
+						Message: oe.ServiceError.Message.Value,
+					},
+					RequestID: azure.ExtractRequestID(resp),
 				}
 				if e.StatusCode == nil {
 					e.StatusCode = resp.StatusCode
@@ -105,10 +108,17 @@ func WithOdataErrorUnlessStatusCode(codes ...int) autorest.RespondDecorator {
 	}
 }
 
+// See https://msdn.microsoft.com/en-us/library/azure/ad/graph/howto/azure-ad-graph-api-error-codes-and-error-handling
 type odataRequestError struct {
 	ServiceError *odataServiceError `json:"odata.error"`
 }
 
 type odataServiceError struct {
-	Code string `json:"code"`
+	Code    string                   `json:"code"`
+	Message odataServiceErrorMessage `json:"message"`
+}
+
+type odataServiceErrorMessage struct {
+	Lang  string `json:"lang"`
+	Value string `json:"value"`
 }

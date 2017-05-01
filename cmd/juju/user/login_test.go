@@ -51,7 +51,7 @@ func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return nil, nil
 	})
-	s.PatchValue(user.APIOpen, func(c *modelcmd.JujuCommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	s.PatchValue(user.APIOpen, func(c *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return s.apiConnection, nil
 	})
 	s.PatchValue(user.LoginClientStore, s.store)

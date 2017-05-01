@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-var logger = loggo.GetLogger("juju.provider.oracle")
+var logger = loggo.GetLogger("juju.provider.oracle-compute")
 
 const (
-	providerType = "oracle"
+	providerType = "oracle-compute"
 )
 
 // environProvider type implements environs.EnvironProvider interface

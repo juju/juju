@@ -385,29 +385,21 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
-		"output": map[interface{}]interface{}{
-			"all": "| tee -a /var/log/cloud-init-output.log",
-		},
-		"users": []interface{}{
-			map[interface{}]interface{}{
-				"name":        "ubuntu",
-				"lock_passwd": true,
-				"groups": []interface{}{"adm", "audio",
-					"cdrom", "dialout", "dip", "floppy",
-					"netdev", "plugdev", "sudo", "video"},
-				"shell":               "/bin/bash",
-				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
-			},
-		},
-		"runcmd": []interface{}{
-			"set -xe",
-			"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
-			"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
-			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
-		},
+
+	var userDataMap map[string]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	var keys []string
+	for key := range userDataMap {
+		keys = append(keys, key)
+	}
+	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
+	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
+		"set -xe",
+		"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
+		"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
+		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -420,7 +412,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
+	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
@@ -470,29 +462,21 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
-		"output": map[interface{}]interface{}{
-			"all": "| tee -a /var/log/cloud-init-output.log",
-		},
-		"users": []interface{}{
-			map[interface{}]interface{}{
-				"name":        "ubuntu",
-				"lock_passwd": true,
-				"groups": []interface{}{"adm", "audio",
-					"cdrom", "dialout", "dip", "floppy",
-					"netdev", "plugdev", "sudo", "video"},
-				"shell":               "/bin/bash",
-				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
-			},
-		},
-		"runcmd": []interface{}{
-			"set -xe",
-			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
-			"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
-			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
-		},
+
+	var userDataMap map[string]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	var keys []string
+	for key := range userDataMap {
+		keys = append(keys, key)
+	}
+	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
+	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
+		"set -xe",
+		"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
+		"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
+		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -505,7 +489,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
+	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
@@ -1775,7 +1759,7 @@ func patchEC2ForTesting(c *gc.C, region aws.Region) func() {
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests
 // defined in ec2_test.
-func CheckScripts(c *gc.C, userDataMap map[interface{}]interface{}, pattern string, match bool) {
+func CheckScripts(c *gc.C, userDataMap map[string]interface{}, pattern string, match bool) {
 	scripts0 := userDataMap["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
@@ -1801,7 +1785,7 @@ func CheckScripts(c *gc.C, userDataMap map[interface{}]interface{}, pattern stri
 // CheckPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.  It's exported so it can be
 // used by tests defined outside the ec2 package.
-func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, match bool) {
+func CheckPackage(c *gc.C, userDataMap map[string]interface{}, pkg string, match bool) {
 	pkgs0 := userDataMap["packages"]
 	if pkgs0 == nil {
 		if match {

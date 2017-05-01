@@ -72,7 +72,7 @@ See also:
 
 // Functions defined as variables so they can be overridden in tests.
 var (
-	apiOpen          = (*modelcmd.JujuCommandBase).APIOpen
+	apiOpen          = (*modelcmd.CommandBase).APIOpen
 	newAPIConnection = juju.NewAPIConnection
 	listModels       = func(c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return modelmanager.NewClient(c).ListModels(userName)
@@ -311,7 +311,7 @@ func (c *loginCommand) publicControllerLogin(
 		if d.User != "" {
 			tag = names.NewUserTag(d.User)
 		}
-		return apiOpen(&c.JujuCommandBase, &api.Info{
+		return apiOpen(&c.CommandBase, &api.Info{
 			Tag:      tag,
 			Password: d.Password,
 			Addrs:    []string{host},
