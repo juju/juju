@@ -127,11 +127,9 @@ func SupportsContainerAddresses(env Environ) bool {
 type ProviderSpaceInfo struct {
 	network.SpaceInfo
 
-	// This identifies the cloud containing the space. Care must be
-	// taken by providers that the credential information doesn't
-	// include any secrets - this struct may be sent outside the
-	// local controller.
-	CloudSpec CloudSpec
+	// Cloud type governs what attributes will exist in the
+	// provider-specific map.
+	CloudType string
 
 	// Any provider-specific information to needed to identify the
 	// network within the cloud, e.g. VPC ID for EC2.
