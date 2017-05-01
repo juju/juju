@@ -261,8 +261,9 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -383,8 +384,9 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -443,8 +445,9 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -477,8 +480,9 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -520,8 +524,9 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -548,8 +553,9 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -572,8 +578,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 
@@ -750,8 +757,9 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -806,8 +814,9 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},

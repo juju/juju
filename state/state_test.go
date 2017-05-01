@@ -4598,7 +4598,7 @@ func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.Use
 
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{EnableAuth: true}
-	err := inst.Start(testing.Certs)
+	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.DestroyWithLog()
 
@@ -4612,8 +4612,9 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 	noAuthInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{inst.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{inst.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: true,
 		},
 	}
 	authInfo := &mongo.MongoInfo{
