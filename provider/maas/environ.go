@@ -2178,75 +2178,6 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 }
 
 func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
-	subnetCIDRToSubnet := make(map[string]gomaasapi.Subnet)
-	spaces, err := env.maasController.Spaces()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, space := range spaces {
-		for _, subnet := range space.Subnets() {
-			subnetCIDRToSubnet[subnet.CIDR()] = subnet
-		}
-	}
-	// map from the source subnet (what subnet is the device in), to what
-	// static routes should be used.
-	subnetToStaticRoutes := make(map[string][]gomaasapi.StaticRoute)
-	staticRoutes, err := env.maasController.StaticRoutes()
-	if err != nil {
-		// MAAS 2.0 does not support static-routes, and will return a 404. MAAS
-		// does not report support for static-routes in its capabilities, nor
-		// does it have a different API version between 2.1 and 2.0. So we make
-		// the attempt, and treat a 404 as not having any configured static
-		// routes.
-		// gomaaasapi wraps a ServerError in an UnexpectedError, so we need to
-		// dig to make sure we have the right cause:
-		handled := false
-		if gomaasapi.IsUnexpectedError(err) {
-			msg := err.Error()
-			if strings.Contains(msg, "404") &&
-				strings.Contains(msg, "Unknown API endpoint:") &&
-				strings.Contains(msg, "/static-routes/") {
-				logger.Debugf("static-routes not supported: %v", err)
-				handled = true
-				staticRoutes = nil
-			} else {
-				logger.Warningf("IsUnexpectedError, but didn't match: %q %#v", msg, err)
-			}
-		} else {
-			logger.Warningf("not IsUnexpectedError: %#v", err)
-		}
-		if !handled {
-			logger.Warningf("error looking up static-routes: %v", err)
-			return nil, errors.Annotate(err, "unable to look up static-routes")
-		}
-	}
-	for _, route := range staticRoutes {
-		source := route.Source()
-		sourceCIDR := source.CIDR()
-		subnetToStaticRoutes[sourceCIDR] = append(subnetToStaticRoutes[sourceCIDR], route)
-	}
-	logger.Debugf("found static routes: %# v", subnetToStaticRoutes)
-
-	// Containers always use 'eth0' as their primary NIC
-	var primaryNICInfo network.InterfaceInfo
-	primaryNICName := "eth0"
-	for _, nic := range preparedInfo {
-		if nic.InterfaceName == primaryNICName {
-			primaryNICInfo = nic
-			break
-		}
-	}
-	if primaryNICInfo.InterfaceName == "" {
-		return nil, errors.Errorf("cannot find primary interface for container")
-	}
-	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
-
-	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	subnet, hasSubnet := subnetCIDRToSubnet[primaryNICSubnetCIDR]
-	if !hasSubnet {
-		logger.Debugf("primary device NIC %q has no linked subnet - leaving unconfigured", primaryNICInfo.InterfaceName)
-	}
-	primaryMACAddress := primaryNICInfo.MACAddress
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(hostInstanceID)},
@@ -2263,95 +2194,35 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Check to see if we've already tried to allocate information for this device:
-	devicesArgs := gomaasapi.DevicesArgs{
-		Hostname: []string{deviceName},
-	}
-	var device gomaasapi.Device
-	maybeDevices, err := machine.Devices(devicesArgs)
+	params, err := env.prepareDeviceDetails(deviceName, machine, preparedInfo)
 	if err != nil {
-		logger.Warningf("error while trying to lookup %q: %v", deviceName, err)
-	} else {
-		if len(maybeDevices) == 1 {
-			logger.Debugf("found MAAS device for container %q, using existing device", deviceName)
-			device = maybeDevices[0]
-		} else if len(maybeDevices) > 1 {
-			logger.Warningf("found more than 1 MAAS devices (%d) for container %q", len(maybeDevices), deviceName)
-			return nil, errors.Errorf("found more than 1 MAAS device (%d) for container %q", len(maybeDevices), deviceName)
-		} else {
-			logger.Debugf("no existing MAAS devices for container %q, creating", deviceName)
-		}
+		return nil, errors.Trace(err)
+	}
+
+	// Check to see if we've already tried to allocate information for this device:
+	device, err := env.checkForExistingDevice(params)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	if device == nil {
-		// The device didn't already exist, so we Create it.
-		createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
-			Hostname:      deviceName,
-			MACAddress:    primaryMACAddress,
-			Subnet:        subnet, // can be nil
-			InterfaceName: primaryNICName,
-		}
-		device, err = machine.CreateDevice(createDeviceArgs)
+		device, err = env.createAndPopulateDevice(params)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err,
+				"failed to create MAAS device for %q",
+				params.Name)
 		}
 	}
-	interface_set := device.InterfaceSet()
-	if len(interface_set) != 1 {
-		// Shouldn't be possible as machine.CreateDevice always returns us
-		// one interface.
-		return nil, errors.Errorf("unexpected number of interfaces in response from creating device: %v", interface_set)
-	}
-	primaryNICVLAN := interface_set[0].VLAN()
 
+	// TODO(jam): the old code used to reload the device from its SystemID()
 	nameToParentName := make(map[string]string)
 	for _, nic := range preparedInfo {
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
-		if nic.InterfaceName != primaryNICName {
-			createArgs := gomaasapi.CreateInterfaceArgs{
-				Name:       nic.InterfaceName,
-				MTU:        nic.MTU,
-				MACAddress: nic.MACAddress,
-			}
-
-			subnet, knownSubnet := subnetCIDRToSubnet[nic.CIDR]
-			if !knownSubnet {
-				logger.Warningf("NIC %v has no subnet - setting to manual and using 'primaryNIC' VLAN %d", nic.InterfaceName, primaryNICVLAN.ID())
-				createArgs.VLAN = primaryNICVLAN
-			} else {
-				createArgs.VLAN = subnet.VLAN()
-				logger.Infof("linking NIC %v to subnet %v - using static IP", nic.InterfaceName, subnet.CIDR())
-			}
-
-			createdNIC, err := device.CreateInterface(createArgs)
-			if err != nil {
-				return nil, errors.Annotate(err, "creating device interface")
-			}
-			logger.Debugf("created device interface: %+v", createdNIC)
-
-			if !knownSubnet {
-				continue
-			}
-
-			linkArgs := gomaasapi.LinkSubnetArgs{
-				Mode:   gomaasapi.LinkModeStatic,
-				Subnet: subnet,
-			}
-
-			if err := createdNIC.LinkSubnet(linkArgs); err != nil {
-				logger.Warningf("linking NIC %v to subnet %v failed: %v", nic.InterfaceName, subnet.CIDR(), err)
-			} else {
-				logger.Debugf("linked device interface to subnet: %+v", createdNIC)
-			}
-		}
 	}
-
-	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName, subnetToStaticRoutes)
+	interfaces, err := env.deviceInterfaceInfo2(device, nameToParentName, params.CIDRToStaticRoutes)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
-	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
-
-	return finalInterfaces, nil
+	return interfaces, nil
 }
 
 func (env *maasEnviron) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
