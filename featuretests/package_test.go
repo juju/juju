@@ -64,7 +64,7 @@ func init() {
 }
 
 func TestPackage(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	coretesting.MgoSSLTestPackage(t)
 }
 
 func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
