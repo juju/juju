@@ -206,10 +206,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
 
 		// Write out systemd proxy settings
-		w.conf.AddScripts(fmt.Sprintf(`[ -e /etc/systemd ] && `+
-			`(install -d /etc/systemd/system.conf.d && install -d /etc/systemd/user.conf.d && `+
-			`printf '%%s\n' %[1]s > /etc/systemd/system.conf.d/juju-proxy.conf && `+
-			`printf '%%s\n' %[1]s > /etc/systemd/user.conf.d/juju-proxy.conf)`,
+		w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
 			shquote(w.icfg.ProxySettings.AsSystemdDefaultEnv())))
 	}
 

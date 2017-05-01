@@ -53,8 +53,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 			w, err := config.WorkerFunc(Config{
-				SystemdFiles: []string{"/etc/systemd/system.conf.d/juju-proxy.conf",
-					"/etc/systemd/user.conf.d/juju-proxy.conf"},
+				SystemdFiles:    []string{"/etc/juju-proxy-systemd.conf"},
 				EnvFiles:        []string{"/etc/juju-proxy.conf"},
 				RegistryPath:    `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`,
 				API:             proxyAPI,
