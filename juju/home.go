@@ -4,6 +4,8 @@
 package juju
 
 import (
+	"path/filepath"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -20,9 +22,12 @@ func InitJujuXDGDataHome() error {
 		return errors.New("cannot determine juju data home, required environment variables are not set")
 	}
 	charmrepo.CacheDir = osenv.JujuXDGDataHomePath("charmcache")
-	if err := ssh.LoadClientKeys(osenv.JujuXDGDataHomePath("ssh")); err != nil {
+
+	sshDir := osenv.JujuXDGDataHomePath("ssh")
+	if err := ssh.LoadClientKeys(sshDir); err != nil {
 		return errors.Annotate(err, "cannot load ssh client keys")
 	}
+	ssh.SetGoCryptoKnownHostsFile(filepath.Join(sshDir, "gocrypto_known_hosts"))
 
 	return nil
 }

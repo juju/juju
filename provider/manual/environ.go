@@ -119,7 +119,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
-		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg)
+		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
 	}
 
 	result := &environs.BootstrapResult{

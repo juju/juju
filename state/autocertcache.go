@@ -4,9 +4,10 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"golang.org/x/crypto/acme/autocert"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
