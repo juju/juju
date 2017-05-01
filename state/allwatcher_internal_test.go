@@ -14,6 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -1584,6 +1586,44 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 			Config:    expectedModelSettings,
 		},
 	})
+}
+
+func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
+	// Init the test model.
+	b := s.NewAllModelWatcherStateBacking()
+	all := newStore()
+
+	all.Update(&multiwatcher.ModelInfo{
+		ModelUUID: s.state.ModelUUID(),
+		Name:      "dummy-model",
+	})
+	entities := all.All()
+	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
+		&multiwatcher.ModelInfo{
+			ModelUUID: s.state.ModelUUID(),
+			Name:      "dummy-model",
+		},
+	})
+
+	// Updating a dead model with missing settings actually causes the
+	// model to be removed from the watcher.
+	err := removeSettings(s.state, settingsC, modelGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     s.state.ModelUUID(),
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}}
+	err = s.state.db().RunTransaction(ops)
+
+	// Trigger an update and check the model is removed from the store.
+	err = b.Changed(all, watcher.Change{
+		C:  "models",
+		Id: s.state.ModelUUID(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	entities = all.All()
+	c.Assert(entities, gc.HasLen, 0)
 }
 
 // TestStateWatcher tests the integration of the state watcher with

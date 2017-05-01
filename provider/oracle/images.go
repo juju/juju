@@ -26,7 +26,7 @@ var windowsServerMap = map[string]string{
 var defaultImages = []string{
 	"Ubuntu.12.04-LTS.amd64.20170417",
 	"Ubuntu.14.04-LTS.amd64.20170405",
-	"Ubuntu.16.04-LTS.amd64.20170221",
+	"Ubuntu.16.04-LTS.amd64.20170330",
 	"Ubuntu.16.10.amd64.20170330",
 }
 
@@ -44,7 +44,7 @@ func ensureImageInventory(c EnvironAPI) error {
 		trimmed := strings.Split(val.Name, "/")
 		names.Add(trimmed[len(trimmed)-1])
 	}
-	logger.Debugf("found %d images", names.Size())
+	logger.Debugf("found images: %v", names)
 	errs := []error{}
 	for _, val := range defaultImages {
 		if !names.Contains(val) {
@@ -67,14 +67,14 @@ func ensureImageInventory(c EnvironAPI) error {
 				entryAttributes,
 				1, []string{imageName})
 			if err != nil {
-				errs = append(errs, err)
+				errs = append(errs, errors.Annotatef(err, "failed to create image entry %v", imageName))
 				// Cleanup list in case of error
 				_ = c.DeleteImageList(listDetails.Name)
 			}
 		}
 	}
 	if len(errs) > 0 {
-		return errors.Errorf("failed to add images to inventory: %v", errs)
+		logger.Debugf("failed to add some images to inventory: %v", errs)
 	}
 	return nil
 }

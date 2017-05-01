@@ -117,8 +117,18 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 
 type backingModel modelDoc
 
+func (e *backingModel) isNotFoundAndModelDead(err error) bool {
+	// Return true if the error is not found and the model is dead.
+	// This will be the case if the model has been marked dead, pending cleanup.
+	return errors.IsNotFound(err) && e.Life == Dead
+}
+
 func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) error {
 	cfg, err := st.ModelConfig()
+	if e.isNotFoundAndModelDead(err) {
+		// Treat it as if the model is removed.
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -131,11 +141,19 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		Config:         cfg.AllAttrs(),
 	}
 	c, err := readConstraints(st, modelGlobalKey)
+	// Treat it as if the model is removed.
+	if e.isNotFoundAndModelDead(err) {
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 	info.Constraints = c
 	modelStatus, err := getStatus(st, modelGlobalKey, "model")
+	if e.isNotFoundAndModelDead(err) {
+		// Treat it as if the model is removed.
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

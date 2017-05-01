@@ -19,10 +19,11 @@ var logger = loggo.GetLogger("vsphereclient")
 type mockRoundTripper struct {
 	testing.Stub
 
-	serverURL  string
-	roundTrip  func(ctx context.Context, req, res soap.HasFault) error
-	contents   map[string][]types.ObjectContent
-	collectors map[string]*collector
+	serverURL     string
+	roundTrip     func(ctx context.Context, req, res soap.HasFault) error
+	contents      map[string][]types.ObjectContent
+	collectors    map[string]*collector
+	leaseProgress chan int32
 }
 
 func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault) error {
@@ -127,6 +128,10 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		req := req.(*methods.HttpNfcLeaseProgressBody).Req
 		r.MethodCall(r, "HttpNfcLeaseProgress", req.This.Value, req.Percent)
 		res.Res = &types.HttpNfcLeaseProgressResponse{}
+		select {
+		case r.leaseProgress <- req.Percent:
+		default:
+		}
 	case *methods.WaitForUpdatesExBody:
 		r.MethodCall(r, "WaitForUpdatesEx")
 		req := req.(*methods.WaitForUpdatesExBody).Req

@@ -499,10 +499,36 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
+	const controllerName = "test-master"
+
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.store.ModelByName("test-master", "bob/test")
+	c.Check(s.store.CurrentControllerName, gc.Equals, controllerName)
+	modelName, err := s.store.CurrentModel(controllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelName, gc.Equals, "bob/test")
+
+	model, err := s.store.ModelByName(controllerName, modelName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+}
+
+func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
+	const controllerName = "test-master"
+	checkNoModelSelected := func() {
+		_, err := s.store.CurrentModel(controllerName)
+		c.Check(err, jc.Satisfies, errors.IsNotFound)
+	}
+	checkNoModelSelected()
+
+	_, err := s.run(c, "test", "--no-switch")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// New model should not be selected by should still exist in the
+	// store.
+	checkNoModelSelected()
+	model, err := s.store.ModelByName(controllerName, "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
