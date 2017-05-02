@@ -16,6 +16,9 @@ import (
 // Networking in this case.
 var SupportsNetworking = supportsNetworking
 
+// DefaultProviderSpaceId is the provider id for the default space.
+const DefaultProviderSpaceId = ""
+
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
@@ -41,6 +44,19 @@ type Networking interface {
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
 	Spaces() ([]network.SpaceInfo, error)
+
+	// ProviderSpaceInfo returns the details of the space requested as
+	// a ProviderSpaceInfo. This will contain everything needed to
+	// decide whether an Environ of the same type in another
+	// controller could route to the space. Details for the default
+	// space can be retrieved by specifying DefaultProviderSpaceId.
+	// This method can often be implemented even if the provider
+	// doesn't support spaces fully.
+	ProviderSpaceInfo(providerSpaceId string) (*ProviderSpaceInfo, error)
+
+	// IsRoutable returns whether this Environ can connect to the
+	// given space via cloud-local addresses.
+	IsSpaceRoutable(targetSpace *ProviderSpaceInfo) (bool, error)
 
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also
@@ -104,4 +120,18 @@ func SupportsContainerAddresses(env Environ) bool {
 		return false
 	}
 	return ok
+}
+
+// ProviderSpaceInfo contains all the information about a space needed
+// by another environ to decide whether it can be routed to.
+type ProviderSpaceInfo struct {
+	network.SpaceInfo
+
+	// Cloud type governs what attributes will exist in the
+	// provider-specific map.
+	CloudType string
+
+	// Any provider-specific information to needed to identify the
+	// network within the cloud, e.g. VPC ID for EC2.
+	ProviderAttributes map[string]interface{}
 }
