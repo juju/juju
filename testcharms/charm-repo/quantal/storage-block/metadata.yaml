@@ -8,3 +8,6 @@ storage:
         type: block
         multiple:
                 range: 0+
+series:
+  - trusty
+  - utopic

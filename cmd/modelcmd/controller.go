@@ -4,9 +4,12 @@
 package modelcmd
 
 import (
+	"net/http"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
@@ -37,7 +40,7 @@ Please use "juju switch" to select a controller.
 // ControllerCommand is intended to be a base for all commands
 // that need to operate on controllers as opposed to models.
 type ControllerCommand interface {
-	CommandBase
+	Command
 
 	// SetClientStore is called prior to the wrapped command's Init method
 	// with the default controller store. It may also be called to override the
@@ -48,24 +51,34 @@ type ControllerCommand interface {
 	// associated with.
 	ClientStore() jujuclient.ClientStore
 
-	// SetControllerName sets the value returned by ControllerName.
-	// It returns an error if the controller with the given name
-	// is not found, unless the name is empty and allowDefault is true,
-	// in which case the name of the current controller will be used.
+	// SetControllerName sets the name of the current controller.
 	SetControllerName(controllerName string, allowDefault bool) error
 
 	// ControllerName returns the name of the controller
-	// that the command should use.
-	ControllerName() string
+	// that the command should use. It must only be called
+	// after Run has been called.
+	ControllerName() (string, error)
+
+	// initModel initializes the controller, resolving an empty
+	// controller to the current controller if allowDefault is true.
+	initController() error
 }
 
 // ControllerCommandBase is a convenience type for embedding in commands
 // that wish to implement ControllerCommand.
 type ControllerCommandBase struct {
-	JujuCommandBase
+	CommandBase
 
-	store          jujuclient.ClientStore
-	controllerName string
+	store jujuclient.ClientStore
+
+	_controllerName        string
+	allowDefaultController bool
+
+	// doneInitController holds whether initController has been called.
+	doneInitController bool
+
+	// initControllerError holds the result of the initController call.
+	initControllerError error
 }
 
 // SetClientStore implements the ControllerCommand interface.
@@ -75,28 +88,73 @@ func (c *ControllerCommandBase) SetClientStore(store jujuclient.ClientStore) {
 
 // ClientStore implements the ControllerCommand interface.
 func (c *ControllerCommandBase) ClientStore() jujuclient.ClientStore {
+	c.assertRunStarted()
 	return c.store
+}
+
+func (c *ControllerCommandBase) initController() error {
+	if c.doneInitController {
+		return errors.Trace(c.initControllerError)
+	}
+	c.doneInitController = true
+	c.initControllerError = c.initController0()
+	return c.initControllerError
+}
+
+func (c *ControllerCommandBase) initController0() error {
+	if c._controllerName == "" && !c.allowDefaultController {
+		return errors.New("no controller specified")
+	}
+	store := c.ClientStore()
+	if c._controllerName == "" {
+		currentController, err := store.CurrentController()
+		if err != nil {
+			return errors.Trace(translateControllerError(store, err))
+		}
+		c._controllerName = currentController
+	}
+	if _, err := store.ControllerByName(c._controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // SetControllerName implements ControllerCommand.SetControllerName.
 func (c *ControllerCommandBase) SetControllerName(controllerName string, allowDefault bool) error {
-	store := c.ClientStore()
-	if controllerName == "" && allowDefault {
-		currentController, err := store.CurrentController()
-		if err != nil {
-			return translateControllerError(store, err)
+	logger.Infof("setting controllerName to %q %v", controllerName, allowDefault)
+	c._controllerName = controllerName
+	c.allowDefaultController = allowDefault
+	if c.runStarted {
+		if err := c.initController(); err != nil {
+			return errors.Trace(err)
 		}
-		controllerName = currentController
-	} else if _, err := store.ControllerByName(controllerName); err != nil {
-		return errors.Trace(err)
 	}
-	c.controllerName = controllerName
 	return nil
 }
 
 // ControllerName implements the ControllerCommand interface.
-func (c *ControllerCommandBase) ControllerName() string {
-	return c.controllerName
+func (c *ControllerCommandBase) ControllerName() (string, error) {
+	c.assertRunStarted()
+	if err := c.initController(); err != nil {
+		return "", errors.Trace(err)
+	}
+	return c._controllerName, nil
+}
+
+func (c *ControllerCommandBase) BakeryClient() (*httpbakery.Client, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.CommandBase.BakeryClient(c.ClientStore(), controllerName)
+}
+
+func (c *ControllerCommandBase) CookieJar() (http.CookieJar, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.CommandBase.CookieJar(c.ClientStore(), controllerName)
 }
 
 // NewModelManagerAPIClient returns an API client for the
@@ -139,14 +197,18 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 // NewAPIRoot returns a new connection to the API server for the named model
 // in the specified controller.
 func (c *ControllerCommandBase) NewModelAPIRoot(modelName string) (api.Connection, error) {
-	_, err := c.store.ModelByName(c.controllerName, modelName)
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	_, err = c.store.ModelByName(controllerName, modelName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
 		// The model isn't known locally, so query the models
 		// available in the controller, and cache them locally.
-		if err := c.RefreshModels(c.store, c.controllerName); err != nil {
+		if err := c.RefreshModels(c.store, controllerName); err != nil {
 			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
@@ -154,24 +216,21 @@ func (c *ControllerCommandBase) NewModelAPIRoot(modelName string) (api.Connectio
 }
 
 func (c *ControllerCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
-	if c.controllerName == "" {
-		controllers, err := c.store.AllControllers()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(controllers) == 0 {
-			return nil, errors.Trace(ErrNoControllersDefined)
-		}
-		return nil, errors.Trace(ErrNoCurrentController)
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return c.JujuCommandBase.NewAPIRoot(c.store, c.controllerName, modelName)
+	return c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.
 func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error) {
 	var result []string
 	store := c.ClientStore()
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for _, modelName := range modelNames {
 		model, err := store.ModelByName(controllerName, modelName)
 		if errors.IsNotFound(err) {
@@ -183,15 +242,25 @@ func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error
 			model, err = store.ModelByName(controllerName, modelName)
 		}
 		if err != nil {
-			return nil, errors.Annotatef(err, "model %q not found", modelName)
+			return nil, errors.Trace(err)
 		}
 		result = append(result, model.ModelUUID)
 	}
 	return result, nil
 }
 
+// CurrentAccountDetails returns details of the account associated with
+// the current controller.
+func (c *ControllerCommandBase) CurrentAccountDetails() (*jujuclient.AccountDetails, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.ClientStore().AccountDetails(controllerName)
+}
+
 // WrapControllerOption specifies an option to the WrapController function.
-type WrapControllerOption func(*sysCommandWrapper)
+type WrapControllerOption func(*controllerCommandWrapper)
 
 // Options for the WrapController call.
 var (
@@ -204,18 +273,18 @@ var (
 	WrapControllerSkipDefaultController WrapControllerOption = wrapControllerSkipDefaultController
 )
 
-func wrapControllerSkipControllerFlags(w *sysCommandWrapper) {
+func wrapControllerSkipControllerFlags(w *controllerCommandWrapper) {
 	w.setControllerFlags = false
 }
 
-func wrapControllerSkipDefaultController(w *sysCommandWrapper) {
+func wrapControllerSkipDefaultController(w *controllerCommandWrapper) {
 	w.useDefaultController = false
 }
 
 // WrapController wraps the specified ControllerCommand, returning a Command
 // that proxies to each of the ControllerCommand methods.
-func WrapController(c ControllerCommand, options ...WrapControllerOption) CommandBase {
-	wrapper := &sysCommandWrapper{
+func WrapController(c ControllerCommand, options ...WrapControllerOption) ControllerCommand {
+	wrapper := &controllerCommandWrapper{
 		ControllerCommand:    c,
 		setControllerFlags:   true,
 		useDefaultController: true,
@@ -223,10 +292,24 @@ func WrapController(c ControllerCommand, options ...WrapControllerOption) Comman
 	for _, option := range options {
 		option(wrapper)
 	}
-	return WrapBase(wrapper)
+	// Define a new type so that we can embed the ModelCommand
+	// interface one level deeper than cmd.Command, so that
+	// we'll get the Command methods from WrapBase
+	// and all the ModelCommand methods not in cmd.Command
+	// from modelCommandWrapper.
+	type embed struct {
+		*controllerCommandWrapper
+	}
+	return struct {
+		embed
+		cmd.Command
+	}{
+		Command: WrapBase(wrapper),
+		embed:   embed{wrapper},
+	}
 }
 
-type sysCommandWrapper struct {
+type controllerCommandWrapper struct {
 	ControllerCommand
 	setControllerFlags   bool
 	useDefaultController bool
@@ -234,12 +317,12 @@ type sysCommandWrapper struct {
 }
 
 // wrapped implements wrapper.wrapped.
-func (w *sysCommandWrapper) inner() cmd.Command {
+func (w *controllerCommandWrapper) inner() cmd.Command {
 	return w.ControllerCommand
 }
 
 // SetFlags implements Command.SetFlags, then calls the wrapped command's SetFlags.
-func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
+func (w *controllerCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if w.setControllerFlags {
 		f.StringVar(&w.controllerName, "c", "", "Controller to operate in")
 		f.StringVar(&w.controllerName, "controller", "", "")
@@ -248,20 +331,27 @@ func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements Command.Init, then calls the wrapped command's Init.
-func (w *sysCommandWrapper) Init(args []string) error {
+func (w *controllerCommandWrapper) Init(args []string) error {
+	if w.setControllerFlags {
+		if err := w.SetControllerName(w.controllerName, w.useDefaultController); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := w.ControllerCommand.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (w *controllerCommandWrapper) Run(ctx *cmd.Context) error {
+	w.setRunStarted()
 	store := w.ClientStore()
 	if store == nil {
 		store = jujuclient.NewFileClientStore()
 	}
 	store = QualifyingClientStore{store}
 	w.SetClientStore(store)
-
-	if w.setControllerFlags {
-		if err := w.SetControllerName(w.controllerName, w.useDefaultController); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return w.ControllerCommand.Init(args)
+	return w.ControllerCommand.Run(ctx)
 }
 
 func translateControllerError(store jujuclient.ClientStore, err error) error {

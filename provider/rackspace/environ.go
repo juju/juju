@@ -54,7 +54,15 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 			RetryDelay:     time.Second * 5,
 			AddressesDelay: time.Second * 20,
 		}
-		addr, err := waitSSH(ioutil.Discard, interrupted, ssh.DefaultClient, common.GetCheckNonceCommand(args.InstanceConfig), &common.RefreshableInstance{r.Instance, e}, timeout)
+		addr, err := waitSSH(
+			ioutil.Discard,
+			interrupted,
+			ssh.DefaultClient,
+			common.GetCheckNonceCommand(args.InstanceConfig),
+			&common.RefreshableInstance{r.Instance, e},
+			timeout,
+			common.DefaultHostSSHOptions,
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

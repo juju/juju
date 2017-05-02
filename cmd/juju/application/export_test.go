@@ -39,13 +39,6 @@ func NewUpgradeCharmCommandForTest(
 	return modelcmd.Wrap(cmd)
 }
 
-// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
-func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
-	return modelcmd.Wrap(&configCommand{
-		api: api,
-	})
-}
-
 // NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
 func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 	return modelcmd.Wrap(&addUnitCommand{
@@ -54,7 +47,7 @@ func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 }
 
 // NewAddRelationCommandForTest returns an AddRelationCommand with the api provided as specified.
-func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) cmd.Command {
+func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) modelcmd.ModelCommand {
 	cmd := &addRelationCommand{newAPIFunc: func() (ApplicationAddRelationAPI, error) {
 		return api, nil
 	}}
@@ -62,7 +55,7 @@ func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) cmd.Command {
 }
 
 // NewRemoveRelationCommandForTest returns an RemoveRelationCommand with the api provided as specified.
-func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) cmd.Command {
+func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) modelcmd.ModelCommand {
 	cmd := &removeRelationCommand{newAPIFunc: func() (ApplicationDestroyRelationAPI, error) {
 		return api, nil
 	}}

@@ -124,7 +124,7 @@ func (s *LoginCommandSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	srv := serveDirectory(map[string]string{"bighost": "https://0.1.2.3/directory"})
 	defer srv.Close()
 	os.Setenv("JUJU_DIRECTORY", srv.URL)
-	*user.APIOpen = func(c *modelcmd.JujuCommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	*user.APIOpen = func(c *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.New("open failed")
 	}
 	stdout, stderr, code := s.run(c, "bighost")

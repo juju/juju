@@ -110,10 +110,13 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	if !c.assumeYes {
-		if err := confirmDestruction(ctx, c.ControllerName()); err != nil {
+		if err := confirmDestruction(ctx, controllerName); err != nil {
 			return err
 		}
 	}
@@ -175,7 +178,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
-		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 }
 
@@ -196,6 +199,10 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 		buf.WriteString(fmtModelStatus(model))
 		buf.WriteRune('\n')
 	}
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return errors.Errorf(`cannot destroy controller %q
 
 The controller has live hosted models. If you want
@@ -204,7 +211,7 @@ run this command again with the --destroy-all-models
 flag.
 
 Models:
-%s`, c.ControllerName(), buf.String())
+%s`, controllerName, buf.String())
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
@@ -237,7 +244,11 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 	if params.IsCodeHasHostedModels(destroyErr) {
 		return destroyErr
 	}
-	logger.Errorf(stdFailureMsg, c.ControllerName())
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Errorf(stdFailureMsg, controllerName)
 	return destroyErr
 }
 

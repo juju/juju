@@ -7,12 +7,13 @@ import (
 	"errors"
 
 	"github.com/juju/go-oracle-cloud/response"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type instanceSuite struct{}

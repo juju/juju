@@ -16,14 +16,14 @@ import (
 )
 
 type createWalletCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.ControllerCommandBase
 	Name  string
 	Value string
 }
 
 // NewCreateWalletCommand returns a new createWalletCommand
-func NewCreateWalletCommand() cmd.Command {
-	return modelcmd.WrapBase(&createWalletCommand{})
+func NewCreateWalletCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&createWalletCommand{})
 }
 
 const doc = `
@@ -52,7 +52,7 @@ func (c *createWalletCommand) Init(args []string) error {
 	if _, err := strconv.ParseInt(c.Value, 10, 32); err != nil {
 		return errors.New("wallet value needs to be a whole number")
 	}
-	return c.JujuCommandBase.Init(args[2:])
+	return c.CommandBase.Init(args[2:])
 }
 
 // Run implements cmd.Command.Run and has most of the logic for the run command.

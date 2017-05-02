@@ -488,6 +488,7 @@ func (*suite) TestMongoInfo(c *gc.C) {
 	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69"})
+	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
 }
 
 func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {

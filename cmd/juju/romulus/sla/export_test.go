@@ -4,7 +4,6 @@
 package sla
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/romulus/api/sla"
 
 	"github.com/juju/juju/api"
@@ -18,7 +17,7 @@ var (
 )
 
 // NewSLACommandForTest returns an slaCommand with apis provided by the given arguments
-func NewSLACommandForTest(apiRoot api.Connection, slaC slaClient, authClient authorizationClient) cmd.Command {
+func NewSLACommandForTest(apiRoot api.Connection, slaC slaClient, authClient authorizationClient) modelcmd.ModelCommand {
 	cmd := &slaCommand{
 		newAPIRoot:   func() (api.Connection, error) { return apiRoot, nil },
 		newSLAClient: func(api.Connection) slaClient { return slaC },

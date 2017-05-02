@@ -97,31 +97,35 @@ func (c *offerCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *offerCommand) Run(ctx *cmd.Context) error {
 	api, err := c.newAPIFunc()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer api.Close()
 
 	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
 	results, err := api.Offer(c.Application, c.Endpoints, c.OfferName, "")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := (params.ErrorResults{results}).Combine(); err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	var unqualifiedModelName, owner string
-	if jujuclient.IsQualifiedModelName(c.ModelName()) {
+	if jujuclient.IsQualifiedModelName(modelName) {
 		var ownerTag names.UserTag
-		unqualifiedModelName, ownerTag, err = jujuclient.SplitModelName(c.ModelName())
+		unqualifiedModelName, ownerTag, err = jujuclient.SplitModelName(modelName)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		owner = ownerTag.Name()
 	} else {
-		unqualifiedModelName = c.ModelName()
-		account, err := c.ClientStore().AccountDetails(c.ControllerName())
+		unqualifiedModelName = modelName
+		account, err := c.CurrentAccountDetails()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		owner = account.User
 	}

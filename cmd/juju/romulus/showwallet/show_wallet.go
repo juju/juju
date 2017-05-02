@@ -26,12 +26,12 @@ var logger = loggo.GetLogger("romulus.cmd.showwallet")
 
 // NewShowWalletCommand returns a new command that is used
 // to show details of the specified wireformat.
-func NewShowWalletCommand() cmd.Command {
-	return modelcmd.WrapBase(&showWalletCommand{})
+func NewShowWalletCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&showWalletCommand{})
 }
 
 type showWalletCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.ControllerCommandBase
 
 	out    cmd.Output
 	wallet string
@@ -61,12 +61,12 @@ func (c *showWalletCommand) Init(args []string) error {
 	}
 	c.wallet, args = args[0], args[1:]
 
-	return c.JujuCommandBase.Init(args)
+	return c.CommandBase.Init(args)
 }
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *showWalletCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": c.formatTabular,
 		"json":    cmd.FormatJson,

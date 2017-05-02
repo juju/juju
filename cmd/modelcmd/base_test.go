@@ -53,8 +53,11 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
-	cmd := modelcmd.NewModelCommandBase(s.store, "foo", "admin/badmodel")
+	cmd := new(modelcmd.ModelCommandBase)
+	cmd.SetClientStore(s.store)
 	cmd.SetAPIOpen(apiOpen)
+	modelcmd.SetRunStarted(cmd)
+	cmd.SetModelName("foo:admin/badmodel", false)
 	conn, err := cmd.NewAPIRoot()
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)

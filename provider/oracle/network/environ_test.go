@@ -9,13 +9,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/response"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/instance"
 	networkenv "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle/network"
 	"github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
 )
 
 type environSuite struct{}

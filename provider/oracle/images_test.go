@@ -6,10 +6,11 @@ package oracle_test
 import (
 	"errors"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/oracle"
-	gc "gopkg.in/check.v1"
 )
 
 type imageSuite struct{}

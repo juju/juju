@@ -131,8 +131,9 @@ func stateInfo() *mongo.MongoInfo {
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  addrs,
-			CACert: testing.CACert,
+			Addrs:      addrs,
+			CACert:     testing.CACert,
+			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 }
@@ -1665,4 +1666,14 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 
 func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
+}
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(string) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// IsSpaceRoutable implements NetworkingEnviron.
+func (*environ) IsSpaceRoutable(targetSpace *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
 }

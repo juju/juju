@@ -19,6 +19,7 @@ func NewDumpCommand() cmd.Command {
 }
 
 type dumpCommand struct {
+	// TODO(rog) change to use ModelCommandBase.
 	modelcmd.ControllerCommandBase
 	out cmd.Output
 	api DumpModelAPI
@@ -79,6 +80,10 @@ func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
 
 // Run implements Command.
 func (c *dumpCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -87,16 +92,13 @@ func (c *dumpCommand) Run(ctx *cmd.Context) error {
 
 	store := c.ClientStore()
 	if c.model == "" {
-		c.model, err = store.CurrentModel(c.ControllerName())
+		c.model, err = store.CurrentModel(controllerName)
 		if err != nil {
 			return err
 		}
 	}
 
-	modelDetails, err := store.ModelByName(
-		c.ControllerName(),
-		c.model,
-	)
+	modelDetails, err := store.ModelByName(controllerName, c.model)
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}

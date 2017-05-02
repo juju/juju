@@ -4,7 +4,6 @@
 package subnet_test
 
 import (
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,8 +22,7 @@ var _ = gc.Suite(&CreateSuite{})
 func (s *CreateSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewCreateCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = subnet.NewCreateCommand
 }
 
 func (s *CreateSuite) TestInit(c *gc.C) {
@@ -122,15 +120,12 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		expectErr:     "",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := subnet.NewCreateCommandForTest(s.api)
-		err := cmdtesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*subnet.CreateCommand)
 			c.Check(command.CIDR.Id(), gc.Equals, test.expectCIDR)
 			c.Check(command.Space.Id(), gc.Equals, test.expectSpace)
 			c.Check(command.Zones.SortedValues(), jc.DeepEquals, test.expectZones)

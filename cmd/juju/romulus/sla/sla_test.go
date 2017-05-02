@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
+	"github.com/juju/juju/jujuclient"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -51,7 +52,21 @@ func (s *supportCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *supportCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := sla.NewSLACommandForTest(s.fakeAPIRoot, s.mockSLAClient, s.mockAPI)
+	command.SetClientStore(newMockStore())
 	return cmdtesting.RunCommand(c, command, args...)
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	store.Models["foo"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/bar",
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
+	}
+	return store
 }
 
 func (s supportCommandSuite) TestSupportCommand(c *gc.C) {

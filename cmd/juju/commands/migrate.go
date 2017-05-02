@@ -20,7 +20,7 @@ import (
 
 func newMigrateCommand() cmd.Command {
 	var cmd migrateCommand
-	cmd.newAPIRoot = cmd.JujuCommandBase.NewAPIRoot
+	cmd.newAPIRoot = cmd.CommandBase.NewAPIRoot
 	return modelcmd.WrapController(&cmd)
 }
 
@@ -191,7 +191,7 @@ func (c *migrateCommand) getAPI() (migrateAPI, error) {
 }
 
 func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error) {
-	apiContext, err := c.APIContext()
+	jar, err := c.CommandBase.CookieJar(c.ClientStore(), c.targetController)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -206,5 +206,5 @@ func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error
 		return nil, errors.Annotate(err, "connecting to target controller")
 	}
 	defer api.Close()
-	return httpbakery.MacaroonsForURL(apiContext.CookieJar(), api.CookieURL()), nil
+	return httpbakery.MacaroonsForURL(jar, api.CookieURL()), nil
 }

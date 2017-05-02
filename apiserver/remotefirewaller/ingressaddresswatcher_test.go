@@ -337,8 +337,8 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Machine 0 changes address.
-	s.st.units["django/0"].publicAddress = network.Address{Value: "56.1.2.3"}
-	s.st.units["django/1"].publicAddress = network.Address{Value: "56.1.2.3"}
+	s.st.units["django/0"].updateAddress("56.1.2.3")
+	s.st.units["django/1"].updateAddress("56.1.2.3")
 	s.st.machines["0"].watcher.changes <- struct{}{}
 
 	wc.AssertChange("56.1.2.3/32")
@@ -356,7 +356,7 @@ func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 	wc.AssertChange("2.3.4.5/32")
 	wc.AssertNoChange()
 
-	s.st.units["django/0"].publicAddress = network.Address{Value: "5.4.3.3"}
+	s.st.units["django/0"].updateAddress("5.4.3.3")
 	s.st.machines["0"].watcher.changes <- struct{}{}
 
 	wc.AssertChange("5.4.3.3/32")
@@ -397,7 +397,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	wc.AssertNoChange()
 
 	delete(s.st.units, "django/1")
-	s.st.units["django/0"].publicAddress = network.Address{Value: "6.7.8.9"}
+	s.st.units["django/0"].updateAddress("6.7.8.9")
 	s.st.machines["0"].watcher.changes <- struct{}{}
 
 	wc.AssertChange("6.7.8.9/32")

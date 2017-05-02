@@ -1663,7 +1663,7 @@ azure-china
 cloudsigma                                   
 google                                       
 joyent                                       
-oracle                                       
+oracle-compute                               
 rackspace                                    
 localhost                                    
 dummy-cloud                     joe          home
@@ -1719,7 +1719,9 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
 	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _, _ string) error {
-		seenControllerName = base.ControllerName()
+		controllerName, err := base.ControllerName()
+		c.Check(err, jc.ErrorIsNil)
+		seenControllerName = controllerName
 		return nil
 	})
 

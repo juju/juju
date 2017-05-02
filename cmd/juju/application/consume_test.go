@@ -56,7 +56,7 @@ func (s *ConsumeSuite) TestNoArguments(c *gc.C) {
 
 func (s *ConsumeSuite) TestTooManyArguments(c *gc.C) {
 	_, err := s.runConsume(c, "model.application", "alias", "something else")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["something else"\]`)
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["something else"\]`, gc.Commentf("details: %s", errors.Details(err)))
 }
 
 func (s *ConsumeSuite) TestInvalidRemoteApplication(c *gc.C) {

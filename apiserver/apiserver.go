@@ -527,9 +527,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/model/:modeluuid/api", mainAPIHandler)
 
-	// GUI now supports URLs without the model uuid, just the user/model.
-	endpoints = append(endpoints, guiEndpoints(guiURLPathPrefix+"u/:user/:modelname/", srv.dataDir, httpCtxt)...)
-	endpoints = append(endpoints, guiEndpoints(guiURLPathPrefix+":modeluuid/", srv.dataDir, httpCtxt)...)
+	// GUI related paths.
+	endpoints = append(endpoints, guiEndpoints(guiURLPathPrefix, srv.dataDir, httpCtxt)...)
 	add("/gui-archive", &guiArchiveHandler{
 		ctxt: httpCtxt,
 	})

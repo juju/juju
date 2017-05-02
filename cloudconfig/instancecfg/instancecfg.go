@@ -185,11 +185,39 @@ type BootstrapConfig struct {
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
 
+	// InitialSSHHostKeys contains the initial SSH host keys to configure
+	// on the bootstrap machine, indexed by algorithm. These will only be
+	// valid for the initial SSH connection. The first thing we do upon
+	// making the initial SSH connection is to replace each of these host
+	// keys, to avoid the host keys being extracted from the metadata
+	// service by a bad actor post-bootstrap.
+	//
+	// Any existing host keys on the machine with algorithms not specified
+	// in the map will be left alone. This is important so that we do not
+	// trample on the host keys of manually provisioned machines.
+	InitialSSHHostKeys SSHHostKeys
+
 	// StateServingInfo holds the information for serving the state.
 	// This is only specified for bootstrap; controllers started
 	// subsequently will acquire their serving info from another
 	// server.
 	StateServingInfo params.StateServingInfo
+}
+
+// SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
+type SSHHostKeys struct {
+	// RSA, if non-nil, contains the RSA key to configure as the initial
+	// SSH host key.
+	RSA *SSHKeyPair
+}
+
+// SSHKeyPair is an SSH host key pair.
+type SSHKeyPair struct {
+	// Private contains the private key, PEM-encoded.
+	Private string
+
+	// Public contains the public key in authorized_keys format.
+	Public string
 }
 
 // StateInitializationParams contains parameters for initializing the

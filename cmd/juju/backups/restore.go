@@ -220,7 +220,11 @@ func (c *restoreCommand) getRebootstrapParams(
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetadataResult) error {
-	params, err := c.getRebootstrapParamsFunc(ctx, c.ControllerName(), meta)
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	params, err := c.getRebootstrapParamsFunc(ctx, controllerName, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -310,7 +314,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		Cloud:          params.Cloud.Name,
 		CloudRegion:    params.Cloud.Region,
 	}
-	err = store.UpdateController(c.ControllerName(), details)
+	err = store.UpdateController(controllerName, details)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -343,7 +347,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
 	apiPort := params.ControllerConfig.APIPort()
-	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), bootVers, apiPort, env)
+	err = common.SetBootstrapEndpointAddress(store, controllerName, bootVers, apiPort, env)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -351,7 +355,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, c.ControllerName(), "default")
+	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, controllerName, "default")
 }
 
 func (c *restoreCommand) newClient() (*backups.Client, error) {

@@ -6,6 +6,7 @@ package gui
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -96,18 +97,33 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	store := modelcmd.QualifyingClientStore{c.ClientStore()}
-	details, err := store.ModelByName(c.ControllerName(), c.ModelName())
+	store, ok := c.ClientStore().(modelcmd.QualifyingClientStore)
+	if !ok {
+		store = modelcmd.QualifyingClientStore{c.ClientStore()}
+	}
+	controllerName, err := c.ControllerName()
 	if err != nil {
-		return errors.Annotate(err, "cannot retrieve model details")
+		return errors.Trace(err)
+	}
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(rog) It looks like this won't work if the model isn't locally
+	// cached already.
+	details, err := store.ModelByName(controllerName, modelName)
+	if err != nil {
+		return errors.Annotate(err, "cannot retrieve model details: please make sure you switched to a valid model")
 	}
 
 	// Make 2 URLs to try - the old and the new.
 	rawURL := fmt.Sprintf("https://%s/gui/%s/", conn.Addr(), details.ModelUUID)
-	qualifiedModelName, err := store.QualifiedModelName(c.ControllerName(), c.ModelName())
+	qualifiedModelName, err := store.QualifiedModelName(controllerName, modelName)
 	if err != nil {
 		return errors.Annotate(err, "cannot construct model name")
 	}
+	// Do not include any possible "@external" fragment in the path.
+	qualifiedModelName = strings.Replace(qualifiedModelName, "@external/", "/", 1)
 	newRawURL := fmt.Sprintf("https://%s/gui/u/%s", conn.Addr(), qualifiedModelName)
 
 	// Check that the Juju GUI is available.
@@ -168,7 +184,11 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 		if vers != nil {
 			versInfo = fmt.Sprintf("%v ", vers)
 		}
-		ctx.Infof("GUI %sfor model %q is enabled at:\n  %s", versInfo, c.ModelName(), u.String())
+		modelName, err := c.ModelName()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ctx.Infof("GUI %sfor model %q is enabled at:\n  %s", versInfo, modelName, u.String())
 		return nil
 	}
 	err = webbrowserOpen(u)
@@ -190,7 +210,7 @@ func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
 		return nil
 	}
 	// TODO(wallyworld) - what to do if we are using a macaroon.
-	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve credentials")
 	}

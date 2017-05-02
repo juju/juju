@@ -21,12 +21,12 @@ import (
 
 // NewListWalletsCommand returns a new command that is used
 // to list wallets a user has access to.
-func NewListWalletsCommand() cmd.Command {
-	return modelcmd.WrapBase(&listWalletsCommand{})
+func NewListWalletsCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&listWalletsCommand{})
 }
 
 type listWalletsCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.ControllerCommandBase
 
 	out cmd.Output
 }
@@ -50,7 +50,7 @@ func (c *listWalletsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *listWalletsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"tabular": formatTabular,
 		"json":    cmd.FormatJson,

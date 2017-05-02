@@ -1886,3 +1886,13 @@ func (e *environ) hasDefaultVPC() (bool, error) {
 	}
 	return e.defaultVPC != nil, nil
 }
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(string) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// IsSpaceRoutable implements NetworkingEnviron.
+func (*environ) IsSpaceRoutable(targetSpace *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}

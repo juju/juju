@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
 )
 
 type cmdRegistrationSuite struct {
@@ -59,8 +60,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[kontroll\]: »bob-controller
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "bob-controller".
 
@@ -73,7 +74,7 @@ There are no models available. (.|\n)*
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
 	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: cookiejar.DefaultCookieFile(),
+		Filename: jujuclient.JujuCookiePath("bob-controller"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	dialOpts := api.DefaultDialOpts()

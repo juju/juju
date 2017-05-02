@@ -86,6 +86,10 @@ func (c *addCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *addCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	api := c.api
 	if api == nil {
 		var err error
@@ -115,7 +119,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// Generate the base64-encoded string for the user to pass to
 	// "juju register". We marshal the information using ASN.1
 	// to keep the size down, since we need to encode binary data.
-	controllerDetails, err := c.ClientStore().ControllerByName(c.ControllerName())
+	controllerDetails, err := c.ClientStore().ControllerByName(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -123,7 +127,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		User:           c.User,
 		Addrs:          controllerDetails.APIEndpoints,
 		SecretKey:      secretKey,
-		ControllerName: c.ControllerName(),
+		ControllerName: controllerName,
 	}
 	registrationData, err := asn1.Marshal(registrationInfo)
 	if err != nil {

@@ -57,7 +57,7 @@ clouds:
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	// homestack should abut localhost and hence come last in the output.
-	c.Assert(out, jc.Contains, `Hypervisorhomestack          1  london           openstack   Openstack Cloud`)
+	c.Assert(out, jc.Contains, `Hypervisorhomestack             1  london           openstack       Openstack Cloud`)
 }
 
 func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {

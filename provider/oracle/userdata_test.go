@@ -4,11 +4,11 @@
 package oracle_test
 
 import (
-	"github.com/juju/juju/provider/oracle"
 	jujuos "github.com/juju/utils/os"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/juju/provider/oracle"
 )
 
 type userdataSuite struct{}

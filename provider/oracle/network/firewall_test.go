@@ -7,14 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
-
 	gitjujutesting "github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	jujunetwork "github.com/juju/juju/network"

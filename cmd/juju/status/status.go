@@ -144,7 +144,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		if status == nil {
 			// Status call completely failed, there is nothing to report
-			return err
+			return errors.Trace(err)
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
@@ -152,10 +152,14 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	formatter := newStatusFormatter(status, controllerName, c.isoTime)
 	formatted, err := formatter.format()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return c.out.Write(ctx, formatted)
 }

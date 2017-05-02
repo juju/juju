@@ -63,36 +63,13 @@ func NewFindEndpointsCommand() cmd.Command {
 func (c *findCommand) Init(args []string) (err error) {
 	url, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
 	if url != "" {
 		if c.url != "" {
 			return errors.New("URL term cannot be specified twice")
 		}
 		c.url = url
-	}
-	if c.url != "" {
-		urlParts, err := crossmodel.ParseApplicationURLParts(c.url)
-		if err != nil {
-			return err
-		}
-		user := urlParts.User
-		if user == "" {
-			accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
-			if err != nil {
-				return err
-			}
-			user = accountDetails.User
-		}
-		c.modelOwnerName = user
-		c.modelName = urlParts.ModelName
-		c.offerName = urlParts.ApplicationName
-		if urlParts.Source != "" && urlParts.Source != c.ControllerName() {
-			return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
-		}
-	} else {
-		c.url = c.ControllerName() + ":"
 	}
 	return nil
 }
@@ -121,6 +98,9 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *findCommand) Run(ctx *cmd.Context) (err error) {
+	if err := c.validateOrSetURL(); err != nil {
+		return errors.Trace(err)
+	}
 	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -153,6 +133,36 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.New("no matching application offers found")
 	}
 	return c.out.Write(ctx, output)
+}
+
+func (c *findCommand) validateOrSetURL() error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if c.url == "" {
+		c.url = controllerName + ":"
+		return nil
+	}
+	urlParts, err := crossmodel.ParseApplicationURLParts(c.url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	user := urlParts.User
+	if user == "" {
+		accountDetails, err := c.CurrentAccountDetails()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		user = accountDetails.User
+	}
+	c.modelOwnerName = user
+	c.modelName = urlParts.ModelName
+	c.offerName = urlParts.ApplicationName
+	if urlParts.Source != "" && urlParts.Source != controllerName {
+		return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
+	}
+	return nil
 }
 
 // FindAPI defines the API methods that cross model find command uses.
