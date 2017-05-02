@@ -29,6 +29,7 @@ var (
 	NewBackups            = &newBackups
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
+	GUIURLPathPrefix      = guiURLPathPrefix
 	SpritePath            = spritePath
 )
 
