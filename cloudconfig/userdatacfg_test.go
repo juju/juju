@@ -1174,9 +1174,9 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=0.1.2.3,10.0.3.1,localhost
 export NO_PROXY=0.1.2.3,10.0.3.1,localhost' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-		`printf '%s\n' '# To make juju control global systemd proxy settings create
-# symlinks to this file in /etc/systemd/system.conf.d/ and
-# /etc/systemd/user.conf.d/
+		`printf '%s\n' '# To allow juju to control the global systemd proxy settings,
+# create symbolic links to this file from within /etc/systemd/system.conf.d/
+# and /etc/systemd/users.conf.d/.
 [Manager]
 DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "no_proxy=0.1.2.3,10.0.3.1,localhost" "NO_PROXY=0.1.2.3,10.0.3.1,localhost" 
 ' > /etc/juju-proxy-systemd.conf`,
