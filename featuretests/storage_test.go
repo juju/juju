@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -18,6 +19,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 )
@@ -462,6 +464,16 @@ func runAddToUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 	return runJujuCommand(c, cmdArgs...)
 }
 
+func runAttachStorage(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmdArgs := append([]string{"attach-storage"}, args...)
+	return runJujuCommand(c, cmdArgs...)
+}
+
+func runDetachStorage(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmdArgs := append([]string{"detach-storage"}, args...)
+	return runJujuCommand(c, cmdArgs...)
+}
+
 func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 	instancesBefore, err := s.State.AllStorageInstances()
@@ -598,4 +610,70 @@ func createUnitWithFileSystemStorage(c *gc.C, s *jujutesting.JujuConnSuite, pool
 	c.Assert(err, jc.ErrorIsNil)
 
 	return unit.Tag().Id()
+}
+
+func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
+	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
+	app, err := s.State.Application("storage-block")
+	c.Assert(err, jc.ErrorIsNil)
+	u2, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add an instance of the "allecto" storage.
+	_, err = runAddToUnit(c, u, "allecto=modelscoped")
+	c.Assert(err, jc.ErrorIsNil)
+	vol, err := s.State.StorageInstanceVolume(names.NewStorageTag("allecto/2"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
+		Size:     1024,
+		VolumeId: "vol-ume",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Detach the allecto storage.
+	_, err = runDetachStorage(c, "allecto/2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeStatus(vol.VolumeTag(), status.Detaching, "", nil, &time.Time{})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := runJujuCommand(c, "list-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+[Storage]
+Unit             Id         Type   Pool         Provider id  Size    Status     Message
+                 allecto/2  block  modelscoped  vol-ume      1.0GiB  detaching  
+storage-block/0  data/0     block                                    pending    
+storage-block/1  data/1     block                                    pending    
+
+`[1:])
+
+	// Attempt to attach the allecto storage to the second unit.
+	// This will fail because the volume has not yet been detached
+	// from the first unit's machine.
+	ctx, err = runAttachStorage(c, u2.Name(), "allecto/2")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
+		"failed to attach allecto/2 to storage-block/1: cannot attach storage allecto/2 to unit storage-block/1: volume 2 is attached to machine 0\n")
+
+	// Remove the volume attachment, and then attach the allecto
+	// storage to the second unit.
+	err = s.State.DetachVolume(names.NewMachineTag("0"), vol.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), vol.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runAttachStorage(c, u2.Name(), "allecto/2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeStatus(vol.VolumeTag(), status.Attaching, "", nil, &time.Time{})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err = runJujuCommand(c, "list-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+[Storage]
+Unit             Id         Type   Pool         Provider id  Size    Status     Message
+storage-block/0  data/0     block                                    pending    
+storage-block/1  allecto/2  block  modelscoped  vol-ume      1.0GiB  attaching  
+storage-block/1  data/1     block                                    pending    
+
+`[1:])
 }
