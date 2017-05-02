@@ -68,6 +68,12 @@ func (s *RemoveUnitSuite) TestRemoveUnitInformsStorageRemoval(c *gc.C) {
 	_, err := runDeploy(c, ch, "storage-filesystem", "--storage", "data=rootfs,2")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Materialise the storage by assigning the unit to a machine.
+	u, err := s.State.Unit("storage-filesystem/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx, err := runRemoveUnit(c, "storage-filesystem/0")
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)

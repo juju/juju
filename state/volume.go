@@ -46,6 +46,9 @@ type Volume interface {
 	// if it has not already been provisioned. Params returns true if the
 	// returned parameters are usable for provisioning, otherwise false.
 	Params() (VolumeParams, bool)
+
+	// Detachable reports whether or not the volume is detachable.
+	Detachable() bool
 }
 
 // VolumeAttachment describes an attachment of a volume to a machine.
@@ -429,11 +432,11 @@ func isDetachableVolumeTag(st *State, tag names.VolumeTag) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return volume.detachable(), nil
+	return volume.Detachable(), nil
 }
 
-// detachable reports whether or not the volume is detachable.
-func (v *volume) detachable() bool {
+// Detachable reports whether or not the volume is detachable.
+func (v *volume) Detachable() bool {
 	return v.doc.MachineId == ""
 }
 
@@ -674,7 +677,7 @@ func destroyVolumeOps(st *State, v *volume, extraAssert bson.D) ([]txn.Op, error
 		Assert: append(hasAttachments, baseAssert...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
-	if !v.detachable() {
+	if !v.Detachable() {
 		// This volume cannot be directly detached, so we do not
 		// issue a cleanup. Since there can (should!) be only one
 		// attachment for the lifetime of the filesystem, we can
@@ -850,8 +853,9 @@ func ParseVolumeAttachmentId(id string) (names.MachineTag, names.VolumeTag, erro
 }
 
 type volumeAttachmentTemplate struct {
-	tag    names.VolumeTag
-	params VolumeAttachmentParams
+	tag      names.VolumeTag
+	params   VolumeAttachmentParams
+	existing bool
 }
 
 // createMachineVolumeAttachmentInfo creates volume attachments
@@ -871,6 +875,14 @@ func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAtt
 				Machine: machineId,
 				Params:  &paramsCopy,
 			},
+		}
+		if attachment.existing {
+			ops = append(ops, txn.Op{
+				C:      volumesC,
+				Id:     attachment.tag.Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$inc", bson.D{{"attachmentcount", 1}}}},
+			})
 		}
 	}
 	return ops

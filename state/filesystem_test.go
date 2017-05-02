@@ -111,10 +111,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 	filesystemTag := filesystem.FilesystemTag()
 
-	assignedMachineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(assignedMachineId)
-	c.Assert(err, jc.ErrorIsNil)
+	machine := unitMachine(c, s.State, u)
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -148,18 +145,66 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoNoFilesystemId(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestVolumeFilesystem(c *gc.C) {
-	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "modelscoped-block", true)
-	filesystem := s.filesystem(c, filesystemAttachment.Filesystem())
-	_, err := filesystem.Info()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-
+	filesystem, _, _ := s.addUnitWithFilesystem(c, "modelscoped-block", true)
 	volumeTag, err := filesystem.Volume()
 	c.Assert(err, jc.ErrorIsNil)
-	filesystem = s.volumeFilesystem(c, volumeTag)
-	c.Assert(filesystem.FilesystemTag(), gc.Equals, filesystemAttachment.Filesystem())
+
+	volumeFilesystem := s.volumeFilesystem(c, volumeTag)
+	c.Assert(volumeFilesystem.FilesystemTag(), gc.Equals, filesystem.FilesystemTag())
 }
 
-func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withVolume bool) (state.FilesystemAttachment, state.StorageAttachment) {
+func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withVolume bool) (
+	state.Filesystem,
+	state.FilesystemAttachment,
+	state.StorageAttachment,
+) {
+	filesystem, filesystemAttachment, machine, storageAttachment := s.addUnitWithFilesystemUnprovisioned(
+		c, pool, withVolume,
+	)
+
+	// Machine must be provisioned before either volume or
+	// filesystem can be attached.
+	err := machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if withVolume {
+		// Volume must be provisioned before the filesystem.
+		volume := s.filesystemVolume(c, filesystem.FilesystemTag())
+		err := s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Volume must be attached before the filesystem.
+		err = s.State.SetVolumeAttachmentInfo(
+			machine.MachineTag(),
+			volume.VolumeTag(),
+			state.VolumeAttachmentInfo{DeviceName: "sdc"},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Filesystem must be provisioned before it can be attached.
+	err = s.State.SetFilesystemInfo(
+		filesystem.FilesystemTag(),
+		state.FilesystemInfo{FilesystemId: "fs-123"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetFilesystemAttachmentInfo(
+		machine.MachineTag(),
+		filesystem.FilesystemTag(),
+		state.FilesystemAttachmentInfo{MountPoint: "/srv"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return filesystem, filesystemAttachment, storageAttachment
+}
+
+func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool string, withVolume bool) (
+	state.Filesystem,
+	state.FilesystemAttachment,
+	*state.Machine,
+	state.StorageAttachment,
+) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
@@ -223,7 +268,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 
 	att, err := s.State.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	return att, storageAttachments[0]
+	return filesystem, att, machine, storageAttachments[0]
 }
 
 func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
@@ -392,10 +437,7 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
 		}
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
-		mid, err := u.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		m, err = s.State.Machine(mid)
-		c.Assert(err, jc.ErrorIsNil)
+		m = unitMachine(c, s.State, u)
 		return u, m
 	}
 	_, m0 := addUnit(nil)
@@ -456,11 +498,17 @@ func (s *FilesystemStateSuite) TestParseFilesystemAttachmentIdError(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFilesystem(c *gc.C) {
-	filesystemAttachment, storageAttachment := s.addUnitWithFilesystem(c, "modelscoped-block", true)
-	filesystem := s.filesystem(c, filesystemAttachment.Filesystem())
+	filesystem, filesystemAttachment, storageAttachment := s.addUnitWithFilesystem(c, "modelscoped-block", true)
 	volume := s.filesystemVolume(c, filesystemAttachment.Filesystem())
 	storageTag := storageAttachment.StorageInstance()
 	unitTag := storageAttachment.Unit()
+
+	err := s.State.SetFilesystemAttachmentInfo(
+		filesystemAttachment.Machine(),
+		filesystem.FilesystemTag(),
+		state.FilesystemAttachmentInfo{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	u, err := s.State.Unit(unitTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -496,7 +544,7 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 }
 
 func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoFilesystemNotProvisioned(c *gc.C) {
-	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "rootfs", false)
+	_, filesystemAttachment, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "rootfs", false)
 	err := s.State.SetFilesystemAttachmentInfo(
 		filesystemAttachment.Machine(),
 		filesystemAttachment.Filesystem(),
@@ -506,7 +554,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoFilesystemNotProvi
 }
 
 func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoMachineNotProvisioned(c *gc.C) {
-	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "rootfs", false)
+	_, filesystemAttachment, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "rootfs", false)
 	err := s.State.SetFilesystemInfo(
 		filesystemAttachment.Filesystem(),
 		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
@@ -521,9 +569,9 @@ func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoMachineNotProvisio
 }
 
 func (s *FilesystemStateSuite) TestSetFilesystemInfoVolumeAttachmentNotProvisioned(c *gc.C) {
-	filesystemAttachment, _ := s.addUnitWithFilesystem(c, "modelscoped-block", true)
+	filesystem, _, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "modelscoped-block", true)
 	err := s.State.SetFilesystemInfo(
-		filesystemAttachment.Filesystem(),
+		filesystem.FilesystemTag(),
 		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": volume attachment "0" on "0" not provisioned`)

@@ -60,6 +60,9 @@ type Filesystem interface {
 	// if it needs to be provisioned. Params returns true if the returned
 	// parameters are usable for provisioning, otherwise false.
 	Params() (FilesystemParams, bool)
+
+	// Detachable reports whether or not the filesystem is detachable.
+	Detachable() bool
 }
 
 // FilesystemAttachment describes an attachment of a filesystem to a machine.
@@ -462,11 +465,11 @@ func isDetachableFilesystemTag(st *State, tag names.FilesystemTag) (bool, error)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return f.detachable(), nil
+	return f.Detachable(), nil
 }
 
-// detachable reports whether or not the filesystem is detachable.
-func (f *filesystem) detachable() bool {
+// Detachable reports whether or not the filesystem is detachable.
+func (f *filesystem) Detachable() bool {
 	return f.doc.MachineId == ""
 }
 
@@ -661,7 +664,7 @@ func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.O
 		Assert: append(hasAttachments, baseAssert...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
-	if !f.detachable() {
+	if !f.Detachable() {
 		// This filesystem cannot be directly detached, so we do
 		// not issue a cleanup. Since there can (should!) be only
 		// one attachment for the lifetime of the filesystem, we
@@ -895,9 +898,10 @@ func (st *State) validateFilesystemParams(params FilesystemParams, machineId str
 }
 
 type filesystemAttachmentTemplate struct {
-	tag     names.FilesystemTag
-	storage names.StorageTag // may be zero-value
-	params  FilesystemAttachmentParams
+	tag      names.FilesystemTag
+	storage  names.StorageTag // may be zero-value
+	params   FilesystemAttachmentParams
+	existing bool
 }
 
 // createMachineFilesystemAttachmentInfo creates filesystem
@@ -916,6 +920,14 @@ func createMachineFilesystemAttachmentsOps(machineId string, attachments []files
 				Machine:    machineId,
 				Params:     &paramsCopy,
 			},
+		}
+		if attachment.existing {
+			ops = append(ops, txn.Op{
+				C:      filesystemsC,
+				Id:     attachment.tag.Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$inc", bson.D{{"attachmentcount", 1}}}},
+			})
 		}
 	}
 	return ops

@@ -20,6 +20,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -659,7 +660,7 @@ func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 // DestroyUnit removes a given set of application units.
 func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
 	if err := api.checkCanWrite(); err != nil {
-		return params.DestroyUnitResults{}, err
+		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
 	if err := api.check.RemoveAllowed(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
@@ -667,7 +668,7 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 	destroyUnit := func(entity params.Entity) (*params.DestroyUnitInfo, error) {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		name := unitTag.Id()
 		unit, err := api.backend.Unit(name)
@@ -680,13 +681,18 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+		storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		info.DestroyedStorage, info.DetachedStorage = common.ClassifyDetachedStorage(storage)
+		info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+			api.backend, storage,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		if err := unit.Destroy(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		return &info, nil
 	}
@@ -767,7 +773,7 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -785,7 +791,12 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 			}
 			storage = unseen
 
-			destroyed, detached := common.ClassifyDetachedStorage(storage)
+			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
+				api.backend, storage,
+			)
+			if err != nil {
+				return nil, err
+			}
 			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
 			info.DetachedStorage = append(info.DetachedStorage, detached...)
 		}

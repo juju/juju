@@ -41,11 +41,12 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]
-Unit          Id           Type        Pool      Provider id                 Size    Status    Message
-postgresql/0  db-dir/1100  block                                                     attached  
-transcode/0   db-dir/1000  block                                                     pending   creating volume
-transcode/0   shared-fs/0  filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
-transcode/1   shared-fs/0  filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
+Unit          Id            Type        Pool      Provider id                 Size    Status    Message
+              persistent/1  filesystem                                                detached  
+postgresql/0  db-dir/1100   block                                                     attached  
+transcode/0   db-dir/1000   block                                                     pending   creating volume
+transcode/0   shared-fs/0   filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
+transcode/1   shared-fs/0   filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
 
 `[1:])
 }
@@ -58,11 +59,12 @@ func (s *ListSuite) TestListNoPool(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]
-Unit          Id           Type        Provider id                 Size    Status    Message
-postgresql/0  db-dir/1100  block                                           attached  
-transcode/0   db-dir/1000  block                                           pending   creating volume
-transcode/0   shared-fs/0  filesystem  provider-supplied-volume-4  1.0GiB  attached  
-transcode/1   shared-fs/0  filesystem  provider-supplied-volume-4  1.0GiB  attached  
+Unit          Id            Type        Provider id                 Size    Status    Message
+              persistent/1  filesystem                                      detached  
+postgresql/0  db-dir/1100   block                                           attached  
+transcode/0   db-dir/1000   block                                           pending   creating volume
+transcode/0   shared-fs/0   filesystem  provider-supplied-volume-4  1.0GiB  attached  
+transcode/1   shared-fs/0   filesystem  provider-supplied-volume-4  1.0GiB  attached  
 
 `[1:])
 }
@@ -96,6 +98,12 @@ storage:
         postgresql/0:
           location: hither
           life: dying
+  persistent/1:
+    kind: filesystem
+    status:
+      current: detached
+      since: .*
+    persistent: true
   shared-fs/0:
     kind: filesystem
     status:
@@ -366,6 +374,14 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 				Location: "here",
 			},
 		},
+	}, {
+		StorageTag: "storage-persistent-1",
+		Kind:       params.StorageKindFilesystem,
+		Status: params.EntityStatus{
+			Status: status.Detached,
+			Since:  &epoch,
+		},
+		Persistent: true,
 	}}
 	return results, nil
 }

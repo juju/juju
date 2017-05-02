@@ -1870,3 +1870,11 @@ func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "3.combined")
 }
+
+func unitMachine(c *gc.C, st *state.State, u *state.Unit) *state.Machine {
+	machineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := st.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	return machine
+}

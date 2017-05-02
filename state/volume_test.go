@@ -396,10 +396,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 		}
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
-		mid, err := u.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		m, err = s.State.Machine(mid)
-		c.Assert(err, jc.ErrorIsNil)
+		m = unitMachine(c, s.State, u)
 		return u, m
 	}
 	_, m0 := addUnit(nil)
@@ -517,6 +514,22 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision volume attachment so that detaching the storage
+	// attachment does not short-circuit.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		machine := unitMachine(c, s.State, u)
+		err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.SetVolumeAttachmentInfo(
+			machine.MachineTag(), volume.VolumeTag(),
+			state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
@@ -881,9 +894,8 @@ func (s *VolumeStateSuite) setupStorageVolumeAttachment(c *gc.C) (state.Volume, 
 	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
-	assignedMachineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	return s.storageInstanceVolume(c, storageTag), s.machine(c, assignedMachineId), u
+	machine := unitMachine(c, s.State, u)
+	return s.storageInstanceVolume(c, storageTag), machine, u
 }
 
 func (s *VolumeStateSuite) setupModelScopedVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {

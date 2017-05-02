@@ -571,6 +571,11 @@ func (st *State) machineStorageOps(
 	var fsAttachments []filesystemAttachmentTemplate
 	var volumeAttachments []volumeAttachmentTemplate
 
+	const (
+		createAndAttach = false
+		attachOnly      = true
+	)
+
 	// Create filesystems and filesystem attachments.
 	for _, f := range args.filesystems {
 		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem, mdoc.Id)
@@ -579,14 +584,19 @@ func (st *State) machineStorageOps(
 		}
 		filesystemOps = append(filesystemOps, ops...)
 		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
-			filesystemTag, f.Filesystem.storage, f.Attachment,
+			filesystemTag, f.Filesystem.storage, f.Attachment, createAndAttach,
 		})
 		if volumeTag != (names.VolumeTag{}) {
 			// The filesystem requires a volume, so create a volume attachment too.
 			volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
-				volumeTag, VolumeAttachmentParams{},
+				volumeTag, VolumeAttachmentParams{}, createAndAttach,
 			})
 		}
+	}
+	for tag, filesystemAttachment := range args.filesystemAttachments {
+		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
+			tag, names.StorageTag{}, filesystemAttachment, attachOnly,
+		})
 	}
 
 	// Create volumes and volume attachments.
@@ -597,12 +607,14 @@ func (st *State) machineStorageOps(
 		}
 		volumeOps = append(volumeOps, ops...)
 		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
-			tag, v.Attachment,
+			tag, v.Attachment, createAndAttach,
 		})
 	}
-
-	// TODO(axw) handle args.filesystemAttachments, args.volumeAttachments
-	// when we handle attaching to existing (e.g. shared) storage.
+	for tag, volumeAttachment := range args.volumeAttachments {
+		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
+			tag, volumeAttachment, attachOnly,
+		})
+	}
 
 	ops := make([]txn.Op, 0, len(filesystemOps)+len(volumeOps)+len(fsAttachments)+len(volumeAttachments))
 	if len(fsAttachments) > 0 {

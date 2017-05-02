@@ -361,12 +361,15 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupCount(c, 2)
 
-	// After running the cleanup, the storage attachment and instance
-	// should both be removed.
+	// After running the cleanups, the storage attachment should
+	// have been removed; the storage instance should be floating,
+	// and will be removed along with the machine.
 	_, err = s.State.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.StorageInstance(storageTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	si, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, hasOwner := si.Owner()
+	c.Assert(hasOwner, jc.IsFalse)
 
 	// Check that the unit has been removed.
 	assertRemoved(c, u)
@@ -591,15 +594,15 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
-	// destroy unit and run cleanups; the attachment should be marked dying
+	// destroy unit and run cleanups; the storage should be detached
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	// After running the cleanup, the attachment should be dying.
-	sa, err = s.State.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa.Life(), gc.Equals, state.Dying)
+	// After running the cleanup, the attachment should be removed
+	// (short-circuited, because volume was never attached).
+	_, err = s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
@@ -635,10 +638,10 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 	s.assertCleanupRuns(c)
 
-	// After running the cleanup, the attachment should be dying.
-	sa, err = s.State.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa.Life(), gc.Equals, state.Dying)
+	// After running the cleanup, the attachment should be removed
+	// (short-circuited, because volume was never attached).
+	_, err = s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
