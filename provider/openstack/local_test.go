@@ -91,6 +91,7 @@ func registerLocalTests() {
 	config := makeTestConfig(cred)
 	config["agent-version"] = coretesting.FakeVersionNumber.String()
 	config["authorized-keys"] = "fakekey"
+	config["network"] = "net"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			cred: cred,
@@ -540,10 +541,44 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
+	c.Assert(err, gc.ErrorMatches, "failed to get network detail\n"+
 		"caused by: "+
-		"request \\(.*/servers\\) returned unexpected status: "+
+		"Resource at http://.*/networks/.* not found\n"+
+		"caused by: "+
+		"request \\(http://.*/networks/.*\\) returned unexpected status: "+
 		"404; error info: .*itemNotFound.*")
+}
+
+func (s *localServerSuite) TestStartInstancePortSecurityEnabled(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	novaClient := openstack.GetNovaClient(s.env)
+	detail, err := novaClient.GetServer(string(inst.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(detail.Groups, gc.NotNil)
+}
+
+func (s *localServerSuite) TestStartInstancePortSecurityDisabled(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "net-disabled",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	novaClient := openstack.GetNovaClient(s.env)
+	detail, err := novaClient.GetServer(string(inst.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(detail.Groups, gc.IsNil)
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
@@ -1432,6 +1467,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	attrs := makeTestConfig(s.cred)
 	attrs["agent-version"] = coretesting.FakeVersionNumber.String()
 	attrs["authorized-keys"] = "fakekey"
+	attrs["network"] = "net"
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
 	attrs["ssl-hostname-verification"] = false
@@ -1670,6 +1706,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 		Name:     newMachineName,
 		FlavorId: "1", // test service has 1,2,3 for flavor ids
 		ImageId:  "1", // UseTestImageData sets up images 1 and 2
+		Networks: []nova.ServerNetworks{{NetworkId: "1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.NotNil)
@@ -2285,7 +2322,15 @@ func (s *noSwiftSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		// A label that corresponds to a neutron test service network
+		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
