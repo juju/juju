@@ -153,7 +153,7 @@ func (c *migrateCommand) findModelUUID(ctx *cmd.Context, api migrateAPI) (string
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// Look for the uuid based on name. If the model name doesn't container a
+	// Look for the uuid based on name. If the model name doesn't contain a
 	// slash, then only accept the model name if there exists only one model
 	// with that name.
 	owner := ""
