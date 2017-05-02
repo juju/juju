@@ -38,6 +38,8 @@ type StubStore struct {
 
 	BootstrapConfigForControllerFunc func(controllerName string) (*jujuclient.BootstrapConfig, error)
 	UpdateBootstrapConfigFunc        func(controllerName string, cfg jujuclient.BootstrapConfig) error
+
+	CookieJarFunc func(controllerName string) (jujuclient.CookieJar, error)
 }
 
 func NewStubStore() *StubStore {
@@ -111,6 +113,9 @@ func NewStubStore() *StubStore {
 	result.UpdateBootstrapConfigFunc = func(controllerName string, cfg jujuclient.BootstrapConfig) error {
 		return result.Stub.NextErr()
 	}
+	result.CookieJarFunc = func(controllerName string) (jujuclient.CookieJar, error) {
+		return nil, result.Stub.NextErr()
+	}
 	return result
 }
 
@@ -137,6 +142,7 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub.RemoveAccountFunc = underlying.RemoveAccount
 	stub.BootstrapConfigForControllerFunc = underlying.BootstrapConfigForController
 	stub.UpdateBootstrapConfigFunc = underlying.UpdateBootstrapConfig
+	stub.CookieJarFunc = underlying.CookieJar
 	return stub
 }
 
@@ -264,4 +270,9 @@ func (c *StubStore) BootstrapConfigForController(controllerName string) (*jujucl
 func (c *StubStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.BootstrapConfig) error {
 	c.MethodCall(c, "UpdateBootstrapConfig", controllerName, cfg)
 	return c.UpdateBootstrapConfigFunc(controllerName, cfg)
+}
+
+func (c *StubStore) CookieJar(controllerName string) (jujuclient.CookieJar, error) {
+	c.MethodCall(c, "CookieJar", controllerName)
+	return c.CookieJarFunc(controllerName)
 }

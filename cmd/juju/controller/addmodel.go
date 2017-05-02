@@ -165,6 +165,10 @@ func (c *addModelCommand) newAPIRoot() (api.Connection, error) {
 }
 
 func (c *addModelCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	api, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Annotate(err, "opening API connection")
@@ -172,7 +176,6 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	store := c.ClientStore()
-	controllerName := c.ControllerName()
 	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil {
 		return errors.Trace(err)
@@ -231,7 +234,6 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	messageArgs := []interface{}{c.Name}
 
 	if modelOwner == accountDetails.User {
-		controllerName := c.ControllerName()
 		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
 			model.UUID,
 		}); err != nil {

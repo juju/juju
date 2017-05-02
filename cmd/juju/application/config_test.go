@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -139,50 +140,60 @@ func (s *configCommandSuite) TestGetConfigKey(c *gc.C) {
 }
 
 func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "invalid"})
-	c.Check(code, gc.Equals, 1)
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "ERROR key \"invalid\" not found in \"dummy-application\" application settings.\n")
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
+	_, err := cmdtesting.RunCommand(c, application.NewConfigCommandForTest(s.fake), "dummy-application", "invalid")
+	c.Assert(err, gc.ErrorMatches, `key "invalid" not found in "dummy-application" application settings.`, gc.Commentf("details: %v", errors.Details(err)))
 }
 
-func (s *configCommandSuite) TestSetCommandInit(c *gc.C) {
-	// missing args
-	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{})
-	c.Assert(err, gc.ErrorMatches, "no application name specified")
+var setCommandInitErrorTests = []struct {
+	about       string
+	args        []string
+	expectError string
+}{{
+	about:       "no arguments",
+	expectError: "no application name specified",
+}, {
+	about:       "missing application name",
+	args:        []string{"name=foo"},
+	expectError: "no application name specified",
+}, {
+	about:       "--file path, but no application",
+	args:        []string{"--file", "testconfig.yaml"},
+	expectError: "no application name specified",
+}, {
+	about:       "--file and options specified",
+	args:        []string{"application", "--file", "testconfig.yaml", "bees="},
+	expectError: "cannot specify --file and key=value arguments simultaneously",
+}, {
+	about:       "--reset and no config name provided",
+	args:        []string{"application", "--reset"},
+	expectError: "flag needs an argument: --reset",
+}, {
+	about:       "cannot set and retrieve simultaneously",
+	args:        []string{"application", "get", "set=value"},
+	expectError: "cannot set and retrieve values simultaneously",
+}, {
+	about:       "cannot reset and get simultaneously",
+	args:        []string{"application", "--reset", "reset", "get"},
+	expectError: "cannot reset and retrieve values simultaneously",
+}, {
+	about:       "invalid reset keys",
+	args:        []string{"application", "--reset", "reset,bad=key"},
+	expectError: `--reset accepts a comma delimited set of keys "a,b,c", received: "bad=key"`,
+}, {
+	about:       "init too many args fails",
+	args:        []string{"application", "key", "another"},
+	expectError: "can only retrieve a single value, or all values",
+}}
 
-	// missing application name
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"name=foo"})
-	c.Assert(err, gc.ErrorMatches, "no application name specified")
-
-	// --file path, but no application
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"--file", "testconfig.yaml"})
-	c.Assert(err, gc.ErrorMatches, "no application name specified")
-
-	// --file and options specified
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--file", "testconfig.yaml", "bees="})
-	c.Assert(err, gc.ErrorMatches, "cannot specify --file and key=value arguments simultaneously")
-
-	// --reset and no config name provided
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset"})
-	c.Assert(err, gc.ErrorMatches, "flag needs an argument: --reset")
-
-	// cannot set and retrieve simultaneously
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "get", "set=value"})
-	c.Assert(err, gc.ErrorMatches, "cannot set and retrieve values simultaneously")
-
-	// cannot reset and get simultaneously
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset", "get"})
-	c.Assert(err, gc.ErrorMatches, "cannot reset and retrieve values simultaneously")
-
-	// invalid reset keys
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset,bad=key"})
-	c.Assert(err, gc.ErrorMatches, `--reset accepts a comma delimited set of keys "a,b,c", received: "bad=key"`)
-
-	// init too many args fails
-	err = cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "key", "another"})
-	c.Assert(err, gc.ErrorMatches, "can only retrieve a single value, or all values")
-
+func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
+	testStore := application.NewMockStore()
+	for i, test := range setCommandInitErrorTests {
+		c.Logf("test %d: %s", i, test.about)
+		cmd := application.NewConfigCommandForTest(s.fake)
+		cmd.SetClientStore(testStore)
+		err := cmdtesting.InitCommand(cmd, test.args)
+		c.Assert(err, gc.ErrorMatches, test.expectError)
+	}
 }
 
 func (s *configCommandSuite) TestSetOptionSuccess(c *gc.C) {
@@ -232,24 +243,24 @@ func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 
 func (s *configCommandSuite) TestSetOptionFail(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{"foo", "bar"},
-		"ERROR can only retrieve a single value, or all values\n")
-	s.assertSetFail(c, s.dir, []string{"=bar"}, "ERROR expected \"key=value\", got \"=bar\"\n")
+		"can only retrieve a single value, or all values")
+	s.assertSetFail(c, s.dir, []string{"=bar"}, "expected \"key=value\", got \"=bar\"")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
-	}, "ERROR cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp+"\n")
+	}, "cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp)
 	s.assertSetFail(c, s.dir, []string{
 		"username=@big.txt",
-	}, "ERROR size of option file is larger than 5M\n")
+	}, "size of option file is larger than 5M")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@invalid.txt",
-	}, "ERROR value for option \"username\" contains non-UTF-8 sequences\n")
+	}, "value for option \"username\" contains non-UTF-8 sequences")
 }
 
 func (s *configCommandSuite) TestSetConfig(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{
 		"--file",
 		"missing.yaml",
-	}, "ERROR.* "+utils.NoSuchFileErrRegexp+"\n")
+	}, ".*"+utils.NoSuchFileErrRegexp)
 
 	ctx := cmdtesting.ContextForDir(c, s.dir)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{
@@ -287,37 +298,44 @@ func (s *configCommandSuite) TestResetConfigToDefault(c *gc.C) {
 func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
 	s.fake.err = common.OperationBlockedError("TestBlockSetConfig")
-	ctx := cmdtesting.ContextForDir(c, s.dir)
-	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{
+	cmd := application.NewConfigCommandForTest(s.fake)
+	cmd.SetClientStore(application.NewMockStore())
+	_, err := cmdtesting.RunCommandInDir(c, cmd, []string{
 		"dummy-application",
 		"--file",
-		"testconfig.yaml"})
-	c.Check(code, gc.Equals, 1)
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockSetConfig.*")
+		"testconfig.yaml",
+	}, s.dir)
+	c.Assert(err, gc.ErrorMatches, `(.|\n)*All operations that change model have been disabled(.|\n)*`)
+	c.Check(c.GetTestLog(), gc.Matches, "(.|\n)*TestBlockSetConfig(.|\n)*")
 }
 
 // assertSetSuccess sets configuration options and checks the expected settings.
+// TODO(rog) the expect parameter is ignored here - presumably
+// it's meant to be checked somehow.
 func (s *configCommandSuite) assertSetSuccess(c *gc.C, dir string, args []string, expect map[string]interface{}) {
-	ctx := cmdtesting.ContextForDir(c, dir)
-	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, append([]string{"dummy-application"}, args...))
-	c.Assert(code, gc.Equals, 0)
+	cmd := application.NewConfigCommandForTest(s.fake)
+	cmd.SetClientStore(application.NewMockStore())
+
+	args = append([]string{"dummy-application"}, args...)
+	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // assertSetFail sets configuration options and checks the expected error.
-func (s *configCommandSuite) assertSetFail(c *gc.C, dir string, args []string, err string) {
-	ctx := cmdtesting.ContextForDir(c, dir)
-	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, append([]string{"dummy-application"}, args...))
-	c.Check(code, gc.Not(gc.Equals), 0)
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
+func (s *configCommandSuite) assertSetFail(c *gc.C, dir string, args []string, expectErr string) {
+	cmd := application.NewConfigCommandForTest(s.fake)
+	cmd.SetClientStore(application.NewMockStore())
+
+	args = append([]string{"dummy-application"}, args...)
+	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
+	c.Assert(err, gc.ErrorMatches, expectErr)
 }
 
 func (s *configCommandSuite) assertSetWarning(c *gc.C, dir string, args []string, w string) {
-	ctx := cmdtesting.ContextForDir(c, dir)
-	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, append([]string{"dummy-application"}, args...))
-	c.Check(code, gc.Equals, 0)
-
+	cmd := application.NewConfigCommandForTest(s.fake)
+	cmd.SetClientStore(application.NewMockStore())
+	_, err := cmdtesting.RunCommandInDir(c, cmd, append([]string{"dummy-application"}, args...), dir)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")
 }
 

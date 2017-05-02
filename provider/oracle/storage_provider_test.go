@@ -5,12 +5,13 @@ package oracle_test
 
 import (
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type storageProviderSuite struct{}

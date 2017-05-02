@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -151,9 +152,18 @@ func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) testEnsureModelName(c *gc.C, expect string, args ...string) {
-	cmd, err := initTestCommand(c, s.store, args...)
+	cmd, err := runTestCommand(c, s.store, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.ConnectionName(), gc.Equals, expect)
+	modelName, err := cmd.ModelName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelName, gc.Equals, expect)
+}
+
+func runTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
+	cmd := modelcmd.Wrap(new(testCommand))
+	cmd.SetClientStore(store)
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmd, errors.Trace(err)
 }
 
 type testCommand struct {
@@ -165,14 +175,7 @@ func (c *testCommand) Info() *cmd.Info {
 }
 
 func (c *testCommand) Run(ctx *cmd.Context) error {
-	panic("should not be called")
-}
-
-func initTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testCommand, error) {
-	cmd := new(testCommand)
-	cmd.SetClientStore(store)
-	wrapped := modelcmd.Wrap(cmd)
-	return cmd, cmdtesting.InitCommand(wrapped, args)
+	return nil
 }
 
 type closer struct{}
@@ -219,12 +222,23 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *macaroonLoginSuite) newModelCommandBase() *modelcmd.ModelCommandBase {
+	var c modelcmd.ModelCommandBase
+	c.SetClientStore(s.store)
+	modelcmd.SetRunStarted(&c)
+	err := c.SetModelName(s.controllerName+":"+s.modelName, false)
+	if err != nil {
+		panic(err)
+	}
+	return &c
+}
+
 func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return testUser
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := s.newModelCommandBase()
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -234,9 +248,9 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 		return ""
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := s.newModelCommandBase()
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*")
+	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*", gc.Commentf("%s", errors.Details(err)))
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
@@ -244,7 +258,7 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 		return "testUnknown@nowhere"
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := s.newModelCommandBase()
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)", gc.Commentf("details: %s", errors.Details(err)))
 }

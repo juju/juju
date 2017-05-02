@@ -583,7 +583,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName)); err != nil {
+	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -143,10 +143,10 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 
 func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockRetryProvisioning")
-	command := model.NewRetryProvisioningCommandForTest(s.fake)
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
+		command := model.NewRetryProvisioningCommandForTest(s.fake)
 		_, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)

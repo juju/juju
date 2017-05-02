@@ -86,7 +86,15 @@ func (c *budgetCommand) getModelUUID() (string, error) {
 	if c.modelUUID != "" {
 		return c.modelUUID, nil
 	}
-	model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName())
+	modelName, err := c.ModelName()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	model, err := c.ClientStore().ModelByName(controllerName, modelName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

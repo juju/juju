@@ -120,7 +120,7 @@ func (c *destroyCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no model specified")
 	case 1:
-		return c.SetModelName(args[0])
+		return c.SetModelName(args[0], false)
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
@@ -151,8 +151,14 @@ func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
-	controllerName := c.ControllerName()
-	modelName := c.ModelName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {

@@ -97,7 +97,10 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil {
@@ -154,9 +157,13 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *changePasswordCommand) recordMacaroon(user, password string) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	accountDetails := &jujuclient.AccountDetails{User: user}
 	args, err := c.NewAPIConnectionParams(
-		c.ClientStore(), c.ControllerName(), "", accountDetails,
+		c.ClientStore(), controllerName, "", accountDetails,
 	)
 	if err != nil {
 		return errors.Trace(err)

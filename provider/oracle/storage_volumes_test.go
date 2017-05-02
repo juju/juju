@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/response"
+	"github.com/juju/utils/clock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	"github.com/juju/utils/clock"
-	gc "gopkg.in/check.v1"
 )
 
 type oracleVolumeSource struct{}

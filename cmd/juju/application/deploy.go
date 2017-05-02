@@ -416,9 +416,8 @@ func (c *DeployCommand) Info() *cmd.Info {
 var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags        = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
-	bundleOnlyFlags       = []string{}
-	modelCommandBaseFlags = []string{"B", "no-browser-login"}
+	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
+	bundleOnlyFlags = []string{}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -531,7 +530,6 @@ func (c *DeployCommand) deployCharm(
 	if serviceName == "" {
 		serviceName = charmInfo.Meta.Name
 	}
-
 	var configYAML []byte
 	if c.Config.Path != "" {
 		configYAML, err = c.Config.Read(ctx)

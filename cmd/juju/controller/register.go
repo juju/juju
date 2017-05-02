@@ -130,34 +130,37 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *registerCommand) run(ctx *cmd.Context) error {
-	store := modelcmd.QualifyingClientStore{c.store}
-	registrationParams, err := c.getParameters(ctx, store)
+	c.store = modelcmd.QualifyingClientStore{c.store}
+	registrationParams, err := c.getParameters(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerDetails, accountDetails, err := c.controllerDetails(ctx, registrationParams)
+	controllerName, err := c.promptControllerName(registrationParams.defaultControllerName, ctx.Stderr, ctx.Stdin)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerName, err := c.updateController(
+	controllerDetails, accountDetails, err := c.controllerDetails(ctx, registrationParams, controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.updateController(
 		ctx,
-		store,
-		registrationParams.defaultControllerName,
+		c.store,
+		controllerName,
 		controllerDetails,
 		accountDetails,
-	)
-	if err != nil {
+	); err != nil {
 		return errors.Trace(err)
 	}
 	// Log into the controller to verify the credentials, and
 	// list the models available.
-	models, err := c.listModelsFunc(store, controllerName, accountDetails.User)
+	models, err := c.listModelsFunc(c.store, controllerName, accountDetails.User)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, model := range models {
 		owner := names.NewUserTag(model.Owner)
-		if err := store.UpdateModel(
+		if err := c.store.UpdateModel(
 			controllerName,
 			jujuclient.JoinOwnerModelName(owner, model.Name),
 			jujuclient.ModelDetails{model.UUID},
@@ -165,7 +168,7 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 			return errors.Annotate(err, "storing model details")
 		}
 	}
-	if err := store.SetCurrentController(controllerName); err != nil {
+	if err := c.store.SetCurrentController(controllerName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -173,7 +176,7 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
 		friendlyUserName(accountDetails.User), controllerName,
 	)
-	return c.maybeSetCurrentModel(ctx, store, controllerName, accountDetails.User, models)
+	return c.maybeSetCurrentModel(ctx, c.store, controllerName, accountDetails.User, models)
 }
 
 func friendlyUserName(user string) string {
@@ -186,16 +189,16 @@ func friendlyUserName(user string) string {
 
 // controllerDetails returns controller and account details to be registered for the
 // given registration parameters.
-func (c *registerCommand) controllerDetails(ctx *cmd.Context, p *registrationParams) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
+func (c *registerCommand) controllerDetails(ctx *cmd.Context, p *registrationParams, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 	if p.publicHost != "" {
-		return c.publicControllerDetails(p.publicHost)
+		return c.publicControllerDetails(p.publicHost, controllerName)
 	}
-	return c.nonPublicControllerDetails(ctx, p)
+	return c.nonPublicControllerDetails(ctx, p, controllerName)
 }
 
 // publicControllerDetails returns controller and account details to be registered
 // for the given public controller host name.
-func (c *registerCommand) publicControllerDetails(host string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
+func (c *registerCommand) publicControllerDetails(host, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 	errRet := func(err error) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 		return jujuclient.ControllerDetails{}, jujuclient.AccountDetails{}, err
 	}
@@ -210,7 +213,7 @@ func (c *registerCommand) publicControllerDetails(host string) (jujuclient.Contr
 	// Unfortunately this means we'll connect twice to the controller
 	// but it's probably best to go through the conventional path the
 	// second time.
-	bclient, err := c.BakeryClient()
+	bclient, err := c.BakeryClient(c.store, controllerName)
 	if err != nil {
 		return errRet(errors.Trace(err))
 	}
@@ -230,7 +233,7 @@ func (c *registerCommand) publicControllerDetails(host string) (jujuclient.Contr
 	// If we get to here, then we have a cached macaroon for the registered
 	// user. If we encounter an error after here, we need to clear it.
 	c.onRunError = func() {
-		if err := c.ClearControllerMacaroons([]string{apiAddr}); err != nil {
+		if err := c.ClearControllerMacaroons(c.store, controllerName); err != nil {
 			logger.Errorf("failed to clear macaroon: %v", err)
 		}
 	}
@@ -245,7 +248,7 @@ func (c *registerCommand) publicControllerDetails(host string) (jujuclient.Contr
 
 // nonPublicControllerDetails returns controller and account details to be registered with
 // respect to the given registration parameters.
-func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrationParams *registrationParams) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
+func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrationParams *registrationParams, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 	errRet := func(err error) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 		return jujuclient.ControllerDetails{}, jujuclient.AccountDetails{}, err
 	}
@@ -271,7 +274,7 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 			&registrationParams.key,
 		),
 	}
-	resp, err := c.secretKeyLogin(registrationParams.controllerAddrs, req)
+	resp, err := c.secretKeyLogin(registrationParams.controllerAddrs, req, controllerName)
 	if err != nil {
 		return errRet(errors.Trace(err))
 	}
@@ -296,7 +299,7 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	// If we get to here, then we have a cached macaroon for the registered
 	// user. If we encounter an error after here, we need to clear it.
 	c.onRunError = func() {
-		if err := c.ClearControllerMacaroons(registrationParams.controllerAddrs); err != nil {
+		if err := c.ClearControllerMacaroons(c.store, controllerName); err != nil {
 			logger.Errorf("failed to clear macaroon: %v", err)
 		}
 	}
@@ -312,38 +315,32 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 
 // updateController prompts for a controller name and updates the
 // controller and account details in the given client store.
-// It returns the name of the updated controller.
 func (c *registerCommand) updateController(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
-	defaultControllerName string,
+	controllerName string,
 	controllerDetails jujuclient.ControllerDetails,
 	accountDetails jujuclient.AccountDetails,
-) (string, error) {
+) error {
 	// Check that the same controller isn't already stored, so that we
 	// can avoid needlessly asking for a controller name in that case.
 	all, err := store.AllControllers()
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	for name, ctl := range all {
 		if ctl.ControllerUUID == controllerDetails.ControllerUUID {
 			// TODO(rogpeppe) lp#1614010 Succeed but override the account details in this case?
-			return "", errors.Errorf("controller is already registered as %q", name)
+			return errors.Errorf("controller is already registered as %q", name)
 		}
 	}
-	controllerName, err := c.promptControllerName(store, defaultControllerName, ctx.Stderr, ctx.Stdin)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	if err := store.AddController(controllerName, controllerDetails); err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := store.UpdateAccount(controllerName, accountDetails); err != nil {
-		return "", errors.Annotatef(err, "cannot update account information: %v", err)
+		return errors.Annotatef(err, "cannot update account information: %v", err)
 	}
-	return controllerName, nil
+	return nil
 }
 
 func (c *registerCommand) listModels(store jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
@@ -416,7 +413,7 @@ type registrationParams struct {
 
 // getParameters gets all of the parameters required for registering, prompting
 // the user as necessary.
-func (c *registerCommand) getParameters(ctx *cmd.Context, store jujuclient.ClientStore) (*registrationParams, error) {
+func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, error) {
 	var params registrationParams
 	if strings.Contains(c.Arg, ".") || c.Arg == "localhost" {
 		// Looks like a host name - no URL-encoded base64 string should
@@ -460,8 +457,8 @@ func (c *registerCommand) getParameters(ctx *cmd.Context, store jujuclient.Clien
 	return &params, nil
 }
 
-func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKeyLoginRequest) (*params.SecretKeyLoginResponse, error) {
-	apiContext, err := c.APIContext()
+func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKeyLoginRequest, controllerName string) (*params.SecretKeyLoginResponse, error) {
+	cookieJar, err := c.CookieJar(c.store, controllerName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API context")
 	}
@@ -501,7 +498,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpClient := utils.GetNonValidatingHTTPClient()
-	httpClient.Jar = apiContext.CookieJar()
+	httpClient.Jar = cookieJar
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -541,9 +538,9 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-func (c *registerCommand) promptControllerName(store jujuclient.ClientStore, suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
+func (c *registerCommand) promptControllerName(suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
 	if suggestedName != "" {
-		if _, err := store.ControllerByName(suggestedName); err == nil {
+		if _, err := c.store.ControllerByName(suggestedName); err == nil {
 			suggestedName = ""
 		}
 	}
@@ -566,7 +563,7 @@ func (c *registerCommand) promptControllerName(store jujuclient.ClientStore, sug
 			}
 			name = suggestedName
 		}
-		_, err = store.ControllerByName(name)
+		_, err = c.store.ControllerByName(name)
 		if err == nil {
 			fmt.Fprintf(stderr, "Controller %q already exists.\n", name)
 			continue

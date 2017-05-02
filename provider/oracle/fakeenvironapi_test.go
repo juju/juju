@@ -7,6 +7,7 @@ import (
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
+
 	"github.com/juju/juju/provider/oracle"
 	providertest "github.com/juju/juju/provider/oracle/network/testing"
 )

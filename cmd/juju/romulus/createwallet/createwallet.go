@@ -16,14 +16,14 @@ import (
 )
 
 type createWalletCommand struct {
-	modelcmd.CommandBase
+	modelcmd.ControllerCommandBase
 	Name  string
 	Value string
 }
 
 // NewCreateWalletCommand returns a new createWalletCommand
-func NewCreateWalletCommand() cmd.Command {
-	return modelcmd.WrapBase(&createWalletCommand{})
+func NewCreateWalletCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&createWalletCommand{})
 }
 
 const doc = `

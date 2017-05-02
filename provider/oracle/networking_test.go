@@ -4,10 +4,11 @@
 package oracle_test
 
 import (
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type networkingSuite struct{}

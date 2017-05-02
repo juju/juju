@@ -68,7 +68,7 @@ See also:
     set-model-constraints`
 
 // NewServiceGetConstraintsCommand returns a command which gets application constraints.
-func NewServiceGetConstraintsCommand() cmd.Command {
+func NewServiceGetConstraintsCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&serviceGetConstraintsCommand{})
 }
 
@@ -155,7 +155,7 @@ type serviceSetConstraintsCommand struct {
 }
 
 // NewServiceSetConstraintsCommand returns a command which sets application constraints.
-func NewServiceSetConstraintsCommand() cmd.Command {
+func NewServiceSetConstraintsCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&serviceSetConstraintsCommand{})
 }
 

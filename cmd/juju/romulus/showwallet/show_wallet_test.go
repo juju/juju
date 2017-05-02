@@ -4,6 +4,7 @@
 package showwallet_test
 
 import (
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/wireformat/budget"
@@ -86,9 +87,7 @@ func (s *showWalletSuite) TestShowWalletCommand(c *gc.C) {
 		}
 		s.mockAPI.SetErrors(errs...)
 
-		showWallet := showwallet.NewShowWalletCommand()
-
-		ctx, err := cmdtesting.RunCommand(c, showWallet, test.args...)
+		ctx, err := s.runCommand(c, test.args...)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			s.stub.CheckCalls(c, []testing.StubCall{
@@ -100,6 +99,21 @@ func (s *showWalletSuite) TestShowWalletCommand(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
 	}
+}
+
+func (s *showWalletSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmd := showwallet.NewShowWalletCommand()
+	cmd.SetClientStore(newMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	return store
 }
 
 type mockAPI struct {

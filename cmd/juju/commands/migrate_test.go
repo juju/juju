@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -93,9 +92,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	mac1, err := macaroon.New([]byte("secret1"), "id1", "location1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: cookiejar.DefaultCookieFile(),
-	})
+	jar, err := s.store.CookieJar("target")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.targetControllerAPI = &fakeTargetControllerAPI{
@@ -113,11 +110,9 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 		Path:   "/",
 	})
 
-	err = jar.Save()
-	c.Assert(err, jc.ErrorIsNil)
 }
 
-func addCookie(c *gc.C, jar *cookiejar.Jar, mac *macaroon.Macaroon, url *url.URL) {
+func addCookie(c *gc.C, jar http.CookieJar, mac *macaroon.Macaroon, url *url.URL) {
 	cookie, err := httpbakery.NewCookie(macaroon.Slice{mac})
 	c.Assert(err, jc.ErrorIsNil)
 	cookie.Expires = time.Now().Add(time.Hour) // only persistent cookies are stored
@@ -178,7 +173,7 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
 	cmd := s.makeCommand()
 	cmd.SetModelAPI(&fakeModelAPI{})
-	_, err := s.run(c, cmd, "wat", "target")
+	_, err := cmdtesting.RunCommand(c, cmd, "wat", "target")
 	c.Check(err, gc.ErrorMatches, "model .+ not found")
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
 }
@@ -186,7 +181,7 @@ func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
 func (s *MigrateSuite) TestMultipleModelMatch(c *gc.C) {
 	cmd := s.makeCommand()
 	cmd.SetModelAPI(&fakeModelAPI{})
-	ctx, err := s.run(c, cmd, "production", "target")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "production", "target")
 	c.Check(err, gc.ErrorMatches, "multiple models match name")
 	expected := "" +
 		"Multiple potential matches found, please specify owner to disambiguate:\n" +
@@ -211,22 +206,22 @@ func (s *MigrateSuite) TestControllerDoesntExist(c *gc.C) {
 }
 
 func (s *MigrateSuite) makeAndRun(c *gc.C, args ...string) (*cmd.Context, error) {
-	return s.run(c, s.makeCommand(), args...)
+	return cmdtesting.RunCommand(c, s.makeCommand(), args...)
 }
 
-func (s *MigrateSuite) makeCommand() *migrateCommand {
-	cmd := &migrateCommand{
+func (s *MigrateSuite) makeCommand() modelcmd.ControllerCommand {
+	cmd := modelcmd.WrapController(&migrateCommand{
 		api: s.api,
 		newAPIRoot: func(jujuclient.ClientStore, string, string) (api.Connection, error) {
 			return s.targetControllerAPI, nil
 		},
-	}
+	})
 	cmd.SetClientStore(s.store)
 	return cmd
 }
 
 func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
+	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 type fakeMigrateAPI struct {

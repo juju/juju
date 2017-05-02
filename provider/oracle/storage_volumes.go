@@ -9,11 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
-
-	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs/tags"

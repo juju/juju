@@ -15,12 +15,12 @@ import (
 )
 
 // NewRenameCommand returns a command used to rename an existing space.
-func NewRenameCommand() cmd.Command {
-	return modelcmd.Wrap(&renameCommand{})
+func NewRenameCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&RenameCommand{})
 }
 
-// renameCommand calls the API to rename an existing network space.
-type renameCommand struct {
+// RenameCommand calls the API to rename an existing network space.
+type RenameCommand struct {
 	SpaceCommandBase
 	Name    string
 	NewName string
@@ -31,13 +31,13 @@ Renames an existing space from "old-name" to "new-name". Does not change the
 associated subnets and "new-name" must not match another existing space.
 `
 
-func (c *renameCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *RenameCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
 	f.StringVar(&c.NewName, "rename", "", "the new name for the network space")
 }
 
 // Info is defined on the cmd.Command interface.
-func (c *renameCommand) Info() *cmd.Info {
+func (c *RenameCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "rename-space",
 		Args:    "<old-name> <new-name>",
@@ -48,7 +48,7 @@ func (c *renameCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *renameCommand) Init(args []string) (err error) {
+func (c *RenameCommand) Init(args []string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
 
 	switch len(args) {
@@ -73,7 +73,7 @@ func (c *renameCommand) Init(args []string) (err error) {
 }
 
 // Run implements Command.Run.
-func (c *renameCommand) Run(ctx *cmd.Context) error {
+func (c *RenameCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		err := api.RenameSpace(c.Name, c.NewName)
 		if err != nil {

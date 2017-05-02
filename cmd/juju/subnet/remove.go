@@ -14,13 +14,13 @@ import (
 )
 
 // NewRemoveCommand returns a command used to remove an unused subnet from Juju.
-func NewRemoveCommand() cmd.Command {
-	return modelcmd.Wrap(&removeCommand{})
+func NewRemoveCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&RemoveCommand{})
 }
 
-// removeCommand calls the API to remove an existing, unused subnet
+// RemoveCommand calls the API to remove an existing, unused subnet
 // from Juju.
-type removeCommand struct {
+type RemoveCommand struct {
 	SubnetCommandBase
 
 	CIDR names.SubnetTag
@@ -41,7 +41,7 @@ until all related entites are cleaned up (e.g. allocated addresses).
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *removeCommand) Info() *cmd.Info {
+func (c *RemoveCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-subnet",
 		Args:    "<CIDR>",
@@ -52,7 +52,7 @@ func (c *removeCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *removeCommand) Init(args []string) error {
+func (c *RemoveCommand) Init(args []string) error {
 	// Ensure we have exactly 1 argument.
 	err := c.CheckNumArgs(args, []error{errNoCIDR})
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *removeCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *removeCommand) Run(ctx *cmd.Context) error {
+func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		// Try removing the subnet.
 		if err := api.RemoveSubnet(c.CIDR); err != nil {
