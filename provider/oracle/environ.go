@@ -296,11 +296,6 @@ func (e *OracleEnviron) getInstanceNetworks(
 		}
 	}
 
-	// No spaces specified by user. Just return the default NIC
-	if spaces.IsEmpty() {
-		return networking, nil
-	}
-
 	//start from 1. eth0 is the default nic that gets attached by default.
 	idx := 1
 	for _, space := range spaces.Values() {
