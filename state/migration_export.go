@@ -394,6 +394,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 			Label:          device.Label,
 			UUID:           device.UUID,
 			HardwareID:     device.HardwareId,
+			WWN:            device.WWN,
 			BusAddress:     device.BusAddress,
 			Size:           device.Size,
 			FilesystemType: device.FilesystemType,
@@ -1534,6 +1535,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		args.Size = info.Size
 		args.Pool = info.Pool
 		args.HardwareID = info.HardwareId
+		args.WWN = info.WWN
 		args.VolumeID = info.VolumeId
 		args.Persistent = info.Persistent
 	} else {

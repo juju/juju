@@ -323,6 +323,7 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 		Label:          "sda-label",
 		UUID:           "some-uuid",
 		HardwareId:     "magic",
+		WWN:            "drbr",
 		BusAddress:     "bus stop",
 		Size:           16 * 1024 * 1024 * 1024,
 		FilesystemType: "ext4",
@@ -348,6 +349,7 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(ex1.Label(), gc.Equals, "sda-label")
 	c.Check(ex1.UUID(), gc.Equals, "some-uuid")
 	c.Check(ex1.HardwareID(), gc.Equals, "magic")
+	c.Check(ex1.WWN(), gc.Equals, "drbr")
 	c.Check(ex1.BusAddress(), gc.Equals, "bus stop")
 	c.Check(ex1.Size(), gc.Equals, uint64(16*1024*1024*1024))
 	c.Check(ex1.FilesystemType(), gc.Equals, "ext4")
@@ -818,6 +820,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	volTag := names.NewVolumeTag("0/0")
 	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
 		HardwareId: "magic",
+		WWN:        "drbr",
 		Size:       1500,
 		VolumeId:   "volume id",
 		Persistent: true,
@@ -843,6 +846,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	c.Check(provisioned.Size(), gc.Equals, uint64(1500))
 	c.Check(provisioned.Pool(), gc.Equals, "loop")
 	c.Check(provisioned.HardwareID(), gc.Equals, "magic")
+	c.Check(provisioned.WWN(), gc.Equals, "drbr")
 	c.Check(provisioned.VolumeID(), gc.Equals, "volume id")
 	c.Check(provisioned.Persistent(), jc.IsTrue)
 	attachments := provisioned.Attachments()
