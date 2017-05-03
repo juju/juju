@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package oracle_test
+package testing
 
 import (
 	"github.com/juju/go-oracle-cloud/api"
@@ -9,7 +9,6 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/juju/provider/oracle"
-	providertest "github.com/juju/juju/provider/oracle/network/testing"
 )
 
 type FakeInstancer struct {
@@ -184,14 +183,14 @@ type FakeEnvironAPI struct {
 
 	FakeStorageAPI
 
-	providertest.FakeRules
-	providertest.FakeAcl
-	providertest.FakeSecIp
-	providertest.FakeIpAddressprefixSet
-	providertest.FakeSecList
-	providertest.FakeSecRules
-	providertest.FakeApplication
-	providertest.FakeAssociation
+	FakeRules
+	FakeAcl
+	FakeSecIp
+	FakeIpAddressprefixSet
+	FakeSecList
+	FakeSecRules
+	FakeApplication
+	FakeAssociation
 }
 
 var _ oracle.EnvironAPI = (*FakeEnvironAPI)(nil)
@@ -262,7 +261,7 @@ var (
 				response.Storage{
 					Index:               0x1,
 					Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
-					Name:                "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+					Name:                "/Compute-a432100/sgiulitti@cloudbase.com/0/1f90e657-f852-45ad-afbf-9a94f640a7ae",
 				},
 			},
 			Start_time: "2017-03-11T11:07:14Z", Storage_attachment_associations: []interface{}(nil),
@@ -279,14 +278,14 @@ var (
 				"vm-dev",
 				"juju-tools",
 				"toolsdir",
-				"/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_instance",
+				"/Compute-a432100/sgiulitti@cloudbase.com/0",
 				"16a4e037dd2068fe691aed9ed0c40460",
 			},
 			Resolvers: interface{}(nil),
 			Metrics:   interface{}(nil),
 			Account:   "/Compute-a432100/default",
 			Node_uuid: interface{}(nil),
-			Name:      "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837",
+			Name:      "/Compute-a432100/sgiulitti@cloudbase.com/0/ebc4ce91-56bb-4120-ba78-13762597f837",
 			Vcable_id: "/Compute-a432100/sgiulitti@cloudbase.com/faa46f2e-28c9-4500-b060-0997717540a6",
 			Higgs:     interface{}(nil),
 			Hypervisor: response.Hypervisor{
@@ -814,12 +813,12 @@ var (
 			DeleteErr:  nil,
 		},
 		FakeStorageAPI:  *DefaultFakeStorageAPI,
-		FakeRules:       providertest.DefaultFakeRules,
-		FakeApplication: providertest.DefaultSecApplications,
-		FakeSecIp:       providertest.DefaultSecIp,
-		FakeSecList:     providertest.DefaultFakeSecList,
-		FakeAssociation: providertest.DefaultFakeAssociation,
-		FakeAcl:         providertest.DefaultFakeAcl,
-		FakeSecRules:    providertest.DefaultFakeSecrules,
+		FakeRules:       DefaultFakeRules,
+		FakeApplication: DefaultSecApplications,
+		FakeSecIp:       DefaultSecIp,
+		FakeSecList:     DefaultFakeSecList,
+		FakeAssociation: DefaultFakeAssociation,
+		FakeAcl:         DefaultFakeAcl,
+		FakeSecRules:    DefaultFakeSecrules,
 	}
 )

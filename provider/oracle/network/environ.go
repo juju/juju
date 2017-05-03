@@ -40,14 +40,17 @@ type NetworkingAPI interface {
 // Environ implements the environs.Networking interface
 type Environ struct {
 	client NetworkingAPI
+
+	env commonProvider.OracleInstancer
 }
 
 var _ environs.Networking = (*Environ)(nil)
 
 // NewEnviron returns a new instance of Environ
-func NewEnviron(api NetworkingAPI) *Environ {
+func NewEnviron(api NetworkingAPI, env commonProvider.OracleInstancer) *Environ {
 	return &Environ{
 		client: api,
+		env:    env,
 	}
 }
 
@@ -152,8 +155,7 @@ func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
 
 // NetworkInterfaces is defined on the environs.Networking interface.
 func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	id := string(instId)
-	instance, err := e.client.InstanceDetails(id)
+	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package oracle_test
+package testing
 
 import (
 	"github.com/juju/go-oracle-cloud/api"
@@ -13,11 +13,11 @@ import (
 
 // FakeComposer implements common.Composer interface
 type FakeComposer struct {
-	compose string
+	Compose string
 }
 
 func (f FakeComposer) ComposeName(name string) string {
-	return f.compose
+	return f.Compose
 }
 
 // FakeStorageVolume implements the common.StorageVolumeAPI
@@ -120,7 +120,7 @@ var (
 
 	DefaultFakeStorageAPI = &FakeStorageAPI{
 		FakeComposer: FakeComposer{
-			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
 		FakeStorageVolume: FakeStorageVolume{
 			All:    DefaultAllStorageVolumes,
