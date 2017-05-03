@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/go-oracle-cloud/api"
+	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -143,13 +144,26 @@ func (e *environSuite) TestSubnets(c *gc.C) {
 }
 
 func (e *environSuite) TestNetworkInterfacesWithEmptyParams(c *gc.C) {
-	info, err := e.netEnv.NetworkInterfaces(instance.Id("0"))
-	c.Assert(info, jc.DeepEquals, []networkenv.InterfaceInfo{})
-	c.Assert(err, gc.IsNil)
-}
+	envAPI := oracletesting.DefaultEnvironAPI
+	envAPI.FakeInstance.All.Result[0].Networking = common.Networking{}
+	envAPI.FakeInstance.All.Result[0].Attributes.Network = map[string]response.Network{}
 
-func (e *environSuite) TestNetworkInterfaces(c *gc.C) {
-	info, err := e.netEnv.NetworkInterfaces(instance.Id("0"))
+	env, err := oracle.NewOracleEnviron(
+		&oracle.EnvironProvider{},
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		envAPI,
+		&advancingClock,
+	)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(env, gc.NotNil)
+
+	netEnv := network.NewEnviron(&fakeNetworkingAPI{}, env)
+	c.Assert(netEnv, gc.NotNil)
+
+	info, err := netEnv.NetworkInterfaces(instance.Id("0"))
 	c.Assert(info, jc.DeepEquals, []networkenv.InterfaceInfo{})
 	c.Assert(err, gc.IsNil)
 }
