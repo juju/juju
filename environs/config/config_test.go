@@ -1015,6 +1015,7 @@ func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.FTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
+	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
@@ -1033,6 +1034,7 @@ func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
 	c.Assert(config.FTPProxy(), gc.Equals, "user@10.0.0.1")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
+	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (s *ConfigSuite) TestProxyValues(c *gc.C) {
@@ -1078,12 +1080,13 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 		Http:    "http://http proxy",
 		Https:   "https://https proxy",
 		Ftp:     "ftp://ftp proxy",
-		NoProxy: "127.0.0.1,localhost,::1",
+		NoProxy: "no proxy",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
-	// Apt proxy settings always include the scheme. NoProxy is set to system defaults.
+	cfg, err = cfg.Apply(config.AptProxyConfigMap(proxySettings))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, expectedProxySettings)
 }
 

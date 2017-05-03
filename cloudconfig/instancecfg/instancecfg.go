@@ -11,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -466,6 +467,24 @@ func (cfg *InstanceConfig) APIHostAddrs() []string {
 	return hosts
 }
 
+func (cfg *InstanceConfig) APIHosts() []string {
+	var hosts []string
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, "localhost")
+	}
+	if cfg.APIInfo != nil {
+		for _, addr := range cfg.APIInfo.Addrs {
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				logger.Errorf("Can't split API address %q to host:port - %q", host, err)
+				continue
+			}
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
+}
+
 // AgentVersion returns the version of the Juju agent that will be configured
 // on the instance. The zero value will be returned if there are no tools set.
 func (cfg *InstanceConfig) AgentVersion() version.Binary {
@@ -771,6 +790,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AgentEnvironment[agent.ContainerType] = string(icfg.MachineContainerType)
 	icfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	icfg.ProxySettings = proxySettings
+	icfg.ProxySettings.AutoNoProxy = strings.Join(icfg.APIHosts(), ",")
 	icfg.AptProxySettings = aptProxySettings
 	icfg.AptMirror = aptMirror
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates

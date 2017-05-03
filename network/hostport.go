@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"strings"
 )
 
 // HostPort associates an address with a port.
@@ -192,6 +193,22 @@ func HostPortsToStrings(hps []HostPort) []string {
 		result[i] = hp.NetAddr()
 	}
 	return result
+}
+
+// APIHostPortsToNoProxyString converts list of lists of NetAddrs() to
+// a NoProxy-like comma separated string, ignoring local addresses
+func APIHostPortsToNoProxyString(ahp [][]HostPort) string {
+	noProxySet := set.NewStrings()
+	for _, host := range ahp {
+		for _, hp := range host {
+			if hp.Address.Scope == ScopeMachineLocal ||
+				hp.Address.Scope == ScopeLinkLocal {
+				continue
+			}
+			noProxySet.Add(hp.Address.Value)
+		}
+	}
+	return strings.Join(noProxySet.SortedValues(), ",")
 }
 
 // CollapseHostPorts returns a flattened list of HostPorts keeping the

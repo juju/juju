@@ -4,10 +4,7 @@
 package proxyupdater
 
 import (
-	"strings"
-
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -86,7 +83,7 @@ func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.Prox
 		HTTP:    settings.Http,
 		HTTPS:   settings.Https,
 		FTP:     settings.Ftp,
-		NoProxy: settings.NoProxy,
+		NoProxy: settings.FullNoProxy(),
 	}
 }
 
@@ -127,26 +124,10 @@ func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(env.ProxySettings())
+	proxySettings := env.ProxySettings()
+	proxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
+	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(proxySettings)
 	result.APTProxySettings = proxyUtilsSettingsToProxySettingsParam(env.AptProxySettings())
-
-	var noProxy []string
-	if result.ProxySettings.NoProxy != "" {
-		noProxy = strings.Split(result.ProxySettings.NoProxy, ",")
-	}
-
-	noProxySet := set.NewStrings(noProxy...)
-	for _, host := range apiHostPorts {
-		for _, hp := range host {
-			if hp.Address.Scope == network.ScopeMachineLocal ||
-				hp.Address.Scope == network.ScopeLinkLocal {
-				continue
-			}
-			noProxySet.Add(hp.Address.Value)
-		}
-	}
-	result.ProxySettings.NoProxy = strings.Join(noProxySet.SortedValues(), ",")
-
 	return result
 }
 
