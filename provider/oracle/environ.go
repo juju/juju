@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
+	ociResponse "github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
@@ -691,13 +692,13 @@ func (o *OracleEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (o *OracleEnviron) ProviderID(id instance.Id) (string, error) {
+func (o *OracleEnviron) Details(id instance.Id) (ociResponse.Instance, error) {
 	inst, err := o.getOracleInstances(id)
 	if err != nil {
-		return "", err
+		return ociResponse.Instance{}, err
 	}
 
-	return inst[0].machine.Name, nil
+	return inst[0].machine, nil
 }
 
 // Instances is part of the environs.Environ interface.

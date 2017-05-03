@@ -15,7 +15,7 @@ import (
 type OracleInstancer interface {
 	environs.Environ
 
-	ProviderID(id instance.Id) (string, error)
+	Details(id instance.Id) (response.Instance, error)
 }
 
 // Instancer used to retrieve details from a given instance

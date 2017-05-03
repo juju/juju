@@ -338,7 +338,7 @@ func (s *oracleVolumeSource) getStorageAttachments() (map[string][]ociResponse.S
 	}
 	asMap := map[string][]ociResponse.StorageAttachment{}
 	for _, val := range allAttachments.Result {
-		hostname, err := extractHostnameFromProviderID(val.Instance_name)
+		hostname, err := extractInstanceIDFromMachineName(val.Instance_name)
 		if err != nil {
 			return nil, err
 		}

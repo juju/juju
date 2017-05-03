@@ -54,11 +54,11 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
-// extractHostnameFromProviderID will return the hostname of the machine
+// extractInstanceIDFromMachineName will return the hostname of the machine
 // identified by the provider ID. In the Oracle compute cloud the provider
 // IDs of the instances has the following format:
 // /Compute-tenant_domain/tenant_username/instance_hostname/instance_UUID
-func extractHostnameFromProviderID(id string) (instance.Id, error) {
+func extractInstanceIDFromMachineName(id string) (instance.Id, error) {
 	var instId instance.Id
 	name := strings.Split(id, "/")
 	if len(name) < 4 {
@@ -75,7 +75,7 @@ func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance,
 			"Instance response does not contain a name",
 		)
 	}
-	name, err := extractHostnameFromProviderID(params.Name)
+	name, err := extractInstanceIDFromMachineName(params.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance,
 // Id is defined on the instance.Instance interface.
 func (o *oracleInstance) Id() instance.Id {
 	if o.machine.Name != "" {
-		name, err := extractHostnameFromProviderID(o.machine.Name)
+		name, err := extractInstanceIDFromMachineName(o.machine.Name)
 		if err != nil {
 			return instance.Id(o.machine.Name)
 		}

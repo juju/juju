@@ -6,8 +6,7 @@ package oracle
 import "github.com/juju/juju/storage"
 
 var (
-	DefaultTypes = []storage.ProviderType{oracleStorageProvideType}
-	// DefaultProvider            = &environProvider{}
+	DefaultTypes               = []storage.ProviderType{oracleStorageProvideType}
 	DefaultStorageProviderType = oracleStorageProvideType
 	OracleVolumeType           = oracleVolumeType
 	OracleLatencyPool          = latencyPool

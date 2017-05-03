@@ -155,12 +155,7 @@ func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
 
 // NetworkInterfaces is defined on the environs.Networking interface.
 func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	providerId, err := e.env.ProviderID(instId)
-	if err != nil {
-		return nil, err
-	}
-
-	instance, err := e.client.InstanceDetails(providerId)
+	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err
 	}
