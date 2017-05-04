@@ -8,7 +8,8 @@ update_branch() {
     local_dir="$(basename $local_branch | cut -d ':' -f2)"
     local_path="$HOME/$local_dir"
     if [[ -d $local_path ]]; then
-        bzr pull -d $local_path
+        # Clear any changes that haven't been commited to the branch.
+        (cd $local_path; bzr revert; bzr pull)
     else
         bzr branch $local_branch $local_path
     fi
