@@ -225,28 +225,11 @@ func (c *ControllerCommandBase) newAPIRoot(modelName string) (api.Connection, er
 
 // ModelUUIDs returns the model UUIDs for the given model names.
 func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error) {
-	var result []string
-	store := c.ClientStore()
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, modelName := range modelNames {
-		model, err := store.ModelByName(controllerName, modelName)
-		if errors.IsNotFound(err) {
-			// The model isn't known locally, so query the models available in the controller.
-			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
-			if err := c.RefreshModels(store, controllerName); err != nil {
-				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
-			}
-			model, err = store.ModelByName(controllerName, modelName)
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result = append(result, model.ModelUUID)
-	}
-	return result, nil
+	return c.CommandBase.ModelUUIDs(c.ClientStore(), controllerName, modelNames)
 }
 
 // CurrentAccountDetails returns details of the account associated with
