@@ -22,5 +22,9 @@ func Listen(socketPath string) (net.Listener, error) {
 		logger.Errorf("failed to listen on unix:%s: %v", socketPath, err)
 		return nil, err
 	}
+	if err := os.chmod(socketPath, 0700); err != nil {
+		listener.Close()
+		return nil, err
+	}
 	return listener, err
 }
