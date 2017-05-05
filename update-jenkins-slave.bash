@@ -71,7 +71,7 @@ update_branch lp:juju-ci-tools/repository
 update_branch lp:~juju-qa/+junk/cloud-city
 if [[ $hammertime == "enabled" ]]; then
     sudo apt-get install git -y
-    update_git_repo git@github.com:juju/hammertime.git
+    update_git_repo https://github.com/juju/hammertime.git
 fi
 
 echo "Updating permissions"
