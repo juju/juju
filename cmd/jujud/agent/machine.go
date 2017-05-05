@@ -1081,7 +1081,7 @@ func (a *MachineAgent) startStateWorkers(
 			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
-				return txnpruner.New(st, time.Hour*2, clock.WallClock), nil
+				return txnpruner.New(st, time.Hour, clock.WallClock), nil
 			})
 		default:
 			return nil, errors.Errorf("unknown job type %q", job)
