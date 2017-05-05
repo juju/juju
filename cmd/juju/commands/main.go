@@ -364,6 +364,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewRunCommand())
 	r.Register(action.NewShowOutputCommand())
 	r.Register(action.NewListCommand())
+	r.Register(action.NewCancelCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())

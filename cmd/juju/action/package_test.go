@@ -165,7 +165,7 @@ func (c *fakeAPIClient) ListCompleted(args params.Entities) (params.ActionsByRec
 	}, c.apiErr
 }
 
-func (c *fakeAPIClient) Cancel(args params.Actions) (params.ActionResults, error) {
+func (c *fakeAPIClient) Cancel(args params.Entities) (params.ActionResults, error) {
 	return params.ActionResults{
 		Results: c.actionResults,
 	}, c.apiErr
