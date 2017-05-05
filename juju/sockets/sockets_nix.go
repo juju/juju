@@ -24,5 +24,12 @@ func Listen(socketPath string) (net.Listener, error) {
 		logger.Tracef("ignoring error on removing %q: %v", socketPath, err)
 	}
 	listener, err := net.Listen("unix", socketPath)
-	return listener, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := os.Chmod(socketPath, 0700); err != nil {
+		listener.Close()
+		return nil, errors.Trace(err)
+	}
+	return listener, nil
 }
