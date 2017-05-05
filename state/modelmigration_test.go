@@ -179,9 +179,9 @@ func (s *MigrationSuite) TestSpecValidation(c *gc.C) {
 	}, {
 		"TargetInfo is validated",
 		func(spec *state.MigrationSpec) {
-			spec.TargetInfo.CACert = ""
+			spec.TargetInfo.Addrs = nil
 		},
-		"empty CACert not valid",
+		"empty Addrs not valid",
 	}}
 	for _, test := range tests {
 		c.Logf("---- %s -----------", test.label)
