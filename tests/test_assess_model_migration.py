@@ -88,6 +88,20 @@ class TestParseArgs(TestCase):
             "Test model migration feature", fake_stdout.getvalue())
 
 
+class TestAfter22Beta4(TestCase):
+
+    def test_returns_True_when_newer(self):
+        self.assertTrue(amm.after_22beta4('2.2-beta8-xenial-amd64'))
+        self.assertTrue(amm.after_22beta4('2.3-beta4-xenial-amd64'))
+
+    def test_returns_True_when_equal(self):
+        self.assertTrue(amm.after_22beta4('2.2-beta4-xenial-amd64'))
+
+    def test_returns_False_when_older(self):
+        self.assertFalse(amm.after_22beta4('2.1-beta8-xenial-amd64'))
+        self.assertFalse(amm.after_22beta4('2.2-beta2-xenial-amd64'))
+
+
 class TestDeploySimpleResourceServer(TestCase):
 
     def test_deploys_with_resource(self):
