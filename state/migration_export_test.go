@@ -674,7 +674,7 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, "rust")
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
 }
 

@@ -943,14 +943,20 @@ func (e *exporter) subnets() error {
 	e.logger.Debugf("read %d subnets", len(subnets))
 
 	for _, subnet := range subnets {
-		e.model.AddSubnet(description.SubnetArgs{
+		args := description.SubnetArgs{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        string(subnet.ProviderId()),
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			AvailabilityZone:  subnet.AvailabilityZone(),
 			SpaceName:         subnet.SpaceName(),
-		})
+		}
+		// TODO(babbageclunk): at the moment state.Subnet only stores
+		// one AZ.
+		az := subnet.AvailabilityZone()
+		if az != "" {
+			args.AvailabilityZones = []string{az}
+		}
+		e.model.AddSubnet(args)
 	}
 	return nil
 }
