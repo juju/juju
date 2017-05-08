@@ -31,9 +31,10 @@ func NewNetworkGetCommand(ctx Context) (cmd.Command, error) {
 func (c *NetworkGetCommand) Info() *cmd.Info {
 	args := "<binding-name> --primary-address"
 	doc := `
-network-get returns the network config for a given binding name. The only
-supported flag for now is --primary-address, which is required and returns
-the IP address the local unit should advertise as its endpoint to its peers.
+network-get returns the network config for a given binding name. By default
+it returns the list of interfaces with addresses in the bindings space.
+If --primary-address flag is specified then only single IP address is
+returned that the local unit should advertise as its endpoint to its peers.
 `
 	return &cmd.Info{
 		Name:    "network-get",
@@ -60,10 +61,6 @@ func (c *NetworkGetCommand) Init(args []string) error {
 		return fmt.Errorf("no binding name specified")
 	}
 
-	if !c.primaryAddress {
-		return fmt.Errorf("--primary-address is currently required")
-	}
-
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -87,7 +84,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("No addresses attached to space for binding %q", c.bindingName)
 		}
 		return c.out.Write(ctx, ni.Info[0].Addresses[0])
+	} else {
+		return c.out.Write(ctx, ni.Info)
 	}
-
-	return nil // never reached as --primary-address is required.
 }

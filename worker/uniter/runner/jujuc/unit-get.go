@@ -56,7 +56,7 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 				err = errors.Trace(networkInfos[""].Error)
 			}
 		}
-		// fallback
+		// If we haven't found the address the NetworkInfo-way fall back to old, spaceless method
 		if err != nil {
 			value, err = c.ctx.PrivateAddress()
 		} else {
