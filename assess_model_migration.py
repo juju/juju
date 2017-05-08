@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 from contextlib import contextmanager
+from distutils.version import LooseVersion
 import logging
 import os
 from subprocess import CalledProcessError
@@ -89,6 +90,10 @@ def assess_development_branch_migrations(source_client, dest_client):
 def client_is_at_least_2_1(client):
     """Return true of the given ModelClient is version 2.1 or greater."""
     return not isinstance(client, ModelClient2_0)
+
+
+def after_22beta4(client_version):
+    return LooseVersion(client_version) >= LooseVersion('2.2-beta4')
 
 
 def parse_args(argv):
@@ -337,9 +342,15 @@ def ensure_superuser_can_migrate_other_user_models(
         attempt_client.env.environment,
         attempt_client.env.user_name)
 
-    source_client.controller_juju(
-        'migrate',
-        (user_qualified_model_name, dest_client.env.controller.name))
+    if after_22beta4(source_client.version):
+        source_client.juju(
+            'migrate',
+            (user_qualified_model_name, dest_client.env.controller.name),
+            include_e=False)
+    else:
+        source_client.controller_juju(
+            'migrate',
+            (user_qualified_model_name, dest_client.env.controller.name))
 
     migration_client = dest_client.clone(
         dest_client.env.clone(user_qualified_model_name))
@@ -394,12 +405,30 @@ def migrate_model_to_controller(
         source_client, dest_client, include_user_name=False):
     log.info('Initiating migration process')
     if include_user_name:
-        model_name = '{}/{}'.format(
-            source_client.env.user_name, source_client.env.environment)
+        if after_22beta4(source_client.version):
+            model_name = '{}:{}/{}'.format(
+                source_client.env.controller.name,
+                source_client.env.user_name,
+                source_client.env.environment)
+        else:
+            model_name = '{}/{}'.format(
+                source_client.env.user_name, source_client.env.environment)
     else:
-        model_name = source_client.env.environment
-    source_client.controller_juju(
-        'migrate', (model_name, dest_client.env.controller.name))
+        if after_22beta4(source_client.version):
+            model_name = '{}:{}'.format(
+                source_client.env.controller.name,
+                source_client.env.environment)
+        else:
+            model_name = source_client.env.environment
+
+    if after_22beta4(source_client.version):
+        source_client.juju(
+            'migrate',
+            (model_name, dest_client.env.controller.name),
+            include_e=False)
+    else:
+        source_client.controller_juju(
+            'migrate', (model_name, dest_client.env.controller.name))
     migration_target_client = dest_client.clone(
         dest_client.env.clone(source_client.env.environment))
     wait_for_model(migration_target_client, source_client.env.environment)
@@ -490,10 +519,15 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     """
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'rollmeback')
-    test_model.controller_juju(
-        'migrate',
-        (test_model.env.environment,
-         dest_client.env.controller.name))
+    if after_22beta4(source_client.version):
+        test_model.juju(
+            'migrate',
+            (test_model.env.environment, dest_client.env.controller.name),
+            include_e=False)
+    else:
+        test_model.controller_juju(
+            'migrate',
+            (test_model.env.environment, dest_client.env.controller.name))
     # Once migration has started interrupt it
     wait_for_migrating(test_model)
     log.info('Disrupting target controller to force rollback')
@@ -599,9 +633,19 @@ def expect_migration_attempt_to_fail(source_client, dest_client):
     appears in test logs.
     """
     try:
-        args = ['-c', source_client.env.controller.name,
+        if after_22beta4(source_client.version):
+            args = [
+                '{}:{}'.format(
+                    source_client.env.controller.name,
+                    source_client.env.environment),
+                dest_client.env.controller.name
+            ]
+        else:
+            args = [
+                '-c', source_client.env.controller.name,
                 source_client.env.environment,
-                dest_client.env.controller.name]
+                dest_client.env.controller.name
+            ]
         log_output = source_client.get_juju_output(
             'migrate', *args, merge_stderr=True, include_e=False)
     except CalledProcessError as e:
