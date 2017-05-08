@@ -44,6 +44,9 @@ get_os() {
     fi
 }
 
+# Make sure we have access to the machine
+echo "Importing ssh ids for juju-qa-bot"
+ssh-import-id lp:juju-qa-bot
 
 # This works when the slave was setup by the jenkins-juju-ci subordinate
 # charm, or when a person installed the keys in .ssh by links to
