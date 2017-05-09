@@ -9,6 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"fmt"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -87,14 +88,19 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("identifier(s) %q matched action(s) %q, but no actions were canceled", c.requestedIds, actionTags)
 	}
 
-	var unCanceledActions []string
+	type unCanceledAction struct {
+		ActionTag names.ActionTag
+		Result    *params.ActionResult
+	}
+	var unCanceledActions []unCanceledAction
 	var canceledActions []params.ActionResult
-	for _, result := range actions.Results {
-		if result.Error != nil {
-			unCanceledActions = append(unCanceledActions, result.Action.Tag)
-			continue
+
+	for i, result := range actions.Results {
+		if result.Action != nil {
+			canceledActions = append(canceledActions, result)
+		} else {
+			unCanceledActions = append(unCanceledActions, unCanceledAction{actionTags[i], &result})
 		}
-		canceledActions = append(canceledActions, result)
 	}
 
 	if len(canceledActions) > 0 {
@@ -102,7 +108,12 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if len(unCanceledActions) > 0 {
-		logger.Warningf("The following actions could not be canceled: %v. The actions may not have been in the pending state at the time of attempted cancellation", unCanceledActions)
+		message := ("The following actions could not be canceled:\n")
+		for _, a := range unCanceledActions {
+			message += fmt.Sprintf("action: %s, error: %s\n", a.ActionTag, a.Result.Message)
+		}
+
+		logger.Warningf(message)
 	}
 
 	return err

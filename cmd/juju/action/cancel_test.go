@@ -38,8 +38,8 @@ func (s *CancelSuite) TestRun(c *gc.C) {
 	emptyArgs := []string{}
 	emptyPrefixArgs := []string{}
 	prefixArgs := []string{prefix}
-	result1 := []params.ActionResult{{Status: "some-random-status"}}
-	result2 := []params.ActionResult{{Status: "a status"}, {Status: "another status"}}
+	result1 := []params.ActionResult{{Action: &params.Action{}, Status: "some-random-status"}}
+	result2 := []params.ActionResult{{Action: &params.Action{}, Status: "a status"}, {Action: &params.Action{}, Status: "another status"}}
 
 	errNotFound := "no actions specified"
 	errNotFoundForPrefix := `no actions found matching prefix ` + prefix + `, no actions have been canceled`
