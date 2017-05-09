@@ -125,7 +125,7 @@ Make sure your local copy and github fork stay in sync with upstream:
 
 ```shell
 $ cd $GOPATH/src/github.com/juju/juju
-$ git pull upstream master
+$ git pull upstream develop
 $ git push
 ```
 
@@ -231,11 +231,11 @@ Naturally it is not so linear in practice.  Each of these is elaborated below.
 Sync with upstream
 ------------------
 
-First check that the branch is on master:
+First check that the branch is on develop:
 
 ```shell
 $ git branch
-* master
+* develop
   old_feature
 ```
 
@@ -243,14 +243,14 @@ Then pull in the latest changes from upstream, assuming you have done
 the setup as above:
 
 ```shell
-$ git pull upstream master
+$ git pull upstream develop
 ```
 
 Feature branches
 ----------------
 
 All development should be done on feature branches based on a current
-copy of master.  So after pulling up your local repo, make a new branch
+copy of develop.  So after pulling up your local repo, make a new branch
 for your work:
 
 ```shell
@@ -327,12 +327,12 @@ When ready for feedback, push your feature branch to github, optionally after
 collapsing multiple commits into discrete changes:
 
 ```shell
-$ git rebase -i --autosquash master
+$ git rebase -i --autosquash develop
 $ git push origin new_feature
 ```
 
 Go to the web page (https://github.com/$YOUR_GITHUB_USERNAME/juju)
-and hit the "Pull Request" button, selecting master as the target.
+and hit the "Pull Request" button, selecting develop as the target.
 
 This creates a numbered pull request on the github site, where members
 of the juju project can see and comment on the changes.
@@ -397,7 +397,7 @@ Continuous integration is automated through Jenkins:
 http://juju-ci.vapour.ws:8080/
 
 The bot runs the test suite after `$$merge$$` but before it actually
-merges the pull request into master.
+merges the pull request into develop.
 
 Community
 =========
