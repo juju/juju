@@ -426,12 +426,27 @@ func New(ser string) (CloudConfig, error) {
 	case os.CentOS:
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
-			&cloudConfig{
+			cloudConfig: &cloudConfig{
 				series:    ser,
 				paccmder:  commands.NewYumPackageCommander(),
 				pacconfer: config.NewYumPackagingConfigurer(ser),
 				renderer:  renderer,
 				attrs:     make(map[string]interface{}),
+			},
+			helper: centOSHelper{},
+		}, nil
+	case os.OpenSUSE:
+		renderer, _ := shell.NewRenderer("bash")
+		return &centOSCloudConfig{
+			cloudConfig: &cloudConfig{
+				series:    ser,
+				paccmder:  commands.NewZypperPackageCommander(),
+				pacconfer: config.NewZypperPackagingConfigurer(ser),
+				renderer:  renderer,
+				attrs:     make(map[string]interface{}),
+			},
+			helper: openSUSEHelper{
+				paccmder: commands.NewZypperPackageCommander(),
 			},
 		}, nil
 	default:

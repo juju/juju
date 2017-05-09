@@ -66,6 +66,8 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 		return &unixConfigure{base}, nil
 	case os.CentOS:
 		return &unixConfigure{base}, nil
+	case os.OpenSUSE:
+		return &unixConfigure{base}, nil
 	case os.Windows:
 		return &windowsConfigure{base}, nil
 	default:
@@ -151,6 +153,8 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 			groups = UbuntuGroups
 		case os.CentOS:
 			groups = CentOSGroups
+		case os.OpenSUSE:
+			groups = OpenSUSEGroups
 		}
 		conf.AddUser(&cloudinit.User{
 			Name:              "ubuntu",

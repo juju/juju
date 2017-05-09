@@ -436,6 +436,16 @@ systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
 sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 `,
 	},
+	// OpenSUSE non controller with systemd
+	{
+		cfg:          makeNormalConfig("opensuseleap"),
+		inexactMatch: true,
+		expectScripts: `
+systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
+systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
+sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
+`,
+	},
 
 	// check that it works ok with compound machine ids.
 	{
@@ -1401,4 +1411,15 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 		`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`,
 		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
 	})
+}
+
+func (*cloudinitSuite) TestSetUbuntuUserOpenSUSE(c *gc.C) {
+	ci, err := cloudinit.New("opensuseleap")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudconfig.SetUbuntuUser(ci, "akey\n#also\nbkey")
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	keys := []string{"akey", "bkey"}
+	expected := expectedUbuntuUser(cloudconfig.OpenSUSEGroups, keys)
+	c.Assert(string(data), jc.YAMLEquals, expected)
 }

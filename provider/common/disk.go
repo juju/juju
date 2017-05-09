@@ -16,7 +16,7 @@ func MinRootDiskSizeGiB(series string) uint64 {
 	// See comment below that explains why we're ignoring the error
 	os, _ := jujuseries.GetOSFromSeries(series)
 	switch os {
-	case jujuos.Ubuntu, jujuos.CentOS:
+	case jujuos.Ubuntu, jujuos.CentOS, jujuos.OpenSUSE:
 		return 8
 	case jujuos.Windows:
 		return 40

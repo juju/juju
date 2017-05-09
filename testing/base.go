@@ -250,6 +250,10 @@ func GetPackageManager() (s PackageManagerStruct, err error) {
 		s.PackageManager = "yum"
 		s.PackageQuery = "yum"
 		s.RepositoryManager = "yum-config-manager --add-repo"
+	case jujuos.OpenSUSE:
+		s.PackageManager = "zypper"
+		s.PackageQuery = "zypper"
+		s.RepositoryManager = "zypper addrepo"
 	case jujuos.Ubuntu:
 		s.PackageManager = "apt-get"
 		s.PackageQuery = "dpkg-query"
