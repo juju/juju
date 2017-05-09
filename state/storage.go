@@ -1574,15 +1574,9 @@ func validateStoragePool(
 	kindSupported := provider.Supports(kind)
 	if !kindSupported && kind == storage.StorageKindFilesystem {
 		// Filesystems can be created if either filesystem
-		// or block storage are supported.
-		if provider.Supports(storage.StorageKindBlock) {
-			kindSupported = true
-			// The filesystem is to be backed by a volume,
-			// so the filesystem must be managed on the
-			// machine. Skip the scope-check below by
-			// setting the pointer to nil.
-			machineId = nil
-		}
+		// or block storage are supported. The scope of the
+		// filesystem is the same as the backing volume.
+		kindSupported = provider.Supports(storage.StorageKindBlock)
 	}
 	if !kindSupported {
 		return errors.Errorf("%q provider does not support %q storage", providerType, kind)

@@ -767,9 +767,11 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	c.Assert(filesystems, gc.HasLen, 1)
 
 	c.Assert(model.Destroy(), jc.ErrorIsNil)
-	err = st.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	err = st.DestroyFilesystem(names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0/0"))
+	err = st.DetachFilesystem(machine.MachineTag(), names.NewFilesystemTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)

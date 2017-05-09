@@ -346,7 +346,7 @@ func (s *FilesystemStateSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
-	c.Assert(filesystem.Tag(), gc.Equals, names.NewFilesystemTag("0/0"))
+	c.Assert(filesystem.Tag(), gc.Equals, names.NewFilesystemTag("0"))
 	volumeTag, err := filesystem.Volume()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("0"))
@@ -354,13 +354,14 @@ func (s *FilesystemStateSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 
 func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
-	addUnit := func() {
+	addUnit := func() *state.Unit {
 		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
+		return u
 	}
-	addUnit()
+	u := addUnit()
 
 	w := s.State.WatchModelFilesystems()
 	defer testing.AssertStop(c, w)
@@ -372,19 +373,37 @@ func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 	wc.AssertChangeInSingleEvent("4", "5")
 	wc.AssertNoChange()
 
-	// TODO(axw) respond to Dying/Dead when we have
-	// the means to progress Filesystem lifecycle.
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := names.NewFilesystemTag("0")
+	removeFilesystemStorageInstance(c, s.State, filesystemTag)
+
+	err = s.State.DestroyFilesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0")
+	wc.AssertNoChange()
+
+	machineTag := names.NewMachineTag("0")
+	err = s.State.DetachFilesystem(machineTag, filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.State.RemoveFilesystemAttachment(machineTag, filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0") // last attachment removed
+	wc.AssertNoChange()
 }
 
 func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
-	addUnit := func() {
+	addUnit := func() *state.Unit {
 		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
+		return u
 	}
-	addUnit()
+	u := addUnit()
 
 	w := s.State.WatchEnvironFilesystemAttachments()
 	defer testing.AssertStop(c, w)
@@ -396,19 +415,37 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 	wc.AssertChangeInSingleEvent("1:4", "1:5")
 	wc.AssertNoChange()
 
-	// TODO(axw) respond to Dying/Dead when we have
-	// the means to progress Volume lifecycle.
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := names.NewFilesystemTag("0")
+	removeFilesystemStorageInstance(c, s.State, filesystemTag)
+
+	err = s.State.DestroyFilesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	machineTag := names.NewMachineTag("0")
+	err = s.State.DetachFilesystem(machineTag, filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0")
+	wc.AssertNoChange()
+
+	err = s.State.RemoveFilesystemAttachment(machineTag, filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0")
+	wc.AssertNoChange()
 }
 
 func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
-	addUnit := func() {
+	addUnit := func() *state.Unit {
 		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
+		return u
 	}
-	addUnit()
+	u := addUnit()
 
 	w := s.State.WatchMachineFilesystems(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
@@ -420,8 +457,36 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	// TODO(axw) respond to Dying/Dead when we have
-	// the means to progress Filesystem lifecycle.
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := names.NewFilesystemTag("0/2")
+	removeFilesystemStorageInstance(c, s.State, filesystemTag)
+
+	err = s.State.DestroyFilesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0/2")
+	wc.AssertNoChange()
+}
+
+func (s *FilesystemStateSuite) TestWatchMachineFilesystemsVolumeBacked(c *gc.C) {
+	app := s.setupMixedScopeStorageApplication(c, "filesystem", "modelscoped-block")
+	addUnit := func() {
+		u, err := app.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchMachineFilesystems(names.NewMachineTag("0"))
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0", "1", "0/2", "0/3") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
 }
 
 func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
@@ -471,6 +536,47 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
 
 	addUnit(m0)
 	wc.AssertChangeInSingleEvent("0:0/8", "0:0/9")
+	wc.AssertNoChange()
+}
+
+func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachmentsVolumeBacked(c *gc.C) {
+	app := s.setupMixedScopeStorageApplication(c, "filesystem", "modelscoped-block", "modelscoped")
+	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
+		var err error
+		u, err = app.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		if to != nil {
+			err = u.AssignToMachine(to)
+			c.Assert(err, jc.ErrorIsNil)
+			return u, to
+		}
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+		m = unitMachine(c, s.State, u)
+		return u, m
+	}
+	_, m0 := addUnit(nil)
+
+	w := s.State.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
+	wc.AssertNoChange()
+
+	addUnit(nil)
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
+
+	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0")
+
+	err = s.State.DetachFilesystem(names.NewMachineTag("1"), names.NewFilesystemTag("4"))
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
+
+	addUnit(m0)
+	wc.AssertChangeInSingleEvent("0:8", "0:9")
 	wc.AssertNoChange()
 }
 
@@ -574,7 +680,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoVolumeAttachmentNotProvision
 		filesystem.FilesystemTag(),
 		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": volume attachment "0" on "0" not provisioned`)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0": backing volume "0" is not attached`)
 }
 
 func (s *FilesystemStateSuite) TestDestroyFilesystem(c *gc.C) {
