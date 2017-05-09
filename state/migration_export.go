@@ -1430,6 +1430,11 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 		IsConsumerProxy: app.IsConsumerProxy(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
+	status, err := e.statusArgs(app.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	descApp.SetStatus(status)
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)

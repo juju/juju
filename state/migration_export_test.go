@@ -1146,8 +1146,6 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	// NOTE: the key 'c#<name>' isn't overly useful for someone looking
 	// at a DB dump of the status collection for identifying what it is for.
-	c.Skip("the remote application needs to export the assocated status " +
-		"document for the remote application 'c#grave-rainbow'.")
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
