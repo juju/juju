@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/version"
@@ -1063,6 +1064,40 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		args.InstanceConfig.MachineId,
 	)
 
+	waitForActiveServerDetails := func(
+		client *nova.Client,
+		id string,
+		timeout time.Duration,
+	) (server *nova.ServerDetail, err error) {
+
+		var errStillBuilding = errors.Errorf("instance %q has status BUILD", id)
+		err = retry.Call(retry.CallArgs{
+			Clock:       e.clock,
+			Delay:       10 * time.Second,
+			MaxDuration: timeout,
+			Func: func() error {
+				server, err = client.GetServer(id)
+				if err != nil {
+					return err
+				}
+				if server.Status == nova.StatusBuild {
+					return errStillBuilding
+				}
+				return nil
+			},
+			NotifyFunc: func(lastError error, attempt int) {
+				args.StatusCallback(status.Provisioning, fmt.Sprintf("%q, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
+			},
+			IsFatalError: func(err error) bool {
+				return err != errStillBuilding
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		return server, nil
+	}
+
 	tryStartNovaInstance := func(
 		attempts utils.AttemptStrategy,
 		client *nova.Client,
@@ -1070,7 +1105,26 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	) (server *nova.Entity, err error) {
 		for a := attempts.Start(); a.Next(); {
 			server, err = client.RunServer(instanceOpts)
-			if err == nil || gooseerrors.IsNotFound(err) == false {
+			if err != nil {
+				break
+			}
+			var serverDetail *nova.ServerDetail
+			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
+			if err != nil {
+				server = nil
+				break
+			} else if serverDetail.Status == nova.StatusActive {
+				break
+			} else if serverDetail.Status == nova.StatusError {
+				// Perhaps there is an error case where a retry in the same AZ
+				// is a good idea.
+				logger.Infof("Instance %q in ERROR state with fault %q", server.Id, serverDetail.Fault.Message)
+				logger.Infof("Deleting instance %q in ERROR state", server.Id)
+				if err = e.terminateInstances([]instance.Id{instance.Id(server.Id)}); err != nil {
+					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
+				}
+				server = nil
+				err = errors.New(serverDetail.Fault.Message)
 				break
 			}
 		}
@@ -1084,20 +1138,21 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		availabilityZones []string,
 	) (server *nova.Entity, err error) {
 		for _, zone := range availabilityZones {
+			logger.Infof("trying to build instance in availability zone %q", zone)
 			instanceOpts.AvailabilityZone = zone
 			e.configurator.ModifyRunServerOptions(&instanceOpts)
 			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
+			// 'No valid host available' is typically a resource error,
+			// therefore it a good idea to try another AZ if available.
 			if err == nil || isNoValidHostsError(err) == false {
 				break
 			}
+			logger.Infof("failed to build instance in availability zone %q", zone)
 
-			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
 		}
-
 		if err != nil {
 			err = errors.Annotate(err, "cannot run instance")
 		}
-
 		return server, err
 	}
 
@@ -1153,10 +1208,8 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 }
 
 func isNoValidHostsError(err error) bool {
-	if gooseErr, ok := err.(gooseerrors.Error); ok {
-		if cause := gooseErr.Cause(); cause != nil {
-			return strings.Contains(cause.Error(), "No valid host was found")
-		}
+	if cause := errors.Cause(err); cause != nil {
+		return strings.Contains(cause.Error(), "No valid host was found")
 	}
 	return false
 }
