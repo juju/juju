@@ -79,6 +79,20 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		args:        []string{invalidUnitId, "valid-action-name"},
 		expectError: "invalid unit or action name \"something-strange-\"",
 	}, {
+		should:      "fail with invalid unit tag first",
+		args:        []string{validUnitId, invalidUnitId, "valid-action-name"},
+		expectError: "invalid unit or action name \"something-strange-\"",
+	}, {
+		should:      "fail with invalid unit tag second",
+		args:        []string{invalidUnitId, validUnitId, "valid-action-name"},
+		expectError: "invalid unit or action name \"something-strange-\"",
+	}, {
+		should:       "work with multiple valid units",
+		args:         []string{validUnitId, validUnitId2, "valid-action-name"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId), names.NewUnitTag(validUnitId2)},
+		expectAction: "valid-action-name",
+		expectKVArgs: [][]string{},
+	}, {}, {
 		should:      "fail with invalid action name",
 		args:        []string{validUnitId, "BadName"},
 		expectError: "invalid unit or action name \"BadName\"",
