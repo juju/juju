@@ -1145,9 +1145,7 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
-	// NOTE: the key 'c#<name>' isn't overly useful for someone looking
-	// at a DB dump of the status collection for identifying what it is for.
-	sApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
 		SourceModel: s.State.ModelTag(),
@@ -1251,7 +1249,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(ep.Role(), gc.Equals, "provider")
 	c.Check(ep.Scope(), gc.Equals, "global")
 
-	originalSpaces := sApp.Spaces()
+	originalSpaces := dbApp.Spaces()
 	actualSpaces := app.Spaces()
 	c.Assert(actualSpaces, gc.HasLen, 2)
 	checkSpaceMatches(c, actualSpaces[0], originalSpaces[0])
