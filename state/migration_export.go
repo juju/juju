@@ -943,14 +943,20 @@ func (e *exporter) subnets() error {
 	e.logger.Debugf("read %d subnets", len(subnets))
 
 	for _, subnet := range subnets {
-		e.model.AddSubnet(description.SubnetArgs{
+		args := description.SubnetArgs{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        string(subnet.ProviderId()),
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			AvailabilityZone:  subnet.AvailabilityZone(),
 			SpaceName:         subnet.SpaceName(),
-		})
+		}
+		// TODO(babbageclunk): at the moment state.Subnet only stores
+		// one AZ.
+		az := subnet.AvailabilityZone()
+		if az != "" {
+			args.AvailabilityZones = []string{az}
+		}
+		e.model.AddSubnet(args)
 	}
 	return nil
 }
@@ -1422,8 +1428,14 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 		URL:             url,
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
+		Bindings:        app.Bindings(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
+	status, err := e.statusArgs(app.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	descApp.SetStatus(status)
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)
@@ -1437,7 +1449,29 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 			Scope:     string(ep.Scope),
 		})
 	}
+	for _, space := range app.Spaces() {
+		e.addRemoteSpace(descApp, space)
+	}
 	return nil
+}
+
+func (e *exporter) addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
+	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
+		CloudType:          space.CloudType,
+		Name:               space.Name,
+		ProviderId:         space.ProviderId,
+		ProviderAttributes: space.ProviderAttributes,
+	})
+	for _, subnet := range space.Subnets {
+		descSpace.AddSubnet(description.SubnetArgs{
+			CIDR:              subnet.CIDR,
+			ProviderId:        subnet.ProviderId,
+			VLANTag:           subnet.VLANTag,
+			AvailabilityZones: subnet.AvailabilityZones,
+			ProviderSpaceId:   subnet.ProviderSpaceId,
+			ProviderNetworkId: subnet.ProviderNetworkId,
+		})
+	}
 }
 
 func (e *exporter) storage() error {
