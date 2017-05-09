@@ -1282,7 +1282,7 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
 func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
-	servers, err := e.nova().ListServersDetail(nil)
+	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		return err
 	}
