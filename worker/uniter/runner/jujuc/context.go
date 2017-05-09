@@ -159,14 +159,6 @@ type ContextNetworking interface {
 	// protocol, then by number.
 	OpenedPorts() []network.PortRange
 
-	// NetworkConfig returns the network configuration for the unit and the
-	// given bindingName.
-	//
-	// TODO(wpk): 2017-05-04 Obsoleted by NetworkInfo, to be removed in the future
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
-
 	// NetworkInfo returns detailed information about interfaces for specified bindings
 	NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error)
 }

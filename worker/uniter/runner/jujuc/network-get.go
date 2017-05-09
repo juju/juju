@@ -72,7 +72,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 
 	ni, ok := netInfo[c.bindingName]
 
-	if !ok {
+	if !ok || len(ni.Info) == 0 {
 		return fmt.Errorf("no network config found for binding %q", c.bindingName)
 	}
 	if ni.Error != nil {
@@ -83,7 +83,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		if len(ni.Info[0].Addresses) == 0 {
 			return fmt.Errorf("No addresses attached to space for binding %q", c.bindingName)
 		}
-		return c.out.Write(ctx, ni.Info[0].Addresses[0])
+		return c.out.Write(ctx, ni.Info[0].Addresses[0].Address)
 	} else {
 		return c.out.Write(ctx, ni.Info)
 	}
