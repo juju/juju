@@ -41,12 +41,12 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]
-Unit          Id            Type        Pool      Provider id                 Size    Status    Message
-              persistent/1  filesystem                                                detached  
-postgresql/0  db-dir/1100   block                                                     attached  
-transcode/0   db-dir/1000   block                                                     pending   creating volume
-transcode/0   shared-fs/0   filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
-transcode/1   shared-fs/0   filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
+Unit          Id            Type        Pool      Provider id                     Size    Status    Message
+              persistent/1  filesystem                                                    detached  
+postgresql/0  db-dir/1100   block                 provider-supplied-filesystem-5  3.0MiB  attached  
+transcode/0   db-dir/1000   block                                                         pending   creating volume
+transcode/0   shared-fs/0   filesystem  radiance  provider-supplied-volume-4      1.0GiB  attached  
+transcode/1   shared-fs/0   filesystem  radiance  provider-supplied-volume-4      1.0GiB  attached  
 
 `[1:])
 }
@@ -59,12 +59,12 @@ func (s *ListSuite) TestListNoPool(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]
-Unit          Id            Type        Provider id                 Size    Status    Message
-              persistent/1  filesystem                                      detached  
-postgresql/0  db-dir/1100   block                                           attached  
-transcode/0   db-dir/1000   block                                           pending   creating volume
-transcode/0   shared-fs/0   filesystem  provider-supplied-volume-4  1.0GiB  attached  
-transcode/1   shared-fs/0   filesystem  provider-supplied-volume-4  1.0GiB  attached  
+Unit          Id            Type        Provider id                     Size    Status    Message
+              persistent/1  filesystem                                          detached  
+postgresql/0  db-dir/1100   block       provider-supplied-filesystem-5  3.0MiB  attached  
+transcode/0   db-dir/1000   block                                               pending   creating volume
+transcode/0   shared-fs/0   filesystem  provider-supplied-volume-4      1.0GiB  attached  
+transcode/1   shared-fs/0   filesystem  provider-supplied-volume-4      1.0GiB  attached  
 
 `[1:])
 }
@@ -189,6 +189,17 @@ filesystems:
           location: /mnt/pieces
     pool: radiance
     size: 1024
+    status:
+      current: attached
+      since: .*
+  "5":
+    provider-id: provider-supplied-filesystem-5
+    storage: db-dir/1100
+    attachments:
+      units:
+        abc/0:
+          location: /mnt/fuji
+    size: 3
     status:
       current: attached
       since: .*
