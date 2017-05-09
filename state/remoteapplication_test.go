@@ -263,6 +263,14 @@ func (s *remoteApplicationSuite) TestSpaceForEndpoint(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
+func (s *remoteApplicationSuite) TestBindings(c *gc.C) {
+	c.Assert(s.application.Bindings(), gc.DeepEquals, map[string]string{
+		"db":       "private",
+		"db-admin": "private",
+		"logging":  "public",
+	})
+}
+
 func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 	_, err := s.application.Endpoint("foo")
 	c.Assert(err, gc.ErrorMatches, `remote application "mysql" has no "foo" relation`)

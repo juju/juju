@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
@@ -1146,7 +1147,7 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	// NOTE: the key 'c#<name>' isn't overly useful for someone looking
 	// at a DB dump of the status collection for identifying what it is for.
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	sApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
 		SourceModel: s.State.ModelTag(),
@@ -1168,6 +1169,48 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		}},
+		Spaces: []*environs.ProviderSpaceInfo{{
+			CloudType: "ec2",
+			ProviderAttributes: map[string]interface{}{
+				"thing1":  23,
+				"thing2":  "halberd",
+				"network": "network-1",
+			},
+			SpaceInfo: network.SpaceInfo{
+				Name:       "public",
+				ProviderId: "juju-space-public",
+				Subnets: []network.SubnetInfo{{
+					ProviderId:        "juju-subnet-12",
+					CIDR:              "1.2.3.0/24",
+					AvailabilityZones: []string{"az1", "az2"},
+					SpaceProviderId:   "juju-space-public",
+					ProviderNetworkId: "network-1",
+				}},
+			},
+		}, {
+			CloudType: "ec2",
+			ProviderAttributes: map[string]interface{}{
+				"thing1":  24,
+				"thing2":  "bardiche",
+				"network": "network-1",
+			},
+			SpaceInfo: network.SpaceInfo{
+				Name:       "private",
+				ProviderId: "juju-space-private",
+				Subnets: []network.SubnetInfo{{
+					ProviderId:        "juju-subnet-24",
+					CIDR:              "1.2.4.0/24",
+					AvailabilityZones: []string{"az1", "az2"},
+					SpaceProviderId:   "juju-space-private",
+					ProviderNetworkId: "network-1",
+				}},
+			},
+		}},
+		Bindings: map[string]string{
+			"db":       "private",
+			"db-admin": "private",
+			"logging":  "public",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1182,6 +1225,11 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
 	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
 	c.Check(app.IsConsumerProxy(), jc.IsFalse)
+	c.Check(app.Bindings(), gc.DeepEquals, map[string]string{
+		"db":       "private",
+		"db-admin": "private",
+		"logging":  "public",
+	})
 
 	c.Assert(app.Endpoints(), gc.HasLen, 3)
 	ep := app.Endpoints()[0]
@@ -1202,6 +1250,34 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(ep.Limit(), gc.Equals, 0)
 	c.Check(ep.Role(), gc.Equals, "provider")
 	c.Check(ep.Scope(), gc.Equals, "global")
+
+	originalSpaces := sApp.Spaces()
+	actualSpaces := app.Spaces()
+	c.Assert(actualSpaces, gc.HasLen, 2)
+	checkSpaceMatches(c, actualSpaces[0], originalSpaces[0])
+	checkSpaceMatches(c, actualSpaces[1], originalSpaces[1])
+}
+
+func checkSpaceMatches(c *gc.C, actual description.RemoteSpace, original state.RemoteSpace) {
+	c.Check(actual.CloudType(), gc.Equals, original.CloudType)
+	c.Check(actual.Name(), gc.Equals, original.Name)
+	c.Check(actual.ProviderId(), gc.Equals, original.ProviderId)
+	c.Check(actual.ProviderAttributes(), gc.DeepEquals, map[string]interface{}(original.ProviderAttributes))
+	subnets := actual.Subnets()
+	c.Assert(subnets, gc.HasLen, len(original.Subnets))
+	for i, subnet := range subnets {
+		c.Logf("subnet %d", i)
+		checkSubnetMatches(c, subnet, original.Subnets[i])
+	}
+}
+
+func checkSubnetMatches(c *gc.C, actual description.Subnet, original state.RemoteSubnet) {
+	c.Check(actual.CIDR(), gc.Equals, original.CIDR)
+	c.Check(actual.ProviderId(), gc.Equals, original.ProviderId)
+	c.Check(actual.VLANTag(), gc.Equals, original.VLANTag)
+	c.Check(actual.AvailabilityZones(), gc.DeepEquals, original.AvailabilityZones)
+	c.Check(actual.ProviderSpaceId(), gc.Equals, original.ProviderSpaceId)
+	c.Check(actual.ProviderNetworkId(), gc.Equals, original.ProviderNetworkId)
 }
 
 func (s *MigrationExportSuite) TestModelStatus(c *gc.C) {

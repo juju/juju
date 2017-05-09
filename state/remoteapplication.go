@@ -155,6 +155,15 @@ func (s *RemoteApplication) Spaces() []RemoteSpace {
 	return result
 }
 
+// Bindings returns the endpoint->space bindings for the application.
+func (s *RemoteApplication) Bindings() map[string]string {
+	result := make(map[string]string)
+	for epName, spName := range s.doc.Bindings {
+		result[epName] = spName
+	}
+	return result
+}
+
 // SpaceForEndpoint returns the remote space an endpoint is bound to,
 // if one is found.
 func (s *RemoteApplication) SpaceForEndpoint(endpointName string) (RemoteSpace, bool) {

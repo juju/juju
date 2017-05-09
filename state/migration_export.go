@@ -1428,6 +1428,7 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 		URL:             url,
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
+		Bindings:        app.Bindings(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
 	status, err := e.statusArgs(app.globalKey())
@@ -1448,7 +1449,29 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 			Scope:     string(ep.Scope),
 		})
 	}
+	for _, space := range app.Spaces() {
+		e.addRemoteSpace(descApp, space)
+	}
 	return nil
+}
+
+func (e *exporter) addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
+	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
+		CloudType:          space.CloudType,
+		Name:               space.Name,
+		ProviderId:         space.ProviderId,
+		ProviderAttributes: space.ProviderAttributes,
+	})
+	for _, subnet := range space.Subnets {
+		descSpace.AddSubnet(description.SubnetArgs{
+			CIDR:              subnet.CIDR,
+			ProviderId:        subnet.ProviderId,
+			VLANTag:           subnet.VLANTag,
+			AvailabilityZones: subnet.AvailabilityZones,
+			ProviderSpaceId:   subnet.ProviderSpaceId,
+			ProviderNetworkId: subnet.ProviderNetworkId,
+		})
+	}
 }
 
 func (e *exporter) storage() error {
