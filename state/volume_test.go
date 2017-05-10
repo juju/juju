@@ -322,7 +322,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchEnvironVolumeAttachments()
+	w := s.State.WatchModelVolumeAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial

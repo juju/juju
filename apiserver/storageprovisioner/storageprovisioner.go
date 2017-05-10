@@ -93,6 +93,28 @@ func NewStorageProvisionerAPI(
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
+			f, err := st.Filesystem(tag)
+			if err != nil {
+				return false
+			}
+			volumeTag, err := f.Volume()
+			if err == nil {
+				// The filesystem has a backing volume. If the
+				// authenticated agent has access to any of the
+				// machines that the volume is attached to, then
+				// it may access the filesystem too.
+				volumeAttachments, err := st.VolumeAttachments(volumeTag)
+				if err != nil {
+					return false
+				}
+				for _, a := range volumeAttachments {
+					if canAccessStorageMachine(a.Machine(), false) {
+						return true
+					}
+				}
+			} else if err != state.ErrNoBackingVolume {
+				return false
+			}
 			return authorizer.AuthController()
 		case names.MachineTag:
 			return allowMachines && canAccessStorageMachine(tag, true)
@@ -307,7 +329,7 @@ func (s *StorageProvisionerAPI) watchStorageEntities(
 func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		args,
-		s.st.WatchEnvironVolumeAttachments,
+		s.st.WatchModelVolumeAttachments,
 		s.st.WatchMachineVolumeAttachments,
 		storagecommon.ParseVolumeAttachmentIds,
 	)
@@ -318,7 +340,7 @@ func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (pa
 func (s *StorageProvisionerAPI) WatchFilesystemAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		args,
-		s.st.WatchEnvironFilesystemAttachments,
+		s.st.WatchModelFilesystemAttachments,
 		s.st.WatchMachineFilesystemAttachments,
 		storagecommon.ParseFilesystemAttachmentIds,
 	)

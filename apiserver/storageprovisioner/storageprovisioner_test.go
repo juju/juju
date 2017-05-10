@@ -1070,12 +1070,12 @@ func (s *provisionerSuite) TestRemoveFilesystemsEnvironManager(c *gc.C) {
 
 	result, err := s.api.Remove(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: nil},
 			{Error: &params.Error{Message: "removing filesystem 2: filesystem is not dead"}},
-			{Error: nil},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: &params.Error{Message: `"filesystem-invalid" is not a valid filesystem tag`}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
