@@ -27,7 +27,6 @@ func NewState(caller base.APICaller) *State {
 		facade:       facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
-
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
