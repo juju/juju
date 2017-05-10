@@ -525,7 +525,10 @@ type machineAssignable interface {
 }
 
 // createStorageOps returns txn.Ops for creating storage instances
-// and attachments for the newly created unit or service.
+// and attachments for the newly created unit or service. A map
+// of storage names to number of storage instances created will
+// be returned, along with the total number of storage attachments
+// made. These should be used to initialise or update refcounts.
 //
 // The entity tag identifies the entity that owns the storage instance
 // either a unit or a service. Shared storage instances are owned by a
@@ -550,7 +553,11 @@ func createStorageOps(
 	cons map[string]StorageConstraints,
 	series string,
 	maybeMachineAssignable machineAssignable,
-) (ops []txn.Op, numStorageAttachments int, err error) {
+) (ops []txn.Op, instanceCounts map[string]int, numStorageAttachments int, err error) {
+
+	fail := func(err error) ([]txn.Op, map[string]int, int, error) {
+		return nil, nil, -1, err
+	}
 
 	type template struct {
 		storageName string
@@ -564,7 +571,7 @@ func createStorageOps(
 		createdShared = true
 	case names.UnitTag:
 	default:
-		return nil, -1, errors.Errorf("expected application or unit tag, got %T", entityTag)
+		return fail(errors.Errorf("expected application or unit tag, got %T", entityTag))
 	}
 
 	// Create storage instances in order of name, to simplify testing.
@@ -578,7 +585,7 @@ func createStorageOps(
 		cons := cons[store]
 		charmStorage, ok := charmMeta.Storage[store]
 		if !ok {
-			return nil, -1, errors.NotFoundf("charm storage %q", store)
+			return fail(errors.NotFoundf("charm storage %q", store))
 		}
 		if cons.Count == 0 {
 			continue
@@ -595,6 +602,7 @@ func createStorageOps(
 		})
 	}
 
+	instanceCounts = make(map[string]int)
 	ops = make([]txn.Op, 0, len(templates)*3)
 	for _, t := range templates {
 		owner := entityTag.String()
@@ -605,23 +613,14 @@ func createStorageOps(
 		case charm.StorageFilesystem:
 			kind = StorageKindFilesystem
 		default:
-			return nil, -1, errors.Errorf("unknown storage type %q", t.meta.Type)
+			return fail(errors.Errorf("unknown storage type %q", t.meta.Type))
 		}
 
-		// Increment reference counts for the named storage for each
-		// instance we create. We'll use the reference counts to ensure
-		// we don't exceed limits when adding storage, and for
-		// maintaining model integrity during charm upgrades.
-		incRefOp, err := increfEntityStorageOp(st, entityTag, t.storageName, int(t.cons.Count))
-		if err != nil {
-			return nil, -1, errors.Trace(err)
-		}
-		ops = append(ops, incRefOp)
-
+		instanceCounts[t.storageName] += int(t.cons.Count)
 		for i := uint64(0); i < t.cons.Count; i++ {
 			id, err := newStorageInstanceId(st, t.storageName)
 			if err != nil {
-				return nil, -1, errors.Annotate(err, "cannot generate storage instance name")
+				return fail(errors.Annotate(err, "cannot generate storage instance name"))
 			}
 			doc := &storageInstanceDoc{
 				Id:          id,
@@ -644,9 +643,9 @@ func createStorageOps(
 						maybeMachineAssignable,
 					)
 					if err != nil {
-						return nil, -1, errors.Annotatef(
+						return fail(errors.Annotatef(
 							err, "creating machine storage for storage %s", id,
-						)
+						))
 					}
 				}
 			}
@@ -667,7 +666,7 @@ func createStorageOps(
 	// creation, because the only sane time to add storage attachments
 	// is when units are added to said service.
 
-	return ops, numStorageAttachments, nil
+	return ops, instanceCounts, numStorageAttachments, nil
 }
 
 // unitAssignedMachineStorageOps returns ops for creating volumes, filesystems
@@ -811,32 +810,95 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return st.attachStorageOps(si, u)
+		if u.Life() != Alive {
+			return nil, errors.New("unit not alive")
+		}
+		ch, err := u.charm()
+		if err != nil {
+			return nil, errors.Annotate(err, "getting charm")
+		}
+		// Storage constraints are required in case machine storage
+		// needs not only to be attached, but also created.
+		storageCons, err := u.StorageConstraints()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops, err := st.attachStorageOps(
+			si,
+			u.UnitTag(),
+			u.Series(),
+			ch,
+			storageCons,
+			u,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if si.doc.Owner == "" {
+			// The storage instance will be owned by the unit, so we
+			// must increment the unit's refcount for the storage name.
+			//
+			// Make sure that we *can* assign another storage instance
+			// to the unit.
+			_, currentCountOp, err := validateStorageCountChange(
+				st, u.UnitTag(), si.StorageName(), 1, ch.Meta(),
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			incRefOp, err := increfEntityStorageOp(st, u.UnitTag(), si.StorageName(), 1)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, currentCountOp, incRefOp)
+		}
+		ops = append(ops, txn.Op{
+			C:      unitsC,
+			Id:     u.doc.Name,
+			Assert: isAliveDoc,
+			Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", 1}}}},
+		})
+		ops = append(ops, u.assertCharmOps(ch)...)
+		return ops, nil
 	}
 	return st.run(buildTxn)
 }
 
-func (st *State) attachStorageOps(si *storageInstance, unit *Unit) ([]txn.Op, error) {
+// attachStorageOps returns txn.Ops to attach a storage instance to the
+// specified unit. The caller must ensure that the unit is in a state
+// to attach the storage (i.e. it is Alive, or is being created).
+//
+// The caller is responsible for incrementing the storage refcount for
+// the unit/storage name.
+func (st *State) attachStorageOps(
+	si *storageInstance,
+	unitTag names.UnitTag,
+	unitSeries string,
+	ch *Charm,
+	storageCons map[string]StorageConstraints,
+	maybeMachineAssignable machineAssignable,
+) ([]txn.Op, error) {
 	if si.Life() != Alive {
 		return nil, errors.New("storage not alive")
 	}
-	if unit.Life() != Alive {
-		return nil, errors.New("unit not alive")
+	unitApplicationName, err := names.UnitApplication(unitTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	if owner, ok := si.Owner(); ok {
-		if owner == unit.Tag() {
+		if owner == unitTag {
 			return nil, jujutxn.ErrNoOperations
 		} else {
-			if owner.Id() != unit.ApplicationName() {
+			if owner.Id() != unitApplicationName {
 				return nil, errors.Errorf(
 					"cannot attach storage owned by %s to %s",
 					names.ReadableString(owner),
-					names.ReadableString(unit.Tag()),
+					names.ReadableString(unitTag),
 				)
 			}
 			if _, err := st.storageAttachment(
 				si.StorageTag(),
-				unit.UnitTag(),
+				unitTag,
 			); err == nil {
 				return nil, jujutxn.ErrNoOperations
 			} else if !errors.IsNotFound(err) {
@@ -851,15 +913,11 @@ func (st *State) attachStorageOps(si *storageInstance, unit *Unit) ([]txn.Op, er
 
 	// Check that the unit's charm declares storage with the storage
 	// instance's storage name.
-	ch, err := unit.charm()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting charm")
-	}
 	charmMeta := ch.Meta()
 	if _, ok := charmMeta.Storage[si.StorageName()]; !ok {
 		return nil, errors.Errorf(
 			"charm %s has no storage called %s",
-			ch, si.StorageName(),
+			charmMeta.Name, si.StorageName(),
 		)
 	}
 
@@ -874,58 +932,28 @@ func (st *State) attachStorageOps(si *storageInstance, unit *Unit) ([]txn.Op, er
 	} else {
 		siAssert = append(siAssert, bson.DocElem{"owner", bson.D{{"$exists", false}}})
 		siUpdate = append(siUpdate, bson.DocElem{
-			"$set", bson.D{{"owner", unit.UnitTag().String()}},
+			"$set", bson.D{{"owner", unitTag.String()}},
 		})
 	}
-	unitUpdate := bson.D{{"$inc", bson.D{{"storageattachmentcount", 1}}}}
 	ops := []txn.Op{{
 		C:      storageInstancesC,
 		Id:     si.doc.Id,
 		Assert: siAssert,
 		Update: siUpdate,
-	}, {
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: isAliveDoc,
-		Update: unitUpdate,
 	},
-		createStorageAttachmentOp(si.StorageTag(), unit.UnitTag()),
+		createStorageAttachmentOp(si.StorageTag(), unitTag),
 	}
-	ops = append(ops, unit.assertCharmOps(ch)...)
-	if si.doc.Owner == "" {
-		// The storage instance will be owned by the unit, so we
-		// must increment the unit's refcount for the storage name.
-		//
-		// First, make sure that we *can* assign another storage
-		// instance to the unit.
-		_, currentCountOp, err := validateStorageCountChange(
-			st, unit.Tag(), si.StorageName(), 1,
-			charmMeta,
+
+	if maybeMachineAssignable != nil {
+		machineStorageOps, err := unitAssignedMachineStorageOps(
+			st, unitTag, charmMeta, storageCons, unitSeries, si,
+			maybeMachineAssignable,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		incRefOp, err := increfEntityStorageOp(st, unit.Tag(), si.StorageName(), 1)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, currentCountOp, incRefOp)
+		ops = append(ops, machineStorageOps...)
 	}
-
-	// Storage constraints are required in case machine storage needs
-	// not only to be attached, but also created.
-	allCons, err := unit.StorageConstraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	machineStorageOps, err := unitAssignedMachineStorageOps(
-		st, unit.UnitTag(), charmMeta,
-		allCons, unit.Series(), si, unit,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, machineStorageOps...)
 	return ops, nil
 }
 
@@ -1862,7 +1890,7 @@ func (st *State) addUnitStorageOps(
 	}
 
 	// Create storage db operations
-	storageOps, _, err := createStorageOps(
+	storageOps, storageCounts, _, err := createStorageOps(
 		st,
 		u.Tag(),
 		charmMeta,
@@ -1872,6 +1900,17 @@ func (st *State) addUnitStorageOps(
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	// Increment reference counts for the named storage for each
+	// instance we create. We'll use the reference counts to ensure
+	// we don't exceed limits when adding storage, and for
+	// maintaining model integrity during charm upgrades.
+	for name, count := range storageCounts {
+		incRefOp, err := increfEntityStorageOp(st, u.Tag(), name, count)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		storageOps = append(storageOps, incRefOp)
 	}
 	ops = append(ops, txn.Op{
 		C:      unitsC,
