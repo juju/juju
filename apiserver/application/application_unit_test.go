@@ -95,6 +95,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		func(application.Backend, juju.DeployApplicationParams) error {
 			return nil
 		},
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
