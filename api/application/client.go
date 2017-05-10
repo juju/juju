@@ -89,6 +89,11 @@ type DeployArgs struct {
 	// handled.
 	Storage map[string]storage.Constraints
 
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
+
 	// EndpointBindings
 	EndpointBindings map[string]string
 
@@ -102,6 +107,16 @@ type DeployArgs struct {
 // it. Placement directives, if provided, specify the machine on which the charm
 // is deployed.
 func (c *Client) Deploy(args DeployArgs) error {
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", args.NumUnits)
+	}
+	attachStorage := make([]string, len(args.AttachStorage))
+	for i, id := range args.AttachStorage {
+		if !names.IsValidStorage(id) {
+			return errors.NotValidf("storage ID %q", id)
+		}
+		attachStorage[i] = names.NewStorageTag(id).String()
+	}
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName:  args.ApplicationName,
@@ -113,6 +128,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
+			AttachStorage:    attachStorage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,
 		}},

@@ -1,11 +1,10 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package juju_test
+package application_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -14,18 +13,13 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
+	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
 // test, because DeployApplication demands that a charm already exists in state,
@@ -54,8 +48,8 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 		})
@@ -69,8 +63,8 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
-	_, err := juju.DeployApplication(f,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(f,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Series:          "aseries",
@@ -85,8 +79,8 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
 			EndpointBindings: nil,
@@ -124,8 +118,11 @@ func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL
 	return wordpressCharm
 }
 
-func (s *DeployLocalSuite) assertBindings(c *gc.C, app *state.Application, expected map[string]string) {
-	bindings, err := app.EndpointBindings()
+func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, expected map[string]string) {
+	type withEndpointBindings interface {
+		EndpointBindings() (map[string]string, error)
+	}
+	bindings, err := app.(withEndpointBindings).EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, expected)
 }
@@ -137,8 +134,8 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
@@ -173,8 +170,8 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 	_, err = s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
@@ -210,8 +207,8 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	_, err = s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
@@ -236,8 +233,8 @@ func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
 	_, err = s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
@@ -258,8 +255,8 @@ func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
-	_, err := juju.DeployApplication(f,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(f,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			EndpointBindings: map[string]string{
@@ -275,8 +272,8 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			ConfigSettings: charm.Settings{
@@ -292,8 +289,8 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
-	_, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			ConfigSettings: charm.Settings{
@@ -309,8 +306,8 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
 	serviceCons := constraints.MustParse("cores=2")
-	app, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
+	app, err := application.DeployApplication(s.State,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     serviceCons,
@@ -323,8 +320,8 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
 	serviceCons := constraints.MustParse("cores=2")
-	_, err := juju.DeployApplication(f,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(f,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     serviceCons,
@@ -342,8 +339,8 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
 	serviceCons := constraints.MustParse("cores=2")
-	_, err := juju.DeployApplication(f,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(f,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     serviceCons,
@@ -364,8 +361,8 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
 	serviceCons := constraints.MustParse("cores=2")
-	_, err := juju.DeployApplication(f,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(f,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     serviceCons,
@@ -391,8 +388,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		{Scope: "lxd", Directive: "1"},
 		{Scope: "lxd", Directive: ""},
 	}
-	_, err := juju.DeployApplication(f,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(f,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     serviceCons,
@@ -412,8 +409,8 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 	serviceCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
-	_, err := juju.DeployApplication(f,
-		juju.DeployApplicationParams{
+	_, err := application.DeployApplication(f,
+		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			Constraints:     serviceCons,
@@ -438,31 +435,35 @@ func (s *DeployLocalSuite) assertAssignedUnit(c *gc.C, u *state.Unit, mId string
 	c.Assert(machineCons, gc.DeepEquals, cons)
 }
 
-func (s *DeployLocalSuite) assertCharm(c *gc.C, app *state.Application, expect *charm.URL) {
+func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, expect *charm.URL) {
 	curl, force := app.CharmURL()
 	c.Assert(curl, gc.DeepEquals, expect)
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *DeployLocalSuite) assertSettings(c *gc.C, app *state.Application, expect charm.Settings) {
+func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, expect charm.Settings) {
 	settings, err := app.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, expect)
 }
 
-func (s *DeployLocalSuite) assertConstraints(c *gc.C, app *state.Application, expect constraints.Value) {
+func (s *DeployLocalSuite) assertConstraints(c *gc.C, app application.Application, expect constraints.Value) {
 	cons, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, expect)
 }
 
-func (s *DeployLocalSuite) assertMachines(c *gc.C, app *state.Application, expectCons constraints.Value, expectIds ...string) {
+func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, expectCons constraints.Value, expectIds ...string) {
+	type withAssignedMachineId interface {
+		AssignedMachineId() (string, error)
+	}
+
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, len(expectIds))
 	// first manually tell state to assign all the units
 	for _, unit := range units {
-		id := unit.Tag().Id()
+		id := unit.UnitTag().Id()
 		res, err := s.State.AssignStagedUnits([]string{id})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(res[0].Error, jc.ErrorIsNil)
@@ -475,7 +476,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app *state.Application, expec
 	c.Assert(units, gc.HasLen, len(expectIds))
 	unseenIds := set.NewStrings(expectIds...)
 	for _, unit := range units {
-		id, err := unit.AssignedMachineId()
+		id, err := unit.(withAssignedMachineId).AssignedMachineId()
 		c.Assert(err, jc.ErrorIsNil)
 		unseenIds.Remove(id)
 		machine, err := s.State.Machine(id)

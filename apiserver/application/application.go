@@ -26,7 +26,6 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -49,14 +48,7 @@ type API struct {
 	// state wherever we pass in a state.Charm currently.
 	stateCharm func(Charm) *state.Charm
 
-	deployApplicationFunc func(backend Backend, args jjj.DeployApplicationParams) error
-}
-
-// DeployApplication is a wrapper around juju.DeployApplication, to
-// match the function signature expected by NewAPI.
-func DeployApplication(backend Backend, args jjj.DeployApplicationParams) error {
-	_, err := jjj.DeployApplication(backend, args)
-	return err
+	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 }
 
 // NewFacade provides the signature required for facade registration.
@@ -83,7 +75,7 @@ func NewAPI(
 	statePool *state.StatePool,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
-	deployApplication func(Backend, jjj.DeployApplicationParams) error,
+	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -170,7 +162,7 @@ func deployApplication(
 	backend Backend,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
-	deployApplicationFunc func(Backend, jjj.DeployApplicationParams) error,
+	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -212,7 +204,20 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(deployApplicationFunc(backend, jjj.DeployApplicationParams{
+	// Parse storage tags in AttachStorage.
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", args.NumUnits)
+	}
+	attachStorage := make([]names.StorageTag, len(args.AttachStorage))
+	for i, tagString := range args.AttachStorage {
+		tag, err := names.ParseStorageTag(tagString)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		attachStorage[i] = tag
+	}
+
+	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:  args.ApplicationName,
 		Series:           args.Series,
 		Charm:            stateCharm(ch),
@@ -222,9 +227,11 @@ func deployApplication(
 		Constraints:      args.Constraints,
 		Placement:        args.Placement,
 		Storage:          args.Storage,
+		AttachStorage:    attachStorage,
 		EndpointBindings: args.EndpointBindings,
 		Resources:        args.Resources,
-	}))
+	})
+	return errors.Trace(err)
 }
 
 // ApplicationSetSettingsStrings updates the settings for the given application,
@@ -592,18 +599,6 @@ func (api *API) Unexpose(args params.ApplicationUnexpose) error {
 	return app.ClearExposed()
 }
 
-// addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]*state.Unit, error) {
-	application, err := backend.Application(args.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
-	}
-	return jjj.AddUnits(backend, application, args.ApplicationName, args.NumUnits, args.Placement)
-}
-
 // AddUnits adds a given number of units to an application.
 func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if err := api.checkCanWrite(); err != nil {
@@ -621,6 +616,18 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 		unitNames[i] = unit.String()
 	}
 	return params.AddApplicationUnitsResults{Units: unitNames}, nil
+}
+
+// addApplicationUnits adds a given number of units to an application.
+func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]*state.Unit, error) {
+	application, err := backend.Application(args.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if args.NumUnits < 1 {
+		return nil, errors.New("must add at least one unit")
+	}
+	return addUnits(backend, application, args.ApplicationName, args.NumUnits, args.Placement)
 }
 
 // DestroyUnits removes a given set of application units.

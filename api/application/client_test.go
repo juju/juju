@@ -68,7 +68,7 @@ func (s *applicationSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
+func (s *applicationSuite) TestDeploy(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
@@ -76,16 +76,18 @@ func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
 		args, ok := a.(params.ApplicationsDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Applications, gc.HasLen, 1)
-		c.Assert(args.Applications[0].CharmURL, gc.Equals, "cs:trusty/a-charm-1")
-		c.Assert(args.Applications[0].ApplicationName, gc.Equals, "serviceA")
-		c.Assert(args.Applications[0].Series, gc.Equals, "series")
-		c.Assert(args.Applications[0].NumUnits, gc.Equals, 2)
-		c.Assert(args.Applications[0].ConfigYAML, gc.Equals, "configYAML")
-		c.Assert(args.Applications[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		c.Assert(args.Applications[0].Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
-		c.Assert(args.Applications[0].EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
-		c.Assert(args.Applications[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
-		c.Assert(args.Applications[0].Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+		app := args.Applications[0]
+		c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
+		c.Assert(app.ApplicationName, gc.Equals, "serviceA")
+		c.Assert(app.Series, gc.Equals, "series")
+		c.Assert(app.NumUnits, gc.Equals, 1)
+		c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
+		c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+		c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
+		c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+		c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
+		c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
@@ -98,17 +100,33 @@ func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
 		},
 		ApplicationName:  "serviceA",
 		Series:           "series",
-		NumUnits:         2,
+		NumUnits:         1,
 		ConfigYAML:       "configYAML",
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
 		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
 	}
 	err := client.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		return nil
+	})
+	args := application.DeployArgs{
+		NumUnits:      2,
+		AttachStorage: []string{"data/0"},
+	}
+	err := client.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
+	c.Assert(called, jc.IsFalse)
 }
 
 func (s *applicationSuite) TestServiceGetCharmURL(c *gc.C) {
