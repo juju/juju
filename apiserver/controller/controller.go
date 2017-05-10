@@ -429,17 +429,14 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if !(spec.ExternalControl && spec.SkipInitialPrechecks) {
-		if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
-			return "", errors.Trace(err)
-		}
+	if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
+		return "", errors.Trace(err)
 	}
 
 	// Trigger the migration.
 	mig, err := hostedState.CreateMigration(state.MigrationSpec{
-		InitiatedBy:     c.apiUser,
-		TargetInfo:      targetInfo,
-		ExternalControl: spec.ExternalControl,
+		InitiatedBy: c.apiUser,
+		TargetInfo:  targetInfo,
 	})
 	if err != nil {
 		return "", errors.Trace(err)

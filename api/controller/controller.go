@@ -224,8 +224,6 @@ type MigrationSpec struct {
 	TargetUser           string
 	TargetPassword       string
 	TargetMacaroons      []macaroon.Slice
-	ExternalControl      bool
-	SkipInitialPrechecks bool
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -276,8 +274,6 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl:      spec.ExternalControl,
-			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 	response := params.InitiateMigrationResults{}

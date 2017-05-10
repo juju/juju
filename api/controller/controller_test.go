@@ -31,18 +31,6 @@ func (s *Suite) TestInitiateMigration(c *gc.C) {
 	s.checkInitiateMigration(c, makeSpec())
 }
 
-func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
-	spec := makeSpec()
-	spec.ExternalControl = true
-	s.checkInitiateMigration(c, spec)
-}
-
-func (s *Suite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
-	spec := makeSpec()
-	spec.SkipInitialPrechecks = true
-	s.checkInitiateMigration(c, spec)
-}
-
 func (s *Suite) TestInitiateMigrationEmptyCACert(c *gc.C) {
 	spec := makeSpec()
 	spec.TargetCACert = ""
@@ -83,8 +71,6 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl:      spec.ExternalControl,
-			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 }

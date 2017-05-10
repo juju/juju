@@ -34,10 +34,6 @@ type ModelMigration interface {
 	// ModelUUID returns the UUID for the model being migrated.
 	ModelUUID() string
 
-	// ExternalControl returns true if the model migration should be
-	// managed by an external process.
-	ExternalControl() bool
-
 	// Attempt returns the migration attempt identifier. This
 	// increments for each migration attempt for the model.
 	Attempt() int
@@ -134,10 +130,6 @@ type modelMigDoc struct {
 	// migration. It should be in "user@domain" format.
 	InitiatedBy string `bson:"initiated-by"`
 
-	// ExternalControl is true if the migration will be controlled by
-	// an external process, instead of the migrationmaster worker.
-	ExternalControl bool `bson:"external-control"`
-
 	// TargetController holds the UUID of the target controller.
 	TargetController string `bson:"target-controller"`
 
@@ -217,11 +209,6 @@ func (mig *modelMigration) Id() string {
 // ModelUUID implements ModelMigration.
 func (mig *modelMigration) ModelUUID() string {
 	return mig.doc.ModelUUID
-}
-
-// ExternalControl implements ModelMigration.
-func (mig *modelMigration) ExternalControl() bool {
-	return mig.doc.ExternalControl
 }
 
 // Attempt implements ModelMigration.
@@ -607,9 +594,8 @@ func (mig *modelMigration) Refresh() error {
 // MigrationSpec holds the information required to create a
 // ModelMigration instance.
 type MigrationSpec struct {
-	InitiatedBy     names.UserTag
-	TargetInfo      migration.TargetInfo
-	ExternalControl bool
+	InitiatedBy names.UserTag
+	TargetInfo  migration.TargetInfo
 }
 
 // Validate returns an error if the MigrationSpec contains bad
@@ -677,7 +663,6 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			ModelUUID:        modelUUID,
 			Attempt:          attempt,
 			InitiatedBy:      spec.InitiatedBy.Id(),
-			ExternalControl:  spec.ExternalControl,
 			TargetController: spec.TargetInfo.ControllerTag.Id(),
 			TargetAddrs:      spec.TargetInfo.Addrs,
 			TargetCACert:     spec.TargetInfo.CACert,
