@@ -201,6 +201,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		ControllerTag: model.ControllerTag().String(),
 		UserInfo:      maybeUserInfo,
 		ServerVersion: jujuversion.Current.String(),
+		PublicDNSName: a.srv.publicDNSName(),
 	}
 
 	if controllerOnlyLogin {

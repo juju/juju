@@ -129,6 +129,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		modelTag:         result.ModelTag,
 		controllerTag:    result.ControllerTag,
 		servers:          servers,
+		publicDNSName:    result.PublicDNSName,
 		facades:          result.Facades,
 		modelAccess:      modelAccess,
 		controllerAccess: controllerAccess,
@@ -150,6 +151,7 @@ type loginResultParams struct {
 	controllerAccess string
 	servers          [][]network.HostPort
 	facades          []params.FacadeVersions
+	publicDNSName    string
 }
 
 func (st *state) setLoginResult(p loginResultParams) error {
@@ -181,6 +183,7 @@ func (st *state) setLoginResult(p loginResultParams) error {
 		return err
 	}
 	st.hostPorts = hostPorts
+	st.publicDNSName = p.publicDNSName
 
 	st.facadeVersions = make(map[string][]int, len(p.facades))
 	for _, facade := range p.facades {
