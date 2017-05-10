@@ -405,7 +405,7 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 	}
 	u := addUnit()
 
-	w := s.State.WatchEnvironFilesystemAttachments()
+	w := s.State.WatchModelFilesystemAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial

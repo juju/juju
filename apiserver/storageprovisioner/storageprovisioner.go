@@ -329,7 +329,7 @@ func (s *StorageProvisionerAPI) watchStorageEntities(
 func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		args,
-		s.st.WatchEnvironVolumeAttachments,
+		s.st.WatchModelVolumeAttachments,
 		s.st.WatchMachineVolumeAttachments,
 		storagecommon.ParseVolumeAttachmentIds,
 	)
@@ -340,7 +340,7 @@ func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (pa
 func (s *StorageProvisionerAPI) WatchFilesystemAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		args,
-		s.st.WatchEnvironFilesystemAttachments,
+		s.st.WatchModelFilesystemAttachments,
 		s.st.WatchMachineFilesystemAttachments,
 		storagecommon.ParseFilesystemAttachmentIds,
 	)
