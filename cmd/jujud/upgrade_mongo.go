@@ -612,9 +612,11 @@ func (u *UpgradeMongoCommand) removeOldDb(dataDir string) error {
 }
 
 func satisfyPrerequisites(operatingsystem string) error {
-	// CentOS is not currently supported by our mongo package.
+	// CentOS and OpenSUSE are  not currently supported by our mongo package.
 	if operatingsystem == "centos7" {
 		return errors.New("centos7 is still not suported by this upgrade")
+	} else if operatingsystem == "opensuseleap" {
+		return errors.New("openSUSE Leap is still not suported by this upgrade")
 	}
 
 	pacman, err := manager.NewPackageManager(operatingsystem)
