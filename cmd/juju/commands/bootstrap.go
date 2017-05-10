@@ -184,8 +184,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
-	f.BoolVar(&c.noSwitch, "S", false, "Do not switch to the newly created controller")
-	f.BoolVar(&c.noSwitch, "no-switch", false, "")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
