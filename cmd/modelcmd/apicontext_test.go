@@ -5,22 +5,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type APIContextSuite struct {
-	testing.IsolationSuite
-}
-
-func (s *APIContextSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	testing.MakeFakeHome(c)
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&APIContextSuite{})
