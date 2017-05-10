@@ -195,6 +195,8 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 			idBus = value
 		case "ID_SERIAL":
 			idSerial = value
+		case "ID_WWN":
+			dev.WWN = value
 		default:
 			logger.Tracef("ignoring line: %q", line)
 		}

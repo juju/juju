@@ -857,6 +857,48 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
 }
 
+func (s *storageProvisionerSuite) TestVolumeAttachmentNoStaticReattachment(c *gc.C) {
+	// Static storage should never be reattached.
+	s.provider.dynamic = false
+
+	volumeAttachmentInfoSet := make(chan interface{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
+		volumeAttachmentInfoSet <- nil
+		return make([]params.ErrorResult, len(volumeAttachments)), nil
+	}
+
+	// volume-1, machine-0, and machine-1 are provisioned.
+	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
+		VolumeTag: "volume-1",
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+		},
+	}
+	volumeAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+
+	alreadyAttached := params.MachineStorageId{
+		MachineTag:    "machine-0",
+		AttachmentTag: "volume-1",
+	}
+	volumeAccessor.provisionedAttachments[alreadyAttached] = params.VolumeAttachment{
+		MachineTag: "machine-0",
+		VolumeTag:  "volume-1",
+	}
+
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "machine-0", AttachmentTag: "volume-1",
+	}}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
+}
+
 func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	// We should only get a single filesystem attachment, because it is the
 	// only combination where both machine and filesystem are already

@@ -446,6 +446,7 @@ func (i *importer) importMachineBlockDevices(machine *Machine, m description.Mac
 			Label:          device.Label(),
 			UUID:           device.UUID(),
 			HardwareId:     device.HardwareID(),
+			WWN:            device.WWN(),
 			BusAddress:     device.BusAddress(),
 			Size:           device.Size(),
 			FilesystemType: device.FilesystemType(),
@@ -1535,6 +1536,7 @@ func (i *importer) addVolume(volume description.Volume) error {
 	if volume.Provisioned() {
 		info = &VolumeInfo{
 			HardwareId: volume.HardwareID(),
+			WWN:        volume.WWN(),
 			Size:       volume.Size(),
 			Pool:       volume.Pool(),
 			VolumeId:   volume.VolumeID(),
