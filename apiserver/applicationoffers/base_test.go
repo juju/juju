@@ -10,11 +10,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/applicationoffers"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
+	coretesting "github.com/juju/juju/testing"
 )
 
 const (
@@ -39,12 +40,12 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.mockState = &mockState{
-		modelUUID:         "uuid",
+		modelUUID:         coretesting.ModelTag.Id(),
 		users:             set.NewStrings(),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		accessPerms:       make(map[offerAccess]permission.Access),
 	}
-	s.mockStatePool = &mockStatePool{map[string]crossmodelcommon.Backend{s.mockState.modelUUID: s.mockState}}
+	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
 }
 
 func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {
@@ -76,9 +77,9 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
-	s.mockState.applications = map[string]crossmodelcommon.Application{
+	s.mockState.applications = map[string]applicationoffers.Application{
 		"test": &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
 	}
-	s.mockState.model = &mockModel{uuid: "uuid", name: "prod", owner: "fred"}
+	s.mockState.model = &mockModel{uuid: coretesting.ModelTag.Id(), name: "prod", owner: "fred"}
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 }

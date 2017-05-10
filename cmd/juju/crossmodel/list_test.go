@@ -48,6 +48,12 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *ListSuite) TestListNoCurrentModel(c *gc.C) {
+	s.store.Models["test-master"].CurrentModel = ""
+	_, err := s.runList(c, nil)
+	c.Assert(err, gc.ErrorMatches, `no current model, use juju switch to select a model on which to operate`)
+}
+
 func (s *ListSuite) TestListError(c *gc.C) {
 	msg := "fail api"
 

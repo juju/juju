@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/apiserver/proxyupdater"
 	"github.com/juju/juju/apiserver/reboot"
-	"github.com/juju/juju/apiserver/remoteendpoints"
 	"github.com/juju/juju/apiserver/remotefirewaller"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/apiserver/resources"
@@ -211,7 +210,6 @@ func AllFacades() *facade.Registry {
 
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
-		reg("RemoteEndpoints", 1, remoteendpoints.NewEndpointsAPI)
 		reg("RemoteFirewaller", 1, remotefirewaller.NewStateRemoteFirewallerAPI)
 		reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 	}
