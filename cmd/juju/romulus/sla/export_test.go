@@ -14,6 +14,7 @@ var (
 	NewAuthorizationClient = &newAuthorizationClient
 	NewSLAClient           = &newSLAClient
 	ModelId                = &modelId
+	NewJujuClientStore     = &newJujuClientStore
 )
 
 // NewSLACommandForTest returns an slaCommand with apis provided by the given arguments
