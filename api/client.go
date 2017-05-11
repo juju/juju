@@ -48,6 +48,12 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	return &result, nil
 }
 
+// CACert returns the CA certificate associated with
+// the connection.
+func (c *Client) CACert() (string, error) {
+	return common.NewAPIAddresser(c.facade).CACert()
+}
+
 // StatusHistory retrieves the last <size> results of
 // <kind:combined|agent|workload|machine|machineinstance|container|containerinstance> status
 // for <name> unit
