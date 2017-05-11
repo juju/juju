@@ -35,6 +35,20 @@ func (hp HostPort) GoString() string {
 	return hp.String()
 }
 
+// Less reports whether hp1 is ordered before hp2
+// according to the criteria used by SortHostPorts.
+func (hp1 HostPort) Less(hp2 HostPort) bool {
+	order1 := hp1.sortOrder()
+	order2 := hp2.sortOrder()
+	if order1 == order2 {
+		if hp1.Address.Value == hp2.Address.Value {
+			return hp1.Port < hp2.Port
+		}
+		return hp1.Address.Value < hp2.Address.Value
+	}
+	return order1 < order2
+}
+
 // AddressesWithPort returns the given addresses all
 // associated with the given port.
 func AddressesWithPort(addrs []Address, port int) []HostPort {
@@ -108,17 +122,7 @@ type hostPortsPreferringIPv4Slice []HostPort
 func (hp hostPortsPreferringIPv4Slice) Len() int      { return len(hp) }
 func (hp hostPortsPreferringIPv4Slice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
 func (hp hostPortsPreferringIPv4Slice) Less(i, j int) bool {
-	hp1 := hp[i]
-	hp2 := hp[j]
-	order1 := hp1.sortOrder()
-	order2 := hp2.sortOrder()
-	if order1 == order2 {
-		if hp1.Address.Value == hp2.Address.Value {
-			return hp1.Port < hp2.Port
-		}
-		return hp1.Address.Value < hp2.Address.Value
-	}
-	return order1 < order2
+	return hp[i].Less(hp[j])
 }
 
 // SortHostPorts sorts the given HostPort slice according to the sortOrder of

@@ -688,6 +688,10 @@ func (m *mockAPIConnection) AuthTag() names.Tag {
 	return names.NewUserTag("testuser")
 }
 
+func (m *mockAPIConnection) PublicDNSName() string {
+	return ""
+}
+
 func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
 	p, _ := network.ParseHostPorts(m.Addr())
 	return [][]network.HostPort{p}
