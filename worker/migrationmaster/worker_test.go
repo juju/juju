@@ -717,48 +717,6 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestExternalControl(c *gc.C) {
-	status := s.makeStatus(coremigration.QUIESCE)
-	status.ExternalControl = true
-	s.facade.queueStatus(status)
-
-	status.Phase = coremigration.DONE
-	s.facade.queueStatus(status)
-
-	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
-	s.stub.CheckCalls(c, joinCalls(
-		// Wait for migration to start.
-		watchStatusLockdownCalls,
-
-		// Wait for migration to end.
-		[]jujutesting.StubCall{
-			{"facade.Watch", nil},
-			{"facade.MigrationStatus", nil},
-		},
-	))
-}
-
-func (s *Suite) TestExternalControlABORT(c *gc.C) {
-	status := s.makeStatus(coremigration.QUIESCE)
-	status.ExternalControl = true
-	s.facade.queueStatus(status)
-
-	status.Phase = coremigration.ABORTDONE
-	s.facade.queueStatus(status)
-
-	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
-	s.stub.CheckCalls(c, joinCalls(
-		// Wait for migration to start.
-		watchStatusLockdownCalls,
-
-		// Wait for migration to end.
-		[]jujutesting.StubCall{
-			{"facade.Watch", nil},
-			{"facade.MigrationStatus", nil},
-		},
-	))
-}
-
 func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connectionErr = errors.New("people of earth")

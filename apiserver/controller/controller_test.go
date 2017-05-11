@@ -394,7 +394,6 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					Macaroons:     string(macsJSON),
 					Password:      "secret2",
 				},
-				ExternalControl: true,
 			},
 		},
 	}
@@ -419,7 +418,6 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
 		c.Check(mig.InitiatedBy(), gc.Equals, s.Owner.Id())
-		c.Check(mig.ExternalControl(), gc.Equals, args.Specs[i].ExternalControl)
 
 		targetInfo, err := mig.TargetInfo()
 		c.Assert(err, jc.ErrorIsNil)
@@ -541,34 +539,6 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	active, err := st.IsMigrationActive()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(active, jc.IsFalse)
-}
-
-func (s *controllerSuite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	controller.SetPrecheckResult(s, errors.New("should not happen"))
-
-	args := params.InitiateMigrationArgs{
-		Specs: []params.MigrationSpec{
-			{
-				ModelTag: st.ModelTag().String(),
-				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomControllerTag(),
-					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
-					CACert:        "cert",
-					AuthTag:       names.NewUserTag("admin").String(),
-					Password:      "secret",
-				},
-				ExternalControl:      true,
-				SkipInitialPrechecks: true,
-			},
-		},
-	}
-	out, err := s.controller.InitiateMigration(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.Results, gc.HasLen, 1)
-	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag().String())
-	c.Check(out.Results[0].Error, gc.IsNil)
 }
 
 func randomControllerTag() string {
