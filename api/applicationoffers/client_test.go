@@ -531,3 +531,49 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
+
+func (s *crossmodelMockSuite) TestConsume(c *gc.C) {
+	target := testing.ModelTag
+	offer := params.ApplicationOffer{
+		SourceModelTag:         "source model",
+		OfferName:              "an offer",
+		OfferURL:               "offer url",
+		ApplicationDescription: "description",
+		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
+	}
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Assert(request, gc.Equals, "Consume")
+			args, ok := a.(params.ConsumeApplicationArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
+				{
+					ApplicationAlias:       "alias",
+					TargetModelTag:         target.String(),
+					SourceModelTag:         offer.SourceModelTag,
+					OfferName:              offer.OfferName,
+					OfferURL:               offer.OfferURL,
+					ApplicationDescription: offer.ApplicationDescription,
+					Endpoints:              offer.Endpoints,
+				},
+			})
+			if results, ok := result.(*params.ConsumeApplicationResults); ok {
+				result := params.ConsumeApplicationResult{
+					LocalName: "result",
+				}
+				results.Results = []params.ConsumeApplicationResult{result}
+			}
+			return nil
+		})
+	client := applicationoffers.NewClient(apiCaller)
+	name, err := client.Consume(target, offer, "alias")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "result")
+	c.Assert(called, jc.IsTrue)
+}

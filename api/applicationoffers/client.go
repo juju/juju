@@ -213,3 +213,30 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 	}
 	return out.Results, nil
 }
+
+// Consume adds a remote application to the specified target model.
+func (c *Client) Consume(targetModelTag names.ModelTag, offer params.ApplicationOffer, alias string) (string, error) {
+	var consumeRes params.ConsumeApplicationResults
+	args := params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			ApplicationAlias:       alias,
+			SourceModelTag:         offer.SourceModelTag,
+			TargetModelTag:         targetModelTag.String(),
+			OfferURL:               offer.OfferURL,
+			OfferName:              offer.OfferName,
+			ApplicationDescription: offer.ApplicationDescription,
+			Endpoints:              offer.Endpoints,
+		}},
+	}
+	err := c.facade.FacadeCall("Consume", args, &consumeRes)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if resultLen := len(consumeRes.Results); resultLen != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", resultLen)
+	}
+	if err := consumeRes.Results[0].Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return consumeRes.Results[0].LocalName, nil
+}

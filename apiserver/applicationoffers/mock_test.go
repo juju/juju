@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,7 +27,7 @@ const (
 	removeOfferCall = "removeOfferCall"
 )
 
-type mockApplicationOffers struct {
+type stubApplicationOffers struct {
 	jtesting.Stub
 	jujucrossmodel.ApplicationOffers
 
@@ -34,27 +35,27 @@ type mockApplicationOffers struct {
 	listOffers func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error)
 }
 
-func (m *mockApplicationOffers) AddOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
+func (m *stubApplicationOffers) AddOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(addOfferCall)
 	return m.addOffer(offer)
 }
 
-func (m *mockApplicationOffers) ListOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
+func (m *stubApplicationOffers) ListOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(listOffersCall)
 	return m.listOffers(filters...)
 }
 
-func (m *mockApplicationOffers) UpdateOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
+func (m *stubApplicationOffers) UpdateOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(updateOfferCall)
 	panic("not implemented")
 }
 
-func (m *mockApplicationOffers) Remove(url string) error {
+func (m *stubApplicationOffers) Remove(url string) error {
 	m.AddCall(removeOfferCall)
 	panic("not implemented")
 }
 
-func (m *mockApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOffer, error) {
+func (m *stubApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(offerCall)
 	panic("not implemented")
 }
@@ -67,6 +68,10 @@ type mockModel struct {
 
 func (m *mockModel) UUID() string {
 	return m.uuid
+}
+
+func (m *mockModel) ModelTag() names.ModelTag {
+	return names.NewModelTag(m.uuid)
 }
 
 func (m *mockModel) Name() string {
@@ -85,10 +90,15 @@ func (m *mockCharm) Meta() *charm.Meta {
 	return m.meta
 }
 
+func (m *mockCharm) StoragePath() string {
+	return "storage-path"
+}
+
 type mockApplication struct {
-	name  string
-	charm *mockCharm
-	curl  *charm.URL
+	name      string
+	charm     *mockCharm
+	curl      *charm.URL
+	endpoints []state.Endpoint
 }
 
 func (m *mockApplication) Name() string {
@@ -103,6 +113,44 @@ func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
 	return m.curl, true
 }
 
+func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
+	return m.endpoints, nil
+}
+
+type mockRemoteApplication struct {
+	name           string
+	sourceModelTag names.ModelTag
+	endpoints      []state.Endpoint
+	offerName      string
+	offerURL       string
+}
+
+func (m *mockRemoteApplication) Name() string {
+	return m.name
+}
+
+func (m *mockRemoteApplication) SourceModel() names.ModelTag {
+	return m.sourceModelTag
+}
+
+func (m *mockRemoteApplication) Endpoints() ([]state.Endpoint, error) {
+	return m.endpoints, nil
+}
+
+func (m *mockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
+	for _, ep := range eps {
+		m.endpoints = append(m.endpoints, state.Endpoint{
+			ApplicationName: m.name,
+			Relation: charm.Relation{
+				Name:      ep.Name,
+				Interface: ep.Interface,
+				Role:      ep.Role,
+			},
+		})
+	}
+	return nil
+}
+
 type mockConnectionStatus struct {
 	count int
 }
@@ -111,24 +159,77 @@ func (m *mockConnectionStatus) ConnectionCount() int {
 	return m.count
 }
 
+type mockApplicationOffers struct {
+	jujucrossmodel.ApplicationOffers
+	st *mockState
+}
+
+func (m *mockApplicationOffers) ListOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
+	var result []jujucrossmodel.ApplicationOffer
+	for _, f := range filters {
+		if offer, ok := m.st.applicationOffers[f.OfferName]; ok {
+			result = append(result, offer)
+		}
+	}
+	return result, nil
+}
+
 type offerAccess struct {
 	user  names.UserTag
 	offer names.ApplicationOfferTag
 }
 
 type mockState struct {
-	modelUUID         string
-	model             applicationoffers.Model
-	allmodels         []applicationoffers.Model
-	users             set.Strings
-	applications      map[string]applicationoffers.Application
-	applicationOffers map[string]jujucrossmodel.ApplicationOffer
-	connStatus        applicationoffers.RemoteConnectionStatus
-	accessPerms       map[offerAccess]permission.Access
+	modelUUID          string
+	model              applicationoffers.Model
+	allmodels          []applicationoffers.Model
+	users              set.Strings
+	applications       map[string]applicationoffers.Application
+	remoteApplications map[string]applicationoffers.RemoteApplication
+	applicationOffers  map[string]jujucrossmodel.ApplicationOffer
+	connStatus         applicationoffers.RemoteConnectionStatus
+	accessPerms        map[offerAccess]permission.Access
 }
 
 func (m *mockState) ControllerTag() names.ControllerTag {
 	return testing.ControllerTag
+}
+
+func (m *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	return nil, false, nil
+}
+
+func (m *mockState) Charm(*charm.URL) (applicationoffers.Charm, error) {
+	return &mockCharm{}, nil
+}
+
+func (m *mockState) AddRemoteApplication(args state.AddRemoteApplicationParams) (applicationoffers.RemoteApplication, error) {
+	app := &mockRemoteApplication{
+		name:           args.Name,
+		sourceModelTag: args.SourceModel,
+		offerName:      args.OfferName,
+		offerURL:       args.URL,
+	}
+	for _, ep := range args.Endpoints {
+		app.endpoints = append(app.endpoints, state.Endpoint{
+			ApplicationName: app.name,
+			Relation: charm.Relation{
+				Name:      ep.Name,
+				Interface: ep.Interface,
+				Role:      ep.Role,
+			},
+		})
+	}
+	m.remoteApplications[app.name] = app
+	return app, nil
+}
+
+func (m *mockState) RemoteApplication(name string) (applicationoffers.RemoteApplication, error) {
+	app, ok := m.remoteApplications[name]
+	if !ok {
+		return nil, errors.NotFoundf("remote application %q", name)
+	}
+	return app, nil
 }
 
 func (m *mockState) Application(name string) (applicationoffers.Application, error) {

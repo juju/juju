@@ -8,7 +8,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -38,13 +39,13 @@ See also:
 // NewConsumeCommand returns a command to add remote applications to
 // the model.
 func NewConsumeCommand() cmd.Command {
-	return modelcmd.Wrap(&consumeCommand{})
+	return modelcmd.WrapController(&consumeCommand{})
 }
 
 // consumeCommand adds remote applications to the model without
 // relating them to other applications.
 type consumeCommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 	api               applicationConsumeAPI
 	remoteApplication string
 	applicationAlias  string
@@ -84,7 +85,7 @@ func (c *consumeCommand) getAPI() (applicationConsumeAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return application.NewClient(root), nil
+	return applicationoffers.NewClient(root), nil
 }
 
 // Run adds the requested remote application to the model. Implements
@@ -110,15 +111,16 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	localName, err := client.Consume(c.remoteApplication, c.applicationAlias)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ctx.Infof("Added %s as %s", c.remoteApplication, localName)
+	// TODO(wallyworld) - re-implement
+	//localName, err := client.Consume(c.remoteApplication, c.applicationAlias)
+	//if err != nil {
+	//	return errors.Trace(err)
+	//}
+	//ctx.Infof("Added %s as %s", c.remoteApplication, localName)
 	return nil
 }
 
 type applicationConsumeAPI interface {
 	Close() error
-	Consume(remoteApplication, alias string) (string, error)
+	Consume(names.ModelTag, params.ApplicationOffer, string) (string, error)
 }

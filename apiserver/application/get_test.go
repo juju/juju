@@ -37,10 +37,8 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	var err error
 	backend := application.NewStateBackend(s.State)
 	blockChecker := common.NewBlockChecker(s.State)
-	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	s.serviceAPI, err = application.NewAPI(
-		backend, s.authorizer, resources, s.BackingStatePool,
+		backend, s.authorizer, s.BackingStatePool,
 		blockChecker, application.CharmToStateCharm,
 		application.DeployApplication,
 		nil,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -30,14 +32,16 @@ var _ = gc.Suite(&applicationOffersSuite{})
 
 func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	s.applicationOffers = &mockApplicationOffers{}
+	s.applicationOffers = &stubApplicationOffers{}
 	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
 		return s.applicationOffers
 	}
 
+	resources := common.NewResources()
+	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	var err error
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, s.mockState, s.mockStatePool, s.authorizer,
+		getApplicationOffers, s.mockState, s.mockStatePool, s.authorizer, resources,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -60,9 +64,9 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		c.Assert(offer.HasRead, gc.DeepEquals, []string{"everyone@external"})
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
-	charm := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]applicationoffers.Application{
-		applicationName: &mockApplication{charm: charm},
+		applicationName: &mockApplication{charm: ch},
 	}
 
 	errs, err := s.api.Offer(all)
@@ -122,11 +126,11 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		}
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
-	charm := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]applicationoffers.Application{
-		"one":        &mockApplication{charm: charm},
-		"two":        &mockApplication{charm: charm},
-		"paramsfail": &mockApplication{charm: charm},
+		"one":        &mockApplication{charm: ch},
+		"two":        &mockApplication{charm: ch},
+		"paramsfail": &mockApplication{charm: ch},
 	}
 
 	errs, err := s.api.Offer(all)
@@ -156,9 +160,9 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.applicationOffers.addOffer = func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 		return nil, errors.New(msg)
 	}
-	charm := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]applicationoffers.Application{
-		applicationName: &mockApplication{charm: charm},
+		applicationName: &mockApplication{charm: ch},
 	}
 
 	errs, err := s.api.Offer(all)
@@ -271,7 +275,7 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, expected []params.Applicati
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}
 	s.mockState.applications = map[string]applicationoffers.Application{
 		applicationName: &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
 	}
@@ -299,7 +303,13 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("someone")
+	s.mockState.users.Add("someone")
+	user := names.NewUserTag("someone")
+	offer := names.NewApplicationOfferTag("hosted-db2")
+	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
 		Error: common.ServerError(errors.NotFoundf("application offer %q", "hosted-db2")),
 	}}
@@ -493,6 +503,12 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
+	s.mockState.users.Add("someone")
+	user := names.NewUserTag("someone")
+	offer := names.NewApplicationOfferTag("hosted-db2")
+	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.setupOffers(c, "")
 	s.authorizer.Tag = names.NewUserTag("someone")
 	s.assertFind(c, []params.ApplicationOffer{})
@@ -699,4 +715,197 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 	_, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, gc.ErrorMatches, "application offer filter must specify a model name")
 	s.applicationOffers.CheckCallNames(c)
+}
+
+type consumeSuite struct {
+	baseSuite
+	api *applicationoffers.OffersAPI
+}
+
+var _ = gc.Suite(&consumeSuite{})
+
+func (s *consumeSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	getApplicationOffers := func(st interface{}) jujucrossmodel.ApplicationOffers {
+		return &mockApplicationOffers{st: st.(*mockState)}
+	}
+
+	resources := common.NewResources()
+	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	var err error
+	s.api, err = applicationoffers.CreateOffersAPI(
+		getApplicationOffers, s.mockState, s.mockStatePool, s.authorizer, resources,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *consumeSuite) setupTargetModel() names.ModelTag {
+	targetModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	targetSt := &mockState{
+		modelUUID:          targetModelTag.Id(),
+		applications:       make(map[string]applicationoffers.Application),
+		remoteApplications: make(map[string]applicationoffers.RemoteApplication),
+		applicationOffers:  make(map[string]jujucrossmodel.ApplicationOffer),
+		users:              set.NewStrings(),
+		accessPerms:        make(map[offerAccess]permission.Access),
+	}
+	s.mockStatePool.st[targetModelTag.Id()] = targetSt
+	targetSt.model = &mockModel{uuid: targetModelTag.Id(), name: "target", owner: "fred"}
+	targetSt.modelUUID = targetModelTag.Id()
+	return targetModelTag
+}
+
+func (s *consumeSuite) TestConsumeIdempotent(c *gc.C) {
+	targetModelTag := s.setupTargetModel()
+	for i := 0; i < 2; i++ {
+		results, err := s.api.Consume(params.ConsumeApplicationArgs{
+			Args: []params.ConsumeApplicationArg{{
+				SourceModelTag:         testing.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "a database",
+				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+				OfferURL:               "othermodel.hosted-mysql",
+				TargetModelTag:         targetModelTag.String(),
+			}},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results.Results, gc.HasLen, 1)
+		c.Assert(results.Results[0].Error, gc.IsNil)
+	}
+	obtained, ok := s.mockStatePool.st[targetModelTag.Id()].(*mockState).remoteApplications["hosted-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
+		name:           "hosted-mysql",
+		sourceModelTag: testing.ModelTag,
+		offerName:      "hosted-mysql",
+		offerURL:       "othermodel.hosted-mysql",
+		endpoints: []state.Endpoint{
+			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
+	})
+}
+
+// TODO(wallyworld) - re-implement when OfferDetails is done
+//func (s *consumeSuite) TestConsumeRejectsEndpoints(c *gc.C) {
+//	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+//		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
+//	})
+//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(results.Results, gc.HasLen, 1)
+//	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
+//	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "othermodel.application:db" shouldn't include endpoint`)
+//}
+//
+//func (s *consumeSuite) TestConsumeNoPermission(c *gc.C) {
+//	s.setupOffer()
+//	s.mockState.users.Add("someone")
+//	user := names.NewUserTag("someone")
+//	offer := names.NewApplicationOfferTag("hosted-mysql")
+//	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
+//	c.Assert(err, jc.ErrorIsNil)
+//
+//	targetModelTag := s.setupTargetModel()
+//
+//	s.authorizer.Tag = names.NewUserTag("someone")
+//	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+//		Args: []params.ConsumeApplicationArg{{
+//			SourceModelTag:         testing.ModelTag.String(),
+//			OfferName:              "hosted-mysql",
+//			ApplicationDescription: "a database",
+//			Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+//			OfferURL:               "othermodel.hosted-mysql",
+//			ApplicationAlias:       "mysql",
+//			TargetModelTag:         targetModelTag.String(),
+//		}},
+//	})
+//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(results.Results, gc.HasLen, 1)
+//	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*permission denied.*")
+//}
+//
+//func (s *consumeSuite) TestConsumeWithPermission(c *gc.C) {
+//	st := s.mockStatePool.st[testing.ModelTag.Id()]
+//	st.(*mockState).users.Add("foobar")
+
+//_, err := s.otherModel.AddUser("someone", "spmeone", "secret", "admin")
+//c.Assert(err, jc.ErrorIsNil)
+//apiUser := names.NewUserTag("someone")
+//err = s.otherModel.CreateOfferAccess(
+//	names.NewApplicationOfferTag("hosted-mysql"), apiUser, permission.ConsumeAccess)
+//s.authorizer.Tag = apiUser
+//results, err := s.api.Consume(params.ConsumeApplicationArgs{
+//	Args: []params.ConsumeApplicationArg{
+//		{ApplicationURL: "admin/othermodel.hosted-mysql"},
+//	},
+//})
+//c.Assert(err, jc.ErrorIsNil)
+//c.Assert(results.Results, gc.HasLen, 1)
+//c.Assert(results.Results[0].Error, gc.IsNil)
+//}
+
+func (s *consumeSuite) setupOffer() {
+	modelUUID := testing.ModelTag.Id()
+	offerName := "hosted-mysql"
+
+	s.mockState.allmodels = []applicationoffers.Model{
+		&mockModel{uuid: modelUUID, name: "prod", owner: "fred"}}
+	st := &mockState{
+		modelUUID:          modelUUID,
+		applications:       make(map[string]applicationoffers.Application),
+		remoteApplications: make(map[string]applicationoffers.RemoteApplication),
+		applicationOffers:  make(map[string]jujucrossmodel.ApplicationOffer),
+		users:              set.NewStrings(),
+		accessPerms:        make(map[offerAccess]permission.Access),
+	}
+	s.mockStatePool.st[modelUUID] = st
+	anOffer := jujucrossmodel.ApplicationOffer{
+		ApplicationName:        "mysql",
+		ApplicationDescription: "a database",
+		OfferName:              offerName,
+		Endpoints:              map[string]charm.Relation{"database": {Name: "database"}},
+	}
+	st.applicationOffers[offerName] = anOffer
+	st.applications["mysql"] = &mockApplication{
+		name:  "mysql",
+		charm: &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}},
+		endpoints: []state.Endpoint{
+			{Relation: charm.Relation{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"}},
+			{Relation: charm.Relation{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+			{Relation: charm.Relation{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}}},
+	}
+}
+
+func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
+	s.setupOffer()
+	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	st.(*mockState).users.Add("foobar")
+
+	// Give user permission to see the offer.
+	user := names.NewUserTag("foobar")
+	offer := names.NewApplicationOfferTag("hosted-mysql")
+	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.Tag = user
+	results, err := s.api.RemoteApplicationInfo(params.ApplicationURLs{
+		ApplicationURLs: []string{"fred/prod.hosted-mysql", "fred/prod.unknown"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
+		{Result: &params.RemoteApplicationInfo{
+			ModelTag:         testing.ModelTag.String(),
+			Name:             "hosted-mysql",
+			Description:      "A pretty popular database",
+			ApplicationURL:   "fred/prod.hosted-mysql",
+			SourceModelLabel: "prod",
+			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
+			Endpoints: []params.RemoteEndpoint{
+				{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"},
+				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"},
+				{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}},
+		}},
+		{
+			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
+		},
+	})
 }
