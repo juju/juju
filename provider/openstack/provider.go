@@ -1723,11 +1723,11 @@ func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfa
 }
 
 // ProviderSpaceInfo is specified on environs.NetworkingEnviron.
-func (*Environ) ProviderSpaceInfo(string) (*environs.ProviderSpaceInfo, error) {
+func (*Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
-// IsSpaceRoutable is specified on environs.NetworkingEnviron.
-func (*Environ) IsSpaceRoutable(targetSpace *environs.ProviderSpaceInfo) (bool, error) {
+// AreSpacesRoutable is specified on environs.NetworkingEnviron.
+func (*Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }

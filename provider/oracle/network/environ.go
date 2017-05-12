@@ -352,11 +352,11 @@ func (e Environ) Spaces() ([]network.SpaceInfo, error) {
 }
 
 // ProviderSpaceInfo is defined on the environs.NetworkingEnviron interface.
-func (Environ) ProviderSpaceInfo(providerSpaceId string) (*environs.ProviderSpaceInfo, error) {
+func (Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
-// IsSpaceRoutable is defined on the environs.NetworkingEnviron interface.
-func (Environ) IsSpaceRoutable(targetSpace *environs.ProviderSpaceInfo) (bool, error) {
+// AreSpacesRoutable is defined on the environs.NetworkingEnviron interface.
+func (Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
