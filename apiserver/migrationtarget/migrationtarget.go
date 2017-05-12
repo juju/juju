@@ -24,11 +24,18 @@ import (
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
+	addresser
 	state      *state.State
 	authorizer facade.Authorizer
 	resources  facade.Resources
 	pool       *state.StatePool
 	getEnviron stateenvirons.NewEnvironFunc
+}
+
+// addresser implements the subset of common.APIAddresser
+// methods that we choose to expose in the MigrationTarget facade.
+type addresser interface {
+	CACert() params.BytesResult
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc for testing
@@ -39,12 +46,14 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, 
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
+	addresser := common.NewAPIAddresser(st, ctx.Resources())
 	return &API{
 		state:      st,
 		authorizer: auth,
 		resources:  ctx.Resources(),
 		pool:       ctx.StatePool(),
 		getEnviron: getEnviron,
+		addresser:  addresser,
 	}, nil
 }
 
