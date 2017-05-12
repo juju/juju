@@ -1890,6 +1890,67 @@ func machineStorageParamsForStorageInstance(
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 
 	switch storage.Kind() {
+	case StorageKindFilesystem:
+		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
+		if err != nil {
+			return nil, errors.Annotatef(
+				err, "getting filesystem mount point for storage %s",
+				storage.StorageName(),
+			)
+		}
+		filesystemAttachmentParams := FilesystemAttachmentParams{
+			charmStorage.Location == "", // auto-generated location
+			location,
+			charmStorage.ReadOnly,
+		}
+		var volumeBacked bool
+		if filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
+			// The filesystem already exists, so just attach it.
+			// When creating ops to attach the storage to the
+			// machine, we will check if the attachment already
+			// exists, and whether the storage can be attached to
+			// the machine.
+			if !charmStorage.Shared {
+				// The storage is not shared, so make sure that it is
+				// not currently attached to any other machine. If it
+				// is, it should be in the process of being detached.
+				existing, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if len(existing) > 0 {
+					return nil, errors.Errorf(
+						"%s is attached to %s",
+						names.ReadableString(filesystem.FilesystemTag()),
+						names.ReadableString(existing[0].Machine()),
+					)
+				}
+			}
+			filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+			if _, err := filesystem.Volume(); err == nil {
+				// The filesystem is volume-backed, so make sure we attach the volume too.
+				volumeBacked = true
+			}
+		} else if errors.IsNotFound(err) {
+			cons := allCons[storage.StorageName()]
+			filesystemParams := FilesystemParams{
+				storage: storage.StorageTag(),
+				Pool:    cons.Pool,
+				Size:    cons.Size,
+			}
+			filesystems = append(filesystems, MachineFilesystemParams{
+				filesystemParams, filesystemAttachmentParams,
+			})
+		} else {
+			return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+		}
+
+		if !volumeBacked {
+			break
+		}
+		// Fall through to attach the volume that backs the filesystem.
+		fallthrough
+
 	case StorageKindBlock:
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
@@ -1928,55 +1989,6 @@ func machineStorageParamsForStorageInstance(
 			})
 		} else {
 			return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
-		}
-	case StorageKindFilesystem:
-		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
-		if err != nil {
-			return nil, errors.Annotatef(
-				err, "getting filesystem mount point for storage %s",
-				storage.StorageName(),
-			)
-		}
-		filesystemAttachmentParams := FilesystemAttachmentParams{
-			charmStorage.Location == "", // auto-generated location
-			location,
-			charmStorage.ReadOnly,
-		}
-		if filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
-			// The filesystem already exists, so just attach it.
-			// When creating ops to attach the storage to the
-			// machine, we will check if the attachment already
-			// exists, and whether the storage can be attached to
-			// the machine.
-			if !charmStorage.Shared {
-				// The storage is not shared, so make sure that it is
-				// not currently attached to any other machine. If it
-				// is, it should be in the process of being detached.
-				existing, err := st.FilesystemAttachments(filesystem.FilesystemTag())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				if len(existing) > 0 {
-					return nil, errors.Errorf(
-						"%s is attached to %s",
-						names.ReadableString(filesystem.FilesystemTag()),
-						names.ReadableString(existing[0].Machine()),
-					)
-				}
-			}
-			filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
-		} else if errors.IsNotFound(err) {
-			cons := allCons[storage.StorageName()]
-			filesystemParams := FilesystemParams{
-				storage: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
-			}
-			filesystems = append(filesystems, MachineFilesystemParams{
-				filesystemParams, filesystemAttachmentParams,
-			})
-		} else {
-			return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
 		}
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storage.Kind())

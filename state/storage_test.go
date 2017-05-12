@@ -75,15 +75,15 @@ func (s *StorageStateSuiteBase) provisionStorageVolume(c *gc.C, u *state.Unit, s
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
-	ch := s.createStorageCharm(c, "storage-block", charm.Storage{
+func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool string) (*state.Application, *state.Unit, names.StorageTag) {
+	ch := s.createStorageCharm(c, "storage-"+kind, charm.Storage{
 		Name:     "data",
-		Type:     charm.StorageBlock,
+		Type:     charm.StorageType(kind),
 		CountMin: 0,
 		CountMax: 2,
 	})
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("modelscoped", 1024, 1),
+		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingServiceWithStorage(c, ch.URL().Name, ch, storage)
 	unit, err := app.AddUnit()
@@ -718,7 +718,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 }
 
 func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
-	app, u, storageTag := s.setupSingleStorageDetachable(c)
+	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 	u2, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -739,7 +739,7 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
-	app, u, storageTag := s.setupSingleStorageDetachable(c)
+	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 	u2, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -770,32 +770,38 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc.C) {
-	app, u, storageTag := s.setupSingleStorageDetachable(c)
+	// Create volume-backed filesystem storage.
+	app, u, storageTag := s.setupSingleStorageDetachable(c, "filesystem", "modelscoped-block")
 	u2, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the first unit to a machine so that we have a
-	// volume and volume attachment initially. When we detach
-	// the storage from the first unit, the volume should be
-	// detached from its assigned machine.
+	// volume and volume attachment, and filesystem and
+	// filesystem attachment initially. When we detach
+	// the storage from the first unit, the volume and
+	// filesystem should be detached from their assigned
+	// machine.
 	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	oldMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	oldMachineTag := names.NewMachineTag(oldMachineId)
 	volume := s.storageInstanceVolume(c, storageTag)
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
 
 	// Detach, but do not destroy, the storage.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
 	// attach the storage to the unit, it will attach the
-	// existing volume to the machine.
+	// existing volume/filesystem to the machine.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -810,10 +816,11 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	machineTag := names.NewMachineTag(machineId)
 	s.volumeAttachment(c, machineTag, volume.VolumeTag())
+	s.filesystemAttachment(c, machineTag, filesystem.FilesystemTag())
 }
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttached(c *gc.C) {
-	app, u, storageTag := s.setupSingleStorageDetachable(c)
+	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 	u2, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -842,6 +849,100 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttach
 	c.Assert(err, gc.ErrorMatches,
 		`cannot attach storage data/0 to unit quantal-storage-block/1: volume 0 is attached to machine 0`,
 	)
+}
+
+func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
+	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
+
+	// Detach, but do not destroy, the storage.
+	err := s.State.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch, _, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	app2, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:   "secondwind",
+		Series: app.Series(),
+		Charm:  ch,
+		Storage: map[string]state.StorageConstraints{
+			// The unit should have two storage instances
+			// in total. We're attaching one, so only one
+			// new instance should be created.
+			"data": makeStorageCons("modelscoped", 1024, 2),
+		},
+		AttachStorage: []names.StorageTag{storageTag},
+		NumUnits:      1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	app2Units, err := app2.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app2Units, gc.HasLen, 1)
+
+	// The storage instance should be attached to the new application unit.
+	storageInstance, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	owner, hasOwner := storageInstance.Owner()
+	c.Assert(hasOwner, jc.IsTrue)
+	c.Assert(owner, gc.Equals, app2Units[0].UnitTag())
+	storageAttachments, err := s.State.UnitStorageAttachments(app2Units[0].UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 2)
+}
+
+func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C) {
+	app, _, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
+	ch, _, _ := app.Charm()
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:          "secondwind",
+		Series:        app.Series(),
+		Charm:         ch,
+		AttachStorage: []names.StorageTag{storageTag},
+		NumUnits:      2,
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "secondwind": AttachStorage is non-empty but NumUnits is 2, must be 1`)
+}
+
+func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
+	app, _, _ := s.setupSingleStorageDetachable(c, "block", "modelscoped")
+
+	// Create 3 units whose storage instances we'll detach,
+	// in order to attach to the new application below. The
+	// charm allows a maximum of 2 storage instances, so the
+	// application creation should fail.
+	var storageTags []names.StorageTag
+	for i := 0; i < 3; i++ {
+		u, err := app.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		storageTag := names.NewStorageTag("data/" + fmt.Sprint(i+1))
+		storageTags = append(storageTags, storageTag)
+
+		// Detach, but do not destroy, the storage.
+		err = s.State.DetachStorage(storageTag, u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	ch, _, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddApplication(state.AddApplicationArgs{
+		Name:   "secondwind",
+		Series: app.Series(),
+		Charm:  ch,
+		Storage: map[string]state.StorageConstraints{
+			// The unit should have two storage instances
+			// in total. We're attaching one, so only one
+			// new instance should be created.
+			"data": makeStorageCons("modelscoped", 1024, 2),
+		},
+		AttachStorage: storageTags,
+		NumUnits:      1,
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`cannot add application "secondwind": `+
+			`attaching 3 storage instances brings the total to 3, exceeding the maximum of 2`)
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {

@@ -973,6 +973,7 @@ type AddApplicationArgs struct {
 	Charm            *Charm
 	Channel          csparams.Channel
 	Storage          map[string]StorageConstraints
+	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	Settings         charm.Settings
 	NumUnits         int
@@ -992,6 +993,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
+	}
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}
 
 	if err := validateCharmVersion(args.Charm); err != nil {
@@ -1209,7 +1213,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
-			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{
+				cons:          args.Constraints,
+				storageCons:   args.Storage,
+				attachStorage: args.AttachStorage,
+			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
