@@ -111,15 +111,12 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// If the user is not a model admin, they need at least read
 		// access on an offer to see it.
 		if !isAdmin {
-			apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
-			access, permErr := backend.GetOfferAccess(names.NewApplicationOfferTag(offer.OfferName), apiUser)
-			if err != nil && !errors.IsNotFound(permErr) {
+			if userAccess, err = api.checkOfferAccess(backend, offer.OfferName, permission.ReadAccess); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
+			if userAccess == permission.NoAccess {
 				continue
 			}
-			userAccess = access
 		}
 		app, err := backend.Application(offer.ApplicationName)
 		if err != nil {
@@ -139,6 +136,20 @@ func (api *BaseAPI) applicationOffersFromModel(
 		results = append(results, offerDetails)
 	}
 	return results, nil
+}
+
+// checkOfferAccess returns the level of access the authenticated user has to the offer,
+// so long as it is greater than the requested perm.
+func (api *BaseAPI) checkOfferAccess(backend Backend, offerName string, perm permission.Access) (permission.Access, error) {
+	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
+	access, err := backend.GetOfferAccess(names.NewApplicationOfferTag(offerName), apiUser)
+	if err != nil && !errors.IsNotFound(err) {
+		return permission.NoAccess, errors.Trace(err)
+	}
+	if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
+		return permission.NoAccess, errors.Trace(err)
+	}
+	return access, nil
 }
 
 func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer, modelUUID string, access permission.Access) params.ApplicationOffer {
@@ -168,7 +179,7 @@ type offerModel struct {
 
 // getModelsFromOffers returns a slice of models corresponding to the
 // specified offer URLs. Each result item has either a model or an error.
-func (api *BaseAPI) getModelsFromOffers(offerURLs []string) ([]offerModel, error) {
+func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, error) {
 	// Cache the models found so far so we don't look them up more than once.
 	modelsCache := make(map[string]Model)
 	oneModel := func(offerURL string) (Model, error) {

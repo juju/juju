@@ -7,12 +7,8 @@
 package application
 
 import (
-	"fmt"
-	"regexp"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -30,6 +26,8 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"fmt"
+	"github.com/juju/utils/featureflag"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -40,7 +38,6 @@ type API struct {
 	backend    Backend
 	authorizer facade.Authorizer
 	check      BlockChecker
-	dataDir    string
 
 	statePool *state.StatePool
 
@@ -62,7 +59,6 @@ func NewFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(
 		backend,
 		ctx.Auth(),
-		ctx.Resources(),
 		ctx.StatePool(),
 		blockChecker,
 		stateCharm,
@@ -75,7 +71,6 @@ func NewFacade(ctx facade.Context) (*API, error) {
 func NewAPI(
 	backend Backend,
 	authorizer facade.Authorizer,
-	resources facade.Resources,
 	statePool *state.StatePool,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
@@ -85,14 +80,12 @@ func NewAPI(
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	dataDir := resources.Get("dataDir").(common.StringResource)
 	return &API{
 		backend:               backend,
 		authorizer:            authorizer,
 		check:                 blockChecker,
 		stateCharm:            stateCharm,
 		statePool:             statePool,
-		dataDir:               dataDir.String(),
 		deployApplicationFunc: deployApplication,
 		getEnviron:            getEnviron,
 	}, nil
@@ -858,10 +851,6 @@ func (api *API) SetConstraints(args params.SetConstraints) error {
 	return app.SetConstraints(args.Constraints)
 }
 
-// applicationUrlEndpointParse is used to split an application url and optional
-// relation name into url and relation name.
-var applicationUrlEndpointParse = regexp.MustCompile("(?P<url>.*[/.][^:]*)(:(?P<relname>.*)$)?")
-
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -871,51 +860,52 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	endpoints := make([]string, len(args.Endpoints))
 	// We may have a remote application passed in as the endpoint spec.
 	// We'll iterate the endpoints to check.
-	isRemote := false
+	//isRemote := false
 	for i, ep := range args.Endpoints {
 		endpoints[i] = ep
 
-		// If cross model relations not enabled, ignore remote endpoints.
-		if !featureflag.Enabled(feature.CrossModelRelations) {
-			continue
-		}
-
-		// If the endpoint is not remote, skip it.
-		// We first need to strip off any relation name
-		// which may have been appended to the URL, then
-		// we try parsing the URL.
-		possibleURL := applicationUrlEndpointParse.ReplaceAllString(ep, "$url")
-		relName := applicationUrlEndpointParse.ReplaceAllString(ep, "$relname")
-
-		// If the URL parses, we need to look up the remote application
-		// details and save to state.
-		url, err := jujucrossmodel.ParseApplicationURL(possibleURL)
-		if err != nil {
-			// Not a URL.
-			continue
-		}
-		// Save the remote application details into state.
-		// TODO(wallyworld) - allow app name to be aliased
-		alias := url.ApplicationName
-		remoteApp, err := api.processRemoteApplication(url, alias)
-		if err != nil {
-			return params.AddRelationResults{}, errors.Trace(err)
-		}
-		// The endpoint is named after the remote application name,
-		// not the application name from the URL.
-		endpoints[i] = remoteApp.Name()
-		if relName != "" {
-			endpoints[i] = remoteApp.Name() + ":" + relName
-		}
-		isRemote = true
+		// TODO(wallyworld) - re-implement when facade updates are done
+		//// If cross model relations not enabled, ignore remote endpoints.
+		//if !featureflag.Enabled(feature.CrossModelRelations) {
+		//	continue
+		//}
+		//
+		//// If the endpoint is not remote, skip it.
+		//// We first need to strip off any relation name
+		//// which may have been appended to the URL, then
+		//// we try parsing the URL.
+		//possibleURL := applicationUrlEndpointParse.ReplaceAllString(ep, "$url")
+		//relName := applicationUrlEndpointParse.ReplaceAllString(ep, "$relname")
+		//
+		//// If the URL parses, we need to look up the remote application
+		//// details and save to state.
+		//url, err := jujucrossmodel.ParseApplicationURL(possibleURL)
+		//if err != nil {
+		//	// Not a URL.
+		//	continue
+		//}
+		//// Save the remote application details into state.
+		//// TODO(wallyworld) - allow app name to be aliased
+		//alias := url.ApplicationName
+		//remoteApp, err := api.processRemoteApplication(url, alias)
+		//if err != nil {
+		//	return params.AddRelationResults{}, errors.Trace(err)
+		//}
+		//// The endpoint is named after the remote application name,
+		//// not the application name from the URL.
+		//endpoints[i] = remoteApp.Name()
+		//if relName != "" {
+		//	endpoints[i] = remoteApp.Name() + ":" + relName
+		//}
+		//isRemote = true
 	}
 	// If it's not a remote relation to another model then
 	// the user needs write access to the model.
-	if !isRemote {
-		if err := api.checkCanWrite(); err != nil {
-			return params.AddRelationResults{}, errors.Trace(err)
-		}
+	//if !isRemote {
+	if err := api.checkCanWrite(); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
 	}
+	//}
 
 	inEps, err := api.backend.InferEndpoints(endpoints...)
 	if err != nil {

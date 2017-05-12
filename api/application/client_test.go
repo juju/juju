@@ -198,26 +198,6 @@ func (s *applicationSuite) TestServiceSetCharm(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestConsume(c *gc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "Consume")
-		args, ok := a.(params.ConsumeApplicationArgs)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
-			{ApplicationURL: "remote app url", ApplicationAlias: "alias"},
-		})
-		result := response.(*params.ConsumeApplicationResults)
-		result.Results = []params.ConsumeApplicationResult{{LocalName: "result"}}
-		return nil
-	})
-	name, err := client.Consume("remote app url", "alias")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "result")
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *applicationSuite) TestDestroyDeprecated(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
