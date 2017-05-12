@@ -231,6 +231,27 @@ func AllFacades() *facade.Registry {
 	return registry
 }
 
+var adminAPIFactories = map[int]adminAPIFactory{
+	3: newAdminAPIV3,
+}
+
+// AdminFacadeDetails returns information on the Admin facade provided
+// at login time. The Facade field of the returned slice elements will
+// be nil.
+func AdminFacadeDetails() []facade.Details {
+	var fs []facade.Details
+	for v, f := range adminAPIFactories {
+		api := f(nil, nil, nil)
+		t := reflect.TypeOf(api)
+		fs = append(fs, facade.Details{
+			Name:    "Admin",
+			Version: v,
+			Type:    t,
+		})
+	}
+	return fs
+}
+
 type hookContextFacadeFn func(*state.State, *state.Unit) (interface{}, error)
 
 // regHookContextFacade registers facades for use within a hook
