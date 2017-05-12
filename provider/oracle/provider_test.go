@@ -19,7 +19,7 @@ type environProviderSuite struct{}
 var _ = gc.Suite(&environProviderSuite{})
 
 func (e *environProviderSuite) NewProvider(c *gc.C) environs.EnvironProvider {
-	provider, err := environs.Provider("oracle-compute")
+	provider, err := environs.Provider("oracle")
 	c.Assert(err, gc.IsNil)
 	c.Assert(provider, gc.NotNil)
 	return provider
@@ -59,8 +59,8 @@ func (e *environProviderSuite) TestPrepareConfig(c *gc.C) {
 	)
 	_, err := provider.PrepareConfig(environs.PrepareConfigParams{
 		Cloud: environs.CloudSpec{
-			Type:       "oracle-compute",
-			Name:       "oracle-compute",
+			Type:       "oracle",
+			Name:       "oracle",
 			Credential: &credentials,
 		},
 		Config: testing.ModelConfig(c),
@@ -80,8 +80,8 @@ func (e *environProviderSuite) TestOpen(c *gc.C) {
 	)
 	_, err := provider.Open(environs.OpenParams{
 		Cloud: environs.CloudSpec{
-			Type:       "oracle-compute",
-			Name:       "oracle-compute",
+			Type:       "oracle",
+			Name:       "oracle",
 			Credential: &credentials,
 			Endpoint:   "https://127.0.0.1/",
 		},
