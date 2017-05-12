@@ -4,7 +4,6 @@
 package api
 
 import (
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
@@ -13,18 +12,18 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
 var (
 	CertDir             = &certDir
-	NewWebsocketDialer  = newWebsocketDialer
 	WebsocketDial       = &websocketDial
 	SlideAddressToFront = slideAddressToFront
 	BestVersion         = bestVersion
 	FacadeVersions      = &facadeVersions
 )
 
-func DialAPI(info *Info, opts DialOpts) (*websocket.Conn, string, error) {
+func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
 	result, err := dialAPI(info, opts)
 	if err != nil {
 		return nil, "", err
@@ -45,6 +44,11 @@ func SetServerAddress(c *Client, scheme, addr string) {
 // ServerRoot is exported so that we can test the built URL.
 func ServerRoot(c *Client) string {
 	return c.st.serverRoot()
+}
+
+// UnderlyingConn returns the underlying transport connection.
+func UnderlyingConn(c Connection) jsoncodec.JSONConn {
+	return c.(*state).conn
 }
 
 // TestingStateParams is the parameters for NewTestingState, so that you can
