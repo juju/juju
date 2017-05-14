@@ -466,26 +466,21 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0/2")
 	wc.AssertNoChange()
-}
 
-func (s *FilesystemStateSuite) TestWatchMachineFilesystemsVolumeBacked(c *gc.C) {
-	app := s.setupMixedScopeStorageApplication(c, "filesystem", "modelscoped-block")
-	addUnit := func() {
-		u, err := app.AddUnit()
+	attachments, err := s.State.FilesystemAttachments(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		err := s.State.DetachFilesystem(a.Machine(), filesystemTag)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		err = s.State.RemoveFilesystemAttachment(a.Machine(), filesystemTag)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	addUnit()
-
-	w := s.State.WatchMachineFilesystems(names.NewMachineTag("0"))
-	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0", "1", "0/2", "0/3") // initial
+	wc.AssertChangeInSingleEvent("0/2") // Dying -> Dead
 	wc.AssertNoChange()
 
-	addUnit()
-	// no change, since we're only interested in the one machine.
+	err = s.State.RemoveFilesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	// no more changes after seeing Dead
 	wc.AssertNoChange()
 }
 
@@ -536,47 +531,6 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
 
 	addUnit(m0)
 	wc.AssertChangeInSingleEvent("0:0/8", "0:0/9")
-	wc.AssertNoChange()
-}
-
-func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachmentsVolumeBacked(c *gc.C) {
-	app := s.setupMixedScopeStorageApplication(c, "filesystem", "modelscoped-block", "modelscoped")
-	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
-		var err error
-		u, err = app.AddUnit()
-		c.Assert(err, jc.ErrorIsNil)
-		if to != nil {
-			err = u.AssignToMachine(to)
-			c.Assert(err, jc.ErrorIsNil)
-			return u, to
-		}
-		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
-		c.Assert(err, jc.ErrorIsNil)
-		m = unitMachine(c, s.State, u)
-		return u, m
-	}
-	_, m0 := addUnit(nil)
-
-	w := s.State.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
-	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
-	wc.AssertNoChange()
-
-	addUnit(nil)
-	// no change, since we're only interested in the one machine.
-	wc.AssertNoChange()
-
-	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0")
-
-	err = s.State.DetachFilesystem(names.NewMachineTag("1"), names.NewFilesystemTag("4"))
-	// no change, since we're only interested in the one machine.
-	wc.AssertNoChange()
-
-	addUnit(m0)
-	wc.AssertChangeInSingleEvent("0:8", "0:9")
 	wc.AssertNoChange()
 }
 

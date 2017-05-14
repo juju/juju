@@ -113,8 +113,8 @@ type filesystemDoc struct {
 
 	// MachineId is the ID of the machine that a non-detachable
 	// volume is initially attached to. We use this to identify
-	// the volume as being non-detachable, and to determine
-	// which volumes must be removed along with said machine.
+	// the filesystem as being non-detachable, and to determine
+	// which filesystems must be removed along with said machine.
 	MachineId string `bson:"machineid,omitempty"`
 }
 
