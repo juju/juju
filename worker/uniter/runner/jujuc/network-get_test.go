@@ -138,13 +138,15 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 	}, {
 		summary: "explicitly bound, extra-binding name given without --primary-address",
 		args:    []string{"known-extra"},
-		out: `- macaddress: "00:11:22:33:44:22"
+		out: `
+info:
+- macaddress: "00:11:22:33:44:22"
   interfacename: eth2
   addresses:
   - address: 10.20.1.42
     cidr: 10.20.1.42/24
   - address: fc00::1
-    cidr: fc00::/64`,
+    cidr: fc00::/64`[1:],
 	}, {
 		summary: "explicitly bound relation name given with --primary-address",
 		args:    []string{"known-relation", "--primary-address"},
@@ -152,7 +154,9 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 	}, {
 		summary: "explicitly bound relation name given without --primary-address",
 		args:    []string{"known-relation"},
-		out: `- macaddress: "00:11:22:33:44:00"
+		out: `
+info:
+- macaddress: "00:11:22:33:44:00"
   interfacename: eth0
   addresses:
   - address: 10.10.0.23
@@ -165,19 +169,21 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
   - address: 10.10.1.23
     cidr: 10.10.1.0/24
   - address: 192.168.2.111
-    cidr: 192.168.2.0/24`,
+    cidr: 192.168.2.0/24`[1:],
 	}, {
-		summary: "implicitly bound binding name given with --primary-address",
+		summary: "no user requested binding falls back to primary address, with --primary-address",
 		args:    []string{"known-unbound", "--primary-address"},
 		out:     "10.33.1.8",
 	}, {
-		summary: "implicitly bound binding name given without --primary-address",
+		summary: "no user requested binding falls back to primary address, without --primary-address",
 		args:    []string{"known-unbound"},
-		out: `- macaddress: "00:11:22:33:44:33"
+		out: `
+info:
+- macaddress: "00:11:22:33:44:33"
   interfacename: eth3
   addresses:
   - address: 10.33.1.8
-    cidr: 10.33.1.8/24`,
+    cidr: 10.33.1.8/24`[1:],
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		com := s.createCommand(c)

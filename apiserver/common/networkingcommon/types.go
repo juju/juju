@@ -435,7 +435,7 @@ func mergeObservedAndProviderAddressConfig(observedConfig, providerConfig params
 	return finalConfig
 }
 
-func networkNetworkInfoToNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
+func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
 	addresses := make([]params.InterfaceAddress, len(info.Addresses))
 	for i, addr := range info.Addresses {
 		addresses[i] = params.InterfaceAddress{
@@ -456,7 +456,7 @@ func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkIn
 	}
 	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
 	for i, info := range inResult.NetworkInfos {
-		infos[i] = networkNetworkInfoToNetworkInfo(info)
+		infos[i] = networkToParamsNetworkInfo(info)
 	}
 	return params.NetworkInfoResult{
 		Info: infos,

@@ -32,7 +32,8 @@ func (c *NetworkGetCommand) Info() *cmd.Info {
 	args := "<binding-name> --primary-address"
 	doc := `
 network-get returns the network config for a given binding name. By default
-it returns the list of interfaces with addresses in the bindings space.
+it returns the list of interfaces and associated addresses in the space for
+the binding.
 If --primary-address flag is specified then only single IP address is
 returned that the local unit should advertise as its endpoint to its peers.
 `
@@ -52,7 +53,6 @@ func (c *NetworkGetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is part of the cmd.Command interface.
 func (c *NetworkGetCommand) Init(args []string) error {
-
 	if len(args) < 1 {
 		return errors.New("no arguments specified")
 	}
@@ -71,7 +71,6 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	ni, ok := netInfo[c.bindingName]
-
 	if !ok || len(ni.Info) == 0 {
 		return fmt.Errorf("no network config found for binding %q", c.bindingName)
 	}
@@ -85,6 +84,6 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		}
 		return c.out.Write(ctx, ni.Info[0].Addresses[0].Address)
 	} else {
-		return c.out.Write(ctx, ni.Info)
+		return c.out.Write(ctx, ni)
 	}
 }

@@ -2474,12 +2474,12 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 }
 
 func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
-	service, err := u.Application()
+	app, err := u.Application()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	bindings, err := service.EndpointBindings()
+	bindings, err := app.EndpointBindings()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

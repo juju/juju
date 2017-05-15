@@ -2773,7 +2773,7 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c
 }
 
 type uniterNetworkInfoSuite struct {
-	base uniterSuite
+	base uniterSuite // not embedded so it doesn't run all tests.
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
@@ -2885,29 +2885,29 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 	return []state.LinkLayerDeviceArgs{{
 			Name:       "eth0",
 			Type:       state.EthernetDevice,
-			MACAddress: "00:11:22:33:44:50",
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
 		}, {
 			Name:       "eth0.100",
 			Type:       state.VLAN_8021QDevice,
 			ParentName: "eth0",
-			MACAddress: "00:11:22:33:44:50",
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
 		}, {
 			Name:       "eth1",
 			Type:       state.EthernetDevice,
-			MACAddress: "00:11:22:33:44:51",
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
 		}, {
 			Name:       "eth1.100",
 			Type:       state.VLAN_8021QDevice,
 			ParentName: "eth1",
-			MACAddress: "00:11:22:33:44:52",
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
 		}, {
 			Name:       "eth2",
 			Type:       state.EthernetDevice,
-			MACAddress: "00:11:22:33:44:52",
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:52", addrSuffix),
 		}, {
 			Name:       "eth3",
 			Type:       state.EthernetDevice,
-			MACAddress: "00:11:22:33:44:53",
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:53", addrSuffix),
 		}},
 		[]state.LinkLayerDeviceAddress{{
 			DeviceName:   "eth0",
@@ -2956,48 +2956,6 @@ func (s *uniterNetworkInfoSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
-	s.addRelationAndAssertInScope(c)
-
-	args := []params.NetworkInfoParams{
-		{Unit: "unit-foo-0", Bindings: []string{"foo"}},
-		{Unit: "invalid", Bindings: []string{"db-client"}},
-		{Unit: "unit-mysql-0", Bindings: []string{"juju-info"}},
-		{Unit: s.base.wordpressUnit.Tag().String(), Bindings: []string{"unknown"}},
-	}
-
-	results := []params.NetworkInfoResults{
-		{},
-		{},
-		{},
-		{Results: map[string]params.NetworkInfoResult{
-			"unknown": {
-				Error: &params.Error{
-					Message: `binding name "unknown" not defined by the unit's charm`,
-				},
-			},
-		},
-		},
-	}
-
-	errors := []string{
-		"permission denied",
-		`"invalid" is not a valid tag`,
-		"permission denied",
-		"",
-	}
-
-	for i, arg := range args {
-		result, err := s.base.uniter.NetworkInfo(arg)
-		if errors[i] != "" {
-			c.Assert(err, gc.ErrorMatches, errors[i])
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(result, jc.DeepEquals, results[i])
-		}
-	}
-}
-
 func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
@@ -3009,6 +2967,60 @@ func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
 	s.base.assertInScope(c, wpRelUnit, true)
 }
 
+func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+	var tests = []struct {
+		Name   string
+		Arg    params.NetworkInfoParams
+		Result params.NetworkInfoResults
+		Error  string
+	}{
+		{
+			"Wrong unit name",
+			params.NetworkInfoParams{Unit: "unit-foo-0", Bindings: []string{"foo"}},
+			params.NetworkInfoResults{},
+			"permission denied",
+		},
+		{
+			"Invalid tag",
+			params.NetworkInfoParams{Unit: "invalid", Bindings: []string{"db-client"}},
+			params.NetworkInfoResults{},
+			`"invalid" is not a valid tag`,
+		},
+		{
+			"No access to unit",
+			params.NetworkInfoParams{Unit: "unit-mysql-0", Bindings: []string{"juju-info"}},
+			params.NetworkInfoResults{},
+			"permission denied",
+		},
+		{
+			"Unknown binding name",
+			params.NetworkInfoParams{Unit: s.base.wordpressUnit.Tag().String(), Bindings: []string{"unknown"}},
+			params.NetworkInfoResults{
+				Results: map[string]params.NetworkInfoResult{
+					"unknown": {
+						Error: &params.Error{
+							Message: `binding name "unknown" not defined by the unit's charm`,
+						},
+					},
+				},
+			},
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		c.Logf("Testing %s", test.Name)
+		result, err := s.base.uniter.NetworkInfo(test.Arg)
+		if test.Error != "" {
+			c.Check(err, gc.ErrorMatches, test.Error)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(result, jc.DeepEquals, test.Result)
+		}
+	}
+}
+
 func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDefaultSpace(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
@@ -3017,19 +3029,19 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 		Bindings: []string{"db", "admin-api", "db-client"},
 	}
 	// For the relation "wordpress:db mysql:server" we expect to see only
-	// ifaces ibn the "internal" space, where the "db" endpoint itself
+	// ifaces in the "internal" space, where the "db" endpoint itself
 	// is bound to.
 	expectedConfigWithRelationName := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:44:50",
+				MACAddress:    "00:11:22:33:10:50",
 				InterfaceName: "eth0.100",
 				Addresses: []params.InterfaceAddress{
 					{Address: "10.0.0.10", CIDR: "10.0.0.0/24"},
 				},
 			},
 			{
-				MACAddress:    "00:11:22:33:44:52",
+				MACAddress:    "00:11:22:33:10:51",
 				InterfaceName: "eth1.100",
 				Addresses: []params.InterfaceAddress{
 					{Address: "10.0.0.11", CIDR: "10.0.0.0/24"},
@@ -3042,14 +3054,14 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 	expectedConfigWithExtraBindingName := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:44:50",
+				MACAddress:    "00:11:22:33:10:50",
 				InterfaceName: "eth0",
 				Addresses: []params.InterfaceAddress{
 					{Address: "8.8.8.10", CIDR: "8.8.0.0/16"},
 				},
 			},
 			{
-				MACAddress:    "00:11:22:33:44:51",
+				MACAddress:    "00:11:22:33:10:51",
 				InterfaceName: "eth1",
 				Addresses: []params.InterfaceAddress{
 					{Address: "8.8.4.10", CIDR: "8.8.0.0/16"},
@@ -3064,7 +3076,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 	expectedConfigWithDefaultSpace := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:44:52",
+				MACAddress:    "00:11:22:33:10:52",
 				InterfaceName: "eth2",
 				Addresses: []params.InterfaceAddress{
 					{Address: "100.64.0.10", CIDR: "100.64.0.0/16"},
@@ -3075,7 +3087,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 
 	result, err := s.base.uniter.NetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NetworkInfoResults{
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"db":        expectedConfigWithRelationName,
 			"admin-api": expectedConfigWithExtraBindingName,
@@ -3096,7 +3108,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:44:50",
+				MACAddress:    "00:11:22:33:10:50",
 				InterfaceName: "eth2",
 			},
 		},
@@ -3104,7 +3116,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
 
 	result, err := s.base.uniter.NetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NetworkInfoResults{
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"foo-bar": expectedInfo,
 		},
@@ -3134,7 +3146,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:44:50",
+				MACAddress:    "00:11:22:33:20:50",
 				InterfaceName: "eth0.100",
 				Addresses: []params.InterfaceAddress{
 					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
@@ -3145,7 +3157,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 
 	result, err := s.base.uniter.NetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NetworkInfoResults{
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"server": expectedInfo,
 		},

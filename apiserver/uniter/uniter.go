@@ -24,11 +24,12 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the API version 6, used by the uniter worker.
+// UniterAPI implements API version 6, used by the uniter worker.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -1751,24 +1752,19 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		Results: make(map[string]params.NetworkInfoResult),
 	}
 
-	spaces := make(map[string]struct{})
+	spaces := set.NewStrings()
 	bindingsToSpace := make(map[string]string)
 
 	for _, binding := range args.Bindings {
 		if boundSpace, err := unit.GetSpaceForBinding(binding); err != nil {
 			result.Results[binding] = params.NetworkInfoResult{Error: common.ServerError(err)}
 		} else {
-			spaces[boundSpace] = struct{}{}
+			spaces.Add(boundSpace)
 			bindingsToSpace[binding] = boundSpace
 		}
 	}
 
-	spacesList := make([]string, 0, len(spaces))
-	for space := range spaces {
-		spacesList = append(spacesList, space)
-	}
-
-	networkInfos := machine.GetNetworkInfoForSpaces(spacesList)
+	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
 
 	for binding, space := range bindingsToSpace {
 		result.Results[binding] = networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
