@@ -1105,9 +1105,7 @@ func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (p
 		case names.FilesystemTag:
 			lifer, err = s.st.FilesystemAttachment(machineTag, attachmentTag)
 		}
-		if errors.IsNotFound(err) {
-			return "", common.ErrPerm
-		} else if err != nil {
+		if err != nil {
 			return "", errors.Trace(err)
 		}
 		return params.Life(lifer.Life().String()), nil
