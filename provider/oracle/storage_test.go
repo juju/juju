@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
+	oracletesting "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -18,11 +19,11 @@ var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) NewStorageProvider(c *gc.C) storage.ProviderRegistry {
 	env, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
+		&oracle.EnvironProvider{},
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		DefaultEnvironAPI,
+		oracletesting.DefaultEnvironAPI,
 		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)

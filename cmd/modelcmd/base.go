@@ -283,6 +283,27 @@ func (c *CommandBase) RefreshModels(store jujuclient.ClientStore, controllerName
 	return nil
 }
 
+// ModelUUIDs returns the model UUIDs for the given model names.
+func (c *CommandBase) ModelUUIDs(store jujuclient.ClientStore, controllerName string, modelNames []string) ([]string, error) {
+	var result []string
+	for _, modelName := range modelNames {
+		model, err := store.ModelByName(controllerName, modelName)
+		if errors.IsNotFound(err) {
+			// The model isn't known locally, so query the models available in the controller.
+			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
+			if err := c.RefreshModels(store, controllerName); err != nil {
+				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
+			}
+			model, err = store.ModelByName(controllerName, modelName)
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, model.ModelUUID)
+	}
+	return result, nil
+}
+
 // getAPIContext returns an apiContext for the given controller.
 // It will return the same context if called twice for the same controller.
 // The context will be closed when closeAPIContexts is called.

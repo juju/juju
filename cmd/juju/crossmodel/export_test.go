@@ -18,12 +18,22 @@ var (
 	BreakOneWord = breakOneWord
 )
 
-func NewOfferCommandForTest(store jujuclient.ClientStore, api OfferAPI) cmd.Command {
-	aCmd := &offerCommand{newAPIFunc: func() (OfferAPI, error) {
-		return api, nil
-	}}
+func noOpRefresh(jujuclient.ClientStore, string) error {
+	return nil
+}
+
+func NewOfferCommandForTest(
+	store jujuclient.ClientStore,
+	api OfferAPI,
+) cmd.Command {
+	aCmd := &offerCommand{
+		newAPIFunc: func() (OfferAPI, error) {
+			return api, nil
+		},
+		refreshModels: noOpRefresh,
+	}
 	aCmd.SetClientStore(store)
-	return modelcmd.Wrap(aCmd)
+	return modelcmd.WrapController(aCmd)
 }
 
 func NewShowEndpointsCommandForTest(store jujuclient.ClientStore, api ShowAPI) cmd.Command {
@@ -39,7 +49,7 @@ func NewListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) c
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
-	return modelcmd.Wrap(aCmd)
+	return modelcmd.WrapController(aCmd)
 }
 
 func NewFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) cmd.Command {

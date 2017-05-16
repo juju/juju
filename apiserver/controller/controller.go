@@ -429,17 +429,14 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if !(spec.ExternalControl && spec.SkipInitialPrechecks) {
-		if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
-			return "", errors.Trace(err)
-		}
+	if err := runMigrationPrechecks(hostedState, &targetInfo); err != nil {
+		return "", errors.Trace(err)
 	}
 
 	// Trigger the migration.
 	mig, err := hostedState.CreateMigration(state.MigrationSpec{
-		InitiatedBy:     c.apiUser,
-		TargetInfo:      targetInfo,
-		ExternalControl: spec.ExternalControl,
+		InitiatedBy: c.apiUser,
+		TargetInfo:  targetInfo,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -485,7 +482,10 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 	return result, nil
 }
 
-var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.TargetInfo) error {
+// runMigrationPrechecks runs prechecks on the migration and updates
+// information in targetInfo as needed based on information
+// retrieved from the target controller.
+var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st)
 	if err != nil {
@@ -505,7 +505,19 @@ var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.Targe
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = migrationtarget.NewClient(conn).Prechecks(modelInfo)
+	client := migrationtarget.NewClient(conn)
+	if targetInfo.CACert == "" {
+		targetInfo.CACert, err = client.CACert()
+		if err != nil {
+			if !params.IsCodeNotImplemented(err) {
+				return errors.Annotatef(err, "cannot retrieve CA certificate")
+			}
+			// If the call's not implemented, it indicates an earlier version
+			// of the controller, which we can't migrate to.
+			return errors.New("controller API version is too old")
+		}
+	}
+	err = client.Prechecks(modelInfo)
 	return errors.Annotate(err, "target prechecks failed")
 }
 
@@ -544,7 +556,7 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 	}, nil
 }
 
-func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
+func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 	return &api.Info{
 		Addrs:     ti.Addrs,
 		CACert:    ti.CACert,

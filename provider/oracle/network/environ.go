@@ -40,14 +40,17 @@ type NetworkingAPI interface {
 // Environ implements the environs.Networking interface
 type Environ struct {
 	client NetworkingAPI
+
+	env commonProvider.OracleInstancer
 }
 
 var _ environs.Networking = (*Environ)(nil)
 
 // NewEnviron returns a new instance of Environ
-func NewEnviron(api NetworkingAPI) *Environ {
+func NewEnviron(api NetworkingAPI, env commonProvider.OracleInstancer) *Environ {
 	return &Environ{
 		client: api,
+		env:    env,
 	}
 }
 
@@ -152,8 +155,7 @@ func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
 
 // NetworkInterfaces is defined on the environs.Networking interface.
 func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	id := string(instId)
-	instance, err := e.client.InstanceDetails(id)
+	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err
 	}
@@ -350,11 +352,11 @@ func (e Environ) Spaces() ([]network.SpaceInfo, error) {
 }
 
 // ProviderSpaceInfo is defined on the environs.NetworkingEnviron interface.
-func (Environ) ProviderSpaceInfo(providerSpaceId string) (*environs.ProviderSpaceInfo, error) {
+func (Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
-// IsSpaceRoutable is defined on the environs.NetworkingEnviron interface.
-func (Environ) IsSpaceRoutable(targetSpace *environs.ProviderSpaceInfo) (bool, error) {
+// AreSpacesRoutable is defined on the environs.NetworkingEnviron interface.
+func (Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }

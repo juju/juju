@@ -59,10 +59,6 @@ func (info *TargetInfo) Validate() error {
 		}
 	}
 
-	if info.CACert == "" {
-		return errors.NotValidf("empty CACert")
-	}
-
 	if info.AuthTag.Id() == "" {
 		return errors.NotValidf("empty AuthTag")
 	}

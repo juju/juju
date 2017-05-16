@@ -11,6 +11,7 @@ import (
 
 const (
 	diskByID         = "/dev/disk/by-id"
+	diskByWWN        = "/dev/disk/by-id/wwn-"
 	diskByDeviceName = "/dev"
 )
 
@@ -19,6 +20,9 @@ const (
 // the first value in device.DeviceLinks, if non-empty; otherwise the device
 // name.
 func BlockDevicePath(device BlockDevice) (string, error) {
+	if device.WWN != "" {
+		return diskByWWN + device.WWN, nil
+	}
 	if device.HardwareId != "" {
 		return filepath.Join(diskByID, device.HardwareId), nil
 	}

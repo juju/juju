@@ -16,8 +16,9 @@ import (
 // Networking in this case.
 var SupportsNetworking = supportsNetworking
 
-// DefaultProviderSpaceId is the provider id for the default space.
-const DefaultProviderSpaceId = ""
+// DefaultSpaceInfo should be passed into Networking.ProviderSpaceInfo
+// to get information about the default space.
+var DefaultSpaceInfo *network.SpaceInfo
 
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
@@ -49,14 +50,26 @@ type Networking interface {
 	// a ProviderSpaceInfo. This will contain everything needed to
 	// decide whether an Environ of the same type in another
 	// controller could route to the space. Details for the default
-	// space can be retrieved by specifying DefaultProviderSpaceId.
-	// This method can often be implemented even if the provider
-	// doesn't support spaces fully.
-	ProviderSpaceInfo(providerSpaceId string) (*ProviderSpaceInfo, error)
+	// space can be retrieved by passing DefaultSpaceInfo (which is nil).
+	//
+	// This method accepts a SpaceInfo with details of the space that
+	// we need provider details for - this is the Juju model's view of
+	// what subnets are in the space. If the provider supports spaces
+	// and space discovery then it is the authority on what subnets
+	// are actually in the space, and it's free to collect the full
+	// space and subnet info using the space's ProviderId (discarding
+	// the subnet details passed in which might be out-of date).
+	//
+	// If the provider doesn't support space discovery then the Juju
+	// model's opinion of what subnets are in the space is
+	// authoritative. In that case the provider should collect up any
+	// other information needed to determine routability and include
+	// the passed-in space info in the ProviderSpaceInfo returned.
+	ProviderSpaceInfo(space *network.SpaceInfo) (*ProviderSpaceInfo, error)
 
-	// IsRoutable returns whether this Environ can connect to the
-	// given space via cloud-local addresses.
-	IsSpaceRoutable(targetSpace *ProviderSpaceInfo) (bool, error)
+	// AreSpacesRoutable returns whether the communication between the
+	// two spaces can use cloud-local addresses.
+	AreSpacesRoutable(space1, space2 *ProviderSpaceInfo) (bool, error)
 
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also

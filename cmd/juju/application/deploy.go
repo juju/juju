@@ -182,16 +182,37 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 	return a.annotationsClient.Set(annotations)
 }
 
+// NewDeployCommandForTest returns a command to deploy services inteded to be used only in tests.
 func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+	deployCmd := &DeployCommand{
+		Steps:      steps,
+		NewAPIRoot: newAPIRoot,
+	}
 	if newAPIRoot == nil {
-		newAPIRoot = func() (DeployAPI, error) {
-			return nil, errors.New("no API available")
+		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			bakeryClient, err := deployCmd.BakeryClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
+
+			return &deployAPIAdapter{
+				Connection:        apiRoot,
+				apiClient:         &apiClient{Client: apiRoot.Client()},
+				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
+				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+				charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+				charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			}, nil
 		}
 	}
-	return modelcmd.Wrap(&DeployCommand{
-		NewAPIRoot: newAPIRoot,
-		Steps:      steps,
-	})
+	return modelcmd.Wrap(deployCmd)
 }
 
 // NewDeployCommand returns a command to deploy services.

@@ -407,6 +407,7 @@ var commandNames = []string{
 	"bootstrap",
 	"budget",
 	"cached-images",
+	"cancel-action",
 	"change-user-password",
 	"charm",
 	"clouds",

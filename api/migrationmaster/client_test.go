@@ -93,7 +93,6 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 					Password:      "secret",
 					Macaroons:     string(macsJSON),
 				},
-				ExternalControl: true,
 			},
 			MigrationId:      "id",
 			Phase:            "IMPORT",
@@ -109,7 +108,6 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 		ModelUUID:        modelUUID,
 		Phase:            migration.IMPORT,
 		PhaseChangedTime: timestamp,
-		ExternalControl:  true,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: controllerTag,
 			Addrs:         []string{"2.2.2.2:2"},

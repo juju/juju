@@ -323,7 +323,7 @@ func (mi *maas2Instance) volumes(
 		// There should be exactly one block device per label.
 		if len(devices) == 0 {
 			continue
-		} else if len(devices) > 0 {
+		} else if len(devices) > 1 {
 			// This should never happen, as we only request one block
 			// device per label. If it does happen, we'll just report
 			// the first block device and log this warning.
@@ -362,8 +362,13 @@ func (mi *maas2Instance) volumes(
 			deviceName := idPath[len(devPrefix):]
 			attachment.DeviceName = deviceName
 		} else if strings.HasPrefix(idPath, devDiskByIdPrefix) {
-			hardwareId := idPath[len(devDiskByIdPrefix):]
-			vol.HardwareId = hardwareId
+			const wwnPrefix = "wwn-"
+			id := idPath[len(devDiskByIdPrefix):]
+			if strings.HasPrefix(id, wwnPrefix) {
+				vol.WWN = id[len(wwnPrefix):]
+			} else {
+				vol.HardwareId = id
+			}
 		} else {
 			// It's neither /dev/<name> nor /dev/disk/by-id/<hardware-id>,
 			// so set it as the device link and hope for

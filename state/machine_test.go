@@ -993,6 +993,9 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo.Pool = "loop-pool" // taken from params
 	c.Assert(info, gc.Equals, volumeInfo)
+	volumeStatus, err := volume.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeStatus.Status, gc.Equals, status.Attaching)
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {

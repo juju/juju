@@ -69,6 +69,7 @@ type AddApplicationOffers struct {
 
 // AddApplicationOffer values are used to create an application offer.
 type AddApplicationOffer struct {
+	ModelTag               string            `json:"model-tag"`
 	OfferName              string            `json:"offer-name"`
 	ApplicationName        string            `json:"application-name"`
 	ApplicationDescription string            `json:"application-description"`
@@ -376,7 +377,7 @@ type ModifyOfferAccess struct {
 	UserTag  string                `json:"user-tag"`
 	Action   OfferAction           `json:"action"`
 	Access   OfferAccessPermission `json:"access"`
-	OfferTag string                `json:"offer-tag"`
+	OfferURL string                `json:"offer-url"`
 }
 
 // OfferAction is an action that can be performed on an offer.

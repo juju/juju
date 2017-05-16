@@ -34,6 +34,9 @@ type VolumeInfo struct {
 	HardwareId string `yaml:"hardware-id,omitempty" json:"hardware-id,omitempty"`
 
 	// from params.Volume
+	WWN string `yaml:"wwn,omitempty" json:"wwn,omitempty"`
+
+	// from params.Volume
 	Size uint64 `yaml:"size" json:"size"`
 
 	// from params.Volume
@@ -119,6 +122,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	var info VolumeInfo
 	info.ProviderVolumeId = details.Info.VolumeId
 	info.HardwareId = details.Info.HardwareId
+	info.WWN = details.Info.WWN
 	info.Pool = details.Info.Pool
 	info.Size = details.Info.Size
 	info.Persistent = details.Info.Persistent

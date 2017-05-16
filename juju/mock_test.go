@@ -24,6 +24,7 @@ type mockAPIState struct {
 	apiHostPorts  [][]network.HostPort
 	modelTag      string
 	controllerTag string
+	publicDNSName string
 }
 
 type mockedStateFlags int
@@ -79,6 +80,10 @@ func (s *mockAPIState) ServerVersion() (version.Number, bool) {
 
 func (s *mockAPIState) Addr() string {
 	return s.addr
+}
+
+func (s *mockAPIState) PublicDNSName() string {
+	return s.publicDNSName
 }
 
 func (s *mockAPIState) APIHostPorts() [][]network.HostPort {

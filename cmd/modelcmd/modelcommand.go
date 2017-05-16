@@ -282,6 +282,15 @@ func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) 
 	return c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
 }
 
+// ModelUUIDs returns the model UUIDs for the given model names.
+func (c *ModelCommandBase) ModelUUIDs(modelNames []string) ([]string, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.CommandBase.ModelUUIDs(c.ClientStore(), controllerName, modelNames)
+}
+
 // CurrentAccountDetails returns details of the account associated with
 // the current controller.
 func (c *ModelCommandBase) CurrentAccountDetails() (*jujuclient.AccountDetails, error) {

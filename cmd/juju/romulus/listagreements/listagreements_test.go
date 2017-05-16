@@ -39,6 +39,14 @@ func (s *listAgreementsSuite) SetUpTest(c *gc.C) {
 }
 
 const (
+	expectedListAgreementsTabularOutput = `Term       	                    Agreed on
+test-term/1	2015-12-25 00:00:00 +0000 UTC
+`
+
+	expectedListAgreementsTabularOutputWithOwner = `Term             	                    Agreed on
+owner/test-term/1	2015-12-25 00:00:00 +0000 UTC
+`
+
 	expectedListAgreementsJSONOutput = `[
     {
         "user": "test-user",
@@ -84,13 +92,19 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 	ctx, err = s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsJSONOutput)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsTabularOutput)
 	c.Assert(s.client.called, jc.IsTrue)
 
 	ctx, err = s.runCommand(c, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "- user: test-user\n  term: test-term\n  revision: 1\n  createdon: 2015-12-25T00:00:00Z\n")
+	c.Assert(s.client.called, jc.IsTrue)
+
+	ctx, err = s.runCommand(c, "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsJSONOutput)
 	c.Assert(s.client.called, jc.IsTrue)
 }
 
@@ -110,6 +124,12 @@ func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
 	s.client.setAgreements(agreements)
 
 	ctx, err = s.runCommand(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsTabularOutputWithOwner)
+	c.Assert(s.client.called, jc.IsTrue)
+
+	ctx, err = s.runCommand(c, "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsJSONOutputWithOwner)

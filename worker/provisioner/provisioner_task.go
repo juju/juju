@@ -812,6 +812,7 @@ func volumesToAPIserver(volumes []storage.Volume) []params.Volume {
 			params.VolumeInfo{
 				v.VolumeId,
 				v.HardwareId,
+				v.WWN,
 				"", // pool
 				v.Size,
 				v.Persistent,

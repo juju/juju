@@ -237,11 +237,11 @@ func (c *grantCommand) getControllerAPI() (GrantControllerAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
-func (c *grantCommand) getOfferAPI(modelName string) (GrantOfferAPI, error) {
+func (c *grantCommand) getOfferAPI() (GrantOfferAPI, error) {
 	if c.offersApi != nil {
 		return c.offersApi, nil
 	}
-	root, err := c.NewModelAPIRoot(modelName)
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,7 +263,7 @@ type GrantControllerAPI interface {
 // GrantOfferAPI defines the API functions used by the grant command.
 type GrantOfferAPI interface {
 	Close() error
-	GrantOffer(user, access string, offers ...string) error
+	GrantOffer(user, access string, offerURLs ...string) error
 }
 
 // Run implements cmd.Command.
@@ -305,21 +305,18 @@ func (c *grantCommand) runForModel() error {
 }
 
 func (c *grantCommand) runForOffers() error {
-	// For each model, process the grants.
-	offersForModel := offersForModel(c.OfferURLs)
-	for model, urls := range offersForModel {
-		client, err := c.getOfferAPI(model)
-		if err != nil {
-			return err
-		}
-		defer client.Close()
-
-		err = client.GrantOffer(c.User, c.Access, urls...)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
+	client, err := c.getOfferAPI()
+	if err != nil {
+		return err
 	}
-	return nil
+	defer client.Close()
+
+	urls := make([]string, len(c.OfferURLs))
+	for i, url := range c.OfferURLs {
+		urls[i] = url.String()
+	}
+	err = client.GrantOffer(c.User, c.Access, urls...)
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 // NewRevokeCommand returns a new revoke command.
@@ -366,11 +363,11 @@ func (c *revokeCommand) getControllerAPI() (RevokeControllerAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
-func (c *revokeCommand) getOfferAPI(modelName string) (RevokeOfferAPI, error) {
+func (c *revokeCommand) getOfferAPI() (RevokeOfferAPI, error) {
 	if c.offersApi != nil {
 		return c.offersApi, nil
 	}
-	root, err := c.NewModelAPIRoot(modelName)
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -392,7 +389,7 @@ type RevokeControllerAPI interface {
 // RevokeOfferAPI defines the API functions used by the revoke command.
 type RevokeOfferAPI interface {
 	Close() error
-	RevokeOffer(user, access string, offers ...string) error
+	RevokeOffer(user, access string, offerURLs ...string) error
 }
 
 // Run implements cmd.Command.
@@ -470,19 +467,16 @@ func offersForModel(offerURLs []*crossmodel.ApplicationURL) map[string][]string 
 }
 
 func (c *revokeCommand) runForOffers() error {
-	// For each model, process the grant.
-	offersForModel := offersForModel(c.OfferURLs)
-	for model, urls := range offersForModel {
-		client, err := c.getOfferAPI(model)
-		if err != nil {
-			return err
-		}
-		defer client.Close()
-
-		err = client.RevokeOffer(c.User, c.Access, urls...)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
+	client, err := c.getOfferAPI()
+	if err != nil {
+		return err
 	}
-	return nil
+	defer client.Close()
+
+	urls := make([]string, len(c.OfferURLs))
+	for i, url := range c.OfferURLs {
+		urls[i] = url.String()
+	}
+	err = client.RevokeOffer(c.User, c.Access, urls...)
+	return block.ProcessBlockedError(err, block.BlockChange)
 }

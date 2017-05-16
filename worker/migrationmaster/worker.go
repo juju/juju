@@ -210,11 +210,6 @@ func (w *Worker) run() error {
 		return errors.Trace(err)
 	}
 
-	if status.ExternalControl {
-		err := w.waitForMigrationEnd()
-		return errors.Trace(err)
-	}
-
 	phase := status.Phase
 
 	for {

@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
 )
 
@@ -36,6 +37,8 @@ type remoteApplicationDoc struct {
 	URL             string              `bson:"url,omitempty"`
 	SourceModelUUID string              `bson:"source-model-uuid"`
 	Endpoints       []remoteEndpointDoc `bson:"endpoints"`
+	Spaces          []remoteSpaceDoc    `bson:"spaces"`
+	Bindings        map[string]string   `bson:"bindings"`
 	Life            Life                `bson:"life"`
 	RelationCount   int                 `bson:"relationcount"`
 	IsConsumerProxy bool                `bson:"is-consumer-proxy"`
@@ -50,6 +53,48 @@ type remoteEndpointDoc struct {
 	Scope     charm.RelationScope `bson:"scope"`
 }
 
+type attributeMap map[string]interface{}
+
+// remoteSpaceDoc represents the internal state of a space in another
+// model in the DB.
+type remoteSpaceDoc struct {
+	CloudType          string            `bson:"cloud-type"`
+	Name               string            `bson:"name"`
+	ProviderId         string            `bson:"provider-id"`
+	ProviderAttributes attributeMap      `bson:"provider-attributes"`
+	Subnets            []remoteSubnetDoc `bson:"subnets"`
+}
+
+// RemoteSpace represents a space in another model that endpoints are
+// bound to.
+type RemoteSpace struct {
+	CloudType          string
+	Name               string
+	ProviderId         string
+	ProviderAttributes attributeMap
+	Subnets            []RemoteSubnet
+}
+
+// remoteSubnetDoc represents a subnet in another model in the DB.
+type remoteSubnetDoc struct {
+	CIDR              string   `bson:"cidr"`
+	ProviderId        string   `bson:"provider-id"`
+	VLANTag           int      `bson:"vlan-tag"`
+	AvailabilityZones []string `bson:"availability-zones"`
+	ProviderSpaceId   string   `bson:"provider-space-id"`
+	ProviderNetworkId string   `bson:"provider-network-id"`
+}
+
+// RemoteSubnet represents a subnet in another model.
+type RemoteSubnet struct {
+	CIDR              string
+	ProviderId        string
+	VLANTag           int
+	AvailabilityZones []string
+	ProviderSpaceId   string
+	ProviderNetworkId string
+}
+
 func newRemoteApplication(st *State, doc *remoteApplicationDoc) *RemoteApplication {
 	app := &RemoteApplication{
 		st:  st,
@@ -60,6 +105,11 @@ func newRemoteApplication(st *State, doc *remoteApplicationDoc) *RemoteApplicati
 
 // remoteApplicationGlobalKey returns the global database key for the
 // remote application with the given name.
+//
+// This seems like an aggressively cryptic prefix, but apparently the
+// all-watcher requires that global keys have single letter prefixes
+// and r and a were taken.
+// TODO(babbageclunk): check whether this is still the case.
 func remoteApplicationGlobalKey(appName string) string {
 	return "c#" + appName
 }
@@ -117,6 +167,83 @@ func (s *RemoteApplication) Tag() names.Tag {
 // Life returns whether the application is Alive, Dying or Dead.
 func (s *RemoteApplication) Life() Life {
 	return s.doc.Life
+}
+
+// Spaces returns the remote spaces this application is connected to.
+func (s *RemoteApplication) Spaces() []RemoteSpace {
+	var result []RemoteSpace
+	for _, space := range s.doc.Spaces {
+		result = append(result, remoteSpaceFromDoc(space))
+	}
+	return result
+}
+
+// Bindings returns the endpoint->space bindings for the application.
+func (s *RemoteApplication) Bindings() map[string]string {
+	result := make(map[string]string)
+	for epName, spName := range s.doc.Bindings {
+		result[epName] = spName
+	}
+	return result
+}
+
+// SpaceForEndpoint returns the remote space an endpoint is bound to,
+// if one is found.
+func (s *RemoteApplication) SpaceForEndpoint(endpointName string) (RemoteSpace, bool) {
+	spaceName, ok := s.doc.Bindings[endpointName]
+	if !ok {
+		return RemoteSpace{}, false
+	}
+	for _, space := range s.doc.Spaces {
+		if space.Name == spaceName {
+			return remoteSpaceFromDoc(space), true
+		}
+	}
+	return RemoteSpace{}, false
+}
+
+func remoteSpaceFromDoc(space remoteSpaceDoc) RemoteSpace {
+	result := RemoteSpace{
+		CloudType:          space.CloudType,
+		Name:               space.Name,
+		ProviderId:         space.ProviderId,
+		ProviderAttributes: copyAttributes(space.ProviderAttributes),
+	}
+	for _, subnet := range space.Subnets {
+		result.Subnets = append(result.Subnets, remoteSubnetFromDoc(subnet))
+	}
+	return result
+}
+
+func remoteSubnetFromDoc(subnet remoteSubnetDoc) RemoteSubnet {
+	return RemoteSubnet{
+		CIDR:              subnet.CIDR,
+		ProviderId:        subnet.ProviderId,
+		VLANTag:           subnet.VLANTag,
+		AvailabilityZones: copyStrings(subnet.AvailabilityZones),
+		ProviderSpaceId:   subnet.ProviderSpaceId,
+		ProviderNetworkId: subnet.ProviderNetworkId,
+	}
+}
+
+func copyStrings(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	result := make([]string, len(values))
+	copy(result, values)
+	return result
+}
+
+func copyAttributes(values attributeMap) attributeMap {
+	if values == nil {
+		return nil
+	}
+	result := make(attributeMap)
+	for key, value := range values {
+		result[key] = value
+	}
+	return result
 }
 
 // Destroy ensures that this remote application reference and all its relations
@@ -431,6 +558,13 @@ type AddRemoteApplicationParams struct {
 	// Endpoints describes the endpoints that the remote application implements.
 	Endpoints []charm.Relation
 
+	// Spaces describes the network spaces that the remote
+	// application's endpoints inhabit in the remote model.
+	Spaces []*environs.ProviderSpaceInfo
+
+	// Bindings maps each endpoint name to the remote space it is bound to.
+	Bindings map[string]string
+
 	// IsConsumerProxy is true when a remote application is created as a result
 	// of a registration operation from a remote model.
 	IsConsumerProxy bool
@@ -451,6 +585,15 @@ func (p AddRemoteApplicationParams) Validate() error {
 	}
 	if p.SourceModel == (names.ModelTag{}) {
 		return errors.NotValidf("empty source model tag")
+	}
+	spaceNames := set.NewStrings()
+	for _, space := range p.Spaces {
+		spaceNames.Add(space.Name)
+	}
+	for endpoint, space := range p.Bindings {
+		if !spaceNames.Contains(space) {
+			return errors.NotValidf("endpoint %q bound to missing space %q", endpoint, space)
+		}
 	}
 	return nil
 }
@@ -479,6 +622,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		OfferName:       args.OfferName,
 		SourceModelUUID: args.SourceModel.Id(),
 		URL:             args.URL,
+		Bindings:        args.Bindings,
 		Life:            Alive,
 		IsConsumerProxy: args.IsConsumerProxy,
 	}
@@ -493,6 +637,28 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		}
 	}
 	appDoc.Endpoints = eps
+	spaces := make([]remoteSpaceDoc, len(args.Spaces))
+	for i, space := range args.Spaces {
+		spaces[i] = remoteSpaceDoc{
+			CloudType:          space.CloudType,
+			Name:               space.Name,
+			ProviderId:         string(space.ProviderId),
+			ProviderAttributes: space.ProviderAttributes,
+		}
+		subnets := make([]remoteSubnetDoc, len(space.Subnets))
+		for i, subnet := range space.Subnets {
+			subnets[i] = remoteSubnetDoc{
+				CIDR:              subnet.CIDR,
+				ProviderId:        string(subnet.ProviderId),
+				VLANTag:           subnet.VLANTag,
+				AvailabilityZones: copyStrings(subnet.AvailabilityZones),
+				ProviderSpaceId:   string(subnet.SpaceProviderId),
+				ProviderNetworkId: string(subnet.ProviderNetworkId),
+			}
+		}
+		spaces[i].Subnets = subnets
+	}
+	appDoc.Spaces = spaces
 	app := newRemoteApplication(st, appDoc)
 	statusDoc := statusDoc{
 		ModelUUID:  st.ModelUUID(),

@@ -48,6 +48,7 @@ func (s *supportCommandSuite) SetUpTest(c *gc.C) {
 	s.mockSLAClient = &mockSlaClient{}
 	s.modelUUID = utils.MustNewUUID().String()
 	s.fakeAPIRoot = &fakeAPIConnection{model: s.modelUUID}
+	s.PatchValue(sla.NewJujuClientStore, s.newMockClientStore)
 }
 
 func (s *supportCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -120,9 +121,40 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 }
 
 func (s *supportCommandSuite) TestDiplayCurrentLevel(c *gc.C) {
-	ctx, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("%s", errors.Details(err)))
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "mock-level\n")
+	tests := []struct {
+		format         string
+		expectedOutput string
+	}{{
+		expectedOutput: `Model	SLA       
+c:m1 	mock-level
+`,
+	}, {
+		format: "tabular",
+		expectedOutput: `Model	SLA       
+c:m1 	mock-level
+`,
+	}, {
+		format: "json",
+		expectedOutput: `{"model":"c:m1","sla":"mock-level"}
+`,
+	}, {
+		format: "yaml",
+		expectedOutput: `model: c:m1
+sla: mock-level
+`,
+	},
+	}
+
+	for i, test := range tests {
+		c.Logf("running test %d", i)
+		args := []string{}
+		if test.format != "" {
+			args = append(args, "--format", test.format)
+		}
+		ctx, err := s.run(c, args...)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("%s", errors.Details(err)))
+		c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, test.expectedOutput)
+	}
 }
 
 func newMockAPI() (*mockapi, error) {
@@ -191,4 +223,30 @@ func (f *fakeAPIConnection) BestFacadeVersion(facade string) int {
 
 func (f *fakeAPIConnection) ModelTag() (names.ModelTag, bool) {
 	return names.NewModelTag(f.model), false
+}
+
+type mockClientStore struct {
+	jujuclient.ClientStore
+	modelUUID string
+}
+
+func (s *supportCommandSuite) newMockClientStore() jujuclient.ClientStore {
+	return &mockClientStore{modelUUID: s.modelUUID}
+}
+
+func (s *mockClientStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
+	n := 3
+	return map[string]jujuclient.ControllerDetails{
+		"c": jujuclient.ControllerDetails{
+			ModelCount: &n,
+		},
+	}, nil
+}
+
+func (s *mockClientStore) AllModels(controllerName string) (map[string]jujuclient.ModelDetails, error) {
+	return map[string]jujuclient.ModelDetails{
+		"m1": jujuclient.ModelDetails{ModelUUID: s.modelUUID},
+		"m2": jujuclient.ModelDetails{ModelUUID: "uuid2"},
+		"m3": jujuclient.ModelDetails{ModelUUID: "uuid3"},
+	}, nil
 }

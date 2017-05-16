@@ -27,6 +27,7 @@ type MigrateSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api                 *fakeMigrateAPI
 	targetControllerAPI *fakeTargetControllerAPI
+	modelAPI            *fakeModelAPI
 	store               *jujuclient.MemStore
 	password            string
 }
@@ -52,13 +53,13 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 
 	// Define an account for the model in the source controller in the config.
 	err = s.store.UpdateAccount("source", jujuclient.AccountDetails{
-		User: "source",
+		User: "sourceuser",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the account for the target controller.
 	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
-		User:     "target",
+		User:     "targetuser",
 		Password: "secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,11 +72,12 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.api = &fakeMigrateAPI{
+	s.api = &fakeMigrateAPI{}
+	s.modelAPI = &fakeModelAPI{
 		models: []base.UserModel{{
 			Name:  "model",
 			UUID:  modelUUID,
-			Owner: "owner",
+			Owner: "sourceuser",
 		}, {
 			Name:  "production",
 			UUID:  "prod-1-uuid",
@@ -83,7 +85,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 		}, {
 			Name:  "production",
 			UUID:  "prod-2-uuid",
-			Owner: "omega",
+			Owner: "sourceuser",
 		}},
 	}
 
@@ -144,14 +146,14 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
-		TargetUser:           "target",
+		TargetUser:           "targetuser",
 		TargetPassword:       "secret",
 	})
 }
 
 func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 	err := s.store.UpdateAccount("target", jujuclient.AccountDetails{
-		User:     "target",
+		User:     "targetuser",
 		Password: "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,14 +167,13 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
-		TargetUser:           "target",
+		TargetUser:           "targetuser",
 		TargetMacaroons:      s.targetControllerAPI.macaroons,
 	})
 }
 
 func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
 	cmd := s.makeCommand()
-	cmd.SetModelAPI(&fakeModelAPI{})
 	_, err := cmdtesting.RunCommand(c, cmd, "wat", "target")
 	c.Check(err, gc.ErrorMatches, "model .+ not found")
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
@@ -180,23 +181,27 @@ func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
 
 func (s *MigrateSuite) TestMultipleModelMatch(c *gc.C) {
 	cmd := s.makeCommand()
-	cmd.SetModelAPI(&fakeModelAPI{})
+	// Disambiguation is done in the standard way by choosing
+	// the current user's model.
 	ctx, err := cmdtesting.RunCommand(c, cmd, "production", "target")
-	c.Check(err, gc.ErrorMatches, "multiple models match name")
-	expected := "" +
-		"Multiple potential matches found, please specify owner to disambiguate:\n" +
-		"  alpha/production\n" +
-		"  omega/production\n"
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, expected)
-	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
+		ModelUUID:            "prod-2-uuid",
+		TargetControllerUUID: targetControllerUUID,
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "targetuser",
+		TargetPassword:       "secret",
+	})
 }
 
 func (s *MigrateSuite) TestSpecifyOwner(c *gc.C) {
-	ctx, err := s.makeAndRun(c, "omega/production", "target")
+	ctx, err := s.makeAndRun(c, "alpha/production", "target")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
-	c.Check(s.api.specSeen.ModelUUID, gc.Equals, "prod-2-uuid")
+	c.Check(s.api.specSeen.ModelUUID, gc.Equals, "prod-1-uuid")
 }
 
 func (s *MigrateSuite) TestControllerDoesntExist(c *gc.C) {
@@ -209,14 +214,15 @@ func (s *MigrateSuite) makeAndRun(c *gc.C, args ...string) (*cmd.Context, error)
 	return cmdtesting.RunCommand(c, s.makeCommand(), args...)
 }
 
-func (s *MigrateSuite) makeCommand() modelcmd.ControllerCommand {
-	cmd := modelcmd.WrapController(&migrateCommand{
-		api: s.api,
-		newAPIRoot: func(jujuclient.ClientStore, string, string) (api.Connection, error) {
-			return s.targetControllerAPI, nil
-		},
-	})
+func (s *MigrateSuite) makeCommand() modelcmd.ModelCommand {
+	cmd := newMigrateCommand()
 	cmd.SetClientStore(s.store)
+	cmd.SetModelAPI(s.modelAPI)
+	inner := modelcmd.InnerCommand(cmd).(*migrateCommand)
+	inner.api = s.api
+	inner.newAPIRoot = func(jujuclient.ClientStore, string, string) (api.Connection, error) {
+		return s.targetControllerAPI, nil
+	}
 	return cmd
 }
 
@@ -226,7 +232,6 @@ func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.C
 
 type fakeMigrateAPI struct {
 	specSeen *controller.MigrationSpec
-	models   []base.UserModel
 }
 
 func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (string, error) {
@@ -234,23 +239,12 @@ func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (strin
 	return "uuid:0", nil
 }
 
-func (a *fakeMigrateAPI) AllModels() ([]base.UserModel, error) {
-	return a.models, nil
-}
-
 type fakeModelAPI struct {
-	model string
+	models []base.UserModel
 }
 
 func (m *fakeModelAPI) ListModels(user string) ([]base.UserModel, error) {
-	if m.model == "" {
-		return []base.UserModel{}, nil
-	}
-	return []base.UserModel{{
-		Name:  m.model,
-		UUID:  modelUUID,
-		Owner: "source",
-	}}, nil
+	return m.models, nil
 }
 
 func (m *fakeModelAPI) Close() error {

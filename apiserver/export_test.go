@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -146,19 +145,6 @@ func TestingModelOnlyRoot() rpc.Root {
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, check)
-}
-
-func SetAdminAPIVersions(srv *Server, versions ...int) {
-	factories := make(map[int]adminAPIFactory)
-	for _, n := range versions {
-		switch n {
-		case 3:
-			factories[n] = newAdminAPIV3
-		default:
-			panic(fmt.Errorf("unknown admin API version %d", n))
-		}
-	}
-	srv.adminAPIFactories = factories
 }
 
 // TestingAboutToRestoreRoot returns a limited root which allows

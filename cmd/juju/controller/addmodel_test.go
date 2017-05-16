@@ -366,11 +366,49 @@ lxd
 }
 
 func (s *AddModelSuite) TestCloudUnspecifiedRegionPassedThrough(c *gc.C) {
+	// Use a cloud that doesn't support empty authorization.
+	s.fakeCloudAPI = &fakeCloudAPI{
+		authTypes: []cloud.AuthType{
+			cloud.AccessKeyAuthType,
+		},
+		credentials: []names.CloudCredentialTag{
+			names.NewCloudCredentialTag("cloud/admin/default"),
+			names.NewCloudCredentialTag("aws/other/secrets"),
+		},
+	}
 	_, err := s.run(c, "test", "aws")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "")
+}
+
+func (s *AddModelSuite) TestCloudDefaultRegionUsedIfSet(c *gc.C) {
+	// Overwrite the credentials with a default region.
+	s.store.Credentials["aws"] = cloud.CloudCredential{
+		DefaultRegion: "us-west-1",
+		AuthCredentials: map[string]cloud.Credential{
+			"secrets": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+				"access-key": "key",
+				"secret-key": "sekret",
+			}),
+		},
+	}
+	// Use a cloud that doesn't support empty authorization.
+	s.fakeCloudAPI = &fakeCloudAPI{
+		authTypes: []cloud.AuthType{
+			cloud.AccessKeyAuthType,
+		},
+		credentials: []names.CloudCredentialTag{
+			names.NewCloudCredentialTag("cloud/admin/default"),
+			names.NewCloudCredentialTag("aws/other/secrets"),
+		},
+	}
+	_, err := s.run(c, "test", "aws")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
+	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-west-1")
 }
 
 func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *gc.C) {

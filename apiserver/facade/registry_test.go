@@ -24,11 +24,14 @@ type RegistrySuite struct {
 
 var _ = gc.Suite(&RegistrySuite{})
 
+var (
+	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
+	intPtrType    = reflect.TypeOf((*int)(nil))
+)
+
 func (s *RegistrySuite) TestRegister(c *gc.C) {
 	registry := &facade.Registry{}
-	var v interface{}
-	facadeType := reflect.TypeOf(&v).Elem()
-	err := registry.Register("myfacade", 123, testFacade, facadeType)
+	err := registry.Register("myfacade", 123, testFacade, interfaceType)
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory, err := registry.GetFactory("myfacade", 123)
@@ -36,6 +39,29 @@ func (s *RegistrySuite) TestRegister(c *gc.C) {
 	val, err := factory(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(val, gc.Equals, "myobject")
+}
+
+func (s *RegistrySuite) TestListDetails(c *gc.C) {
+	registry := &facade.Registry{}
+	err := registry.Register("f2", 6, testFacade, interfaceType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = registry.Register("f1", 9, validIdFactory, intPtrType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	details := registry.ListDetails()
+	c.Assert(details, gc.HasLen, 2)
+	c.Assert(details[0].Name, gc.Equals, "f1")
+	c.Assert(details[0].Version, gc.Equals, 9)
+	v, _ := details[0].Factory(nil)
+	c.Assert(v, gc.FitsTypeOf, new(int))
+	c.Assert(details[0].Type, gc.Equals, intPtrType)
+
+	c.Assert(details[1].Name, gc.Equals, "f2")
+	c.Assert(details[1].Version, gc.Equals, 6)
+	v, _ = details[1].Factory(nil)
+	c.Assert(v, gc.Equals, "myobject")
+	c.Assert(details[1].Type, gc.Equals, interfaceType)
 }
 
 func (*RegistrySuite) TestGetFactoryUnknown(c *gc.C) {
@@ -243,9 +269,6 @@ func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version
 	err := registry.Register(name, version, validIdFactory, intPtrType)
 	c.Assert(err, gc.IsNil)
 }
-
-var intPtr = new(int)
-var intPtrType = reflect.TypeOf(&intPtr).Elem()
 
 func testFacade(facade.Context) (facade.Facade, error) {
 	return "myobject", nil

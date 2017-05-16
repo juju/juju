@@ -6,5 +6,5 @@ package oracle
 import "github.com/juju/juju/environs"
 
 func init() {
-	environs.RegisterProvider(providerType, &environProvider{})
+	environs.RegisterProvider(providerType, &EnvironProvider{})
 }

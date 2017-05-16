@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
@@ -63,30 +62,14 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st}
-	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	apiserverClient, err := client.NewFacade(st, common.NewResources(), auth)
+	c.Assert(err, jc.ErrorIsNil)
 	s.newEnviron = func() (environs.Environ, error) {
-		return environs.GetEnviron(configGetter, environs.New)
+		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{st}, environs.New)
 	}
-	newEnviron := func() (environs.Environ, error) {
+	client.SetNewEnviron(apiserverClient, func() (environs.Environ, error) {
 		return s.newEnviron()
-	}
-	blockChecker := common.NewBlockChecker(st)
-	modelConfigAPI, err := modelconfig.NewModelConfigAPI(st, auth)
-	c.Assert(err, jc.ErrorIsNil)
-	apiserverClient, err := client.NewClient(
-		client.NewStateBackend(st),
-		modelConfigAPI,
-		common.NewResources(),
-		auth,
-		statusSetter,
-		toolsFinder,
-		newEnviron,
-		blockChecker,
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	})
 	return apiserverClient
 }
 
@@ -590,6 +573,12 @@ func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
 	err := s.APIState.Client().Resolved("wordpress/0", false)
 	s.AssertBlocked(c, err, msg)
+}
+
+func (s *serverSuite) TestCACert(c *gc.C) {
+	r, err := s.APIState.Client().CACert()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.Equals, coretesting.CACert)
 }
 
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {

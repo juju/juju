@@ -254,6 +254,21 @@ func (s *ClientSuite) TestPlaceholderResource(c *gc.C) {
 	c.Assert(doer.body, gc.Equals, "")
 }
 
+func (s *ClientSuite) TestCACert(c *gc.C) {
+	call := func(objType string, version int, id, request string, args, response interface{}) error {
+		c.Check(objType, gc.Equals, "MigrationTarget")
+		c.Check(request, gc.Equals, "CACert")
+		c.Check(args, gc.Equals, nil)
+		c.Check(response, gc.FitsTypeOf, (*params.BytesResult)(nil))
+		response.(*params.BytesResult).Result = []byte("foo cert")
+		return nil
+	}
+	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
+	r, err := client.CACert()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.Equals, "foo cert")
+}
+
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []jujutesting.StubCall{

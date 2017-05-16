@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
+	oracletesting "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -23,8 +24,8 @@ var _ = gc.Suite(&oracleVolumeSource{})
 
 func (o *oracleVolumeSource) NewVolumeSource(
 	c *gc.C,
-	fakestorage *FakeStorageAPI,
-	fakeenv *FakeEnvironAPI,
+	fakestorage *oracletesting.FakeStorageAPI,
+	fakeenv *oracletesting.FakeEnvironAPI,
 ) storage.VolumeSource {
 
 	var client oracle.EnvironAPI
@@ -35,7 +36,7 @@ func (o *oracleVolumeSource) NewVolumeSource(
 	}
 
 	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
+		&oracle.EnvironProvider{},
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
@@ -56,14 +57,14 @@ func (o *oracleVolumeSource) NewVolumeSource(
 }
 
 func (o *oracleVolumeSource) TestCreateVolumesWithEmptyParams(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
 	result, err := source.CreateVolumes(nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.NotNil)
 }
 
 func (o *oracleVolumeSource) TestCreateVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
 	result, err := source.CreateVolumes([]storage.VolumeParams{
 		storage.VolumeParams{
 			Size:     uint64(10000),
@@ -78,15 +79,15 @@ func (o *oracleVolumeSource) TestCreateVolumes(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestCreateVolumesWithoutExist(c *gc.C) {
-	source := o.NewVolumeSource(c, &FakeStorageAPI{
-		FakeComposer: FakeComposer{
-			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+	source := o.NewVolumeSource(c, &oracletesting.FakeStorageAPI{
+		FakeComposer: oracletesting.FakeComposer{
+			Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
-		FakeStorageVolume: FakeStorageVolume{
+		FakeStorageVolume: oracletesting.FakeStorageVolume{
 			StorageVolumeErr: &api.ErrNotFound{},
-			All:              DefaultAllStorageVolumes,
+			All:              oracletesting.DefaultAllStorageVolumes,
 			AllErr:           nil,
-			Create:           DefaultAllStorageVolumes.Result[0],
+			Create:           oracletesting.DefaultAllStorageVolumes.Result[0],
 			CreateErr:        nil,
 			DeleteErr:        nil,
 		},
@@ -102,23 +103,23 @@ func (o *oracleVolumeSource) TestCreateVolumesWithoutExist(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestCreatevolumesWithErrors(c *gc.C) {
-	for _, fake := range []*FakeStorageAPI{
-		&FakeStorageAPI{
-			FakeComposer: FakeComposer{
-				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+	for _, fake := range []*oracletesting.FakeStorageAPI{
+		&oracletesting.FakeStorageAPI{
+			FakeComposer: oracletesting.FakeComposer{
+				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
-			FakeStorageVolume: FakeStorageVolume{
+			FakeStorageVolume: oracletesting.FakeStorageVolume{
 				StorageVolumeErr: errors.New("FakeStroageVolumeErr"),
 				AllErr:           nil,
 				CreateErr:        nil,
 				DeleteErr:        nil,
 			},
 		},
-		&FakeStorageAPI{
-			FakeComposer: FakeComposer{
-				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+		&oracletesting.FakeStorageAPI{
+			FakeComposer: oracletesting.FakeComposer{
+				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
-			FakeStorageVolume: FakeStorageVolume{
+			FakeStorageVolume: oracletesting.FakeStorageVolume{
 				StorageVolume: response.StorageVolume{
 					Size: 31231,
 				},
@@ -128,11 +129,11 @@ func (o *oracleVolumeSource) TestCreatevolumesWithErrors(c *gc.C) {
 				DeleteErr:        nil,
 			},
 		},
-		&FakeStorageAPI{
-			FakeComposer: FakeComposer{
-				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+		&oracletesting.FakeStorageAPI{
+			FakeComposer: oracletesting.FakeComposer{
+				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
-			FakeStorageVolume: FakeStorageVolume{
+			FakeStorageVolume: oracletesting.FakeStorageVolume{
 				StorageVolumeErr: &api.ErrNotFound{},
 				AllErr:           nil,
 				CreateErr:        errors.New("FakeStoraveVolumeErr"),
@@ -155,19 +156,19 @@ func (o *oracleVolumeSource) TestCreatevolumesWithErrors(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestListVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
 	volumes, err := source.ListVolumes()
 	c.Assert(err, gc.IsNil)
 	c.Assert(volumes, gc.NotNil)
 }
 
 func (o *oracleVolumeSource) TestListVolumesWithErrors(c *gc.C) {
-	for _, fake := range []*FakeStorageAPI{
-		&FakeStorageAPI{
-			FakeComposer: FakeComposer{
-				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+	for _, fake := range []*oracletesting.FakeStorageAPI{
+		&oracletesting.FakeStorageAPI{
+			FakeComposer: oracletesting.FakeComposer{
+				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
-			FakeStorageVolume: FakeStorageVolume{
+			FakeStorageVolume: oracletesting.FakeStorageVolume{
 				AllErr: errors.New("FakeStorageVolumeErr"),
 			},
 		},
@@ -179,7 +180,7 @@ func (o *oracleVolumeSource) TestListVolumesWithErrors(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestDescribeVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
 	volumes, err := source.DescribeVolumes([]string{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(volumes, gc.NotNil)
@@ -190,12 +191,12 @@ func (o *oracleVolumeSource) TestDescribeVolumes(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestDescribeVolumesWithErrors(c *gc.C) {
-	for _, fake := range []*FakeStorageAPI{
-		&FakeStorageAPI{
-			FakeComposer: FakeComposer{
-				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+	for _, fake := range []*oracletesting.FakeStorageAPI{
+		&oracletesting.FakeStorageAPI{
+			FakeComposer: oracletesting.FakeComposer{
+				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
-			FakeStorageVolume: FakeStorageVolume{
+			FakeStorageVolume: oracletesting.FakeStorageVolume{
 				AllErr: errors.New("FakeStorageVolumeErr"),
 			},
 		},
@@ -207,19 +208,19 @@ func (o *oracleVolumeSource) TestDescribeVolumesWithErrors(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestDestroyVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
 	errs, err := source.DestroyVolumes([]string{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(errs, gc.NotNil)
 }
 
 func (o *oracleVolumeSource) TestDestroyVolumesWithErrors(c *gc.C) {
-	for _, fake := range []*FakeStorageAPI{
-		&FakeStorageAPI{
-			FakeComposer: FakeComposer{
-				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+	for _, fake := range []*oracletesting.FakeStorageAPI{
+		&oracletesting.FakeStorageAPI{
+			FakeComposer: oracletesting.FakeComposer{
+				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
-			FakeStorageVolume: FakeStorageVolume{
+			FakeStorageVolume: oracletesting.FakeStorageVolume{
 				DeleteErr: errors.New("FakeStorageVolumeErr"),
 			},
 		},
@@ -255,12 +256,12 @@ func (o *oracleVolumeSource) TestValidateVolumeParams(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestAttachVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, DefaultEnvironAPI)
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, oracletesting.DefaultEnvironAPI)
 	_, err := source.AttachVolumes([]storage.VolumeAttachmentParams{
 		storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oracle.DefaultTypes[0],
-				InstanceId: "JujuTools_storage",
+				InstanceId: "0",
 				ReadOnly:   false,
 			},
 			VolumeId: "1",
@@ -270,7 +271,7 @@ func (o *oracleVolumeSource) TestAttachVolumes(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestDetachVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
 	errs, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
 		storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
@@ -286,13 +287,13 @@ func (o *oracleVolumeSource) TestDetachVolumes(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestDetachVolumesWithErrors(c *gc.C) {
-	source := o.NewVolumeSource(c, &FakeStorageAPI{
-		FakeComposer: FakeComposer{
-			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+	source := o.NewVolumeSource(c, &oracletesting.FakeStorageAPI{
+		FakeComposer: oracletesting.FakeComposer{
+			Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
-		FakeStorageAttachment: FakeStorageAttachment{
+		FakeStorageAttachment: oracletesting.FakeStorageAttachment{
 			AllErr: errors.New("FakeStorageAttachmentErr"),
-		}}, DefaultEnvironAPI)
+		}}, oracletesting.DefaultEnvironAPI)
 	_, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
 		storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
@@ -305,11 +306,11 @@ func (o *oracleVolumeSource) TestDetachVolumesWithErrors(c *gc.C) {
 	})
 	c.Assert(err, gc.NotNil)
 
-	source = o.NewVolumeSource(c, &FakeStorageAPI{
-		FakeComposer: FakeComposer{
-			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+	source = o.NewVolumeSource(c, &oracletesting.FakeStorageAPI{
+		FakeComposer: oracletesting.FakeComposer{
+			Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
-		FakeStorageAttachment: FakeStorageAttachment{
+		FakeStorageAttachment: oracletesting.FakeStorageAttachment{
 			All: response.AllStorageAttachments{
 				Result: []response.StorageAttachment{
 					response.StorageAttachment{
@@ -325,7 +326,7 @@ func (o *oracleVolumeSource) TestDetachVolumesWithErrors(c *gc.C) {
 					},
 				},
 			},
-			DeleteErr: errors.New("FakeStorageAttachmentErr")}}, DefaultEnvironAPI)
+			DeleteErr: errors.New("FakeStorageAttachmentErr")}}, oracletesting.DefaultEnvironAPI)
 	results, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
 		storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{

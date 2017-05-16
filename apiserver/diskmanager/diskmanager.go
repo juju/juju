@@ -95,6 +95,7 @@ func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo
 			dev.Label,
 			dev.UUID,
 			dev.HardwareId,
+			dev.WWN,
 			dev.BusAddress,
 			dev.Size,
 			dev.FilesystemType,

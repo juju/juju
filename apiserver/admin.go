@@ -201,14 +201,15 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		ControllerTag: model.ControllerTag().String(),
 		UserInfo:      maybeUserInfo,
 		ServerVersion: jujuversion.Current.String(),
+		PublicDNSName: a.srv.publicDNSName(),
 	}
 
 	if controllerOnlyLogin {
-		loginResult.Facades = filterFacades(a.srv.facades, isControllerFacade)
+		loginResult.Facades = filterFacades(a.srv.facades, IsControllerFacade)
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
 	} else {
 		loginResult.ModelTag = model.Tag().String()
-		loginResult.Facades = filterFacades(a.srv.facades, isModelFacade)
+		loginResult.Facades = filterFacades(a.srv.facades, IsModelFacade)
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
 	}
 

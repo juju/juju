@@ -4,7 +4,8 @@
 package juju
 
 var (
-	ProviderConnectDelay   = &providerConnectDelay
-	ResolveOrDropHostnames = &resolveOrDropHostnames
-	ServerAddress          = &serverAddress
+	ProviderConnectDelay                = &providerConnectDelay
+	ResolveOrDropHostnames              = &resolveOrDropHostnames
+	ServerAddress                       = &serverAddress
+	FilterAndResolveControllerHostPorts = filterAndResolveControllerHostPorts
 )

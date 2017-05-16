@@ -293,9 +293,6 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		addControllerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddressesFromMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.HasLen, 1)
 }
 
 func addControllerMachine(c *gc.C, st *state.State) {

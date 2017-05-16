@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -43,14 +44,14 @@ func (s *offerAccessSuite) modifyAccess(
 	c *gc.C, user names.UserTag,
 	action params.OfferAction,
 	access params.OfferAccessPermission,
-	offerTag names.ApplicationOfferTag,
+	offerURL string,
 ) error {
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{
 			UserTag:  user.String(),
 			Action:   action,
 			Access:   access,
-			OfferTag: offerTag.String(),
+			OfferURL: offerURL,
 		}}}
 
 	result, err := s.api.ModifyOfferAccess(args)
@@ -60,99 +61,118 @@ func (s *offerAccessSuite) modifyAccess(
 	return result.OneError()
 }
 
-func (s *offerAccessSuite) grant(c *gc.C, user names.UserTag, access params.OfferAccessPermission, offer string) error {
-	return s.modifyAccess(c, user, params.GrantOfferAccess, access, names.NewApplicationOfferTag(offer))
+func (s *offerAccessSuite) grant(c *gc.C, user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
+	return s.modifyAccess(c, user, params.GrantOfferAccess, access, offerURL)
 }
 
-func (s *offerAccessSuite) revoke(c *gc.C, user names.UserTag, access params.OfferAccessPermission, offer string) error {
-	return s.modifyAccess(c, user, params.RevokeOfferAccess, access, names.NewApplicationOfferTag(offer))
+func (s *offerAccessSuite) revoke(c *gc.C, user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
+	return s.modifyAccess(c, user, params.RevokeOfferAccess, access, offerURL)
+}
+
+func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) {
+	s.mockState.allmodels = []applicationoffers.Model{
+		&mockModel{uuid: modelUUID, name: modelName, owner: owner}}
+	st := &mockState{
+		modelUUID:         modelUUID,
+		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
+		users:             set.NewStrings(),
+		accessPerms:       make(map[offerAccess]permission.Access),
+	}
+	s.mockStatePool.st[modelUUID] = st
+	st.applicationOffers[offerName] = jujucrossmodel.ApplicationOffer{}
 }
 
 func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
 	user := names.NewUserTag("foobar")
-	err := s.grant(c, user, params.OfferReadAccess, "someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `could not grant offer access: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
 func (s *offerAccessSuite) TestGrantMissingOfferFails(c *gc.C) {
+	s.setupOffer("model-uuid", "test", "admin", "differentoffer")
 	user := names.NewUserTag("foobar")
-	err := s.grant(c, user, params.OfferReadAccess, "someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `.*application offer "someoffer" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
 func (s *offerAccessSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("foobar")
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("foobar")
 
 	user := names.NewUserTag("foobar")
 	offer := names.NewApplicationOfferTag("someoffer")
-	err := s.mockState.CreateOfferAccess(offer, user, permission.ConsumeAccess)
+	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.revoke(c, user, params.OfferConsumeAccess, "someoffer")
+	err = s.revoke(c, user, params.OfferConsumeAccess, "test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := s.mockState.GetOfferAccess(offer, user)
+	access, err := st.GetOfferAccess(offer, user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
 func (s *offerAccessSuite) TestRevokeReadRemovesPermission(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("foobar")
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("foobar")
 
 	user := names.NewUserTag("foobar")
 	offer := names.NewApplicationOfferTag("someoffer")
-	s.mockState.UpdateOfferAccess(offer, user, permission.ConsumeAccess)
+	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := s.revoke(c, user, params.OfferReadAccess, "someoffer")
+	err = s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.mockState.GetOfferAccess(offer, user)
+	_, err = st.GetOfferAccess(offer, user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
 
 	user := names.NewUserTag("bob")
-	err := s.revoke(c, user, params.OfferReadAccess, "someoffer")
+	err := s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, gc.ErrorMatches, `could not revoke offer access: offer user "bob" does not exist`)
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	_, err = s.mockState.GetOfferAccess(offer, user)
+	_, err = st.GetOfferAccess(offer, user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *offerAccessSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("foobar")
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("foobar")
 
 	user := names.NewUserTag("foobar")
-	err := s.grant(c, user, params.OfferReadAccess, "someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.grant(c, user, params.OfferReadAccess, "someoffer")
+	err = s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, gc.ErrorMatches, `user already has "read" access or greater`)
 }
 
 func (s *offerAccessSuite) assertGrantOfferAddUser(c *gc.C, user names.UserTag) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("other")
-	s.mockState.users.Add(user.Name())
+	s.setupOffer("model-uuid", "test", "superuser-bob", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("other")
+	st.(*mockState).users.Add(user.Name())
 
 	apiUser := names.NewUserTag("superuser-bob")
 	s.authorizer.Tag = apiUser
 
-	err := s.grant(c, user, params.OfferReadAccess, "someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "superuser-bob/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	access, err := s.api.Backend.GetOfferAccess(offer, user)
+	access, err := st.GetOfferAccess(offer, user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -166,65 +186,73 @@ func (s *offerAccessSuite) TestGrantOfferAddRemoteUser(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantOfferSuperUser(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("other")
+	s.setupOffer("model-uuid", "test", "superuser-bob", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("other")
 
 	user := names.NewUserTag("superuser-bob")
 	s.authorizer.Tag = user
 
 	other := names.NewUserTag("other")
-	err := s.grant(c, other, params.OfferReadAccess, "someoffer")
+	err := s.grant(c, other, params.OfferReadAccess, "superuser-bob/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	access, err := s.mockState.GetOfferAccess(offer, other)
+	access, err := st.GetOfferAccess(offer, other)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
 func (s *offerAccessSuite) TestGrantIncreaseAccess(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("other")
+	s.setupOffer("model-uuid", "test", "other", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("other")
 
 	user := names.NewUserTag("other")
 	s.authorizer.Tag = user
 	s.authorizer.AdminTag = user
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	s.mockState.UpdateOfferAccess(offer, user, permission.ReadAccess)
-
-	err := s.grant(c, user, params.OfferConsumeAccess, offer.Name)
+	err := st.CreateOfferAccess(offer, user, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := s.mockState.GetOfferAccess(offer, user)
+	err = s.grant(c, user, params.OfferConsumeAccess, "other/test.someoffer")
+	c.Assert(err, jc.ErrorIsNil)
+
+	access, err := st.GetOfferAccess(offer, user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ConsumeAccess)
 }
 
 func (s *offerAccessSuite) TestGrantToOfferNoAccess(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("other")
+	s.setupOffer("model-uuid", "test", "bob@remote", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("other")
+	st.(*mockState).users.Add("bob")
 
 	user := names.NewUserTag("bob@remote")
 	s.authorizer.Tag = user
 
 	other := names.NewUserTag("other@remote")
-	err := s.grant(c, other, params.OfferReadAccess, "someoffer")
+	err := s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Access) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("other")
+	s.setupOffer("model-uuid", "test", "bob@remote", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("other")
+	st.(*mockState).users.Add("bob")
 
 	user := names.NewUserTag("bob@remote")
 	s.authorizer.Tag = user
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	s.mockState.UpdateOfferAccess(offer, user, userAccess)
+	err := st.CreateOfferAccess(offer, user, userAccess)
+	c.Assert(err, jc.ErrorIsNil)
 
 	other := names.NewUserTag("other@remote")
-	err := s.grant(c, other, params.OfferReadAccess, "someoffer")
+	err = s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -237,25 +265,29 @@ func (s *offerAccessSuite) TestGrantToOfferConsumeAccess(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
-	s.mockState.users.Add("other")
+	s.setupOffer("model-uuid", "test", "foobar", "someoffer")
+	st := s.mockStatePool.st["model-uuid"]
+	st.(*mockState).users.Add("other")
+	st.(*mockState).users.Add("foobar")
 
 	user := names.NewUserTag("foobar")
 	s.authorizer.Tag = user
 	s.authorizer.AdminTag = user
 	offer := names.NewApplicationOfferTag("someoffer")
-	s.mockState.UpdateOfferAccess(offer, user, permission.AdminAccess)
-
-	other := names.NewUserTag("other")
-	err := s.grant(c, other, params.OfferReadAccess, "someoffer")
+	err := st.CreateOfferAccess(offer, user, permission.AdminAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := s.mockState.GetOfferAccess(offer, other)
+	other := names.NewUserTag("other")
+	err = s.grant(c, other, params.OfferReadAccess, "foobar/test.someoffer")
+	c.Assert(err, jc.ErrorIsNil)
+
+	access, err := st.GetOfferAccess(offer, other)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
 func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
 	for _, testParam := range []struct {
 		tag      string
 		validTag bool
@@ -313,7 +345,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
 				UserTag:  testParam.tag,
 				Action:   params.GrantOfferAccess,
 				Access:   params.OfferReadAccess,
-				OfferTag: names.NewApplicationOfferTag("someoffer").String(),
+				OfferURL: "test.someoffer",
 			}}}
 
 		result, err := s.api.ModifyOfferAccess(args)
@@ -323,7 +355,9 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *gc.C) {
-	args := params.ModifyOfferAccessRequest{Changes: []params.ModifyOfferAccess{{}}}
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	args := params.ModifyOfferAccessRequest{
+		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
 
 	result, err := s.api.ModifyOfferAccess(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -332,16 +366,15 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
-	s.mockState.applicationOffers["someoffer"] = jujucrossmodel.ApplicationOffer{}
+	s.setupOffer("model-uuid", "test", "admin", "someoffer")
 
-	offer := names.NewApplicationOfferTag("someoffer")
 	var dance params.OfferAction = "dance"
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{
 			UserTag:  "user-user",
 			Action:   dance,
 			Access:   params.OfferReadAccess,
-			OfferTag: offer.String(),
+			OfferURL: "test.someoffer",
 		}}}
 
 	result, err := s.api.ModifyOfferAccess(args)

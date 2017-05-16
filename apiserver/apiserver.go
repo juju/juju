@@ -53,33 +53,39 @@ const loginRateLimit = 10
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb              tomb.Tomb
-	clock             clock.Clock
-	pingClock         clock.Clock
-	wg                sync.WaitGroup
-	state             *state.State
-	statePool         *state.StatePool
-	lis               net.Listener
-	tag               names.Tag
-	dataDir           string
-	logDir            string
-	limiter           utils.Limiter
-	validator         LoginValidator
-	adminAPIFactories map[int]adminAPIFactory
-	facades           *facade.Registry
-	modelUUID         string
-	authCtxt          *authContext
-	lastConnectionID  uint64
-	centralHub        *pubsub.StructuredHub
-	newObserver       observer.ObserverFactory
-	connCount         int64
-	certChanged       <-chan params.StateServingInfo
-	tlsConfig         *tls.Config
-	allowModelAccess  bool
-	logSinkWriter     io.WriteCloser
+	tomb             tomb.Tomb
+	clock            clock.Clock
+	pingClock        clock.Clock
+	wg               sync.WaitGroup
+	state            *state.State
+	statePool        *state.StatePool
+	lis              net.Listener
+	tag              names.Tag
+	dataDir          string
+	logDir           string
+	limiter          utils.Limiter
+	validator        LoginValidator
+	facades          *facade.Registry
+	modelUUID        string
+	authCtxt         *authContext
+	lastConnectionID uint64
+	centralHub       *pubsub.StructuredHub
+	newObserver      observer.ObserverFactory
+	connCount        int64
+	certChanged      <-chan params.StateServingInfo
+	tlsConfig        *tls.Config
+	allowModelAccess bool
+	logSinkWriter    io.WriteCloser
 
 	// mu guards the fields below it.
 	mu sync.Mutex
+
+	// publicDNSName_ holds the value that will be returned in
+	// LoginResult.PublicDNSName. Currently this is set once from
+	// AutocertDNSName and does not change but in the future it
+	// may change when a server certificate is explicitly set,
+	// hence it's here guarded by the mutex.
+	publicDNSName_ string
 
 	// cert holds the current certificate used for tls.Config.
 	cert *tls.Certificate
@@ -208,11 +214,11 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		logDir:                        cfg.LogDir,
 		limiter:                       utils.NewLimiter(loginRateLimit),
 		validator:                     cfg.Validator,
-		adminAPIFactories:             map[int]adminAPIFactory{3: newAdminAPIV3},
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
 		certChanged:                   cfg.CertChanged,
 		allowModelAccess:              cfg.AllowModelAccess,
+		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
 	}
 
@@ -707,7 +713,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
 	} else {
 		adminAPIs := make(map[int]interface{})
-		for apiVersion, factory := range srv.adminAPIFactories {
+		for apiVersion, factory := range adminAPIFactories {
 			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
 		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
@@ -734,6 +740,13 @@ func (srv *Server) mongoPinger() error {
 			return tomb.ErrDying
 		}
 	}
+}
+
+// publicDNSName returns the current public hostname.
+func (srv *Server) publicDNSName() string {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	return srv.publicDNSName_
 }
 
 // localCertificate returns the local server certificate and reports

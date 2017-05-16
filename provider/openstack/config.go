@@ -18,7 +18,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tbool,
 	},
 	"use-default-secgroup": {
-		Description: `Whether new machine instances should have the "default" Openstack security group assigned.`,
+		Description: `Whether new machine instances should have the "default" Openstack security group assigned in addition to juju defined security groups.`,
 		Type:        environschema.Tbool,
 	},
 	"network": {
