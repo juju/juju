@@ -16,7 +16,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
-	"strings"
 )
 
 // defaultSpaceName is the name of the default space to assign containers.
@@ -1219,7 +1218,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 		}
 	}
 
-	actualSpacesStr := strings.Join(actualSpaces.Values(), ",")
+	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
 
 	for space := range spaces {
 		if _, ok := results[space]; !ok {
