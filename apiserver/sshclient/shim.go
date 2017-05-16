@@ -8,14 +8,17 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
 	ModelConfig() (*config.Config, error)
+	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
 	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 	ModelTag() names.ModelTag
@@ -33,11 +36,11 @@ type SSHMachine interface {
 
 // NewFacade wraps New to express the supplied *state.State as a Backend.
 func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	return New(&backend{st}, res, auth)
+	return New(&backend{stateenvirons.EnvironConfigGetter{st}}, res, auth)
 }
 
 type backend struct {
-	*state.State
+	stateenvirons.EnvironConfigGetter
 }
 
 // GetMachineForEntity takes a machine or unit tag (as a string) and

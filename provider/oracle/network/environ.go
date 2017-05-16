@@ -360,3 +360,8 @@ func (Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSp
 func (Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
+
+// SSHAddresses is defined on the environs.SSHAddresses interface.
+func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
+}
