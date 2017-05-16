@@ -1,0 +1,35 @@
+Section: misc
+Priority: optional
+Standards-Version: 3.9.2
+
+Package: juju-ci-tools.common
+Version: 0.1.4-0
+Depends: charm,
+         distro-info-data,
+         euca2ools,
+         juju,
+         python-boto,
+         python-coverage,
+         python-fixtures,
+         python-jenkins,
+         python-jinja2,
+         python-launchpadlib,
+         python-mock,
+         python-novaclient,
+         python-pexpect,
+         python-pip,
+         python-rrdtool,
+         python-tz,
+         python-yaml,
+         s3cmd,
+         simplestreams,
+         uvtool,
+         uvtool-libvirt
+Recommends: juju-2.0,
+            juju-quickstart,
+            juju-deployer,
+            juju-local,
+            python3-pip,
+Architecture: all
+Description: juju-ci-tools-common
+ A metapackage providing the dependencies for juju-ci-tools

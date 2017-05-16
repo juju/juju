@@ -1,0 +1,265 @@
+#!/bin/bash
+set -eux
+: ${SCRIPTS=$(readlink -f $(dirname $0))}
+
+export INSTANCE_TYPE=$1
+export AMI_IMAGE=$2
+shift; shift
+
+JOB_NAME=${JOB_NAME:-$USER-run-unit-tests}
+export JOB_NAME
+
+FIXUP_SOURCES=""
+IS_LOCAL="false"
+RETRY="false"
+REVISION_BUILD="none"
+USE_PPA=""
+INSTALL_DEPS=""
+USE_TMPFS="false"
+USE_MONGO32="false"
+GOTESTCMD="go test"
+LOG_FILE_PATH="/usr/share/distro-info/ubuntu.csv"
+LOG_TXT="19.04,Angsty Antelope,angsty,2018-10-23,2017-04-30,2020-01-29"
+
+while [[ "${1-}" != "" ]]; do
+    case $1 in
+        --force-archive)
+            FIXUP_SOURCES="sudo sed s,//.*ec2.archive.ubuntu.com,//archive.ubuntu.com, /etc/apt/sources.list -i"
+            ;;
+        --retry)
+            RETRY="true"
+            ;;
+        --safe)
+            GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=2400s"
+            ;;
+        --local)
+            IS_LOCAL="true"
+            shift
+            tarfile=$1
+            ;;
+        --revision-build)
+            shift
+            REVISION_BUILD=$1
+            ;;
+        --use-ppa)
+            shift
+            USE_PPA=$1
+            if [[ -z $(echo $USE_PPA | grep 'ppa:.*/.*') ]]; then
+                echo "$USE_PPA is not a ppa."
+                exit 1
+            fi
+            ;;
+        --install-deps)
+            shift
+            INSTALL_DEPS=$1
+            ;;
+        --use-tmpfs)
+            USE_TMPFS="true"
+            ;;
+        --race)
+            GOTESTCMD="$GOTESTCMD -race -test.timeout=2400s"
+            ;;
+    esac
+    shift
+done
+
+
+if [[ $IS_LOCAL == "false" && $REVISION_BUILD == "none" ]]; then
+    echo "You must use either the --local or --revision-build option."
+    exit 1
+fi
+
+
+if [[ $IS_LOCAL == "false" ]]; then
+    # Download the buildvars and tartfile and lean the tarfile name.
+    tarfile=$(
+        $SCRIPTS/s3ci.py get --config $JUJU_HOME/juju-qa.s3cfg \
+        $REVISION_BUILD build-revision '.*.tar.gz' ./)
+    $SCRIPTS/s3ci.py get-summary --config $JUJU_HOME/juju-qa.s3cfg \
+        $REVISION_BUILD $AMI_IMAGE
+fi
+tarfile_path=$(readlink -f $tarfile)
+tarfile_basename=$(basename $tarfile)
+juju_version=$(basename $tarfile .tar.gz)
+
+if [[ $juju_version =~ ^juju-core_2\..*$ ]]; then
+    USE_MONGO32="true"
+fi
+
+if [[ $INSTANCE_TYPE == "lxc" ]]; then
+    instance_id="juju-ci-unit-tester"
+    sudo lxc-stop -n $instance_id || true
+    sudo lxc-destroy -n $instance_id || true
+    echo "Creating LXC $instance_id"
+    if [[ $AMI_IMAGE =~ .*template ]]; then
+        sudo lxc-clone -o $AMI_IMAGE -n $instance_id
+    else
+        sudo lxc-create -n $instance_id -t ubuntu -- \
+            -r $AMI_IMAGE -S $HOME/.ssh/id_rsa.pub
+    fi
+    sudo lxc-start -d -n $instance_id
+    instance_name="-"
+    while [[ "$instance_name" == "-" ]]; do
+        instance_name=$(sudo lxc-ls --fancy |
+            grep $instance_id |
+            tr -s ' ' |
+            cut -d ' ' -f 3)
+        sleep 2
+    done
+    sudoers_file="/var/lib/lxc/$instance_id/rootfs/etc/sudoers.d/91-ubuntu"
+    echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' | sudo tee -a $sudoers_file
+    sudo chmod 0440 $sudoers_file
+    echo "$instance_id is at $instance_name"
+elif [[ $INSTANCE_TYPE == "host" ]]; then
+    instance_name=$AMI_IMAGE
+else
+    instance_id=$($SCRIPTS/ec2-run-instance-get-id)
+    for attempt in $(seq 5); do
+        if $SCRIPTS/ec2-tag-job-instances $instance_id; then
+            break
+        elif [ "$attempt" == "5" ]; then
+            exit 1
+        fi
+        sleep 15
+    done
+    set +x
+    echo Starting instance $instance_id
+    instance_name=$($SCRIPTS/ec2-get-name $instance_id)
+    echo Instance has name $instance_name
+    sleep 30
+    $SCRIPTS/wait-for-port $instance_name 22
+fi
+
+# Define the common vars before the embedded scripts; do not make them evalaute
+# what is already know in the outer script.
+set -x
+set +e
+scp -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    $tarfile_path ubuntu@$instance_name:~/
+
+ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    ubuntu@$instance_name  <<EOT
+set -eux
+if  [[ -L /tmp ]]; then
+    export TMPDIR=\$(readlink -f /tmp)
+fi
+if [[ ! -f ~/.ssh/id_rsa ]]; then
+    ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+fi
+if [[ "$USE_TMPFS" == "true" ]]; then
+    if ! findmnt /mnt/tmp > /dev/null; then
+        sudo mkdir -p -m 777 /mnt/tmp
+        sudo mount -t tmpfs -o size=10G /mnt/tmp /mnt/tmp
+    fi
+    sudo rm -rf /mnt/tmp/* || true
+    export TMPDIR=/mnt/tmp
+fi
+if [[ "$USE_MONGO32" == "true" ]]; then
+    # Ensure juju 2.* uses the correct mongo.
+    export JUJU_MONGOD=/usr/lib/juju/mongo3.2/bin/mongod
+fi
+export GOPATH=\$HOME/$juju_version
+if [[ -d \$GOPATH ]]; then
+    echo "Cleaning up files unpacked into the GOPATH by a previous test."
+    rm -r \$GOPATH
+fi
+tar -xzf $tarfile_basename
+if [[ -d \$HOME/goroot ]]; then
+    export GOROOT=\$HOME/goroot
+fi
+cd \$GOPATH/src/github.com/juju/juju
+if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
+    for attempt in \$(seq 10); do
+        if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
+            break
+        elif [ "\$attempt" == "10" ]; then
+            exit 1
+        fi
+      sleep 10
+    done
+    $FIXUP_SOURCES
+fi
+export PATH=/usr/lib/go-1.8/bin:$PATH
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get update
+sudo apt-get install -y make gcc software-properties-common distro-info-data
+if [[ "$USE_PPA" != "" ]]; then
+    sudo apt-add-repository -y $USE_PPA;
+    sudo apt-get update
+fi
+if [[ "$INSTALL_DEPS" == "" ]]; then
+    echo "Installing default deps."
+    make install-dependencies
+else
+    echo "Installing deps from command line."
+    sudo apt-get install -y $INSTALL_DEPS
+fi
+
+go env
+go version || gccgo -v
+make build
+export JUJU_NOTEST_MONGOJS=1
+
+if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
+  echo "$LOG_TXT" | sudo tee -a $LOG_FILE_PATH
+fi
+# Delay Xenial LTS birthday by one month.
+sudo sed -i -e 's,2016-04-21,2016-05-21,' $LOG_FILE_PATH
+
+if [[ $INSTANCE_TYPE == "host" ]]; then
+    echo "Cleaning up /tmp if it is dirty."
+    sudo killall -SIGABRT /usr/bin/mongod || true
+    sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
+    sudo killall -9 mongod || true
+    rm -rf /tmp/adduser-* || true
+    rm -rf /tmp/check* || true
+    rm -rf /tmp/go-* || true
+    rm -rf /tmp/gocheck* || true
+    rm -rf /tmp/gui* || true
+    rm -rf /tmp/juju-* || true
+    rm -rf /tmp/pprof* || true
+    rm -rf /tmp/test-* || true
+fi
+
+make setup-lxd || true
+
+go test -i ./...
+if [[ "$RETRY" == "true" ]]; then
+    $GOTESTCMD ./... || $GOTESTCMD ./...
+elif [[  "$GOTESTCMD" != "go test"  ]]; then
+    $GOTESTCMD ./...
+else
+    make check
+fi
+EOT
+EXIT_STATUS=$?
+
+set -e
+if [[ $INSTANCE_TYPE == "lxc" ]]; then
+    echo "Deleting lxc"
+    sudo lxc-stop -n $instance_id
+    sudo lxc-destroy -n $instance_id
+elif [[ $INSTANCE_TYPE == "host" ]]; then
+    ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+        ubuntu@$instance_name  <<EOT
+    set -eux
+    echo "Cleaning up /tmp"
+    sudo killall -SIGABRT /usr/bin/mongod || true
+    sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
+    sudo killall -9 mongod || true
+    rm -rf /home/ubuntu/$juju_version || true
+    rm -rf /tmp/adduser-* || true
+    rm -rf /tmp/check* || true
+    rm -rf /tmp/go-* || true
+    rm -rf /tmp/gocheck* || true
+    rm -rf /tmp/gui* || true
+    rm -rf /tmp/juju-* || true
+    rm -rf /tmp/pprof* || true
+    rm -rf /tmp/test-* || true
+EOT
+else
+    set +e
+    # EC2 failures cannot change the EXIT_STATUS.
+    $SCRIPTS/ec2-terminate-job-instances
+fi
+exit $EXIT_STATUS
