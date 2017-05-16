@@ -262,7 +262,7 @@ func (s *MigrationExportSuite) TestMeterStatus(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
-	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G tags=foo,bar spaces=dmz"))
 }
 
 func (s *MigrationExportSuite) TestMachinesWithVirtConstraint(c *gc.C) {
