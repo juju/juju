@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
@@ -57,6 +59,7 @@ func (st *State) MaybePruneTransactions() error {
 		PruneFactor:        1.1,
 		MinNewTransactions: 1000,
 		MaxNewTransactions: 100000,
+		MaxTime:            time.Now().Add(-time.Hour),
 	})
 }
 

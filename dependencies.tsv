@@ -46,7 +46,7 @@ github.com/juju/romulus	git	b5ad384db5630652da632e49adabb968d1143e4c	2017-04-19T
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-08-09T13:19:00Z
 github.com/juju/testing	git	06d21ddace802a83d08c82f513e30d84010ce31f	2017-05-01T02:35:42Z
-github.com/juju/txn	git	5c6f1c49ecbd4a916ed7b5a8f81ee67203e86043	2017-04-21T05:33:50Z
+github.com/juju/txn	git	941c396af5296a396a375bd88549552bd7a40dcd	2017-05-16T04:42:59Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
 github.com/juju/utils	git	b16611e1db90dde02a570236b12d59ad54d53488	2017-05-02T10:24:56Z
 github.com/juju/version	git	1f41e27e54f21acccf9b2dddae063a782a8a7ceb	2016-10-31T05:19:06Z
