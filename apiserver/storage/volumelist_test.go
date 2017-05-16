@@ -4,8 +4,6 @@
 package storage_test
 
 import (
-	"path/filepath"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -190,7 +188,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
 	expected.Storage.Kind = params.StorageKindBlock
 	expected.Storage.Status.Status = status.Attached
 	storageAttachmentDetails := expected.Storage.Attachments["unit-mysql-0"]
-	storageAttachmentDetails.Location = filepath.FromSlash("/dev/sdd")
+	storageAttachmentDetails.Location = "/dev/sdd"
 	expected.Storage.Attachments["unit-mysql-0"] = storageAttachmentDetails
 	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentDetails{
 		VolumeAttachmentInfo: params.VolumeAttachmentInfo{

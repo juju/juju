@@ -4,8 +4,6 @@
 package storagecommon_test
 
 import (
-	"path/filepath"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -84,7 +82,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceNa
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/sda"),
+		Location: "/dev/sda",
 	})
 }
 
@@ -116,7 +114,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentHardware
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/disk/by-id/whatever"),
+		Location: "/dev/disk/by-id/whatever",
 	})
 }
 
@@ -127,7 +125,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentWWN(c *g
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/disk/by-id/wwn-drbr"),
+		Location: "/dev/disk/by-id/wwn-drbr",
 	})
 }
 
@@ -147,7 +145,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoMatchingBlockDevic
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/sdb"),
+		Location: "/dev/sdb",
 	})
 }
 
