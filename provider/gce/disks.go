@@ -368,7 +368,10 @@ func (v *volumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentPara
 			attachment.Volume,
 			attachment.Machine,
 			storage.VolumeAttachmentInfo{
-				DeviceName: attached.DeviceName,
+				DeviceLink: fmt.Sprintf(
+					"/dev/disk/by-id/google-%s",
+					attached.DeviceName,
+				),
 			},
 		}
 	}
