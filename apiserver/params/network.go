@@ -24,6 +24,12 @@ type Subnet struct {
 	// provider doesn't support distinct networks.
 	ProviderNetworkId string `json:"provider-network-id,omitempty"`
 
+	// ProviderSpaceId is the id of the space containing this subnet
+	// from the provider's perspective. It can be empty if the
+	// provider doesn't support spaces (in which case all subnets are
+	// effectively in the default space).
+	ProviderSpaceId string `json:"provider-space-id,omitempty"`
+
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int `json:"vlan-tag"`
