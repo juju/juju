@@ -745,3 +745,18 @@ func (u *Unit) NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
 
 	return result.Config, nil
 }
+
+func (u *Unit) NetworkInfo(bindings []string) (map[string]params.NetworkInfoResult, error) {
+	var results params.NetworkInfoResults
+	args := params.NetworkInfoParams{
+		Unit:     u.tag.String(),
+		Bindings: bindings,
+	}
+
+	err := u.st.facade.FacadeCall("NetworkInfo", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return results.Results, nil
+}

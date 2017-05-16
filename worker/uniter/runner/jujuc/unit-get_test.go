@@ -5,6 +5,8 @@
 package jujuc_test
 
 import (
+	"strings"
+
 	"io/ioutil"
 	"path/filepath"
 
@@ -13,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -57,17 +60,7 @@ func (s *UnitGetSuite) TestHelp(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: unit-get [options] <setting>
-
-Summary:
-print public-address or private-address
-
-Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
-`)
+	c.Assert(strings.Split(bufferString(ctx.Stdout), "\n")[0], gc.Equals, "Usage: unit-get [options] <setting>")
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
@@ -93,4 +86,88 @@ func (s *UnitGetSuite) TestUnknownArg(c *gc.C) {
 	com := s.createCommand(c)
 	err := cmdtesting.InitCommand(com, []string{"private-address", "blah"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blah"\]`)
+}
+
+func (s *UnitGetSuite) TestNetworkInfoPrivateAddress(c *gc.C) {
+
+	// first - test with no NetworkInfoResults, should fall back
+	resultsEmpty := make(map[string]params.NetworkInfoResult)
+	resultsNoDefault := make(map[string]params.NetworkInfoResult)
+	resultsNoDefault["binding"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:0",
+				InterfaceName: "eth0",
+				Addresses: []params.InterfaceAddress{
+					{
+
+						Address: "10.20.1.42",
+						CIDR:    "10.20.1.42/24",
+					},
+				},
+			},
+		},
+	}
+	resultsDefaultNoAddress := make(map[string]params.NetworkInfoResult)
+	resultsDefaultNoAddress[""] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:0",
+				InterfaceName: "eth0",
+			},
+		},
+	}
+	resultsDefaultAddress := make(map[string]params.NetworkInfoResult)
+	resultsDefaultAddress[""] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:0",
+				InterfaceName: "eth0",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "10.20.1.42",
+						CIDR:    "10.20.1.42/24",
+					},
+					{
+						Address: "fc00::1",
+						CIDR:    "fc00::/64",
+					},
+				},
+			},
+		},
+	}
+
+	resultsDefaultAddressV6 := make(map[string]params.NetworkInfoResult)
+	resultsDefaultAddressV6[""] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:0",
+				InterfaceName: "eth0",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "fc00::1",
+						CIDR:    "fc00::/64",
+					},
+				},
+			},
+		},
+	}
+
+	launchCommand := func(input map[string]params.NetworkInfoResult, expected string) {
+		hctx := s.GetHookContext(c, -1, "")
+		hctx.info.NetworkInterface.NetworkInfoResults = input
+		com, err := jujuc.NewCommand(hctx, cmdString("unit-get"))
+		c.Assert(err, jc.ErrorIsNil)
+		ctx := cmdtesting.Context(c)
+		code := cmd.Main(com, ctx, []string{"private-address"})
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), gc.Equals, expected+"\n")
+	}
+
+	launchCommand(resultsEmpty, "192.168.0.99")
+	launchCommand(resultsNoDefault, "192.168.0.99")
+	launchCommand(resultsDefaultNoAddress, "192.168.0.99")
+	launchCommand(resultsDefaultAddress, "10.20.1.42")
+	launchCommand(resultsDefaultAddressV6, "fc00::1")
 }
