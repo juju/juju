@@ -1333,7 +1333,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		case string:
 			return value
 		default:
-			optionalErr = errors.Errorf("expected uint64 for %s, got %T", name, value)
+			optionalErr = errors.Errorf("expected string for %s, got %T", name, value)
 		}
 		return ""
 	}
@@ -1354,8 +1354,19 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		case nil:
 		case []string:
 			return value
+		case []interface{}:
+			var result []string
+			for _, val := range value {
+				sval, ok := val.(string)
+				if !ok {
+					optionalErr = errors.Errorf("expected string slice for %s, got %T value", name, val)
+					return nil
+				}
+				result = append(result, sval)
+			}
+			return result
 		default:
-			optionalErr = errors.Errorf("expected []string] for %s, got %T", name, value)
+			optionalErr = errors.Errorf("expected []string for %s, got %T", name, value)
 		}
 		return nil
 	}
