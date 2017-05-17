@@ -74,8 +74,10 @@ func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStor
 		return errors.Trace(err)
 	}
 	logger.Debugf("filesystem attachment alive: %v, dying: %v, dead: %v", alive, dying, dead)
-	if err := processDeadFilesystemAttachments(ctx, dead); err != nil {
-		return errors.Annotate(err, "removing dead volume attachments")
+	if len(dead) != 0 {
+		// We should not see dead filesystem attachments;
+		// attachments go directly from Dying to removed.
+		logger.Warningf("unexpected dead filesystem attachments: %v", dead)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil
@@ -86,7 +88,7 @@ func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStor
 	ids = append(alive, dying...)
 	filesystemAttachmentResults, err := ctx.config.Filesystems.FilesystemAttachments(ids)
 	if err != nil {
-		return errors.Annotate(err, "getting filesystem attachment information")
+		return errors.Annotatef(err, "getting filesystem attachment information")
 	}
 
 	// Deprovision Dying filesystem attachments.
@@ -230,18 +232,6 @@ func processDeadFilesystems(ctx *context, tags []names.FilesystemTag, filesystem
 	}
 	if err := removeEntities(ctx, remove); err != nil {
 		return errors.Annotate(err, "removing filesystems from state")
-	}
-	return nil
-}
-
-// processDeadFilesystemAttachments processes the IDs for Dead filesystem
-// attachments, removing the filesystem attachments from state.
-func processDeadFilesystemAttachments(ctx *context, ids []params.MachineStorageId) error {
-	if err := removeAttachments(ctx, ids); err != nil {
-		return errors.Annotate(err, "removing attachments from state")
-	}
-	for _, id := range ids {
-		delete(ctx.filesystemAttachments, id)
 	}
 	return nil
 }
