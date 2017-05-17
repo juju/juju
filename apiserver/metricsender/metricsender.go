@@ -43,12 +43,14 @@ func handleModelResponse(st ModelBackend, modelUUID string, modelResp wireformat
 			logger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
 		}
 	}
-	err = st.SetModelMeterStatus(
-		modelResp.ModelStatus.Status,
-		modelResp.ModelStatus.Info,
-	)
-	if err != nil {
-		logger.Errorf("failed to set the model meter status: %v", err)
+	if modelResp.ModelStatus.Status != "" {
+		err = st.SetModelMeterStatus(
+			modelResp.ModelStatus.Status,
+			modelResp.ModelStatus.Info,
+		)
+		if err != nil {
+			logger.Errorf("failed to set the model meter status: %v", err)
+		}
 	}
 	return len(modelResp.AcknowledgedBatches)
 }
