@@ -1571,7 +1571,15 @@ func applicationByName(st *State, name string) (ApplicationEntity, error) {
 	} else if !featureflag.Enabled(feature.CrossModelRelations) {
 		return nil, err
 	}
-	return st.RemoteApplication(name)
+	remoteApp, remoteErr := st.RemoteApplication(name)
+	if errors.IsNotFound(remoteErr) {
+		// We can't find either an application or a remote application
+		// by that name. Report the missing application, since that's
+		// probably what was intended (and still indicates the problem
+		// for remote applications).
+		return nil, err
+	}
+	return remoteApp, remoteErr
 }
 
 // endpoints returns all endpoints that could be intended by the
