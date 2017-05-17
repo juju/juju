@@ -735,8 +735,10 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemVolumeBacked(c *gc.C) {
 	// to be detached.
 	assertVolumeAttachmentLife(state.Dying)
 
-	err = s.State.RemoveFilesystem(filesystem.FilesystemTag())
-	c.Assert(err, jc.ErrorIsNil)
+	// Removing the last attachment should cause the filesystem
+	// to be removed, since it is volume-backed and dying.
+	_, err = s.State.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// Removing the filesystem causes the backing-volume to be
 	// destroyed.
 	assertVolumeLife(state.Dying)
