@@ -374,10 +374,20 @@ latter prefixed with "^", similar to the 'tags' constraint).
 
 
 Examples:
-    juju deploy mysql --to 23       (deploy to machine 23)
-    juju deploy mysql --to 24/lxd/3 (deploy to lxd container 3 on machine 24)
-    juju deploy mysql --to lxd:25   (deploy to a new lxd container on machine 25)
-    juju deploy mysql --to lxd      (deploy to a new lxd container on a new machine)
+    juju deploy mysql               (deploy to a new machine)
+    juju deploy mysql --to 23       (deploy to preexisting machine 23)
+    juju deploy mysql --to lxd      (deploy to a new LXD container on a new machine)
+    juju deploy mysql --to lxd:25   (deploy to a new LXD container on machine 25)
+    juju deploy mysql --to 24/lxd/3 (deploy to LXD container 3 on machine 24)
+
+    juju deploy mysql -n 2 --to 3,lxd:5
+    (deploy 2 units, one on machine 3 & one to a new LXD container on machine 5)
+
+    juju deploy mysql -n 3 --to 3
+    (deploy 3 units, one on machine 3 & the remaining two on new machines)
+
+    juju deploy mysql -n 5 --constraints mem=8G
+    (deploy 5 units to machines with at least 8 GB of memory)
 
     juju deploy mysql --to zone=us-east-1a
     (provider-dependent; deploy to a specific AZ)
@@ -385,12 +395,9 @@ Examples:
     juju deploy mysql --to host.maas
     (deploy to a specific MAAS node)
 
-    juju deploy mysql -n 5 --constraints mem=8G
-    (deploy 5 units to machines with at least 8 GB of memory)
-
     juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
-    (deploy 2 units to machines that are part of the 'dmz' space but not of the
-    'cmd' or the 'database' spaces)
+    (deploy 2 units to machines that are in the 'dmz' space but not of
+    the 'cmd' or the 'database' spaces)
 
 See also:
     spaces
