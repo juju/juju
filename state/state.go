@@ -1563,13 +1563,15 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 }
 
 func applicationByName(st *State, name string) (ApplicationEntity, error) {
-	s, err := st.RemoteApplication(name)
+	app, err := st.Application(name)
 	if err == nil {
-		return s, nil
+		return app, nil
 	} else if err != nil && !errors.IsNotFound(err) {
 		return nil, err
+	} else if !featureflag.Enabled(feature.CrossModelRelations) {
+		return nil, err
 	}
-	return st.Application(name)
+	return st.RemoteApplication(name)
 }
 
 // endpoints returns all endpoints that could be intended by the
