@@ -1006,7 +1006,7 @@ func (s *provisionerSuite) TestAttachmentLife(c *gc.C) {
 			{Life: params.Alive},
 			{Life: params.Alive},
 			{Life: params.Alive},
-			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Error: &params.Error{Message: `volume "42" on machine "0" not found`, Code: "not found"}},
 		},
 	})
 }

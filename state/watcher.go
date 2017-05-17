@@ -220,6 +220,16 @@ func (st *State) WatchModelLives() StringsWatcher {
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all model-scoped volumes.
 func (st *State) WatchModelVolumes() StringsWatcher {
+	return st.watchModelMachinestorage(volumesC)
+}
+
+// WatchModelFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all model-scoped filesystems.
+func (st *State) WatchModelFilesystems() StringsWatcher {
+	return st.watchModelMachinestorage(filesystemsC)
+}
+
+func (st *State) watchModelMachinestorage(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -229,45 +239,22 @@ func (st *State) WatchModelVolumes() StringsWatcher {
 		}
 		return !strings.Contains(k, "/")
 	}
-	return newLifecycleWatcher(st, volumesC, members, filter, nil)
-}
-
-// WatchModelFilesystems returns a StringsWatcher that notifies of changes
-// to the lifecycles of all model-scoped filesystems, excluding those that
-// are volume-backed, and whose volume is currently attached to a machine.
-func (st *State) WatchModelFilesystems() StringsWatcher {
-	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
-	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	filter := func(id interface{}) bool {
-		localID, err := st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		if strings.Contains(localID, "/") {
-			return false
-		}
-		f, err := st.filesystemByTag(names.NewFilesystemTag(localID))
-		if err != nil {
-			return false
-		}
-		if f.doc.VolumeId == "" {
-			// This is not a volume-backed filesystem;
-			// it's model-scoped, so it qualifies.
-			return true
-		}
-		volumeTag := names.NewVolumeTag(f.doc.VolumeId)
-		attachments, err := st.VolumeAttachments(volumeTag)
-		if err != nil || len(attachments) > 0 {
-			return false
-		}
-		return true
-	}
-	return newLifecycleWatcher(st, filesystemsC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchMachineVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes scoped to the specified machine.
 func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorage(m, volumesC)
+}
+
+// WatchMachineFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all filesystems scoped to the specified machine.
+func (st *State) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorage(m, filesystemsC)
+}
+
+func (st *State) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s/%s$", st.docID(m.Id()), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + "/"
@@ -278,50 +265,24 @@ func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(st, volumesC, members, filter, nil)
-}
-
-// WatchMachineFilesystems returns a StringsWatcher that notifies of changes
-// to the lifecycles of all filesystems scoped to the specified machine, or
-// having a backing volume attached to the machine.
-func (st *State) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
-	machinePrefix := m.Id() + "/"
-	machinePattern := fmt.Sprintf("^%s/%s$", st.docID(m.Id()), names.NumberSnippet)
-	modelPattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
-	members := bson.D{{"$or", []bson.D{
-		{{"_id", bson.D{{"$regex", machinePattern}}}},
-		{
-			{"_id", bson.D{{"$regex", modelPattern}}},
-			{"volumeid", bson.D{{"$exists", true}}},
-		},
-	}}}
-	filter := func(id interface{}) bool {
-		localID, err := st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		if strings.HasPrefix(localID, machinePrefix) {
-			// Scoped to the specified machine.
-			return true
-		} else if strings.Contains(localID, "/") {
-			// Machine-scoped, but not for the specified machine.
-			return false
-		}
-		f, err := st.filesystemByTag(names.NewFilesystemTag(localID))
-		if err != nil || f.doc.VolumeId == "" {
-			return false
-		}
-		volumeTag := names.NewVolumeTag(f.doc.VolumeId)
-		_, err = st.VolumeAttachment(m, volumeTag)
-		return err == nil
-	}
-	return newLifecycleWatcher(st, filesystemsC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchModelVolumeAttachments returns a StringsWatcher that notifies of
-// changes to the lifecycles of all volume attachments related to model-
+// changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
 func (st *State) WatchModelVolumeAttachments() StringsWatcher {
+	return st.watchModelMachinestorageAttachments(volumeAttachmentsC)
+}
+
+// WatchModelFilesystemAttachments returns a StringsWatcher that notifies
+// of changes to the lifecycles of all filesystem attachments related to
+// environ-scoped filesystems.
+func (st *State) WatchModelFilesystemAttachments() StringsWatcher {
+	return st.watchModelMachinestorageAttachments(filesystemAttachmentsC)
+}
+
+func (st *State) watchModelMachinestorageAttachments(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -335,55 +296,24 @@ func (st *State) WatchModelVolumeAttachments() StringsWatcher {
 		}
 		return !strings.Contains(k[colon+1:], "/")
 	}
-	return newLifecycleWatcher(st, volumeAttachmentsC, members, filter, nil)
-}
-
-// WatchModelFilesystemAttachments returns a StringsWatcher that notifies
-// of changes to the lifecycles of all filesystem attachments related to
-// model-scoped filesystems, excluding those that are volume-backed, and
-// whose volume is currently attached to a machine.
-func (st *State) WatchModelFilesystemAttachments() StringsWatcher {
-	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
-	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	filter := func(id interface{}) bool {
-		localID, err := st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		colon := strings.IndexRune(localID, ':')
-		if colon == -1 {
-			return false
-		} else if strings.Contains(localID[colon+1:], "/") {
-			// Machine-scoped.
-			return false
-		}
-		_, filesystemTag, err := ParseFilesystemAttachmentId(localID)
-		if err != nil {
-			return false
-		}
-		f, err := st.filesystemByTag(filesystemTag)
-		if err != nil {
-			return false
-		}
-		if f.doc.VolumeId == "" {
-			// This is not a volume-backed filesystem;
-			// it's model-scoped, so it qualifies.
-			return true
-		}
-		volumeTag := names.NewVolumeTag(f.doc.VolumeId)
-		attachments, err := st.VolumeAttachments(volumeTag)
-		if err != nil || len(attachments) > 0 {
-			return false
-		}
-		return true
-	}
-	return newLifecycleWatcher(st, filesystemAttachmentsC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to the specified
 // machine, for volumes scoped to the machine.
 func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorageAttachments(m, volumeAttachmentsC)
+}
+
+// WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all filesystem attachments related to the specified
+// machine, for filesystems scoped to the machine.
+func (st *State) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorageAttachments(m, filesystemAttachmentsC)
+}
+
+func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s:%s/.*", st.docID(m.Id()), m.Id())
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + fmt.Sprintf(":%s/", m.Id())
@@ -394,43 +324,7 @@ func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatche
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(st, volumeAttachmentsC, members, filter, nil)
-}
-
-// WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
-// changes to the lifecycles of all filesystem attachments related to the specified
-// machine, for filesystems scoped to the machine, or having a backing volume
-// attached to the machine.
-func (st *State) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
-	pattern := fmt.Sprintf("^%s:.*$", st.docID(m.Id()))
-	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	machineScopedPrefix := m.Id() + fmt.Sprintf(":%s/", m.Id())
-	filter := func(id interface{}) bool {
-		localID, err := st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		if strings.HasPrefix(localID, machineScopedPrefix) {
-			// Scoped to the specified machine.
-			return true
-		}
-		_, filesystemTag, err := ParseFilesystemAttachmentId(localID)
-		if err != nil {
-			return false
-		}
-		if _, ok := names.FilesystemMachine(filesystemTag); ok {
-			// Machine-scoped, but not for the specified machine.
-			return false
-		}
-		f, err := st.filesystemByTag(filesystemTag)
-		if err != nil || f.doc.VolumeId == "" {
-			return false
-		}
-		volumeTag := names.NewVolumeTag(f.doc.VolumeId)
-		_, err = st.VolumeAttachment(m, volumeTag)
-		return err == nil
-	}
-	return newLifecycleWatcher(st, filesystemAttachmentsC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to
@@ -598,7 +492,9 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	var doc lifeDoc
 	iter := coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
-		if w.filter != nil && !w.filter(doc.Id) {
+		// If no members criteria is specified, use the filter
+		// to reject any unsuitable initial elements.
+		if w.members == nil && w.filter != nil && !w.filter(doc.Id) {
 			continue
 		}
 		id := w.backend.localID(doc.Id)

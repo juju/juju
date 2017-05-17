@@ -63,10 +63,8 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 		return errors.Trace(err)
 	}
 	logger.Debugf("volume attachments alive: %v, dying: %v, dead: %v", alive, dying, dead)
-	if len(dead) != 0 {
-		// We should not see dead volume attachments;
-		// attachments go directly from Dying to removed.
-		logger.Warningf("unexpected dead volume attachments: %v", dead)
+	if err := processDeadVolumeAttachments(ctx, dead); err != nil {
+		return errors.Annotate(err, "removing dead volume attachments")
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil
@@ -77,7 +75,7 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 	ids = append(alive, dying...)
 	volumeAttachmentResults, err := ctx.config.Volumes.VolumeAttachments(ids)
 	if err != nil {
-		return errors.Annotatef(err, "getting volume attachment information")
+		return errors.Annotate(err, "getting volume attachment information")
 	}
 
 	// Deprovision Dying volume attachments.
@@ -199,6 +197,18 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 	}
 	if err := removeEntities(ctx, remove); err != nil {
 		return errors.Annotate(err, "removing volumes from state")
+	}
+	return nil
+}
+
+// processDeadVolumeAttachments processes the IDs for Dead volume attachments,
+// removing the volume attachments from state.
+func processDeadVolumeAttachments(ctx *context, ids []params.MachineStorageId) error {
+	if err := removeAttachments(ctx, ids); err != nil {
+		return errors.Annotate(err, "removing attachments from state")
+	}
+	for _, id := range ids {
+		delete(ctx.volumeAttachments, id)
 	}
 	return nil
 }

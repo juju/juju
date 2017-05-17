@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -279,7 +280,8 @@ func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.Strin
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchFilesystems(args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(args, s.st.WatchModelFilesystems, s.st.WatchMachineFilesystems)
+	w := filesystemwatcher.Watchers{s.st}
+	return s.watchStorageEntities(args, w.WatchModelManagedFilesystems, w.WatchMachineManagedFilesystems)
 }
 
 func (s *StorageProvisionerAPI) watchStorageEntities(
@@ -338,10 +340,11 @@ func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (pa
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchFilesystemAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+	w := filesystemwatcher.Watchers{s.st}
 	return s.watchAttachments(
 		args,
-		s.st.WatchModelFilesystemAttachments,
-		s.st.WatchMachineFilesystemAttachments,
+		w.WatchModelManagedFilesystemAttachments,
+		w.WatchMachineManagedFilesystemAttachments,
 		storagecommon.ParseFilesystemAttachmentIds,
 	)
 }
@@ -1102,9 +1105,7 @@ func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (p
 		case names.FilesystemTag:
 			lifer, err = s.st.FilesystemAttachment(machineTag, attachmentTag)
 		}
-		if errors.IsNotFound(err) {
-			return "", common.ErrPerm
-		} else if err != nil {
+		if err != nil {
 			return "", errors.Trace(err)
 		}
 		return params.Life(lifer.Life().String()), nil
