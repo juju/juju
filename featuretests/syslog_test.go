@@ -124,7 +124,7 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 		"syslog-ca-cert":     coretesting.CACert,
 		"syslog-client-cert": coretesting.ServerCert,
 		"syslog-client-key":  coretesting.ServerKey,
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.logger, err = logsender.InstallBufferedLogWriter(1000)
@@ -218,7 +218,7 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 
 	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertLogRecordForwarded(c, s.received)
@@ -260,7 +260,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 		"syslog-ca-cert":     coretesting.CACert,
 		"syslog-client-cert": coretesting.ServerCert,
 		"syslog-client-key":  coretesting.ServerKey,
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLogRecordForwarded(c, received)
 }
