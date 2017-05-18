@@ -554,13 +554,9 @@ func (s *crossmodelMockSuite) TestConsume(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
 				{
-					ApplicationAlias:       "alias",
-					TargetModelTag:         target.String(),
-					SourceModelTag:         offer.SourceModelTag,
-					OfferName:              offer.OfferName,
-					OfferURL:               offer.OfferURL,
-					ApplicationDescription: offer.ApplicationDescription,
-					Endpoints:              offer.Endpoints,
+					ApplicationAlias: "alias",
+					TargetModelTag:   target.String(),
+					ApplicationOffer: offer,
 				},
 			})
 			if results, ok := result.(*params.ConsumeApplicationResults); ok {

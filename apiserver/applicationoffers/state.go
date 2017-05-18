@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -50,6 +51,8 @@ type Backend interface {
 	ModelUUID() string
 	ModelTag() names.ModelTag
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
+	Space(string) (Space, error)
+
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 
 	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
@@ -68,6 +71,11 @@ type stateShim struct {
 
 func (s stateShim) NewStorage() storage.Storage {
 	return storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+}
+
+func (s *stateShim) Space(name string) (Space, error) {
+	sp, err := s.State.Space(name)
+	return &spaceShim{sp}, err
 }
 
 func (s *stateShim) Model() (Model, error) {
@@ -134,6 +142,7 @@ type Application interface {
 	CharmURL() (curl *charm.URL, force bool)
 	Name() string
 	Endpoints() ([]state.Endpoint, error)
+	EndpointBindings() (map[string]string, error)
 }
 
 type applicationShim struct {
@@ -153,11 +162,51 @@ type RemoteApplication interface {
 	SourceModel() names.ModelTag
 	Endpoints() ([]state.Endpoint, error)
 	AddEndpoints(eps []charm.Relation) error
+	Bindings() map[string]string
+	Spaces() []state.RemoteSpace
 }
 
 type Charm interface {
 	Meta() *charm.Meta
 	StoragePath() string
+}
+
+type Subnet interface {
+	CIDR() string
+	VLANTag() int
+	ProviderId() network.Id
+	ProviderNetworkId() network.Id
+	AvailabilityZones() []string
+}
+
+type subnetShim struct {
+	*state.Subnet
+}
+
+func (s *subnetShim) AvailabilityZones() []string {
+	return []string{s.Subnet.AvailabilityZone()}
+}
+
+type Space interface {
+	Name() string
+	Subnets() ([]Subnet, error)
+	ProviderId() network.Id
+}
+
+type spaceShim struct {
+	*state.Space
+}
+
+func (s *spaceShim) Subnets() ([]Subnet, error) {
+	subnets, err := s.Space.Subnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]Subnet, len(subnets))
+	for i, subnet := range subnets {
+		result[i] = &subnetShim{subnet}
+	}
+	return result, nil
 }
 
 type Model interface {
