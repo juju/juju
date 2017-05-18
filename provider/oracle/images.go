@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -19,64 +18,6 @@ import (
 var windowsServerMap = map[string]string{
 	"Microsoft_Windows_Server_2012_R2": "win2012r2",
 	"Microsoft_Windows_Server_2008_R2": "win2018r2",
-}
-
-// defaultImages is a list of official Ubuntu images available on Oracle cloud
-// TODO (gsamfira): seed this from simplestreams
-var defaultImages = []string{
-	"Ubuntu.12.04-LTS.amd64.20170417",
-	"Ubuntu.14.04-LTS.amd64.20170405",
-	"Ubuntu.16.04-LTS.amd64.20170330",
-	"Ubuntu.16.10.amd64.20170330",
-}
-
-// ensureImageInventory populates the image inventory for the current user
-// with official Ubuntu images
-func ensureImageInventory(c EnvironAPI) error {
-	// TODO (gsamfira): add tests for this
-	logger.Debugf("checking image inventory")
-	images, err := c.AllImageLists(nil)
-	if err != nil {
-		return err
-	}
-	names := set.Strings{}
-	for _, val := range images.Result {
-		trimmed := strings.Split(val.Name, "/")
-		names.Add(trimmed[len(trimmed)-1])
-	}
-	logger.Debugf("found images: %v", names)
-	errs := []error{}
-	for _, val := range defaultImages {
-		if !names.Contains(val) {
-			logger.Debugf("adding missing image: %s", val)
-			imageName := c.ComposeName(val)
-			listDetails, err := c.CreateImageList(1, val, imageName)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			// mirror the default attributes
-			entryAttributes := map[string]interface{}{
-				"type":            val,
-				"defaultShape":    "oc2m",
-				"minimumDiskSize": "10",
-				"supportedShapes": "oc3,oc4,oc5,oc6,oc7,oc1m,oc2m,oc3m,oc4m,oc5m,ocio1m,ocio2m,ocio3m,ocio4m,ocio5m,ociog1k80,ociog2k80,ociog3k80",
-			}
-			_, err = c.CreateImageListEntry(
-				listDetails.Name,
-				entryAttributes,
-				1, []string{imageName})
-			if err != nil {
-				errs = append(errs, errors.Annotatef(err, "failed to create image entry %v", imageName))
-				// Cleanup list in case of error
-				_ = c.DeleteImageList(listDetails.Name)
-			}
-		}
-	}
-	if len(errs) > 0 {
-		logger.Debugf("failed to add some images to inventory: %v", errs)
-	}
-	return nil
 }
 
 // instanceTypes returns all oracle cloud shapes and wraps them into instance.InstanceType
@@ -186,10 +127,6 @@ func checkImageList(c EnvironAPI) ([]*imagemetadata.ImageMetadata, error) {
 		return nil, errors.NotFoundf("oracle client")
 	}
 
-	err := ensureImageInventory(c)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	// take a list of all images that are in the oracle cloud account
 	resp, err := c.AllImageLists(nil)
 	if err != nil {

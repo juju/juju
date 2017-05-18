@@ -289,6 +289,10 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 		ser = "centos7"
 		expected_initial = []string{
 			"yum", "--assumeyes", "--debuglevel=1", "install"}
+	case jujuos.OpenSUSE:
+		ser = "opensuseleap"
+		expected_initial = []string{
+			"zypper", " --quiet", "--non-interactive-include-reboot-patches", "install"}
 	default:
 		ser = "precise"
 		expected_initial = []string{

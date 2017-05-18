@@ -1,0 +1,13 @@
+<network connections='1'>
+  <name>maas</name>
+  <uuid>232cc895-0c9a-46b2-8ac9-1222ed021758</uuid>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='maasbr1' stp='on' delay='0'/>
+  <mac address='52:54:00:5e:21:c2'/>
+  <ip address='10.0.30.1' netmask='255.255.255.0'>
+  </ip>
+</network>

@@ -5,67 +5,61 @@ package oracle_test
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/juju/go-oracle-cloud/response"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
+	oracletesting "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
-type instanceSuite struct{}
+type instanceSuite struct {
+	env   *oracle.OracleEnviron
+	mutex *sync.Mutex
+}
+
+func (i *instanceSuite) SetUpTest(c *gc.C) {
+	var err error
+	i.env, err = oracle.NewOracleEnviron(
+		&oracle.EnvironProvider{},
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		oracletesting.DefaultEnvironAPI,
+		&advancingClock,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(i.env, gc.NotNil)
+	i.mutex = &sync.Mutex{}
+}
+
+func (i *instanceSuite) setEnvironAPI(client oracle.EnvironAPI) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	i.env.SetEnvironAPI(client)
+}
 
 var _ = gc.Suite(&instanceSuite{})
 
 func (i instanceSuite) TestNewOracleInstanceEmpty(c *gc.C) {
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: testing.ModelConfig(c),
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
-
-	instance, err := oracle.NewOracleInstance(response.Instance{}, environ)
+	instance, err := oracle.NewOracleInstance(response.Instance{}, i.env)
 	c.Assert(err, gc.NotNil)
 	c.Assert(instance, gc.IsNil)
 }
 
 func (i instanceSuite) TestNewOracleInstance(c *gc.C) {
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: testing.ModelConfig(c),
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
-
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 }
 
 func (i instanceSuite) TestId(c *gc.C) {
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: testing.ModelConfig(c),
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
-
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
@@ -75,18 +69,7 @@ func (i instanceSuite) TestId(c *gc.C) {
 }
 
 func (i instanceSuite) TestStatus(c *gc.C) {
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: testing.ModelConfig(c),
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
-
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
@@ -98,18 +81,7 @@ func (i instanceSuite) TestStatus(c *gc.C) {
 }
 
 func (i instanceSuite) TestStorageAttachments(c *gc.C) {
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: testing.ModelConfig(c),
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
-
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
@@ -118,18 +90,7 @@ func (i instanceSuite) TestStorageAttachments(c *gc.C) {
 }
 
 func (i instanceSuite) TestAddresses(c *gc.C) {
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: testing.ModelConfig(c),
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
-
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
@@ -139,22 +100,14 @@ func (i instanceSuite) TestAddresses(c *gc.C) {
 }
 
 func (i instanceSuite) TestAddressesWithErrors(c *gc.C) {
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: testing.ModelConfig(c),
+	fakeEnv := &oracletesting.FakeEnvironAPI{
+		FakeIpAssociation: oracletesting.FakeIpAssociation{
+			AllErr: errors.New("FakeEnvironAPI"),
 		},
-		&FakeEnvironAPI{
-			FakeIpAssociation: FakeIpAssociation{
-				AllErr: errors.New("FakeEnvironAPI"),
-			},
-		},
-		&advancingClock,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
+	}
+	i.setEnvironAPI(fakeEnv)
 
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
@@ -163,22 +116,16 @@ func (i instanceSuite) TestAddressesWithErrors(c *gc.C) {
 }
 
 func (i instanceSuite) TestOpenPorts(c *gc.C) {
-	fakeConfig := testing.CustomModelConfig(c, testing.Attrs{
+	fakeConfig := map[string]interface{}{
 		"firewall-mode": config.FwInstance,
-	})
-
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: fakeConfig,
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
+	}
+	config, err := i.env.Config().Apply(fakeConfig)
 	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
 
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	err = i.env.SetConfig(config)
+	c.Assert(err, gc.IsNil)
+
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
@@ -195,22 +142,16 @@ func (i instanceSuite) TestOpenPorts(c *gc.C) {
 }
 
 func (i instanceSuite) TestClosePorts(c *gc.C) {
-	fakeConfig := testing.CustomModelConfig(c, testing.Attrs{
+	fakeConfig := map[string]interface{}{
 		"firewall-mode": config.FwInstance,
-	})
-
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: fakeConfig,
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
+	}
+	config, err := i.env.Config().Apply(fakeConfig)
 	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
 
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	err = i.env.SetConfig(config)
+	c.Assert(err, gc.IsNil)
+
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
@@ -227,22 +168,17 @@ func (i instanceSuite) TestClosePorts(c *gc.C) {
 }
 
 func (i instanceSuite) TestIngressRules(c *gc.C) {
-	fakeConfig := testing.CustomModelConfig(c, testing.Attrs{
+	fakeConfig := map[string]interface{}{
 		"firewall-mode": config.FwInstance,
-	})
+	}
 
-	environ, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
-		environs.OpenParams{
-			Config: fakeConfig,
-		},
-		DefaultEnvironAPI,
-		&advancingClock,
-	)
+	config, err := i.env.Config().Apply(fakeConfig)
 	c.Assert(err, gc.IsNil)
-	c.Assert(environ, gc.NotNil)
 
-	instance, err := oracle.NewOracleInstance(DefaultFakeInstancer.Instance, environ)
+	err = i.env.SetConfig(config)
+	c.Assert(err, gc.IsNil)
+
+	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 

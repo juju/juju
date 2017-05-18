@@ -2336,3 +2336,13 @@ func (env *maasEnviron) AdoptResources(controllerUUID string, fromVersion versio
 	}
 	return nil
 }
+
+// ProviderSpaceInfo implements environs.NetworkingEnviron.
+func (*maasEnviron) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements environs.NetworkingEnviron.
+func (*maasEnviron) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}

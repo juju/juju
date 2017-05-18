@@ -51,17 +51,17 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		`"abc" in Addrs not valid`,
 	}, {
-		"CACert",
-		func(info *migration.TargetInfo) {
-			info.CACert = ""
-		},
-		"empty CACert not valid",
-	}, {
 		"AuthTag",
 		func(info *migration.TargetInfo) {
 			info.AuthTag = names.UserTag{}
 		},
 		"empty AuthTag not valid",
+	}, {
+		"Success - empty CACert",
+		func(info *migration.TargetInfo) {
+			info.CACert = ""
+		},
+		"",
 	}, {
 		"Password & Macaroons",
 		func(info *migration.TargetInfo) {

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/api/compute/v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -267,6 +268,16 @@ func (e *environ) AllocateContainerAddresses(instance.Id, names.MachineTag, []ne
 // ReleaseContainerAddresses implements environs.NetworkingEnviron.
 func (e *environ) ReleaseContainerAddresses([]network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container addresses")
+}
+
+// ProviderSpaceInfo implements environs.NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements environs.NetworkingEnviron.
+func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
 }
 
 func copyStrings(items []string) []string {

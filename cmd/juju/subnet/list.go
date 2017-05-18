@@ -19,12 +19,12 @@ import (
 
 // NewListCommand returns a cammin used to list all subnets
 // known to Juju.
-func NewListCommand() cmd.Command {
-	return modelcmd.Wrap(&listCommand{})
+func NewListCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&ListCommand{})
 }
 
-// listCommand displays a list of all subnets known to Juju
-type listCommand struct {
+// ListCommand displays a list of all subnets known to Juju
+type ListCommand struct {
 	SubnetCommandBase
 
 	SpaceName string
@@ -47,7 +47,7 @@ output to a file, use --output.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *listCommand) Info() *cmd.Info {
+func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "subnets",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
@@ -58,7 +58,7 @@ func (c *listCommand) Info() *cmd.Info {
 }
 
 // SetFlags is defined on the cmd.Command interface.
-func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
 	c.Out.AddFlags(f, "yaml", output.DefaultFormatters)
 
@@ -68,7 +68,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *listCommand) Init(args []string) error {
+func (c *ListCommand) Init(args []string) error {
 	// No arguments are accepted, just flags.
 	err := cmd.CheckEmpty(args)
 	if err != nil {
@@ -89,8 +89,8 @@ func (c *listCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *listCommand) Run(ctx *cmd.Context) error {
-	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
+func (c *ListCommand) Run(ctx *cmd.Context) error {
+	return errors.Trace(c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		// Validate space and/or zone, if given to display a nicer error
 		// message.
 		// Get the list of subnets, filtering them as requested.
@@ -150,7 +150,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 
 		return c.Out.Write(ctx, result)
-	})
+	}))
 }
 
 const (

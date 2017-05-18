@@ -23,8 +23,8 @@ var _ = gc.Suite(&ControllersFileSuite{})
 const testControllersYAML = `
 controllers:
   aws-test:
-    unresolved-api-endpoints: [instance-1-2-4.useast.aws.com]
     uuid: this-is-the-aws-test-uuid
+    unresolved-api-endpoints: [instance-1-2-4.useast.aws.com]
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
@@ -32,16 +32,16 @@ controllers:
     controller-machine-count: 0
     active-controller-machine-count: 0
   mallards:
-    unresolved-api-endpoints: [maas-1-05.cluster.mallards]
     uuid: this-is-another-uuid
+    unresolved-api-endpoints: [maas-1-05.cluster.mallards]
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     controller-machine-count: 0
     active-controller-machine-count: 0
   mark-test-prodstack:
-    unresolved-api-endpoints: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
     uuid: this-is-a-uuid
+    unresolved-api-endpoints: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack

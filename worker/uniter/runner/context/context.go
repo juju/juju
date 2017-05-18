@@ -836,3 +836,8 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 	}
 	return result.OneError()
 }
+
+// NetworkInfo returns the network info for the given bindingNames.
+func (ctx *HookContext) NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error) {
+	return ctx.unit.NetworkInfo(bindingNames)
+}

@@ -46,7 +46,7 @@ func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 func NewShowCommandForTest(api ShowModelAPI, refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore) cmd.Command {
 	cmd := &showModelCommand{api: api, RefreshModels: refreshFunc}
 	cmd.SetClientStore(store)
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
 }
 
 // NewDumpCommandForTest returns a DumpCommand with the api provided as specified.

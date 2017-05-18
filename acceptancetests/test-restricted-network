@@ -1,0 +1,159 @@
+#!/bin/bash
+set -eu
+JUJU_HOME="$HOME/.juju"
+AMI_IMAGE=""
+SERIES=""
+REVISION_BUILD="lastSuccessfulBuild"
+while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
+    case $1 in
+        --juju-home)
+            shift
+            JUJU_HOME=$(cd $1; pwd)
+            ;;
+        --ami-image)
+            shift
+            AMI_IMAGE=$1
+            ;;
+        --series)
+            shift
+            SERIES=$1
+            ;;
+        --revision-build)
+            shift
+            REVISION_BUILD=$1
+            ;;
+    esac
+    shift
+done
+
+if [[ -z $AMI_IMAGE || -z $SERIES ]]; then
+    echo "--ami-image and --series are required"
+    exit 2
+fi
+
+export JUJU_HOME
+export AMI_IMAGE
+export SERIES
+
+SCRIPTS=$(readlink -f $(dirname $0))
+: ${JOB_NAME="testy"}
+export JOB_NAME
+export PATH="$SCRIPTS:$PATH"
+source $JUJU_HOME/ec2rc
+mkdir -p bash
+source $(s3ci.py get $REVISION_BUILD build-revision buildvars.bash)
+ec2-terminate-job-instances
+set -x
+export INSTANCE_TYPE=m1.large
+instance_id=$(ec2-run-instance-get-id)
+instance_name=$(ec2-get-name $instance_id)
+ec2-tag-job-instances $instance_id
+wait-for-port $instance_name 22
+
+RELEASE=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
+    ubuntu@$instance_name lsb_release -sr)
+ARCH=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
+    ubuntu@$instance_name dpkg --print-architecture)
+
+if [ -e debs ]; then
+  rm -R debs
+fi
+mkdir -p debs
+$SCRIPTS/s3ci.py get \
+    $revision_build build-binary-trusty-$ARCH 'juju.*\.deb' debs
+
+scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
+  debs/*.deb ubuntu@$instance_name:
+
+set +e
+ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    ubuntu@$instance_name "SERIES=$SERIES bash"<<"EOT"
+set -eux
+for attempt in $(seq 10); do
+  if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
+    break
+  elif [ "$attempt" == "10" ]; then
+    exit 1
+  fi
+  sleep 10
+done
+sudo sed s,//.*ec2.archive.ubuntu.com,//archive.ubuntu.com, \
+    /etc/apt/sources.list -i
+if [[ $SERIES == "precise" ]]; then
+    sudo add-apt-repository cloud-archive:tools
+fi
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr
+
+# prevent spurious failure on success
+rm .bash_logout
+afact=lastSuccessfulBuild/artifact
+sudo dpkg -i *.deb || true
+sudo apt-get install -y -f
+export JUJU_REPOSITORY="$HOME/repo"
+mkdir -p $JUJU_REPOSITORY/$SERIES
+bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/$SERIES/ubuntu
+mkdir ~/.juju
+cat > ~/.juju/environments.yaml <<EOT2
+default: local
+environments:
+  local:
+    type: local
+    tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
+    enable-os-refresh-update: true
+    default-series: trusty
+EOT2
+ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+
+report_network() {
+    echo
+    echo $1
+    ip link
+    ip route
+    ip addr
+    sudo iptables-save
+}
+
+report_network "The starting network conditions:"
+echo "Restricting the network:"
+login_ip=$(netstat --tcp -n|sed -nr 's/.*:22 *([^ ]*):.* .*/\1/p')
+gateway=$(route -n | sed -rn 's/^0.0.0.0 *([0-7.]*) .*/\1/p')
+nameservers="$(sed /etc/resolv.conf -nr -e 's/nameserver (.*)/\1/p')"
+for ns in $nameservers; do
+  sudo route add $ns gw $gateway
+done
+sudo route add $login_ip gw $gateway
+for ip in $(dig archive.ubuntu.com ubuntu-cloud.archive.canonical.com\
+    security.ubuntu.com cloud-images.ubuntu.com +short |sort|uniq); do
+  sudo route add $ip gw $gateway
+done
+sudo route add -net 172.16.0.0 netmask 255.240.0.0 gw $gateway
+sudo route del default gw $gateway
+report_network "The final network conditions:"
+juju bootstrap --show-log
+for x in $(seq 6); do
+  if juju deploy --show-log local:$SERIES/ubuntu; then
+    break
+  elif [ "$x" == "6" ]; then
+    exit 0;
+  fi
+done
+for x in $(seq 30); do
+  # relying on the indentation of ubuntu/0's agent-state here...
+  # but current: idle matches only the unit of the ubuntu service.
+  if juju status  --format yaml | grep -E ' {8}agent-state: started|current: idle'; then
+    exit 0;
+  fi
+  sleep 10
+done
+juju status --format yaml
+report_network "The failing network conditions:"
+# Restore some routing so that staff can do an autopsy
+sudo route add default gw $gateway eth0
+exit 1
+EOT
+result=$?
+set -e
+ec2-terminate-job-instances
+exit $result

@@ -243,10 +243,6 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		return nil
 	})
 
-	intPtr := func(i int) *int {
-		return &i
-	}
-
 	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boostrapped, jc.IsTrue)
@@ -258,8 +254,10 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		APIEndpoints:           []string{"10.0.0.1:17777"},
 		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
 		AgentVersion:           version.Current.String(),
-		ModelCount:             intPtr(2),
-		MachineCount:           intPtr(1),
+		// We won't get correct model and machine counts until
+		// we connect properly eventually.
+		ModelCount:             nil,
+		MachineCount:           nil,
 		ControllerMachineCount: 1,
 	})
 }

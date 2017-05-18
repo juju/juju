@@ -4,14 +4,14 @@
 package oracle_test
 
 import (
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type environProviderSuite struct{}
@@ -19,7 +19,7 @@ type environProviderSuite struct{}
 var _ = gc.Suite(&environProviderSuite{})
 
 func (e *environProviderSuite) NewProvider(c *gc.C) environs.EnvironProvider {
-	provider, err := environs.Provider("oracle-compute")
+	provider, err := environs.Provider("oracle")
 	c.Assert(err, gc.IsNil)
 	c.Assert(provider, gc.NotNil)
 	return provider
@@ -59,8 +59,8 @@ func (e *environProviderSuite) TestPrepareConfig(c *gc.C) {
 	)
 	_, err := provider.PrepareConfig(environs.PrepareConfigParams{
 		Cloud: environs.CloudSpec{
-			Type:       "oracle-compute",
-			Name:       "oracle-compute",
+			Type:       "oracle",
+			Name:       "oracle",
 			Credential: &credentials,
 		},
 		Config: testing.ModelConfig(c),
@@ -80,8 +80,8 @@ func (e *environProviderSuite) TestOpen(c *gc.C) {
 	)
 	_, err := provider.Open(environs.OpenParams{
 		Cloud: environs.CloudSpec{
-			Type:       "oracle-compute",
-			Name:       "oracle-compute",
+			Type:       "oracle",
+			Name:       "oracle",
 			Credential: &credentials,
 			Endpoint:   "https://127.0.0.1/",
 		},

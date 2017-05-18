@@ -109,7 +109,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelConfigGet(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-config", "special")
@@ -122,7 +122,7 @@ func (s *cmdModelSuite) TestModelConfigSet(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelConfigReset(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-config", "--reset", "special")

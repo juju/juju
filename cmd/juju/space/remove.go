@@ -14,12 +14,12 @@ import (
 )
 
 // NewRemoveCommand returns a command used to remove a space.
-func NewRemoveCommand() cmd.Command {
-	return modelcmd.Wrap(&removeCommand{})
+func NewRemoveCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&RemoveCommand{})
 }
 
-// removeCommand calls the API to remove an existing network space.
-type removeCommand struct {
+// RemoveCommand calls the API to remove an existing network space.
+type RemoveCommand struct {
 	SpaceCommandBase
 	name string
 }
@@ -30,7 +30,7 @@ associated with the space will be transfered to the default space.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *removeCommand) Info() *cmd.Info {
+func (c *RemoveCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-space",
 		Args:    "<name>",
@@ -41,7 +41,7 @@ func (c *removeCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *removeCommand) Init(args []string) (err error) {
+func (c *RemoveCommand) Init(args []string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
 
 	// Validate given name.
@@ -58,7 +58,7 @@ func (c *removeCommand) Init(args []string) (err error) {
 }
 
 // Run implements Command.Run.
-func (c *removeCommand) Run(ctx *cmd.Context) error {
+func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Remove the space.
 		err := api.RemoveSpace(c.name)

@@ -70,7 +70,7 @@ func (s *keySuiteBase) SetUpTest(c *gc.C) {
 
 func (s *keySuiteBase) setAuthorizedKeys(c *gc.C, keys ...string) {
 	keyString := strings.Join(keys, "\n")
-	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyString}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyString}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: controller\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(output, gc.Matches, "Keys used in model: admin/controller\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
 func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: controller\n.*user@host\n.*another@host")
+	c.Assert(output, gc.Matches, "Keys used in model: admin/controller\n.*user@host\n.*another@host")
 }
 
 func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {

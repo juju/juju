@@ -447,7 +447,7 @@ func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, 
 	if pool != "" {
 		err := s.State.UpdateModelConfig(map[string]interface{}{
 			"storage-default-block-source": pool,
-		}, nil, nil)
+		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
@@ -549,7 +549,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Each unit added to the application will create storage instances

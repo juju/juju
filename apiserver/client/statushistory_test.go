@@ -40,6 +40,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // toolsFinder
 		nil, // newEnviron
 		nil, // blockChecker
+		nil, // addresser
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

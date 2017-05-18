@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -56,6 +57,7 @@ func (s *budgetSuite) SetUpTest(c *gc.C) {
 				User: "admin",
 			},
 		},
+		CookieJars: make(map[string]*cookiejar.Jar),
 	}
 	s.stub = &testing.Stub{}
 	s.mockAPI = newMockAPI(s.stub)

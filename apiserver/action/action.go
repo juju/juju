@@ -239,8 +239,10 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 	}
 
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
+
 	for i, entity := range arg.Entities {
 		currentResult := &response.Results[i]
+		currentResult.Action = &params.Action{Tag: entity.Tag}
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			currentResult.Error = common.ServerError(common.ErrBadId)

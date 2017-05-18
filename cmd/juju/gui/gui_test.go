@@ -117,7 +117,7 @@ func (s *guiSuite) TestGUISuccessNoBrowser(c *gc.C) {
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 for model "controller" is enabled at:
+GUI 4.5.6 for model "admin/controller" is enabled at:
   %s`[1:], s.guiURL(c)))
 }
 
@@ -132,7 +132,7 @@ func (s *guiSuite) TestGUISuccessOldGUI(c *gc.C) {
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 for model "controller" is enabled at:
+GUI 4.5.6 for model "admin/controller" is enabled at:
   %s`[1:], s.guiOldURL(c)))
 }
 
@@ -142,7 +142,7 @@ func (s *guiSuite) TestGUISuccessNoBrowserDeprecated(c *gc.C) {
 	out, err := s.run(c, "--no-browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 for model "controller" is enabled at:
+GUI 4.5.6 for model "admin/controller" is enabled at:
   %s`[1:], s.guiURL(c)))
 }
 

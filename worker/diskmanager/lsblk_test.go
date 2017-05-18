@@ -73,6 +73,14 @@ EOF`)
 	}})
 }
 
+func (s *ListBlockDevicesSuite) TestListBlockDevicesWWN(c *gc.C) {
+	// If ID_WWN is found, then we should get
+	// a WWN value.
+	s.testListBlockDevicesExtended(c, `
+ID_WWN=foo
+`, storage.BlockDevice{WWN: "foo"})
+}
+
 func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
 	// If ID_BUS is scsi, then we should get a
 	// BusAddress value.

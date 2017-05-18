@@ -408,7 +408,7 @@ type Creds struct {
 // then the provided macaroon slices will be used for authentication (if
 // any one is valid, the authentication succeeds). If there are no
 // valid macaroons and macaroon authentication is configured,
-// the LoginResponse will contain a macaroon that when
+// the LoginResult will contain a macaroon that when
 // discharged, may allow access.
 type LoginRequest struct {
 	AuthTag     string           `json:"auth-tag"`
@@ -666,6 +666,12 @@ type LoginResult struct {
 
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
+
+	// PublicDNSName holds the host name for which an officially
+	// signed certificate will be used for TLS connection to the server.
+	// If empty, the private Juju CA certificate must be used to verify
+	// the connection.
+	PublicDNSName string `json:"public-dns-name,omitempty"`
 
 	// ModelTag is the tag for the model that is being connected to.
 	ModelTag string `json:"model-tag,omitempty"`

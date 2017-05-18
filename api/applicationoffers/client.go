@@ -30,7 +30,7 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Offer prepares application's endpoints for consumption.
-func (c *Client) Offer(application string, endpoints []string, offerName string, desc string) ([]params.ErrorResult, error) {
+func (c *Client) Offer(modelUUID, application string, endpoints []string, offerName string, desc string) ([]params.ErrorResult, error) {
 	// TODO(wallyworld) - support endpoint aliases
 	ep := make(map[string]string)
 	for _, name := range endpoints {
@@ -38,6 +38,7 @@ func (c *Client) Offer(application string, endpoints []string, offerName string,
 	}
 	offers := []params.AddApplicationOffer{
 		{
+			ModelTag:               names.NewModelTag(modelUUID).String(),
 			ApplicationName:        application,
 			ApplicationDescription: desc,
 			Endpoints:              ep,
@@ -58,6 +59,7 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]cro
 	for _, f := range filters {
 		// TODO(wallyworld) - include allowed users
 		filterTerm := params.OfferFilter{
+			ModelName:       f.ModelName,
 			OfferName:       f.OfferName,
 			ApplicationName: f.ApplicationName,
 		}
@@ -104,16 +106,16 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) []crossmo
 }
 
 // GrantOffer grants a user access to the specified offers.
-func (c *Client) GrantOffer(user, access string, offers ...string) error {
-	return c.modifyOfferUser(params.GrantOfferAccess, user, access, offers)
+func (c *Client) GrantOffer(user, access string, offerURLs ...string) error {
+	return c.modifyOfferUser(params.GrantOfferAccess, user, access, offerURLs)
 }
 
 // RevokeOffer revokes a user's access to the specified offers.
-func (c *Client) RevokeOffer(user, access string, offers ...string) error {
-	return c.modifyOfferUser(params.RevokeOfferAccess, user, access, offers)
+func (c *Client) RevokeOffer(user, access string, offerURLs ...string) error {
+	return c.modifyOfferUser(params.RevokeOfferAccess, user, access, offerURLs)
 }
 
-func (c *Client) modifyOfferUser(action params.OfferAction, user, access string, offers []string) error {
+func (c *Client) modifyOfferUser(action params.OfferAction, user, access string, offerURLs []string) error {
 	var args params.ModifyOfferAccessRequest
 
 	if !names.IsValidUser(user) {
@@ -125,12 +127,12 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 	if err := permission.ValidateOfferAccess(offerAccess); err != nil {
 		return errors.Trace(err)
 	}
-	for _, offer := range offers {
+	for _, offerURL := range offerURLs {
 		args.Changes = append(args.Changes, params.ModifyOfferAccess{
 			UserTag:  userTag.String(),
 			Action:   action,
 			Access:   params.OfferAccessPermission(offerAccess),
-			OfferTag: names.NewApplicationOfferTag(offer).String(),
+			OfferURL: offerURL,
 		})
 	}
 
@@ -145,9 +147,69 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
-			logger.Warningf("offer %q is already shared with %q", offers[i], userTag.Id())
+			logger.Warningf("offer %q is already shared with %q", offerURLs[i], userTag.Id())
 			result.Results[i].Error = nil
 		}
 	}
 	return result.Combine()
+}
+
+// ApplicationOffer returns offered remote application details for a given URL.
+func (c *Client) ApplicationOffer(urlStr string) (params.ApplicationOffer, error) {
+
+	url, err := crossmodel.ParseApplicationURL(urlStr)
+	if err != nil {
+		return params.ApplicationOffer{}, errors.Trace(err)
+	}
+	if url.Source != "" {
+		return params.ApplicationOffer{}, errors.NotSupportedf("query for non-local application offers")
+	}
+
+	found := params.ApplicationOffersResults{}
+
+	err = c.facade.FacadeCall("ApplicationOffers", params.ApplicationURLs{[]string{urlStr}}, &found)
+	if err != nil {
+		return params.ApplicationOffer{}, errors.Trace(err)
+	}
+
+	result := found.Results
+	if len(result) != 1 {
+		return params.ApplicationOffer{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
+	}
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return params.ApplicationOffer{}, errors.Trace(theOne.Error)
+	}
+	return theOne.Result, nil
+}
+
+// FindApplicationOffers returns all application offers matching the supplied filter.
+func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error) {
+	// We need at least one filter. The default filter will list all local applications.
+	if len(filters) == 0 {
+		return nil, errors.New("at least one filter must be specified")
+	}
+	var paramsFilter params.OfferFilters
+	for _, f := range filters {
+		filterTerm := params.OfferFilter{
+			OfferName: f.OfferName,
+			ModelName: f.ModelName,
+			OwnerName: f.OwnerName,
+		}
+		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
+		for i, ep := range f.Endpoints {
+			filterTerm.Endpoints[i].Name = ep.Name
+			filterTerm.Endpoints[i].Interface = ep.Interface
+			filterTerm.Endpoints[i].Role = ep.Role
+		}
+		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
+	}
+
+	out := params.FindApplicationOffersResults{}
+	err := c.facade.FacadeCall("FindApplicationOffers", paramsFilter, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return out.Results, nil
 }

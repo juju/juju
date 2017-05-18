@@ -68,6 +68,10 @@ var (
 	// CentOSGroups is the set of unix groups to add the "ubuntu" user to
 	// when initializing a CentOS system.
 	CentOSGroups = []string{"adm", "systemd-journal", "wheel"}
+
+	// OpenSUSEGroups is the set of unix groups to add the "ubuntu" user to
+	// when initializing a OpenSUSE system.
+	OpenSUSEGroups = []string{"users"}
 )
 
 type unixConfigure struct {
@@ -122,6 +126,20 @@ func (w *unixConfigure) ConfigureBasic() error {
 			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
 		)
 		w.addCleanShutdownJob(service.InitSystemSystemd)
+	case os.OpenSUSE:
+		w.conf.AddScripts(
+			// Mask and stop firewalld, if enabled, so it cannot start. See
+			// http://pad.lv/1492066. firewalld might be missing, in which case
+			// is-enabled and is-active prints an error, which is why the output
+			// is surpressed.
+			"systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true",
+			"systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true",
+			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
+			//Scripts assume ubuntu group for ubuntu user...
+			`(grep ubuntu /etc/group) || groupadd ubuntu`,
+			`usermod -g ubuntu -G ubuntu,users ubuntu`,
+		)
+		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
 
@@ -167,7 +185,7 @@ func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
 func (w *unixConfigure) setDataDirPermissions() string {
 	var user string
 	switch w.os {
-	case os.CentOS:
+	case os.CentOS, os.OpenSUSE:
 		user = "root"
 	default:
 		user = "syslog"
@@ -228,17 +246,20 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// sourced by bash, and ssh through that.
 	w.conf.AddScripts(
 		// We look to see if the proxy line is there already as
-		// the manual provider may have had it already. The ubuntu
-		// user may not exist.
-		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
-			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
+		// the manual provider may have had it already.
+		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
+			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
 	if (w.icfg.ProxySettings != proxy.Settings{}) {
 		exportedProxyEnv := w.icfg.ProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
-				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
+
+		// Write out systemd proxy settings
+		w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
+			shquote(w.icfg.ProxySettings.AsSystemdDefaultEnv())))
 	}
 
 	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {

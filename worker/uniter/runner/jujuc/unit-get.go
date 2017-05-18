@@ -50,7 +50,18 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 	var value string
 	var err error
 	if c.Key == "private-address" {
-		value, err = c.ctx.PrivateAddress()
+		networkInfos, err := c.ctx.NetworkInfo([]string{""})
+		if err == nil {
+			if networkInfos[""].Error != nil {
+				err = errors.Trace(networkInfos[""].Error)
+			}
+		}
+		// If we haven't found the address the NetworkInfo-way fall back to old, spaceless method
+		if err != nil || len(networkInfos[""].Info) == 0 || len(networkInfos[""].Info[0].Addresses) == 0 {
+			value, err = c.ctx.PrivateAddress()
+		} else {
+			value = networkInfos[""].Info[0].Addresses[0].Address
+		}
 	} else {
 		value, err = c.ctx.PublicAddress()
 	}

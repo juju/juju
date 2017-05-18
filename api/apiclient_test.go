@@ -20,13 +20,19 @@ import (
 	"github.com/juju/utils/parallel"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -301,6 +307,36 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 	if time.Since(t0) > 5*time.Second {
 		c.Errorf("looks like API is retrying on connection when there is an X509 error")
 	}
+}
+
+func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
+	// Start an API server with a (non-working) autocert hostname,
+	// so we can check that the PublicDNSName in the result goes
+	// all the way through the layers.
+	// Note that NewServer closes the listener when it stops.
+	listener, err := net.Listen("tcp", "localhost:0")
+	c.Assert(err, gc.IsNil)
+	machineTag := names.NewMachineTag("0")
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+		Clock:           clock.WallClock,
+		Cert:            jtesting.ServerCert,
+		Key:             jtesting.ServerKey,
+		Tag:             machineTag,
+		Hub:             centralhub.New(machineTag),
+		DataDir:         c.MkDir(),
+		LogDir:          c.MkDir(),
+		StatePool:       state.NewStatePool(s.State),
+		AutocertDNSName: "somewhere.example.com",
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(srv)
+	apiInfo := s.APIInfo(c)
+	apiInfo.Addrs = []string{listener.Addr().String()}
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")
 }
 
 func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {

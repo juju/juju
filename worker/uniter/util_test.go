@@ -293,9 +293,6 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		addControllerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddressesFromMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.HasLen, 1)
 }
 
 func addControllerMachine(c *gc.C, st *state.State) {
@@ -1458,7 +1455,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
+	err := ctx.st.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

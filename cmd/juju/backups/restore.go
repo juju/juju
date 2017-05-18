@@ -27,7 +27,9 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 )
 
@@ -220,7 +222,11 @@ func (c *restoreCommand) getRebootstrapParams(
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetadataResult) error {
-	params, err := c.getRebootstrapParamsFunc(ctx, c.ControllerName(), meta)
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	params, err := c.getRebootstrapParamsFunc(ctx, controllerName, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -310,7 +316,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		Cloud:          params.Cloud.Name,
 		CloudRegion:    params.Cloud.Region,
 	}
-	err = store.UpdateController(c.ControllerName(), details)
+	err = store.UpdateController(controllerName, details)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -342,16 +348,25 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
-	apiPort := params.ControllerConfig.APIPort()
-	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), bootVers, apiPort, env)
+	addrs, err := common.BootstrapEndpointAddresses(env)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := juju.UpdateControllerDetailsFromLogin(
+		store,
+		controllerName,
+		juju.UpdateControllerParams{
+			AgentVersion:           bootVers.String(),
+			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, params.ControllerConfig.APIPort())},
+			ControllerMachineCount: newInt(1),
+		}); err != nil {
 		return errors.Trace(err)
 	}
 
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, c.ControllerName(), "default")
+	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, controllerName, "default")
 }
 
 func (c *restoreCommand) newClient() (*backups.Client, error) {
@@ -420,4 +435,8 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", target)
 	return nil
+}
+
+func newInt(x int) *int {
+	return &x
 }

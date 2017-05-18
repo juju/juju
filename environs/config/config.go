@@ -360,7 +360,7 @@ var defaultConfigValues = map[string]interface{}{
 	AptHTTPProxyKey:  "",
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
-	AptNoProxyKey:    "127.0.0.1,localhost,::1",
+	AptNoProxyKey:    "",
 	"apt-mirror":     "",
 
 	// Status history settings
@@ -704,7 +704,7 @@ func (c *Config) AptFTPProxy() string {
 
 // AptNoProxy returns the 'apt-no-proxy' for the environment.
 func (c *Config) AptNoProxy() string {
-	return c.asString(AptNoProxyKey)
+	return c.getWithFallback(AptNoProxyKey, NoProxyKey)
 }
 
 // AptMirror sets the apt mirror for the environment.

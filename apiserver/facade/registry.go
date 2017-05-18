@@ -140,6 +140,44 @@ func (f *Registry) List() []Description {
 	return descriptions
 }
 
+// Details holds information about a facade.
+type Details struct {
+	// Name is the name of the facade.
+	Name string
+	// Version holds the version of the facade.
+	Version int
+	// Factory holds the factory function for making
+	// instances of the facade.
+	Factory Factory
+	// Type holds the type of object that the Factory
+	// will return. This can be used to find out
+	// details of the facade without actually creating
+	// a facade instance (see rpcreflect.ObjTypeOf).
+	Type reflect.Type
+}
+
+// ListDetails returns information about all the facades
+// registered in f, ordered lexically by name.
+func (f *Registry) ListDetails() []Details {
+	names := make([]string, 0, len(f.facades))
+	for name := range f.facades {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var details []Details
+	for _, name := range names {
+		for v, info := range f.facades[name] {
+			details = append(details, Details{
+				Name:    name,
+				Version: v,
+				Factory: info.factory,
+				Type:    info.facadeType,
+			})
+		}
+	}
+	return details
+}
+
 // Discard gets rid of a registration that has already been done. Calling
 // discard on an entry that is not present is not considered an error.
 func (f *Registry) Discard(name string, version int) {

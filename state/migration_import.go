@@ -446,6 +446,7 @@ func (i *importer) importMachineBlockDevices(machine *Machine, m description.Mac
 			Label:          device.Label(),
 			UUID:           device.UUID(),
 			HardwareId:     device.HardwareID(),
+			WWN:            device.WWN(),
 			BusAddress:     device.BusAddress(),
 			Size:           device.Size(),
 			FilesystemType: device.FilesystemType(),
@@ -1176,14 +1177,20 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
-		err := i.addSubnet(SubnetInfo{
+		info := SubnetInfo{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			AvailabilityZone:  subnet.AvailabilityZone(),
 			SpaceName:         subnet.SpaceName(),
-		})
+		}
+		// TODO(babbageclunk): at the moment state.Subnet only stores
+		// one AZ.
+		zones := subnet.AvailabilityZones()
+		if len(zones) > 0 {
+			info.AvailabilityZone = zones[0]
+		}
+		err := i.addSubnet(info)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1529,6 +1536,7 @@ func (i *importer) addVolume(volume description.Volume) error {
 	if volume.Provisioned() {
 		info = &VolumeInfo{
 			HardwareId: volume.HardwareID(),
+			WWN:        volume.WWN(),
 			Size:       volume.Size(),
 			Pool:       volume.Pool(),
 			VolumeId:   volume.VolumeID(),

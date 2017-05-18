@@ -9,11 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
-
-	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs/tags"
@@ -339,12 +338,16 @@ func (s *oracleVolumeSource) getStorageAttachments() (map[string][]ociResponse.S
 	}
 	asMap := map[string][]ociResponse.StorageAttachment{}
 	for _, val := range allAttachments.Result {
-		if _, ok := asMap[val.Instance_name]; !ok {
-			asMap[val.Instance_name] = []ociResponse.StorageAttachment{
+		hostname, err := extractInstanceIDFromMachineName(val.Instance_name)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := asMap[string(hostname)]; !ok {
+			asMap[string(hostname)] = []ociResponse.StorageAttachment{
 				val,
 			}
 		} else {
-			asMap[val.Instance_name] = append(asMap[val.Instance_name], val)
+			asMap[string(hostname)] = append(asMap[string(hostname)], val)
 		}
 	}
 	return asMap, nil
@@ -478,9 +481,10 @@ func (s *oracleVolumeSource) attachVolume(
 	if err != nil {
 		return storage.AttachVolumesResult{Error: errors.Trace(err)}, nil
 	}
+
 	p := oci.StorageAttachmentParams{
 		Index:               ociCommon.Index(idx),
-		Instance_name:       string(instance.Id()),
+		Instance_name:       instance.machine.Name,
 		Storage_volume_name: params.VolumeId,
 	}
 	details, err := s.api.CreateStorageAttachment(p)

@@ -129,7 +129,11 @@ type ModelSet struct {
 
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
-	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return err
 	}
@@ -163,12 +167,12 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		model.ControllerName = c.ControllerName()
+		model.ControllerName = controllerName
 		modelInfo = append(modelInfo, model)
 	}
 
 	modelSet := ModelSet{Models: modelInfo}
-	current, err := c.ClientStore().CurrentModel(c.ControllerName())
+	current, err := c.ClientStore().CurrentModel(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -268,7 +272,11 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("Controller: " + c.ControllerName())
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.Println("Controller: " + controllerName)
 	w.Println()
 	w.Print("Model")
 	if c.listUUID {

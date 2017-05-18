@@ -187,6 +187,19 @@ func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
 	)
 }
 
+func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *gc.C) {
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		conn := mockedAPIState(noFlags)
+		conn.publicDNSName = "somewhere.invalid"
+		return conn, nil
+	}
+
+	store := newClientStore(c, "controllername")
+	_, err := newAPIConnectionFromNames(c, "controllername", "", store, apiOpen)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(store.Controllers["controllername"].PublicDNSName, gc.Equals, "somewhere.invalid")
+}
+
 func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	store := newClientStore(c, "noconfig")
 	err := store.UpdateController("noconfig", jujuclient.ControllerDetails{
@@ -384,11 +397,11 @@ func (s *CacheAPIEndpointsSuite) assertControllerNotUpdated(c *gc.C, name string
 	s.assertControllerDetailsUpdated(c, name, gc.HasLen)
 }
 
-func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCaching(c *gc.C) {
+func (s *CacheAPIEndpointsSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
 	s.assertCreateController(c, "controller-name1")
 	params := juju.UpdateControllerParams{
 		AgentVersion:     "1.2.3",
-		AddrConnectedTo:  []network.HostPort{s.apiHostPort},
+		AddrConnectedTo:  &s.apiHostPort,
 		CurrentHostPorts: s.hostPorts,
 	}
 	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", params)
@@ -440,12 +453,10 @@ func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.
 	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		controllerDetails, [][]network.HostPort{hps},
-	)
-	c.Assert(addrs, gc.IsNil)
-	c.Assert(hosts, gc.IsNil)
-	c.Assert(changed, jc.IsFalse)
+	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{hps}, &controllerDetails, nil)
+
+	c.Assert(resolved, jc.DeepEquals, controllerDetails.APIEndpoints)
+	c.Assert(unresolved, jc.DeepEquals, controllerDetails.UnresolvedAPIEndpoints)
 	c.Assert(s.resolveNumCalls, gc.Equals, 0)
 	c.Assert(
 		c.GetTestLog(),
@@ -489,24 +500,20 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		controllerDetails, [][]network.HostPort{unsortedHPs},
-	)
-	c.Assert(addrs, jc.DeepEquals, strResolved)
-	c.Assert(hosts, jc.DeepEquals, strSorted)
-	c.Assert(changed, jc.IsTrue)
+	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{unsortedHPs}, &controllerDetails, nil)
+
+	c.Assert(resolved, jc.DeepEquals, strResolved)
+	c.Assert(unresolved, jc.DeepEquals, strSorted)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
-	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = fmt.Sprintf("INFO juju.juju new API addresses to cache %v", resolvedHPs)
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 
-func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c *gc.C) {
+func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesStillCached(c *gc.C) {
 	// Test that if new endpoints hostnames are different than the
 	// cached hostnames, but after resolving the addresses match the
-	// cached addresses, the cache is not changed.
+	// cached addresses, we still reorder the unresolved endpoints correctly.
 
 	// Because Hostnames are sorted before caching, reordering them
 	// will simulate they have changed.
@@ -523,6 +530,7 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 		"ipv6.example.com",
 		"10.0.0.1",
 	)
+	strSorted := network.HostPortsToStrings(sortedHPs)
 	resolvedHPs := network.NewHostPorts(1234,
 		"0.1.2.1", // from ipv4.example.com
 		"8.8.8.8",
@@ -539,17 +547,13 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		controllerDetails, [][]network.HostPort{unsortedHPs},
-	)
-	c.Assert(addrs, gc.IsNil)
-	c.Assert(hosts, gc.IsNil)
-	c.Assert(changed, jc.IsFalse)
+	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{unsortedHPs}, &controllerDetails, nil)
+
+	c.Assert(resolved, jc.DeepEquals, controllerDetails.APIEndpoints)
+	c.Assert(unresolved, jc.DeepEquals, strSorted)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
-	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = "DEBUG juju.juju API addresses unchanged"
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 
@@ -587,17 +591,13 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) 
 	err := s.ControllerStore.AddController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		controllerDetails, [][]network.HostPort{unsortedHPs},
-	)
-	c.Assert(addrs, jc.DeepEquals, strResolved)
-	c.Assert(hosts, jc.DeepEquals, strSorted)
-	c.Assert(changed, jc.IsTrue)
+	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{unsortedHPs}, &controllerDetails, nil)
+
+	c.Assert(resolved, jc.DeepEquals, strResolved)
+	c.Assert(unresolved, jc.DeepEquals, strSorted)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
 	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
-	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = fmt.Sprintf("INFO juju.juju new API addresses to cache %v", resolvedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 

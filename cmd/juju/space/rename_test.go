@@ -4,7 +4,6 @@
 package space_test
 
 import (
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,8 +21,7 @@ var _ = gc.Suite(&RenameSuite{})
 func (s *RenameSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command, _ = space.NewRenameCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = space.NewRenameCommand
 }
 
 func (s *RenameSuite) TestInit(c *gc.C) {
@@ -75,19 +73,16 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 		expectNewName: "another-space",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := space.NewRenameCommandForTest(s.api) // surely can use s.command??
-		err := cmdtesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*space.RenameCommand)
+			c.Check(command.Name, gc.Equals, test.expectName)
+			c.Check(command.NewName, gc.Equals, test.expectNewName)
 		}
-		c.Check(command.Name, gc.Equals, test.expectName)
-		c.Check(command.NewName, gc.Equals, test.expectNewName)
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
 	}

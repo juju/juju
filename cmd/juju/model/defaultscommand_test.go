@@ -42,184 +42,179 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		args        []string
 		errorMatch  string
 		nilErr      bool
-	}{
-		{
-			// Test set
-			description: "test set key specified more than once",
-			args:        []string{"special=extra", "special=other"},
-			errorMatch:  `key "special" specified more than once`,
-		}, {
-			description: "test cannot set agent-version",
-			args:        []string{"agent-version=2.0.0"},
-			errorMatch:  `"agent-version" must be set via "upgrade-juju"`,
-		}, {
-			description: "test set multiple keys",
-			args:        []string{"foo=bar", "baz=eggs"},
-			nilErr:      true,
-		}, {
-			// Test reset
-			description: "test empty args with reset fails",
-			args:        []string{"--reset"},
-			errorMatch:  "flag needs an argument: --reset",
-		}, {
-			description: "test reset with positional arg interpereted as invalid region",
-			args:        []string{"--reset", "something", "weird"},
-			errorMatch:  `invalid region specified: "weird"`,
-		},
-		{
-			description: "test reset with valid region and duplicate key set",
-			args:        []string{"--reset", "something", "dummy-region", "something=weird"},
-			errorMatch:  `key "something" cannot be both set and unset in the same command`,
-		},
-		{
-			description: "test reset with valid region and extra positional arg",
-			args:        []string{"--reset", "something", "dummy-region", "weird"},
-			errorMatch:  "cannot retrieve defaults for a region and reset attributes at the same time",
-		}, {
-			description: "test reset with valid region only",
-			args:        []string{"--reset", "foo", "dummy-region"},
-			nilErr:      true,
-		}, {
-			description: "test cannot reset agent version",
-			args:        []string{"--reset", "agent-version"},
-			errorMatch:  `"agent-version" cannot be reset`,
-		}, {
-			description: "test reset inits",
-			args:        []string{"--reset", "foo"},
-			nilErr:      true,
-		}, {
-			description: "test trailing reset fails",
-			args:        []string{"foo=bar", "--reset"},
-			errorMatch:  "flag needs an argument: --reset",
-		}, {
-			description: "test reset and get init",
-			args:        []string{"--reset", "agent-version,b", "foo=bar"},
-			errorMatch:  `"agent-version" cannot be reset`,
-		}, {
-			description: "test reset with key=val fails",
-			args:        []string{"--reset", "foo=bar"},
-			errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
-		}, {
-			description: "test reset multiple with key=val fails",
-			args:        []string{"--reset", "a,foo=bar,b"},
-			errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
-		}, {
-			description: "test reset with two positional args fails expecting a region",
-			args:        []string{"--reset", "a", "b", "c"},
-			errorMatch:  `invalid region specified: "b"`,
-		}, {
-			description: "test reset with two positional args fails expecting a region reordered",
-			args:        []string{"a", "--reset", "b", "c"},
-			errorMatch:  `invalid region specified: "a"`,
-		}, {
-			description: "test multiple reset inits",
-			args:        []string{"--reset", "a", "--reset", "b"},
-			nilErr:      true,
-		}, {
-			description: "test multiple reset and set inits",
-			args:        []string{"--reset", "a", "b=c", "--reset", "d"},
-			nilErr:      true,
-		}, {
-			description: "test multiple reset with valid region inits",
-			args:        []string{"dummy-region", "--reset", "a", "--reset", "b"},
-			nilErr:      true,
-		}, {
-			description: "test multiple reset with two positional args fails expecting a region reordered",
-			args:        []string{"a", "--reset", "b", "--reset", "c", "d"},
-			errorMatch:  `invalid region specified: "a"`,
-		}, {
-			description: "test reset multiple with key=val fails",
-			args:        []string{"--reset", "a", "--reset", "b,foo=bar,c"},
-			errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
-		}, {
-			// test get
-			description: "test no args inits",
-			args:        nil,
-			nilErr:      true,
-		}, {
-			description: "one key arg inits",
-			args:        []string{"one"},
-			nilErr:      true,
-		}, {
-			description: "test two key args fails",
-			args:        []string{"one", "two"},
-			errorMatch:  "can only retrieve defaults for one key or all",
-		}, {
-			description: "test multiple key args fails",
-			args:        []string{"one", "two", "three"},
-			errorMatch:  "can only retrieve defaults for one key or all",
-		}, {
-			description: "test valid region and one arg",
-			args:        []string{"dummy-region", "one"},
-			nilErr:      true,
-		}, {
-			description: "test valid region and no args",
-			args:        []string{"dummy-region"},
-			nilErr:      true,
-		}, {
-			// test cloud/region
-			description: "test invalid cloud fails",
-			args:        []string{"invalidCloud/invalidRegion", "one=two"},
-			errorMatch:  "Unknown cloud",
-		}, {
-			description: "test valid cloud with invalid region fails",
-			args:        []string{"dummy/invalidRegion", "one=two"},
-			errorMatch:  `invalid region specified: "dummy/invalidRegion"`,
-		}, {
-			description: "test no cloud with invalid region fails",
-			args:        []string{"invalidRegion", "one=two"},
-			errorMatch:  `invalid region specified: "invalidRegion"`,
-		}, {
-			description: "test valid region with set arg succeeds",
-			args:        []string{"dummy-region", "one=two"},
-			nilErr:      true,
-		}, {
-			description: "test valid region with set and reset succeeds",
-			args:        []string{"dummy-region", "one=two", "--reset", "three"},
-			nilErr:      true,
-		}, {
-			description: "test reset and set with extra key is interpereted as invalid region",
-			args:        []string{"--reset", "something,else", "invalidRegion", "is=weird"},
-			errorMatch:  `invalid region specified: "invalidRegion"`,
-		}, {
-			description: "test reset and set with valid region and extra key fails",
-			args:        []string{"--reset", "something,else", "dummy-region", "invalidkey", "is=weird"},
-			errorMatch:  "cannot set and retrieve default values simultaneously",
-		}, {
-			// test various invalid
-			description: "test too many positional args with reset",
-			args:        []string{"--reset", "a", "b", "c", "d"},
-			errorMatch:  "invalid input",
-		}, {
-			description: "test too many positional args with invalid region set",
-			args:        []string{"a", "a=b", "b", "c=d"},
-			errorMatch:  `invalid region specified: "a"`,
-		}, {
-			description: "test invalid positional args with set",
-			args:        []string{"a=b", "b", "c=d"},
-			errorMatch:  `expected "key=value", got "b"`,
-		}, {
-			description: "test invalid positional args with set and trailing key",
-			args:        []string{"a=b", "c=d", "e"},
-			errorMatch:  "cannot set and retrieve default values simultaneously",
-		}, {
-			description: "test invalid positional args with valid region, set, reset",
-			args:        []string{"dummy-region", "a=b", "--reset", "c,d,", "e=f", "g"},
-			errorMatch:  "cannot set and retrieve default values simultaneously",
-		}, {
-			// Test some random orderings
-			description: "test invalid positional args with set, reset with trailing comman and split key=values",
-			args:        []string{"dummy-region", "a=b", "--reset", "c,d,", "e=f"},
-			nilErr:      true,
-		}, {
-			description: "test leading comma with reset",
-			args:        []string{"--reset", ",a,b"},
-			nilErr:      true,
-		},
-	} {
+	}{{
+		// Test set
+		description: "test set key specified more than once",
+		args:        []string{"special=extra", "special=other"},
+		errorMatch:  `key "special" specified more than once`,
+	}, {
+		description: "test cannot set agent-version",
+		args:        []string{"agent-version=2.0.0"},
+		errorMatch:  `"agent-version" must be set via "upgrade-juju"`,
+	}, {
+		description: "test set multiple keys",
+		args:        []string{"foo=bar", "baz=eggs"},
+		nilErr:      true,
+	}, {
+		// Test reset
+		description: "test empty args with reset fails",
+		args:        []string{"--reset"},
+		errorMatch:  "flag needs an argument: --reset",
+	}, {
+		description: "test reset with positional arg interpereted as invalid region",
+		args:        []string{"--reset", "something", "weird"},
+		errorMatch:  `invalid region specified: "weird"`,
+	}, {
+		description: "test reset with valid region and duplicate key set",
+		args:        []string{"--reset", "something", "dummy-region", "something=weird"},
+		errorMatch:  `key "something" cannot be both set and unset in the same command`,
+	}, {
+		description: "test reset with valid region and extra positional arg",
+		args:        []string{"--reset", "something", "dummy-region", "weird"},
+		errorMatch:  "cannot retrieve defaults for a region and reset attributes at the same time",
+	}, {
+		description: "test reset with valid region only",
+		args:        []string{"--reset", "foo", "dummy-region"},
+		nilErr:      true,
+	}, {
+		description: "test cannot reset agent version",
+		args:        []string{"--reset", "agent-version"},
+		errorMatch:  `"agent-version" cannot be reset`,
+	}, {
+		description: "test reset inits",
+		args:        []string{"--reset", "foo"},
+		nilErr:      true,
+	}, {
+		description: "test trailing reset fails",
+		args:        []string{"foo=bar", "--reset"},
+		errorMatch:  "flag needs an argument: --reset",
+	}, {
+		description: "test reset and get init",
+		args:        []string{"--reset", "agent-version,b", "foo=bar"},
+		errorMatch:  `"agent-version" cannot be reset`,
+	}, {
+		description: "test reset with key=val fails",
+		args:        []string{"--reset", "foo=bar"},
+		errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
+	}, {
+		description: "test reset multiple with key=val fails",
+		args:        []string{"--reset", "a,foo=bar,b"},
+		errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
+	}, {
+		description: "test reset with two positional args fails expecting a region",
+		args:        []string{"--reset", "a", "b", "c"},
+		errorMatch:  `invalid region specified: "b"`,
+	}, {
+		description: "test reset with two positional args fails expecting a region reordered",
+		args:        []string{"a", "--reset", "b", "c"},
+		errorMatch:  `invalid region specified: "a"`,
+	}, {
+		description: "test multiple reset inits",
+		args:        []string{"--reset", "a", "--reset", "b"},
+		nilErr:      true,
+	}, {
+		description: "test multiple reset and set inits",
+		args:        []string{"--reset", "a", "b=c", "--reset", "d"},
+		nilErr:      true,
+	}, {
+		description: "test multiple reset with valid region inits",
+		args:        []string{"dummy-region", "--reset", "a", "--reset", "b"},
+		nilErr:      true,
+	}, {
+		description: "test multiple reset with two positional args fails expecting a region reordered",
+		args:        []string{"a", "--reset", "b", "--reset", "c", "d"},
+		errorMatch:  `invalid region specified: "a"`,
+	}, {
+		description: "test reset multiple with key=val fails",
+		args:        []string{"--reset", "a", "--reset", "b,foo=bar,c"},
+		errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
+	}, {
+		// test get
+		description: "test no args inits",
+		args:        nil,
+		nilErr:      true,
+	}, {
+		description: "one key arg inits",
+		args:        []string{"attr"},
+		nilErr:      true,
+	}, {
+		description: "test two key args fails",
+		args:        []string{"one", "two"},
+		errorMatch:  "can only retrieve defaults for one key or all",
+	}, {
+		description: "test multiple key args fails",
+		args:        []string{"one", "two", "three"},
+		errorMatch:  "can only retrieve defaults for one key or all",
+	}, {
+		description: "test valid region and one arg",
+		args:        []string{"dummy-region", "attr2"},
+		nilErr:      true,
+	}, {
+		description: "test valid region and no args",
+		args:        []string{"dummy-region"},
+		nilErr:      true,
+	}, {
+		// test cloud/region
+		description: "test invalid cloud fails",
+		args:        []string{"invalidCloud/invalidRegion", "one=two"},
+		errorMatch:  "Unknown cloud",
+	}, {
+		description: "test valid cloud with invalid region fails",
+		args:        []string{"dummy/invalidRegion", "one=two"},
+		errorMatch:  `invalid region specified: "dummy/invalidRegion"`,
+	}, {
+		description: "test no cloud with invalid region fails",
+		args:        []string{"invalidRegion", "one=two"},
+		errorMatch:  `invalid region specified: "invalidRegion"`,
+	}, {
+		description: "test valid region with set arg succeeds",
+		args:        []string{"dummy-region", "one=two"},
+		nilErr:      true,
+	}, {
+		description: "test valid region with set and reset succeeds",
+		args:        []string{"dummy-region", "one=two", "--reset", "three"},
+		nilErr:      true,
+	}, {
+		description: "test reset and set with extra key is interpereted as invalid region",
+		args:        []string{"--reset", "something,else", "invalidRegion", "is=weird"},
+		errorMatch:  `invalid region specified: "invalidRegion"`,
+	}, {
+		description: "test reset and set with valid region and extra key fails",
+		args:        []string{"--reset", "something,else", "dummy-region", "invalidkey", "is=weird"},
+		errorMatch:  "cannot set and retrieve default values simultaneously",
+	}, {
+		// test various invalid
+		description: "test too many positional args with reset",
+		args:        []string{"--reset", "a", "b", "c", "d"},
+		errorMatch:  "invalid input",
+	}, {
+		description: "test too many positional args with invalid region set",
+		args:        []string{"a", "a=b", "b", "c=d"},
+		errorMatch:  `invalid region specified: "a"`,
+	}, {
+		description: "test invalid positional args with set",
+		args:        []string{"a=b", "b", "c=d"},
+		errorMatch:  `expected "key=value", got "b"`,
+	}, {
+		description: "test invalid positional args with set and trailing key",
+		args:        []string{"a=b", "c=d", "e"},
+		errorMatch:  "cannot set and retrieve default values simultaneously",
+	}, {
+		description: "test invalid positional args with valid region, set, reset",
+		args:        []string{"dummy-region", "a=b", "--reset", "c,d,", "e=f", "g"},
+		errorMatch:  "cannot set and retrieve default values simultaneously",
+	}, {
+		// Test some random orderings
+		description: "test invalid positional args with set, reset with trailing comman and split key=values",
+		args:        []string{"dummy-region", "a=b", "--reset", "c,d,", "e=f"},
+		nilErr:      true,
+	}, {
+		description: "test leading comma with reset",
+		args:        []string{"--reset", ",a,b"},
+		nilErr:      true,
+	}} {
 		c.Logf("test %d: %s", i, test.description)
-		cmd := model.NewDefaultsCommandForTest(s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store)
-		err := cmdtesting.InitCommand(cmd, test.args)
+		_, err := s.run(c, test.args...)
 		if test.nilErr {
 			c.Check(err, jc.ErrorIsNil)
 			continue

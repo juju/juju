@@ -139,6 +139,12 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 	for sourceName, volumeAttachmentParams := range paramsBySource {
 		logger.Debugf("attaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
+		if volumeSource == nil {
+			// The storage provider does not support dynamic
+			// storage, there's nothing for the provisioner
+			// to do here.
+			continue
+		}
 		results, err := volumeSource.AttachVolumes(volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
@@ -277,6 +283,12 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 	for sourceName, volumeAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
+		if volumeSource == nil {
+			// The storage provider does not support dynamic
+			// storage, there's nothing for the provisioner
+			// to do here.
+			continue
+		}
 		errs, err := volumeSource.DetachVolumes(volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
@@ -399,7 +411,9 @@ func volumeAttachmentParamsBySource(
 		volumeSource, err := volumeSource(
 			baseStorageDir, sourceName, params.Provider, registry,
 		)
-		if err != nil {
+		if errors.Cause(err) == errNonDynamic {
+			volumeSource = nil
+		} else if err != nil {
 			return nil, nil, errors.Annotate(err, "getting volume source")
 		}
 		volumeSources[sourceName] = volumeSource

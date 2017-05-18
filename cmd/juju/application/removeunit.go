@@ -14,7 +14,7 @@ import (
 )
 
 // NewRemoveUnitCommand returns a command which removes an application's units.
-func NewRemoveUnitCommand() cmd.Command {
+func NewRemoveUnitCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&removeUnitCommand{})
 }
 

@@ -5,6 +5,7 @@ package jujuclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloud"
@@ -18,6 +19,7 @@ type MemStore struct {
 	Accounts              map[string]AccountDetails
 	Credentials           map[string]cloud.CloudCredential
 	BootstrapConfig       map[string]BootstrapConfig
+	CookieJars            map[string]*cookiejar.Jar
 }
 
 func NewMemStore() *MemStore {
@@ -27,6 +29,7 @@ func NewMemStore() *MemStore {
 		Accounts:        make(map[string]AccountDetails),
 		Credentials:     make(map[string]cloud.CloudCredential),
 		BootstrapConfig: make(map[string]BootstrapConfig),
+		CookieJars:      make(map[string]*cookiejar.Jar),
 	}
 }
 
@@ -142,6 +145,7 @@ func (c *MemStore) RemoveController(name string) error {
 		delete(c.Accounts, name)
 		delete(c.BootstrapConfig, name)
 		delete(c.Controllers, name)
+		delete(c.CookieJars, name)
 	}
 	return nil
 }
@@ -342,5 +346,21 @@ func (c *MemStore) BootstrapConfigForController(controllerName string) (*Bootstr
 		return &cfg, nil
 	}
 	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+}
 
+func (c *MemStore) CookieJar(controllerName string) (CookieJar, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if jar, ok := c.CookieJars[controllerName]; ok {
+		return jar, nil
+	}
+	jar, err := cookiejar.New(&cookiejar.Options{
+		NoPersist: true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.CookieJars[controllerName] = jar
+	return jar, nil
 }

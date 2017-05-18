@@ -10,7 +10,7 @@ import (
 
 // ApplicationOffersCommandBase is a base for various cross model commands.
 type ApplicationOffersCommandBase struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 }
 
 // NewApplicationOffersAPI returns an application offers api for the root api endpoint

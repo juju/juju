@@ -4,13 +4,14 @@
 package storage
 
 import (
-	"path/filepath"
+	"path"
 
 	"github.com/juju/errors"
 )
 
 const (
 	diskByID         = "/dev/disk/by-id"
+	diskByWWN        = "/dev/disk/by-id/wwn-"
 	diskByDeviceName = "/dev"
 )
 
@@ -19,15 +20,18 @@ const (
 // the first value in device.DeviceLinks, if non-empty; otherwise the device
 // name.
 func BlockDevicePath(device BlockDevice) (string, error) {
+	if device.WWN != "" {
+		return diskByWWN + device.WWN, nil
+	}
 	if device.HardwareId != "" {
-		return filepath.Join(diskByID, device.HardwareId), nil
+		return path.Join(diskByID, device.HardwareId), nil
 	}
 	if len(device.DeviceLinks) > 0 {
 		// return the first device link in the list
 		return device.DeviceLinks[0], nil
 	}
 	if device.DeviceName != "" {
-		return filepath.Join(diskByDeviceName, device.DeviceName), nil
+		return path.Join(diskByDeviceName, device.DeviceName), nil
 	}
 	return "", errors.Errorf("could not determine path for block device")
 }

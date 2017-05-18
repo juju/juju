@@ -45,7 +45,7 @@ Examples:
 
 // ListPlansCommand retrieves plans that are available for the specified charm
 type ListPlansCommand struct {
-	modelcmd.CommandBase
+	modelcmd.ControllerCommandBase
 
 	out      cmd.Output
 	CharmURL string
@@ -54,8 +54,8 @@ type ListPlansCommand struct {
 }
 
 // NewListPlansCommand creates a new ListPlansCommand.
-func NewListPlansCommand() cmd.Command {
-	return modelcmd.WrapBase(&ListPlansCommand{
+func NewListPlansCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&ListPlansCommand{
 		CharmResolver: rcmd.NewCharmStoreResolver(),
 	})
 }

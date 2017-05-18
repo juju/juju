@@ -46,6 +46,8 @@ func syslogUserGroup() (string, string) {
 	switch os.HostOS() {
 	case os.CentOS:
 		return "root", "adm"
+	case os.OpenSUSE:
+		return "root", "root"
 	default:
 		return "syslog", "syslog"
 	}

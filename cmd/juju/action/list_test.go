@@ -66,6 +66,11 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		args:                 []string{"--format=yaml", "--schema", validServiceId},
 		expectedOutputSchema: true,
 		expectedSvc:          names.NewApplicationTag(validServiceId),
+	}, {
+		should:               "default to yaml output when --schema flag is specified",
+		args:                 []string{"--schema", validServiceId},
+		expectedOutputSchema: true,
+		expectedSvc:          names.NewApplicationTag(validServiceId),
 	}}
 
 	for i, t := range tests {
@@ -93,7 +98,6 @@ kill            Kill the database.
 no-description  No description
 no-params       An action with no parameters.
 snapshot        Take a snapshot of the database.
-
 `[1:]
 
 	tests := []struct {
@@ -124,6 +128,15 @@ snapshot        Take a snapshot of the database.
 		withArgs:        []string{validServiceId},
 		expectNoResults: true,
 		expectMessage:   fmt.Sprintf("No actions defined for %s.\n", validServiceId),
+	}, {
+		should:           "get tabular default output when --schema is NOT specified",
+		withArgs:         []string{"--format=default", validServiceId},
+		withCharmActions: someCharmActions,
+	}, {
+		should:           "get full schema default output (YAML) when --schema is specified",
+		withArgs:         []string{"--format=default", "--schema", validServiceId},
+		expectFullSchema: true,
+		withCharmActions: someCharmActions,
 	}}
 
 	for i, t := range tests {

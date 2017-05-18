@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>
+      Joyent Support 
+  </title>
+
+  <link href="https://joyentcloud.zendesk.com/system/logos/2021/5502/favicon.ico" rel="shortcut icon" type="image/x-icon" />
+  
+
+  <meta property="og:locale" content="en_US" />
+<meta property="og:title" content="" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://help.joyent.com/home" />
+<meta property="og:image" content="https://help.joyent.com/system/logos/2022/5496/logo.png" />
+<meta property="og:site_name" content="Joyent Support" />
+<meta property="og:description" content="" />
+
+
+  <meta content="authenticity_token" name="csrf-param" />
+<meta content="wtDCdYXA2GhxHsgPLFVmX5vZCAcnlB9uGba+BUBsNFk=" name="csrf-token" />
+
+  <!--[if lt IE 9]>
+  <script src="https://p2.zdassets.com/assets/vendor/html5_shiv-5a1a7623bcbeef0bfccb2117866abc8a.js"></script>
+<script src="https://p2.zdassets.com/assets/vendor/excanvas-7aeb59a355327db929fc3ec625ff6ec2.js"></script>
+  <![endif]-->
+
+  <link href="https://p2.zdassets.com/assets/application/global-5fd4cfa2b92b5a78cb669c0eeff6ddc1.css" media="all" rel="stylesheet" />
+<link href="https://p2.zdassets.com/assets/application/end_user-cf61851ac4af33f92b06c1ed2dfcd232.css" media="all" rel="stylesheet" />
+<link href="https://p2.zdassets.com/assets/application/agent-ce66efb75759c77bc07242143cb372e7.css" media="all" rel="stylesheet" />
+<link href="https://p2.zdassets.com/assets/application/admin-4b5634d34b2aad51ad6e026e62567958.css" media="all" rel="stylesheet" />
+  <link href="https://p2.zdassets.com/assets/print-b9c9930d3290ee9cb0a09bd4426bd8b5.css" media="print" rel="stylesheet" />
+
+  <!--[if lte IE 8]><link href="https://p2.zdassets.com/assets/ie-54c1a435ea3cca3ef0b693ddde214179.css" media="screen" rel="stylesheet" /><![endif]-->
+  <!--[if lte IE 6]><link href="https://p2.zdassets.com/assets/ie6-cc3f44c6791dea4e27512e127640b8b4.css" media="screen" rel="stylesheet" /><![endif]-->
+
+    <link id='generated_styles' rel='stylesheet' type='text/css' href='/generated/stylesheets/branding/1503/150338/1420488061.css' media='screen' />
+
+    <script src="https://p2.zdassets.com/assets/vendor/jquery-1.6.1-24e9320e19b7eb8c3644af7ceadf2b83.js"></script>
+
+
+  <script id='generated_javascript' type='text/javascript' src='/generated/javascripts/locale/0/1/1419034390-1-0.js'></script>
+  <script src="https://p2.zdassets.com/assets/bootstrap-23f24345d8c2ab23f588ea7d979cc9a3.js"></script>
+  <script type="text/javascript">
+//<![CDATA[
+Zendesk.assetHost = 'https://p2.zdassets.com';
+Zendesk.ToTangoID = 'SP-1111-01';
+Zendesk.viewedOnMobileDevice = false;
+
+  currentUser = Zendesk.currentUser = new User({"id":null,"externalId":null,"name":"Anonymous user","first_name":"Anonymous","role":0,"isOwner":false,"accessibleForums":true,"hasEmail":true,"email":"invalid@example.com","restriction":0,"uses12HourClock":false,"passwordExpiresAt":null,"voiceClientName":"agent_","voicePresenceName":"agent__presence","version":"users/new","localeVersion":"1.","tags":[],"managePinnedOrder":false,"locale_id":1,"localeIsDifferent":false,"assumed":false,"sharedOrganizations":[]});
+  currentUser.account = currentAccount = Zendesk.currentAccount = new Account({"id":150338,"name":"Joyent Support","showUserProfile":true,"showChangePassword":true,"hasRemoteAuthentication":false,"subdomain":"joyentcloud","domain":"zendesk.com","isZendesk":false,"isSandbox":false,"isOpen":true,"isInTrial":false,"isPayingCustomer":true,"forumsTitle":"JoyentCloud Community","urlPrefix":"https://help.joyent.com","secureUrlPrefix":"https://help.joyent.com","lastTrialDay":null,"daysLeftInTrial":null,"planType":4,"planName":"Enterprise","showExtendedTicketMetrics":true,"rulesCanReferenceMacros":false,"hasInvalidationTriggers":false,"features":["collaboration","businessHours","customerSatisfaction","ticketSharingTriggers","voiceNumbersSouthamerica","voiceNumbersMideastafrica","voiceNumbersEurope","chatApplyMacro","cms","lotus","lotusForAgents","placeholderSuggestions","useStatusHold","mobile","secureSessions","untilDueDate","userModel","multipleOrganizations","radarSSLPubsub","chatLittleMermaid","chatDisableWarning"],"twitter_accounts":[{"id":20009703,"screen_name":"@JoyentSupport","authorized":true,"mention_autoconversion_enabled_at":null}],"facebookPages":[],"isLotusVisibleToAgents":true,"doAgentsPreferLotus":false,"clientSideLogging":false});
+  currentUser.organization = null;
+  currentUser.canViewOrganization = currentUser.organization != null && (!currentUser.isEndUser || currentUser.restriction === User.restrictions.organization || currentUser.organization.isShared);
+
+
+//]]>
+</script>
+
+  <script src="https://p2.zdassets.com/assets/node_pubsub_2-6ee5c100a9dc16c2afc83f19e43ec574.js"></script>
+  <script type="text/javascript">
+//<![CDATA[
+
+  ;(function(){
+    Minilog.zendeskConfiguration({
+      jQuery: jQuery,
+      debug: Zendesk.currentAccount.features.include('clientSideLogging'),
+      subdomain: Zendesk.currentAccount.subdomain,
+      userId: Zendesk.currentUser.id,
+      userType: Zendesk.currentUser.role
+    });
+    var apiHost = "";
+    RadarClient.setAPIHost(apiHost);
+  }());
+
+//]]>
+</script>
+  <script type="text/javascript">
+    if(Zendesk.currentAccount && Zendesk.currentAccount.features.include('secureSessions')) {
+      jQuery.cookie.defaults.secure = true;
+    }
+
+    if(Zendesk.currentUser) {
+      Zendesk.currentUser.authenticityToken = $j("meta[name='csrf-token']").attr('content');
+    }
+  </script>
+
+    <script type="text/javascript">
+      // disable Sammy logging in production
+      Sammy.log = function(){};
+    </script>
+
+  <script type="text/javascript">
+//<![CDATA[
+
+    
+    $j(document).ready(function () {
+      
+    });
+
+//]]>
+</script>
+  
+
+
+  <link rel="canonical" href="https://help.joyent.com/home" />
+  
+</head>
+
+
+<body class="home home-index">
+  <ul id='banners'>
+  <script type='text/html' id='banner-item-template' data-template-name='banner-item'>
+    <li>
+      <span class='icon'>&nbsp; &nbsp; &nbsp; </span>
+      <span class='content'>{{ text }}</span>
+      <span class='ignore'>(<a href="#">ignore this</a>)</span>
+      <span class='reload'>(<a href="">reload</a>)</span>
+    </li>
+  </script>
+</ul>
+
+  <div id="page">
+    <div id="top">
+      <div id="header">
+        <div id="top-right"></div>
+        <div id="header_container">
+    
+    <table id="table_header"><tr>
+      <td><a href="http://www.joyent.com" target="_blank" title=""><img alt="" id="logo" src="https://help.joyent.com/system/logos/2022/5496/logo.png" /></a>&nbsp;</td>
+      <td><img alt="" id="logo-delimiter" src="/images/logo-delimiter.png" />&nbsp;</td>
+      <td><a href="/home">Joyent Support</a></td>
+    </tr></table>
+</div>
+
+      </div>
+
+      <div id="top-menu-background">
+        <div id="top-menu">
+          <ul id="green" style="width: 100%;">
+            <li class="main clazz tab_home"><a href="/home" class="tab">Home</a></li>
+              <li class="main clazz tab_new"><a href="/anonymous_requests/new" class="tab">Submit a request</a></li>
+            <li class="main clazz tab_requests"><a href="/requests" class="tab">Check your existing requests</a></li>
+            
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="container" class="clearfix">
+
+  <div id="flash">
+</div>
+
+
+
+  <div id="flash_messages">
+        <div id="flash">
+      <div id="notice">Request #173200 "Machine stuck in provisioni..." created</div>
+    </div>
+    <script type="text/javascript">
+      document.observe('dom:loaded', function(e) {
+        new Effect.Highlight('flash', { duration: 2 });
+      });
+    </script>
+
+<script type="text/javascript">
+</script>
+
+  </div>
+
+    <div id="contentwrapper">
+      <div id="contentcolumn">
+        
+
+  <div id="introductory_text">
+  <div class="content content_green"><div class="green_box_top"><div class="box box_top"></div></div>
+    <div class="introductory_text_form" >
+    </div>
+
+    <div class="introductory_display_texts">
+      <h2>Welcome to Joyent Cloud Customer Support</h2>
+      <p>Stay updated with announcements, get answers from the community and share your feature suggestions with us.<br>You can also submit a request or send us an email at <a href="mailto:support@joyent.com">support@joyent.com</a>.</p>
+    </div>
+<div class="green_box_bottom"><div class="box box_bottom"></div></div></div><div class="box_bottom_clear">&nbsp;</div></div>
+
+
+  <div class="content content_grey"><div class="grey_box_top"><div class="box box_top"></div></div>
+
+    <div class="content-top-right" id="pinned_topics_options">
+      <p>
+        
+      </p>
+    </div>
+    <h2 id="pinned_topics_title">Joyent Support</h2>
+
+    <div id="pinned-entries-frame" class="frame ">
+      <div id="pinned-entry-60550634" class="entry ">
+  <div class="fade_truncation_outer">
+    <div class="fade_truncation_inner"></div>
+    <h3 class="entry-title"><a href="/entries/60550634-Important-On-Prem-SDC7-Notice-RabbitMQ-Patch" title="Important On-Prem SDC7 Notice: RabbitMQ Patch">Important On-Prem SDC7 Notice: RabbitMQ Patch</a></h3>
+  </div>
+  <p class="sub">
+    Jason S. December 30, 2014    <span class="delim2">•</span>
+    <strong>Announcements / Announcements</strong>
+    
+  </p>
+    <div class="user_formatted clearfix"><p><p>This advisory only applies to customers with on-prem SmartDataCenter 7 installations.</p>
+<p>Joyent has identified a potential issue with the rabbitmq messaging zone; in extremely rare cases rabbit can lose it's state across restart, resulting in older messages being re-sent. This patch ensures that rabbit starts with a clean state database in the event it is restarted.</p>
+<p>This bug only affects rabbitmq images older than 15-Dec-2014; newer images contain this fix already.</p>
+<h2>To check if you are vulnerable:</h2>
+<ol>
+<li>
+<p>Log into your HN.</p>
+</li>
+<li>
+<p>Log into the rabbit zone: <code>sdc-login rabbit</code></p>
+</li>
+<li>
+<p>Check for <code>HEAD-2187</code> in the ouput from <code>grep HEAD-2187 /opt/local/sbin/rabbitmq-server</code></p>
+</li>
+<li>
+<p>If you return a line reading <code># Ensure we don't keep state across restarts, per HEAD-2187</code>, your installation has been patched. If not, you will need to follow the procedure below to patch rabbit:</p>
+</li>
+</ol>
+<h2>Patch procedure:</h2>
+<ol>
+<li>
+<p>Log into the HN.</p>
+</li>
+<li>
+<p>Download the patch file: <code>curl -k https://us-east.manta.joyent.com/joyentsup/public/SWSUP-69.patch -o /zones/$(sdc-vmname rabbit)/root/root/SWSUP-69.patch</code></p>
+</li>
+<li>
+<p>Log into the rabbit zone: <code>sdc-login rabbit</code></p>
+</li>
+<li>
+<p>Verify the patch file exists in root's home directory: <code>ls -l /root/SWSUP-69.patch</code></p>
+</li>
+<li>
+<p>Make a backup copy of the rabbit configuration: <code>cp /opt/local/sbin/rabbitmq-server /opt/local/sbin/rabbitmq-server.SWSUP-69</code></p>
+</li>
+<li>
+<p>Patch the rabbit configuration file: <code>patch /opt/local/sbin/rabbitmq-server &lt; /root/SWSUP-69.patch</code></p>
+<p><code> [root@251f8aee-09f7-4a49-b30d-9d7adae2bb8d (mxpa:rabbitmq0) ~]# patch /opt/local/sbin/rabbitmq-server &lt; /root/SWSUP-69.patch patching file /opt/local/sbin/rabbitmq-server </code></p>
+</li>
+<li>
+<p>Diff the files to ensure the change is included:</p>
+<p><code> [root@251f8aee-09f7-4a49-b30d-9d7adae2bb8d (mxpa:rabbitmq0) ~]# diff /opt/local/sbin/rabbitmq-server /opt/local/sbin/rabbitmq-server.SWSUP-69 26,28d25 &lt; # Ensure we don't keep state across restarts, per HEAD-2187 &lt; rm -rf /var/db/rabbitmq/* &lt; </code></p>
+</li>
+<li>
+<p>The patch is now applied.</p>
+</li>
+<li>
+<p><strong>Important</strong> You do not need to and should not restart rabbit (either the zone or the service) after applying this patch.</p>
+</li>
+</ol>
+<p>Please contact Joyent Support via your normal support channels if you have any questions, comments, or concerns regarding this. Thank you.</p>
+<p>Joyent</p></p></div>
+    
+</div>
+<div id="pinned-entry-59726640" class="entry ">
+  <div class="fade_truncation_outer">
+    <div class="fade_truncation_inner"></div>
+    <h3 class="entry-title"><a href="/entries/59726640-Kerberos-Checksum-Vulnerability-CVE-2014-6324-Advisory" title="Kerberos Checksum Vulnerability (CVE-2014-6324) Advisory">Kerberos Checksum Vulnerability (CVE-2014-6324) Advisory</a></h3>
+  </div>
+  <p class="sub">
+    Elizabeth November 21, 2014    <span class="delim2">•</span>
+    <strong>Announcements / Current System Status</strong>
+    
+  </p>
+    <div class="user_formatted clearfix"><p><p>This notice is to advise Joyent Public Cloud and Smart Data Center customers of the recently identified Kerberos Checksum Vulnerability (CVE-2014-6324) for anyone using&nbsp;Microsoft Windows Server 2003 SP2, Windows Vista SP2, Windows Server 2008 SP2 and R2 SP1, Windows 7 SP1, Windows 8, Windows 8.1, and Windows Server 2012 Gold and R2.</p>
+<p>If you are running a Windows VM, your environment may allow&nbsp;remote authenticated domain users to obtain domain administrator privileges via a forged signature in a ticket.&nbsp;For more information on this vulnerability as well as steps you can take to mitigate CVE-2014-6324, please see:&nbsp;</p>
+<p><a href="https://technet.microsoft.com/library/security/ms14-068" rel="nofollow">https://technet.microsoft.com/library/security/ms14-068</a></p>
+<p><a href="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-6324" rel="nofollow">https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-6324</a></p>
+<p>If you have any questions or concerns about &nbsp;CVE-2014-6324 please raise a ticket at&nbsp;<a href="https://help.joyent.com/">https://help.joyent.com</a>&nbsp;or by email to&nbsp;<a href="mailto:support@joyent.com">support@joyent.com</a>.</p></p></div>
+    
+</div>
+<div id="pinned-entry-57703560" class="entry ">
+  <div class="fade_truncation_outer">
+    <div class="fade_truncation_inner"></div>
+    <h3 class="entry-title"><a href="/entries/57703560-SSL-3-0-Vulnerability-CVE-2014-3566-POODLE-Advisory" title="SSL 3.0 Vulnerability CVE-2014-3566 (POODLE) Advisory">SSL 3.0 Vulnerability CVE-2014-3566 (POODLE) Advisory</a></h3>
+  </div>
+  <p class="sub">
+    Richard October 15, 2014    <span class="delim2">•</span>
+    <strong>Announcements / Current System Status</strong>
+    
+  </p>
+    <div class="user_formatted clearfix"><p><p><span>This notice is to advise Joyent Public Cloud and Smart Data Center customers of the recently identified SSL 3.0 security issue CVE-2014-3566 (POODLE).</span></p>
+<p><span>Your environment can be vulnerable to the unauthorized capture of data when using SSL 3.0. <a href="https://www.openssl.org/~bodo/ssl-poodle.pdf">This</a> article explains POODLE in detail.</span></p>
+<h3><span>Eliminating the Risk</span></h3>
+<p>We recommend customers disable SSL 3.0 in order to completely protect themselves against this vulnerability. Customers should ensure TLS 1.0 or greater is enabled if it is not already. Please review <a href="https://zmap.io/sslv3/servers.html">ZMap's server page</a> for details on how to disable SSLv3 for common servers. For disabling SSL 3.0 in Chrome, FireFox, and IE please refer to <a href="https://zmap.io/sslv3/browsers.html">ZMap's browsers page.</a></p>
+<h3>What Steps is Joyent Taking?</h3>
+<p><span>Joyent has analyzed this vulnerability and have decided that with effect from <strong>Friday, October 17, 2014 we will be disabling SSL 3.0</strong> on all our web sites and API's. These sites include the following:</span></p>
+<ul>
+<li>*.<a href="http://joyent.com" target="_blank">joyent.com</a> (such as www, my, and apidocs)</li>
+<li>*.<a href="http://api.joyentcloud.com" target="_blank">api.joyentcloud.com</a> (such as us-east-2)</li>
+</ul>
+<h3>How can you check if you are vulnerable?</h3>
+<p>You can test for this vulnerability using either <a href="https://www.poodletest.com/" target="_blank">this client test link</a> or <a href="https://www.ssllabs.com/ssltest/" target="_blank">Qualys Labs' server test link.</a></p>
+<p>&nbsp;</p>
+<p>If you have any questions or concerns about POODLE please raise a ticket at&nbsp;<a href="https://help.joyent.com">https://help.joyent.com</a> or by email to <a href="mailto:support@joyent.com">support@joyent.com</a>.</p></p></div>
+    
+</div>
+<div id="pinned-entry-57305804" class="entry ">
+  <div class="fade_truncation_outer">
+    <div class="fade_truncation_inner"></div>
+    <h3 class="entry-title"><a href="/entries/57305804-Joyent-Cloud-Firewall-Advisory-For-KVM-Users-with-Firewall-Enabled" title="Joyent Cloud Firewall Advisory: For KVM Users with Firewall Enabled">Joyent Cloud Firewall Advisory: For KVM Users with Firewall Enabled</a></h3>
+  </div>
+  <p class="sub">
+    Sean G. October 14, 2014    <span class="delim2">•</span>
+    <strong>Announcements / Current System Status</strong>
+    
+  </p>
+    <div class="user_formatted clearfix"><p><h1>Joyent Cloud Firewall Advisory</h1>
+<p>Joyent engineers have discovered an issue with <a href="https://my.joyent.com/main/#!/firewall">Cloud Firewall</a> and KVM.</p>
+<p>If you are <em>not</em> running KVM (Linux or Windows) instances or if you have not enabled Cloud Firewall, this vulnerability will not affect you at all.</p>
+<p>If you <em>are</em> running one or more KVM instances with Cloud Firewall enabled, please note that Cloud Firewall does not currently handle IPv6. Both Linux and Windows enable IPv6 by default, so if you are using Linux or Windows VMs and have blocked ports using Cloud Firewall, those ports may still be open to other Linux or Windows VMs in the same data center, over the IPv6 link-local address. These ports are not accessible across Joyent Cloud data centers, and they are not accessible over the Internet.</p>
+<h2>Determining Whether a Service is Affected</h2>
+<h3>Linux</h3>
+<p>Use the command <code>ip -6 addr show</code> to see if any interfaces are configured with IPv6 addresses. If there are no addresses listed, then the instance is not affected by this issue.</p>
+<p>Use the <code>netstat -l6</code> command to check for services that may be exposed:</p>
+<pre><code>root@3ed4c538-dadc-477b-9892-ddfa68433ca4:~# netstat -l6
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp6       0      0 [::]:ssh                [::]:*                  LISTEN
+udp6       0      0 [::]:9434               [::]:*
+udp6       0      0 2001:db8::2:ntp         [::]:*
+udp6       0      0 localhost:ntp           [::]:*
+udp6       0      0 fe80::92b8:d0ff:fe4:ntp [::]:*
+udp6       0      0 [::]:ntp                [::]:*
+udp6       0      0 [::]:33207              [::]:*
+</code></pre>
+<p>Any services that are listed on <code>[::]</code> or addresses beginning with <code>fe80::</code> are not adequately protected by Cloud Firewall alone. Services listening on <code>localhost</code> are not affected by this issue.</p>
+<h3>Windows</h3>
+<p>Use the command <code>ipconfig /all | findstr IPv6</code> to see if any interfaces are configured with IPv6 addresses.</p>
+<p>From command prompt or power shell, use the <code>netstat -nap IPv6</code> command. Any services that are listed on <code>[::]</code> or addresses beginning with <code>fe80::</code> (link-local), <code>2002</code> (6to4 tunnel) or <code>2001</code> (Global address or Toredo tunnel).</p>
+<h2>Mitigating Exposure of Services</h2>
+<h3>Linux</h3>
+<p>Linux can be protected by one or more of the following methods:</p>
+<ul>
+<li>Configure services to only listen on IPv4 addresses.</li>
+<li>Disable IPv6 completely.</li>
+<li>Use <code>ip6tables</code> to filter all IPv6 traffic.</li>
+<li>Use <code>ip6tables</code> to filter individual ports.</li>
+</ul>
+<h4>Configure services to only listen on IPv4 addresses</h4>
+<p>In general, applications can be configured to listen to specific IPv4 addresses, or to <code>0.0.0.0</code>. This will force the application to exclude IPv6. Consult the application documentation for specific details, or contact the application vendor and/or authors.</p>
+<h4>Disable IPv6 Completely</h4>
+<p>Add the following line to <code>/etc/sysctl.conf</code>:</p>
+<pre><code>net.ipv6.conf.all.disable_ipv6=1
+</code></pre>
+<p>And execute the following command:</p>
+<pre><code>sysctl -w net.ipv6.conf.all.disable_ipv6=1
+</code></pre>
+<p>Use the following command to verify that IPv6 has been disabled:</p>
+<pre><code>ip -6 addr show
+</code></pre>
+<p>If IPv6 has been properly disabled then no addresses will be listed.</p>
+<h4>Use <code>ip6tables</code> to Filter all IPv6 Traffic</h4>
+<p>Note that <code>ip6tables</code> rules do not persist reboots. You will need to execute the rules after every boot. The <code>iptables-persistent</code> package can help to ensure that packet filter rules are automatically loaded at boot time. Consult the <code>iptables-persistent</code> documentation for further information.</p>
+<p>Execute the following:</p>
+<pre><code>ip6tables -P INPUT DROP
+</code></pre>
+<h4>Use <code>ip6tables</code> to Filter Individual Ports</h4>
+<p>Note that <code>ip6tables</code> rules do not persist reboots. You will need to execute the rules after every boot. The <code>iptables-persistent</code> package can help to ensure that packet filter rules are automatically loaded at boot time. Consult the <code>iptables-persistent</code> documentation for further information.</p>
+<p>To filter TCP port 80, execute the following. Substitute port 80 for the port you wish to filter:</p>
+<pre><code>ip6tables -I INPUT -p tcp --dport 80 -j DROP
+</code></pre>
+<p>To filter UDP port 123, execute the following. Substitute port 123 for the port you wish to filter:</p>
+<pre><code>ip6tables -I INPUT -p udp --dport 123 -j DROP
+</code></pre>
+<h3>&nbsp;</h3>
+<h3>Windows</h3>
+<p>Note: Windows Firewall is enabled by default and does not allow traffic to IPv6 by default. Nevertheless, you may wish to verify Windows Firewall settings or disable IPv6.</p>
+<ul>
+<li>Refer to Microsoft's documentation to <a href="http://windows.microsoft.com/en-us/windows/turn-windows-firewall-on-off">turn Windows Firewall on or off</a>.</li>
+<li>Refer to Microsoft KB article <a href="http://support2.microsoft.com/kb/929852">929852</a> to disable IPv6.</li>
+</ul>
+<h2>Questions or Concerns</h2>
+<p>If any unanswered questions or concerns happen to arise while following the instructions above, please contact Joyent Support by emailing <a href="mailto:support@joyent.com">support@joyent.com</a> or by submitting a request via&nbsp;<a href="https://help.joyent.com/home" rel="nofollow">https://help.joyent.com/home</a>. If any additional necessary information comes to light, we will update this announcement accordingly.</p></p></div>
+    
+</div>
+<div id="pinned-entry-56469830" class="entry nobottom">
+  <div class="fade_truncation_outer">
+    <div class="fade_truncation_inner"></div>
+    <h3 class="entry-title"><a href="/entries/56469830-Bash-Vulnerability-CVE-2014-6271-CVE-2014-7169-Shellshock-remote-code-execution-through-bash" title="Bash Vulnerability CVE-2014-6271 &amp;amp; CVE-2014-7169 (Shellshock): remote code execution through bash">Bash Vulnerability CVE-2014-6271 &amp; CVE-2014-7169 (Shellshock): remote code execution through bash</a></h3>
+  </div>
+  <p class="sub">
+    Elizabeth September 24, 2014    <span class="delim2">•</span>
+    <strong>Announcements / Current System Status</strong>
+    
+  </p>
+    <div class="user_formatted clearfix"><p><p>This notice is to advise all Joyent Public Cloud (JPC) and SmartDataCenter (SDC) customers of the recently-identified <strong>bash</strong> security vulnerability&nbsp;<strong>CVE-2014-6271</strong>&nbsp;(<a href="http://seclists.org/oss-sec/2014/q3/649" rel="nofollow">http://seclists.org/oss-sec/2014/q3/649</a>) and the follow-on&nbsp;<strong>CVE-2014-7169</strong> (<a href="https://access.redhat.com/security/cve/CVE-2014-7169" rel="nofollow">https://access.redhat.com/security/cve/CVE-2014-7169</a>), collectively known as <strong>Shellshock.</strong></p>
+<p>Note that CVE-2014-7169 has arisen due to incomplete fixes created for the CVE-2014-6271 vulnerability. (These fixes are created by the upstream maintainers of <strong>bash</strong>, not by Joyent.)</p>
+<p>&nbsp;</p>
+<p><strong>[UPDATED&nbsp;Tues Oct 2 2:54am UTC 2014]</strong></p>
+<p><strong>AT THIS TIME, JOYENT has patched the platform bash addressing CVE-2014-6271 as well as CVE-2014-7169&nbsp;in the Joyent Public Cloud. Updates to pkgsrc bash are also now available in SmartOS pkgsrc repositories (please read details below under "Joyent Public Cloud").&nbsp;</strong></p>
+<p><strong>SmartDataCenter customers should have received a notification by ZenDesk ticket with further instructions.</strong></p>
+<p>&nbsp;</p>
+<p>The impact of these vulnerabilities is as follows:</p>
+<p><strong>Joyent Public Cloud</strong></p>
+<ol>
+<li>
+<p>Joyent has applied a patch to the underlying platform of all our servers to address this bug. Users of many SmartOS VMs will NOT need to take any action. If the command:&nbsp;<strong>which bash </strong>returns "<strong>/usr/bin/bash", </strong>no action is required on your part.<strong>&nbsp;</strong></p>
+</li>
+<li>Joyent has updated bash in pkgsrc. <strong>Please note some older pkgrsc repositories either do not contain bash or will not be patched due the their age, see the table below for details.</strong>&nbsp;The package that includes the fix to both&nbsp;CVE-2014-6271 &amp; CVE-2014-7169 is called "bash-4.3.025nb2".&nbsp;If the command:<strong style="background-color: initial;">&nbsp;which bash </strong>returns<strong style="background-color: initial;">&nbsp;"/opt/local/bin/bash"</strong> you will need to either update the pkgsrc provided bash by running: "<strong style="background-color: initial;">pkgin -f up &amp;&amp; pkgin in bash</strong>" or remove the pkgsrc version via "<strong style="background-color: initial;">pkgin rm bash</strong>". The latter command will remove the pkgsrc version and the machine will fall back to the patched platform provided version.</li>
+<li>Users of <strong style="background-color: initial;">Linux</strong> VMs on Joyent's Public Cloud&nbsp;<strong style="background-color: initial;">will need to apply the necessary updates,</strong>&nbsp;based on the distribution they are using. Please follow the appropriate link below:</li>
+</ol>
+<p style="padding-left: 30px;">Ubuntu:&nbsp;<a style="font-size: 1em; line-height: 1.45em;" href="http://askubuntu.com/questions/528101/what-is-the-cve-2014-6271-bash-vulnerability-and-how-do-i-fix-it">http://askubuntu.com/questions/528101/what-is-the-cve-2014-6271-bash-vulnerability-and-how-do-i-fix-it</a></p>
+<p style="padding-left: 30px;">Fedora:&nbsp;<a href="http://fedoramagazine.org/flaw-discovered-in-the-bash-shell-update-your-fedora-systems/">http://fedoramagazine.org/flaw-discovered-in-the-bash-shell-update-your-fedora-systems/</a></p>
+<p style="padding-left: 30px;">Debian:&nbsp;<a href="https://www.debian.org/security/2014/dsa-3032">https://www.debian.org/security/2014/dsa-3032</a></p>
+<p style="padding-left: 30px;">CentOS:&nbsp;<a href="http://centosnow.blogspot.com/2014/09/critical-bash-updates-for-centos-5.html">http://centosnow.blogspot.com/2014/09/critical-bash-updates-for-centos-5.html</a></p>
+<table style="border: 1px solid #000000;">
+<tbody>
+<tr>
+<td><strong>Pkgsrc Repo</strong></td>
+<td><strong>Status</strong></td>
+<td><strong>User Action Required</strong></td>
+</tr>
+<tr>
+<td>2010Q4</td>
+<td>&nbsp;Bash not in Repo</td>
+<td>&nbsp;None</td>
+</tr>
+<tr>
+<td>2011Q1</td>
+<td>&nbsp;Wont be patched</td>
+<td>&nbsp;Remove bash. See below</td>
+</tr>
+<tr>
+<td>2011Q2</td>
+<td>&nbsp;Wont be patched</td>
+<td>&nbsp;Remove bash. See below</td>
+</tr>
+<tr>
+<td>2011Q3</td>
+<td>&nbsp;Wont be patched</td>
+<td>&nbsp;Remove bash. See below</td>
+</tr>
+<tr>
+<td>2011Q4</td>
+<td>&nbsp;Wont be patched</td>
+<td>&nbsp;Remove bash. See below</td>
+</tr>
+<tr>
+<td>2012Q2</td>
+<td>&nbsp;Wont be patched</td>
+<td>&nbsp;Remove bash. See below</td>
+</tr>
+<tr>
+<td>2012Q3</td>
+<td>&nbsp;Wont be patched</td>
+<td>&nbsp;Remove bash. See below</td>
+</tr>
+<tr>
+<td>2012Q4 and later</td>
+<td>&nbsp;Patch applied</td>
+<td>&nbsp;Re-install Bash. See below</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Removing bash</strong></p>
+<p>1. Check if any users are set to use pkgsrc bash</p>
+<pre>getent passwd | grep /opt/local/bin/bash</pre>
+<p>2. If you have users with pkgsrc bash as their shell, change it to&nbsp;<strong>/usr/bin/bash</strong></p>
+<pre>usermod -s /usr/bin/bash &lt;login&gt;</pre>
+<p>3. Remove pkgsrc bash</p>
+<pre>pkgin rm bash</pre>
+<p>&nbsp;</p>
+<p><strong>Re-installing pkgsrc</strong></p>
+<pre>pkgin -f up &amp;&amp; pkgin in bash</pre>
+<p>&nbsp;</p>
+<p><strong>SmartDataCenter Customers</strong></p>
+<ul>
+<li>Both a hot-fix service and new platform image (for SDC 7 only) are now available to enable customers to update their SDC installations.&nbsp;<strong style="font-size: 1em; line-height: 1.45em; background-color: initial;">Action will be required by customers</strong>&nbsp;to apply these fixes. Instructions&nbsp;for applying the hot-fix (for both SDC 6 and SDC 7) as well as applying the latest platform image for SDC 7 have been sent by ZenDesk to SDC customers. If you have NOT received instructions, you can open a support ticket at&nbsp;<a href="https://help.joyent.com/" rel="nofollow">https://help.joyent.com</a>&nbsp;or by email to&nbsp;<a href="mailto:support@joyent.com">support@joyent.com</a>&nbsp;to request the link and instructions.</li>
+</ul>
+<ul>
+<li><strong><strong>SmartDataCenter</strong>&nbsp;customers will need to advise their end users</strong> of this vulnerability, and advise them of any actions their end users will need to take. We will follow up with additional details as they are available.</li>
+</ul>
+<p>At any time, please do not hesitate to&nbsp;contact our Support team by raising a&nbsp;ticket&nbsp;at&nbsp;<a style="font-size: 1em; line-height: 1.45em;" href="https://help.joyent.com/" rel="nofollow">https://help.joyent.com</a>&nbsp;or by email to&nbsp;<a style="font-size: 1em; line-height: 1.45em;" href="mailto:support@joyent.com">support@joyent.com</a>&nbsp;if you have any <strong style="font-size: 1em; line-height: 1.45em;">questions or concerns.</strong></p></p></div>
+    
+</div>
+
+    </div>
+    
+
+<div class="grey_box_bottom"><div class="box box_bottom"></div></div></div><div class="box_bottom_clear">&nbsp;</div>
+  <div class='forum_tabs'>
+    <div class="content content_grey"><div class="grey_box_top"><div class="box box_top"></div></div>
+      
+  <p class="forum-nav">
+    <a href="#overview" id="forum_nav_overview" url="/forums">Overview</a>
+    <span class="delim">|</span>
+    <a href="#recent" id="forum_nav_recent" url="/recent_entries">Recent</a>
+  </p>
+
+      
+      <div id="content_entries">
+        <div class="frame columns">
+      <div >
+            <div class="category-header">
+    <h2><a href="/categories/20066377-Announcements">Announcements<span class="follow_link">»</span></a></h2>
+  </div>
+
+        
+  <div class="category" id="category_20066377" data-category_path="/categories/20066377-Announcements">
+
+
+    <div class="column" id="forum_20715782" data-forum_id="20715782" data-forum_path="/forums/20715782-Current-System-Status">
+  <h3 class="clearfix">
+    <a href="/forums/20715782-Current-System-Status">
+      <span>Current System Status</span>
+      <span class='sub-counter'>(4)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/57703560-SSL-3-0-Vulnerability-CVE-2014-3566-POODLE-Advisory" title="SSL 3.0 Vulnerability CVE-2014-3566 (POODLE) Advisory">SSL 3.0 Vulnerability CVE-2014-3566 (POODLE) Advisory</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/59726640-Kerberos-Checksum-Vulnerability-CVE-2014-6324-Advisory" title="Kerberos Checksum Vulnerability (CVE-2014-6324) Advisory">Kerberos Checksum Vulnerability (CVE-2014-6324) Advisory</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/57305804-Joyent-Cloud-Firewall-Advisory-For-KVM-Users-with-Firewall-Enabled" title="Joyent Cloud Firewall Advisory: For KVM Users with Firewall Enabled">Joyent Cloud Firewall Advisory: For KVM Users with Firewall Enabled</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21769270" data-forum_id="21769270" data-forum_path="/forums/21769270-Incidents-Notifications">
+  <h3 class="clearfix">
+    <a href="/forums/21769270-Incidents-Notifications">
+      <span>Incidents &amp; Notifications</span>
+      <span class='sub-counter'>(0)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+      <li>
+        No topics found
+      </li>
+  </ul>
+</div>
+<div class="column" id="forum_20708926" data-forum_id="20708926" data-forum_path="/forums/20708926-Announcements">
+  <h3 class="clearfix">
+    <a href="/forums/20708926-Announcements">
+      <span>Announcements</span>
+      <span class='sub-counter'>(5)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/60550634-Important-On-Prem-SDC7-Notice-RabbitMQ-Patch" title="Important On-Prem SDC7 Notice: RabbitMQ Patch">Important On-Prem SDC7 Notice: RabbitMQ Patch</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/43111500--NEW-UPDATE-OpenSSL-Vulnerability-CVE-2014-0224" title="[NEW UPDATE] OpenSSL Vulnerability CVE-2014-0224">[NEW UPDATE] OpenSSL Vulnerability CVE-2014-0224</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/33536570-Important-Heartbleed-Notice-Action-Required" title="Important Heartbleed Notice: Action Required">Important Heartbleed Notice: Action Required</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21147498" data-forum_id="21147498" data-forum_path="/forums/21147498-Software-Images-and-Packages-Updates">
+  <h3 class="clearfix">
+    <a href="/forums/21147498-Software-Images-and-Packages-Updates">
+      <span>Software Images and Packages Updates</span>
+      <span class='sub-counter'>(24)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/61722180-New-Wordpress-Image-released-to-images-joyent-com-and-JPC-7-Dec-2014" title="New Wordpress Image released to images.joyent.com and JPC - 7-Dec-2014">New Wordpress Image released to images.joyent.com and JPC - 7-Dec-2014</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/60843580-New-Images-released-to-images-joyent-com-and-JPC-16-Dec-2014-percona-wordpress-" title="New Images released to images.joyent.com and JPC - 16-Dec-2014 (percona, wordpress)">New Images released to images.joyent.com and JPC - 16-Dec-2014 (percona, wordpress)</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/59927584-New-Images-released-to-images-joyent-com-and-JPC-12-Dec-2014" title="New Images released to images.joyent.com and JPC - 12-Dec-2014">New Images released to images.joyent.com and JPC - 12-Dec-2014</a>
+          </span>
+        </li>
+  </ul>
+</div>
+
+
+
+
+    <div style="clear:both; height:0px;">&nbsp;</div>
+  </div>
+
+
+      </div>
+      <div >
+            <div class="category-header">
+    <h2><a href="/categories/20066858-JoyentCloud-Knowledge-Articles">JoyentCloud Knowledge Articles<span class="follow_link">»</span></a></h2>
+  </div>
+
+        
+  <div class="category" id="category_20066858" data-category_path="/categories/20066858-JoyentCloud-Knowledge-Articles">
+
+
+    <div class="column" id="forum_21146111" data-forum_id="21146111" data-forum_path="/forums/21146111-General-Usage">
+  <h3 class="clearfix">
+    <a href="/forums/21146111-General-Usage">
+      <span>General Usage</span>
+      <span class='sub-counter'>(11)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/21531712-Ways-to-backup-data" title="Ways to backup data">Ways to backup data</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/23108694-Backup-Recovery-and-Security-of-VM-s" title="Backup, Recovery and Security of VM&amp;#39;s">Backup, Recovery and Security of VM&#39;s</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/22470790-Upgrading-Mongo-2-2-2-to-2-4-5" title="Upgrading Mongo 2.2.2 to 2.4.5">Upgrading Mongo 2.2.2 to 2.4.5</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21148692" data-forum_id="21148692" data-forum_path="/forums/21148692-Images-Packages">
+  <h3 class="clearfix">
+    <a href="/forums/21148692-Images-Packages">
+      <span>Images &amp; Packages</span>
+      <span class='sub-counter'>(5)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21723598-Available-Joyent-SmartMachine-packages" title="Available Joyent SmartMachine packages">Available Joyent SmartMachine packages</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/22321105-mdata-get-and-non-root-users-in-Joyent-Linux-datasets" title="mdata-get and non-root users in Joyent Linux datasets">mdata-get and non-root users in Joyent Linux datasets</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21583561-Finding-what-pkgsrc-options-a-package-was-compiled-with" title="Finding what pkgsrc options a package was compiled with">Finding what pkgsrc options a package was compiled with</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21148722" data-forum_id="21148722" data-forum_path="/forums/21148722-SmartMachines">
+  <h3 class="clearfix">
+    <a href="/forums/21148722-SmartMachines">
+      <span>SmartMachines</span>
+      <span class='sub-counter'>(7)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/23296657-Read-only-file-systems-on-Smart-Machines" title="Read only file systems on Smart Machines">Read only file systems on Smart Machines</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/22281778-git-setting-up-a-remote-revision-control-server-on-a-SmartMachine" title="git - setting up a remote revision control server on a SmartMachine">git - setting up a remote revision control server on a SmartMachine</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/23550158-Mounting-an-SMB-share-on-a-SmartMachine" title="Mounting an SMB share on a SmartMachine">Mounting an SMB share on a SmartMachine</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21160156" data-forum_id="21160156" data-forum_path="/forums/21160156-Joyent-API">
+  <h3 class="clearfix">
+    <a href="/forums/21160156-Joyent-API">
+      <span>Joyent API</span>
+      <span class='sub-counter'>(3)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/21623437-Joyent-API-Bootstraping-and-MySQL" title="Joyent API, Bootstraping and MySQL">Joyent API, Bootstraping and MySQL</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21744951-Zeus-Stingray-API-Scripting" title="Zeus/Stingray API Scripting">Zeus/Stingray API Scripting</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/21756350-API-Change-IP-Addresses-not-Returned-by-CREATE-machines-calls" title="API Change - IP Addresses not Returned by CREATE /machines calls">API Change - IP Addresses not Returned by CREATE /machines calls</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21160166" data-forum_id="21160166" data-forum_path="/forums/21160166-Node-js">
+  <h3 class="clearfix">
+    <a href="/forums/21160166-Node-js">
+      <span>Node.js</span>
+      <span class='sub-counter'>(1)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21688351-Deploying-to-Multiple-Node-js-Appliances" title="Deploying to Multiple Node.js Appliances">Deploying to Multiple Node.js Appliances</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21160286" data-forum_id="21160286" data-forum_path="/forums/21160286-Networking">
+  <h3 class="clearfix">
+    <a href="/forums/21160286-Networking">
+      <span>Networking</span>
+      <span class='sub-counter'>(11)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles highlight">
+          <div class="fade_truncation_inner"></div>
+          <span class=&quot;highlight-entry&quot;>
+            <a href="/entries/21748665-Private-vlans-are-not-routing-to-each-other-by-default-" title="Private vlans are not routing to each other by default..">Private vlans are not routing to each other by default..</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21625908-Joyent-IPv6-FAQ" title="Joyent IPv6 FAQ">Joyent IPv6 FAQ</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21807651-snoop-the-included-packet-sniffer" title="snoop, the included packet sniffer">snoop, the included packet sniffer</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21167608" data-forum_id="21167608" data-forum_path="/forums/21167608-Virtual-Machines">
+  <h3 class="clearfix">
+    <a href="/forums/21167608-Virtual-Machines">
+      <span>Virtual Machines</span>
+      <span class='sub-counter'>(12)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/22329733-Updating-Linux-Kernels" title="Updating Linux Kernels">Updating Linux Kernels</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/22470716-running-user-script-on-each-reboot" title="running user-script on each reboot">running user-script on each reboot</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/23132936-Routing-for-multi-homed-public-IP-interfaces" title="Routing for multi-homed public IP interfaces">Routing for multi-homed public IP interfaces</a>
+          </span>
+        </li>
+  </ul>
+</div>
+
+
+
+
+    <div style="clear:both; height:0px;">&nbsp;</div>
+  </div>
+
+
+      </div>
+      <div >
+            <div class="category-header">
+    <h2><a href="/categories/20053883-SmartDataCenter-Knowledge-Articles">SmartDataCenter Knowledge Articles<span class="follow_link">»</span></a></h2>
+  </div>
+
+        
+  <div class="category" id="category_20053883" data-category_path="/categories/20053883-SmartDataCenter-Knowledge-Articles">
+
+
+    <div class="column" id="forum_21098502" data-forum_id="21098502" data-forum_path="/forums/21098502-Installation">
+  <h3 class="clearfix">
+    <a href="/forums/21098502-Installation">
+      <span>Installation</span>
+      <span class='sub-counter'>(2)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21687576-Is-your-Compute-Node-really-KVM-capable-" title="Is your Compute Node really KVM capable?">Is your Compute Node really KVM capable?</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21694068-How-to-install-Joyent-SDC-Video-" title="How to install Joyent SDC (Video)">How to install Joyent SDC (Video)</a>
+          </span>
+        </li>
+  </ul>
+</div>
+<div class="column" id="forum_21095761" data-forum_id="21095761" data-forum_path="/forums/21095761-API-s">
+  <h3 class="clearfix">
+    <a href="/forums/21095761-API-s">
+      <span>API&#39;s</span>
+      <span class='sub-counter'>(3)</span>
+      <span class="follow_link">»</span>
+    </a>
+
+  </h3>
+
+  <ul>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21623456-Provisioner-Logs-MAPI-" title="Provisioner Logs (MAPI)">Provisioner Logs (MAPI)</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21663071-Retrieving-User-Keys-from-APIs" title="Retrieving User Keys from APIs">Retrieving User Keys from APIs</a>
+          </span>
+        </li>
+        <li class="fade_truncation_outer articles ">
+          <div class="fade_truncation_inner"></div>
+          <span >
+            <a href="/entries/21727323-Deleting-and-reactivating-a-customer-record-using-Customer-API-CAPI-" title="Deleting and reactivating a customer record using Customer API (CAPI)">Deleting and reactivating a customer record using Customer API (CAPI)</a>
+          </span>
+        </li>
+  </ul>
+</div>
+
+
+
+
+    <div style="clear:both; height:0px;">&nbsp;</div>
+  </div>
+
+
+      </div>
+
+</div>
+
+      </div>
+<div class="grey_box_bottom"><div class="box box_bottom"></div></div></div><div class="box_bottom_clear">&nbsp;</div>  </div>
+
+<script type="text/javascript">
+//<![CDATA[
+zd.jsInitializers.push(["home/index",[]]);
+//]]>
+</script>
+
+
+      </div>
+    </div>
+
+    <div id="sidebar">
+    </div>
+</div>
+
+
+  </div>
+
+  <div id="footer">
+  
+
+    <p>
+       <a href="http://www.zendesk.com/help-desk-software?utm_medium=poweredbyzendesk&amp;utm_source=webportal&amp;utm_campaign=text" target="_blank">Support Software</a> by Zendesk 
+    </p>
+</div>
+
+<!-- Render any mouseover tips on the page -->
+
+<script type="text/javascript">
+//<![CDATA[
+  if(!Zendesk) var Zendesk = {};
+  Zendesk.tab = "home";
+
+//]]>
+</script>
+<script src="https://p2.zdassets.com/assets/auto_included-329943d4d54e7cdecdcb5ff611aecea3.js"></script>
+<script src="https://p2.zdassets.com/assets/zd_tickets_table_node-f666c6418aab3f385d4ae27e0331ed8a.js"></script>
+<script src="https://p2.zdassets.com/assets/zd_ticket_viewing_status_node-28ddd42d7133b78c1e646870873819e8.js"></script>
+
+<script type="text/javascript">
+//<![CDATA[
+  $z.initializeModules(zd.jsInitializers);
+
+//]]>
+</script>
+  
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', "UA-33454177-1"]);
+  _gaq.push(['_setDomainName', "joyent.com"]);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+    <script type="text/javascript" charset="utf-8">
+      $j(document).ready(function () {
+        var cacheBuster = currentUser.isAnonymous ? currentUser.localeVersion : currentUser.version;
+        $j.ajax({
+          url: '/widgets/async.json?user_id=' + currentUser.id + '&v=' + cacheBuster,
+          data: {"controller_name":"home","action_name":"index","action_method":"get"},
+          success: Widget.asyncInsertion
+        });
+      });
+    </script>
+
+  
+
+  <script type="text/javascript">
+//<![CDATA[
+    
+    jQuery(document).ready(function () {
+          Zendesk.Alerts.showPasswordExpiration();
+      Zendesk.Alerts.showUserAssumeNotice();
+
+    });
+
+//]]>
+</script></body>
+</html>

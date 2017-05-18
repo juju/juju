@@ -98,6 +98,10 @@ func (c *removeCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	api := c.api // This is for testing.
 
 	if api == nil { // The real McCoy.
@@ -111,13 +115,12 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 
 	// Confirm deletion if the user didn't specify -y/--yes in the command.
 	if !c.ConfirmDelete {
-		if err := confirmDelete(ctx, c.ControllerName(), c.UserName); err != nil {
-			return err
+		if err := confirmDelete(ctx, controllerName, c.UserName); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
-	err := api.RemoveUser(c.UserName)
-	if err != nil {
+	if err := api.RemoveUser(c.UserName); err != nil {
 		// This is very awful, but it makes the user experience crisper. At
 		// least maybe more tenable until users and authn/z are overhauled.
 		if e, ok := err.(*params.Error); ok {

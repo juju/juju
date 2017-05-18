@@ -74,8 +74,12 @@ func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, 
 
 // NewRegisterCommandForTest returns a RegisterCommand with the function used
 // to open the API connection mocked out.
-func NewRegisterCommandForTest(apiOpen api.OpenFunc, listModels func(jujuclient.ClientStore, string, string) ([]base.UserModel, error), store jujuclient.ClientStore) *registerCommand {
-	return &registerCommand{apiOpen: apiOpen, listModelsFunc: listModels, store: store}
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, listModels func(jujuclient.ClientStore, string, string) ([]base.UserModel, error), store jujuclient.ClientStore) modelcmd.Command {
+	return modelcmd.WrapBase(&registerCommand{
+		apiOpen:        apiOpen,
+		listModelsFunc: listModels,
+		store:          store,
+	})
 }
 
 // NewEnableDestroyControllerCommandForTest returns a enableDestroyController with the

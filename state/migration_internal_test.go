@@ -575,6 +575,7 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 		"Label",
 		"UUID",
 		"HardwareId",
+		"WWN",
 		"BusAddress",
 		"Size",
 		"FilesystemType",
@@ -690,7 +691,7 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 	s.AssertExportedFields(c, volumeDoc{}, migrated.Union(ignored))
 	// The info and params fields ar structs.
 	s.AssertExportedFields(c, VolumeInfo{}, set.NewStrings(
-		"HardwareId", "Size", "Pool", "VolumeId", "Persistent"))
+		"HardwareId", "WWN", "Size", "Pool", "VolumeId", "Persistent"))
 	s.AssertExportedFields(c, VolumeParams{}, set.NewStrings(
 		"Size", "Pool"))
 }

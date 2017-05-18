@@ -5,12 +5,14 @@ package oracle_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/oracle"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/oracle"
+	oracletesting "github.com/juju/juju/provider/oracle/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type storageProviderSuite struct{}
@@ -19,11 +21,11 @@ var _ = gc.Suite(&storageProviderSuite{})
 
 func NewStorageProviderTest(c *gc.C) storage.Provider {
 	env, err := oracle.NewOracleEnviron(
-		oracle.DefaultProvider,
+		&oracle.EnvironProvider{},
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		DefaultEnvironAPI,
+		oracletesting.DefaultEnvironAPI,
 		&advancingClock,
 	)
 

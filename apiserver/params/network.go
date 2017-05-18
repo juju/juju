@@ -24,6 +24,12 @@ type Subnet struct {
 	// provider doesn't support distinct networks.
 	ProviderNetworkId string `json:"provider-network-id,omitempty"`
 
+	// ProviderSpaceId is the id of the space containing this subnet
+	// from the provider's perspective. It can be empty if the
+	// provider doesn't support spaces (in which case all subnets are
+	// effectively in the default space).
+	ProviderSpaceId string `json:"provider-space-id,omitempty"`
+
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int `json:"vlan-tag"`
@@ -380,6 +386,7 @@ func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
 	return nhpm
 }
 
+// TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead
 // UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
 // API.
 type UnitsNetworkConfig struct {
@@ -661,4 +668,41 @@ type ProxyConfigResult struct {
 // ProxyConfigResults contains information needed to configure multiple clients proxy settings
 type ProxyConfigResults struct {
 	Results []ProxyConfigResult `json:"results"`
+}
+
+// InterfaceAddress represents a single address attached to the interface.
+type InterfaceAddress struct {
+	Address string `json:"value"`
+	CIDR    string `json:"cidr"`
+}
+
+// NetworkInfo describes one interface with IP addresses.
+type NetworkInfo struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string `json:"mac-address"`
+
+	// InterfaceName is the raw OS-specific network device name (e.g.
+	// "eth1", even for a VLAN eth1.42 virtual interface).
+	InterfaceName string `json:"interface-name"`
+
+	// Addresses contains a list of addresses configured on the interface.
+	Addresses []InterfaceAddress `json:"addresses"`
+}
+
+// NetworkInfoResult holds either and error or a list of NetworkInfos for given binding.
+type NetworkInfoResult struct {
+	Error *Error        `json:"error,omitempty" yaml:"error,omitempty"`
+	Info  []NetworkInfo `json:"network-info" yaml:"info"`
+}
+
+// NetworkInfoResults holds a mapping from binding name to NetworkInfoResult.
+type NetworkInfoResults struct {
+	Results map[string]NetworkInfoResult `json:"results"`
+}
+
+// NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
+type NetworkInfoParams struct {
+	Unit     string   `json:"unit"`
+	Bindings []string `json:"bindings"`
 }
