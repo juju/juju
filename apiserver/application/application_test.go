@@ -29,12 +29,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
@@ -52,7 +48,6 @@ type applicationSuite struct {
 	applicationAPI *application.API
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
-	env            *mockEnviron
 	otherModel     *state.State
 }
 
@@ -83,9 +78,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	s.env = &mockEnviron{}
-
-	s.applicationAPI = s.makeAPI(c, s.env)
+	s.applicationAPI = s.makeAPI(c)
 
 	// Add a space in othermodel that applications can be bound to.
 	_, err := s.otherModel.AddSubnet(state.SubnetInfo{
@@ -103,10 +96,7 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C, env environs.Environ) *application.API {
-	getEnviron := func(*state.State) (environs.Environ, error) {
-		return env, nil
-	}
+func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	backend := application.NewStateBackend(s.State)
@@ -114,7 +104,7 @@ func (s *applicationSuite) makeAPI(c *gc.C, env environs.Environ) *application.A
 	api, err := application.NewAPI(
 		backend, s.authorizer, s.BackingStatePool,
 		blockChecker, application.CharmToStateCharm,
-		application.DeployApplication, getEnviron,
+		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -2730,6 +2720,50 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 //	// There's already a wordpress in the scenario this assertion sets up.
 //	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"})
 //}
+//
+//func (s *applicationSuite) TestAddRemoteRelationWithNonNetworkingEnviron(c *gc.C) {
+//	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
+//		Name:             "othermysql",
+//		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
+//		EndpointBindings: map[string]string{"server": "myspace"},
+//	})
+//	s.setupRelationScenario(c)
+//	api := s.makeAPI(c, mockNoNetworkEnviron{})
+//	res, err := api.AddRelation(params.AddRelation{
+//		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
+//	})
+//	c.Assert(err, jc.ErrorIsNil)
+//	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
+//
+//	// Successfully added, but with no bindings or spaces since the
+//	// environ doesn't support networking.
+//	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
+//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
+//	c.Assert(remoteApp.Spaces(), gc.IsNil)
+//}
+//
+//func (s *applicationSuite) TestAddRemoteRelationProviderSpaceInfoNotSupported(c *gc.C) {
+//	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
+//		Name:             "othermysql",
+//		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
+//		EndpointBindings: map[string]string{"server": "myspace"},
+//	})
+//	s.setupRelationScenario(c)
+//	s.env.stub.SetErrors(errors.NotSupportedf("provider space info"))
+//	res, err := s.applicationAPI.AddRelation(params.AddRelation{
+//		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
+//	})
+//	c.Assert(err, jc.ErrorIsNil)
+//	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
+//
+//	// Successfully added, but with no bindings or spaces since the
+//	// environ doesn't support ProviderSpaceInfo.
+//	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
+//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
+//	c.Assert(remoteApp.Spaces(), gc.IsNil)
+//}
 
 type mockStorageProvider struct {
 	storage.Provider
@@ -2801,142 +2835,4 @@ func (s *recordingStorage) Remove(path string) error {
 	}
 	s.blobs.Remove(path)
 	return nil
-}
-
-func (s *applicationSuite) TestRemoteApplicationInfo(c *gc.C) {
-	s.setupOtherModelOffer(c)
-	results, err := s.applicationAPI.RemoteApplicationInfo(params.ApplicationURLs{
-		ApplicationURLs: []string{"othermodel.hosted-mysql", "othermodel.unknown"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
-		{Result: &params.RemoteApplicationInfo{
-			ModelTag:         s.otherModel.ModelTag().String(),
-			Name:             "hosted-mysql",
-			Description:      "A pretty popular database",
-			ApplicationURL:   "othermodel.hosted-mysql",
-			SourceModelLabel: "othermodel",
-			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
-			Endpoints: []params.RemoteEndpoint{
-				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"},
-			},
-		}},
-		{
-			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
-		},
-	})
-}
-
-func (s *applicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
-	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
-		Name:             "othermysql",
-		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
-		EndpointBindings: map[string]string{"server": "myspace"},
-	})
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		CloudType: "grandaddy",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		SpaceInfo: network.SpaceInfo{
-			Name:       "yourspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "5.6.7.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}
-
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationURL:   "othermodel.hosted-mysql",
-			ApplicationAlias: "beirut",
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].LocalName, gc.Equals, "beirut")
-
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	})
-
-	remoteApp, err := s.State.RemoteApplication("beirut")
-	c.Assert(err, jc.ErrorIsNil)
-	endpoints, err := remoteApp.Endpoints()
-	c.Assert(err, jc.ErrorIsNil)
-	epNames := make([]string, len(endpoints))
-	for i, ep := range endpoints {
-		epNames[i] = ep.Name
-	}
-	c.Assert(epNames, jc.SameContents, []string{"server"})
-	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{"server": "myspace"})
-	c.Assert(remoteApp.Spaces(), gc.DeepEquals, []state.RemoteSpace{{
-		CloudType:  "grandaddy",
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		Subnets: []state.RemoteSubnet{{
-			CIDR:              "5.6.7.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	}})
-}
-
-func (s *applicationSuite) TestAddRemoteRelationWithNonNetworkingEnviron(c *gc.C) {
-	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
-		Name:             "othermysql",
-		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
-		EndpointBindings: map[string]string{"server": "myspace"},
-	})
-	s.setupRelationScenario(c)
-	api := s.makeAPI(c, mockNoNetworkEnviron{})
-	res, err := api.AddRelation(params.AddRelation{
-		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
-
-	// Successfully added, but with no bindings or spaces since the
-	// environ doesn't support networking.
-	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
-	c.Assert(remoteApp.Spaces(), gc.IsNil)
-}
-
-func (s *applicationSuite) TestAddRemoteRelationProviderSpaceInfoNotSupported(c *gc.C) {
-	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
-		Name:             "othermysql",
-		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
-		EndpointBindings: map[string]string{"server": "myspace"},
-	})
-	s.setupRelationScenario(c)
-	s.env.stub.SetErrors(errors.NotSupportedf("provider space info"))
-	res, err := s.applicationAPI.AddRelation(params.AddRelation{
-		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
-
-	// Successfully added, but with no bindings or spaces since the
-	// environ doesn't support ProviderSpaceInfo.
-	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
-	c.Assert(remoteApp.Spaces(), gc.IsNil)
 }

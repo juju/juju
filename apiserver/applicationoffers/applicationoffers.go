@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/txn"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -15,20 +16,29 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/utils/set"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.applicationoffers")
+
+type environFromModelFunc func(string) (environs.Environ, error)
 
 // OffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.
 type OffersAPI struct {
 	BaseAPI
-	dataDir string
+	dataDir    string
+	getEnviron environFromModelFunc
 }
 
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
+	getEnviron environFromModelFunc,
 	backend Backend,
 	statePool StatePool,
 	authorizer facade.Authorizer,
@@ -40,7 +50,8 @@ func createOffersAPI(
 
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
-		dataDir: dataDir.String(),
+		dataDir:    dataDir.String(),
+		getEnviron: getEnviron,
 		BaseAPI: BaseAPI{
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
@@ -52,8 +63,25 @@ func createOffersAPI(
 
 // NewOffersAPI returns a new application offers OffersAPI facade.
 func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
+	environFromModel := func(modelUUID string) (environs.Environ, error) {
+		st, releaser, err := ctx.StatePool().Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer releaser()
+		g := stateenvirons.EnvironConfigGetter{st}
+		env, err := environs.GetEnviron(g, environs.New)
+		if err != nil {
+			releaser()
+			return nil, errors.Trace(err)
+		}
+		return env, nil
+	}
+
 	return createOffersAPI(
-		GetApplicationOffers, GetStateAccess(ctx.State()),
+		GetApplicationOffers,
+		environFromModel,
+		GetStateAccess(ctx.State()),
 		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources())
 }
 
@@ -425,7 +453,7 @@ func (api *OffersAPI) consumeOne(arg params.ConsumeApplicationArg) (string, erro
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	remoteApp, err := api.saveRemoteApplication(backend, sourceModelTag, appName, arg.OfferName, arg.OfferURL, arg.Endpoints)
+	remoteApp, err := api.saveRemoteApplication(backend, sourceModelTag, appName, arg.ApplicationOffer)
 	return remoteApp.Name(), err
 }
 
@@ -433,10 +461,12 @@ func (api *OffersAPI) consumeOne(arg params.ConsumeApplicationArg) (string, erro
 // to the state model so relations to the remote application can be created.
 func (api *OffersAPI) saveRemoteApplication(
 	backend Backend,
-	sourceModelTag names.ModelTag, applicationName, offerName, url string, endpoints []params.RemoteEndpoint,
+	sourceModelTag names.ModelTag,
+	applicationName string,
+	offer params.ApplicationOffer,
 ) (RemoteApplication, error) {
-	remoteEps := make([]charm.Relation, len(endpoints))
-	for j, ep := range endpoints {
+	remoteEps := make([]charm.Relation, len(offer.Endpoints))
+	for j, ep := range offer.Endpoints {
 		remoteEps[j] = charm.Relation{
 			Name:      ep.Name,
 			Role:      ep.Role,
@@ -444,6 +474,11 @@ func (api *OffersAPI) saveRemoteApplication(
 			Limit:     ep.Limit,
 			Scope:     ep.Scope,
 		}
+	}
+
+	remoteSpaces := make([]*environs.ProviderSpaceInfo, len(offer.Spaces))
+	for i, space := range offer.Spaces {
+		remoteSpaces[i] = providerSpaceInfoFromParams(space)
 	}
 
 	// If the a remote application with the same name and endpoints from the same
@@ -457,10 +492,12 @@ func (api *OffersAPI) saveRemoteApplication(
 
 	return backend.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        applicationName,
-		OfferName:   offerName,
-		URL:         url,
+		OfferName:   offer.OfferName,
+		URL:         offer.OfferURL,
 		SourceModel: sourceModelTag,
 		Endpoints:   remoteEps,
+		Spaces:      remoteSpaces,
+		Bindings:    offer.Bindings,
 	})
 }
 
@@ -539,13 +576,13 @@ func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApp
 	}
 
 	// We need at least read access to the model to see the application details.
-	offer, sourceModelTag, err := api.offeredApplicationDetails(url, permission.ReadAccess)
+	offer, err := api.offeredApplicationDetails(url, permission.ReadAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &params.RemoteApplicationInfo{
-		ModelTag:         sourceModelTag.String(),
+		ModelTag:         offer.SourceModelTag,
 		Name:             url.ApplicationName,
 		Description:      offer.ApplicationDescription,
 		ApplicationURL:   url.String(),
@@ -559,67 +596,36 @@ func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApp
 // The user is required to have the specified permission on the offer.
 func (api *OffersAPI) offeredApplicationDetails(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
 	offer *params.ApplicationOffer,
-	sourceModelTag names.ModelTag,
 	err error,
 ) {
-	fail := func(err error) (
-		*params.ApplicationOffer,
-		names.ModelTag,
-		error,
-	) {
-		fmt.Println("FAIL: " + err.Error())
-		return nil, sourceModelTag, err
-	}
-
 	// We require the hosting model to be specified.
 	if url.ModelName == "" {
-		return fail(errors.Errorf("missing model name in URL %q", url.String()))
+		return nil, errors.Errorf("missing model name in URL %q", url.String())
 	}
 
 	models, err := api.getModelsFromOffers(url.String())
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 	one := models[0]
 	if one.err != nil {
-		return fail(errors.Trace(one.err))
+		return nil, errors.Trace(one.err)
 	}
-	sourceModelTag = one.model.ModelTag()
-
-	app, releaser, err := api.offeredApplication(sourceModelTag, url.ApplicationName, perm)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	defer releaser()
-	offer, err = api.makeOfferParamsFromApplication(sourceModelTag, url.ApplicationName, app)
-	return offer, sourceModelTag, err
+	sourceModelTag := one.model.ModelTag()
+	return api.offeredApplication(sourceModelTag, url.ApplicationName, perm)
 }
 
 func (api *OffersAPI) offeredApplication(sourceModelTag names.ModelTag, offerName string, perm permission.Access) (
-	_ Application,
-	releaser func(),
-	err error,
+	*params.ApplicationOffer,
+	error,
 ) {
-	defer func() {
-		if err != nil && releaser != nil {
-			releaser()
-		}
-	}()
-
-	fail := func(err error) (
-		Application,
-		func(),
-		error,
-	) {
-		return nil, releaser, err
-	}
-
 	// Get the backend state for the source model so we can lookup the application.
 	var backend Backend
-	backend, releaser, err = api.StatePool.Get(sourceModelTag.Id())
+	backend, releaser, err := api.StatePool.Get(sourceModelTag.Id())
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
+	defer releaser()
 
 	// For now, offer URL is matched against the specified application
 	// name as seen from the consuming model.
@@ -629,16 +635,16 @@ func (api *OffersAPI) offeredApplication(sourceModelTag names.ModelTag, offerNam
 		},
 	)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 
 	// The offers query succeeded but there were no offers matching the required offer name.
 	if len(offers) == 0 {
-		return fail(errors.NotFoundf("application offer %q", offerName))
+		return nil, errors.NotFoundf("application offer %q", offerName)
 	}
 	// Sanity check - this should never happen.
 	if len(offers) > 1 {
-		return fail(errors.Errorf("unexpected: %d matching offers for %q", len(offers), offerName))
+		return nil, errors.Errorf("unexpected: %d matching offers for %q", len(offers), offerName)
 	}
 
 	// Check the permissions - a user can access the offer if they are an admin
@@ -649,7 +655,7 @@ func (api *OffersAPI) offeredApplication(sourceModelTag names.ModelTag, offerNam
 		err = api.checkPermission(sourceModelTag, permission.AdminAccess)
 	}
 	if err != nil && err != common.ErrPerm {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 	isAdmin = err == nil
 
@@ -659,35 +665,34 @@ func (api *OffersAPI) offeredApplication(sourceModelTag names.ModelTag, offerNam
 		// we need to operate on the state containing the offer.
 		access, err := api.checkOfferAccess(backend, offerName, perm)
 		if err != nil {
-			return fail(errors.Trace(err))
+			return nil, errors.Trace(err)
 		}
 		if access == permission.NoAccess {
-			return fail(common.ErrPerm)
+			return nil, common.ErrPerm
 		}
 	}
-	app, err := backend.Application(offer.ApplicationName)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	return app, releaser, err
+	return api.makeOfferParams(backend, &offer)
 }
 
-func (api *OffersAPI) makeOfferParamsFromApplication(
-	sourceModelTag names.ModelTag,
-	offerName string,
-	app Application,
-) (*params.ApplicationOffer, error) {
-	ch, _, err := app.Charm()
+func (api *OffersAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer) (
+	*params.ApplicationOffer, error,
+) {
+	app, err := backend.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appBindings, err := app.EndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	result := params.ApplicationOffer{
-		SourceModelTag:         sourceModelTag.String(),
-		OfferName:              offerName,
-		ApplicationDescription: ch.Meta().Description,
+		SourceModelTag:         backend.ModelTag().String(),
+		OfferName:              offer.OfferName,
+		ApplicationDescription: offer.ApplicationDescription,
 	}
-	eps, err := app.Endpoints()
-	for _, ep := range eps {
+
+	spaceNames := set.NewStrings()
+	for _, ep := range offer.Endpoints {
 		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
 			Name:      ep.Name,
 			Interface: ep.Interface,
@@ -695,6 +700,83 @@ func (api *OffersAPI) makeOfferParamsFromApplication(
 			Scope:     ep.Scope,
 			Limit:     ep.Limit,
 		})
+		spaceName, ok := appBindings[ep.Name]
+		if !ok {
+			// There should always be some binding (even if it's to
+			// the default space).
+			return nil, errors.Errorf("no binding for %q endpoint", ep.Name)
+		}
+		spaceNames.Add(spaceName)
+	}
+
+	spaces, err := api.collectRemoteSpaces(backend, spaceNames.SortedValues())
+	if errors.IsNotSupported(err) {
+		// Provider doesn't support ProviderSpaceInfo; continue
+		// without any space information, we shouldn't short-circuit
+		// cross-model connections.
+		return &result, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Ensure bindings only contains entries for which we have spaces.
+	result.Bindings = make(map[string]string)
+	for epName, spaceName := range appBindings {
+		space, ok := spaces[spaceName]
+		if !ok {
+			continue
+		}
+		result.Bindings[epName] = spaceName
+		result.Spaces = append(result.Spaces, space)
 	}
 	return &result, nil
+}
+
+// collectRemoteSpaces gets provider information about the spaces from
+// the state passed in. (This state will be for a different model than
+// this API instance, which is why the results are *remote* spaces.)
+// These can be used by the provider later on to decide whether a
+// connection can be made via cloud-local addresses. If the provider
+// doesn't support getting ProviderSpaceInfo the NotSupported error
+// will be returned.
+func (api *OffersAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
+	env, err := api.getEnviron(backend.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		logger.Debugf("cloud provider doesn't support networking, not getting space info")
+		return nil, nil
+	}
+
+	results := make(map[string]params.RemoteSpace)
+	for _, name := range spaceNames {
+		space := environs.DefaultSpaceInfo
+		if name != environs.DefaultSpaceName {
+			dbSpace, err := backend.Space(name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			space, err = spaceInfoFromState(dbSpace)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		providerSpace, err := netEnv.ProviderSpaceInfo(space)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if providerSpace == nil {
+			logger.Errorf("nil provider space info for %q", name)
+			continue
+		}
+		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)
+		// Use the name from state in case provider and state disagree.
+		remoteSpace.Name = name
+		results[name] = remoteSpace
+	}
+	return results, nil
 }

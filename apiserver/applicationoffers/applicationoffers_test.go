@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -25,6 +27,7 @@ import (
 
 type applicationOffersSuite struct {
 	baseSuite
+	env environs.Environ
 	api *applicationoffers.OffersAPI
 }
 
@@ -39,9 +42,14 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+
+	s.env = &mockEnviron{}
+	getEnviron := func(modelUUID string) (environs.Environ, error) {
+		return s.env, nil
+	}
 	var err error
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, s.mockState, s.mockStatePool, s.authorizer, resources,
+		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -719,6 +727,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 
 type consumeSuite struct {
 	baseSuite
+	env *mockEnviron
 	api *applicationoffers.OffersAPI
 }
 
@@ -732,9 +741,14 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+
+	s.env = &mockEnviron{}
+	getEnviron := func(modelUUID string) (environs.Environ, error) {
+		return s.env, nil
+	}
 	var err error
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, s.mockState, s.mockStatePool, s.authorizer, resources,
+		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -760,12 +774,14 @@ func (s *consumeSuite) TestConsumeIdempotent(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		results, err := s.api.Consume(params.ConsumeApplicationArgs{
 			Args: []params.ConsumeApplicationArg{{
-				SourceModelTag:         testing.ModelTag.String(),
-				OfferName:              "hosted-mysql",
-				ApplicationDescription: "a database",
-				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
-				OfferURL:               "othermodel.hosted-mysql",
-				TargetModelTag:         targetModelTag.String(),
+				TargetModelTag: targetModelTag.String(),
+				ApplicationOffer: params.ApplicationOffer{
+					SourceModelTag:         testing.ModelTag.String(),
+					OfferName:              "hosted-mysql",
+					ApplicationDescription: "a database",
+					Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+					OfferURL:               "othermodel.hosted-mysql",
+				},
 			}},
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -782,6 +798,83 @@ func (s *consumeSuite) TestConsumeIdempotent(c *gc.C) {
 		endpoints: []state.Endpoint{
 			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
 	})
+}
+
+func (s *consumeSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
+	targetModelTag := s.setupTargetModel()
+	s.env.spaceInfo = &environs.ProviderSpaceInfo{
+		CloudType: "grandaddy",
+		ProviderAttributes: map[string]interface{}{
+			"thunderjaws": 1,
+		},
+		SpaceInfo: network.SpaceInfo{
+			Name:       "yourspace",
+			ProviderId: "juju-space-myspace",
+			Subnets: []network.SubnetInfo{{
+				CIDR:              "5.6.7.0/24",
+				ProviderId:        "juju-subnet-1",
+				AvailabilityZones: []string{"az1"},
+			}},
+		},
+	}
+
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			TargetModelTag:   targetModelTag.String(),
+			ApplicationAlias: "beirut",
+			ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag:         testing.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "a database",
+				Endpoints:              []params.RemoteEndpoint{{Name: "server", Interface: "mysql", Role: "provider"}},
+				OfferURL:               "othermodel.hosted-mysql",
+				Bindings:               map[string]string{"server": "myspace"},
+				Spaces: []params.RemoteSpace{
+					{
+						CloudType:  "grandaddy",
+						Name:       "myspace",
+						ProviderId: "juju-space-myspace",
+						ProviderAttributes: map[string]interface{}{
+							"thunderjaws": 1,
+						},
+						Subnets: []params.Subnet{{
+							CIDR:       "5.6.7.0/24",
+							ProviderId: "juju-subnet-1",
+							Zones:      []string{"az1"},
+						}},
+					},
+				},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].LocalName, gc.Equals, "beirut")
+
+	obtained, ok := s.mockStatePool.st[targetModelTag.Id()].(*mockState).remoteApplications["beirut"]
+	c.Assert(ok, jc.IsTrue)
+	endpoints, err := obtained.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	epNames := make([]string, len(endpoints))
+	for i, ep := range endpoints {
+		epNames[i] = ep.Name
+	}
+	c.Assert(epNames, jc.SameContents, []string{"server"})
+	c.Assert(obtained.Bindings(), jc.DeepEquals, map[string]string{"server": "myspace"})
+	c.Assert(obtained.Spaces(), jc.DeepEquals, []state.RemoteSpace{{
+		CloudType:  "grandaddy",
+		Name:       "myspace",
+		ProviderId: "juju-space-myspace",
+		ProviderAttributes: map[string]interface{}{
+			"thunderjaws": 1,
+		},
+		Subnets: []state.RemoteSubnet{{
+			CIDR:              "5.6.7.0/24",
+			ProviderId:        "juju-subnet-1",
+			AvailabilityZones: []string{"az1"},
+		}},
+	}})
 }
 
 // TODO(wallyworld) - re-implement when OfferDetails is done
@@ -855,22 +948,43 @@ func (s *consumeSuite) setupOffer() {
 		applicationOffers:  make(map[string]jujucrossmodel.ApplicationOffer),
 		users:              set.NewStrings(),
 		accessPerms:        make(map[offerAccess]permission.Access),
+		spaces:             make(map[string]applicationoffers.Space),
 	}
 	s.mockStatePool.st[modelUUID] = st
 	anOffer := jujucrossmodel.ApplicationOffer{
 		ApplicationName:        "mysql",
 		ApplicationDescription: "a database",
 		OfferName:              offerName,
-		Endpoints:              map[string]charm.Relation{"database": {Name: "database"}},
+		Endpoints: map[string]charm.Relation{
+			"server": {Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	}
 	st.applicationOffers[offerName] = anOffer
 	st.applications["mysql"] = &mockApplication{
-		name:  "mysql",
-		charm: &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}},
+		name:     "mysql",
+		charm:    &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}},
+		bindings: map[string]string{"database": "myspace"},
 		endpoints: []state.Endpoint{
 			{Relation: charm.Relation{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}}},
+	}
+	st.spaces["myspace"] = &mockSpace{
+		name:       "myspace",
+		providerId: "juju-space-myspace",
+		subnets: []applicationoffers.Subnet{
+			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+		},
+	}
+	s.env.spaceInfo = &environs.ProviderSpaceInfo{
+		SpaceInfo: network.SpaceInfo{
+			Name:       "myspace",
+			ProviderId: "juju-space-myspace",
+			Subnets: []network.SubnetInfo{{
+				CIDR:              "4.3.2.0/24",
+				ProviderId:        "juju-subnet-1",
+				AvailabilityZones: []string{"az1"},
+			}},
+		},
 	}
 }
 
@@ -891,21 +1005,31 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
 		{Result: &params.RemoteApplicationInfo{
 			ModelTag:         testing.ModelTag.String(),
 			Name:             "hosted-mysql",
-			Description:      "A pretty popular database",
+			Description:      "a database",
 			ApplicationURL:   "fred/prod.hosted-mysql",
 			SourceModelLabel: "prod",
 			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
 			Endpoints: []params.RemoteEndpoint{
-				{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"},
-				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"},
-				{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}},
+				{Name: "database", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
 		}},
 		{
 			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
 		},
 	})
+	// TODO(wallyworld) - these checks are only relevant once OfferDetails is done
+	//s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
+	//s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
+	//	Name:       "myspace",
+	//	ProviderId: "juju-space-myspace",
+	//	Subnets: []network.SubnetInfo{{
+	//		CIDR:              "4.3.2.0/24",
+	//		ProviderId:        "juju-subnet-1",
+	//		AvailabilityZones: []string{"az1"},
+	//	}},
+	//})
 }

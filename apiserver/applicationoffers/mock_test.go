@@ -14,6 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -60,6 +62,22 @@ func (m *stubApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.A
 	panic("not implemented")
 }
 
+type mockEnviron struct {
+	environs.NetworkingEnviron
+
+	stub      jtesting.Stub
+	spaceInfo *environs.ProviderSpaceInfo
+}
+
+func (e *mockEnviron) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	e.stub.MethodCall(e, "ProviderSpaceInfo", space)
+	return e.spaceInfo, e.stub.NextErr()
+}
+
+type mockNoNetworkEnviron struct {
+	environs.Environ
+}
+
 type mockModel struct {
 	uuid  string
 	name  string
@@ -99,6 +117,7 @@ type mockApplication struct {
 	charm     *mockCharm
 	curl      *charm.URL
 	endpoints []state.Endpoint
+	bindings  map[string]string
 }
 
 func (m *mockApplication) Name() string {
@@ -117,10 +136,16 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
+func (m *mockApplication) EndpointBindings() (map[string]string, error) {
+	return m.bindings, nil
+}
+
 type mockRemoteApplication struct {
 	name           string
 	sourceModelTag names.ModelTag
 	endpoints      []state.Endpoint
+	bindings       map[string]string
+	spaces         []state.RemoteSpace
 	offerName      string
 	offerURL       string
 }
@@ -137,6 +162,14 @@ func (m *mockRemoteApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
+func (m *mockRemoteApplication) Bindings() map[string]string {
+	return m.bindings
+}
+
+func (m *mockRemoteApplication) Spaces() []state.RemoteSpace {
+	return m.spaces
+}
+
 func (m *mockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
 	for _, ep := range eps {
 		m.endpoints = append(m.endpoints, state.Endpoint{
@@ -149,6 +182,52 @@ func (m *mockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		})
 	}
 	return nil
+}
+
+type mockSpace struct {
+	name       string
+	providerId network.Id
+	subnets    []applicationoffers.Subnet
+}
+
+func (m *mockSpace) Name() string {
+	return m.name
+}
+
+func (m *mockSpace) Subnets() ([]applicationoffers.Subnet, error) {
+	return m.subnets, nil
+}
+
+func (m *mockSpace) ProviderId() network.Id {
+	return m.providerId
+}
+
+type mockSubnet struct {
+	cidr              string
+	vlantag           int
+	providerId        network.Id
+	providerNetworkId network.Id
+	zones             []string
+}
+
+func (m *mockSubnet) CIDR() string {
+	return m.cidr
+}
+
+func (m *mockSubnet) VLANTag() int {
+	return m.vlantag
+}
+
+func (m *mockSubnet) ProviderId() network.Id {
+	return m.providerId
+}
+
+func (m *mockSubnet) ProviderNetworkId() network.Id {
+	return m.providerNetworkId
+}
+
+func (m *mockSubnet) AvailabilityZones() []string {
+	return m.zones
 }
 
 type mockConnectionStatus struct {
@@ -187,6 +266,7 @@ type mockState struct {
 	applications       map[string]applicationoffers.Application
 	remoteApplications map[string]applicationoffers.RemoteApplication
 	applicationOffers  map[string]jujucrossmodel.ApplicationOffer
+	spaces             map[string]applicationoffers.Space
 	connStatus         applicationoffers.RemoteConnectionStatus
 	accessPerms        map[offerAccess]permission.Access
 }
@@ -209,6 +289,7 @@ func (m *mockState) AddRemoteApplication(args state.AddRemoteApplicationParams) 
 		sourceModelTag: args.SourceModel,
 		offerName:      args.OfferName,
 		offerURL:       args.URL,
+		bindings:       args.Bindings,
 	}
 	for _, ep := range args.Endpoints {
 		app.endpoints = append(app.endpoints, state.Endpoint{
@@ -219,6 +300,24 @@ func (m *mockState) AddRemoteApplication(args state.AddRemoteApplicationParams) 
 				Role:      ep.Role,
 			},
 		})
+	}
+	for _, sp := range args.Spaces {
+		remoteSpaceInfo := state.RemoteSpace{
+			CloudType:          sp.CloudType,
+			Name:               sp.Name,
+			ProviderId:         string(sp.ProviderId),
+			ProviderAttributes: sp.ProviderAttributes,
+		}
+		for _, sn := range sp.Subnets {
+			remoteSpaceInfo.Subnets = append(remoteSpaceInfo.Subnets, state.RemoteSubnet{
+				CIDR:              sn.CIDR,
+				VLANTag:           sn.VLANTag,
+				ProviderId:        string(sn.ProviderId),
+				ProviderNetworkId: string(sn.ProviderNetworkId),
+				AvailabilityZones: sn.AvailabilityZones,
+			})
+		}
+		app.spaces = append(app.spaces, remoteSpaceInfo)
 	}
 	m.remoteApplications[app.name] = app
 	return app, nil
@@ -246,6 +345,14 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 		return nil, errors.NotFoundf("application offer %q", name)
 	}
 	return &offer, nil
+}
+
+func (m *mockState) Space(name string) (applicationoffers.Space, error) {
+	space, ok := m.spaces[name]
+	if !ok {
+		return nil, errors.NotFoundf("space %q", name)
+	}
+	return space, nil
 }
 
 func (m *mockState) Model() (applicationoffers.Model, error) {

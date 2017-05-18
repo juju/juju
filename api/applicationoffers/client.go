@@ -219,13 +219,9 @@ func (c *Client) Consume(targetModelTag names.ModelTag, offer params.Application
 	var consumeRes params.ConsumeApplicationResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationAlias:       alias,
-			SourceModelTag:         offer.SourceModelTag,
-			TargetModelTag:         targetModelTag.String(),
-			OfferURL:               offer.OfferURL,
-			OfferName:              offer.OfferName,
-			ApplicationDescription: offer.ApplicationDescription,
-			Endpoints:              offer.Endpoints,
+			ApplicationAlias: alias,
+			TargetModelTag:   targetModelTag.String(),
+			ApplicationOffer: offer,
 		}},
 	}
 	err := c.facade.FacadeCall("Consume", args, &consumeRes)

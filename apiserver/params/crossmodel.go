@@ -125,12 +125,8 @@ type ApplicationURLs struct {
 
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
 type ConsumeApplicationArg struct {
-	// The following parameters define the application to be consumed.
-	SourceModelTag         string           `json:"source-model-tag"`
-	OfferName              string           `json:"offer-name"`
-	ApplicationDescription string           `json:"application-description"`
-	Endpoints              []RemoteEndpoint `json:"endpoints"`
-	OfferURL               string           `json:"offer-url"`
+	// The offer to be consumed.
+	ApplicationOffer
 
 	// TargetModelTag represents the model when the consumed
 	// application is to be saved.
