@@ -35,15 +35,20 @@ def clean(args):
             instance_groups = dict(substrate.iter_instance_security_groups())
             non_instance_groups = dict((k, v) for k, v in all_groups.items()
                                        if k not in instance_groups)
-            unclean = substrate.delete_detached_interfaces(
-                non_instance_groups.keys())
-            logging.info('Unable to delete {} groups'.format(len(unclean)))
+            try:
+                unclean = substrate.delete_detached_interfaces(
+                    non_instance_groups.keys())
+                logging.info('Unable to delete {} groups'.format(len(unclean)))
+            except:
+                logging.info('Unable to delete non-instance groups {}'.format(non_instance_groups.keys()))
             for group_id in unclean:
                 logging.debug('Cannot delete {}'.format(all_groups[group_id]))
             for group_id in unclean:
                 non_instance_groups.pop(group_id, None)
-            substrate.destroy_security_groups(non_instance_groups.values())
-
+            try:
+                substrate.destroy_security_groups(non_instance_groups.values())
+            except:
+                logging.debug('Failed to delete groups {}'.format(non_instance_groups.values()))
 
 def main():
     args = parse_args()

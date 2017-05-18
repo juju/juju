@@ -121,11 +121,14 @@ def delete_instances(client, name_id, old_age=OLD_MACHINE_AGE, dry_run=False):
         if not dry_run:
             # Do not pass destroy_boot_disk=True unless the node has a special
             # boot disk that is not set to autodestroy.
-            success = client.destroy_node(node)
-            if success:
-                log.debug('Deleted {}'.format(node_name))
-                deleted_count += 1
-            else:
+            try:
+                success = client.destroy_node(node)
+                if success:
+                    log.debug('Deleted {}'.format(node_name))
+                    deleted_count += 1
+                else:
+                    log.error('Cannot delete {}'.format(node_name))
+            except:
                 log.error('Cannot delete {}'.format(node_name))
     return deleted_count
 
