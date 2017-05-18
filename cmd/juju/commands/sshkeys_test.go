@@ -70,7 +70,7 @@ func (s *keySuiteBase) SetUpTest(c *gc.C) {
 
 func (s *keySuiteBase) setAuthorizedKeys(c *gc.C, keys ...string) {
 	keyString := strings.Join(keys, "\n")
-	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyString}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyString}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)

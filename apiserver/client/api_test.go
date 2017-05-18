@@ -376,7 +376,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	setDefaultPassword(c, u)
 	add(u)
 	err = s.State.UpdateModelConfig(map[string]interface{}{
-		config.AgentVersionKey: "1.2.3"}, nil, nil)
+		config.AgentVersionKey: "1.2.3"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})

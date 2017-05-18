@@ -43,7 +43,7 @@ func (s *upgradeModelConfigSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.updater = updateModelConfigFunc(func(
-		update map[string]interface{}, remove []string, validate state.ValidateConfigFunc,
+		update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc,
 	) error {
 		s.stub.AddCall("UpdateModelConfig", update, remove, validate)
 		return s.stub.NextErr()
@@ -132,12 +132,12 @@ func (f environConfigFunc) ModelConfig() (*config.Config, error) {
 	return f()
 }
 
-type updateModelConfigFunc func(map[string]interface{}, []string, state.ValidateConfigFunc) error
+type updateModelConfigFunc func(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 
 func (f updateModelConfigFunc) UpdateModelConfig(
-	update map[string]interface{}, remove []string, validate state.ValidateConfigFunc,
+	update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc,
 ) error {
-	return f(update, remove, validate)
+	return f(update, remove, validate...)
 }
 
 type mockProviderRegistry struct {

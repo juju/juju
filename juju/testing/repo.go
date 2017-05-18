@@ -27,7 +27,7 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.CharmsPath = c.MkDir()
 	// Change the environ's config to ensure we're using the one in state.
 	updateAttrs := map[string]interface{}{"default-series": series.LatestLts()}
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

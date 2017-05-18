@@ -1045,7 +1045,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 // updateConfig sets config variable with given key to a given value
 // Asserts that no errors were encountered.
 func (s *baseSuite) updateConfig(c *gc.C, key string, block bool) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{key: block}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{key: block}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1256,7 +1256,6 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 				"enable-os-upgrade":        upgrade,
 				"enable-os-refresh-update": update,
 			},
-			nil,
 			nil,
 		)
 	}
