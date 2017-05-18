@@ -156,7 +156,7 @@ func checkConnectionDies(c *gc.C, conn api.Connection) {
 	for a := attempt.Start(); a.Next(); {
 		err := pingConn(conn)
 		if err != nil {
-			c.Assert(err, gc.ErrorMatches, "connection is shut down")
+			c.Assert(err, gc.ErrorMatches, "connection is shut down", gc.Commentf("details: %s", errors.Details(err)))
 			return
 		}
 	}

@@ -16,7 +16,7 @@ import (
 // NewWebsocket returns an rpc codec that uses the given websocket
 // connection to send and receive messages.
 func NewWebsocket(conn *websocket.Conn) *Codec {
-	return New(&wsJSONConn{conn: conn})
+	return New(NewWebsocketConn(conn))
 }
 
 type wsJSONConn struct {
@@ -25,6 +25,12 @@ type wsJSONConn struct {
 	// one concurrent reader.
 	writeMutex sync.Mutex
 	readMutex  sync.Mutex
+}
+
+// NewWebsocketConn returns a JSONConn implementation
+// that uses the given connection for transport.
+func NewWebsocketConn(conn *websocket.Conn) JSONConn {
+	return &wsJSONConn{conn: conn}
 }
 
 func (conn *wsJSONConn) Send(msg interface{}) error {
