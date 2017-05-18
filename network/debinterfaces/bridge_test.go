@@ -4,6 +4,8 @@
 package debinterfaces_test
 
 import (
+	"runtime"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/debinterfaces"
@@ -17,6 +19,13 @@ type BridgeSuite struct {
 }
 
 var _ = gc.Suite(&BridgeSuite{})
+
+func (s *BridgeSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("skipping ActivationSuite tests on windows")
+	}
+	s.IsolationSuite.SetUpSuite(c)
+}
 
 func format(stanzas []debinterfaces.Stanza) string {
 	return debinterfaces.FormatStanzas(stanzas, 4)
