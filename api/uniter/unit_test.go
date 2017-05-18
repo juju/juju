@@ -187,8 +187,8 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a couple of subordinates and try again.
-	_, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	_, _, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	_, _, loggingSub := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, monitoringSub := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
 
@@ -239,6 +239,74 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 }
 
+func (s *unitSuite) TestWatchRelations(c *gc.C) {
+	w, err := s.apiUnit.WatchRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Change something other than the lifecycle and make sure it's
+	// not detected.
+	err = s.wordpressApplication.SetExposed()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Add another application and relate it to wordpress,
+	// check it's detected.
+	s.addMachineAppCharmAndUnit(c, "mysql")
+	rel := s.addRelation(c, "wordpress", "mysql")
+	wc.AssertChange(rel.String())
+
+	// Destroy the relation and check it's detected.
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(rel.String())
+	wc.AssertNoChange()
+}
+
+func (s *unitSuite) TestSubordinateWatchRelations(c *gc.C) {
+	// A subordinate unit deployed with this wordpress unit shouldn't
+	// be notified about changes to logging mysql.
+	loggingRel, _, loggingUnit := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = loggingUnit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add another principal app that we can relate logging to.
+	s.addMachineAppCharmAndUnit(c, "mysql")
+
+	api := s.OpenAPIAs(c, loggingUnit.Tag(), password)
+	uniter, err := api.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	apiUnit, err := uniter.Unit(loggingUnit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := apiUnit.WatchRelations()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	wc.AssertChange(loggingRel.Tag().Id())
+	wc.AssertNoChange()
+
+	// Adding a subordinate relation to another application doesn't notify this unit.
+	s.addRelation(c, "mysql", "logging")
+	wc.AssertNoChange()
+
+	// Destroying a relevant relation does notify it.
+	err = loggingRel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(loggingRel.Tag().Id())
+	wc.AssertNoChange()
+}
+
 func (s *unitSuite) TestResolve(c *gc.C) {
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
@@ -274,8 +342,8 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 	c.Assert(found, jc.IsFalse)
 
 	// Add a couple of subordinates and try again.
-	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 
 	found, err = s.apiUnit.HasSubordinates()
 	c.Assert(err, jc.ErrorIsNil)
@@ -438,7 +506,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 
 	// Update the config and check we get the changes on the next call.
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -468,18 +536,18 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -569,9 +637,9 @@ func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
 }
 
-func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
-	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressService.Name())
-	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressService.Tag())
+func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {
+	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressApplication.Name())
+	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressApplication.Tag())
 }
 
 func (s *unitSuite) TestJoinedRelations(c *gc.C) {
@@ -579,14 +647,14 @@ func (s *unitSuite) TestJoinedRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(joinedRelations, gc.HasLen, 0)
 
-	rel1, _, _ := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	rel1, _, _ := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 	joinedRelations, err = s.apiUnit.JoinedRelations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(joinedRelations, gc.DeepEquals, []names.RelationTag{
 		rel1.Tag().(names.RelationTag),
 	})
 
-	rel2, _, _ := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	rel2, _, _ := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 	joinedRelations, err = s.apiUnit.JoinedRelations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(joinedRelations, jc.SameContents, []names.RelationTag{
@@ -785,11 +853,11 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	service := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	application := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Charm: s.charm,
 	})
 	unit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{
-		Application: service,
+		Application: application,
 		SetCharmURL: true,
 	})
 

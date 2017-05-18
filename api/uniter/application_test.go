@@ -17,32 +17,32 @@ import (
 	"github.com/juju/juju/watcher/watchertest"
 )
 
-type serviceSuite struct {
+type applicationSuite struct {
 	uniterSuite
 
-	apiService *uniter.Application
+	apiApplication *uniter.Application
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = gc.Suite(&applicationSuite{})
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiService, err = s.uniter.Application(s.wordpressService.Tag().(names.ApplicationTag))
+	s.apiApplication, err = s.uniter.Application(s.wordpressApplication.Tag().(names.ApplicationTag))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestNameTagAndString(c *gc.C) {
-	c.Assert(s.apiService.Name(), gc.Equals, s.wordpressService.Name())
-	c.Assert(s.apiService.String(), gc.Equals, s.wordpressService.String())
-	c.Assert(s.apiService.Tag(), gc.Equals, s.wordpressService.Tag().(names.ApplicationTag))
+func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
+	c.Assert(s.apiApplication.Name(), gc.Equals, s.wordpressApplication.Name())
+	c.Assert(s.apiApplication.String(), gc.Equals, s.wordpressApplication.String())
+	c.Assert(s.apiApplication.Tag(), gc.Equals, s.wordpressApplication.Tag().(names.ApplicationTag))
 }
 
-func (s *serviceSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
+func (s *applicationSuite) TestWatch(c *gc.C) {
+	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
 
-	w, err := s.apiService.Watch()
+	w, err := s.apiApplication.Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
@@ -51,101 +51,72 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change something and check it's detected.
-	err = s.wordpressService.SetExposed()
+	err = s.wordpressApplication.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	// Destroy the service and check it's detected.
-	err = s.wordpressService.Destroy()
+	// Destroy the application and check it's detected.
+	err = s.wordpressApplication.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
-func (s *serviceSuite) TestWatchRelations(c *gc.C) {
-	w, err := s.apiService.WatchRelations()
+func (s *applicationSuite) TestRefresh(c *gc.C) {
+	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
+
+	err := s.wordpressApplication.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
-	defer wc.AssertStops()
+	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
 
-	// Initial event.
-	wc.AssertChange()
-	wc.AssertNoChange()
-
-	// Change something other than the lifecycle and make sure it's
-	// not detected.
-	err = s.wordpressService.SetExposed()
+	err = s.apiApplication.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Add another service and relate it to wordpress,
-	// check it's detected.
-	s.addMachineServiceCharmAndUnit(c, "mysql")
-	rel := s.addRelation(c, "wordpress", "mysql")
-	wc.AssertChange(rel.String())
-
-	// Destroy the relation and check it's detected.
-	err = rel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(rel.String())
-	wc.AssertNoChange()
+	c.Assert(s.apiApplication.Life(), gc.Equals, params.Dying)
 }
 
-func (s *serviceSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
-
-	err := s.wordpressService.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
-
-	err = s.apiService.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiService.Life(), gc.Equals, params.Dying)
-}
-
-func (s *serviceSuite) TestCharmURL(c *gc.C) {
+func (s *applicationSuite) TestCharmURL(c *gc.C) {
 	// Get the charm URL through state calls.
-	curl, force := s.wordpressService.CharmURL()
+	curl, force := s.wordpressApplication.CharmURL()
 	c.Assert(curl, gc.DeepEquals, s.wordpressCharm.URL())
 	c.Assert(force, jc.IsFalse)
 
 	// Now check the same through the API.
-	curl, force, err := s.apiService.CharmURL()
+	curl, force, err := s.apiApplication.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, s.wordpressCharm.URL())
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestCharmModifiedVersion(c *gc.C) {
+func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
 	// Get the charm URL through state calls.
-	ver, err := s.apiService.CharmModifiedVersion()
+	ver, err := s.apiApplication.CharmModifiedVersion()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.Equals, s.wordpressService.CharmModifiedVersion())
+	c.Assert(ver, gc.Equals, s.wordpressApplication.CharmModifiedVersion())
 }
 
-func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
+func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
 	message := "a test message"
-	stat, err := s.wordpressService.Status()
+	stat, err := s.wordpressApplication.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stat.Status, gc.Not(gc.Equals), status.Active)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
+	err = s.apiApplication.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
 	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
-	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
+	s.claimLeadership(c, s.wordpressUnit, s.wordpressApplication)
 
-	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
+	err = s.apiApplication.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
 	c.Check(err, jc.ErrorIsNil)
 
-	stat, err = s.wordpressService.Status()
+	stat, err = s.wordpressApplication.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(stat.Status, gc.Equals, status.Active)
 	c.Check(stat.Message, gc.Equals, message)
 }
 
-func (s *serviceSuite) TestServiceStatus(c *gc.C) {
+func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
 	message := "a test message"
-	stat, err := s.wordpressService.Status()
+	stat, err := s.wordpressApplication.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stat.Status, gc.Not(gc.Equals), status.Active)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
@@ -157,25 +128,25 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 		Data:    map[string]interface{}{},
 		Since:   &now,
 	}
-	err = s.wordpressService.SetStatus(sInfo)
+	err = s.wordpressApplication.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	stat, err = s.wordpressService.Status()
+	stat, err = s.wordpressApplication.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(stat.Status, gc.Equals, status.Active)
 	c.Check(stat.Message, gc.Equals, message)
 
-	result, err := s.apiService.Status(s.wordpressUnit.Name())
+	result, err := s.apiApplication.Status(s.wordpressUnit.Name())
 	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
-	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
-	result, err = s.apiService.Status(s.wordpressUnit.Name())
+	s.claimLeadership(c, s.wordpressUnit, s.wordpressApplication)
+	result, err = s.apiApplication.Status(s.wordpressUnit.Name())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result.Application.Status, gc.Equals, status.Active.String())
 }
 
-func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Application) {
+func (s *applicationSuite) claimLeadership(c *gc.C, unit *state.Unit, app *state.Application) {
 	claimer := s.State.LeadershipClaimer()
-	err := claimer.ClaimLeadership(service.Name(), unit.Name(), time.Minute)
+	err := claimer.ClaimLeadership(app.Name(), unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }
