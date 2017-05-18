@@ -33,7 +33,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -661,9 +660,10 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(st, svc, "dummy", 1, nil)
+	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	unit := units[0]
+	err = st.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for the unit's machine and associated agent to come up
 	// and announce itself.

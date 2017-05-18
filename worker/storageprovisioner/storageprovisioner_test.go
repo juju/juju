@@ -1167,37 +1167,6 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorResultDoesNotStopWorker(
 	assertNoEvent(c, done, "worker exited")
 }
 
-func (s *storageProvisionerSuite) TestRemoveDeadVolumeAttachments(c *gc.C) {
-	removed := make(chan interface{})
-	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
-		defer close(removed)
-		c.Assert(ids, gc.DeepEquals, []params.MachineStorageId{{
-			MachineTag:    "machine-0",
-			AttachmentTag: "volume-0",
-		}})
-		return make([]params.ErrorResult, len(ids)), nil
-	}
-	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
-		return []params.LifeResult{{Life: params.Dead}}, nil
-	}
-
-	args := &workerArgs{
-		life: &mockLifecycleManager{
-			attachmentLife:    attachmentLife,
-			removeAttachments: removeAttachments,
-		},
-		registry: s.registry,
-	}
-	worker := newStorageProvisioner(c, args)
-	defer worker.Wait()
-	defer worker.Kill()
-
-	args.volumes.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
-		MachineTag: "machine-0", AttachmentTag: "volume-0",
-	}}
-	waitChannel(c, removed, "waiting for attachment to be removed")
-}
-
 func (s *storageProvisionerSuite) TestDetachVolumesUnattached(c *gc.C) {
 	removed := make(chan interface{})
 	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
@@ -1262,6 +1231,13 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 		return make([]error, len(args)), nil
 	}
 
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
+		close(removed)
+		return make([]params.ErrorResult, len(ids)), nil
+	}
+
 	// volume-1 and machine-1 are provisioned.
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
@@ -1274,7 +1250,8 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 	args := &workerArgs{
 		volumes: volumeAccessor,
 		life: &mockLifecycleManager{
-			attachmentLife: attachmentLife,
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
 		},
 		registry: s.registry,
 	}
@@ -1291,6 +1268,7 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}}
 	waitChannel(c, detached, "waiting for volume to be detached")
+	waitChannel(c, removed, "waiting for attachment to be removed")
 }
 
 func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
@@ -1322,21 +1300,26 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 	clock := &mockClock{}
 	var detachVolumeTimes []time.Time
 
-	detached := make(chan interface{})
 	s.provider.detachVolumesFunc = func(args []storage.VolumeAttachmentParams) ([]error, error) {
 		detachVolumeTimes = append(detachVolumeTimes, clock.Now())
 		if len(detachVolumeTimes) < 10 {
 			return []error{errors.New("badness")}, nil
 		}
-		close(detached)
 		return []error{nil}, nil
+	}
+
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		close(removed)
+		return make([]params.ErrorResult, len(ids)), nil
 	}
 
 	args := &workerArgs{
 		volumes: volumeAccessor,
 		clock:   clock,
 		life: &mockLifecycleManager{
-			attachmentLife: attachmentLife,
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
 		},
 		registry: s.registry,
 	}
@@ -1349,7 +1332,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 		MachineTag:    machine.String(),
 		AttachmentTag: volume.String(),
 	}}
-	waitChannel(c, detached, "waiting for attachment to be detached")
+	waitChannel(c, removed, "waiting for attachment to be removed")
 	c.Assert(detachVolumeTimes, gc.HasLen, 10)
 
 	// The first attempt should have been immediate: T0.
@@ -1383,37 +1366,6 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 		{Tag: "volume-1", Status: "detaching", Info: "badness"},
 		{Tag: "volume-1", Status: "detached", Info: ""},
 	})
-}
-
-func (s *storageProvisionerSuite) TestRemoveDeadFilesystemAttachments(c *gc.C) {
-	removed := make(chan interface{})
-	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
-		defer close(removed)
-		c.Assert(ids, gc.DeepEquals, []params.MachineStorageId{{
-			MachineTag:    "machine-0",
-			AttachmentTag: "filesystem-0",
-		}})
-		return make([]params.ErrorResult, len(ids)), nil
-	}
-	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
-		return []params.LifeResult{{Life: params.Dead}}, nil
-	}
-
-	args := &workerArgs{
-		life: &mockLifecycleManager{
-			attachmentLife:    attachmentLife,
-			removeAttachments: removeAttachments,
-		},
-		registry: s.registry,
-	}
-	worker := newStorageProvisioner(c, args)
-	defer worker.Wait()
-	defer worker.Kill()
-
-	args.filesystems.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
-		MachineTag: "machine-0", AttachmentTag: "filesystem-0",
-	}}
-	waitChannel(c, removed, "waiting for attachment to be removed")
 }
 
 func (s *storageProvisionerSuite) TestDetachFilesystemsUnattached(c *gc.C) {
@@ -1480,6 +1432,13 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 		return make([]error, len(args)), nil
 	}
 
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
+		close(removed)
+		return make([]params.ErrorResult, len(ids)), nil
+	}
+
 	// filesystem-1 and machine-1 are provisioned.
 	filesystemAccessor.provisionedFilesystems["filesystem-1"] = params.Filesystem{
 		FilesystemTag: "filesystem-1",
@@ -1492,7 +1451,8 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 	args := &workerArgs{
 		filesystems: filesystemAccessor,
 		life: &mockLifecycleManager{
-			attachmentLife: attachmentLife,
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
 		},
 		registry: s.registry,
 	}
@@ -1509,6 +1469,7 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
 	}}
 	waitChannel(c, detached, "waiting for filesystem to be detached")
+	waitChannel(c, removed, "waiting for attachment to be removed")
 }
 
 func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {

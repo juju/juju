@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -48,6 +47,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		}},
 	}
 	s.charm = mockCharm{
+		meta: &charm.Meta{},
 		config: &charm.Config{
 			Options: map[string]charm.Option{
 				"stringOption": {Type: "string"},
@@ -104,8 +104,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
-		func(application.Backend, juju.DeployApplicationParams) error {
-			return nil
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -269,6 +269,33 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	}})
 }
 
+func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			AttachStorage:   []string{"storage-foo-0"},
+		}, {
+			ApplicationName: "bar",
+			CharmURL:        "local:bar-1",
+			NumUnits:        2,
+			AttachStorage:   []string{"storage-bar-0"},
+		}, {
+			ApplicationName: "baz",
+			CharmURL:        "local:baz-2",
+			NumUnits:        1,
+			AttachStorage:   []string{"volume-baz-0"},
+		}},
+	}
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
+}
+
 type mockBackend struct {
 	application.Backend
 	testing.Stub
@@ -415,12 +442,19 @@ type mockCharm struct {
 	application.Charm
 	testing.Stub
 	config *charm.Config
+	meta   *charm.Meta
 }
 
 func (c *mockCharm) Config() *charm.Config {
 	c.MethodCall(c, "Config")
 	c.PopNoErr()
 	return c.config
+}
+
+func (c *mockCharm) Meta() *charm.Meta {
+	c.MethodCall(c, "Meta")
+	c.PopNoErr()
+	return c.meta
 }
 
 type mockBlockChecker struct {

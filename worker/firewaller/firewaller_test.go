@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -151,9 +150,10 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Ing
 }
 
 func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.Unit, *state.Machine) {
-	units, err := juju.AddUnits(s.State, app, app.Name(), 1, nil)
+	u, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	u := units[0]
+	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
 	id, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.Machine(id)

@@ -313,6 +313,12 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 	}
 	scheduleOperations(ctx, reschedule...)
 	setStatus(ctx, statuses)
+	if err := removeAttachments(ctx, remove); err != nil {
+		return errors.Annotate(err, "removing attachments from state")
+	}
+	for _, id := range remove {
+		delete(ctx.volumeAttachments, id)
+	}
 	return nil
 }
 

@@ -565,7 +565,10 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := removeFilesystemAttachmentOps(machine, f)
+		ops, err := removeFilesystemAttachmentOps(st, machine, f)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		volumeAttachment, err := st.filesystemVolumeAttachment(machine, filesystem)
 		if err != nil {
 			if errors.Cause(err) != ErrNoBackingVolume && !errors.IsNotFound(err) {
@@ -592,22 +595,38 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 	return st.run(buildTxn)
 }
 
-func removeFilesystemAttachmentOps(m names.MachineTag, f *filesystem) []txn.Op {
-	decrefFilesystemOp := machineStorageDecrefOp(
-		filesystemsC, f.doc.FilesystemId,
-		f.doc.AttachmentCount, f.doc.Life, m,
-	)
-	return []txn.Op{{
+func removeFilesystemAttachmentOps(st *State, m names.MachineTag, f *filesystem) ([]txn.Op, error) {
+	var ops []txn.Op
+	if f.doc.VolumeId != "" && f.doc.Life == Dying && f.doc.AttachmentCount == 1 {
+		// Volume-backed filesystems are removed immediately, instead
+		// of transitioning to Dead.
+		assert := bson.D{
+			{"life", Dying},
+			{"attachmentcount", 1},
+		}
+		removeFilesystemOps, err := removeFilesystemOps(st, f, assert)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = removeFilesystemOps
+	} else {
+		decrefFilesystemOp := machineStorageDecrefOp(
+			filesystemsC, f.doc.FilesystemId,
+			f.doc.AttachmentCount, f.doc.Life, m,
+		)
+		ops = []txn.Op{decrefFilesystemOp}
+	}
+	return append(ops, txn.Op{
 		C:      filesystemAttachmentsC,
 		Id:     filesystemAttachmentId(m.Id(), f.doc.FilesystemId),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
-	}, decrefFilesystemOp, {
+	}, txn.Op{
 		C:      machinesC,
 		Id:     m.Id(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$pull", bson.D{{"filesystems", f.doc.FilesystemId}}}},
-	}}
+	}), nil
 }
 
 // DestroyFilesystem ensures that the filesystem and any attachments to it will
@@ -644,10 +663,21 @@ func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.O
 	baseAssert := append(isAliveDoc, extraAssert...)
 	if f.doc.AttachmentCount == 0 {
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
+		assert := append(hasNoAttachments, baseAssert...)
+		if f.doc.VolumeId != "" {
+			// Filesystem is volume-backed, and since it has no
+			// attachments, it has no provisioner responsible
+			// for it. Removing the filesystem will destroy the
+			// backing volume, which effectively destroys the
+			// filesystem contents anyway.
+			return removeFilesystemOps(st, f, assert)
+		}
+		// The filesystem is not volume-backed, so leave it to the
+		// storage provisioner to destroy it.
 		return []txn.Op{{
 			C:      filesystemsC,
 			Id:     f.doc.FilesystemId,
-			Assert: append(hasNoAttachments, baseAssert...),
+			Assert: assert,
 			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		}}, nil
 	}
@@ -703,17 +733,17 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 		if filesystem.Life() != Dead {
 			return nil, errors.New("filesystem is not dead")
 		}
-		return removeFilesystemOps(st, filesystem)
+		return removeFilesystemOps(st, filesystem, isDeadDoc)
 	}
 	return st.run(buildTxn)
 }
 
-func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
+func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) ([]txn.Op, error) {
 	ops := []txn.Op{
 		{
 			C:      filesystemsC,
 			Id:     filesystem.Tag().Id(),
-			Assert: txn.DocExists,
+			Assert: assert,
 			Remove: true,
 		},
 		removeModelFilesystemRefOp(st, filesystem.Tag().Id()),

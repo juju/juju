@@ -86,7 +86,7 @@ func setMachineBlockDevices(st modelBackend, machineId string, newInfo []BlockDe
 		ops := []txn.Op{{
 			C:      machinesC,
 			Id:     machineId,
-			Assert: isAliveDoc,
+			Assert: notDeadDoc,
 		}, {
 			C:      blockDevicesC,
 			Id:     machineId,

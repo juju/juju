@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -344,21 +343,23 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	svc := s.AddTestingService(c, "test-service", charm)
 	err := svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(s.State, svc, svc.Name(), 1, nil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// It should be allocated to a machine, which should then be provisioned.
-	c.Logf("service %q added with 1 unit, waiting for unit %q's machine to be started...", svc.Name(), units[0].Name())
+	c.Logf("application %q added with 1 unit, waiting for unit %q's machine to be started...", svc.Name(), unit.Name())
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
-	c.Logf("machine hosting unit %q started, waiting for the unit to be deployed...", units[0].Name())
-	s.waitProvisioned(c, units[0])
+	c.Logf("machine hosting unit %q started, waiting for the unit to be deployed...", unit.Name())
+	s.waitProvisioned(c, unit)
 
 	// Open a port on the unit; it should be handled by the firewaller.
-	c.Logf("unit %q deployed, opening port tcp/999...", units[0].Name())
-	err = units[0].OpenPort("tcp", 999)
+	c.Logf("unit %q deployed, opening port tcp/999...", unit.Name())
+	err = unit.OpenPort("tcp", 999)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), gc.NotNil)
-	c.Logf("unit %q port tcp/999 opened, cleaning up...", units[0].Name())
+	c.Logf("unit %q port tcp/999 opened, cleaning up...", unit.Name())
 
 	err = a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
@@ -394,10 +395,12 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	// Add one unit to a service;
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "test-service", charm)
-	units, err := juju.AddUnits(s.State, svc, svc.Name(), 1, nil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, instId := s.waitProvisioned(c, units[0])
+	m, instId := s.waitProvisioned(c, unit)
 	insts, err := s.Environ.Instances([]instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	addrs := network.NewAddresses("1.2.3.4")
