@@ -47,5 +47,5 @@ const PersistentStorage = "persistent-storage"
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"
 
-// CAASModel enables creating models on CAAS infrastructure (k8s, etc)
-const CAASModel = "caas-model"
+// CAAS enables creating models on CAAS infrastructure (k8s, etc)
+const CAAS = "caas"
