@@ -1,0 +1,51 @@
+# defaults for jenkins-slave component of the jenkins continuous integration 
+# system
+
+# pulled in from the init script; makes things easier.
+NAME=jenkins-slave
+
+# location of java
+JAVA=/usr/bin/java
+
+# arguments to pass to java - optional
+#JAVA_ARGS="-Xmx256m"
+
+# for daemon to use
+PIDFILE=/var/run/jenkins/$NAME.pid
+
+# user id to be invoked as (otherwise will run as root; not wise!)
+JENKINS_USER=jenkins
+
+# location of jenkins arch indep files
+JENKINS_ROOT=/usr/share/jenkins
+
+# jenkins home location
+JENKINS_HOME=/var/lib/jenkins
+
+# jenkins /run location
+JENKINS_RUN=/var/run/jenkins
+
+# URL of jenkins server to connect to 
+# Not specifying this parameter will stop the slave 
+# job from running.
+#JENKINS_URL=""
+
+# Name of slave configuration to use at JENKINS_URL
+# Override if it need to be something other than the
+# hostname of the server the slave is running on.
+JENKINS_HOSTNAME="$(hostname)"
+
+# Log file location for use in Debian init script
+JENKINS_SLAVE_LOG=/var/log/jenkins/$NAME.log
+
+# OS LIMITS SETUP
+#   comment this out to observe /etc/security/limits.conf
+#   this is on by default because http://github.com/feniix/hudson/commit/d13c08ea8f5a3fa730ba174305e6429b74853927
+#   reported that Ubuntu's PAM configuration doesn't include pam_limits.so, and as a result the # of file
+#   descriptors are forced to 1024 regardless of /etc/security/limits.confa
+# NOTE - Ubuntu Users - this is not used by the upstart configuration - please use an upstart overrides file
+# to change the OS limits setup.
+MAXOPENFILES=8192
+
+# Arguments to pass to jenkins slave on startup
+JENKINS_ARGS="-jnlpUrl $JENKINS_URL/computer/$NAME/slave-agent.jnlp"

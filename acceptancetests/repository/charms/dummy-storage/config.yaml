@@ -1,0 +1,10 @@
+options:
+  # Will be tokens for each storage type.
+  single-fs-token:
+    type: string
+    default: ''
+    description: Token used to prove data stored is persistent
+  multi-fs-token:
+    type: string
+    default: ''
+    description: Token used to prove data stored is persistent
