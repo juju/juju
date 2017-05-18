@@ -1,0 +1,109 @@
+#!/usr/bin/env python
+
+from argparse import ArgumentParser
+import json
+import logging
+import re
+import subprocess
+import sys
+from textwrap import dedent
+import urllib2
+
+
+def parse_version(string):
+    return re.search('^const version = "(.*)"', string, re.M).group(1)
+
+
+def ls_remote(repo_url, ref, head=False, tag=False):
+    """Return a tuple fo the matching commit hash and ref.
+
+    None, None is returned when no matching commit was found.
+
+    :raise: an exception when more than one commit matched
+    :return: a tuple of commit, ref
+    """
+    command = ['git', 'ls-remote']
+    if head:
+        command.append('--heads')
+    if tag:
+        command.append('--tags')
+    command.extend([repo_url, ref])
+    found = subprocess.check_output(command)
+    found = found.strip()
+    if len(found) == 0:
+        return None, None
+    if len(found.split('\n')) > 1:
+        raise Exception(
+            "More than one commit matched the branch or tag:\n{}".format(
+                found))
+    commit, ref = found.split('\t')
+    return commit, ref
+
+
+def get_git_revision_info(branch, revision_spec):
+    """Find the commit and juju-core version of a branch.
+
+    Returns a tuple comparable to revno, revision-id, version.
+    The revno is always None. The revision-id is the commit hash.
+
+    :param branch: The location of the git branch.
+    :param revision_spec: a human-readable revision spec like 'HEAD', '1.18.0',
+        or '1dcf4e4fe1'
+    :return: a tuple of None, revision-id, version
+    """
+    protocol, branch_name, repo_name = branch.split(':')
+    repo_url = 'https://{}.git'.format(repo_name)
+    if revision_spec in (None, '-1', 'HEAD'):
+        commit, ref = ls_remote(repo_url, branch_name, head=True)
+    else:
+        commit, ref = ls_remote(repo_url, revision_spec, tag=True)
+    if commit is None:
+        commit = revision_spec
+    return None, commit
+
+
+def get_git_version(branch, commit):
+    protocol, branch_name, repo_name = branch.split(':')
+    domain, user, repo = repo_name.split('/')
+    template = 'https://raw.githubusercontent.com/{}/{}/{}/version/version.go'
+    file_url = template.format(user, repo, commit)
+    response = urllib2.urlopen(file_url)
+    return parse_version(response.read())
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('branch', help='The branch being built')
+    parser.add_argument('revision', nargs='?', default=None,
+                        help='The revision being built')
+    parser.add_argument('--revision-build', default=None,
+                        help='The build number.')
+    args = parser.parse_args()
+    branch = args.branch
+    revision_spec = args.revision
+    if branch.startswith('lp:'):
+        logging.error('Launchpad branches are no longer supported.')
+        sys.exit(1)
+    revno, revision_id = get_git_revision_info(branch, revision_spec)
+    version = None
+    version_str = ''
+    try:
+        version = get_git_version(branch, revision_id)
+        version_str = str(version)
+    finally:
+        with open('buildvars.bash', 'w') as f:
+            f.write(dedent("""\
+                export BRANCH=%s
+                export REVISION_ID='%s'
+                export VERSION=%s
+            """ % (branch, revision_id, version_str)))
+            if revno is not None:
+                f.write('export REVNO=%s\n' % revno)
+        with open('buildvars.json', 'w') as f:
+            json.dump({
+                'branch': branch,
+                'revision_id': revision_id,
+                'version': version,
+                'revision_build': args.revision_build,
+                }, f, indent=2)
+
