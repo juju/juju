@@ -2346,3 +2346,8 @@ func (*maasEnviron) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.Provi
 func (*maasEnviron) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
+
+// SSHAddresses implements environs.SSHAddresses.
+func (*maasEnviron) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
+}

@@ -1731,3 +1731,8 @@ func (*Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderS
 func (*Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
+
+// SSHAddresses is specified on environs.SSHAddresses.
+func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
+}

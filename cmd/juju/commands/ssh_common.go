@@ -399,13 +399,16 @@ func (c *SSHCommon) legacyAddressGetter(entity string) (string, error) {
 
 // reachableAddressGetter dials all addresses of the given entity, returning the
 // first one that succeeds. Only used with SSHClient API facade v2 or later is
-// available.
+// available. It does not try to dial if only one address is available.
 func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 	addresses, err := c.apiClient.AllAddresses(entity)
 	if err != nil {
 		return "", errors.Trace(err)
 	} else if len(addresses) == 0 {
 		return "", network.NoAddressError("available")
+	} else if len(addresses) == 1 {
+		logger.Debugf("Only one SSH address provided (%s), using it without probing", addresses[0])
+		return addresses[0], nil
 	}
 	publicKeys := []string{}
 	if !c.noHostKeyChecks {

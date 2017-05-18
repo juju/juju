@@ -1677,3 +1677,15 @@ func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderS
 func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
+
+// SSHAddresses implements environs.SSHAddresses.
+// For testing we cut "100.100.100.100" out of this list.
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	var rv []network.Address
+	for _, addr := range addresses {
+		if addr.Value != "100.100.100.100" {
+			rv = append(rv, addr)
+		}
+	}
+	return rv, nil
+}
