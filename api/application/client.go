@@ -108,7 +108,7 @@ type DeployArgs struct {
 // is deployed.
 func (c *Client) Deploy(args DeployArgs) error {
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
-		return errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", args.NumUnits)
+		return errors.New("cannot attach existing storage when more than one unit is requested")
 	}
 	attachStorage := make([]string, len(args.AttachStorage))
 	for i, id := range args.AttachStorage {

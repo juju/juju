@@ -349,7 +349,7 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// It should be allocated to a machine, which should then be provisioned.
-	c.Logf("service %q added with 1 unit, waiting for unit %q's machine to be started...", svc.Name(), unit.Name())
+	c.Logf("application %q added with 1 unit, waiting for unit %q's machine to be started...", svc.Name(), unit.Name())
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 	c.Logf("machine hosting unit %q started, waiting for the unit to be deployed...", unit.Name())
 	s.waitProvisioned(c, unit)

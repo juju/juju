@@ -125,7 +125,7 @@ func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 		AttachStorage: []string{"data/0"},
 	}
 	err := client.Deploy(args)
-	c.Assert(err, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
+	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
 	c.Assert(called, jc.IsFalse)
 }
 
