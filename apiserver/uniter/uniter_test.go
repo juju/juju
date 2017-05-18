@@ -511,6 +511,40 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	})
 }
 
+// TestNetworkInfoSpaceless is in uniterSuite and not uniterNetworkInfoSuite since we don't want
+// all the spaces set up.
+func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
+	err := s.machine0.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
+
+	args := params.NetworkInfoParams{
+		Unit:     s.wordpressUnit.Tag().String(),
+		Bindings: []string{"db"},
+	}
+
+	privateAddress, err := s.machine0.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				Addresses: []params.InterfaceAddress{
+					{Address: privateAddress.Value},
+				},
+			},
+		},
+	}
+
+	result, err := s.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"db": expectedInfo,
+		},
+	})
+}
+
 func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
 	s.PatchValue(uniter.GetZone, func(st *state.State, tag names.Tag) (string, error) {
 		return "a_zone", nil

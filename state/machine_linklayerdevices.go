@@ -1218,6 +1218,16 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 		}
 	}
 
+	// For a spaceless environment we won't find a subnet that's linked to privateAddress,
+	// we have to work around that and at least return minimal information for --primary-address.
+	if r, filledPrivateAddress := results[""]; !filledPrivateAddress && spaces.Contains("") {
+		r.NetworkInfos = []network.NetworkInfo{{
+			Addresses: []network.InterfaceAddress{{
+				Address: privateAddress.Value,
+			}},
+		}}
+		results[""] = r
+	}
 	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
 
 	for space := range spaces {
