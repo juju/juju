@@ -1,0 +1,20 @@
+options:
+  packages:
+    type: string
+    default: make git bzr
+    description: Packages to install on jenkins slave.
+  labels:
+    type: string
+    description: Jenkins labels to associate with jenkins slave.
+    default: ""
+  slave-name:
+    type: string
+    description: The name of this slave. Defaults to the juju unit name.
+    default: ""
+  master-url:
+    type: string
+    description: |
+      The URL of the jenkins master. Set this when this charm is not in
+      relation to a master or the master is not accessible via its default
+      URL.
+    default: ""
