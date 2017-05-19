@@ -264,15 +264,15 @@ func queryName(
 	}
 }
 
-func queryCloudType(pollster *interact.Pollster) (string, error) {
+// cloudProviders returns the names of providers supported by add-cloud,
+// and also the names of those which are not supported.
+func cloudProviders() (providers []string, unsupported []string, _ error) {
 	allproviders := environs.RegisteredProviders()
-	var unsupported []string
-	var providers []string
 	for _, name := range allproviders {
 		provider, err := environs.Provider(name)
 		if err != nil {
 			// should be impossible
-			return "", errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 
 		if provider.CloudSchema() != nil {
@@ -282,7 +282,15 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 		}
 	}
 	sort.Strings(providers)
+	return providers, unsupported, nil
+}
 
+func queryCloudType(pollster *interact.Pollster) (string, error) {
+	providers, unsupported, err := cloudProviders()
+	if err != nil {
+		// should be impossible
+		return "", errors.Trace(err)
+	}
 	supportedCloud := interact.VerifyOptions("cloud type", providers, false)
 
 	cloudVerify := func(s string) (ok bool, errmsg string, err error) {
