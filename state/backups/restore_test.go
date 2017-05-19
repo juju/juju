@@ -271,10 +271,12 @@ func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
 	var (
 		passedAddress string
 		passedArgs    []string
+		passedOptions *ssh.Options
 	)
 	fakeSSHCommand := func(address string, args []string, options *ssh.Options) *ssh.Cmd {
 		passedAddress = address
 		passedArgs = args
+		passedOptions = options
 		return ssh.Command("", []string{"ls"}, &ssh.Options{})
 	}
 
@@ -282,4 +284,10 @@ func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
 	runViaSSH("invalidAddress", "invalidScript")
 	c.Assert(passedAddress, gc.Equals, "ubuntu@invalidAddress")
 	c.Assert(passedArgs, gc.DeepEquals, []string{"sudo", "-n", "bash", "-c 'invalidScript'"})
+
+	var expectedOptions ssh.Options
+	expectedOptions.SetIdentities("/var/lib/juju/system-identity")
+	expectedOptions.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	expectedOptions.SetKnownHostsFile(os.DevNull)
+	c.Assert(passedOptions, jc.DeepEquals, &expectedOptions)
 }
