@@ -4,6 +4,7 @@
 package setwallet_test
 
 import (
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -11,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/setwallet"
+	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -31,8 +33,7 @@ func (s *setWalletSuite) SetUpTest(c *gc.C) {
 
 func (s *setWalletSuite) TestSetWallet(c *gc.C) {
 	s.mockAPI.resp = "name wallet set to 5"
-	set := setwallet.NewSetWalletCommand()
-	ctx, err := cmdtesting.RunCommand(c, set, "name", "5")
+	ctx, err := s.runCommand(c, "name", "5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "name wallet set to 5\n")
 	s.mockAPI.CheckCall(c, 0, "SetWallet", "name", "5")
@@ -40,10 +41,25 @@ func (s *setWalletSuite) TestSetWallet(c *gc.C) {
 
 func (s *setWalletSuite) TestSetWalletAPIError(c *gc.C) {
 	s.stub.SetErrors(errors.New("something failed"))
-	set := setwallet.NewSetWalletCommand()
-	_, err := cmdtesting.RunCommand(c, set, "name", "5")
+
+	_, err := s.runCommand(c, "name", "5")
 	c.Assert(err, gc.ErrorMatches, "failed to set the wallet: something failed")
 	s.mockAPI.CheckCall(c, 0, "SetWallet", "name", "5")
+}
+
+func (s *setWalletSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmd := setwallet.NewSetWalletCommand()
+	cmd.SetClientStore(newMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	return store
 }
 
 func (s *setWalletSuite) TestSetWalletErrors(c *gc.C) {
@@ -72,8 +88,7 @@ func (s *setWalletSuite) TestSetWalletErrors(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 		s.stub.SetErrors(errors.New(test.expectedError))
 		defer s.mockAPI.ResetCalls()
-		set := setwallet.NewSetWalletCommand()
-		_, err := cmdtesting.RunCommand(c, set, test.args...)
+		_, err := s.runCommand(c, test.args...)
 		c.Assert(err, gc.ErrorMatches, test.expectedError)
 		s.mockAPI.CheckNoCalls(c)
 	}

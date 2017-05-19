@@ -116,7 +116,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	if c.out.Name() == "tabular" {
 		// Only the tabular outputters need to know the current user,
 		// but both of them do, so do it in one place.
-		accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+		accountDetails, err := c.CurrentAccountDetails()
 		if err != nil {
 			return err
 		}
@@ -209,6 +209,10 @@ func (c *listCommand) formatModelUsers(writer io.Writer, value interface{}) erro
 }
 
 func (c *listCommand) formatControllerUsers(writer io.Writer, value interface{}) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	users, valueConverted := value.([]UserInfo)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", users, value)
@@ -216,7 +220,7 @@ func (c *listCommand) formatControllerUsers(writer io.Writer, value interface{})
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("Controller: " + c.ControllerName())
+	w.Println("Controller: " + controllerName)
 	w.Println()
 	w.Println("Name", "Display name", "Access", "Date created", "Last connection")
 	for _, user := range users {

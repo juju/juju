@@ -4,7 +4,6 @@
 package subnet_test
 
 import (
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,8 +22,7 @@ var _ = gc.Suite(&RemoveSuite{})
 func (s *RemoveSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewRemoveCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = subnet.NewRemoveCommand
 }
 
 func (s *RemoveSuite) TestInit(c *gc.C) {
@@ -51,15 +49,12 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		expectErr: `"5.4.3.2/10" is not correctly specified, expected "5.0.0.0/10"`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := subnet.NewRemoveCommandForTest(s.api)
-		err := cmdtesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*subnet.RemoveCommand)
 			c.Check(command.CIDR, gc.Equals, test.expectCIDR)
 		}
 

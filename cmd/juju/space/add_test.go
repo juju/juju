@@ -20,8 +20,7 @@ var _ = gc.Suite(&AddSuite{})
 
 func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command = space.NewAddCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = space.NewAddCommand
 }
 
 func (s *AddSuite) TestRunWithoutSubnetsSucceeds(c *gc.C) {

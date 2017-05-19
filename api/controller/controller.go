@@ -224,8 +224,6 @@ type MigrationSpec struct {
 	TargetUser           string
 	TargetPassword       string
 	TargetMacaroons      []macaroon.Slice
-	ExternalControl      bool
-	SkipInitialPrechecks bool
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -239,9 +237,6 @@ func (s *MigrationSpec) Validate() error {
 	}
 	if len(s.TargetAddrs) < 1 {
 		return errors.NotValidf("empty target API addresses")
-	}
-	if s.TargetCACert == "" {
-		return errors.NotValidf("empty target CA cert")
 	}
 	if !names.IsValidUser(s.TargetUser) {
 		return errors.NotValidf("target user")
@@ -260,12 +255,12 @@ func (s *MigrationSpec) Validate() error {
 // this call just supports starting one migration at a time.
 func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 	if err := spec.Validate(); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, "client-side validation failed")
 	}
 
 	macsJSON, err := macaroonsToJSON(spec.TargetMacaroons)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, "client-side validation failed")
 	}
 
 	args := params.InitiateMigrationArgs{
@@ -279,8 +274,6 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl:      spec.ExternalControl,
-			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 	response := params.InitiateMigrationResults{}

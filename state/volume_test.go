@@ -117,7 +117,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "default-block",
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "storage-block")

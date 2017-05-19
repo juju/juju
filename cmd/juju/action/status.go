@@ -4,6 +4,8 @@
 package action
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -90,7 +92,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 
 	entities := []params.Entity{}
 	for _, tag := range actionTags {
-		entities = append(entities, params.Entity{tag.String()})
+		entities = append(entities, params.Entity{Tag: tag.String()})
 	}
 
 	actions, err := api.Actions(params.Entities{Entities: entities})
@@ -122,6 +124,7 @@ func resultToMap(result params.ActionResult) map[string]interface{} {
 		item["error"] = result.Error.Error()
 	}
 	if result.Action != nil {
+		item["action"] = result.Action.Name
 		atag, err := names.ParseActionTag(result.Action.Tag)
 		if err != nil {
 			item["id"] = result.Action.Tag
@@ -138,6 +141,14 @@ func resultToMap(result params.ActionResult) map[string]interface{} {
 
 	}
 	item["status"] = result.Status
+
+	// result.Completed uses the zero-value to indicate not completed
+	if result.Completed.Equal(time.Time{}) {
+		item["completed at"] = "n/a"
+	} else {
+		item["completed at"] = result.Completed.UTC().Format("2006-01-02 15:04:05")
+	}
+
 	return item
 }
 

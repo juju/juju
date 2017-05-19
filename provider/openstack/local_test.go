@@ -91,6 +91,7 @@ func registerLocalTests() {
 	config := makeTestConfig(cred)
 	config["agent-version"] = coretesting.FakeVersionNumber.String()
 	config["authorized-keys"] = "fakekey"
+	config["network"] = "net"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			cred: cred,
@@ -525,6 +526,7 @@ func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -540,10 +542,77 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "failed to get network detail\n"+
+		"caused by: "+
+		"Resource at http://.*/networks/.* not found\n"+
+		"caused by: "+
+		"request \\(http://.*/networks/.*\\) returned unexpected status: "+
+		"404; error info: .*itemNotFound.*")
+}
+
+func (s *localServerSuite) TestStartInstancePortSecurityEnabled(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	novaClient := openstack.GetNovaClient(s.env)
+	detail, err := novaClient.GetServer(string(inst.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(detail.Groups, gc.NotNil)
+}
+
+func (s *localServerSuite) TestStartInstancePortSecurityDisabled(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "net-disabled",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	novaClient := openstack.GetNovaClient(s.env)
+	detail, err := novaClient.GetServer(string(inst.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(detail.Groups, gc.IsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceGetServerFail(c *gc.C) {
+	// Force an error in waitForActiveServerDetails
+	cleanup := s.srv.Nova.RegisterControlPoint(
+		"server",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("GetServer failed on purpose")
+		},
+	)
+	defer cleanup()
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
 		"caused by: "+
 		"request \\(.*/servers\\) returned unexpected status: "+
-		"404; error info: .*itemNotFound.*")
+		"500; error info: .*GetServer failed on purpose")
+}
+
+func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
+
+	s.srv.Nova.SetServerStatus(nova.StatusBuild)
+	defer s.srv.Nova.SetServerStatus("")
+
+	// Make time advance in zero time
+	clk := gitjujutesting.NewClock(time.Time{})
+	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	env.(*openstack.Environ).SetClock(&clock)
+
+	inst, _, _, err := testing.StartInstance(env, s.ControllerUUID, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instance: max duration exceeded: instance .* has status BUILD")
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
@@ -851,31 +920,6 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 
 func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
 	s.assertInstancesGathering(c, true)
-}
-
-func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
-	coretesting.SkipIfPPC64EL(c, "lp:1425242")
-
-	cleanup := s.srv.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			details := args[0].(*nova.ServerDetail)
-			details.Status = nova.StatusBuildSpawning
-			return nil
-		},
-	)
-	defer cleanup()
-	stateInst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
-	defer func() {
-		err := s.env.StopInstances(stateInst.Id())
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	instances, err := s.env.Instances([]instance.Id{stateInst.Id()})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 1)
-	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusBuildSpawning)
 }
 
 func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
@@ -1432,6 +1476,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	attrs := makeTestConfig(s.cred)
 	attrs["agent-version"] = coretesting.FakeVersionNumber.String()
 	attrs["authorized-keys"] = "fakekey"
+	attrs["network"] = "net"
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
 	attrs["ssl-hostname-verification"] = false
@@ -1670,6 +1715,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 		Name:     newMachineName,
 		FlavorId: "1", // test service has 1,2,3 for flavor ids
 		ImageId:  "1", // UseTestImageData sets up images 1 and 2
+		Networks: []nova.ServerNetworks{{NetworkId: "1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.NotNil)
@@ -1865,51 +1911,6 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
 }
 
-func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
-	coretesting.SkipIfPPC64EL(c, "lp:1425242")
-
-	t.srv.Nova.SetAvailabilityZones(
-		// bootstrap node will be on az1.
-		nova.AvailabilityZone{
-			Name: "az1",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-		// az2 will be made to return an error.
-		nova.AvailabilityZone{
-			Name: "az2",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-		// az3 will be valid to host an instance.
-		nova.AvailabilityZone{
-			Name: "az3",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-	)
-
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cleanup := t.srv.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			serverDetail := args[0].(*nova.ServerDetail)
-			if serverDetail.AvailabilityZone == "az2" {
-				return fmt.Errorf("No valid host was found")
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az3")
-}
-
 func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
@@ -1946,6 +1947,47 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	defer cleanup()
 	_, _, _, err = testing.StartInstance(t.env, t.ControllerUUID, "1")
 	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
+}
+
+func (t *localServerSuite) TestStartInstanceNoValidHost(c *gc.C) {
+
+	t.srv.Nova.SetAvailabilityZones(
+		// bootstrap node will be on az1.
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az2 will be made to return an unknown error.
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	t.srv.Nova.SetAZForNoValidHosts(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	cfg, err := t.env.Config().Apply(coretesting.Attrs{
+		// A label that corresponds to a neutron test service network
+		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = t.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "100")
+	defer t.env.StopInstances(inst.Id())
+	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az2")
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
@@ -2285,7 +2327,15 @@ func (s *noSwiftSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		// A label that corresponds to a neutron test service network
+		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,

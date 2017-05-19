@@ -1,0 +1,7 @@
+#!/bin/bash
+set -eu
+RUN_OUTPUT=$(euca-run-instances -k id_rsa -t $INSTANCE_TYPE $AMI_IMAGE "$@")
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+echo $RUN_OUTPUT|sed -r 's/.*INSTANCE (i-[^ ]*) .*/\1/'

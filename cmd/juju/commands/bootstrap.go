@@ -30,8 +30,10 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -182,8 +184,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
-	f.BoolVar(&c.noSwitch, "S", false, "Do not switch to the newly created controller")
-	f.BoolVar(&c.noSwitch, "no-switch", false, "")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -583,7 +584,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName)); err != nil {
+	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -591,8 +592,21 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, config.controller.APIPort(), environ)
+	addrs, err := common.BootstrapEndpointAddresses(environ)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := juju.UpdateControllerDetailsFromLogin(
+		c.ClientStore(),
+		c.controllerName,
+		juju.UpdateControllerParams{
+			AgentVersion:           agentVersion.String(),
+			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+			PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
+			MachineCount:           newInt(1),
+			ControllerMachineCount: newInt(1),
+			ModelCount:             newInt(2), // controller model + default model
+		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
@@ -1076,4 +1090,15 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 		err, "juju update-clouds",
 	)
 	return cmd.ErrSilent
+}
+
+func newInt(i int) *int {
+	return &i
+}
+
+func newStringIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

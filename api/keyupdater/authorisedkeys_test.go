@@ -56,7 +56,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 }
 
 func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

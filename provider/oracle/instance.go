@@ -31,11 +31,10 @@ type oracleInstance struct {
 	// the provider
 	machine response.Instance
 	// arch will hold the architecture information of the instance
-	arch      *string
-	instType  *instances.InstanceType
-	mutex     *sync.Mutex
-	env       *OracleEnviron
-	machineId string
+	arch     *string
+	instType *instances.InstanceType
+	mutex    *sync.Mutex
+	env      *OracleEnviron
 }
 
 // hardwareCharacteristics returns the hardware characteristics of the current
@@ -55,6 +54,20 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
+// extractInstanceIDFromMachineName will return the hostname of the machine
+// identified by the provider ID. In the Oracle compute cloud the provider
+// IDs of the instances has the following format:
+// /Compute-tenant_domain/tenant_username/instance_hostname/instance_UUID
+func extractInstanceIDFromMachineName(id string) (instance.Id, error) {
+	var instId instance.Id
+	name := strings.Split(id, "/")
+	if len(name) < 4 {
+		return instId, errors.Errorf("invalid instance name: %s", id)
+	}
+	instId = instance.Id(name[3])
+	return instId, nil
+}
+
 // newInstance returns a new oracleInstance
 func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance, error) {
 	if params.Name == "" {
@@ -62,20 +75,20 @@ func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance,
 			"Instance response does not contain a name",
 		)
 	}
-	//gsamfira: there must be a better way to do this.
-	splitMachineName := strings.Split(params.Label, "-")
-	machineId := splitMachineName[len(splitMachineName)-1]
+	name, err := extractInstanceIDFromMachineName(params.Name)
+	if err != nil {
+		return nil, err
+	}
 	mutex := &sync.Mutex{}
 	instance := &oracleInstance{
-		name: params.Name,
+		name: string(name),
 		status: instance.InstanceStatus{
 			Status:  status.Status(params.State),
 			Message: "",
 		},
-		machine:   params,
-		mutex:     mutex,
-		env:       env,
-		machineId: machineId,
+		machine: params,
+		mutex:   mutex,
+		env:     env,
 	}
 
 	return instance, nil
@@ -84,7 +97,11 @@ func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance,
 // Id is defined on the instance.Instance interface.
 func (o *oracleInstance) Id() instance.Id {
 	if o.machine.Name != "" {
-		return instance.Id(o.machine.Name)
+		name, err := extractInstanceIDFromMachineName(o.machine.Name)
+		if err != nil {
+			return instance.Id(o.machine.Name)
+		}
+		return name
 	}
 
 	return instance.Id(o.name)
@@ -111,7 +128,7 @@ func (o *oracleInstance) refresh() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	machine, err := o.env.client.InstanceDetails(o.name)
+	machine, err := o.env.client.InstanceDetails(o.machine.Name)
 	// if the request failed for any reason
 	// we should not update the information and
 	// let the old one persist
@@ -158,7 +175,7 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 		}
 	}
 
-	if err := o.env.client.DeleteInstance(o.name); err != nil {
+	if err := o.env.client.DeleteInstance(o.machine.Name); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -167,9 +184,9 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 		// delete a security list if there is still a VM associated with it.
 		iteration := 0
 		for {
-			if instance, err := o.env.client.InstanceDetails(o.name); !oci.IsNotFound(err) {
+			if instance, err := o.env.client.InstanceDetails(o.machine.Name); !oci.IsNotFound(err) {
 				if instance.State == ociCommon.StateError {
-					logger.Warningf("Instance %s entered error state", o.name)
+					logger.Warningf("Instance %s entered error state", o.machine.Name)
 					break
 				}
 				if iteration >= 30 && instance.State == ociCommon.StateRunning {
@@ -183,21 +200,21 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 				iteration++
 				continue
 			}
-			logger.Debugf("Machine %v successfully deleted", o.name)
+			logger.Debugf("Machine %v successfully deleted", o.machine.Name)
 			break
 		}
 
 		// the VM association is now gone, now we can delete the
 		// machine sec list
-		logger.Debugf("deleting seclist for instance: %s", o.machineId)
-		if err := o.env.DeleteMachineSecList(o.machineId); err != nil {
+		logger.Debugf("deleting seclist for instance: %s", string(o.Id()))
+		if err := o.env.DeleteMachineSecList(string(o.Id())); err != nil {
 			logger.Errorf("failed to delete seclist: %s", err)
 			if !oci.IsMethodNotAllowed(err) {
 				return errors.Trace(err)
 			}
 		}
-		logger.Debugf("deleting vnic set for instance: %s", o.machineId)
-		if err := o.env.DeleteMachineVnicSet(o.machineId); err != nil {
+		logger.Debugf("deleting vnic set for instance: %s", string(o.Id()))
+		if err := o.env.DeleteMachineVnicSet(string(o.Id())); err != nil {
 			logger.Errorf("failed to delete vnic set: %s", err)
 			if !oci.IsMethodNotAllowed(err) {
 				return errors.Trace(err)

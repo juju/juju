@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
@@ -219,4 +220,10 @@ func (c *Client) AdoptResources(modelUUID string) error {
 		SourceControllerVersion: jujuversion.Current,
 	}
 	return errors.Trace(c.caller.FacadeCall("AdoptResources", args, nil))
+}
+
+// CACert returns the CA certificate associated with
+// the connection.
+func (c *Client) CACert() (string, error) {
+	return common.NewAPIAddresser(c.caller).CACert()
 }

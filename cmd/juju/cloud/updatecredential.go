@@ -99,7 +99,7 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
-	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Trace(err)
 	}

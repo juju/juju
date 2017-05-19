@@ -36,7 +36,7 @@ func (pc *ProxyConfig) Set(newSettings proxyutils.Settings) error {
 	}
 	pc.http = httpUrl
 	pc.https = httpsUrl
-	pc.noProxy = newSettings.NoProxy
+	pc.noProxy = newSettings.FullNoProxy()
 	return nil
 }
 

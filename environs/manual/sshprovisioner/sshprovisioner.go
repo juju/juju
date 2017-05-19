@@ -80,7 +80,8 @@ func InitUbuntuUser(host, login, authorizedKeys string, read io.Reader, write io
 
 const initUbuntuScript = `
 set -e
-(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
+(grep ubuntu /etc/group) || groupadd ubuntu
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu
 umask 0077
 temp=$(mktemp)
 echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
@@ -192,6 +193,11 @@ os_id=$(grep '^ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
 if [ "$os_id" = 'centos' ]; then
   os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
   echo "centos$os_version"
+elif [ "$os_id" = 'opensuse' ]; then
+  os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2 | cut -d. -f1)
+  if [ $os_version -eq 42]; then
+    echo "opensuseleap"
+  fi
 else
   lsb_release -cs
 fi

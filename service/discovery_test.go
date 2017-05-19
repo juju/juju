@@ -136,6 +136,10 @@ var discoveryTests = []discoveryTest{{
 	series:   "centos7",
 	expected: service.InitSystemSystemd,
 }, {
+	os:       jujuos.OpenSUSE,
+	series:   "opensuseleap",
+	expected: service.InitSystemSystemd,
+}, {
 	os:       jujuos.Unknown,
 	expected: "",
 }}

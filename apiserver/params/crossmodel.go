@@ -39,12 +39,14 @@ type OfferFilter struct {
 
 // ApplicationOffer represents an application offering from an external model.
 type ApplicationOffer struct {
-	SourceModelTag         string           `json:"source-model-tag"`
-	OfferURL               string           `json:"offer-url"`
-	OfferName              string           `json:"offer-name"`
-	ApplicationDescription string           `json:"application-description"`
-	Endpoints              []RemoteEndpoint `json:"endpoints"`
-	Access                 string           `json:"access"`
+	SourceModelTag         string            `json:"source-model-tag"`
+	OfferURL               string            `json:"offer-url"`
+	OfferName              string            `json:"offer-name"`
+	ApplicationDescription string            `json:"application-description"`
+	Endpoints              []RemoteEndpoint  `json:"endpoints"`
+	Spaces                 []RemoteSpace     `json:"spaces"`
+	Bindings               map[string]string `json:"bindings"`
+	Access                 string            `json:"access"`
 }
 
 // ApplicationOfferDetails represents an application offering,
@@ -69,6 +71,7 @@ type AddApplicationOffers struct {
 
 // AddApplicationOffer values are used to create an application offer.
 type AddApplicationOffer struct {
+	ModelTag               string            `json:"model-tag"`
 	OfferName              string            `json:"offer-name"`
 	ApplicationName        string            `json:"application-name"`
 	ApplicationDescription string            `json:"application-description"`
@@ -82,6 +85,15 @@ type RemoteEndpoint struct {
 	Interface string              `json:"interface"`
 	Limit     int                 `json:"limit"`
 	Scope     charm.RelationScope `json:"scope"`
+}
+
+// RemoteSpace represents a space in some remote model.
+type RemoteSpace struct {
+	CloudType          string                 `json:"cloud-type"`
+	Name               string                 `json:"name"`
+	ProviderId         string                 `json:"provider-id"`
+	ProviderAttributes map[string]interface{} `json:"provider-attributes"`
+	Subnets            []Subnet               `json:"subnets"`
 }
 
 // FindApplicationOffersResults is a result of finding remote application offers.
@@ -310,6 +322,10 @@ type RegisterRemoteRelation struct {
 	// RemoteEndpoint contains info about the endpoint in the remote model.
 	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
 
+	// RemoteSpace contains provider-level info about the space the
+	// endpoint is bound to in the remote model.
+	RemoteSpace RemoteSpace `json:"remote-space"`
+
 	// OfferName is the name of the application offer from the local model.
 	OfferName string `json:"offer-name"`
 
@@ -376,7 +392,7 @@ type ModifyOfferAccess struct {
 	UserTag  string                `json:"user-tag"`
 	Action   OfferAction           `json:"action"`
 	Access   OfferAccessPermission `json:"access"`
-	OfferTag string                `json:"offer-tag"`
+	OfferURL string                `json:"offer-url"`
 }
 
 // OfferAction is an action that can be performed on an offer.

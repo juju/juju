@@ -1088,6 +1088,25 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 	c.Check(reconfigureDelay, gc.Equals, 13)
 }
 
+var bridgeNames = map[string]string{
+	"eno0":            "br-eno0",
+	"twelvechars0":    "br-twelvechars0",
+	"thirteenchars":   "b-thirteenchars",
+	"enfourteenchar":  "b-fourteenchar",
+	"enfifteenchars0": "b-fifteenchars0",
+	"fourteenchars1":  "b-5590a4-chars1",
+	"fifteenchars.12": "b-7e0acf-ars.12",
+	"zeros0526193032": "b-000000-193032",
+	"enx00e07cc81e1d": "b-x00e07cc81e1d",
+}
+
+func (s *bridgePolicyStateSuite) TestBridgeNameForDevice(c *gc.C) {
+	for deviceName, bridgeName := range bridgeNames {
+		generatedBridgeName := containerizer.BridgeNameForDevice(deviceName)
+		c.Assert(generatedBridgeName, gc.Equals, bridgeName)
+	}
+}
+
 // TODO(jam): 2017-01-31 Make sure KVM guests default to virbr0, and LXD guests use lxdbr0
 // Add tests for UseLocal = True, but we have named spaces
 // Add tests for UseLocal = True, but the host device is bridged

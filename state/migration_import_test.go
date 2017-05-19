@@ -348,6 +348,7 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 		Label:          "sda-label",
 		UUID:           "some-uuid",
 		HardwareId:     "magic",
+		WWN:            "drbr",
 		BusAddress:     "bus stop",
 		Size:           16 * 1024 * 1024 * 1024,
 		FilesystemType: "ext4",
@@ -961,6 +962,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	volTag := names.NewVolumeTag("0/0")
 	volInfo := state.VolumeInfo{
 		HardwareId: "magic",
+		WWN:        "drbr",
 		Size:       1500,
 		Pool:       "loop",
 		VolumeId:   "volume id",

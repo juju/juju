@@ -770,15 +770,6 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 		fmt.Sprintf("10.0.0.2:%d", cfg.StatePort()),
 		fmt.Sprintf("10.0.0.3:%d", cfg.StatePort()),
 	})
-
-	addrs, err = s.State.APIAddressesFromMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.HasLen, 3)
-	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.0:%d", cfg.APIPort()),
-		fmt.Sprintf("10.0.0.2:%d", cfg.APIPort()),
-		fmt.Sprintf("10.0.0.3:%d", cfg.APIPort()),
-	})
 }
 
 func (s *StateSuite) TestPing(c *gc.C) {
@@ -3605,7 +3596,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)
+	c.Assert(s.State.UpdateModelConfig(attrs, nil), gc.IsNil)
 }
 
 func assertAgentVersion(c *gc.C, st *state.State, vers string) {

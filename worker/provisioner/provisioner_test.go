@@ -69,7 +69,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()

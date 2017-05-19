@@ -276,7 +276,7 @@ type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []s
 // UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
@@ -323,8 +323,8 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if additionalValidation != nil {
-		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
+	for _, additionalValidationFunc := range additionalValidation {
+		err = additionalValidationFunc(updateAttrs, removeAttrs, oldConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}

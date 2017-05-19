@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common/crossmodelcommon"
+	"github.com/juju/juju/apiserver/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing"
@@ -95,7 +95,7 @@ func (m *mockApplication) Name() string {
 	return m.name
 }
 
-func (m *mockApplication) Charm() (crossmodelcommon.Charm, bool, error) {
+func (m *mockApplication) Charm() (applicationoffers.Charm, bool, error) {
 	return m.charm, true, nil
 }
 
@@ -118,11 +118,12 @@ type offerAccess struct {
 
 type mockState struct {
 	modelUUID         string
-	model             crossmodelcommon.Model
+	model             applicationoffers.Model
+	allmodels         []applicationoffers.Model
 	users             set.Strings
-	applications      map[string]crossmodelcommon.Application
+	applications      map[string]applicationoffers.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
-	connStatus        crossmodelcommon.RemoteConnectionStatus
+	connStatus        applicationoffers.RemoteConnectionStatus
 	accessPerms       map[offerAccess]permission.Access
 }
 
@@ -130,7 +131,7 @@ func (m *mockState) ControllerTag() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (m *mockState) Application(name string) (crossmodelcommon.Application, error) {
+func (m *mockState) Application(name string) (applicationoffers.Application, error) {
 	app, ok := m.applications[name]
 	if !ok {
 		return nil, errors.NotFoundf("application %q", name)
@@ -146,7 +147,7 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 	return &offer, nil
 }
 
-func (m *mockState) Model() (crossmodelcommon.Model, error) {
+func (m *mockState) Model() (applicationoffers.Model, error) {
 	return m.model, nil
 }
 
@@ -158,11 +159,14 @@ func (m *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.modelUUID)
 }
 
-func (m *mockState) AllModels() ([]crossmodelcommon.Model, error) {
-	return []crossmodelcommon.Model{m.model}, nil
+func (m *mockState) AllModels() ([]applicationoffers.Model, error) {
+	if len(m.allmodels) > 0 {
+		return m.allmodels, nil
+	}
+	return []applicationoffers.Model{m.model}, nil
 }
 
-func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodelcommon.RemoteConnectionStatus, error) {
+func (m *mockState) RemoteConnectionStatus(offerName string) (applicationoffers.RemoteConnectionStatus, error) {
 	return m.connStatus, nil
 }
 
@@ -205,10 +209,10 @@ func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user name
 }
 
 type mockStatePool struct {
-	st map[string]crossmodelcommon.Backend
+	st map[string]applicationoffers.Backend
 }
 
-func (st *mockStatePool) Get(modelUUID string) (crossmodelcommon.Backend, func(), error) {
+func (st *mockStatePool) Get(modelUUID string) (applicationoffers.Backend, func(), error) {
 	backend, ok := st.st[modelUUID]
 	if !ok {
 		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)

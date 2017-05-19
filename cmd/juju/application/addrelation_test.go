@@ -35,7 +35,9 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), args...)
+	cmd := NewAddRelationCommandForTest(s.mockAPI)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
 
@@ -82,7 +84,9 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	ctx, _ := cmdtesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), "application1", "application2")
+	cmd := NewAddRelationCommandForTest(s.mockAPI)
+	cmd.SetClientStore(NewMockStore())
+	ctx, _ := cmdtesting.RunCommand(c, cmd, "application1", "application2")
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }

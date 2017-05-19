@@ -62,7 +62,7 @@ Welcome, bob@external. You are now logged into "bighost".
 	c.Check(stderr, gc.Equals, "")
 }
 
-func (s *LoginCommandSuite) TestLoginPublicHostname(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginPublicDNSName(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3")
@@ -89,7 +89,7 @@ Welcome, bob@external. You are now logged into "0.1.2.3".
 	})
 }
 
-func (s *LoginCommandSuite) TestRegisterPublicHostnameWithPort(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPort(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3:5678")
@@ -98,7 +98,7 @@ func (s *LoginCommandSuite) TestRegisterPublicHostnameWithPort(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 }
 
-func (s *LoginCommandSuite) TestRegisterPublicHostnameWithPortAndControllerFlag(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPortAndControllerFlag(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "-c", "foo", "0.1.2.3:5678")

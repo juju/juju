@@ -273,6 +273,10 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the
 	// host key of the controller machine being used for proxying
 	// here. This isn't too serious as all traffic passing through the
@@ -281,7 +285,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	// this extra level of checking.
 	options.SetProxyCommand(
 		juju, "ssh",
-		"--model="+c.ModelName(),
+		"--model="+modelName,
 		"--proxy=false",
 		"--no-host-key-checks",
 		"--pty=false",

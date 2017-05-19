@@ -41,10 +41,22 @@ For more information, see also the 'run-action' command, which executes actions.
 // Set up the output.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+
+	// `listCommand's` default format depends on the value of another flag.
+	// That is, if no default is selected using the `--format` flag, then
+	// the output format depends on whether or not the user has specified
+	// the `--schema` flag (schema output does not support tabular which is
+	// the default for all other output from this command). Currently the
+	// `cmd` package's `Output` structure has no methods that support
+	// selecting a default format dynamically. Here we introduce a "default"
+	// default which serves to indicate that the user wants default
+	// formatting behavior. This allows us to select the appropriate default
+	// behavior in the presence of the "default" format value.
+	c.out.AddFlags(f, "default", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": c.printTabular,
+		"default": c.dummyDefault,
 	})
 	f.BoolVar(&c.fullSchema, "schema", false, "Display the full action schema")
 }
@@ -88,7 +100,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actions, err := api.ApplicationCharmActions(params.Entity{c.applicationTag.String()})
+	actions, err := api.ApplicationCharmActions(params.Entity{Tag: c.applicationTag.String()})
 	if err != nil {
 		return err
 	}
@@ -99,7 +111,11 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 			verboseSpecs[k] = v.Params
 		}
 
-		return c.out.Write(ctx, verboseSpecs)
+		if c.out.Name() == "default" {
+			return c.out.WriteFormatter(ctx, cmd.FormatYaml, verboseSpecs)
+		} else {
+			return c.out.Write(ctx, verboseSpecs)
+		}
 	}
 
 	shortOutput := make(map[string]string)
@@ -129,7 +145,12 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		output = list
 	}
 
-	return c.out.Write(ctx, output)
+	if c.out.Name() == "default" {
+		return c.out.WriteFormatter(ctx, c.printTabular, output)
+	} else {
+		return c.out.Write(ctx, output)
+	}
+
 }
 
 type listOutput struct {
@@ -150,5 +171,16 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 		fmt.Fprintf(tw, "%s\t%s\n", value.action, strings.TrimSpace(value.description))
 	}
 	tw.Flush()
+	return nil
+}
+
+// This method represents a default format that is used to express the need for
+// a dynamically selected default. That is, when the `actions` command
+// determines its default output format based on the presence of a flag other
+// than "format", then this method is used to indicate that a "dynamic" default
+// is desired. NOTE: It is very possible that this functionality should live in
+// the cmd package where this kind of thing can be handled in a more elegant
+// and DRY fashion.
+func (c *listCommand) dummyDefault(writer io.Writer, value interface{}) error {
 	return nil
 }

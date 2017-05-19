@@ -361,7 +361,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	st.Close()
 
 	s.openState(c, st.ModelTag())
-	err = s.State.UpdateModelConfig(update, remove, nil)
+	err = s.State.UpdateModelConfig(update, remove)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.

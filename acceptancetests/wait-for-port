@@ -1,0 +1,10 @@
+#!/bin/bash
+set -eu
+service=${2-SSH}
+port=${2-22}
+echo -n Waiting for $service >&2
+while ! netcat $1 $port -w 1 -q 0 </dev/null >/dev/null; do
+  sleep 1
+  echo -n . >&2
+done
+echo >&2

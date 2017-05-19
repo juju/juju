@@ -126,6 +126,7 @@ type VolumeParams struct {
 // VolumeInfo describes information about a volume.
 type VolumeInfo struct {
 	HardwareId string `bson:"hardwareid,omitempty"`
+	WWN        string `bson:"wwn,omitempty"`
 	Size       uint64 `bson:"size"`
 	Pool       string `bson:"pool"`
 	VolumeId   string `bson:"volumeid"`

@@ -12,63 +12,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/version"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 )
-
-var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
-	return environ.AllInstances()
-}
-
-// SetBootstrapEndpointAddress writes the API endpoint address of the
-// bootstrap server, plus the agent version, into the connection information.
-// This should only be run once directly after Bootstrap. It assumes that
-// there is just one instance in the environment - the bootstrap instance.
-func SetBootstrapEndpointAddress(
-	store jujuclient.ControllerStore,
-	controllerName string, agentVersion version.Number,
-	apiPort int, environ environs.Environ,
-) error {
-	instances, err := allInstances(environ)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	length := len(instances)
-	if length == 0 {
-		return errors.Errorf("found no instances, expected at least one")
-	}
-	if length > 1 {
-		return errors.Errorf("expected one instance, got %d", length)
-	}
-	bootstrapInstance := instances[0]
-
-	// Don't use c.ConnectionEndpoint as it attempts to contact the state
-	// server if no addresses are found in connection info.
-	netAddrs, err := bootstrapInstance.Addresses()
-	if err != nil {
-		return errors.Annotate(err, "failed to get bootstrap instance addresses")
-	}
-	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	// At bootstrap we have 2 models, the controller model and the default.
-	two := 2
-	params := juju.UpdateControllerParams{
-		AgentVersion:           agentVersion.String(),
-		AddrConnectedTo:        apiHostPorts,
-		MachineCount:           &length,
-		ControllerMachineCount: &length,
-		ModelCount:             &two,
-	}
-	return juju.UpdateControllerDetailsFromLogin(store, controllerName, params)
-}
 
 var (
 	bootstrapReadyPollDelay = 1 * time.Second
@@ -162,4 +113,20 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 		break
 	}
 	return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
+}
+
+// BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
+func BootstrapEndpointAddresses(environ environs.Environ) ([]network.Address, error) {
+	instances, err := environ.AllInstances()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(instances); n != 1 {
+		return nil, errors.Errorf("expected one instance, got %d", n)
+	}
+	netAddrs, err := instances[0].Addresses()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to get bootstrap instance addresses")
+	}
+	return netAddrs, nil
 }

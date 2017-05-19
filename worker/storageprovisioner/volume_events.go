@@ -390,6 +390,7 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 			params.VolumeInfo{
 				v.VolumeId,
 				v.HardwareId,
+				v.WWN,
 				"", // pool
 				v.Size,
 				v.Persistent,
@@ -426,6 +427,7 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 		storage.VolumeInfo{
 			in.Info.VolumeId,
 			in.Info.HardwareId,
+			in.Info.WWN,
 			in.Info.Size,
 			in.Info.Persistent,
 		},

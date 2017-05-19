@@ -727,6 +727,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

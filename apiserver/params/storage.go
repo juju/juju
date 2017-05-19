@@ -172,6 +172,7 @@ type Volume struct {
 type VolumeInfo struct {
 	VolumeId   string `json:"volume-id"`
 	HardwareId string `json:"hardware-id,omitempty"`
+	WWN        string `json:"wwn,omitempty"`
 	// Pool is the name of the storage pool used to
 	// allocate the volume. Juju controllers older
 	// than 2.2 do not populate this field, so it may

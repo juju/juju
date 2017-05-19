@@ -178,8 +178,21 @@ type OpenFunc func(*Info, DialOpts) (Connection, error)
 type Connection interface {
 
 	// This first block of methods is pretty close to a sane Connection interface.
+
+	// Close closes the connection.
 	Close() error
+
+	// Addr returns the address used to connect to the API server.
 	Addr() string
+
+	// APIHostPorts returns addresses that may be used to connect
+	// to the API server, including the address used to connect.
+	//
+	// The addresses are scoped (public, cloud-internal, etc.), so
+	// the client may choose which addresses to attempt. For the
+	// Juju CLI, all addresses must be attempted, as the CLI may
+	// be invoked both within and outside the model (think
+	// private clouds).
 	APIHostPorts() [][]network.HostPort
 
 	// Broken returns a channel which will be closed if the connection
@@ -191,6 +204,12 @@ type Connection interface {
 	// the Broken channel and if that is open, attempts a connection
 	// ping.
 	IsBroken() bool
+
+	// PublicDNSName returns the host name for which an officially
+	// signed certificate will be used for TLS connection to the server.
+	// If empty, the private Juju CA certificate must be used to verify
+	// the connection.
+	PublicDNSName() string
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?

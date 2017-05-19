@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -26,8 +25,7 @@ var _ = gc.Suite(&AddSuite{})
 
 func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewAddCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = subnet.NewAddCommand
 }
 
 func (s *AddSuite) TestInit(c *gc.C) {
@@ -92,16 +90,13 @@ func (s *AddSuite) TestInit(c *gc.C) {
 		expectErr:        `"%inv\$alid" is not a valid space name`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := subnet.NewAddCommandForTest(s.api)
-		err := cmdtesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*subnet.AddCommand)
 			c.Check(command.CIDR.Id(), gc.Equals, test.expectCIDR)
 			c.Check(command.RawCIDR, gc.Equals, test.expectRawCIDR)
 			c.Check(command.ProviderId, gc.Equals, test.expectProviderId)

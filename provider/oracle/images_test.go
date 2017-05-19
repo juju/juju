@@ -6,10 +6,12 @@ package oracle_test
 import (
 	"errors"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/oracle"
-	gc "gopkg.in/check.v1"
+	oracletesting "github.com/juju/juju/provider/oracle/testing"
 )
 
 type imageSuite struct{}
@@ -17,33 +19,33 @@ type imageSuite struct{}
 var _ = gc.Suite(&imageSuite{})
 
 func (i imageSuite) TestGetImageName(c *gc.C) {
-	name, err := oracle.GetImageName(DefaultEnvironAPI, "0")
+	name, err := oracle.GetImageName(oracletesting.DefaultEnvironAPI, "0")
 	c.Assert(err, gc.IsNil)
 	ok := len(name) > 0
 	c.Assert(ok, gc.Equals, true)
 }
 
 func (i imageSuite) TestGetImageNameWithErrors(c *gc.C) {
-	_, err := oracle.GetImageName(DefaultEnvironAPI, "")
+	_, err := oracle.GetImageName(oracletesting.DefaultEnvironAPI, "")
 	c.Assert(err, gc.NotNil)
 
-	_, err = oracle.GetImageName(FakeEnvironAPI{
-		FakeImager: FakeImager{
+	_, err = oracle.GetImageName(oracletesting.FakeEnvironAPI{
+		FakeImager: oracletesting.FakeImager{
 			AllErr: errors.New("FakeImageListErr"),
 		}}, "0")
 	c.Assert(err, gc.NotNil)
 }
 
 func (i imageSuite) TestCheckImageList(c *gc.C) {
-	images, err := oracle.CheckImageList(DefaultEnvironAPI)
+	images, err := oracle.CheckImageList(oracletesting.DefaultEnvironAPI)
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(images, gc.NotNil)
 }
 
 func (i imageSuite) TestCheckImageListWithErrors(c *gc.C) {
-	_, err := oracle.CheckImageList(FakeEnvironAPI{
-		FakeImager: FakeImager{
+	_, err := oracle.CheckImageList(oracletesting.FakeEnvironAPI{
+		FakeImager: oracletesting.FakeImager{
 			AllErr: errors.New("FakeImageListErr"),
 		},
 	})
@@ -55,7 +57,7 @@ func (i imageSuite) TestCheckImageListWithErrors(c *gc.C) {
 
 func (i imageSuite) TestFindInstanceSpec(c *gc.C) {
 	spec, imagelist, err := oracle.FindInstanceSpec(
-		DefaultEnvironAPI,
+		oracletesting.DefaultEnvironAPI,
 		TestImageMetadata,
 		[]instances.InstanceType{
 			instances.InstanceType{
@@ -78,7 +80,7 @@ func (i imageSuite) TestFindInstanceSpec(c *gc.C) {
 
 func (i imageSuite) TestFindInstanceSpecWithSeriesError(c *gc.C) {
 	_, _, err := oracle.FindInstanceSpec(
-		DefaultEnvironAPI,
+		oracletesting.DefaultEnvironAPI,
 		TestImageMetadata,
 		[]instances.InstanceType{
 			instances.InstanceType{
@@ -99,7 +101,7 @@ func (i imageSuite) TestFindInstanceSpecWithSeriesError(c *gc.C) {
 
 func (i imageSuite) TestFindInstanceSpecWithError(c *gc.C) {
 	_, _, err := oracle.FindInstanceSpec(
-		DefaultEnvironAPI,
+		oracletesting.DefaultEnvironAPI,
 		[]*imagemetadata.ImageMetadata{},
 		[]instances.InstanceType{
 			instances.InstanceType{
@@ -118,15 +120,15 @@ func (i imageSuite) TestFindInstanceSpecWithError(c *gc.C) {
 }
 
 func (i imageSuite) TestInstanceTypes(c *gc.C) {
-	types, err := oracle.InstanceTypes(DefaultEnvironAPI)
+	types, err := oracle.InstanceTypes(oracletesting.DefaultEnvironAPI)
 	c.Assert(err, gc.IsNil)
 	c.Assert(types, gc.NotNil)
 }
 
 func (i imageSuite) TestInstanceTypesWithErrrors(c *gc.C) {
-	for _, fake := range []*FakeEnvironAPI{
-		&FakeEnvironAPI{
-			FakeShaper: FakeShaper{
+	for _, fake := range []*oracletesting.FakeEnvironAPI{
+		&oracletesting.FakeEnvironAPI{
+			FakeShaper: oracletesting.FakeShaper{
 				AllErr: errors.New("FakeShaperErr"),
 			},
 		},

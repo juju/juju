@@ -4,7 +4,7 @@
 package crossmodel
 
 import (
-	"github.com/juju/juju/api/remoteendpoints"
+	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -16,12 +16,12 @@ type RemoteEndpointsCommandBase struct {
 
 // NewRemoteEndpointsAPI returns a remote endpoints api for the root api endpoint
 // that the command returns.
-func (c *RemoteEndpointsCommandBase) NewRemoteEndpointsAPI() (*remoteendpoints.Client, error) {
+func (c *RemoteEndpointsCommandBase) NewRemoteEndpointsAPI() (*applicationoffers.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
 	}
-	return remoteendpoints.NewClient(root), nil
+	return applicationoffers.NewClient(root), nil
 }
 
 // RemoteEndpoint defines the serialization behaviour of remote endpoints.

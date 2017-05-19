@@ -87,7 +87,10 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 					&fakeBlockDevice{name: "sde", idPath: "/dev/disk/by-dname/sde", size: 250362438230},
 				},
 				"4": {
-					&fakeBlockDevice{name: "sdf", idPath: "/dev/disk/by-dname/sdf", size: 280362438231},
+					&fakeBlockDevice{name: "sdf", idPath: "/dev/disk/by-id/wwn-drbr", size: 280362438231},
+				},
+				"5": {
+					&fakeBlockDevice{name: "sdg", idPath: "/dev/disk/by-dname/sdg", size: 280362438231},
 				},
 			},
 		},
@@ -97,12 +100,13 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		names.NewVolumeTag("1"),
 		names.NewVolumeTag("2"),
 		names.NewVolumeTag("3"),
+		names.NewVolumeTag("4"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// Expect 3 volumes - root volume is ignored, as are volumes
+	// Expect 4 volumes - root volume is ignored, as are volumes
 	// with tags we did not request.
-	c.Assert(volumes, gc.HasLen, 3)
-	c.Assert(attachments, gc.HasLen, 3)
+	c.Assert(volumes, gc.HasLen, 4)
+	c.Assert(attachments, gc.HasLen, 4)
 	c.Check(volumes, jc.SameContents, []storage.Volume{{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
@@ -122,6 +126,13 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 			VolumeId: "volume-3",
 			Size:     238764,
 		},
+	}, {
+		names.NewVolumeTag("4"),
+		storage.VolumeInfo{
+			VolumeId: "volume-4",
+			Size:     267374,
+			WWN:      "drbr",
+		},
 	}})
 	c.Assert(attachments, jc.SameContents, []storage.VolumeAttachment{{
 		names.NewVolumeTag("1"),
@@ -139,6 +150,10 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		storage.VolumeAttachmentInfo{
 			DeviceLink: "/dev/disk/by-dname/sdd",
 		},
+	}, {
+		names.NewVolumeTag("4"),
+		mTag,
+		storage.VolumeAttachmentInfo{},
 	}})
 }
 

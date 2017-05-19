@@ -220,7 +220,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
+	err = s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -993,6 +993,9 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo.Pool = "loop-pool" // taken from params
 	c.Assert(info, gc.Equals, volumeInfo)
+	volumeStatus, err := volume.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeStatus.Status, gc.Equals, status.Attaching)
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {

@@ -72,7 +72,7 @@ type Backend interface {
 	SetModelConstraints(constraints.Value) error
 	Subnet(string) (*state.Subnet, error)
 	Unit(string) (Unit, error)
-	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
+	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 	Watch(params state.WatchParams) *state.Multiwatcher
 }
 

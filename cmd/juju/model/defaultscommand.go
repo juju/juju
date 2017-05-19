@@ -79,6 +79,10 @@ type defaultsCommand struct {
 	newDefaultsAPI func(base.APICallCloser) defaultsCommandAPI
 	newCloudAPI    func(base.APICallCloser) cloudAPI
 
+	// args holds all the command-line arguments before
+	// they've been parsed.
+	args []string
+
 	action                func(defaultsCommandAPI, *cmd.Context) error // The function handling the input, set in Init.
 	key                   string
 	resetKeys             []string // Holds the keys to be reset once parsed.
@@ -133,9 +137,49 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 }
 
-// Init implements part of the cmd.Command interface.
+// Init implements cmd.Command.Init.
+func (c *defaultsCommand) Init(args []string) error {
+	// There's no way of distinguishing a cloud name
+	// from a model configuration setting without contacting the
+	// API, but we aren't allowed to contact the API at Init time,
+	// so we defer parsing the arguments until Run is called.
+	c.args = args
+	return nil
+}
+
+// Run implements part of the cmd.Command interface.
+func (c *defaultsCommand) Run(ctx *cmd.Context) error {
+	if err := c.parseArgs(c.args); err != nil {
+		return errors.Trace(err)
+	}
+	root, err := c.newAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	client := c.newDefaultsAPI(root)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
+
+	if len(c.resetKeys) > 0 {
+		err := c.resetDefaults(client, ctx)
+		if err != nil {
+			// We return this error naked as it is almost certainly going to be
+			// cmd.ErrSilent and the cmd.Command framework expects that back
+			// from cmd.Run if the process is blocked.
+			return err
+		}
+	}
+	if c.action == nil {
+		// If we are reset only we end up here, only we've already done that.
+		return nil
+	}
+	return c.action(client, ctx)
+}
+
 // This needs to parse a command line invocation to reset and set, or get
-// model-default values. The arguments may be interspersed as demosntrated in
+// model-default values. The arguments may be interspersed as demonstrated in
 // the examples.
 //
 // This sets foo=baz and unsets bar in aws/us-east-1
@@ -179,7 +223,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 // same key, that is to say keys to be mutated must be unique.
 //
 // Here we go...
-func (c *defaultsCommand) Init(args []string) error {
+func (c *defaultsCommand) parseArgs(args []string) error {
 	var err error
 	//  If there's nothing to reset and no args we're returning everything. So
 	//  we short circuit immediately.
@@ -233,7 +277,6 @@ func (c *defaultsCommand) Init(args []string) error {
 		// certainly invalid, but in different possible ways.
 		return c.handleExtraArgs(args)
 	}
-
 }
 
 // parseResetKeys splits the keys provided to --reset after trimming any
@@ -451,34 +494,6 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 		}
 	}
 	return errors.New("invalid input")
-}
-
-// Run implements part of the cmd.Command interface.
-func (c *defaultsCommand) Run(ctx *cmd.Context) error {
-	root, err := c.newAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	client := c.newDefaultsAPI(root)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer client.Close()
-
-	if len(c.resetKeys) > 0 {
-		err := c.resetDefaults(client, ctx)
-		if err != nil {
-			// We return this error naked as it is almost certainly going to be
-			// cmd.ErrSilent and the cmd.Command framework expects that back
-			// from cmd.Run if the process is blocked.
-			return err
-		}
-	}
-	if c.action == nil {
-		// If we are reset only we end up here, only we've already done that.
-		return nil
-	}
-	return c.action(client, ctx)
 }
 
 // getDefaults writes out the value for a single key or the full tree of

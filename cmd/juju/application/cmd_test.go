@@ -6,6 +6,7 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -81,6 +82,7 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.expectError)
 			continue
 		}
+		c.Assert(err, jc.ErrorIsNil)
 		deployCmd := modelcmd.InnerCommand(wrappedDeployCmd).(*DeployCommand)
 		c.Assert(deployCmd.ApplicationName, gc.Equals, t.expectApplicationName)
 		c.Assert(deployCmd.CharmOrBundle, gc.Equals, t.expectCharmOrBundle)
@@ -89,30 +91,20 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 	}
 }
 
-func initExposeCommand(args ...string) (*exposeCommand, error) {
-	com := &exposeCommand{}
-	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
-}
-
-func (*CmdSuite) TestExposeCommandInit(c *gc.C) {
-	// missing args
-	_, err := initExposeCommand()
+func (*CmdSuite) TestExposeCommandInitWithMissingArgs(c *gc.C) {
+	cmd := NewExposeCommand()
+	cmd.SetClientStore(NewMockStore())
+	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 
 	// environment tested elsewhere
 }
 
-func initUnexposeCommand(args ...string) (*unexposeCommand, error) {
-	com := &unexposeCommand{}
-	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
-}
-
-func (*CmdSuite) TestUnexposeCommandInit(c *gc.C) {
-	// missing args
-	_, err := initUnexposeCommand()
+func (*CmdSuite) TestUnexposeCommandInitWithMissingArgs(c *gc.C) {
+	cmd := NewUnexposeCommand()
+	cmd.SetClientStore(NewMockStore())
+	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
-
-	// environment tested elsewhere
 }
 
 func initRemoveUnitCommand(args ...string) (cmd.Command, error) {
@@ -120,11 +112,29 @@ func initRemoveUnitCommand(args ...string) (cmd.Command, error) {
 	return com, cmdtesting.InitCommand(com, args)
 }
 
-func (*CmdSuite) TestRemoveUnitCommandInit(c *gc.C) {
-	// missing args
-	_, err := initRemoveUnitCommand()
+func (*CmdSuite) TestRemoveUnitCommandInitMissingArgs(c *gc.C) {
+	cmd := NewRemoveUnitCommand()
+	cmd.SetClientStore(NewMockStore())
+	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.ErrorMatches, "no units specified")
-	// not a unit
-	_, err = initRemoveUnitCommand("seven/nine")
+}
+
+func (*CmdSuite) TestRemoveUnitCommandInitInvalidUnit(c *gc.C) {
+	cmd := NewRemoveUnitCommand()
+	cmd.SetClientStore(NewMockStore())
+	err := cmdtesting.InitCommand(cmd, []string{"seven/nine"})
 	c.Assert(err, gc.ErrorMatches, `invalid unit name "seven/nine"`)
+}
+
+func NewMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	store.Models["foo"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/bar",
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
+	}
+	return store
 }

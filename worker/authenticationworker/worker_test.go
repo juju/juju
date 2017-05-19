@@ -85,7 +85,7 @@ func agentConfig(c *gc.C, tag names.MachineTag) *mockConfig {
 
 func (s *workerSuite) setAuthorisedKeys(c *gc.C, keys ...string) {
 	keyStr := strings.Join(keys, "\n")
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyStr}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyStr}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 }

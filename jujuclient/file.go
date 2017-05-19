@@ -7,14 +7,18 @@
 package jujuclient
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
+	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/juju/osenv"
 )
 
 var _ ClientStore = (*store)(nil)
@@ -284,6 +288,14 @@ func (s *store) RemoveController(name string) error {
 			if err := WriteBootstrapConfigFile(bootstrapConfigurations); err != nil {
 				return errors.Trace(err)
 			}
+		}
+	}
+
+	// Remove the controller cookie jars.
+	for _, name := range names {
+		err := os.Remove(JujuCookiePath(name))
+		if err != nil && !os.IsNotExist(err) {
+			return errors.Trace(err)
 		}
 	}
 
@@ -702,4 +714,41 @@ func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapC
 		cfg.CloudType, _ = cfg.Config["type"].(string)
 	}
 	return &cfg, nil
+}
+
+// CookieJar returns the cookie jar associated with the given controller.
+func (s *store) CookieJar(controllerName string) (CookieJar, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	path := JujuCookiePath(controllerName)
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: path,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &cookieJar{
+		path: path,
+		Jar:  jar,
+	}, nil
+}
+
+type cookieJar struct {
+	path string
+	*cookiejar.Jar
+}
+
+func (jar *cookieJar) Save() error {
+	// Ensure that the directory exists before saving.
+	if err := os.MkdirAll(filepath.Dir(jar.path), 0700); err != nil {
+		return errors.Annotatef(err, "cannot make cookies directory")
+	}
+	return jar.Jar.Save()
+}
+
+// JujuCookiePath is the location where cookies associated
+// with the given controller are expected to be found.
+func JujuCookiePath(controllerName string) string {
+	return osenv.JujuXDGDataHomePath("cookies", controllerName+".json")
 }

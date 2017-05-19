@@ -45,7 +45,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
 	// block with managed fs on top.
 	err := s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "machinescoped",
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testAddServiceDefaultPool(c, "machinescoped", 0)
 }

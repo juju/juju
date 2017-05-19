@@ -4,37 +4,32 @@
 package commands
 
 import (
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
 
-func newMigrateCommand() cmd.Command {
+func newMigrateCommand() modelcmd.ModelCommand {
 	var cmd migrateCommand
 	cmd.newAPIRoot = cmd.CommandBase.NewAPIRoot
-	return modelcmd.WrapController(&cmd)
+	return modelcmd.Wrap(&cmd, modelcmd.WrapSkipModelFlags)
 }
 
 // migrateCommand initiates a model migration.
 type migrateCommand struct {
-	modelcmd.ControllerCommandBase
+	modelcmd.ModelCommandBase
 	newAPIRoot       func(jujuclient.ClientStore, string, string) (api.Connection, error)
 	api              migrateAPI
-	model            string
 	targetController string
 }
 
 type migrateAPI interface {
-	AllModels() ([]base.UserModel, error)
 	InitiateMigration(spec controller.MigrationSpec) (string, error)
 }
 
@@ -89,7 +84,7 @@ func (c *migrateCommand) Init(args []string) error {
 		return errors.New("too many arguments specified")
 	}
 
-	c.model = args[0]
+	c.SetModelName(args[0], false)
 	c.targetController = args[1]
 	return nil
 }
@@ -132,11 +127,16 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	api, err := c.getAPI()
+	modelName, err := c.ModelName()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	spec.ModelUUID, err = c.findModelUUID(ctx, api)
+	uuids, err := c.ModelUUIDs([]string{modelName})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	spec.ModelUUID = uuids[0]
+	api, err := c.getAPI()
 	if err != nil {
 		return err
 	}
@@ -148,50 +148,19 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *migrateCommand) findModelUUID(ctx *cmd.Context, api migrateAPI) (string, error) {
-	models, err := api.AllModels()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	// Look for the uuid based on name. If the model name doesn't container a
-	// slash, then only accept the model name if there exists only one model
-	// with that name.
-	owner := ""
-	name := c.model
-	if strings.Contains(name, "/") {
-		values := strings.SplitN(name, "/", 2)
-		owner = values[0]
-		name = values[1]
-	}
-	var matches []base.UserModel
-	for _, model := range models {
-		if model.Name == name && (owner == "" || model.Owner == owner) {
-			matches = append(matches, model)
-		}
-	}
-	switch len(matches) {
-	case 0:
-		return "", errors.NotFoundf("model matching %q", c.model)
-	case 1:
-		return matches[0].UUID, nil
-	default:
-		ctx.Infof("Multiple potential matches found, please specify owner to disambiguate:")
-		for _, match := range matches {
-			ctx.Infof("  %s/%s", match.Owner, match.Name)
-		}
-		return "", errors.New("multiple models match name")
-	}
-}
-
 func (c *migrateCommand) getAPI() (migrateAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewControllerAPIClient()
+	apiRoot, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controller.NewClient(apiRoot), nil
 }
 
 func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error) {
-	apiContext, err := c.APIContext()
+	jar, err := c.CommandBase.CookieJar(c.ClientStore(), c.targetController)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -206,5 +175,5 @@ func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error
 		return nil, errors.Annotate(err, "connecting to target controller")
 	}
 	defer api.Close()
-	return httpbakery.MacaroonsForURL(apiContext.CookieJar(), api.CookieURL()), nil
+	return httpbakery.MacaroonsForURL(jar, api.CookieURL()), nil
 }

@@ -5,6 +5,7 @@ package containerizer
 
 import (
 	"fmt"
+	"hash/crc32"
 	"sort"
 	"strings"
 
@@ -188,6 +189,25 @@ var skippedDeviceNames = set.NewStrings(
 	network.DefaultKVMBridge,
 )
 
+// The general policy is to:
+// 1. Add br- to device name (to keep current behaviour), if it doesn fit in 15 characters then:
+// 2. Add b- to device name, if it doesn't fit in 15 characters then:
+// 3a. For devices starting in 'en' remove 'en' and add 'b-'
+// 3b. For all other devices 'b-' + 6-char hash of name + '-' + last 6 chars of name
+func BridgeNameForDevice(device string) string {
+	switch {
+	case len(device) < 13:
+		return fmt.Sprintf("br-%s", device)
+	case len(device) == 13:
+		return fmt.Sprintf("b-%s", device)
+	case device[:2] == "en":
+		return fmt.Sprintf("b-%s", device[2:])
+	default:
+		hash := crc32.Checksum([]byte(device), crc32.IEEETable) & 0xffffff
+		return fmt.Sprintf("b-%0.6x-%s", hash, device[len(device)-6:])
+	}
+}
+
 // FindMissingBridgesForContainer looks at the spaces that the container
 // wants to be in, and sees if there are any host devices that should be
 // bridged.
@@ -279,8 +299,7 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
 		hostToBridge = append(hostToBridge, network.DeviceToBridge{
 			DeviceName: hostName,
-			// Should be an indirection/policy being passed in here
-			BridgeName: fmt.Sprintf("br-%s", hostName),
+			BridgeName: BridgeNameForDevice(hostName),
 		})
 	}
 	return hostToBridge, reconfigureDelay, nil

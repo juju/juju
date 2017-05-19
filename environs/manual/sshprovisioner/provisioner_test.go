@@ -164,7 +164,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	err = s.State.UpdateModelConfig(
 		map[string]interface{}{
 			"enable-os-upgrade": false,
-		}, nil, nil)
+		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")

@@ -44,29 +44,21 @@ var _ = gc.Suite(&guiSuite{})
 // guiURL returns the complete URL where the Juju GUI can be found, including
 // the given hash and pathAndquery.
 func (s *guiSuite) guiURL(c *gc.C, hash, pathAndquery string) string {
-	u := s.baseURL(c)
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	path := fmt.Sprintf("/gui/u/%s/%s", model.Owner().Name(), model.Name())
-	if hash != "" {
-		path += "/" + hash
-	}
-	parts := strings.SplitN(pathAndquery, "?", 2)
-	u.Path = path + parts[0]
-	if len(parts) == 2 {
-		u.RawQuery = parts[1]
-	}
-	return u.String()
+	return s.urlFromBase(c, apiserver.GUIURLPathPrefix, hash, pathAndquery)
 }
 
 func (s *guiSuite) guiOldURL(c *gc.C, hash, pathAndquery string) string {
-	u := s.baseURL(c)
-	path := "/gui/" + s.modelUUID
+	base := apiserver.GUIURLPathPrefix + s.modelUUID + "/"
+	return s.urlFromBase(c, base, hash, pathAndquery)
+}
+
+func (s *guiSuite) urlFromBase(c *gc.C, base, hash, pathAndquery string) string {
 	if hash != "" {
-		path += "/" + hash
+		base += hash + "/"
 	}
 	parts := strings.SplitN(pathAndquery, "?", 2)
-	u.Path = path + parts[0]
+	u := s.baseURL(c)
+	u.Path = base + parts[0]
 	if len(parts) == 2 {
 		u.RawQuery = parts[1]
 	}
@@ -211,7 +203,7 @@ var guiHandlerTests = []struct {
 		return setupGUIArchive(c, storage, "2.0.42", nil)
 	},
 	currentVersion: "2.0.42",
-	pathAndquery:   "/config.js",
+	pathAndquery:   "config.js",
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot parse template: .*: no such file or directory",
 }, {
@@ -222,7 +214,7 @@ var guiHandlerTests = []struct {
 		})
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "/config.js",
+	pathAndquery:   "config.js",
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" .*`,
 }, {
@@ -232,7 +224,7 @@ var guiHandlerTests = []struct {
 		return "invalid"
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "/config.js",
+	pathAndquery:   "config.js",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with "invalid" hash not found`,
 }, {
@@ -241,7 +233,7 @@ var guiHandlerTests = []struct {
 		return setupGUIArchive(c, storage, "1.0.0", nil)
 	},
 	currentVersion: "1.0.0",
-	pathAndquery:   "/combo?foo&%%",
+	pathAndquery:   "combo?foo&%%",
 	expectedStatus: http.StatusBadRequest,
 	expectedError:  `cannot combine files: invalid file name "%": invalid URL escape "%%"`,
 }, {
@@ -250,7 +242,7 @@ var guiHandlerTests = []struct {
 		return setupGUIArchive(c, storage, "1.0.0", nil)
 	},
 	currentVersion: "1.0.0",
-	pathAndquery:   "/combo?../../../../../../etc/passwd",
+	pathAndquery:   "combo?../../../../../../etc/passwd",
 	expectedStatus: http.StatusBadRequest,
 	expectedError:  `cannot combine files: forbidden file path "../../../../../../etc/passwd"`,
 }, {
@@ -260,7 +252,7 @@ var guiHandlerTests = []struct {
 		return "invalid"
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "/combo?foo",
+	pathAndquery:   "combo?foo",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with "invalid" hash not found`,
 }, {
@@ -274,7 +266,7 @@ var guiHandlerTests = []struct {
 		})
 	},
 	currentVersion:      "1.0.0",
-	pathAndquery:        "/combo?voy/janeway.js&tng/picard.js&borg.js&ds9/sisko.js",
+	pathAndquery:        "combo?voy/janeway.js&tng/picard.js&borg.js&ds9/sisko.js",
 	expectedStatus:      http.StatusOK,
 	expectedContentType: apiserver.JSMimeType,
 	expectedBody: `voyager
@@ -294,7 +286,7 @@ deep space nine
 		})
 	},
 	currentVersion:      "1.0.0",
-	pathAndquery:        "/combo?no-such.css&foo.css&bad-wolf.css",
+	pathAndquery:        "combo?no-such.css&foo.css&bad-wolf.css",
 	expectedStatus:      http.StatusOK,
 	expectedContentType: "text/css; charset=utf-8",
 	expectedBody: `my-style
@@ -308,7 +300,7 @@ deep space nine
 		})
 	},
 	currentVersion:      "1.0.0",
-	pathAndquery:        "/static/file.js",
+	pathAndquery:        "static/file.js",
 	expectedStatus:      http.StatusOK,
 	expectedContentType: apiserver.JSMimeType,
 	expectedBody:        "static file content",
@@ -319,7 +311,7 @@ deep space nine
 		return "bad-wolf"
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "/static/file.js",
+	pathAndquery:   "static/file.js",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with "bad-wolf" hash not found`,
 }, {
@@ -333,7 +325,7 @@ deep space nine
 		})
 	},
 	currentVersion: "2.1.1",
-	pathAndquery:   "/static/file.js",
+	pathAndquery:   "static/file.js",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with ".*" hash not found`,
 }}
@@ -375,11 +367,8 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 		}
 
 		// Send a request to the test path.
-		if pathAndquery == "" {
-			pathAndquery = "/"
-		}
 		return s.sendRequest(c, httpRequestParams{
-			url: s.guiOldURL(c, hash, pathAndquery),
+			url: s.guiURL(c, hash, pathAndquery),
 		})
 	}
 
@@ -414,6 +403,55 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 }
 
 func (s *guiSuite) TestGUIIndex(c *gc.C) {
+	tests := []struct {
+		about               string
+		guiVersion          string
+		path                string
+		getURL              func(c *gc.C, hash, pathAndquery string) string
+		expectedConfigQuery string
+	}{{
+		about:      "new GUI, new URL, root",
+		guiVersion: "2.3.0",
+		getURL:     s.guiURL,
+	}, {
+		about:      "new GUI, new URL, model path",
+		guiVersion: "2.3.1",
+		path:       "u/admin/controller/",
+		getURL:     s.guiURL,
+	}, {
+		about:               "new GUI, old URL, root",
+		guiVersion:          "2.42.47",
+		getURL:              s.guiOldURL,
+		expectedConfigQuery: "?model-uuid=" + s.modelUUID + "&base-postfix=" + s.modelUUID,
+	}, {
+		about:               "new GUI, old URL, model path",
+		guiVersion:          "2.3.0",
+		path:                "u/admin/controller/",
+		getURL:              s.guiOldURL,
+		expectedConfigQuery: "?model-uuid=" + s.modelUUID + "&base-postfix=" + s.modelUUID,
+	}, {
+		about:      "old GUI, new URL, root",
+		guiVersion: "2.2.0",
+		getURL:     s.guiURL,
+	}, {
+		about:               "old GUI, new URL, model path",
+		guiVersion:          "2.0.0",
+		path:                "u/admin/controller/",
+		getURL:              s.guiURL,
+		expectedConfigQuery: "?model-uuid=" + s.modelUUID + "&base-postfix=u/admin/controller",
+	}, {
+		about:               "old GUI, old URL, root",
+		guiVersion:          "1.42.47",
+		getURL:              s.guiOldURL,
+		expectedConfigQuery: "?model-uuid=" + s.modelUUID + "&base-postfix=" + s.modelUUID,
+	}, {
+		about:               "old GUI, old URL, model path",
+		guiVersion:          "2.2.9",
+		path:                "u/admin/controller/",
+		getURL:              s.guiOldURL,
+		expectedConfigQuery: "?model-uuid=" + s.modelUUID + "&base-postfix=" + s.modelUUID,
+	}}
+
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -430,38 +468,43 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
     spriteContent: {{.spriteContent}}
 </body>
 </html>`
-	vers := version.MustParse("2.0.0")
-	hash := setupGUIArchive(c, storage, vers.String(), map[string]string{
-		guiIndexPath:         indexContent,
-		apiserver.SpritePath: "sprite content",
-	})
-	err = s.State.GUISetVersion(vers)
-	c.Assert(err, jc.ErrorIsNil)
 
-	expectedIndexContent := fmt.Sprintf(`
+	for i, test := range tests {
+		c.Logf("\n%d: %s", i, test.about)
+		vers := version.MustParse(test.guiVersion)
+		hash := setupGUIArchive(c, storage, vers.String(), map[string]string{
+			guiIndexPath:         indexContent,
+			apiserver.SpritePath: "sprite content",
+		})
+		err = s.State.GUISetVersion(vers)
+		c.Assert(err, jc.ErrorIsNil)
+		expectedIndexContent := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
 <body>
-    staticURL: /gui/%[1]s/%[2]s
-    comboURL: /gui/%[1]s/%[2]s/combo
-    configURL: /gui/%[1]s/%[2]s/config.js
+    staticURL: /gui/%[1]s
+    comboURL: /gui/%[1]s/combo
+    configURL: /gui/%[1]s/config.js%[2]s
     debug: false
     spriteContent: sprite content
 </body>
-</html>`, s.modelUUID, hash)
-	// Make a request for the Juju GUI index.
-	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "", "/"),
-	})
-	body := assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
-	c.Assert(string(body), gc.Equals, expectedIndexContent)
+</html>`, hash, test.expectedConfigQuery)
 
-	// Non-handled paths are served by the index handler.
-	resp = s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "", "/no-such-path/"),
-	})
-	body = assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
-	c.Assert(string(body), gc.Equals, expectedIndexContent)
+		// Make a request for the Juju GUI index.
+		resp := s.sendRequest(c, httpRequestParams{
+			url: test.getURL(c, "", test.path),
+		})
+		body := assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
+		c.Assert(string(body), gc.Equals, expectedIndexContent)
+
+		// Non-handled paths are served by the index handler.
+		resp = s.sendRequest(c, httpRequestParams{
+			url: test.getURL(c, "", test.path+"no-such-path/"),
+		})
+		body = assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
+		c.Assert(string(body), gc.Equals, expectedIndexContent)
+	}
+
 }
 
 func (s *guiSuite) TestGUIIndexVersions(c *gc.C) {
@@ -489,7 +532,7 @@ func (s *guiSuite) TestGUIIndexVersions(c *gc.C) {
 	err = s.State.GUISetVersion(vers2)
 	c.Assert(err, jc.ErrorIsNil)
 	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "", "/"),
+		url: s.guiURL(c, "", ""),
 	})
 	body := assertResponse(c, resp, http.StatusOK, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "index version 2.0.0")
@@ -497,25 +540,38 @@ func (s *guiSuite) TestGUIIndexVersions(c *gc.C) {
 	err = s.State.GUISetVersion(vers3)
 	c.Assert(err, jc.ErrorIsNil)
 	resp = s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "", "/"),
+		url: s.guiURL(c, "", ""),
 	})
 	body = assertResponse(c, resp, http.StatusOK, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "index version 3.0.0")
 }
 
-func (s *guiSuite) TestGUIConfigOldURL(c *gc.C) {
-	s.assertGUIConfig(c, "2.3.0", "/config.js?new-path=false", "/gui/"+s.modelUUID)
-}
+func (s *guiSuite) TestGUIConfig(c *gc.C) {
+	tests := []struct {
+		about              string
+		configPathAndQuery string
+		expectedBaseURL    string
+		expectedUUID       string
+	}{{
+		about:              "no uuid, no postfix",
+		configPathAndQuery: "config.js",
+		expectedBaseURL:    "/gui/",
+	}, {
+		about:              "uuid, no postfix",
+		configPathAndQuery: "config.js?model-uuid=my-uuid",
+		expectedBaseURL:    "/gui/",
+		expectedUUID:       "my-uuid",
+	}, {
+		about:              "no uuid, postfix",
+		configPathAndQuery: "config.js?base-postfix=my-postfix/",
+		expectedBaseURL:    "/gui/",
+	}, {
+		about:              "uuid, postfix",
+		configPathAndQuery: "config.js?model-uuid=my-uuid&base-postfix=my-postfix/",
+		expectedBaseURL:    "/gui/my-postfix/",
+		expectedUUID:       "my-uuid",
+	}}
 
-func (s *guiSuite) TestGUIConfigOldGUI(c *gc.C) {
-	s.assertGUIConfig(c, "2.0.0", "/config.js?new-path=false", "/gui/"+s.modelUUID)
-}
-
-func (s *guiSuite) TestGUIConfigNewURL(c *gc.C) {
-	s.assertGUIConfig(c, "2.3.0", "/config.js", "/gui/")
-}
-
-func (s *guiSuite) assertGUIConfig(c *gc.C, guiVersion, configPath, expectedBaseURL string) {
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -532,31 +588,34 @@ var config = {
     uuid: '{{.uuid}}',
     version: '{{.version}}'
 };`
-	vers := version.MustParse(guiVersion)
+	vers := version.MustParse("2.0.0")
 	hash := setupGUIArchive(c, storage, vers.String(), map[string]string{
 		guiConfigPath: configContent,
 	})
 	err = s.State.GUISetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedConfigContent := fmt.Sprintf(`
+	for i, test := range tests {
+		c.Logf("\n%d: %s", i, test.about)
+		expectedConfigContent := fmt.Sprintf(`
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
     base: '%[5]s',
     host: '%[2]s',
     controllerSocket: '/api',
     socket: '/model/$uuid/api',
-    staticURL: '/gui/%[1]s/%[3]s',
+    staticURL: '/gui/%[3]s',
     uuid: '%[1]s',
     version: '%[4]s'
-};`, s.modelUUID, s.baseURL(c).Host, hash, jujuversion.Current, expectedBaseURL)
+};`, test.expectedUUID, s.baseURL(c).Host, hash, jujuversion.Current, test.expectedBaseURL)
 
-	// Make a request for the Juju GUI config.
-	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiOldURL(c, hash, configPath),
-	})
-	body := assertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
-	c.Assert(string(body), gc.Equals, expectedConfigContent)
+		// Make a request for the Juju GUI config.
+		resp := s.sendRequest(c, httpRequestParams{
+			url: s.guiURL(c, hash, test.configPathAndQuery),
+		})
+		body := assertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
+		c.Assert(string(body), gc.Equals, expectedConfigContent)
+	}
 }
 
 func (s *guiSuite) TestGUIDirectory(c *gc.C) {
@@ -580,7 +639,7 @@ func (s *guiSuite) TestGUIDirectory(c *gc.C) {
 
 	// Make a request for the Juju GUI.
 	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "", "/"),
+		url: s.guiURL(c, "", ""),
 	})
 	body := assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
 	c.Assert(string(body), gc.Equals, indexContent)
