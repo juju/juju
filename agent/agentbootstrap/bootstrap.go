@@ -210,7 +210,13 @@ func InitializeState(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")
 	}
-	hostedModelState.Close()
+
+	defer hostedModelState.Close()
+
+	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
+	if err := hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
+		return nil, nil, errors.Annotate(err, "fetching hosted model spaces")
+	}
 
 	return st, m, nil
 }

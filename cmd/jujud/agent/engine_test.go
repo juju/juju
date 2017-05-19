@@ -34,7 +34,6 @@ var (
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
-		"spaces-imported-gate",
 	}
 	aliveModelWorkers = []string{
 		"charm-revision-updater",
@@ -48,7 +47,6 @@ var (
 		"migration-inactive-flag",
 		"migration-master",
 		"application-scaler",
-		"space-importer",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",

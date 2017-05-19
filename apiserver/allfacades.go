@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/controller" // ModelUser Admin (although some methods check for read only)
 	"github.com/juju/juju/apiserver/deployer"
-	"github.com/juju/juju/apiserver/discoverspaces"
 	"github.com/juju/juju/apiserver/diskmanager"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/firewaller"
@@ -133,7 +132,6 @@ func AllFacades() *facade.Registry {
 	reg("Cloud", 1, cloud.NewFacade)
 	reg("Controller", 3, controller.NewControllerAPI)
 	reg("Deployer", 1, deployer.NewDeployerAPI)
-	reg("DiscoverSpaces", 2, discoverspaces.NewAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
 	reg("Firewaller", 3, firewaller.NewFirewallerAPI)
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)

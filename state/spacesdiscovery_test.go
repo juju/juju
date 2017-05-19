@@ -1,0 +1,353 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state_test
+
+import (
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+)
+
+type networkLessEnviron struct {
+	environs.Environ
+}
+
+type networkedEnviron struct {
+	environs.NetworkingEnviron
+
+	stub           *testing.Stub
+	spaceDiscovery bool
+	spaces         []network.SpaceInfo
+	subnets        []network.SubnetInfo
+}
+
+type SpacesDiscoverySuite struct {
+	ConnSuite
+
+	environ     networkedEnviron
+	usedEnviron environs.Environ
+}
+
+var _ = gc.Suite(&SpacesDiscoverySuite{})
+
+var twoSubnets = []network.SubnetInfo{
+	{
+		ProviderId:        "1",
+		AvailabilityZones: []string{"1", "2"},
+		CIDR:              "10.0.0.1/24",
+	},
+	{
+		ProviderId:        "2",
+		AvailabilityZones: []string{"3", "4"},
+		CIDR:              "10.100.0.1/24",
+	},
+}
+
+var anotherTwoSubnets = []network.SubnetInfo{
+	{
+		ProviderId:        "3",
+		AvailabilityZones: []string{"5", "6"},
+		CIDR:              "10.101.0.1/24",
+	},
+	{
+		ProviderId:        "4",
+		AvailabilityZones: []string{"7", "8"},
+		CIDR:              "10.105.0.1/24",
+	},
+}
+
+var fourSubnets = []network.SubnetInfo{
+	{
+		ProviderId:        "1",
+		AvailabilityZones: []string{"1", "2"},
+		CIDR:              "10.0.0.1/24",
+	},
+	{
+		ProviderId:        "2",
+		AvailabilityZones: []string{"3", "4"},
+		CIDR:              "10.100.0.1/24",
+	},
+	{
+		ProviderId:        "3",
+		AvailabilityZones: []string{"5", "6"},
+		CIDR:              "10.101.0.1/24",
+	},
+	{
+		ProviderId:        "4",
+		AvailabilityZones: []string{"7", "8"},
+		CIDR:              "10.105.0.1/24",
+	},
+}
+
+var spaceOne = []network.SpaceInfo{
+	{
+		Name:       "space1",
+		ProviderId: "1",
+		Subnets:    twoSubnets,
+	},
+}
+var spaceTwo = []network.SpaceInfo{
+	{
+		Name:       "space2",
+		ProviderId: "2",
+		Subnets:    anotherTwoSubnets,
+	},
+}
+
+var twoSpaces = []network.SpaceInfo{
+	{
+		Name:       "space1",
+		ProviderId: "1",
+		Subnets:    twoSubnets,
+	},
+	{
+		Name:       "space2",
+		ProviderId: "2",
+		Subnets:    anotherTwoSubnets,
+	},
+}
+
+func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.SubnetInfo) {
+	c.Assert(len(subnetInfos), gc.Equals, len(subnets))
+	for i, subnetInfo := range subnetInfos {
+		subnet := subnets[i]
+		c.Check(subnetInfo.CIDR, gc.Equals, subnet.CIDR())
+		if len(subnetInfo.AvailabilityZones) > 0 {
+			c.Check(subnetInfo.AvailabilityZones[0], gc.Equals, subnet.AvailabilityZone())
+		} else {
+			c.Check(subnet.AvailabilityZone(), gc.Equals, "")
+		}
+		c.Check(subnetInfo.ProviderId, gc.Equals, subnet.ProviderId())
+		c.Check(subnetInfo.ProviderNetworkId, gc.Equals, subnet.ProviderNetworkId())
+		c.Check(subnetInfo.VLANTag, gc.Equals, subnet.VLANTag())
+	}
+}
+
+func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.SpaceInfo) {
+	c.Assert(len(spaceInfos), gc.Equals, len(spaces))
+	for i, spaceInfo := range spaceInfos {
+		space := spaces[i]
+		c.Check(spaceInfo.Name, gc.Equals, space.Name())
+		c.Check(spaceInfo.ProviderId, gc.Equals, space.ProviderId())
+		subnets, err := space.Subnets()
+		c.Assert(err, jc.ErrorIsNil)
+		checkSubnetsEqual(c, subnets, spaceInfo.Subnets)
+	}
+}
+
+func (e *networkedEnviron) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	e.stub.AddCall("Subnets", inst, subnetIds)
+	return e.subnets, e.stub.NextErr()
+}
+func (e *networkedEnviron) Spaces() ([]network.SpaceInfo, error) {
+	e.stub.AddCall("Spaces")
+	return e.spaces, e.stub.NextErr()
+}
+
+func (e *networkedEnviron) SupportsSpaceDiscovery() (bool, error) {
+	e.stub.AddCall("SupportsSpaceDiscovery")
+	return e.spaceDiscovery, e.stub.NextErr()
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesNetworklessEnviron(c *gc.C) {
+	err := s.State.ReloadSpaces(networkLessEnviron{})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesSupportsSpaceDiscoveryBroken(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub: &testing.Stub{},
+	}
+	s.environ.stub.SetErrors(errors.New("SupportsSpaceDiscovery is broken"))
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Check(err, gc.ErrorMatches, "SupportsSpaceDiscovery is broken")
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnly(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: false,
+		subnets:        twoSubnets,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Check(err, jc.ErrorIsNil)
+	s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Subnets")
+	s.environ.stub.CheckCall(c, 1, "Subnets", instance.UnknownId, []network.Id{})
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSubnetsEqual(c, subnets, twoSubnets)
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlySubnetsBroken(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub: &testing.Stub{},
+	}
+	s.environ.stub.SetErrors(nil, errors.New("Subnets is broken"))
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Check(err, gc.ErrorMatches, "Subnets is broken")
+	s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Subnets")
+	s.environ.stub.CheckCall(c, 1, "Subnets", instance.UnknownId, []network.Id{})
+}
+
+// TODO(wpk) 2017-05-24 this test will have to be rewritten when we support removing spaces/subnets in discovery.
+func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlyAddsSubnets(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: false,
+		subnets:        twoSubnets,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.environ.subnets = anotherTwoSubnets
+	err = s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSubnetsEqual(c, subnets, fourSubnets)
+}
+
+// TODO(wpk) 2017-05-24 this test will have to be enabled only when we we support removing spaces/subnets in discovery.
+func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlyReplacesSubnets(c *gc.C) {
+	c.Skip("Removing subnets not supported")
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: false,
+		subnets:        twoSubnets,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.environ.subnets = anotherTwoSubnets
+	err = s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSubnetsEqual(c, subnets, anotherTwoSubnets)
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlyIdempotent(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: false,
+		subnets:        twoSubnets,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets1, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets2, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subnets1, gc.DeepEquals, subnets2)
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesSpacesBroken(c *gc.C) {
+	s.environ = networkedEnviron{
+		spaceDiscovery: true,
+		stub:           &testing.Stub{},
+	}
+	s.environ.stub.SetErrors(nil, errors.New("Spaces is broken"))
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Check(err, gc.ErrorMatches, "Spaces is broken")
+	s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Spaces")
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpaces(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: true,
+		spaces:         spaceOne,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Check(err, jc.ErrorIsNil)
+	s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Spaces")
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, spaceOne)
+}
+
+// TODO(wpk) 2017-05-24 this test will have to be rewritten when we support removing spaces/subnets in discovery.
+func (s *SpacesDiscoverySuite) TestReloadSpacesAddsSpaces(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: true,
+		spaces:         spaceOne,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.environ.spaces = spaceTwo
+	err = s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, twoSpaces)
+}
+
+// TODO(wpk) 2017-05-24 this test will have to be enabled only when we we support removing spaces/subnets in discovery.
+func (s *SpacesDiscoverySuite) TestReloadSpacesReplacesSpaces(c *gc.C) {
+	c.Skip("Removing spaces not supported")
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: true,
+		spaces:         spaceOne,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.environ.spaces = spaceTwo
+	err = s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, spaceTwo)
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesIdempotent(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: true,
+		spaces:         twoSpaces,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces1, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces2, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces1, gc.DeepEquals, spaces2)
+}

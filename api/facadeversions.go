@@ -30,7 +30,6 @@ var facadeVersions = map[string]int{
 	"Cloud":                        1,
 	"Controller":                   3,
 	"Deployer":                     1,
-	"DiscoverSpaces":               2,
 	"DiskManager":                  2,
 	"EntityWatcher":                2,
 	"FilesystemAttachmentsWatcher": 2,

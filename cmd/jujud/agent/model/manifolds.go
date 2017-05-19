@@ -27,11 +27,9 @@ import (
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/machineundertaker"
@@ -86,10 +84,6 @@ type ManifoldsConfig struct {
 	// behaviour.
 	StatusHistoryPrunerInterval time.Duration
 
-	// SpacesImportedGate will be unlocked when spaces are known to
-	// have been imported.
-	SpacesImportedGate gate.Lock
-
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc environs.NewEnvironFunc
@@ -121,12 +115,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
 		}),
-
-		// The spaces-imported gate will be unlocked when space
-		// discovery is known to be complete. Various manifolds
-		// should also come to depend upon it (or rather, on a
-		// Flag depending on it) in the future.
-		spacesImportedGateName: gate.ManifoldEx(config.SpacesImportedGate),
 
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
@@ -228,14 +216,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// All the rest depend on ifNotMigrating.
-		spaceImporterName: ifNotMigrating(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
-			EnvironName:   environTrackerName,
-			APICallerName: apiCallerName,
-			UnlockerName:  spacesImportedGateName,
-
-			NewFacade: discoverspaces.NewFacade,
-			NewWorker: discoverspaces.NewWorker,
-		})),
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:          agentName,
 			APICallerName:      apiCallerName,
@@ -380,10 +360,9 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 
-	spacesImportedGateName = "spaces-imported-gate"
-	isResponsibleFlagName  = "is-responsible-flag"
-	notDeadFlagName        = "not-dead-flag"
-	notAliveFlagName       = "not-alive-flag"
+	isResponsibleFlagName = "is-responsible-flag"
+	notDeadFlagName       = "not-dead-flag"
+	notAliveFlagName      = "not-alive-flag"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
@@ -391,7 +370,6 @@ const (
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
-	spaceImporterName        = "space-importer"
 	computeProvisionerName   = "compute-provisioner"
 	storageProvisionerName   = "storage-provisioner"
 	firewallerName           = "firewaller"

@@ -286,6 +286,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
+	// Fetch spaces from substrate
+	if err := st.ReloadSpaces(env); err != nil {
+		return err
+	}
+
 	// Populate the tools catalogue.
 	if err := c.populateTools(st, env); err != nil {
 		return err

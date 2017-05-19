@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -18,6 +19,7 @@ import (
 type API interface {
 	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
 	ListSpaces() (params.ListSpacesResults, error)
+	ReloadSpaces() error
 }
 
 // spacesAPI implements the API interface.
@@ -101,4 +103,20 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+// RefreshSpaces refreshes spaces from substrate
+func (api *spacesAPI) ReloadSpaces() error {
+	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ServerError(common.ErrPerm)
+	}
+	env, err := environs.GetEnviron(api.backing, environs.New)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(api.backing.ReloadSpaces(env))
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/reboot"
@@ -260,7 +259,6 @@ type Connection interface {
 	Uniter() (*uniter.State, error)
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
-	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
