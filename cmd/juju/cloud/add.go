@@ -264,9 +264,9 @@ func queryName(
 	}
 }
 
-// cloudProviders returns the names of providers supported by add-cloud,
+// addableCloudProviders returns the names of providers supported by add-cloud,
 // and also the names of those which are not supported.
-func cloudProviders() (providers []string, unsupported []string, _ error) {
+func addableCloudProviders() (providers []string, unsupported []string, _ error) {
 	allproviders := environs.RegisteredProviders()
 	for _, name := range allproviders {
 		provider, err := environs.Provider(name)
@@ -286,7 +286,7 @@ func cloudProviders() (providers []string, unsupported []string, _ error) {
 }
 
 func queryCloudType(pollster *interact.Pollster) (string, error) {
-	providers, unsupported, err := cloudProviders()
+	providers, unsupported, err := addableCloudProviders()
 	if err != nil {
 		// should be impossible
 		return "", errors.Trace(err)
