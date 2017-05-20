@@ -152,6 +152,7 @@ type PrepareHookCallbacks struct {
 	operation.Callbacks
 	*MockPrepareHook
 	executingMessage string
+	executingQueue   []string
 }
 
 func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
@@ -159,6 +160,7 @@ func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) 
 }
 
 func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
+	cb.executingQueue = append(cb.executingQueue, message)
 	cb.executingMessage = message
 	return nil
 }

@@ -133,10 +133,7 @@ func (rh *runHook) beforeHook() error {
 	var err error
 	switch rh.info.Kind {
 	case hooks.Install:
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
-			Status: string(status.Maintenance),
-			Info:   status.MessageInstallingCharm,
-		})
+		err = rh.callbacks.SetExecutingStatus(status.MessageInstallingCharm)
 	case hooks.Stop:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Maintenance),
