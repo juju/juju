@@ -214,7 +214,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	w.Println("\nTry 'list-regions <cloud>' to see available regions.")
 	w.Println("'show-cloud <cloud>' or 'regions --format yaml <cloud>' can be used to see region endpoints.")
 	w.Println("Update the known public clouds with 'update-clouds'.")
-	w.Println("'add-cloud' can add private clouds / infrastructure built for the following provider types:")
+	w.Println("'add-cloud' can add private or custom clouds / infrastructure built for the following provider types:")
 	w.Printf("  - %s\n", strings.Join(providers, ", "))
 	tw.Flush()
 	return nil
