@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 )
@@ -30,7 +31,10 @@ const (
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
-	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
+	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -411,9 +415,12 @@ func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
 	s.assertCreatePoolError(c, "", "cannot overwrite existing settings", pname, "loop", "smth=one")
 }
 
-func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
+func assertPoolExists(c *gc.C, st *state.State, pname, providerType, attr string) {
 	stsetts := state.NewStateSettings(st)
-	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
+	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 
 	found, err := poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)
@@ -423,7 +430,7 @@ func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
 	for _, one := range found {
 		if one.Name() == pname {
 			exists = true
-			c.Assert(string(one.Provider()), gc.Equals, provider)
+			c.Assert(string(one.Provider()), gc.Equals, providerType)
 			// At this stage, only 1 attr is expected and checked
 			expectedAttrs := strings.Split(attr, "=")
 			value, ok := one.Attrs()[expectedAttrs[0]]

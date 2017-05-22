@@ -55,6 +55,15 @@ type StartInstanceParams struct {
 	// for attachment to the instance being started.
 	Volumes []storage.VolumeParams
 
+	// VolumeAttachments is a set of parameters for existing volumes that
+	// should be attached. If the StartInstance method does not attach the
+	// volumes, they will be attached by the storage provisioner once the
+	// machine has been created. The attachments are presented here to
+	// give the provider an opportunity for the volume attachments to
+	// influence the instance creation, e.g. by restricting the machine
+	// to specific availability zones.
+	VolumeAttachments []storage.VolumeAttachmentParams
+
 	// NetworkInfo is an optional list of network interface details,
 	// necessary to configure on the instance.
 	NetworkInfo []network.InterfaceInfo
@@ -69,6 +78,7 @@ type StartInstanceParams struct {
 	// provider-specific space IDs. It is populated when provisioning a machine
 	// to host a unit of a service with endpoint bindings.
 	EndpointBindings map[string]network.Id
+
 	// ImageMetadata is a collection of image metadata
 	// that may be used to start this instance.
 	ImageMetadata []*imagemetadata.ImageMetadata

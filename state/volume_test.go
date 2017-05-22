@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 )
@@ -112,7 +113,10 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	// Register a default pool.
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateModelConfig(map[string]interface{}{

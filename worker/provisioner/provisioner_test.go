@@ -198,7 +198,7 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
@@ -207,6 +207,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	networkInfo []network.InterfaceInfo,
 	subnetsToZones map[network.Id][]string,
 	volumes []storage.Volume,
+	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
 ) (
@@ -233,6 +234,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.SubnetsToZones, jc.DeepEquals, subnetsToZones)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
+				c.Assert(o.VolumeAttachments, jc.DeepEquals, volumeAttachments)
 
 				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {
@@ -460,7 +462,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -504,7 +506,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer stop(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, nil, expectedList, true,
+		nil, nil, nil, nil, expectedList, true,
 	)
 }
 
@@ -901,7 +903,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 		c, m, "pork", cons,
 		nil,
 		expectedSubnetsToZones,
-		nil, nil, true,
+		nil, nil, nil, true,
 	)
 
 	// Cleanup.
@@ -988,32 +990,53 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
-	// Add and provision a machine with volumes specified.
+	// Add a machine with volumes to state.
 	requestedVolumes := []state.MachineVolumeParams{{
 		Volume:     state.VolumeParams{Pool: "static", Size: 1024},
 		Attachment: state.VolumeAttachmentParams{},
 	}, {
 		Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 2048},
 		Attachment: state.VolumeAttachmentParams{},
+	}, {
+		Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 4096},
+		Attachment: state.VolumeAttachmentParams{},
 	}}
-	expectVolumeInfo := []storage.Volume{{
-		names.NewVolumeTag("1"),
+	m, err := s.addMachineWithRequestedVolumes(requestedVolumes, s.defaultConstraints)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision volume-2, so that it is attached rather than created.
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
+		Pool:     "persistent-pool",
+		VolumeId: "vol-ume",
+		Size:     4096,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision the machine, checking the volume and volume attachment arguments.
+	expectedVolumes := []storage.Volume{{
+		names.NewVolumeTag("0"),
 		storage.VolumeInfo{
 			Size: 1024,
 		},
 	}, {
-		names.NewVolumeTag("2"),
+		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
 			Size:       2048,
 			Persistent: true,
 		},
 	}}
-	m, err := s.addMachineWithRequestedVolumes(requestedVolumes, s.defaultConstraints)
-	c.Assert(err, jc.ErrorIsNil)
+	expectedVolumeAttachments := []storage.VolumeAttachment{{
+		Volume:  names.NewVolumeTag("2"),
+		Machine: m.MachineTag(),
+		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
+			DeviceName: "sdb",
+		},
+	}}
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", s.defaultConstraints,
 		nil, nil,
-		expectVolumeInfo,
+		expectedVolumes,
+		expectedVolumeAttachments,
 		nil, true,
 	)
 

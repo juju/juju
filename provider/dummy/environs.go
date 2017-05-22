@@ -174,20 +174,21 @@ type OpSubnets struct {
 }
 
 type OpStartInstance struct {
-	Env              string
-	MachineId        string
-	MachineNonce     string
-	PossibleTools    coretools.List
-	Instance         instance.Instance
-	Constraints      constraints.Value
-	SubnetsToZones   map[network.Id][]string
-	NetworkInfo      []network.InterfaceInfo
-	Volumes          []storage.Volume
-	Info             *mongo.MongoInfo
-	Jobs             []multiwatcher.MachineJob
-	APIInfo          *api.Info
-	Secret           string
-	AgentEnvironment map[string]string
+	Env               string
+	MachineId         string
+	MachineNonce      string
+	PossibleTools     coretools.List
+	Instance          instance.Instance
+	Constraints       constraints.Value
+	SubnetsToZones    map[network.Id][]string
+	NetworkInfo       []network.InterfaceInfo
+	Volumes           []storage.Volume
+	VolumeAttachments []storage.VolumeAttachment
+	Info              *mongo.MongoInfo
+	Jobs              []multiwatcher.MachineJob
+	APIInfo           *api.Info
+	Secret            string
+	AgentEnvironment  map[string]string
 }
 
 type OpStopInstances struct {
@@ -1060,10 +1061,22 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for iv, v := range args.Volumes {
 		persistent, _ := v.Attributes["persistent"].(bool)
 		volumes[iv] = storage.Volume{
-			Tag: names.NewVolumeTag(strconv.Itoa(iv + 1)),
+			Tag: v.Tag,
 			VolumeInfo: storage.VolumeInfo{
 				Size:       v.Size,
 				Persistent: persistent,
+			},
+		}
+	}
+	// Simulate attaching volumes when requested.
+	volumeAttachments := make([]storage.VolumeAttachment, len(args.VolumeAttachments))
+	for iv, v := range args.VolumeAttachments {
+		volumeAttachments[iv] = storage.VolumeAttachment{
+			Volume:  v.Volume,
+			Machine: v.Machine,
+			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
+				DeviceName: fmt.Sprintf("sd%c", 'b'+rune(iv)),
+				ReadOnly:   v.ReadOnly,
 			},
 		}
 	}
@@ -1074,19 +1087,20 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:              e.name,
-		MachineId:        machineId,
-		MachineNonce:     args.InstanceConfig.MachineNonce,
-		PossibleTools:    args.Tools,
-		Constraints:      args.Constraints,
-		SubnetsToZones:   subnetsToZones,
-		Volumes:          volumes,
-		Instance:         i,
-		Jobs:             args.InstanceConfig.Jobs,
-		Info:             mongoInfo,
-		APIInfo:          args.InstanceConfig.APIInfo,
-		AgentEnvironment: args.InstanceConfig.AgentEnvironment,
-		Secret:           e.ecfg().secret(),
+		Env:               e.name,
+		MachineId:         machineId,
+		MachineNonce:      args.InstanceConfig.MachineNonce,
+		PossibleTools:     args.Tools,
+		Constraints:       args.Constraints,
+		SubnetsToZones:    subnetsToZones,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
+		Instance:          i,
+		Jobs:              args.InstanceConfig.Jobs,
+		Info:              mongoInfo,
+		APIInfo:           args.InstanceConfig.APIInfo,
+		AgentEnvironment:  args.InstanceConfig.AgentEnvironment,
+		Secret:            e.ecfg().secret(),
 	}
 	return &environs.StartInstanceResult{
 		Instance: i,
