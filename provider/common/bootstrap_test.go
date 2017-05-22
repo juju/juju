@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -272,6 +273,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 			"'-o' 'HostKeyAlgorithms ssh-rsa' " +
 			"'ubuntu@testing.invalid' '/bin/bash'")
 	testing.PatchExecutableAsEchoArgs(c, s, "ssh")
+	testing.PatchExecutableAsEchoArgs(c, s, "scp")
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string, opts *ssh.Options) error {
 		// Stop WaitSSH from continuing.
 		client, err := ssh.NewOpenSSHClient()
@@ -280,14 +282,17 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		}
 		cmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, opts)
 		if err := cmd.Run(); err != nil {
-			return nil
+			return err
 		}
 		sshArgs := testing.ReadEchoArgs(c, "ssh")
 		submatch := re.FindStringSubmatch(sshArgs)
 		if c.Check(submatch, gc.NotNil, gc.Commentf("%s", sshArgs)) {
 			knownHostsFile := submatch[1]
+			knownHostsFile = strings.Replace(knownHostsFile, `\"`, ``, -1)
 			knownHostsBytes, err := ioutil.ReadFile(knownHostsFile)
-			c.Assert(err, jc.ErrorIsNil)
+			if err != nil {
+				return err
+			}
 			knownHosts = string(knownHostsBytes)
 		}
 		return nil
