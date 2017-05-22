@@ -14,11 +14,12 @@ import logging
 from random import randint
 import subprocess
 import sys
+import os
 
+from deploy_stack import (
+    BootstrapManager,
+    )
 
-from jujupy import (
-    client_from_config,
-)
 from utility import (
     add_basic_testing_arguments,
     JujuAssertionError,
@@ -245,8 +246,16 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    client = client_from_config(args.env, args.juju_bin, False)
-    assess_budget(client)
+    bs_manager = BootstrapManager.from_args(args)
+    with bs_manager.booted_context(args.upload_tools):
+        user_home = os.getenv('HOME', default='/var/lib/jenkins')
+        juju_home = os.getenv('JUJU_HOME',
+                              default='/var/lib/jenkins/cloud-city')
+        ctrl_name = os.getenv('JOB_NAME', default='budget-management')
+        cookies_source = '{}/go-cookies-extended'.format(user_home)
+        cookies_target = '{}/jes-homes/{}/cookies/{}.json'.format(juju_home, ctrl_name, ctrl_name)
+        subprocess.call(['cp', cookies_source, cookies_target])
+        assess_budget(bs_manager.client)
     return 0
 
 
