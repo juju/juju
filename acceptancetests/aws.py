@@ -13,6 +13,7 @@ import os
 import sys
 
 from dateutil import tz
+from libcloud.common.types import MalformedResponseError
 
 
 __metaclass__ = type
@@ -128,8 +129,8 @@ def delete_instances(client, name_id, old_age=OLD_MACHINE_AGE, dry_run=False):
                     deleted_count += 1
                 else:
                     log.error('Cannot delete {}'.format(node_name))
-            except:
-                log.error('Cannot delete {}'.format(node_name))
+            except MalformedResponseError as e:
+                log.error('Cannot delete {}: {}'.format(node_name, e))
     return deleted_count
 
 
