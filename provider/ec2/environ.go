@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -401,6 +402,19 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}()
 
+	callback(status.Allocating, "Determining availability zones", nil)
+
+	// Determine the availability zones of existing volumes that are to be
+	// attached to the machine. They must all match, and must be the same
+	// as specified zone (if any).
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if volumeAttachmentsZone != "" {
+		logger.Debugf("volume attachment(s) are in availability zone %q", volumeAttachmentsZone)
+	}
+
 	var availabilityZones []string
 	var placementSubnetID string
 	if args.Placement != "" {
@@ -411,6 +425,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		if placement.availabilityZone.State != availableState {
 			return nil, errors.Errorf("availability zone %q is %q", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
+		if volumeAttachmentsZone != "" && volumeAttachmentsZone != placement.availabilityZone.Name {
+			return nil, errors.Errorf(
+				"cannot create instance with placement %q, as this will prevent attaching EBS volumes in zone %q",
+				args.Placement, volumeAttachmentsZone,
+			)
+		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 		if placement.subnet != nil {
 			if placement.subnet.State != availableState {
@@ -420,10 +440,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}
 
-	callback(status.Allocating, "Determining availability zones", nil)
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
+	// If any existing volumes are to be attached, and no placement was
+	// specified, we allocate the instance in the same zone as the
+	// volume(s).
+	if volumeAttachmentsZone != "" && len(availabilityZones) == 0 {
+		availabilityZones = append(availabilityZones, volumeAttachmentsZone)
+	}
+
+	// If no availability zone is specified or required, then automatically
+	// spread across the known zones for optimal spread across the instance
+	// distribution group.
 	var zoneInstances []common.AvailabilityZoneInstances
 	if len(availabilityZones) == 0 {
 		var err error
@@ -652,6 +678,38 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+// volumeAttachmentsZone determines the availability zone for each volume
+// identified in the volume attachment parameters, checking that they are
+// all the same, and returns the availability zone name.
+func volumeAttachmentsZone(ec2 *ec2.EC2, attachments []storage.VolumeAttachmentParams) (string, error) {
+	volumeIds := make([]string, 0, len(attachments))
+	for _, a := range attachments {
+		if a.Provider != EBS_ProviderType {
+			continue
+		}
+		volumeIds = append(volumeIds, a.VolumeId)
+	}
+	if len(volumeIds) == 0 {
+		return "", nil
+	}
+	resp, err := ec2.Volumes(volumeIds, nil)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting volume details (%s)", volumeIds)
+	}
+	if len(resp.Volumes) == 0 {
+		return "", nil
+	}
+	for i, v := range resp.Volumes[1:] {
+		if v.AvailZone != resp.Volumes[i].AvailZone {
+			return "", errors.Errorf(
+				"cannot attach volumes from multiple availability zones: %s is in %s, %s is in %s",
+				resp.Volumes[i].Id, resp.Volumes[i].AvailZone, v.Id, v.AvailZone,
+			)
+		}
+	}
+	return resp.Volumes[0].AvailZone, nil
 }
 
 // tagResources calls ec2.CreateTags, tagging each of the specified resources
