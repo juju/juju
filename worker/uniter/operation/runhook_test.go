@@ -272,6 +272,44 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 }
 
+func (s *RunHookSuite) TestInstallHookPreservesStatus(c *gc.C) {
+	op, callbacks, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.Install, nil)
+	err := f.MockNewHookRunner.runner.Context().SetUnitStatus(jujuc.StatusInfo{Status: "blocked", Info: "no database"})
+	c.Assert(err, jc.ErrorIsNil)
+	st := operation.State{
+		StatusSet: true,
+	}
+	midState, err := op.Prepare(st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(midState, gc.NotNil)
+
+	_, err = op.Execute(*midState)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(callbacks.executingMessage, gc.Equals, "running some-hook-name hook")
+	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, "blocked")
+	c.Assert(status.Info, gc.Equals, "no database")
+}
+
+func (s *RunHookSuite) TestInstallHookWHenNoStatusSet(c *gc.C) {
+	op, callbacks, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.Install, nil)
+	st := operation.State{
+		StatusSet: false,
+	}
+	midState, err := op.Prepare(st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(midState, gc.NotNil)
+
+	_, err = op.Execute(*midState)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(callbacks.executingMessage, gc.Equals, "running some-hook-name hook")
+	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, "maintenance")
+	c.Assert(status.Info, gc.Equals, "installing charm software")
+}
+
 func (s *RunHookSuite) testExecuteSuccess(
 	c *gc.C, before, after operation.State, setStatusCalled bool,
 ) {
