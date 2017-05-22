@@ -66,8 +66,8 @@ write_backup testdata/TestInputSourceStanza/interfaces.backup
 write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 10
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
-mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
 `
 	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
 }
@@ -94,8 +94,8 @@ write_backup testdata/TestInputSourceStanza/interfaces.backup
 write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 100
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
-mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
 `
 	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
 }
@@ -122,8 +122,8 @@ write_backup testdata/TestInputSourceStanza/interfaces.backup
 write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 0
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
-mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
 `
 	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
 }

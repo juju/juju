@@ -109,6 +109,7 @@ func Bridge(stanzas []Stanza, devices map[string]string) []Stanza {
 	autoStanzaSet := map[string]bool{}
 	manualInetSet := map[string]bool{}
 	manualInet6Set := map[string]bool{}
+	bridges := map[string]bool{}
 	ifacesToBridge := make([]IfaceStanza, 0)
 	devicesToBridge := deviceNameSet{}
 
@@ -137,6 +138,9 @@ func Bridge(stanzas []Stanza, devices map[string]string) []Stanza {
 				ifacesToBridge = append(ifacesToBridge, v)
 			} else {
 				result = append(result, s)
+				if v.IsBridged {
+					bridges[v.DeviceName] = true
+				}
 			}
 		case AutoStanza:
 			names := v.DeviceNames
@@ -162,6 +166,11 @@ func Bridge(stanzas []Stanza, devices map[string]string) []Stanza {
 
 	for _, iface := range ifacesToBridge {
 		bridgeName := devices[iface.DeviceName]
+		// skip it if we already have a bridge of this name
+		if _, ok := bridges[bridgeName]; ok {
+			continue
+		}
+
 		// If there was a `auto $DEVICE` stanza make sure we
 		// create the complementary auto stanza for the bridge
 		// device.
