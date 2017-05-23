@@ -58,6 +58,12 @@ type upgradeSuite struct {
 	oldVersion version.Binary
 }
 
+func (s *upgradeSuite) SetUpSuite(c *gc.C) {
+	s.AgentSuite.SetUpSuite(c)
+	// Speed up the watcher frequency to make the test much faster.
+	s.PatchValue(&watcher.Period, 200*time.Millisecond)
+}
+
 func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
@@ -157,9 +163,6 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	// This test is functional, ensuring that the upgrader worker
 	// terminates the machine agent with the UpgradeReadyError which
 	// makes the downgrade happen.
-
-	// Speed up the watcher frequency to make the test much faster.
-	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
 	envtesting.AssertUploadFakeToolsVersions(
