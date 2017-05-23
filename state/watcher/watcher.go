@@ -103,6 +103,10 @@ type event struct {
 	revno int64
 }
 
+// Period is the delay between each sync.
+// It must not be changed when any watchers are active.
+var Period time.Duration = 5 * time.Second
+
 // New returns a new Watcher observing the changelog collection,
 // which must be a capped collection maintained by mgo/txn.
 func New(changelog *mgo.Collection) *Watcher {
@@ -113,7 +117,7 @@ func New(changelog *mgo.Collection) *Watcher {
 		request: make(chan interface{}),
 	}
 	go func() {
-		err := w.loop()
+		err := w.loop(Period)
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
 		// exact values, so we need to log and unwrap
@@ -228,13 +232,10 @@ func (w *Watcher) StartSync() {
 	w.sendReq(reqSync{})
 }
 
-// Period is the delay between each sync.
-// It must not be changed when any watchers are active.
-var Period time.Duration = 5 * time.Second
-
 // loop implements the main watcher loop.
-func (w *Watcher) loop() error {
-	next := time.After(Period)
+// period is the delay between each sync.
+func (w *Watcher) loop(period time.Duration) error {
+	next := time.After(period)
 	w.needSync = true
 	if err := w.initLastId(); err != nil {
 		return errors.Trace(err)
@@ -245,13 +246,13 @@ func (w *Watcher) loop() error {
 				return errors.Trace(err)
 			}
 			w.flush()
-			next = time.After(Period)
+			next = time.After(period)
 		}
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case <-next:
-			next = time.After(Period)
+			next = time.After(period)
 			w.needSync = true
 		case req := <-w.request:
 			w.handle(req)

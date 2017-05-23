@@ -4,6 +4,8 @@
 package jujuclient
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils/set"
@@ -13,6 +15,8 @@ import (
 
 // MemStore is an in-memory implementation of ClientStore.
 type MemStore struct {
+	mu sync.Mutex
+
 	Controllers           map[string]ControllerDetails
 	CurrentControllerName string
 	Models                map[string]*ControllerModels
@@ -35,6 +39,9 @@ func NewMemStore() *MemStore {
 
 // AllController implements ControllerGetter.AllController
 func (c *MemStore) AllControllers() (map[string]ControllerDetails, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	result := make(map[string]ControllerDetails)
 	for name, details := range c.Controllers {
 		result[name] = details
@@ -44,6 +51,9 @@ func (c *MemStore) AllControllers() (map[string]ControllerDetails, error) {
 
 // ControllerByName implements ControllerGetter.ControllerByName
 func (c *MemStore) ControllerByName(name string) (*ControllerDetails, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(name); err != nil {
 		return nil, err
 	}
@@ -55,6 +65,9 @@ func (c *MemStore) ControllerByName(name string) (*ControllerDetails, error) {
 
 // CurrentController implements ControllerGetter.CurrentController
 func (c *MemStore) CurrentController() (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.CurrentControllerName == "" {
 		return "", errors.NotFoundf("current controller")
 	}
@@ -63,6 +76,9 @@ func (c *MemStore) CurrentController() (string, error) {
 
 // SetCurrentController implements ControllerUpdater.SetCurrentController
 func (c *MemStore) SetCurrentController(name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
@@ -75,6 +91,9 @@ func (c *MemStore) SetCurrentController(name string) error {
 
 // AddController implements ControllerUpdater.AddController
 func (c *MemStore) AddController(name string, one ControllerDetails) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
@@ -98,6 +117,9 @@ func (c *MemStore) AddController(name string, one ControllerDetails) error {
 
 // UpdateController implements ControllerUpdater.UpdateController
 func (c *MemStore) UpdateController(name string, one ControllerDetails) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
@@ -126,6 +148,9 @@ func (c *MemStore) UpdateController(name string, one ControllerDetails) error {
 
 // RemoveController implements ControllerRemover.RemoveController
 func (c *MemStore) RemoveController(name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
@@ -152,6 +177,9 @@ func (c *MemStore) RemoveController(name string) error {
 
 // UpdateModel implements ModelUpdater.
 func (c *MemStore) UpdateModel(controller, model string, details ModelDetails) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controller); err != nil {
 		return err
 	}
@@ -174,6 +202,9 @@ func (c *MemStore) UpdateModel(controller, model string, details ModelDetails) e
 
 // SetCurrentModel implements ModelUpdater.
 func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
@@ -193,6 +224,9 @@ func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
 
 // RemoveModel implements ModelRemover.
 func (c *MemStore) RemoveModel(controller, model string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controller); err != nil {
 		return err
 	}
@@ -215,6 +249,9 @@ func (c *MemStore) RemoveModel(controller, model string) error {
 
 // AllModels implements ModelGetter.
 func (c *MemStore) AllModels(controller string) (map[string]ModelDetails, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controller); err != nil {
 		return nil, err
 	}
@@ -227,6 +264,9 @@ func (c *MemStore) AllModels(controller string) (map[string]ModelDetails, error)
 
 // CurrentModel implements ModelGetter.
 func (c *MemStore) CurrentModel(controller string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controller); err != nil {
 		return "", err
 	}
@@ -242,6 +282,9 @@ func (c *MemStore) CurrentModel(controller string) (string, error) {
 
 // ModelByName implements ModelGetter.
 func (c *MemStore) ModelByName(controller, model string) (*ModelDetails, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controller); err != nil {
 		return nil, err
 	}
@@ -261,6 +304,9 @@ func (c *MemStore) ModelByName(controller, model string) (*ModelDetails, error) 
 
 // UpdateAccount implements AccountUpdater.
 func (c *MemStore) UpdateAccount(controllerName string, details AccountDetails) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controllerName); err != nil {
 		return err
 	}
@@ -278,6 +324,9 @@ func (c *MemStore) UpdateAccount(controllerName string, details AccountDetails) 
 
 // AccountDetails implements AccountGetter.
 func (c *MemStore) AccountDetails(controllerName string) (*AccountDetails, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controllerName); err != nil {
 		return nil, err
 	}
@@ -290,6 +339,9 @@ func (c *MemStore) AccountDetails(controllerName string) (*AccountDetails, error
 
 // RemoveAccount implements AccountRemover.
 func (c *MemStore) RemoveAccount(controllerName string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controllerName); err != nil {
 		return err
 	}
@@ -302,6 +354,9 @@ func (c *MemStore) RemoveAccount(controllerName string) error {
 
 // UpdateCredential implements CredentialsUpdater.
 func (c *MemStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if len(details.AuthCredentials) > 0 {
 		c.Credentials[cloudName] = details
 	} else {
@@ -312,6 +367,9 @@ func (c *MemStore) UpdateCredential(cloudName string, details cloud.CloudCredent
 
 // CredentialForCloud implements CredentialsGetter.
 func (c *MemStore) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if result, ok := c.Credentials[cloudName]; ok {
 		return &result, nil
 	}
@@ -320,6 +378,9 @@ func (c *MemStore) CredentialForCloud(cloudName string) (*cloud.CloudCredential,
 
 // AllCredentials implements CredentialsGetter.
 func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	result := make(map[string]cloud.CloudCredential)
 	for k, v := range c.Credentials {
 		result[k] = v
@@ -329,6 +390,9 @@ func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 
 // UpdateBootstrapConfig implements BootstrapConfigUpdater.
 func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg BootstrapConfig) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controllerName); err != nil {
 		return err
 	}
@@ -342,6 +406,9 @@ func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg BootstrapCon
 
 // BootstrapConfigForController implements BootstrapConfigGetter.
 func (c *MemStore) BootstrapConfigForController(controllerName string) (*BootstrapConfig, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if cfg, ok := c.BootstrapConfig[controllerName]; ok {
 		return &cfg, nil
 	}
@@ -349,6 +416,9 @@ func (c *MemStore) BootstrapConfigForController(controllerName string) (*Bootstr
 }
 
 func (c *MemStore) CookieJar(controllerName string) (CookieJar, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := ValidateControllerName(controllerName); err != nil {
 		return nil, errors.Trace(err)
 	}
