@@ -90,6 +90,9 @@ fi
 
 echo "Updating permissions"
 sudo chown -R jenkins $HOME/cloud-city
+chmod -R go-rwx $HOME/cloud-city
+chmod 700 $HOME/cloud-city/gnupg
+chmod 600 $HOME/cloud-city/staging-juju-rsa
 
 echo "Updating dependencies from branches"
 if [[ $OS == "ubuntu" ]]; then
