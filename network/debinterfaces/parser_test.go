@@ -512,7 +512,7 @@ func (s *ParserSuite) TestSourceStanzaWithRelativeFilenames(c *gc.C) {
 	c.Check(eth1.Definition()[0], gc.Equals, "iface eth1 inet static")
 	c.Check(eth1.Definition()[1], gc.Equals, "address 192.168.1.64")
 	c.Check(eth1.Definition()[2], gc.Equals, "dns-nameservers 192.168.1.254")
-	c.Check(eth1.Location().Filename, gc.Matches, filepath.Join(basePath, "eth1.cfg"))
+	c.Check(eth1.Location().Filename, gc.Equals, filepath.Join(basePath, "eth1.cfg"))
 	c.Check(eth1.Location().LineNum, gc.Equals, 2)
 
 	c.Assert(eth2.Definition(), gc.HasLen, 1)
