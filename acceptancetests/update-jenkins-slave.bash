@@ -10,6 +10,7 @@ update_branch() {
     if [[ -d $local_path ]]; then
         # Clear any changes that haven't been commited to the branch.
         (cd $local_path; bzr revert; bzr pull)
+        cd ..
     else
         bzr branch $local_branch $local_path
     fi
@@ -37,7 +38,7 @@ update_git_repo() {
             chmod 600 $HOME/cloud-city/staging-juju-rsa
             chmod 600 $HOME/.ssh/id_rsa
             git pull $git_repo
-
+            cd ..
         fi
     else
         git clone $git_repo $local_path
