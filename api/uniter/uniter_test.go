@@ -22,12 +22,12 @@ import (
 type uniterSuite struct {
 	testing.JujuConnSuite
 
-	st                api.Connection
-	controllerMachine *state.Machine
-	wordpressMachine  *state.Machine
-	wordpressService  *state.Application
-	wordpressCharm    *state.Charm
-	wordpressUnit     *state.Unit
+	st                   api.Connection
+	controllerMachine    *state.Machine
+	wordpressMachine     *state.Machine
+	wordpressApplication *state.Application
+	wordpressCharm       *state.Charm
+	wordpressUnit        *state.Unit
 
 	uniter *uniter.State
 }
@@ -56,9 +56,9 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	_, err = s.State.AddSpace("public", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create a machine, a service and add a unit so we can log in as
+	// Create a machine, a application and add a unit so we can log in as
 	// its agent.
-	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineBoundServiceCharmAndUnit(c, "wordpress", bindings)
+	s.wordpressMachine, s.wordpressApplication, s.wordpressCharm, s.wordpressUnit = s.addMachineBoundAppCharmAndUnit(c, "wordpress", bindings)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressUnit.SetPassword(password)
@@ -71,29 +71,29 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
-func (s *uniterSuite) addMachineBoundServiceCharmAndUnit(c *gc.C, serviceName string, bindings map[string]string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+func (s *uniterSuite) addMachineBoundAppCharmAndUnit(c *gc.C, appName string, bindings map[string]string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	charm := s.AddTestingCharm(c, serviceName)
+	charm := s.AddTestingCharm(c, appName)
 
-	service, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:             serviceName,
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:             appName,
 		Charm:            charm,
 		EndpointBindings: bindings,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err := service.AddUnit()
+	unit, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return machine, service, charm, unit
+	return machine, app, charm, unit
 }
 
-func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
-	return s.addMachineBoundServiceCharmAndUnit(c, serviceName, nil)
+func (s *uniterSuite) addMachineAppCharmAndUnit(c *gc.C, appName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+	return s.addMachineBoundAppCharmAndUnit(c, appName, nil)
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
@@ -104,16 +104,16 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 	return rel
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
-	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
-	rel := s.addRelation(c, firstSvc, relatedSvc)
+func (s *uniterSuite) addRelatedApplication(c *gc.C, firstApp, relatedApp string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
+	relatedApplication := s.AddTestingService(c, relatedApp, s.AddTestingCharm(c, relatedApp))
+	rel := s.addRelation(c, firstApp, relatedApp)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	relatedUnit, err := s.State.Unit(relatedSvc + "/0")
+	relatedUnit, err := s.State.Unit(relatedApp + "/0")
 	c.Assert(err, jc.ErrorIsNil)
-	return rel, relatedService, relatedUnit
+	return rel, relatedApplication, relatedUnit
 }
 
 func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
