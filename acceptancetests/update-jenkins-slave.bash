@@ -19,10 +19,26 @@ update_branch() {
 update_git_repo() {
     # Clone or pull a git repo.
     git_repo=$1
-    local_dir="$(echo $git_repo|sed -r 's/.*\/([^\/]*)\.git/\1/')"
+    branch=$2
+    local_dir=$3
     local_path="$HOME/$local_dir"
     if [[ -d $local_path ]]; then
-        (cd $local_path; git pull $git_repo)
+        # Clear any local changes
+        if [[ -d "$local_path/.bzr" ]]; then
+            # check for .bzr, if so, do fresh clone
+            echo "Found bzr repo, removing and cloning"
+            git clone $git_repo "$local_path-git"
+            rm -rf $local_path
+            mv "$local_path-git" "$local_path"
+        else
+            cd $local_path
+            git reset --hard origin/$branch
+            # git reset breaks file permissions, which will break the pull
+            chmod 600 $HOME/cloud-city/staging-juju-rsa
+            chmod 600 $HOME/.ssh/id_rsa
+            git pull $git_repo
+
+        fi
     else
         git clone $git_repo $local_path
     fi
@@ -43,11 +59,6 @@ get_os() {
         echo "unknown"
     fi
 }
-
-# This works when the slave was setup by the jenkins-juju-ci subordinate
-# charm, or when a person installed the keys in .ssh by links to
-# cloud-city.
-bzr --no-aliases launchpad-login juju-qa-bot
 
 echo "Updating branches"
 OS=$(get_os)
@@ -71,20 +82,14 @@ else
 fi
 
 update_branch lp:workspace-runner
-update_branch lp:juju-release-tools
-update_branch lp:juju-ci-tools
-update_branch lp:juju-ci-tools/repository
-update_branch lp:~juju-qa/+junk/cloud-city
+update_git_repo https://github.com/juju/juju.git develop juju
+update_git_repo git+ssh://juju-qa-bot@git.launchpad.net/~juju-qa/+git/cloud-city master cloud-city
 if [[ $hammertime == "enabled" ]]; then
-    sudo apt-get install git -y
-    update_git_repo https://github.com/juju/hammertime.git
+    update_git_repo https://github.com/juju/hammertime.git master hammertime
 fi
 
 echo "Updating permissions"
 sudo chown -R jenkins $HOME/cloud-city
-chmod -R go-rwx $HOME/cloud-city
-chmod 700 $HOME/cloud-city/gnupg
-chmod 600 $HOME/cloud-city/staging-juju-rsa
 
 echo "Updating dependencies from branches"
 if [[ $OS == "ubuntu" ]]; then
@@ -96,5 +101,16 @@ fi
 if [[ $hammertime == "enabled" ]]; then
     make -C $HOME/hammertime develop
 fi
+
+echo "For legacy purposes, populate to legacy directories"
+echo "Copying acceptancetests -> juju-ci-tools"
+rsync -avz --delete $HOME/juju/acceptancetests/ $HOME/juju-ci-tools/
+
+echo "Copying releasetests -> juju-release-tools"
+rsync -avz --delete $HOME/juju/acceptancetests/ $HOME/juju-release-tools/
+
+echo "Copying acceptancetests/repository -> repository"
+rsync -avz --delete $HOME/juju/acceptancetests/repository/ $HOME/repository/
+
 
 echo "$HOSTNAME update complete"
