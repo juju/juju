@@ -1,0 +1,171 @@
+This is the diff from PR #1 on github.com/altoros/gosigma.
+
+diff --git a/github.com/altoros/gosigma/drive_test.go b/github.com/altoros/gosigma/drive_test.go
+index e4293f3..0f4f256 100644
+--- a/github.com/altoros/gosigma/drive_test.go
++++ b/github.com/altoros/gosigma/drive_test.go
+@@ -156,15 +156,15 @@ func TestClientDrives(t *testing.T) {
+ 		return
+ 	}
+ 
+-	for i, uuid := range []string{"uuid-0", "uuid-1"} {
+-		d := drives[i]
+-
++	unprocessed := map[string]bool{"uuid-0": true, "uuid-1": true}
++	for _, d := range drives {
++		delete(unprocessed, d.UUID())
+ 		if d.String() == "" {
+ 			t.Error("Empty string representation")
+ 			return
+ 		}
+ 
+-		testDrive(t, d, uuid, true)
++		testDrive(t, d, d.UUID(), true)
+ 
+ 		// refresh
+ 		if err := d.Refresh(); err != nil {
+@@ -172,7 +172,7 @@ func TestClientDrives(t *testing.T) {
+ 			return
+ 		}
+ 
+-		testDrive(t, d, uuid, false)
++		testDrive(t, d, d.UUID(), false)
+ 
+ 		if err := d.Remove(); err != nil {
+ 			t.Error("Drive remove fail:", err)
+@@ -185,6 +185,9 @@ func TestClientDrives(t *testing.T) {
+ 			return
+ 		}
+ 	}
++	if len(unprocessed) > 0 {
++		t.Error("not all drives created")
++	}
+ 
+ 	mock.ResetDrives()
+ }
+diff --git a/github.com/altoros/gosigma/https/httpstest/response.go b/github.com/altoros/gosigma/https/httpstest/response.go
+index 76ee0b4..e5c1357 100644
+--- a/github.com/altoros/gosigma/https/httpstest/response.go
++++ b/github.com/altoros/gosigma/https/httpstest/response.go
+@@ -11,9 +11,24 @@ import (
+ 	"time"
+ )
+ 
++type readerCloser struct {
++	*strings.Reader
++}
++
++func (*readerCloser) Close() error {
++	return nil
++}
++
+ // CreateResponse creates test response from HTTP code
+ func CreateResponse(code int) (*http.Response, error) {
+ 	dateTime := time.Now().UTC().Format(time.RFC1123)
++	if code == 0 {
++		resp := &http.Response{
++			StatusCode: 0,
++			Body:       &readerCloser{strings.NewReader("")},
++		}
++		return resp, nil
++	}
+ 	msg := fmt.Sprintf(`HTTP/1.1 %d %s
+ Server: cloudflare-nginx
+ Date: %s
+diff --git a/github.com/altoros/gosigma/job.go b/github.com/altoros/gosigma/job.go
+index b085dfc..5f3a8ca 100644
+--- a/github.com/altoros/gosigma/job.go
++++ b/github.com/altoros/gosigma/job.go
+@@ -116,22 +116,21 @@ func (j job) State() string { return j.obj.State }
+ 
+ // Wait job is finished
+ func (j *job) Wait() error {
+-	var stop = false
+-
++	var timer <-chan time.Time
+ 	timeout := j.client.GetOperationTimeout()
+ 	if timeout > 0 {
+-		timer := time.AfterFunc(timeout, func() { stop = true })
+-		defer timer.Stop()
++		timer = time.After(timeout)
+ 	}
+ 
+ 	for j.Progress() < 100 {
+-		if err := j.Refresh(); err != nil {
+-			return err
+-		}
+-		if stop {
++		select {
++		case <-timer:
+ 			return ErrOperationTimeout
++		default:
++			if err := j.Refresh(); err != nil {
++				return err
++			}
+ 		}
+ 	}
+-
+ 	return nil
+ }
+diff --git a/github.com/altoros/gosigma/job_test.go b/github.com/altoros/gosigma/job_test.go
+index e685991..d1a30ad 100644
+--- a/github.com/altoros/gosigma/job_test.go
++++ b/github.com/altoros/gosigma/job_test.go
+@@ -120,7 +120,7 @@ func TestJobProgress(t *testing.T) {
+ 	}
+ 
+ 	setJobProgress := func() {
+-		jd.Data.Progress = 100
++		mock.Jobs.SetProgress(jd.UUID, 100)
+ 	}
+ 	go setJobProgress()
+ 
+diff --git a/github.com/altoros/gosigma/mock/drives.go b/github.com/altoros/gosigma/mock/drives.go
+index ced8913..caf1c6c 100644
+--- a/github.com/altoros/gosigma/mock/drives.go
++++ b/github.com/altoros/gosigma/mock/drives.go
+@@ -151,7 +151,7 @@ func (d *DriveLibrary) Clone(uuid string, params map[string]interface{}) (string
+ 		defer Jobs.s.Unlock()
+ 		job.Data.Progress = 100
+ 		job.State = "success"
+-		newDrive.Status = "unmounted"
++		d.SetStatus(newDrive.UUID, "unmounted")
+ 	}
+ 	go cloning()
+ 
+diff --git a/github.com/altoros/gosigma/mock/id_test.go b/github.com/altoros/gosigma/mock/id_test.go
+index 276c5e4..8b634f3 100644
+--- a/github.com/altoros/gosigma/mock/id_test.go
++++ b/github.com/altoros/gosigma/mock/id_test.go
+@@ -6,9 +6,6 @@ package mock
+ import "testing"
+ 
+ func TestMockGenerateID(t *testing.T) {
+-
+-	t.Parallel()
+-
+ 	for i := 0; i < 10; i++ {
+ 		if v := genID(); v != i {
+ 			t.Errorf("ID at %d should be equal to %d", i, v)
+diff --git a/github.com/altoros/gosigma/mock/jobs.go b/github.com/altoros/gosigma/mock/jobs.go
+index 022826e..8994832 100644
+--- a/github.com/altoros/gosigma/mock/jobs.go
++++ b/github.com/altoros/gosigma/mock/jobs.go
+@@ -101,6 +101,17 @@ func (j *JobLibrary) SetState(uuid, state string) {
+ 	}
+ }
+ 
++// SetProgress for the job in the library
++func (j *JobLibrary) SetProgress(uuid string, progress int) {
++	j.s.Lock()
++	defer j.s.Unlock()
++
++	job, ok := j.m[uuid]
++	if ok {
++		job.Data.Progress = progress
++	}
++}
++
+ func (j *JobLibrary) handleRequest(w http.ResponseWriter, r *http.Request) {
+ 	path := strings.TrimSuffix(r.URL.Path, "/")
+ 	path = strings.TrimPrefix(path, j.p)
