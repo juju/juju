@@ -9,5 +9,5 @@ we need to apply sooner.
 They're applied with `$GOPATH/src` as the current directory, and with
 `-p1` to strip one component off the start of the file path.
 
-For more details, see `lp:juju-release-tools/apply_patches.py` or ask
-babbageclunk or mgz in IRC.
+For more details, see `https://github.com/juju/juju/releasetests/apply_patches.py`
+or ask babbageclunk or ballons in IRC.
