@@ -6,6 +6,7 @@ package charmrevisionupdater_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -19,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 type charmVersionSuite struct {
@@ -171,5 +173,11 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(header.Get(charmrepo.JujuMetadataHTTPHeader), gc.Equals, "environment_uuid="+env.UUID())
+	jujuHeader := header[charmrepo.JujuMetadataHTTPHeader]
+	sort.Strings(jujuHeader)
+	c.Assert(jujuHeader, gc.DeepEquals,
+		[]string{
+			"controller_version=" + version.Current.String(),
+			"environment_uuid=" + env.UUID(),
+		})
 }

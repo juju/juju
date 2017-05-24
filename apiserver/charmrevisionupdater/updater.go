@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
@@ -116,7 +117,8 @@ func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) 
 	logger.Infof("retrieving revision information for %d charms", len(curls))
 	repo := NewCharmStore(charmrepo.NewCharmStoreParams{})
 	repo = repo.(*charmrepo.CharmStore).WithJujuAttrs(map[string]string{
-		"environment_uuid": uuid,
+		"environment_uuid":   uuid,
+		"controller_version": version.Current.String(),
 	})
 	revInfo, err := repo.Latest(curls...)
 	if err != nil {
