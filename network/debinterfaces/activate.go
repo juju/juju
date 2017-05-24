@@ -47,6 +47,7 @@ func activationCmd(oldContent, newContent string, params *ActivationParams) stri
 		i++
 	}
 	sort.Strings(deviceNames)
+	backupFilename := fmt.Sprintf("%s.backup-%d", params.Filename, time.Now().Unix())
 	// The magic value of 25694 here causes the script to sleep for 30 seconds, simulating timeout
 	// The value of 25695 causes the script to fail.
 	return fmt.Sprintf(`
@@ -59,7 +60,7 @@ set -eu
 if [ $DRYRUN ]; then
   if [ %[4]d == 25694 ]; then sleep 30; fi
   if [ %[4]d == 25695 ]; then echo "artificial failure" >&2; exit 1; fi
- fi
+fi
 
 write_backup() {
     cat << 'EOF' > "$1"
@@ -79,11 +80,21 @@ fi
 ${DRYRUN} write_content %[3]q
 ${DRYRUN} ifdown --interfaces=%[1]q %[7]s
 ${DRYRUN} sleep %[4]d
-${DRYRUN} ifup --interfaces=%[3]q -a
-${DRYRUN} mv %[3]q %[1]q
+${DRYRUN} cp %[3]q %[1]q
+# we want to have full control over what happens next
+set +e
+${DRYRUN} ifup --interfaces=%[1]q -a
+RESULT=$?
+if [ ${RESULT} != 0 ]; then
+    echo "Bringing up bridged interfaces failed, see system logs and %[3]q" >&2
+    ${DRYRUN} ifdown --interfaces=%[1]q %[7]s
+    ${DRYRUN} cp %[2]q %[1]q
+    ${DRYRUN} ifup --interfaces=%[1]q -a
+    exit ${RESULT}
+fi
 `,
 		params.Filename,
-		params.Filename+".backup",
+		backupFilename,
 		params.Filename+".new",
 		params.ReconfigureDelay,
 		oldContent,
