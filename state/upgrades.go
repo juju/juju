@@ -794,6 +794,10 @@ func addStorageInstanceConstraints(st *State) error {
 					}
 				}
 			}
+			logger.Warningf(
+				"no volume or filesystem found, using application storage constraints for %s",
+				names.ReadableString(s.Tag()),
+			)
 		}
 		ops = append(ops, txn.Op{
 			C:      storageInstancesC,
