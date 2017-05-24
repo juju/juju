@@ -242,19 +242,23 @@ def parse_args(argv):
     add_basic_testing_arguments(parser)
     return parser.parse_args(argv)
 
-def feed_cookie():
+
+def set_controller_cookie_file():
     """Plant pre-generated cookie file to avoid launching Browser."""
     user_home = os.getenv('HOME', default='/var/lib/jenkins')
-    juju_home = os.getenv('JUJU_HOME',
-                            default='/var/lib/jenkins/cloud-city')
+    juju_home = os.getenv('JUJU_HOME', default='/var/lib/jenkins/cloud-city')
     ctrl_name = os.getenv('JOB_NAME', default='budget-management')
     cookies_source = '{}/go-cookies-extended'.format(user_home)
-    cookies_target = '{}/jes-homes/{}/cookies/{}.json'.format(juju_home, ctrl_name, ctrl_name)
+    cookies_target = '{}/jes-homes/{}/cookies/{}.json'.format(juju_home,
+                                                              ctrl_name,
+                                                              ctrl_name)
     try:
-        subprocess.check_call(['cp', cookies_source, cookies_target])
+        subprocess.check_output(['cp', cookies_source, cookies_target],
+                                stderr=subprocess.STDOUT)
         log.info('Cookie file go-cookies-extended has been planted.')
     except subprocess.CalledProcessError as e:
-        raise JujuAssertionError('Failed to plant the cookie file!')
+        log.info(e.output)
+        raise
 
 
 def main(argv=None):
@@ -262,7 +266,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        feed_cookie()
+        set_controller_cookie_file()
         assess_budget(bs_manager.client)
     return 0
 
