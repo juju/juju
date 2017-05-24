@@ -613,7 +613,7 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 			bootstrapVersion, toolsList = compatibleVersion, compatibleTools
 		}
 	}
-	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
+	logger.Infof("picked bootstrap agent binary version: %s", bootstrapVersion)
 	return toolsList, nil
 }
 
@@ -680,8 +680,8 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 		logger.Debugf("no agent directory found, using default agent binary metadata source: %s", tools.DefaultBaseURL)
 	} else {
 		if ending == storage.BaseToolsPath {
-			// as the specified metadataDir ended in 'tools'
-			// assume that is the only metadata to find and return
+			// As the specified metadataDir ended in 'tools'
+			// assume that is the only metadata to find and return.
 			tools.DefaultBaseURL = filepath.Dir(metadataDir)
 			logger.Debugf("setting default agent binary metadata source: %s", tools.DefaultBaseURL)
 			return nil, nil

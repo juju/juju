@@ -47,7 +47,7 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
 
 	_, err := s.Env.StartInstance(s.StartInstArgs)
-	c.Assert(err, gc.ErrorMatches, "no matching tools available")
+	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {

@@ -985,7 +985,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 			"Looking for packaged Juju agent version 1.2.0 for amd64\n",
 	)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: no matching tools available"},
+		{loggo.ERROR, "failed to bootstrap model: no matching agent binaries available"},
 	})
 }
 

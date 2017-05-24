@@ -91,8 +91,8 @@ var versionStrings = append([]string{
 var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
-	expected := "Finding tools in .*\n"
-	f := `.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: %s` + "\n"
+	expected := "Finding agent binaries in .*\n"
+	f := `.*Fetching agent binaries from dir "{{.ToolsDir}}" to generate hash: %s` + "\n"
 
 	// Sort the global versionStrings
 	sort.Strings(versionStrings)
@@ -296,9 +296,9 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(stdout, gc.Matches, ".*Finding tools in .*\n")
+	c.Assert(stdout, gc.Matches, ".*Finding agent binaries in .*\n")
 	stderr := ctx.Stderr.(*bytes.Buffer).String()
-	c.Assert(stderr, gc.Matches, "ERROR no tools available\n")
+	c.Assert(stderr, gc.Matches, "ERROR no agent binaries available\n")
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
@@ -318,9 +318,9 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`
-Finding tools in .*
-.*Fetching tools from dir "released" to generate hash: %s
-.*Fetching tools from dir "released" to generate hash: %s
+Finding agent binaries in .*
+.*Fetching agent binaries from dir "released" to generate hash: %s
+.*Fetching agent binaries from dir "released" to generate hash: %s
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-released-tools\.json
