@@ -41,7 +41,7 @@ func Listen(socketPath string) (net.Listener, error) {
 	tempSocketPath := filepath.Join(tempdir, socketName)
 	listener, err := net.Listen("unix", tempSocketPath)
 	if err != nil {
-		logger.Errorf("failed to listen on unix:%s: %v", socketPath, err)
+		logger.Errorf("failed to listen on unix:%s: %v", tempSocketPath, err)
 		return nil, errors.Trace(err)
 	}
 	if err := os.Chmod(tempSocketPath, 0700); err != nil {
