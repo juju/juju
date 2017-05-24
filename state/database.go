@@ -5,13 +5,16 @@ package state
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 )
 
@@ -271,6 +274,9 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	info, found := db.schema[name]
 	if !found {
 		logger.Errorf("using unknown collection %q", name)
+		if featureflag.Enabled(feature.DeveloperMode) {
+			logger.Errorf("from %s", string(debug.Stack()))
+		}
 	}
 
 	// Copy session if necessary.
