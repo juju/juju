@@ -54,8 +54,8 @@ func (s *steps22Suite) TestMeterStatusFile(c *gc.C) {
 	check() // Check OK when file not present.
 }
 
-func (s *steps22Suite) TestAddControllerLogPruneSettings(c *gc.C) {
-	step := findStateStep(c, v220, "add controller log pruning config settings")
+func (s *steps22Suite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
+	step := findStateStep(c, v220, "add controller log collection sizing config settings")
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

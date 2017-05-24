@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -37,13 +38,13 @@ func newWorkers(st *State) (*workers, error) {
 		Runner: worker.NewRunner(worker.RunnerParams{
 			// TODO add a Logger parameter to RunnerParams:
 			// Logger: loggo.GetLogger(logger.Name() + ".workers"),
-			IsFatal:      func(error) bool { return false },
+			IsFatal:      func(err error) bool { return err == jworker.ErrRestartAgent },
 			RestartDelay: time.Second,
 			Clock:        st.clock,
 		}),
 	}
 	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-		return watcher.New(st.getTxnLogCollection()), nil
+		return watcher.New(st.getTxnLogCollection(), nil), nil
 	})
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.ModelTag()), nil

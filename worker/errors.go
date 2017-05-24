@@ -17,6 +17,7 @@ import (
 // *its* host; depending on these values punching right through N layers (but
 // only when we want them to!) is kinda terrible.
 var (
+	ErrRestartAgent    = errors.New("agent should be restarted")
 	ErrTerminateAgent  = errors.New("agent should be terminated")
 	ErrRebootMachine   = errors.New("machine needs to reboot")
 	ErrShutdownMachine = errors.New("machine needs to shutdown")

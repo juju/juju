@@ -89,6 +89,7 @@ func Open(args OpenParams) (*State, error) {
 		args.ControllerModelTag,
 		args.MongoInfo,
 		args.MongoDialOpts,
+		nil,
 		args.NewPolicy,
 		args.Clock,
 		args.RunTransactionObserver,
@@ -114,6 +115,7 @@ func Open(args OpenParams) (*State, error) {
 func open(
 	controllerModelTag names.ModelTag,
 	info *mongo.MongoInfo, opts mongo.DialOpts,
+	initDatabase func(*mgo.Session) error,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
@@ -132,6 +134,13 @@ func open(
 		return nil, errors.Trace(err)
 	}
 	logger.Debugf("mongodb login successful")
+	if initDatabase != nil {
+		if err := initDatabase(session); err != nil {
+			session.Close()
+			return nil, errors.Trace(err)
+		}
+		logger.Debugf("mongodb initialised")
+	}
 
 	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock, runTransactionObserver)
 	if err != nil {
@@ -248,10 +257,32 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, errors.Annotate(err, "validating initialization args")
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock, nil)
+	if !names.IsValidModel(modelTag.Id()) {
+		return nil, errors.New("invalid model UUID")
+	}
+
+	schema := allCollections()
+	// initDatabase creates all the collections and indices
+	// in a new Juju database.
+	initDatabase := func(session *mgo.Session) error {
+		rawDB := session.DB(jujuDB)
+		err := schema.Create(
+			rawDB,
+			args.ControllerConfig,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := InitDbLogs(session); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
+	st, err := open(
+		modelTag, args.MongoInfo, args.MongoDialOpts,
+		initDatabase, args.NewPolicy, args.Clock, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -509,6 +540,7 @@ func isUnauthorized(err error) bool {
 // newState creates an incomplete *State, with no running workers or
 // controllerTag. You must start() the returned *State before it will
 // function correctly.
+// modelTag is used to filter all queries and transactions.
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
@@ -526,18 +558,13 @@ func newState(
 		}
 	}()
 
-	// Set up database.
+	schema := allCollections()
 	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(
-		rawDB,
-		modelTag.Id(),
-		runTransactionObserver,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := InitDbLogs(session); err != nil {
-		return nil, errors.Trace(err)
+	db := &database{
+		raw:                    rawDB,
+		schema:                 schema,
+		modelUUID:              modelTag.Id(),
+		runTransactionObserver: runTransactionObserver,
 	}
 
 	// Create State.
@@ -547,7 +574,7 @@ func newState(
 		controllerModelTag:     controllerModelTag,
 		mongoInfo:              mongoInfo,
 		session:                session,
-		database:               database,
+		database:               db,
 		newPolicy:              newPolicy,
 		runTransactionObserver: runTransactionObserver,
 	}

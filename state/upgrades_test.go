@@ -928,7 +928,7 @@ func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) TestAddControllerLogPruneSettingsKeepExisting(c *gc.C) {
+func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(c *gc.C) {
 	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
@@ -936,9 +936,10 @@ func (s *upgradesSuite) TestAddControllerLogPruneSettingsKeepExisting(c *gc.C) {
 	err = settingsColl.Insert(bson.M{
 		"_id": "controllerSettings",
 		"settings": bson.M{
-			"key":           "value",
-			"max-logs-age":  "96h",
-			"max-logs-size": "5G",
+			"key":              "value",
+			"max-logs-age":     "96h",
+			"max-logs-size":    "5G",
+			"max-txn-log-size": "8G",
 		},
 	}, bson.M{
 		"_id": "someothersettingshouldnotbetouched",
@@ -951,9 +952,10 @@ func (s *upgradesSuite) TestAddControllerLogPruneSettingsKeepExisting(c *gc.C) {
 		{
 			"_id": "controllerSettings",
 			"settings": bson.M{
-				"key":           "value",
-				"max-logs-age":  "96h",
-				"max-logs-size": "5G",
+				"key":              "value",
+				"max-logs-age":     "96h",
+				"max-logs-size":    "5G",
+				"max-txn-log-size": "8G",
 			},
 		}, {
 			"_id":      "someothersettingshouldnotbetouched",
@@ -961,12 +963,12 @@ func (s *upgradesSuite) TestAddControllerLogPruneSettingsKeepExisting(c *gc.C) {
 		},
 	}
 
-	s.assertUpgradedData(c, AddControllerLogPruneSettings,
+	s.assertUpgradedData(c, AddControllerLogCollectionsSizeSettings,
 		expectUpgradedData{settingsColl, expectedSettings},
 	)
 }
 
-func (s *upgradesSuite) TestAddControllerLogPruneSettings(c *gc.C) {
+func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
 	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
@@ -985,9 +987,10 @@ func (s *upgradesSuite) TestAddControllerLogPruneSettings(c *gc.C) {
 		{
 			"_id": "controllerSettings",
 			"settings": bson.M{
-				"key":           "value",
-				"max-logs-age":  "72h",
-				"max-logs-size": "4096M",
+				"key":              "value",
+				"max-logs-age":     "72h",
+				"max-logs-size":    "4096M",
+				"max-txn-log-size": "10M",
 			},
 		}, {
 			"_id":      "someothersettingshouldnotbetouched",
@@ -995,7 +998,7 @@ func (s *upgradesSuite) TestAddControllerLogPruneSettings(c *gc.C) {
 		},
 	}
 
-	s.assertUpgradedData(c, AddControllerLogPruneSettings,
+	s.assertUpgradedData(c, AddControllerLogCollectionsSizeSettings,
 		expectUpgradedData{settingsColl, expectedSettings},
 	)
 }

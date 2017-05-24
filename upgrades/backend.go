@@ -27,7 +27,7 @@ type StateBackend interface {
 	UpgradeNoProxyDefaults() error
 	AddNonDetachableStorageMachineId() error
 	RemoveNilValueApplicationSettings() error
-	AddControllerLogPruneSettings() error
+	AddControllerLogCollectionsSizeSettings() error
 	AddStatusHistoryPruneSettings() error
 	AddStorageInstanceConstraints() error
 }
@@ -100,8 +100,8 @@ func (s stateBackend) RemoveNilValueApplicationSettings() error {
 	return state.RemoveNilValueApplicationSettings(s.st)
 }
 
-func (s stateBackend) AddControllerLogPruneSettings() error {
-	return state.AddControllerLogPruneSettings(s.st)
+func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
+	return state.AddControllerLogCollectionsSizeSettings(s.st)
 }
 
 func (s stateBackend) AddStatusHistoryPruneSettings() error {
