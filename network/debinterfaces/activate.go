@@ -47,6 +47,7 @@ func activationCmd(oldContent, newContent string, params *ActivationParams) stri
 		i++
 	}
 	sort.Strings(deviceNames)
+	backupFilename := fmt.Sprintf("%s.backup-%d", params.Filename, time.Now().Unix())
 	// The magic value of 25694 here causes the script to sleep for 30 seconds, simulating timeout
 	// The value of 25695 causes the script to fail.
 	return fmt.Sprintf(`
@@ -93,7 +94,7 @@ if [ ${RESULT} != 0 ]; then
 fi
 `,
 		params.Filename,
-		params.Filename+".backup",
+		backupFilename,
 		params.Filename+".new",
 		params.ReconfigureDelay,
 		oldContent,
