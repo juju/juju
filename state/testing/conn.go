@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -67,7 +69,10 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 			CloudRegion: "dummy-region",
 			Config:      args.InitialConfig,
 			Owner:       args.Owner,
-			StorageProviderRegistry: dummystorage.StorageProviders(),
+			StorageProviderRegistry: storage.ChainedProviderRegistry{
+				dummystorage.StorageProviders(),
+				provider.CommonStorageProviders(),
+			},
 		},
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		Cloud: cloud.Cloud{

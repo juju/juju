@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
 
@@ -36,7 +37,10 @@ type ConnSuite struct {
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.policy = statetesting.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
-			return dummy.StorageProviders(), nil
+			return storage.ChainedProviderRegistry{
+				dummy.StorageProviders(),
+				provider.CommonStorageProviders(),
+			}, nil
 		},
 	}
 	cs.StateSuite.NewPolicy = func(*state.State) state.Policy {

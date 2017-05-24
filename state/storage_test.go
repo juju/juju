@@ -33,7 +33,10 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 

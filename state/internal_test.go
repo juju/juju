@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -69,11 +70,14 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
-			CloudName:               "dummy",
-			CloudRegion:             "dummy-region",
-			Owner:                   s.owner,
-			Config:                  modelCfg,
-			StorageProviderRegistry: dummy.StorageProviders(),
+			CloudName:   "dummy",
+			CloudRegion: "dummy-region",
+			Owner:       s.owner,
+			Config:      modelCfg,
+			StorageProviderRegistry: storage.ChainedProviderRegistry{
+				dummy.StorageProviders(),
+				provider.CommonStorageProviders(),
+			},
 		},
 		Cloud: cloud.Cloud{
 			Name:      "dummy",
@@ -112,7 +116,10 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 		CloudRegion: "dummy-region",
 		Config:      cfg,
 		Owner:       s.owner,
-		StorageProviderRegistry: dummy.StorageProviders(),
+		StorageProviderRegistry: storage.ChainedProviderRegistry{
+			dummy.StorageProviders(),
+			provider.CommonStorageProviders(),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
@@ -138,7 +145,10 @@ func (internalStatePolicy) InstanceDistributor() (instance.Distributor, error) {
 }
 
 func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
-	return dummy.StorageProviders(), nil
+	return storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	}, nil
 }
 
 func (internalStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {

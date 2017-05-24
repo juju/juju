@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -969,7 +970,10 @@ func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId s
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -767,6 +767,58 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	return result.Instance, nil
 }
 
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	result, err := testing.StartInstanceWithParams(env, "1", args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2.InstanceEC2(result.Instance).AvailZone, gc.Equals, "volume-zone")
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementConflicts(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		Placement:      "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	_, err = testing.StartInstanceWithParams(env, "1", args)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching EBS volumes in zone "volume-zone"`)
+}
+
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
 	inst, err := t.testStartInstanceSubnet(c, "0.1.2.0/24")
 	c.Assert(err, jc.ErrorIsNil)

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
@@ -102,7 +103,10 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	pool := "loop-pool"
 	kind := "block"
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
