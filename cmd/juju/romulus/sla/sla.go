@@ -107,7 +107,7 @@ func (c *slaCommand) Info() *cmd.Info {
 Set the support level for the model, effective immediately.
 Examples:
     juju sla essential              # set the support level to essential
-    juju sla standard --wallet 1000 # set the support level to essential witha maximum wallet of $1000
+    juju sla standard --budget 1000 # set the support level to essential with a maximum budget of $1000
     juju sla                        # display the current support level for the model.
 `,
 	}
