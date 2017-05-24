@@ -111,7 +111,7 @@ echo "Copying acceptancetests -> juju-ci-tools"
 rsync -avz --delete $HOME/juju/acceptancetests/ $HOME/juju-ci-tools/
 
 echo "Copying releasetests -> juju-release-tools"
-rsync -avz --delete $HOME/juju/acceptancetests/ $HOME/juju-release-tools/
+rsync -avz --delete $HOME/juju/releasetests/ $HOME/juju-release-tools/
 
 echo "Copying acceptancetests/repository -> repository"
 rsync -avz --delete $HOME/juju/acceptancetests/repository/ $HOME/repository/
