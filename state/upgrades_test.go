@@ -1074,6 +1074,228 @@ func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestAddStorageInstanceConstraints(c *gc.C) {
+	storageInstancesColl, storageInstancesCloser := s.state.getRawCollection(storageInstancesC)
+	defer storageInstancesCloser()
+	storageConstraintsColl, storageConstraintsCloser := s.state.getRawCollection(storageConstraintsC)
+	defer storageConstraintsCloser()
+	volumesColl, volumesCloser := s.state.getRawCollection(volumesC)
+	defer volumesCloser()
+	filesystemsColl, filesystemsCloser := s.state.getRawCollection(filesystemsC)
+	defer filesystemsCloser()
+	unitsColl, unitsCloser := s.state.getRawCollection(unitsC)
+	defer unitsCloser()
+
+	uuid := s.state.ModelUUID()
+
+	err := storageInstancesColl.Insert(bson.M{
+		"_id":         uuid + ":pgdata/0",
+		"id":          "pgdata/0",
+		"model-uuid":  uuid,
+		"storagekind": StorageKindUnknown,
+		"constraints": bson.M{
+			"pool": "goodidea",
+			"size": 99,
+		},
+	}, bson.M{
+		// corresponds to volume-0
+		"_id":         uuid + ":pgdata/1",
+		"id":          "pgdata/1",
+		"model-uuid":  uuid,
+		"storagekind": StorageKindBlock,
+		"storagename": "pgdata",
+	}, bson.M{
+		// corresponds to volume-1
+		"_id":         uuid + ":pgdata/2",
+		"id":          "pgdata/2",
+		"model-uuid":  uuid,
+		"storagekind": StorageKindBlock,
+		"storagename": "pgdata",
+	}, bson.M{
+		// corresponds to filesystem-0
+		"_id":         uuid + ":pgdata/3",
+		"id":          "pgdata/3",
+		"model-uuid":  uuid,
+		"storagekind": StorageKindFilesystem,
+		"storagename": "pgdata",
+	}, bson.M{
+		// corresponds to filesystem-1
+		"_id":         uuid + ":pgdata/4",
+		"id":          "pgdata/4",
+		"model-uuid":  uuid,
+		"storagekind": StorageKindFilesystem,
+		"storagename": "pgdata",
+	}, bson.M{
+		// no volume or filesystem, owned by postgresql/0
+		"_id":         uuid + ":pgdata/5",
+		"id":          "pgdata/5",
+		"model-uuid":  uuid,
+		"storagekind": StorageKindBlock,
+		"storagename": "pgdata",
+		"owner":       "unit-postgresql-0",
+	}, bson.M{
+		// no volume, filesystem, or owner
+		"_id":         uuid + ":pgdata/6",
+		"id":          "pgdata/6",
+		"model-uuid":  uuid,
+		"storagekind": StorageKindBlock,
+		"storagename": "pgdata",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = volumesColl.Insert(bson.M{
+		"_id":        uuid + ":0",
+		"name":       "0",
+		"model-uuid": uuid,
+		"storageid":  "pgdata/1",
+		"info": bson.M{
+			"pool": "modelscoped",
+			"size": 1024,
+		},
+	}, bson.M{
+		"_id":        uuid + ":1",
+		"name":       "1",
+		"model-uuid": uuid,
+		"storageid":  "pgdata/2",
+		"params": bson.M{
+			"pool": "static",
+			"size": 2048,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = filesystemsColl.Insert(bson.M{
+		"_id":          uuid + ":0",
+		"filesystemid": "0",
+		"model-uuid":   uuid,
+		"storageid":    "pgdata/3",
+		"info": bson.M{
+			"pool": "modelscoped",
+			"size": 4096,
+		},
+	}, bson.M{
+		"_id":          uuid + ":1",
+		"filesystemid": "1",
+		"model-uuid":   uuid,
+		"storageid":    "pgdata/4",
+		"params": bson.M{
+			"pool": "static",
+			"size": 8192,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unitsColl.Insert(bson.M{
+		"_id":         uuid + ":postgresql/0",
+		"name":        "postgresql/0",
+		"model-uuid":  uuid,
+		"application": "postgresql",
+		"life":        Alive,
+		"series":      "xenial",
+		"charmurl":    "local:xenial/postgresql-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = storageConstraintsColl.Insert(bson.M{
+		"_id":        uuid + ":asc#postgresql#local:xenial/postgresql-1",
+		"model-uuid": uuid,
+		"constraints": bson.M{
+			"pgdata": bson.M{
+				"pool":  "pgdata-pool",
+				"size":  1234,
+				"count": 99,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We expect that:
+	//  - pgdata/0 is unchanged, since it already has a constraints field.
+	//  - pgdata/1 gets constraints from volume-0's info
+	//  - pgdata/2 gets constraints from volume-1's params
+	//  - pgdata/3 gets constraints from filesystem-0's info
+	//  - pgdata/4 gets constraints from filesystem-1's params
+	//  - pgdata/5 gets constraints from the postgresql application's
+	//    storage constraints.
+	//  - pgdata/6 gets default constraints.
+
+	expectedStorageInstances := []bson.M{{
+		"_id":         uuid + ":pgdata/0",
+		"id":          "pgdata/0",
+		"model-uuid":  uuid,
+		"storagekind": int(StorageKindUnknown),
+		"constraints": bson.M{
+			"pool": "goodidea",
+			"size": 99,
+		},
+	}, {
+		"_id":         uuid + ":pgdata/1",
+		"id":          "pgdata/1",
+		"model-uuid":  uuid,
+		"storagekind": int(StorageKindBlock),
+		"storagename": "pgdata",
+		"constraints": bson.M{
+			"pool": "modelscoped",
+			"size": int64(1024),
+		},
+	}, {
+		"_id":         uuid + ":pgdata/2",
+		"id":          "pgdata/2",
+		"model-uuid":  uuid,
+		"storagekind": int(StorageKindBlock),
+		"storagename": "pgdata",
+		"constraints": bson.M{
+			"pool": "static",
+			"size": int64(2048),
+		},
+	}, {
+		"_id":         uuid + ":pgdata/3",
+		"id":          "pgdata/3",
+		"model-uuid":  uuid,
+		"storagekind": int(StorageKindFilesystem),
+		"storagename": "pgdata",
+		"constraints": bson.M{
+			"pool": "modelscoped",
+			"size": int64(4096),
+		},
+	}, {
+		"_id":         uuid + ":pgdata/4",
+		"id":          "pgdata/4",
+		"model-uuid":  uuid,
+		"storagekind": int(StorageKindFilesystem),
+		"storagename": "pgdata",
+		"constraints": bson.M{
+			"pool": "static",
+			"size": int64(8192),
+		},
+	}, {
+		"_id":         uuid + ":pgdata/5",
+		"id":          "pgdata/5",
+		"model-uuid":  uuid,
+		"storagekind": int(StorageKindBlock),
+		"storagename": "pgdata",
+		"owner":       "unit-postgresql-0",
+		"constraints": bson.M{
+			"pool": "pgdata-pool",
+			"size": int64(1234),
+		},
+	}, {
+		"_id":         uuid + ":pgdata/6",
+		"id":          "pgdata/6",
+		"model-uuid":  uuid,
+		"storagekind": int(StorageKindBlock),
+		"storagename": "pgdata",
+		"constraints": bson.M{
+			"pool": "loop",
+			"size": int64(1024),
+		},
+	}}
+
+	s.assertUpgradedData(c, AddStorageInstanceConstraints,
+		expectUpgradedData{storageInstancesColl, expectedStorageInstances},
+	)
+}
+
 type bsonMById []bson.M
 
 func (x bsonMById) Len() int { return len(x) }
