@@ -771,6 +771,7 @@ func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
 		"Owner",
 		"StorageName",
 		"AttachmentCount", // through count of attachment instances
+		"Constraints",
 	)
 	s.AssertExportedFields(c, storageInstanceDoc{}, migrated.Union(ignored))
 }

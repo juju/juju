@@ -1744,12 +1744,14 @@ func (e *exporter) addStorage(instance *storageInstance, attachments []names.Uni
 	if !ok {
 		owner = nil
 	}
+	cons := description.StorageInstanceConstraints(instance.doc.Constraints)
 	args := description.StorageArgs{
 		Tag:         instance.StorageTag(),
 		Kind:        instance.Kind().String(),
 		Owner:       owner,
 		Name:        instance.StorageName(),
 		Attachments: attachments,
+		Constraints: &cons,
 	}
 	e.model.AddStorage(args)
 	return nil

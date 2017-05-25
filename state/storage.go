@@ -48,6 +48,10 @@ type StorageInstance interface {
 
 	// Life reports whether the storage instance is Alive, Dying or Dead.
 	Life() Life
+
+	// Pool returns the name of the storage pool from which the storage
+	// instance has been or will be provisioned.
+	Pool() string
 }
 
 // StorageAttachment represents the state of a unit's attachment to a storage
@@ -142,6 +146,10 @@ func (s *storageInstance) StorageName() string {
 
 func (s *storageInstance) Life() Life {
 	return s.doc.Life
+}
+
+func (s *storageInstance) Pool() string {
+	return s.doc.Constraints.Pool
 }
 
 // entityStorageRefcountKey returns a key for refcounting charm storage
