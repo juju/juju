@@ -823,8 +823,6 @@ func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
 	s.assertAptCommand(c, cmds[1], "install", "distro-info")
 	s.assertCommonUpgrades(c, cmds[2:])
 
-	// System SSH key
-	c.Assert(s.keyFile(), jc.IsNonEmptyFile)
 	// Syslog port should have been updated
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
