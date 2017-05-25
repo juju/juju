@@ -1695,7 +1695,7 @@ snapshot:
 		{
 			actionName:   "juju-run",
 			givenPayload: map[string]interface{}{"timeout": 5 * time.Second},
-			errString:    `validation failed: (root) : "command" property is missing and required, given {"timeout":5e+09}`,
+			errString:    `validation failed: (root) : "command" property is missing and required, given {"timeout":5000000000}`,
 		},
 		{
 			actionName:      "juju-run",

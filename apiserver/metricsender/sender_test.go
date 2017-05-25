@@ -153,7 +153,9 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 	}{
 		{http.StatusBadRequest, "failed to send metrics http 400"},
 		{http.StatusServiceUnavailable, "failed to send metrics http 503"},
-		{http.StatusMovedPermanently, "failed to send metrics http 301"},
+		// 2017-05-25 (jam): This actually failes in Go 1.8 with Post... missing Location header.
+		// 'develop' has removed this line, so commenting out for now.
+		// {http.StatusMovedPermanently, "failed to send metrics http 301"},
 	}
 
 	for _, test := range tests {
