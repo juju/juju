@@ -99,7 +99,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: admin/controller\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(output, gc.Matches, "Keys used in model: controller\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
 func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: admin/controller\n.*user@host\n.*another@host")
+	c.Assert(output, gc.Matches, "Keys used in model: controller\n.*user@host\n.*another@host")
 }
 
 func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {
