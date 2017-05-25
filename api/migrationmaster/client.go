@@ -345,8 +345,7 @@ func convertResourceRevision(app, name string, rev params.SerializedModelResourc
 	}
 	var fp charmresource.Fingerprint
 	if rev.FingerprintHex != "" {
-		fp, err = charmresource.ParseFingerprint(rev.FingerprintHex)
-		if err != nil {
+		if fp, err = charmresource.ParseFingerprint(rev.FingerprintHex); err != nil {
 			return empty, errors.Annotate(err, "invalid fingerprint")
 		}
 	}
