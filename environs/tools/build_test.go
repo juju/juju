@@ -109,14 +109,18 @@ func (b *buildSuite) TestFindExecutable(c *gc.C) {
 	}
 }
 
-const emptyArchive = "\x1f\x8b\b\x00\x00\tn\x88\x00\xffb\x18\x05\xa3`\x14\x8cX\x00\b\x00\x00\xff\xff.\xaf\xb5\xef\x00\x04\x00\x00"
+const emptyArchive = "\x1f\x8b\b\x00\x00j0w\tn\x88\x00\xffb\x18\x05\xa3`\x14\x8cX\x00\b\x00\x00\xff\xff.\xaf\xb5\xef\x00\x04\x00\x00"
+const altEmptyArchive = "\x1f\x8b\b\x00\x00\x00\x00\x00\x00\xffb\x18\x05\xa3`\x14\x8cX\x00\b\x00\x00\xff\xff.\xaf\xb5\xef\x00\x04\x00\x00"
 
 func (b *buildSuite) TestEmptyArchive(c *gc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
 	err := tools.Archive(&buf, dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.String(), gc.Equals, emptyArchive)
+	if buf.String() != emptyArchive && buf.String() != altEmptyArchive {
+		// go 1.8 has a slightly different empty content
+		c.Fatalf("buf.String has invalid content: %q", buf.String())
+	}
 }
 
 func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
@@ -124,11 +128,20 @@ func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 	dir := c.MkDir()
 	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.String(), gc.Equals, emptyArchive)
+	if buf.String() == emptyArchive {
+		c.Assert(buf.String(), gc.Equals, emptyArchive)
 
-	h := sha256.New()
-	h.Write([]byte(emptyArchive))
-	c.Assert(sha256hash, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+		h := sha256.New()
+		h.Write([]byte(emptyArchive))
+		c.Assert(sha256hash, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+	} else {
+		// go 1.8 creates different content
+		c.Assert(buf.String(), gc.Equals, altEmptyArchive)
+
+		h := sha256.New()
+		h.Write([]byte(altEmptyArchive))
+		c.Assert(sha256hash, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+	}
 }
 
 func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {

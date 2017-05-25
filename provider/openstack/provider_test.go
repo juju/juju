@@ -374,7 +374,7 @@ func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `url abc123 is malformed`)
 
 	_, err = identityClientVersion("https://keystone.internal/vot")
-	c.Check(err, gc.ErrorMatches, `invalid major version number ot: strconv.ParseInt: parsing "ot": invalid syntax`)
+	c.Check(err, gc.ErrorMatches, `invalid major version number ot: .*: parsing "ot": invalid syntax`)
 }
 
 func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
