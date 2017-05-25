@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -70,7 +69,7 @@ func (w *subRelationsWatcher) loop() error {
 			out = nil
 		case newRelations, ok := <-relationsw.Changes():
 			if !ok {
-				return watcher.EnsureErr(relationsw)
+				return w.catacomb.ErrDying()
 			}
 			for _, relation := range newRelations {
 				if currentRelations.Contains(relation) {
