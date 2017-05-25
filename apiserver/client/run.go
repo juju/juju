@@ -106,7 +106,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		if err != nil {
 			return results, err
 		}
-		command := fmt.Sprintf("juju-run %s %s", unit.Name(), quotedCommands)
+		command := fmt.Sprintf("sudo juju-run %s %s", unit.Name(), quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		execParam.UnitId = unit.Name()
 		params = append(params, execParam)
@@ -116,7 +116,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		if err != nil {
 			return results, err
 		}
-		command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
+		command := fmt.Sprintf("sudo juju-run --no-context %s", quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		params = append(params, execParam)
 	}
@@ -134,7 +134,7 @@ func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, erro
 	}
 	var params []*RemoteExec
 	quotedCommands := utils.ShQuote(run.Commands)
-	command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
+	command := fmt.Sprintf("sudo juju-run --no-context %s", quotedCommands)
 	for _, machine := range machines {
 		params = append(params, remoteParamsForMachine(machine, command, run.Timeout))
 	}

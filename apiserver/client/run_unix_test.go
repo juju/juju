@@ -6,9 +6,9 @@
 package client_test
 
 var expectedCommand = []string{
-	"juju-run --no-context 'hostname'\n",
-	"juju-run magic/0 'hostname'\n",
-	"juju-run magic/1 'hostname'\n",
+	"sudo juju-run --no-context 'hostname'\n",
+	"sudo juju-run magic/0 'hostname'\n",
+	"sudo juju-run magic/1 'hostname'\n",
 }
 
 var echoInputShowArgs = `#!/bin/bash
