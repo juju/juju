@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	jujuos "github.com/juju/utils/os"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -505,15 +504,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		CommandRunner: commandRunner,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "creating juju run listener")
 	}
 	rlw := newRunListenerWrapper(u.runListener)
 	if err := u.catacomb.Add(rlw); err != nil {
 		return errors.Trace(err)
-	}
-	// The socket needs to have permissions 777 in order for other users to use it.
-	if jujuos.HostOS() != jujuos.Windows {
-		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)
 	}
 	return nil
 }
