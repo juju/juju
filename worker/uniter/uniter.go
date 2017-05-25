@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
-	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -498,15 +497,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		CommandRunner: commandRunner,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "creating juju run listener")
 	}
 	rlw := newRunListenerWrapper(u.runListener)
 	if err := u.catacomb.Add(rlw); err != nil {
 		return errors.Trace(err)
-	}
-	// The socket needs to have permissions 777 in order for other users to use it.
-	if jujuos.HostOS() != jujuos.Windows {
-		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)
 	}
 	return nil
 }
