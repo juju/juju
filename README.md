@@ -118,13 +118,9 @@ commands. You can verify this using
 
     which juju
 
-You should be able to bootstrap a local model now with the following
-(Note: the use of sudo for bootstrap here is only required for the local
-provider because it uses LXC, which requires root privileges)
+You should be able to bootstrap a local model now with the following:
 
-    juju init
-    juju switch local
-    sudo juju bootstrap
+    juju bootstrap localhost
 
 Installing bash completion for juju
 ===================================
