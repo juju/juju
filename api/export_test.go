@@ -4,6 +4,8 @@
 package api
 
 import (
+	"net/url"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
@@ -28,7 +30,12 @@ func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	return result.conn, result.urlStr, nil
+	// Replace the IP address in the URL with the
+	// host name so that tests can check it more
+	// easily.
+	u, _ := url.Parse(result.urlStr)
+	u.Host = result.addr
+	return result.conn, u.String(), nil
 }
 
 // RPCConnection defines the methods that are called on the rpc.Conn instance.
