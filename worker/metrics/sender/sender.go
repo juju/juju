@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	defaultSocketName = "metrics-send.socket"
+	DefaultMetricsSendSocketName = "metrics-send.socket"
 )
 
 type stopper interface {
@@ -107,7 +107,7 @@ var socketName = func(baseDir, unitTag string) string {
 	case "windows":
 		return fmt.Sprintf(`\\.\pipe\send-metrics-%s`, unitTag)
 	default:
-		return path.Join(baseDir, defaultSocketName)
+		return path.Join(baseDir, DefaultMetricsSendSocketName)
 	}
 }
 

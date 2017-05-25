@@ -275,7 +275,7 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 	}
 	srv, err := jujuc.NewServer(getCmd, runner.paths.GetJujucSocket())
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "starting jujuc server")
 	}
 	go srv.Run()
 	return srv, nil
