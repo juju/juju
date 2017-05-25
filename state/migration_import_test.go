@@ -373,7 +373,12 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	// Add a application with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "starsay", // it has resources
+	})
+	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: charm,
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -428,6 +433,12 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
+
+	rSt, err := newSt.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	resources, err := rSt.ListResources(imported.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resources.Resources, gc.HasLen, 3)
 }
 
 func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
