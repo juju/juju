@@ -109,11 +109,12 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		if test.apiErr != nil {
 			s.mockAPI.SetErrors(test.apiErr)
 		}
-		_, err := s.run(c, test.level, "--budget", test.budget)
+		ctx, err := s.run(c, test.level, "--budget", test.budget)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
 			s.mockAPI.CheckCalls(c, test.apiCalls)
+			c.Assert(cmdtesting.Stdout(ctx), jc.Contains, "ack sla "+test.level)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
@@ -196,7 +197,11 @@ func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*slawire.SL
 		return nil, errors.Trace(err)
 	}
 	m.macaroon = macaroon
-	return &slawire.SLAResponse{Credentials: m.macaroon, Owner: "bob"}, nil
+	return &slawire.SLAResponse{
+		Credentials: m.macaroon,
+		Owner:       "bob",
+		Message:     "ack sla " + supportLevel,
+	}, nil
 }
 
 type mockSlaClient struct {

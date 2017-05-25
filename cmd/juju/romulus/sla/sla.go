@@ -122,29 +122,29 @@ func (c *slaCommand) Init(args []string) error {
 	return c.ModelCommandBase.Init(args[1:])
 }
 
-func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, []byte, error) {
+func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, string, []byte, error) {
 	hc, err := c.BakeryClient()
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", "", nil, errors.Trace(err)
 	}
 	authClient, err := c.newAuthorizationClient(sla.HTTPClient(hc))
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", "", nil, errors.Trace(err)
 	}
 	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
 	if err != nil {
 		err = common.MaybeTermsAgreementError(err)
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
-			return "", nil, errors.Trace(termErr.UserErr())
+			return "", "", nil, errors.Trace(termErr.UserErr())
 		}
-		return "", nil, errors.Trace(err)
+		return "", "", nil, errors.Trace(err)
 	}
 	ms := macaroon.Slice{slaResp.Credentials}
 	mbuf, err := json.Marshal(ms)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", "", nil, errors.Trace(err)
 	}
-	return slaResp.Owner, mbuf, nil
+	return slaResp.Owner, slaResp.Message, mbuf, nil
 }
 
 func (c *slaCommand) displayCurrentLevel(client slaClient, modelID string, ctx *cmd.Context) error {
@@ -175,13 +175,16 @@ func (c *slaCommand) Run(ctx *cmd.Context) error {
 	if c.Level == "" {
 		return c.displayCurrentLevel(client, modelId, ctx)
 	}
-	owner, credentials, err := c.requestSupportCredentials(modelId)
+	owner, message, credentials, err := c.requestSupportCredentials(modelId)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	err = client.SetSLALevel(c.Level, owner, credentials)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if message != "" {
+		fmt.Fprintln(ctx.Stdout, message)
 	}
 	return nil
 }
