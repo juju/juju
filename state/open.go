@@ -57,6 +57,10 @@ type OpenParams struct {
 	// be called after mgo/txn transactions are run, successfully
 	// or not.
 	RunTransactionObserver RunTransactionObserverFunc
+
+	// InitDatabaseFunc, if non-nil, is a function that will be called
+	// just after the state database is opened.
+	InitDatabaseFunc InitDatabaseFunc
 }
 
 // Validate validates the OpenParams.
@@ -89,6 +93,7 @@ func Open(args OpenParams) (*State, error) {
 		args.ControllerModelTag,
 		args.MongoInfo,
 		args.MongoDialOpts,
+		args.InitDatabaseFunc,
 		nil,
 		args.NewPolicy,
 		args.Clock,
@@ -101,7 +106,7 @@ func Open(args OpenParams) (*State, error) {
 		if err := st.Close(); err != nil {
 			logger.Errorf("closing State for %s: %v", args.ControllerModelTag, err)
 		}
-		return nil, errors.Annotatef(err, "cannot read model %s", args.ControllerModelTag.Id())
+		return nil, maybeUnauthorized(err, fmt.Sprintf("cannot read model %s", args.ControllerModelTag.Id()))
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
@@ -115,7 +120,8 @@ func Open(args OpenParams) (*State, error) {
 func open(
 	controllerModelTag names.ModelTag,
 	info *mongo.MongoInfo, opts mongo.DialOpts,
-	initDatabase func(*mgo.Session) error,
+	initDatabase InitDatabaseFunc,
+	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
@@ -134,18 +140,30 @@ func open(
 		return nil, errors.Trace(err)
 	}
 	logger.Debugf("mongodb login successful")
+
+	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock, runTransactionObserver)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if initDatabase != nil {
-		if err := initDatabase(session); err != nil {
+		if controllerConfig == nil {
+			// If no controller config is passed in, we get
+			// it from state. This occurs if we are opening
+			// an existing state database as opposed to creating
+			// a new one for the first time.
+			cfg, err := st.ControllerConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			controllerConfig = &cfg
+		}
+		if err := initDatabase(session, *controllerConfig); err != nil {
 			session.Close()
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("mongodb initialised")
 	}
 
-	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock, runTransactionObserver)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return st, nil
 }
 
@@ -249,6 +267,26 @@ func (p InitializeParams) Validate() error {
 	return nil
 }
 
+// InitDatabaseFunc defines a function used to
+// create the collections and indices in a Juju database.
+type InitDatabaseFunc func(*mgo.Session, controller.Config) error
+
+// InitDatabase creates all the collections and indices in a Juju database.
+func InitDatabase(session *mgo.Session, settings controller.Config) error {
+	schema := allCollections()
+	err := schema.Create(
+		session.DB(jujuDB),
+		settings,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := InitDbLogs(session); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
@@ -262,27 +300,9 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, errors.New("invalid model UUID")
 	}
 
-	schema := allCollections()
-	// initDatabase creates all the collections and indices
-	// in a new Juju database.
-	initDatabase := func(session *mgo.Session) error {
-		rawDB := session.DB(jujuDB)
-		err := schema.Create(
-			rawDB,
-			args.ControllerConfig,
-		)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := InitDbLogs(session); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-
 	st, err := open(
 		modelTag, args.MongoInfo, args.MongoDialOpts,
-		initDatabase, args.NewPolicy, args.Clock, nil)
+		InitDatabase, &args.ControllerConfig, args.NewPolicy, args.Clock, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -531,6 +551,7 @@ func isUnauthorized(err error) bool {
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
+			err.Code == 13 ||
 			err.Message == "need to login" ||
 			err.Message == "unauthorized"
 	}
@@ -558,11 +579,9 @@ func newState(
 		}
 	}()
 
-	schema := allCollections()
-	rawDB := session.DB(jujuDB)
 	db := &database{
-		raw:                    rawDB,
-		schema:                 schema,
+		raw:                    session.DB(jujuDB),
+		schema:                 allCollections(),
 		modelUUID:              modelTag.Id(),
 		runTransactionObserver: runTransactionObserver,
 	}

@@ -44,7 +44,7 @@ func newWorkers(st *State) (*workers, error) {
 		}),
 	}
 	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-		return watcher.New(st.getTxnLogCollection(), nil), nil
+		return watcher.New(st.getTxnLogCollection()), nil
 	})
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.ModelTag()), nil

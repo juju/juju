@@ -114,7 +114,11 @@ var Period time.Duration = 5 * time.Second
 
 // New returns a new Watcher observing the changelog collection,
 // which must be a capped collection maintained by mgo/txn.
-func New(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *Watcher {
+func New(changelog *mgo.Collection) *Watcher {
+	return newWatcher(changelog, nil)
+}
+
+func newWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *Watcher {
 	w := &Watcher{
 		log:          changelog,
 		iteratorFunc: iteratorFunc,

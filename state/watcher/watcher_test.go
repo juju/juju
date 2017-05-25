@@ -98,7 +98,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.stash = db.C("txn.stash")
 	s.runner = txn.NewRunner(db.C("txn"))
 	s.runner.ChangeLog(s.log)
-	s.w = watcher.New(s.log, s.iteratorFunc)
+	s.w = watcher.NewTestWatcher(s.log, s.iteratorFunc)
 	s.ch = make(chan watcher.Change)
 }
 
@@ -302,7 +302,7 @@ func (s *FastPeriodSuite) TestWatchMultipleChannels(c *gc.C) {
 func (s *FastPeriodSuite) TestIgnoreAncientHistory(c *gc.C) {
 	s.insert(c, "test", "a")
 
-	w := watcher.New(s.log, s.iteratorFunc)
+	w := watcher.NewTestWatcher(s.log, s.iteratorFunc)
 	defer w.Stop()
 	w.StartSync()
 
@@ -709,7 +709,7 @@ func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
 type badIter struct {
 	*mgo.Iter
 
-	errorAfter *int
+	errorAfter int
 }
 
 func (b *badIter) Close() (err error) {
@@ -720,8 +720,8 @@ func (b *badIter) Close() (err error) {
 		}
 	}()
 
-	*b.errorAfter--
-	if *b.errorAfter < 0 {
+	b.errorAfter--
+	if b.errorAfter < 0 {
 		return &mgo.QueryError{
 			Code: 136,
 		}
@@ -731,19 +731,17 @@ func (b *badIter) Close() (err error) {
 
 type WatcherErrorSuite struct {
 	watcherSuite
-
-	iterErrorAfter int
 }
 
 func (s *WatcherErrorSuite) SetUpSuite(c *gc.C) {
-	s.iterErrorAfter = 2
-	s.iteratorFunc = func() mongo.Iterator {
-		return &badIter{
-			Iter:       s.log.Find(nil).Batch(10).Sort("-$natural").Iter(),
-			errorAfter: &s.iterErrorAfter,
-		}
-	}
 	s.watcherSuite.SetUpSuite(c)
+	iter := &badIter{
+		errorAfter: 2,
+	}
+	s.iteratorFunc = func() mongo.Iterator {
+		iter.Iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+		return iter
+	}
 	watcher.Period = fastPeriod
 }
 
