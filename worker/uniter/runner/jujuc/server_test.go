@@ -114,7 +114,7 @@ func (s *ServerSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 	c.Assert(<-s.err, gc.IsNil)
 	_, err := os.Open(s.sockPath)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, gc.ErrorMatches, ".*no such device or address")
 	s.BaseSuite.TearDownTest(c)
 }
 
