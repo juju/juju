@@ -15,17 +15,17 @@ type ControllerDetails struct {
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"uuid"`
 
-	// UnresolvedAPIEndpoints holds a list of API addresses which may
-	// contain unresolved hostnames. It's used to compare more recent
-	// API addresses before resolving hostnames to determine if the
-	// cached addresses have changed and therefore perform (a possibly
-	// slow) local DNS resolution before comparing them against Addresses.
-	UnresolvedAPIEndpoints []string `yaml:"unresolved-api-endpoints,flow"`
-
 	// APIEndpoints holds a list of API addresses. It may not be
 	// current, and it will be empty if the environment has not been
 	// bootstrapped.
 	APIEndpoints []string `yaml:"api-endpoints,flow"`
+
+	// DNSCache holds a map of hostname to IP addresses, holding
+	// a cache of the last time the API endpoints were looked up.
+	// The information held here is strictly optional so that we
+	// can avoid slow DNS queries in the usual case that the controller's
+	// IP addresses haven't changed since the last time we connected.
+	DNSCache map[string][]string `yaml:"dns-cache,omitempty,flow"`
 
 	// PublicDNSName holds the public host name associated with the controller.
 	// If this is non-empty, it indicates that the controller will use an
