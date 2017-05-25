@@ -207,7 +207,7 @@ func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "listening to jujuc socket")
 	}
 	s := &Server{
 		socketPath: socketPath,

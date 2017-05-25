@@ -505,7 +505,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		CommandRunner: commandRunner,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "creating juju run listener")
 	}
 	rlw := newRunListenerWrapper(u.runListener)
 	if err := u.catacomb.Add(rlw); err != nil {
