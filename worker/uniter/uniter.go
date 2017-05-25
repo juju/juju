@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -279,17 +278,13 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
 	u.runListener, err = NewRunListener(u, u.paths.Runtime.JujuRunSocket)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "creating juju run listener")
 	}
 	u.addCleanup(func() error {
 		// TODO(fwereade): RunListener returns no error on Close. This seems wrong.
 		u.runListener.Close()
 		return nil
 	})
-	// The socket needs to have permissions 777 in order for other users to use it.
-	if version.Current.OS != version.Windows {
-		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)
-	}
 	return nil
 }
 
