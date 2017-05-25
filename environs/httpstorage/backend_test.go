@@ -291,11 +291,10 @@ var putTests = []testCase{
 		content: "this is the sent file 'porterhouse'",
 	},
 	{
-		// Put a file with a relative path ".." is resolved
-		// a redirect 301 by the Go HTTP daemon. The handler
-		// isn't aware of it.
+		// Put a file with a relative path "..", rejected
+		// by net/http with 404.
 		name:   "../no-way",
-		status: 301,
+		status: 404,
 	},
 	{
 		// Put a file in a nested directory.
@@ -354,11 +353,10 @@ var removeTests = []testCase{
 		name: "dog",
 	},
 	{
-		// Delete a file with a relative path ".." is resolved
-		// a redirect 301 by the Go HTTP daemon. The handler
-		// doesn't get aware of it.
+		// Delete a file with a relative path "..": the net/http
+		// code rejects this with 404.
 		name:   "../something",
-		status: 301,
+		status: 404,
 	},
 }
 

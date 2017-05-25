@@ -189,10 +189,13 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 
 // swapLocalhostForBridgeIP substitutes bridge ip for localhost. Non-localhost values are not modified.
 func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerConfig *environConfig) (string, error) {
-	// TODO(anastasia) 2014-10-31 Bug#1385277 Parse method does not cater for malformed URL, eg. localhost:8080
 	parsedUrl, err := url.Parse(originalURL)
 	if err != nil {
-		return "", errors.Trace(err)
+		var err2 error
+		parsedUrl, err2 = url.Parse("http://" + originalURL)
+		if err2 != nil {
+			return "", errors.Trace(err)
+		}
 	}
 
 	isLoopback, _, port := isLoopback(parsedUrl.Host)

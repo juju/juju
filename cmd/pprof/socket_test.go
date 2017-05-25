@@ -118,7 +118,7 @@ func (s *pprofSuite) TestCmdLine(c *gc.C) {
 }
 
 func (s *pprofSuite) TestGoroutineProfile(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/goroutine")
+	buf := s.call(c, "/debug/pprof/goroutine?debug=1")
 	c.Assert(buf, gc.NotNil)
 	matches(c, buf, `^goroutine profile: total \d+`)
 }
