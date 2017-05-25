@@ -48,6 +48,10 @@ type StorageInstance interface {
 
 	// Life reports whether the storage instance is Alive, Dying or Dead.
 	Life() Life
+
+	// Pool returns the name of the storage pool from which the storage
+	// instance has been or will be provisioned.
+	Pool() string
 }
 
 // StorageAttachment represents the state of a unit's attachment to a storage
@@ -144,6 +148,10 @@ func (s *storageInstance) Life() Life {
 	return s.doc.Life
 }
 
+func (s *storageInstance) Pool() string {
+	return s.doc.Constraints.Pool
+}
+
 // entityStorageRefcountKey returns a key for refcounting charm storage
 // for a specific entity. Each time a storage instance is created, the
 // named store's refcount is incremented; and decremented when removed.
@@ -156,12 +164,20 @@ type storageInstanceDoc struct {
 	DocID     string `bson:"_id"`
 	ModelUUID string `bson:"model-uuid"`
 
-	Id              string      `bson:"id"`
-	Kind            StorageKind `bson:"storagekind"`
-	Life            Life        `bson:"life"`
-	Owner           string      `bson:"owner,omitempty"`
-	StorageName     string      `bson:"storagename"`
-	AttachmentCount int         `bson:"attachmentcount"`
+	Id              string                     `bson:"id"`
+	Kind            StorageKind                `bson:"storagekind"`
+	Life            Life                       `bson:"life"`
+	Owner           string                     `bson:"owner,omitempty"`
+	StorageName     string                     `bson:"storagename"`
+	AttachmentCount int                        `bson:"attachmentcount"`
+	Constraints     storageInstanceConstraints `bson:"constraints"`
+}
+
+// storageInstanceConstraints contains a subset of StorageConstraints,
+// for a single storage instance.
+type storageInstanceConstraints struct {
+	Pool string `bson:"pool"`
+	Size uint64 `bson:"size"`
 }
 
 type storageAttachment struct {
@@ -228,19 +244,31 @@ func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error)
 
 // AllStorageInstances lists all storage instances currently in state
 // for this Juju model.
-func (st *State) AllStorageInstances() (storageInstances []StorageInstance, err error) {
+func (st *State) AllStorageInstances() ([]StorageInstance, error) {
+	storageInstances, err := st.storageInstances(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]StorageInstance, len(storageInstances))
+	for i, s := range storageInstances {
+		out[i] = s
+	}
+	return out, nil
+}
+
+func (st *State) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {
 	storageCollection, closer := st.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	sdocs := []storageInstanceDoc{}
-	err = storageCollection.Find(nil).All(&sdocs)
+	err = storageCollection.Find(query).All(&sdocs)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all storage instances")
+		return nil, errors.Annotate(err, "cannot get storage instances")
 	}
 	for _, doc := range sdocs {
 		storageInstances = append(storageInstances, &storageInstance{st, doc})
 	}
-	return
+	return storageInstances, nil
 }
 
 // DestroyStorageInstance ensures that the storage instance and all its
@@ -619,6 +647,7 @@ func createStorageOps(
 		ops = append(ops, incRefOp)
 
 		for i := uint64(0); i < t.cons.Count; i++ {
+			cons := cons[t.storageName]
 			id, err := newStorageInstanceId(st, t.storageName)
 			if err != nil {
 				return nil, -1, errors.Annotate(err, "cannot generate storage instance name")
@@ -628,6 +657,10 @@ func createStorageOps(
 				Kind:        kind,
 				Owner:       owner,
 				StorageName: t.storageName,
+				Constraints: storageInstanceConstraints{
+					Pool: cons.Pool,
+					Size: cons.Size,
+				},
 			}
 			var machineOps []txn.Op
 			if unitTag, ok := entityTag.(names.UnitTag); ok {
@@ -639,7 +672,7 @@ func createStorageOps(
 				if maybeMachineAssignable != nil {
 					var err error
 					machineOps, err = unitAssignedMachineStorageOps(
-						st, unitTag, charmMeta, cons, series,
+						st, unitTag, charmMeta, series,
 						&storageInstance{st, *doc},
 						maybeMachineAssignable,
 					)
@@ -680,13 +713,12 @@ func unitAssignedMachineStorageOps(
 	st *State,
 	unitTag names.UnitTag,
 	charmMeta *charm.Meta,
-	cons map[string]StorageConstraints,
 	series string,
 	storage *storageInstance,
 	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
 	storageParams, err := machineStorageParamsForStorageInstance(
-		st, charmMeta, unitTag, series, cons, storage,
+		st, charmMeta, unitTag, series, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
