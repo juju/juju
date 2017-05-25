@@ -4,9 +4,12 @@
 package tools_test
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -105,14 +108,17 @@ func (b *buildSuite) TestFindExecutable(c *gc.C) {
 	}
 }
 
-const emptyArchive = "\x1f\x8b\b\x00\x00\tn\x88\x00\xffb\x18\x05\xa3`\x14\x8cX\x00\b\x00\x00\xff\xff.\xaf\xb5\xef\x00\x04\x00\x00"
-
 func (b *buildSuite) TestEmptyArchive(c *gc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
 	err := tools.Archive(&buf, dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.String(), gc.Equals, emptyArchive)
+
+	gzr, err := gzip.NewReader(&buf)
+	c.Assert(err, jc.ErrorIsNil)
+	r := tar.NewReader(gzr)
+	_, err = r.Next()
+	c.Assert(err, gc.Equals, io.EOF)
 }
 
 func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
@@ -120,9 +126,14 @@ func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 	dir := c.MkDir()
 	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.String(), gc.Equals, emptyArchive)
 
 	h := sha256.New()
-	h.Write([]byte(emptyArchive))
+	h.Write(buf.Bytes())
 	c.Assert(sha256hash, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+
+	gzr, err := gzip.NewReader(&buf)
+	c.Assert(err, jc.ErrorIsNil)
+	r := tar.NewReader(gzr)
+	_, err = r.Next()
+	c.Assert(err, gc.Equals, io.EOF)
 }

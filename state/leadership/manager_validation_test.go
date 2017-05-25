@@ -84,7 +84,7 @@ func (s *ValidationSuite) TestClaimLeadership_Duration(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		err := manager.ClaimLeadership("foo", "bar/0", 0)
-		c.Check(err, gc.ErrorMatches, `cannot claim leadership: invalid duration 0`)
+		c.Check(err, gc.ErrorMatches, `cannot claim leadership: invalid duration 0s?`)
 	})
 }
 

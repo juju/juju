@@ -139,8 +139,7 @@ func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
 // handlePut stores data from the client in the storage.
 func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 	if req.ContentLength < 0 {
-		http.Error(w, "missing or invalid Content-Length header", http.StatusInternalServerError)
-		return
+		req.ContentLength = 0
 	}
 	err := s.backend.Put(req.URL.Path[1:], req.Body, req.ContentLength)
 	if err != nil {
