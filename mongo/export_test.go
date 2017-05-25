@@ -17,11 +17,11 @@ var (
 
 	NewConf = newConf
 
-	HostWordSize   = &hostWordSize
-	RuntimeGOOS    = &runtimeGOOS
-	AvailSpace     = &availSpace
-	MinOplogSizeMB = &minOplogSizeMB
-	PreallocFile   = &preallocFile
+	HostWordSize     = &hostWordSize
+	RuntimeGOOS      = &runtimeGOOS
+	AvailSpace       = &availSpace
+	SmallOplogSizeMB = &smallOplogSizeMB
+	PreallocFile     = &preallocFile
 
 	DefaultOplogSize  = defaultOplogSize
 	FsAvailSpace      = fsAvailSpace
