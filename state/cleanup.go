@@ -34,6 +34,7 @@ const (
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
 	cleanupModelsForDyingController      cleanupKind = "models"
 	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
+	cleanupResourceBlob                  cleanupKind = "resourceBlob"
 	cleanupVolumesForDyingModel          cleanupKind = "modelVolumes"
 	cleanupFilesystemsForDyingModel      cleanupKind = "modelFilesystems"
 )
@@ -116,14 +117,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupVolumesForDyingModel()
 		case cleanupFilesystemsForDyingModel:
 			err = st.cleanupFilesystemsForDyingModel()
+		case cleanupResourceBlob:
+			err = st.cleanupResourceBlob(doc.Prefix)
 		default:
-			handler, ok := cleanupHandlers[doc.Kind]
-			if !ok {
-				err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
-			} else {
-				persist := st.newPersistence()
-				err = handler(st, persist, doc.Prefix)
-			}
+			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
 			logger.Errorf("cleanup failed for %v(%q): %v", doc.Kind, doc.Prefix, err)
@@ -141,21 +138,15 @@ func (st *State) Cleanup() (err error) {
 	return nil
 }
 
-// CleanupHandler is a function that state may call during cleanup
-// to perform cleanup actions for some cleanup type.
-type CleanupHandler func(st *State, persist Persistence, prefix string) error
-
-var cleanupHandlers = map[cleanupKind]CleanupHandler{}
-
-// RegisterCleanupHandler identifies the handler to use a given
-// cleanup kind.
-func RegisterCleanupHandler(kindStr string, handler CleanupHandler) error {
-	kind := cleanupKind(kindStr)
-	if _, ok := cleanupHandlers[kind]; ok {
-		return errors.NewAlreadyExists(nil, fmt.Sprintf("cleanup handler for %q already registered", kindStr))
+func (st *State) cleanupResourceBlob(storagePath string) error {
+	// Ignore attempts to clean up a placeholder resource.
+	if storagePath == "" {
+		return nil
 	}
-	cleanupHandlers[kind] = handler
-	return nil
+
+	persist := st.newPersistence()
+	storage := persist.NewStorage()
+	return storage.Remove(storagePath)
 }
 
 func (st *State) cleanupRelationSettings(prefix string) error {
