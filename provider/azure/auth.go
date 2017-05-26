@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
 // cloudSpecAuth is an implementation of autorest.Authorizer.
@@ -83,6 +84,7 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 	appId := credAttrs[credAttrAppId]
 	appPassword := credAttrs[credAttrAppPassword]
 	client := subscriptions.Client{subscriptions.NewWithBaseURI(cloud.Endpoint)}
+	useragent.UpdateClient(&client.Client)
 	client.Sender = sender
 	oauthConfig, _, err := azureauth.OAuthConfig(client, cloud.Endpoint, subscriptionId)
 	if err != nil {
@@ -98,8 +100,8 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing service principal token")
 	}
-	if sender != nil {
-		token.SetSender(sender)
-	}
+	tokenClient := autorest.NewClientWithUserAgent(useragent.JujuPrefix())
+	tokenClient.Sender = sender
+	token.SetSender(&tokenClient)
 	return token, nil
 }
