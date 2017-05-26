@@ -636,9 +636,9 @@ func RemoveNilValueApplicationSettings(st *State) error {
 	return nil
 }
 
-// AddControllerLogPruneSettings adds the controller
-// settings to control log pruning if they are missing.
-func AddControllerLogPruneSettings(st *State) error {
+// AddControllerLogCollectionsSizeSettings adds the controller
+// settings to control log pruning and txn log size if they are missing.
+func AddControllerLogCollectionsSizeSettings(st *State) error {
 	coll, closer := st.getRawCollection(controllersC)
 	defer closer()
 	var doc settingsDoc
@@ -653,6 +653,8 @@ func AddControllerLogPruneSettings(st *State) error {
 	settingsChanged := maybeUpdateSettings(doc.Settings, controller.MaxLogsAge, fmt.Sprintf("%vh", controller.DefaultMaxLogsAgeDays*24))
 	settingsChanged =
 		maybeUpdateSettings(doc.Settings, controller.MaxLogsSize, fmt.Sprintf("%vM", controller.DefaultMaxLogCollectionMB)) || settingsChanged
+	settingsChanged =
+		maybeUpdateSettings(doc.Settings, controller.MaxTxnLogSize, fmt.Sprintf("%vM", controller.DefaultMaxTxnLogCollectionMB)) || settingsChanged
 	if settingsChanged {
 		ops = append(ops, txn.Op{
 			C:      controllersC,
