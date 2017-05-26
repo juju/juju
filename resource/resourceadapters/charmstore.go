@@ -66,21 +66,30 @@ func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
 	return newCSRetryClient(client), nil
 }
 
+// ResourceClient defines a set of functionality that a client
+// needs to define to support resources.
+type ResourceClient interface {
+	GetResource(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error)
+}
+
 // CSRetryClient is a wrapper around a Juju charm store client that
 // retries GetResource() calls.
 type CSRetryClient struct {
-	charmstore.Client
+	ResourceClient
 	retryArgs retry.CallArgs
 }
 
-func newCSRetryClient(client charmstore.Client) *CSRetryClient {
+func newCSRetryClient(client ResourceClient) *CSRetryClient {
 	retryArgs := retry.CallArgs{
-		// The only error that stops the retry loop should be "not found".
-		IsFatalError: errors.IsNotFound,
-		// We want to retry until the charm store either gives us the
-		// resource (and we cache it) or the resource isn't found in the
-		// charm store.
-		Attempts: -1, // retry forever...
+		// (anastasiamac 2017-05-25) This might not work as the error types
+		// may be lost after a call to some clients.
+		IsFatalError: func(err error) bool {
+			return errors.IsNotFound(err) || errors.IsNotValid(err)
+		},
+		// We don't want to retry for ever.
+		// If we cannot get a resource after trying a few times,
+		// most likely user intervention is needed.
+		Attempts: 3,
 		// A one minute gives enough time for potential connection
 		// issues to sort themselves out without making the caller wait
 		// for an exceptional amount of time.
@@ -88,8 +97,8 @@ func newCSRetryClient(client charmstore.Client) *CSRetryClient {
 		Clock: clock.WallClock,
 	}
 	return &CSRetryClient{
-		Client:    client,
-		retryArgs: retryArgs,
+		ResourceClient: client,
+		retryArgs:      retryArgs,
 	}
 }
 
@@ -100,7 +109,7 @@ func (client CSRetryClient) GetResource(req charmstore.ResourceRequest) (charmst
 	var data charmstore.ResourceData
 	args.Func = func() error {
 		var err error
-		data, err = client.Client.GetResource(req)
+		data, err = client.ResourceClient.GetResource(req)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -110,7 +119,9 @@ func (client CSRetryClient) GetResource(req charmstore.ResourceRequest) (charmst
 	var lastErr error
 	args.NotifyFunc = func(err error, i int) {
 		// Remember the error we're hiding and then retry!
-		logger.Debugf("(attempt %d) retrying resource download from charm store due to error: %v", i, err)
+		logger.Warningf("attempt %d/%d to download resource %q from charm store [channel (%v), charm (%v), resource revision (%v)] failed with error (will retry): %v",
+			i, client.retryArgs.Attempts, req.Name, req.Channel, req.Charm, req.Revision, err)
+		logger.Tracef("resource get error stack: %v", errors.ErrorStack(err))
 		lastErr = err
 	}
 
