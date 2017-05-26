@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Juju"
-#define MyAppVersion "1.25.12"
+#define MyAppVersion "1.25.13"
 #define MyAppPublisher "Canonical, Ltd"
 #define MyAppURL "http://juju.ubuntu.com/"
 #define MyAppExeName "juju.exe"
