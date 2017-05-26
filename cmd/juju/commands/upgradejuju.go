@@ -423,7 +423,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		// the current client version.
 		filterVersion.Major--
 	}
-	logger.Debugf("searching for tools with major: %d", filterVersion.Major)
+	logger.Debugf("searching for agent binaries with major: %d", filterVersion.Major)
 	findResult, err := client.FindTools(filterVersion.Major, -1, "", "")
 	if err != nil {
 		return nil, err

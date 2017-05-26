@@ -1824,10 +1824,6 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting charm")
 	}
-	allCons, err := u.StorageConstraints()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting storage constraints")
-	}
 
 	// Sort storage attachments so the volume ids are consistent (for testing).
 	sort.Sort(byStorageInstance(storageAttachments))
@@ -1844,7 +1840,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), u.Series(), allCons, storage,
+			u.st, chMeta, u.UnitTag(), u.Series(), storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1878,7 +1874,6 @@ func machineStorageParamsForStorageInstance(
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
 	series string,
-	allCons map[string]StorageConstraints,
 	storage *storageInstance,
 ) (*machineStorageParams, error) {
 
@@ -1932,11 +1927,10 @@ func machineStorageParamsForStorageInstance(
 				volumeBacked = true
 			}
 		} else if errors.IsNotFound(err) {
-			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
 			}
 			filesystems = append(filesystems, MachineFilesystemParams{
 				filesystemParams, filesystemAttachmentParams,
@@ -1978,11 +1972,10 @@ func machineStorageParamsForStorageInstance(
 			}
 			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
 		} else if errors.IsNotFound(err) {
-			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
 			}
 			volumes = append(volumes, MachineVolumeParams{
 				volumeParams, volumeAttachmentParams,

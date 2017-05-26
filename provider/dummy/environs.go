@@ -716,7 +716,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
-	logger.Infof("would pick tools from %s", availableTools)
+	logger.Infof("would pick agent binaries from %s", availableTools)
 
 	estate, err := e.state()
 	if err != nil {
@@ -993,7 +993,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
 	}
-	logger.Infof("would pick tools from %s", args.Tools)
+	logger.Infof("would pick agent binaries from %s", args.Tools)
 	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
@@ -1690,4 +1690,16 @@ func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderS
 // AreSpacesRoutable implements NetworkingEnviron.
 func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
+}
+
+// SSHAddresses implements environs.SSHAddresses.
+// For testing we cut "100.100.100.100" out of this list.
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	var rv []network.Address
+	for _, addr := range addresses {
+		if addr.Value != "100.100.100.100" {
+			rv = append(rv, addr)
+		}
+	}
+	return rv, nil
 }

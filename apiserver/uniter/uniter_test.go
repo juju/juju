@@ -26,7 +26,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
-	jujuFactory "github.com/juju/juju/testing/factory"
+	jujufactory "github.com/juju/juju/testing/factory"
 )
 
 // uniterSuite implements common testing suite for all API
@@ -38,7 +38,6 @@ type uniterSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
 	uniter     *uniter.UniterAPI
-	uniterv3   *uniter.UniterAPIV3
 
 	machine0      *state.Machine
 	machine1      *state.Machine
@@ -58,48 +57,48 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	factory := jujuFactory.NewFactory(s.State)
+	factory := jujufactory.NewFactory(s.State)
 	// Create two machines, two services and add a unit to each service.
-	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine0 = factory.MakeMachine(c, &jujufactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
-	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine1 = factory.MakeMachine(c, &jujufactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
-	s.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+	s.wpCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "wordpress",
 		URL:  "cs:quantal/wordpress-3",
 	})
-	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.wordpress = factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: s.wpCharm,
 	})
-	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
+	mysqlCharm := factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
-	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
 
-	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
+	s.meteredCharm = s.Factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredService = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.meteredService = s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
-	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.meteredUnit = s.Factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.meteredService,
 		SetCharmURL: true,
 	})
@@ -122,13 +121,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniter = uniterAPI
-	uniterAPIV3, err := uniter.NewUniterAPIV3(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.uniterv3 = uniterAPIV3
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
@@ -507,6 +499,40 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: "1.2.3.4"},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+// TestNetworkInfoSpaceless is in uniterSuite and not uniterNetworkInfoSuite since we don't want
+// all the spaces set up.
+func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
+	err := s.machine0.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
+
+	args := params.NetworkInfoParams{
+		Unit:     s.wordpressUnit.Tag().String(),
+		Bindings: []string{"db"},
+	}
+
+	privateAddress, err := s.machine0.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				Addresses: []params.InterfaceAddress{
+					{Address: privateAddress.Value},
+				},
+			},
+		},
+	}
+
+	result, err := s.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"db": expectedInfo,
 		},
 	})
 }
@@ -1104,16 +1130,185 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchApplicationRelations(c *gc.C) {
+func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "application-mysql"},
-		{Tag: "application-wordpress"},
-		{Tag: "application-foo"},
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-0"},
 	}}
-	result, err := s.uniter.WatchApplicationRelations(args)
-	s.assertOneStringsWatcher(c, result, err)
+	result, err := s.uniter.WatchUnitRelations(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 3)
+	c.Assert(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(result.Results[1].StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[1].Changes, gc.NotNil)
+	c.Assert(result.Results[1].Error, gc.IsNil)
+	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
+	// The logging charm is subordinate (and the info endpoint is scope=container).
+	loggingCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+		Name: "logging",
+		URL:  "cs:quantal/logging-1",
+	})
+	loggingApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+		Name:  "logging",
+		Charm: loggingCharm,
+	})
+
+	mysqlRel := s.makeSubordinateRelation(c, loggingApp, s.mysql, s.mysqlUnit)
+	wpRel := s.makeSubordinateRelation(c, loggingApp, s.wordpress, s.wordpressUnit)
+	mysqlLogUnit := findSubordinateUnit(c, loggingApp, s.mysqlUnit)
+
+	subAuthorizer := s.authorizer
+	subAuthorizer.Tag = mysqlLogUnit.Tag()
+	api, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		subAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.WatchUnitRelations(params.Entities{
+		Entities: []params.Entity{{Tag: mysqlLogUnit.Tag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[0].Changes, gc.NotNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	// We get notified about the mysql relation going away but not the
+	// wordpress one.
+	err = mysqlRel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(mysqlRel.Tag().Id())
+	wc.AssertNoChange()
+
+	err = wpRel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.C) {
+	// A subordinate unit should still be notified about changes to
+	// relations with applications that aren't the one this unit is
+	// attached to if they have global scope.
+	// The logging charm is subordinate (and the info endpoint is scope=container).
+	loggingCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+		Name: "logging",
+		URL:  "cs:quantal/logging-1",
+	})
+	loggingApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+		Name:  "logging",
+		Charm: loggingCharm,
+	})
+
+	uiCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+		Name: "logging-frontend",
+		URL:  "cs:quantal/logging-frontend-1",
+	})
+	uiApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+		Name:  "logging-frontend",
+		Charm: uiCharm,
+	})
+
+	_ = s.makeSubordinateRelation(c, loggingApp, s.mysql, s.mysqlUnit)
+	mysqlLogUnit := findSubordinateUnit(c, loggingApp, s.mysqlUnit)
+
+	subAuthorizer := s.authorizer
+	subAuthorizer.Tag = mysqlLogUnit.Tag()
+	api, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		subAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.WatchUnitRelations(params.Entities{
+		Entities: []params.Entity{{Tag: mysqlLogUnit.Tag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[0].Changes, gc.NotNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	// Should be notified about the relation to logging frontend, since it's global scope.
+	subEndpoint, err := loggingApp.Endpoint("logging-client")
+	c.Assert(err, jc.ErrorIsNil)
+	uiEndpoint, err := uiApp.Endpoint("logging-client")
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.Factory.MakeRelation(c, &jujufactory.RelationParams{
+		Endpoints: []state.Endpoint{subEndpoint, uiEndpoint},
+	})
+
+	wc.AssertChange(rel.Tag().Id())
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) makeSubordinateRelation(c *gc.C, subApp, principalApp *state.Application, principalUnit *state.Unit) *state.Relation {
+	subEndpoint, err := subApp.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	principalEndpoint, err := principalApp.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.Factory.MakeRelation(c, &jujufactory.RelationParams{
+		Endpoints: []state.Endpoint{subEndpoint, principalEndpoint},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Trigger the creation of the subordinate unit by entering scope
+	// on the principal unit.
+	ru, err := rel.Unit(principalUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return rel
+}
+
+func findSubordinateUnit(c *gc.C, subApp *state.Application, principalUnit *state.Unit) *state.Unit {
+	subUnits, err := subApp.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, subUnit := range subUnits {
+		principal, ok := subUnit.PrincipalName()
+		c.Assert(ok, jc.IsTrue)
+		if principal == principalUnit.Name() {
+			return subUnit
+		}
+	}
+	c.Fatalf("couldn't find subordinate unit for %q", principalUnit.Name())
+	return nil
 }
 
 func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
@@ -2003,26 +2198,6 @@ func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
 	}
 }
 
-func (s *uniterSuite) assertOneStringsWatcher(c *gc.C, result params.StringsWatchResults, err error) {
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-	c.Assert(result.Results[1].StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Results[1].Changes, gc.NotNil)
-	c.Assert(result.Results[1].Error, gc.IsNil)
-	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
-	wc.AssertNoChange()
-}
-
 func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
 	ok, err := relUnit.InScope()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2382,6 +2557,36 @@ func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *uniterSuite) TestV4WatchApplicationRelations(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
+		{Tag: "application-foo"},
+	}}
+	apiV4, err := uniter.NewUniterAPIV4(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := apiV4.WatchApplicationRelations(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 3)
+	c.Assert(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(result.Results[1].StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[1].Changes, gc.NotNil)
+	c.Assert(result.Results[1].Error, gc.IsNil)
+	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
 type unitMetricBatchesSuite struct {
 	uniterSuite
 	*commontesting.ModelWatcherTest
@@ -2521,7 +2726,8 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 }
 
 type uniterNetworkConfigSuite struct {
-	base uniterSuite // not embedded so it doesn't run all tests.
+	base     uniterSuite // not embedded so it doesn't run all tests.
+	uniterv4 *uniter.UniterAPIV4
 }
 
 var _ = gc.Suite(&uniterNetworkConfigSuite{})
@@ -2554,8 +2760,8 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 
 	s.base.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
 
-	factory := jujuFactory.NewFactory(s.base.State)
-	s.base.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+	factory := jujufactory.NewFactory(s.base.State)
+	s.base.wpCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "wordpress-extra-bindings",
 		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
@@ -2569,25 +2775,25 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.wordpress,
 		Machine:     s.base.machine0,
 	})
 
 	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
-	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
+	mysqlCharm := factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "mysql",
 	})
-	s.base.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.base.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.wordpress,
 		Machine:     s.base.machine0,
 	})
-	s.base.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.base.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.mysql,
 		Machine:     s.base.machine1,
 	})
@@ -2598,6 +2804,13 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.base.AddCleanup(func(_ *gc.C) { s.base.resources.StopAll() })
 
 	s.setupUniterAPIForUnit(c, s.base.wordpressUnit)
+	uniterAPIV4, err := uniter.NewUniterAPIV4(
+		s.base.State,
+		s.base.resources,
+		s.base.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.uniterv4 = uniterAPIV4
 }
 
 func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
@@ -2667,7 +2880,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.base.uniterv3, err = uniter.NewUniterAPIV3(
+	s.uniterv4, err = uniter.NewUniterAPIV4(
 		s.base.State,
 		s.base.resources,
 		s.base.authorizer,
@@ -2686,7 +2899,7 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
 		{BindingName: "unknown", UnitTag: s.base.wordpressUnit.Tag().String()},
 	}}
 
-	result, err := s.base.uniterv3.NetworkConfig(args)
+	result, err := s.uniterv4.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
@@ -2732,7 +2945,7 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForExplicitlyBoundEndpoint(c
 		{Address: "8.8.4.10"},
 	}
 
-	result, err := s.base.uniterv3.NetworkConfig(args)
+	result, err := s.uniterv4.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
@@ -2763,7 +2976,7 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c
 
 	expectedConfig := []params.NetworkConfig{{Address: privateAddress.Value}}
 
-	result, err := s.base.uniterv3.NetworkConfig(args)
+	result, err := s.uniterv4.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
@@ -2813,8 +3026,8 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.base.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
 
-	factory := jujuFactory.NewFactory(s.base.State)
-	s.base.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+	factory := jujufactory.NewFactory(s.base.State)
+	s.base.wpCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "wordpress-extra-bindings",
 		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
@@ -2830,25 +3043,25 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.wordpress,
 		Machine:     s.base.machine0,
 	})
 
 	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
-	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
+	mysqlCharm := factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "mysql",
 	})
-	s.base.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.base.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.wordpress,
 		Machine:     s.base.machine0,
 	})
-	s.base.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.base.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.mysql,
 		Machine:     s.base.machine1,
 	})

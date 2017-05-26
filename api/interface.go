@@ -4,13 +4,13 @@
 package api
 
 import (
+	"context"
 	"crypto/tls"
-	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
 // Info encapsulates information about a server holding juju state and
@@ -148,13 +149,13 @@ type DialOpts struct {
 	// It will be called with a websocket URL to connect to,
 	// and the TLS configuration to use to secure the connection.
 	//
-	// If DialWebsocket is nil, webaocket.DialConfig will be used.
-	//
-	// This field is provided for testing purposes only.
-	DialWebsocket func(urlStr string, tlsConfig *tls.Config, requestHeader http.Header) (*websocket.Conn, *http.Response, error)
+	// If DialWebsocket is nil, a default implementation using
+	// gorilla websockets will be used.
+	DialWebsocket func(ctx context.Context, urlStr string, tlsConfig *tls.Config) (jsoncodec.JSONConn, error)
 
-	// Internal use only.
-	tlsConfig *tls.Config
+	// Clock is used as a time source for retries.
+	// If it is nil, clock.WallClock will be used.
+	Clock clock.Clock
 }
 
 // DefaultDialOpts returns a DialOpts representing the default

@@ -1,0 +1,10 @@
+[Unit]
+Description=Jenkins CI Slave Agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/var/lib/jenkins/bin/start-jenkins-slave.sh
+
+[Install]
+WantedBy=multi-user.target

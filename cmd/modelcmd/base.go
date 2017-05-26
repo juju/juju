@@ -44,7 +44,7 @@ type Command interface {
 
 	// closeAPIContexts closes any API contexts that have been opened.
 	closeAPIContexts()
-	setCmdContext(*cmd.Context)
+	initContexts(*cmd.Context)
 	setRunStarted()
 }
 
@@ -319,9 +319,6 @@ func (c *CommandBase) getAPIContext(store jujuclient.CookieStore, controllerName
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if c.apiContexts == nil {
-		c.apiContexts = make(map[string]*apiContext)
-	}
 	c.apiContexts[controllerName] = ctx
 	return ctx, nil
 }
@@ -348,8 +345,9 @@ func (c *CommandBase) ClearControllerMacaroons(store jujuclient.CookieStore, con
 	return nil
 }
 
-func (c *CommandBase) setCmdContext(ctx *cmd.Context) {
+func (c *CommandBase) initContexts(ctx *cmd.Context) {
 	c.cmdContext = ctx
+	c.apiContexts = make(map[string]*apiContext)
 }
 
 // WrapBase wraps the specified Command. This should be
@@ -372,7 +370,7 @@ func (w *baseCommandWrapper) inner() cmd.Command {
 // Run implements Command.Run.
 func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
 	defer w.closeAPIContexts()
-	w.setCmdContext(ctx)
+	w.initContexts(ctx)
 	w.setRunStarted()
 	return w.Command.Run(ctx)
 }

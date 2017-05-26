@@ -282,7 +282,7 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		if err != nil {
 			return errors.Annotate(err, "cannot resolve metadata")
 		}
-		logger.Infof("Fetching tools from dir %q to generate hash: %v", toolsDir, binary)
+		logger.Infof("Fetching agent binaries from dir %q to generate hash: %v", toolsDir, binary)
 		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
 		// Older versions of Juju only know about ppc64, not ppc64el,
 		// so if there's no metadata for ppc64, dd metadata for that arch.

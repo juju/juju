@@ -41,7 +41,10 @@ var _ = gc.Suite(&listCredentialsSuite{
 
 func (s *listCredentialsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	environs.RegisterProvider("test-provider", &mockProvider{})
+	unreg := environs.RegisterProvider("test-provider", &mockProvider{})
+	s.AddCleanup(func(_ *gc.C) {
+		unreg()
+	})
 }
 
 func (s *listCredentialsSuite) SetUpTest(c *gc.C) {

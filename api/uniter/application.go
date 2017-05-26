@@ -11,7 +11,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
@@ -45,28 +44,6 @@ func (s *Application) String() string {
 // Watch returns a watcher for observing changes to an application.
 func (s *Application) Watch() (watcher.NotifyWatcher, error) {
 	return common.Watch(s.st.facade, s.tag)
-}
-
-// WatchRelations returns a StringsWatcher that notifies of changes to
-// the lifecycles of relations involving s.
-func (s *Application) WatchRelations() (watcher.StringsWatcher, error) {
-	var results params.StringsWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag.String()}},
-	}
-	err := s.st.facade.FacadeCall("WatchApplicationRelations", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
-	return w, nil
 }
 
 // Life returns the application's current life state.

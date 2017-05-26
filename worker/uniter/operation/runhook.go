@@ -78,7 +78,7 @@ func RunningHookMessage(hookName string) string {
 // Execute is part of the Operation interface.
 func (rh *runHook) Execute(state State) (*State, error) {
 	message := RunningHookMessage(rh.name)
-	if err := rh.beforeHook(); err != nil {
+	if err := rh.beforeHook(state); err != nil {
 		return nil, err
 	}
 	if err := rh.callbacks.SetExecutingStatus(message); err != nil {
@@ -129,14 +129,18 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	}.apply(state), err
 }
 
-func (rh *runHook) beforeHook() error {
+func (rh *runHook) beforeHook(state State) error {
 	var err error
 	switch rh.info.Kind {
 	case hooks.Install:
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
-			Status: string(status.Maintenance),
-			Info:   status.MessageInstallingCharm,
-		})
+		// If the charm has already updated the unit status in a previous hook,
+		// then don't overwrite that here.
+		if !state.StatusSet {
+			err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+				Status: string(status.Maintenance),
+				Info:   status.MessageInstallingCharm,
+			})
+		}
 	case hooks.Stop:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Maintenance),

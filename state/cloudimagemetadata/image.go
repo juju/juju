@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -49,9 +50,15 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		seen := set.NewStrings()
 		var ops []txn.Op
 		for _, newDoc := range newDocs {
 			newDocCopy := newDoc
+			if seen.Contains(newDocCopy.Id) {
+				return nil, errors.Errorf(
+					"duplicate metadata record for image id %s (key=%q)",
+					newDocCopy.ImageId, newDocCopy.Id)
+			}
 			op := txn.Op{
 				C:  s.collection,
 				Id: newDocCopy.Id,
@@ -73,6 +80,7 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 				ops = append(ops, op)
 				logger.Debugf("updating cloud image id for metadata %v", newDocCopy.Id)
 			}
+			seen.Add(newDocCopy.Id)
 		}
 		if len(ops) == 0 {
 			return nil, jujutxn.ErrNoOperations
@@ -224,7 +232,7 @@ type imagesMetadataDoc struct {
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	r := Metadata{
-		MetadataAttributes{
+		MetadataAttributes: MetadataAttributes{
 			Source:          m.Source,
 			Stream:          m.Stream,
 			Region:          m.Region,
@@ -234,9 +242,9 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			RootStorageType: m.RootStorageType,
 			VirtType:        m.VirtType,
 		},
-		m.Priority,
-		m.ImageId,
-		m.DateCreated,
+		Priority:    m.Priority,
+		ImageId:     m.ImageId,
+		DateCreated: m.DateCreated,
 	}
 	if m.RootStorageSize != 0 {
 		r.RootStorageSize = &m.RootStorageSize

@@ -32,6 +32,9 @@ type Unit interface {
 	WatchConfigSettings() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
+	// WatchRelation returns a watcher that fires when relations
+	// relevant for this unit change.
+	WatchRelations() (watcher.StringsWatcher, error)
 }
 
 type Application interface {
@@ -51,9 +54,6 @@ type Application interface {
 	// WatchLeadershipSettings returns a watcher that fires when the leadership
 	// settings for this service change.
 	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
-	// WatchRelation returns a watcher that fires when the relations on this
-	// service change.
-	WatchRelations() (watcher.StringsWatcher, error)
 }
 
 type Relation interface {

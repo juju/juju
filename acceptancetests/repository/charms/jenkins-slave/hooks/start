@@ -1,0 +1,3 @@
+#!/bin/bash
+
+service jenkins-slave start || true

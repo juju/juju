@@ -5,13 +5,16 @@ package state
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 )
 
@@ -170,37 +173,34 @@ type collectionInfo struct {
 // collectionSchema defines the set of collections used in juju.
 type collectionSchema map[string]collectionInfo
 
-// Load causes all recorded collections to be created and indexed as specified;
-// the returned Database will filter queries and transactions according to the
-// suppplied model UUID.
-func (schema collectionSchema) Load(
+// Create causes all recorded collections to be created and indexed as specified
+func (schema collectionSchema) Create(
 	db *mgo.Database,
-	modelUUID string,
-	runTransactionObserver RunTransactionObserverFunc,
-) (Database, error) {
-	if !names.IsValidModel(modelUUID) {
-		return nil, errors.New("invalid model UUID")
-	}
+	settings controller.Config,
+) error {
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
+			// We allow the max txn log collection size to be overridden by the user.
+			if name == txnLogC {
+				maxSize := settings.MaxTxnLogSizeMB()
+				if maxSize > 0 {
+					logger.Infof("overriding max txn log collection size: %dM", maxSize)
+					spec.MaxBytes = maxSize * 1024 * 1024
+				}
+			}
 			if err := createCollection(rawCollection, spec); err != nil {
 				message := fmt.Sprintf("cannot create collection %q", name)
-				return nil, maybeUnauthorized(err, message)
+				return maybeUnauthorized(err, message)
 			}
 		}
 		for _, index := range info.indexes {
 			if err := rawCollection.EnsureIndex(index); err != nil {
-				return nil, maybeUnauthorized(err, "cannot create index")
+				return maybeUnauthorized(err, "cannot create index")
 			}
 		}
 	}
-	return &database{
-		raw:                    db,
-		schema:                 schema,
-		modelUUID:              modelUUID,
-		runTransactionObserver: runTransactionObserver,
-	}, nil
+	return nil
 }
 
 // createCollection swallows collection-already-exists errors.
@@ -271,6 +271,9 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	info, found := db.schema[name]
 	if !found {
 		logger.Errorf("using unknown collection %q", name)
+		if featureflag.Enabled(feature.DeveloperMode) {
+			logger.Errorf("from %s", string(debug.Stack()))
+		}
 	}
 
 	// Copy session if necessary.

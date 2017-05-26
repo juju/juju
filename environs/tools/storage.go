@@ -16,7 +16,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-var ErrNoTools = errors.New("no tools available")
+var ErrNoTools = errors.New("no agent binaries available")
 
 const (
 	toolPrefix = "tools/%s/juju-"
@@ -39,9 +39,9 @@ func storagePrefix(stream string) string {
 // If store contains no such tools, it returns ErrNoMatches.
 func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
-		logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
+		logger.Debugf("reading v%d.%d agent binaries", majorVersion, minorVersion)
 	} else {
-		logger.Debugf("reading v%d.* tools", majorVersion)
+		logger.Debugf("reading v%d.* agent binaries", majorVersion)
 	}
 	storagePrefix := storagePrefix(toolsDir)
 	names, err := storage.List(stor, storagePrefix)

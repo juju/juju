@@ -109,7 +109,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	fmt.Fprintf(context.Stdout, "Finding tools in %s for stream %s.\n", c.metadataDir, c.stream)
+	fmt.Fprintf(context.Stdout, "Finding agent binaries in %s for stream %s.\n", c.metadataDir, c.stream)
 	toolsList, err := envtools.ReadList(sourceStorage, c.stream, -1, -1)
 	if err == envtools.ErrNoTools {
 		var source string

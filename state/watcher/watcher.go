@@ -8,6 +8,7 @@ package watcher
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -16,14 +17,18 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
+
+	"github.com/juju/juju/mongo"
+	jworker "github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.state.watcher")
 
 // A Watcher can watch any number of collections and documents for changes.
 type Watcher struct {
-	tomb tomb.Tomb
-	log  *mgo.Collection
+	tomb         tomb.Tomb
+	iteratorFunc func() mongo.Iterator
+	log          *mgo.Collection
 
 	// watches holds the observers managed by Watch/Unwatch.
 	watches map[watchKey][]watchInfo
@@ -103,17 +108,29 @@ type event struct {
 	revno int64
 }
 
+// Period is the delay between each sync.
+// It must not be changed when any watchers are active.
+var Period time.Duration = 5 * time.Second
+
 // New returns a new Watcher observing the changelog collection,
 // which must be a capped collection maintained by mgo/txn.
 func New(changelog *mgo.Collection) *Watcher {
+	return newWatcher(changelog, nil)
+}
+
+func newWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *Watcher {
 	w := &Watcher{
-		log:     changelog,
-		watches: make(map[watchKey][]watchInfo),
-		current: make(map[watchKey]int64),
-		request: make(chan interface{}),
+		log:          changelog,
+		iteratorFunc: iteratorFunc,
+		watches:      make(map[watchKey][]watchInfo),
+		current:      make(map[watchKey]int64),
+		request:      make(chan interface{}),
+	}
+	if w.iteratorFunc == nil {
+		w.iteratorFunc = w.iter
 	}
 	go func() {
-		err := w.loop()
+		err := w.loop(Period)
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
 		// exact values, so we need to log and unwrap
@@ -228,13 +245,10 @@ func (w *Watcher) StartSync() {
 	w.sendReq(reqSync{})
 }
 
-// Period is the delay between each sync.
-// It must not be changed when any watchers are active.
-var Period time.Duration = 5 * time.Second
-
 // loop implements the main watcher loop.
-func (w *Watcher) loop() error {
-	next := time.After(Period)
+// period is the delay between each sync.
+func (w *Watcher) loop(period time.Duration) error {
+	next := time.After(period)
 	w.needSync = true
 	if err := w.initLastId(); err != nil {
 		return errors.Trace(err)
@@ -242,16 +256,24 @@ func (w *Watcher) loop() error {
 	for {
 		if w.needSync {
 			if err := w.sync(); err != nil {
+				// If the txn log collection overflows from underneath us,
+				// the easiest cause of action to recover is to cause the
+				// agen tto restart.
+				if errors.Cause(err) == cappedPositionLostError {
+					// Ideally we'd not import the worker package but that's
+					// where all the errors are defined.
+					return jworker.ErrRestartAgent
+				}
 				return errors.Trace(err)
 			}
 			w.flush()
-			next = time.After(Period)
+			next = time.After(period)
 		}
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case <-next:
-			next = time.After(Period)
+			next = time.After(period)
 			w.needSync = true
 		case req := <-w.request:
 			w.handle(req)
@@ -361,12 +383,18 @@ func (w *Watcher) initLastId() error {
 	return nil
 }
 
+func (w *Watcher) iter() mongo.Iterator {
+	return w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+}
+
+var cappedPositionLostError = errors.New("capped position lost")
+
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *Watcher) sync() error {
 	w.needSync = false
 	// Iterate through log events in reverse insertion order (newest first).
-	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+	iter := w.iteratorFunc()
 	seen := make(map[watchKey]bool)
 	first := true
 	lastId := w.lastId
@@ -440,7 +468,15 @@ func (w *Watcher) sync() error {
 		}
 	}
 	if err := iter.Close(); err != nil {
-		return errors.Errorf("watcher iteration error: %v", err)
+		if qerr, ok := err.(*mgo.QueryError); ok {
+			// CappedPositionLost is code 136.
+			// Just in case that changes for some reason, we'll also check the error message.
+			if qerr.Code == 136 || strings.Contains(qerr.Message, "CappedPositionLost") {
+				logger.Warningf("watcher iterator failed due to txn log collection overflow")
+				err = cappedPositionLostError
+			}
+		}
+		return errors.Annotate(err, "watcher iteration error")
 	}
 	return nil
 }

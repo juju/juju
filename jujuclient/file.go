@@ -7,6 +7,8 @@
 package jujuclient
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,33 +23,51 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-var _ ClientStore = (*store)(nil)
+var (
+	_ ClientStore = (*store)(nil)
 
-var logger = loggo.GetLogger("juju.jujuclient")
+	logger = loggo.GetLogger("juju.jujuclient")
 
-// A second should be enough to write or read any files. But
-// some disks are slow when under load, so lets give the disk a
-// reasonable time to get the lock.
-var lockTimeout = 5 * time.Second
+	// A second should be enough to write or read any files. But
+	// some disks are slow when under load, so lets give the disk a
+	// reasonable time to get the lock.
+	lockTimeout = 5 * time.Second
+)
 
 // NewFileClientStore returns a new filesystem-based client store
 // that manages files in $XDG_DATA_HOME/juju.
 func NewFileClientStore() ClientStore {
-	return &store{}
+	return &store{
+		lockName: generateStoreLockName(),
+	}
 }
 
 // NewFileCredentialStore returns a new filesystem-based credentials store
 // that manages credentials in $XDG_DATA_HOME/juju.
 func NewFileCredentialStore() CredentialStore {
-	return &store{}
+	return &store{
+		lockName: generateStoreLockName(),
+	}
 }
 
-type store struct{}
+type store struct {
+	lockName string
+}
+
+// generateStoreLockName uses part of the hash of the controller path as the
+// name of the lock. This is to avoid contention between multiple users on a
+// single machine with different controller files, but also helps with
+// contention in tests.
+func generateStoreLockName() string {
+	h := sha256.New()
+	h.Write([]byte(JujuControllersPath()))
+	fullHash := fmt.Sprintf("%x", h.Sum(nil))
+	return fmt.Sprintf("store-lock-%x", fullHash[:8])
+}
 
 func (s *store) acquireLock() (mutex.Releaser, error) {
-	const lockName = "store-lock"
 	spec := mutex.Spec{
-		Name:    lockName,
+		Name:    s.lockName,
 		Clock:   clock.WallClock,
 		Delay:   20 * time.Millisecond,
 		Timeout: lockTimeout,

@@ -1,0 +1,6 @@
+#!/bin/bash
+set -eux
+
+status-set maintenance "Stopping" || true
+service squid stop
+status-set maintenance "Stopped" || true

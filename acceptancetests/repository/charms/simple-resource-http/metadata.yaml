@@ -1,0 +1,21 @@
+name: simple-resource-http
+maintainer: Christopher Lee <chris.lee@canonical.com>
+summary: Provides a simple http server that serves a resource file.
+description: |
+  Simple http server for a resource file.
+provides:
+  website:
+    interface: http
+categories:
+  - misc
+series:
+  - trusty
+  - precise
+  - xenial
+  - yakkety
+  - zesty
+resources:
+  index:
+    type: file
+    filename: index.html
+    description: "File to serve."

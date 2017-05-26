@@ -41,8 +41,9 @@ type slaClient interface {
 }
 
 type slaLevel struct {
-	Model string `json:"model" yaml:"model"`
-	SLA   string `json:"sla" yaml:"sla"`
+	Model   string `json:"model,omitempty" yaml:"model,omitempty"`
+	SLA     string `json:"sla,omitempty" yaml:"sla,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 var newSLAClient = func(conn api.Connection) slaClient {
@@ -107,7 +108,7 @@ func (c *slaCommand) Info() *cmd.Info {
 Set the support level for the model, effective immediately.
 Examples:
     juju sla essential              # set the support level to essential
-    juju sla standard --wallet 1000 # set the support level to essential witha maximum wallet of $1000
+    juju sla standard --budget 1000 # set the support level to essential with a maximum budget of $1000
     juju sla                        # display the current support level for the model.
 `,
 	}
@@ -122,37 +123,35 @@ func (c *slaCommand) Init(args []string) error {
 	return c.ModelCommandBase.Init(args[1:])
 }
 
-func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, []byte, error) {
+func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, string, []byte, error) {
+	fail := func(err error) (string, string, []byte, error) {
+		return "", "", nil, err
+	}
 	hc, err := c.BakeryClient()
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	authClient, err := c.newAuthorizationClient(sla.HTTPClient(hc))
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
 	if err != nil {
 		err = common.MaybeTermsAgreementError(err)
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
-			return "", nil, errors.Trace(termErr.UserErr())
+			return fail(errors.Trace(termErr.UserErr()))
 		}
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	ms := macaroon.Slice{slaResp.Credentials}
 	mbuf, err := json.Marshal(ms)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	return slaResp.Owner, mbuf, nil
+	return slaResp.Owner, slaResp.Message, mbuf, nil
 }
 
-func (c *slaCommand) displayCurrentLevel(client slaClient, modelID string, ctx *cmd.Context) error {
-	modelNameMap := modelNameMap()
-	modelName := modelID
-	if name, ok := modelNameMap[modelID]; ok {
-		modelName = name
-	}
+func (c *slaCommand) displayCurrentLevel(client slaClient, modelName string, ctx *cmd.Context) error {
 	level, err := client.SLALevel()
 	if err != nil {
 		return errors.Trace(err)
@@ -171,13 +170,28 @@ func (c *slaCommand) Run(ctx *cmd.Context) error {
 	}
 	client := c.newSLAClient(root)
 	modelId := modelId(root)
+	modelNameMap := modelNameMap()
+	modelName := modelId
+	if name, ok := modelNameMap[modelId]; ok {
+		modelName = name
+	}
 
 	if c.Level == "" {
-		return c.displayCurrentLevel(client, modelId, ctx)
+		return c.displayCurrentLevel(client, modelName, ctx)
 	}
-	owner, credentials, err := c.requestSupportCredentials(modelId)
+	owner, message, credentials, err := c.requestSupportCredentials(modelId)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if message != "" {
+		err = c.out.Write(ctx, &slaLevel{
+			Model:   modelName,
+			SLA:     c.Level,
+			Message: message,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	err = client.SetSLALevel(c.Level, owner, credentials)
 	if err != nil {
@@ -197,8 +211,8 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	for _, col := range []int{2, 3, 5} {
 		table.RightAlign(col)
 	}
-	table.AddRow("Model", "SLA")
-	table.AddRow(l.Model, l.SLA)
+	table.AddRow("Model", "SLA", "Message")
+	table.AddRow(l.Model, l.SLA, l.Message)
 	fmt.Fprint(writer, table)
 	return nil
 }

@@ -146,7 +146,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 		}
 		return 0, fmt.Errorf("not a directory")
 	})
-	s.PatchValue(mongo.MinOplogSizeMB, 1)
+	s.PatchValue(mongo.SmallOplogSizeMB, 1)
 
 	testPath := c.MkDir()
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")

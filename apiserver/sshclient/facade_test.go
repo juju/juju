@@ -14,8 +14,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/sshclient"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -115,15 +117,17 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 			{Error: apiservertesting.NotFoundError("entity")},
 			{Addresses: []string{
 				"0.1.2.3", "1.1.1.1", "2.2.2.2", // From AllNetworkAddresses()
-				"1.1.1.1", "2.2.2.2", // From Addresses()
+				"9.9.9.9", // From Addresses()
 			}},
 			{Addresses: []string{
 				"0.3.2.1", "3.3.3.3", "4.4.4.4", // From AllNetworkAddresses()
-				"3.3.3.3", "4.4.4.4", // From Addresses()
+				"10.10.10.10", // From Addresses()
 			}},
 		},
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"ModelConfig", nil},
+		{"CloudSpec", []interface{}{names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")}},
 		{"GetMachineForEntity", []interface{}{s.uOther}},
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetMachineForEntity", []interface{}{s.uFoo}},
@@ -198,18 +202,22 @@ func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSH
 	switch tagString {
 	case names.NewMachineTag("0").String():
 		return &mockMachine{
-			tag:                 names.NewMachineTag("0"),
-			publicAddress:       "1.1.1.1",
-			privateAddress:      "2.2.2.2",
-			addresses:           network.NewAddresses("1.1.1.1", "2.2.2.2"),
-			allNetworkAddresses: network.NewAddresses("0.1.2.3", "1.1.1.1", "2.2.2.2"),
+			tag:            names.NewMachineTag("0"),
+			publicAddress:  "1.1.1.1",
+			privateAddress: "2.2.2.2",
+			addresses:      network.NewAddresses("9.9.9.9"),
+			allNetworkAddresses: network.NewAddresses("0.1.2.3", "1.1.1.1", "2.2.2.2",
+				"100.100.100.100", // This one will be filtered by provider
+			),
 		}, nil
 	case names.NewUnitTag("foo/0").String():
 		return &mockMachine{
-			tag:                 names.NewMachineTag("1"),
-			publicAddress:       "3.3.3.3",
-			privateAddress:      "4.4.4.4",
-			addresses:           network.NewAddresses("3.3.3.3", "4.4.4.4"),
+			tag:            names.NewMachineTag("1"),
+			publicAddress:  "3.3.3.3",
+			privateAddress: "4.4.4.4",
+			addresses: network.NewAddresses("10.10.10.10",
+				"100.100.100.100", // This one will be filtered by provider
+			),
 			allNetworkAddresses: network.NewAddresses("0.3.2.1", "3.3.3.3", "4.4.4.4"),
 		}, nil
 	}
@@ -225,6 +233,11 @@ func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostK
 		return state.SSHHostKeys{"rsa1", "dsa1"}, nil
 	}
 	return nil, errors.New("machine not found")
+}
+
+func (backend *mockBackend) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+	backend.stub.AddCall("CloudSpec", tag)
+	return dummy.SampleCloudSpec(), nil
 }
 
 type mockMachine struct {

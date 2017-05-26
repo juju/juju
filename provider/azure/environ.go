@@ -495,7 +495,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("picked tools %q", selectedTools[0].Version)
+	logger.Infof("picked agent binaries %q", selectedTools[0].Version)
 
 	// Finalize the instance config, which we'll render to CustomData below.
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {

@@ -527,9 +527,9 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	// Ensure machine error status was set, and the error matches
 	agentStatus, instanceStatus := s.waitUntilMachineNotPending(c, m)
 	c.Check(agentStatus.Status, gc.Equals, status.Error)
-	c.Check(agentStatus.Message, gc.Equals, "no matching tools available")
+	c.Check(agentStatus.Message, gc.Equals, "no matching agent binaries available")
 	c.Check(instanceStatus.Status, gc.Equals, status.ProvisioningError)
-	c.Check(instanceStatus.Message, gc.Equals, "no matching tools available")
+	c.Check(instanceStatus.Message, gc.Equals, "no matching agent binaries available")
 
 	// Restart the PA to make sure the machine is skipped again.
 	stop(c, p)

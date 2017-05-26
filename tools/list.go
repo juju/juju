@@ -16,7 +16,7 @@ import (
 // a List is not significant.
 type List []*Tools
 
-var ErrNoMatches = errors.New("no matching tools available")
+var ErrNoMatches = errors.New("no matching agent binaries available")
 
 // String returns the versions of the tools in src, separated by semicolons.
 func (src List) String() string {

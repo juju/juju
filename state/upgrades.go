@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/storage/provider"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -635,9 +636,9 @@ func RemoveNilValueApplicationSettings(st *State) error {
 	return nil
 }
 
-// AddControllerLogPruneSettings adds the controller
-// settings to control log pruning if they are missing.
-func AddControllerLogPruneSettings(st *State) error {
+// AddControllerLogCollectionsSizeSettings adds the controller
+// settings to control log pruning and txn log size if they are missing.
+func AddControllerLogCollectionsSizeSettings(st *State) error {
 	coll, closer := st.getRawCollection(controllersC)
 	defer closer()
 	var doc settingsDoc
@@ -652,6 +653,8 @@ func AddControllerLogPruneSettings(st *State) error {
 	settingsChanged := maybeUpdateSettings(doc.Settings, controller.MaxLogsAge, fmt.Sprintf("%vh", controller.DefaultMaxLogsAgeDays*24))
 	settingsChanged =
 		maybeUpdateSettings(doc.Settings, controller.MaxLogsSize, fmt.Sprintf("%vM", controller.DefaultMaxLogCollectionMB)) || settingsChanged
+	settingsChanged =
+		maybeUpdateSettings(doc.Settings, controller.MaxTxnLogSize, fmt.Sprintf("%vM", controller.DefaultMaxTxnLogCollectionMB)) || settingsChanged
 	if settingsChanged {
 		ops = append(ops, txn.Op{
 			C:      controllersC,
@@ -708,6 +711,107 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// AddStorageInstanceConstraints sets the "constraints" field on
+// storage instance docs.
+func AddStorageInstanceConstraints(st *State) error {
+	return runForAllModelStates(st, addStorageInstanceConstraints)
+}
+
+func addStorageInstanceConstraints(st *State) error {
+	storageInstances, err := st.storageInstances(bson.D{
+		{"constraints", bson.D{{"$exists", false}}},
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var ops []txn.Op
+	for _, s := range storageInstances {
+		var siCons storageInstanceConstraints
+		var defaultPool string
+		switch s.Kind() {
+		case StorageKindBlock:
+			v, err := st.storageInstanceVolume(s.StorageTag())
+			if err == nil {
+				if v.doc.Info != nil {
+					siCons.Pool = v.doc.Info.Pool
+					siCons.Size = v.doc.Info.Size
+				} else if v.doc.Params != nil {
+					siCons.Pool = v.doc.Params.Pool
+					siCons.Size = v.doc.Params.Size
+				}
+			} else if errors.IsNotFound(err) {
+				defaultPool = string(provider.LoopProviderType)
+			} else {
+				return errors.Trace(err)
+			}
+		case StorageKindFilesystem:
+			f, err := st.storageInstanceFilesystem(s.StorageTag())
+			if err == nil {
+				if f.doc.Info != nil {
+					siCons.Pool = f.doc.Info.Pool
+					siCons.Size = f.doc.Info.Size
+				} else if f.doc.Params != nil {
+					siCons.Pool = f.doc.Params.Pool
+					siCons.Size = f.doc.Params.Size
+				}
+			} else if errors.IsNotFound(err) {
+				defaultPool = string(provider.RootfsProviderType)
+			} else {
+				return errors.Trace(err)
+			}
+		default:
+			// Unknown storage kind, ignore.
+			continue
+		}
+		if siCons.Pool == "" {
+			// There's no associated volume or filesystem, so
+			// take constraints from the application storage
+			// constraints. This could be wrong, but we've got
+			// nothing else to go on, and this will match the
+			// old broken behaviour at least.
+			//
+			// If there's no owner, just use the defaults.
+			siCons.Pool = defaultPool
+			siCons.Size = 1024
+			if ownerTag := s.maybeOwner(); ownerTag != nil {
+				type withStorageConstraints interface {
+					StorageConstraints() (map[string]StorageConstraints, error)
+				}
+				owner, err := st.FindEntity(ownerTag)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if owner, ok := owner.(withStorageConstraints); ok {
+					allCons, err := owner.StorageConstraints()
+					if err != nil {
+						return errors.Trace(err)
+					}
+					if cons, ok := allCons[s.StorageName()]; ok {
+						siCons.Pool = cons.Pool
+						siCons.Size = cons.Size
+					}
+				}
+			}
+			logger.Warningf(
+				"no volume or filesystem found, using application storage constraints for %s",
+				names.ReadableString(s.Tag()),
+			)
+		}
+		ops = append(ops, txn.Op{
+			C:      storageInstancesC,
+			Id:     s.doc.Id,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"constraints", siCons},
+			}}},
+		})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runTransaction(ops))
 	}
 	return nil
 }

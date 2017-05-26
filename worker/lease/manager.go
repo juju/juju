@@ -21,10 +21,20 @@ var logger = loggo.GetLogger("juju.worker.lease")
 // the manager has started (and possibly finished) shutdown.
 var errStopped = errors.New("lease manager stopped")
 
+type dummySecretary struct{}
+
+func (d dummySecretary) CheckLease(name string) error               { return nil }
+func (d dummySecretary) CheckHolder(name string) error              { return nil }
+func (d dummySecretary) CheckDuration(duration time.Duration) error { return nil }
+
 // NewDeadManager returns a manager that's already dead
 // and always returns the given error.
 func NewDeadManager(err error) *Manager {
-	var m Manager
+	m := Manager{
+		config: ManagerConfig{
+			Secretary: dummySecretary{},
+		},
+	}
 	catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
 		Work: func() error {

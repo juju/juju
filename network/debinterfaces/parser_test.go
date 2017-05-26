@@ -441,14 +441,14 @@ func (s *ParserSuite) TestNoScriptsStanza(c *gc.C) {
 func (s *ParserSuite) TestFailParseDirectoryAsInput(c *gc.C) {
 	stanzas, err := debinterfaces.Parse("testdata/TestInputSourceStanza")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, ".* testdata/TestInputSourceStanza: is a directory")
+	c.Check(err, gc.ErrorMatches, ".* testdata/TestInputSourceStanza: .*")
 	c.Assert(stanzas, gc.IsNil)
 }
 
 func (s *ParserSuite) TestSourceStanzaNonExistentFile(c *gc.C) {
 	_, err := debinterfaces.Parse("testdata/TestInputSourceStanza/non-existent-file")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, ".* testdata/TestInputSourceStanza/non-existent-file: no such file or directory")
+	c.Check(err, gc.ErrorMatches, ".* testdata/TestInputSourceStanza/non-existent-file: .*")
 }
 
 func (s *ParserSuite) TestSourceStanzaWhereGlobHasZeroMatches(c *gc.C) {
@@ -490,10 +490,11 @@ func (s *ParserSuite) TestSourceStanzaWithRelativeFilenames(c *gc.C) {
 	c.Assert(source.Stanzas[4], gc.FitsTypeOf, debinterfaces.AutoStanza{})
 	c.Assert(source.Stanzas[5], gc.FitsTypeOf, debinterfaces.IfaceStanza{})
 
+	basePath := filepath.Join("testdata", "TestInputSourceStanza", "interfaces.d")
 	c.Check(source.Sources, gc.DeepEquals, []string{
-		"testdata/TestInputSourceStanza/interfaces.d/eth0.cfg",
-		"testdata/TestInputSourceStanza/interfaces.d/eth1.cfg",
-		"testdata/TestInputSourceStanza/interfaces.d/eth2.cfg",
+		filepath.Join(basePath, "eth0.cfg"),
+		filepath.Join(basePath, "eth1.cfg"),
+		filepath.Join(basePath, "eth2.cfg"),
 	})
 
 	// Note: we don't have tests for stanzas nested > 1 deep.
@@ -504,19 +505,19 @@ func (s *ParserSuite) TestSourceStanzaWithRelativeFilenames(c *gc.C) {
 
 	c.Assert(eth0.Definition(), gc.HasLen, 1)
 	c.Check(eth0.Definition()[0], gc.Equals, "iface eth0 inet dhcp")
-	c.Check(eth0.Location().Filename, gc.Equals, "testdata/TestInputSourceStanza/interfaces.d/eth0.cfg")
+	c.Check(eth0.Location().Filename, gc.Equals, filepath.Join(basePath, "eth0.cfg"))
 	c.Check(eth0.Location().LineNum, gc.Equals, 2)
 
 	c.Assert(eth1.Definition(), gc.HasLen, 3)
 	c.Check(eth1.Definition()[0], gc.Equals, "iface eth1 inet static")
 	c.Check(eth1.Definition()[1], gc.Equals, "address 192.168.1.64")
 	c.Check(eth1.Definition()[2], gc.Equals, "dns-nameservers 192.168.1.254")
-	c.Check(eth1.Location().Filename, gc.Equals, "testdata/TestInputSourceStanza/interfaces.d/eth1.cfg")
+	c.Check(eth1.Location().Filename, gc.Equals, filepath.Join(basePath, "eth1.cfg"))
 	c.Check(eth1.Location().LineNum, gc.Equals, 2)
 
 	c.Assert(eth2.Definition(), gc.HasLen, 1)
 	c.Check(eth2.Definition()[0], gc.Equals, "iface eth2 inet manual")
-	c.Check(eth2.Location().Filename, gc.Equals, "testdata/TestInputSourceStanza/interfaces.d/eth2.cfg")
+	c.Check(eth2.Location().Filename, gc.Equals, filepath.Join(basePath, "eth2.cfg"))
 	c.Check(eth2.Location().LineNum, gc.Equals, 2)
 }
 
@@ -526,7 +527,7 @@ func (s *ParserSuite) TestSourceStanzaFromFileWithStanzaErrors(c *gc.C) {
 	c.Assert(err, gc.FitsTypeOf, &debinterfaces.ParseError{})
 	parseError := err.(*debinterfaces.ParseError)
 	c.Assert(parseError, gc.DeepEquals, &debinterfaces.ParseError{
-		Filename: "testdata/TestInputSourceStanzaWithErrors/interfaces.d/eth1.cfg",
+		Filename: filepath.Join("testdata", "TestInputSourceStanzaWithErrors", "interfaces.d", "eth1.cfg"),
 		Line:     "iface",
 		LineNum:  2,
 		Message:  "missing device name",
@@ -559,7 +560,7 @@ func (s *ParserSuite) TestSourceDirectoryStanzaWithRelativeFilenames(c *gc.C) {
 	c.Assert(source.Stanzas[1], gc.FitsTypeOf, debinterfaces.IfaceStanza{})
 
 	c.Check(source.Sources, gc.DeepEquals, []string{
-		"testdata/TestInputSourceDirectoryStanza/interfaces.d/eth3",
+		filepath.Join("testdata", "TestInputSourceDirectoryStanza", "interfaces.d", "eth3"),
 	})
 
 	// Note: we don't have tests for stanzas nested > 1 deep.
@@ -569,7 +570,7 @@ func (s *ParserSuite) TestSourceDirectoryStanzaWithRelativeFilenames(c *gc.C) {
 	c.Check(eth3.Definition()[0], gc.Equals, "iface eth3 inet static")
 	c.Check(eth3.Definition()[1], gc.Equals, "address 192.168.1.128")
 	c.Check(eth3.Definition()[2], gc.Equals, "dns-nameservers 192.168.1.254")
-	c.Check(eth3.Location().Filename, gc.Equals, "testdata/TestInputSourceDirectoryStanza/interfaces.d/eth3")
+	c.Check(eth3.Location().Filename, gc.Equals, filepath.Join("testdata", "TestInputSourceDirectoryStanza", "interfaces.d", "eth3"))
 	c.Check(eth3.Location().LineNum, gc.Equals, 2)
 }
 
@@ -579,7 +580,7 @@ func (s *ParserSuite) TestSourceDirectoryStanzaFromDirectoryWithStanzaErrors(c *
 	c.Assert(err, gc.FitsTypeOf, &debinterfaces.ParseError{})
 	parseError := err.(*debinterfaces.ParseError)
 	c.Assert(parseError, gc.DeepEquals, &debinterfaces.ParseError{
-		Filename: "testdata/TestInputSourceDirectoryStanzaWithErrors/interfaces.d/eth3",
+		Filename: filepath.Join("testdata", "TestInputSourceDirectoryStanzaWithErrors", "interfaces.d", "eth3"),
 		Line:     "iface",
 		LineNum:  2,
 		Message:  "missing device name",

@@ -4564,13 +4564,22 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	calls := getCalls()
-	c.Assert(calls, gc.HasLen, 1)
-	c.Assert(calls[0].dbName, gc.Equals, "juju")
-	c.Assert(calls[0].modelUUID, gc.Equals, s.modelTag.Id())
-	c.Assert(calls[0].err, gc.IsNil)
-	c.Assert(calls[0].ops, gc.HasLen, 1)
-	c.Assert(calls[0].ops[0].C, gc.Equals, "constraints")
-	c.Assert(calls[0].ops[0].Update, gc.NotNil)
+	// There may be some leadership txns in the call list.
+	// We onlt care about the constraints call.
+	found := false
+	for _, call := range calls {
+		if call.ops[0].C != "constraints" {
+			continue
+		}
+		c.Check(call.dbName, gc.Equals, "juju")
+		c.Check(call.modelUUID, gc.Equals, s.modelTag.Id())
+		c.Check(call.err, gc.IsNil)
+		c.Check(call.ops, gc.HasLen, 1)
+		c.Check(call.ops[0].Update, gc.NotNil)
+		found = true
+		break
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 type SetAdminMongoPasswordSuite struct {
