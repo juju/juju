@@ -5,6 +5,7 @@ package resourceadapters_test
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -32,9 +33,9 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 
 func (s *CharmStoreSuite) TestGetResourceTerminates(c *gc.C) {
 	msg := "trust"
-	attempts := 0
+	attempts := int32(0)
 	s.resourceClient.getResourceF = func(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error) {
-		attempts++
+		atomic.AddInt32(&attempts, 1)
 		return charmstore.ResourceData{}, errors.New(msg)
 	}
 	csRes := resourceadapters.NewCSRetryClientForTest(s.resourceClient)
@@ -42,41 +43,42 @@ func (s *CharmStoreSuite) TestGetResourceTerminates(c *gc.C) {
 	_, err := csRes.GetResource(charmstore.ResourceRequest{})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed after retrying: %v", msg))
 	// Ensure we logged attempts @ WARNING.
-	c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("WARNING juju.resource.resourceadapters (attempt %v) retrying resource ", attempts))
+	c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("WARNING juju.resource.resourceadapters attempt %d/%d to download resource ", attempts, attempts))
 
 	callsMade := []string{}
-	for i := 0; i < attempts; i++ {
+	for i := int32(0); i < attempts; i++ {
 		callsMade = append(callsMade, "GetResource")
 	}
+	c.Assert(attempts, jc.GreaterThan, 1)
 	s.resourceClient.stub.CheckCallNames(c, callsMade...)
 }
 
 func (s *CharmStoreSuite) TestGetResourceAbortedOnNotFound(c *gc.C) {
 	msg := "trust"
-	s.resourceClient.getResourceF = func(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error) {
-		return charmstore.ResourceData{}, errors.NotFoundf(msg)
-	}
-	s.assertAbortedGetResource(c,
+	s.assertAbortedGetResourceOnError(c,
 		resourceadapters.NewCSRetryClientForTest(s.resourceClient),
+		errors.NotFoundf(msg),
 		fmt.Sprintf("%v not found", msg),
 	)
 }
 
 func (s *CharmStoreSuite) TestGetResourceAbortedOnNotValid(c *gc.C) {
 	msg := "trust"
-	s.resourceClient.getResourceF = func(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error) {
-		return charmstore.ResourceData{}, errors.NotValidf(msg)
-	}
-	s.assertAbortedGetResource(c,
+	s.assertAbortedGetResourceOnError(c,
 		resourceadapters.NewCSRetryClientForTest(s.resourceClient),
+		errors.NotValidf(msg),
 		fmt.Sprintf("%v not valid", msg),
 	)
 }
 
-func (s *CharmStoreSuite) assertAbortedGetResource(c *gc.C, csRes *resourceadapters.CSRetryClient, expectedError string) {
+func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resourceadapters.CSRetryClient, expectedError error, expectedMessage string) {
+	s.resourceClient.getResourceF = func(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error) {
+		return charmstore.ResourceData{}, expectedError
+	}
 	_, err := csRes.GetResource(charmstore.ResourceRequest{})
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, gc.ErrorMatches, expectedMessage)
 	c.Assert(c.GetTestLog(), gc.Not(jc.Contains), "WARNING juju.resource.resourceadapters")
+	// Since we have aborted re-tries, we should only call GetResources once.
 	s.resourceClient.stub.CheckCallNames(c, "GetResource")
 }
 
