@@ -155,3 +155,21 @@ func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
 	c.Assert(cfg.MaxLogsAge(), gc.Equals, 96*time.Hour)
 	c.Assert(cfg.MaxLogSizeMB(), gc.Equals, 8192)
 }
+
+func (s *ConfigSuite) TestTxnLogConfigDefault(c *gc.C) {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 10)
+}
+
+func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"max-txn-log-size": "8G",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 8192)
+}

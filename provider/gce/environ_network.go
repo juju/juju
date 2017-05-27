@@ -280,6 +280,19 @@ func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (b
 	return false, nil
 }
 
+// SSHAddresses implements environs.SSHAddresses.
+// For GCE we want to make sure we're returning only one public address, so that probing won't
+// cause SSHGuard to lock us out
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	bestAddress, ok := network.SelectPublicAddress(addresses)
+	if ok {
+		return []network.Address{bestAddress}, nil
+	} else {
+		// fallback
+		return addresses, nil
+	}
+}
+
 func copyStrings(items []string) []string {
 	if items == nil {
 		return nil

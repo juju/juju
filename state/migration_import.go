@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/tools"
 )
 
@@ -1491,6 +1492,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Owner:           storageOwner,
 		StorageName:     storage.Name(),
 		AttachmentCount: len(attachments),
+		Constraints:     i.storageInstanceConstraints(storage),
 	}
 	ops = append(ops, txn.Op{
 		C:      storageInstancesC,
@@ -1512,6 +1514,69 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (i *importer) storageInstanceConstraints(storage description.Storage) storageInstanceConstraints {
+	if cons, ok := storage.Constraints(); ok {
+		return storageInstanceConstraints(cons)
+	}
+	// Older versions of Juju did not record storage constraints on the
+	// storage instance, so we must do what we do during upgrade steps:
+	// reconstitute the constraints from the corresponding volume or
+	// filesystem, or else look in the owner's application storage
+	// constraints, and if all else fails, apply the defaults.
+	var cons storageInstanceConstraints
+	var defaultPool string
+	switch parseStorageKind(storage.Kind()) {
+	case StorageKindBlock:
+		defaultPool = string(provider.LoopProviderType)
+		for _, volume := range i.model.Volumes() {
+			if volume.Storage() == storage.Tag() {
+				cons.Pool = volume.Pool()
+				cons.Size = volume.Size()
+				break
+			}
+		}
+	case StorageKindFilesystem:
+		defaultPool = string(provider.RootfsProviderType)
+		for _, filesystem := range i.model.Filesystems() {
+			if filesystem.Storage() == storage.Tag() {
+				cons.Pool = filesystem.Pool()
+				cons.Size = filesystem.Size()
+				break
+			}
+		}
+	}
+	if cons.Pool == "" {
+		cons.Pool = defaultPool
+		cons.Size = 1024
+		if owner, _ := storage.Owner(); owner != nil {
+			var appName string
+			switch owner := owner.(type) {
+			case names.ApplicationTag:
+				appName = owner.Id()
+			case names.UnitTag:
+				appName, _ = names.UnitApplication(owner.Id())
+			}
+			for _, app := range i.model.Applications() {
+				if app.Name() != appName {
+					continue
+				}
+				storageName, _ := names.StorageName(storage.Tag().Id())
+				appStorageCons, ok := app.StorageConstraints()[storageName]
+				if ok {
+					cons.Pool = appStorageCons.Pool()
+					cons.Size = appStorageCons.Size()
+				}
+				break
+			}
+		}
+		logger.Warningf(
+			"no volume or filesystem found, using application storage constraints for %s",
+			names.ReadableString(storage.Tag()),
+		)
+	}
+	return cons
 }
 
 func (i *importer) volumes() error {

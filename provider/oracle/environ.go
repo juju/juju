@@ -365,7 +365,7 @@ func (o *OracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef("Tools: %v", tools)
+	logger.Tracef("agent binaries: %v", tools)
 	if err = args.InstanceConfig.SetTools(tools); err != nil {
 		return nil, errors.Trace(err)
 	}

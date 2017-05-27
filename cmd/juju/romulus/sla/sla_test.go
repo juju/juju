@@ -109,11 +109,14 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		if test.apiErr != nil {
 			s.mockAPI.SetErrors(test.apiErr)
 		}
-		_, err := s.run(c, test.level, "--budget", test.budget)
+		ctx, err := s.run(c, test.level, "--budget", test.budget)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
 			s.mockAPI.CheckCalls(c, test.apiCalls)
+			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `Model	SLA      	       Message
+c:m1 	essential	a test message
+`)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
@@ -125,13 +128,13 @@ func (s *supportCommandSuite) TestDiplayCurrentLevel(c *gc.C) {
 		format         string
 		expectedOutput string
 	}{{
-		expectedOutput: `Model	SLA       
-c:m1 	mock-level
+		expectedOutput: `Model	SLA       	Message
+c:m1 	mock-level	       
 `,
 	}, {
 		format: "tabular",
-		expectedOutput: `Model	SLA       
-c:m1 	mock-level
+		expectedOutput: `Model	SLA       	Message
+c:m1 	mock-level	       
 `,
 	}, {
 		format: "json",
@@ -196,7 +199,11 @@ func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*slawire.SL
 		return nil, errors.Trace(err)
 	}
 	m.macaroon = macaroon
-	return &slawire.SLAResponse{Credentials: m.macaroon, Owner: "bob"}, nil
+	return &slawire.SLAResponse{
+		Credentials: m.macaroon,
+		Owner:       "bob",
+		Message:     "a test message",
+	}, nil
 }
 
 type mockSlaClient struct {

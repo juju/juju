@@ -88,6 +88,9 @@ type Networking interface {
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
 	ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error
+
+	// SSHAddresses filters provided addresses for addresses usable for SSH
+	SSHAddresses(addresses []network.Address) ([]network.Address, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the

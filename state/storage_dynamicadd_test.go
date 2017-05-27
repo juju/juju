@@ -83,19 +83,29 @@ func (s *storageAddSuite) TestAddStorageToUnit(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	s.assignUnit(c, u)
 
-	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 4096, 1))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
 	assertMachineStorageRefs(c, s.State, s.machineTag)
+
+	allVolumeParams := allMachineVolumeParams(c, s.State, s.machineTag)
+	c.Assert(allVolumeParams, jc.SameContents, []state.VolumeParams{
+		{Pool: "loop", Size: 1024},
+		{Pool: "loop", Size: 1024},
+		{Pool: "loop", Size: 1024},
+		{Pool: "loop", Size: 2048},
+		{Pool: "loop", Size: 2048},
+		{Pool: "loop-pool", Size: 4096},
+	})
 }
 
 func (s *storageAddSuite) TestAddStorageToUnitNotAssigned(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	// don't assign unit
 
-	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 4096, 1))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, 0)
@@ -104,6 +114,30 @@ func (s *storageAddSuite) TestAddStorageToUnitNotAssigned(c *gc.C) {
 	s.assignUnit(c, u)
 	s.assertVolumeCount(c, 6)
 	s.assertFileSystemCount(c, 0)
+
+	allVolumeParams := allMachineVolumeParams(c, s.State, s.machineTag)
+	c.Assert(allVolumeParams, jc.SameContents, []state.VolumeParams{
+		{Pool: "loop", Size: 1024},
+		{Pool: "loop", Size: 1024},
+		{Pool: "loop", Size: 1024},
+		{Pool: "loop", Size: 2048},
+		{Pool: "loop", Size: 2048},
+		{Pool: "loop-pool", Size: 4096},
+	})
+}
+
+func allMachineVolumeParams(c *gc.C, st *state.State, m names.MachineTag) []state.VolumeParams {
+	var allVolumeParams []state.VolumeParams
+	volumeAttachments, err := st.MachineVolumeAttachments(m)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range volumeAttachments {
+		volume, err := st.Volume(a.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		volumeParams, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		allVolumeParams = append(allVolumeParams, volumeParams)
+	}
+	return allVolumeParams
 }
 
 func (s *storageAddSuite) TestAddStorageWithCount(c *gc.C) {

@@ -1,0 +1,23 @@
+name: dummy-resource
+maintainer: Seman <seman.said@canonical.com>
+summary: Dummy charm to test resources.
+description: This dummy charm is used for resource testing.
+categories:
+  - misc
+series:
+  - trusty
+  - precise
+  - utopic
+  - vivid
+  - wily
+  - xenial
+resources:
+  foo:
+    type: file
+    filename: foo.txt
+    description: "foo resource."
+  bar:
+    type: file
+    filename: bar.txt
+    description: "bar resource."
+

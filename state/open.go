@@ -57,6 +57,10 @@ type OpenParams struct {
 	// be called after mgo/txn transactions are run, successfully
 	// or not.
 	RunTransactionObserver RunTransactionObserverFunc
+
+	// InitDatabaseFunc, if non-nil, is a function that will be called
+	// just after the state database is opened.
+	InitDatabaseFunc InitDatabaseFunc
 }
 
 // Validate validates the OpenParams.
@@ -89,6 +93,8 @@ func Open(args OpenParams) (*State, error) {
 		args.ControllerModelTag,
 		args.MongoInfo,
 		args.MongoDialOpts,
+		args.InitDatabaseFunc,
+		nil,
 		args.NewPolicy,
 		args.Clock,
 		args.RunTransactionObserver,
@@ -100,7 +106,7 @@ func Open(args OpenParams) (*State, error) {
 		if err := st.Close(); err != nil {
 			logger.Errorf("closing State for %s: %v", args.ControllerModelTag, err)
 		}
-		return nil, errors.Annotatef(err, "cannot read model %s", args.ControllerModelTag.Id())
+		return nil, maybeUnauthorized(err, fmt.Sprintf("cannot read model %s", args.ControllerModelTag.Id()))
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
@@ -114,6 +120,8 @@ func Open(args OpenParams) (*State, error) {
 func open(
 	controllerModelTag names.ModelTag,
 	info *mongo.MongoInfo, opts mongo.DialOpts,
+	initDatabase InitDatabaseFunc,
+	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
@@ -137,6 +145,25 @@ func open(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if initDatabase != nil {
+		if controllerConfig == nil {
+			// If no controller config is passed in, we get
+			// it from state. This occurs if we are opening
+			// an existing state database as opposed to creating
+			// a new one for the first time.
+			cfg, err := st.ControllerConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			controllerConfig = &cfg
+		}
+		if err := initDatabase(session, *controllerConfig); err != nil {
+			session.Close()
+			return nil, errors.Trace(err)
+		}
+		logger.Debugf("mongodb initialised")
+	}
+
 	return st, nil
 }
 
@@ -240,6 +267,26 @@ func (p InitializeParams) Validate() error {
 	return nil
 }
 
+// InitDatabaseFunc defines a function used to
+// create the collections and indices in a Juju database.
+type InitDatabaseFunc func(*mgo.Session, controller.Config) error
+
+// InitDatabase creates all the collections and indices in a Juju database.
+func InitDatabase(session *mgo.Session, settings controller.Config) error {
+	schema := allCollections()
+	err := schema.Create(
+		session.DB(jujuDB),
+		settings,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := InitDbLogs(session); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
@@ -248,10 +295,14 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, errors.Annotate(err, "validating initialization args")
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock, nil)
+	if !names.IsValidModel(modelTag.Id()) {
+		return nil, errors.New("invalid model UUID")
+	}
+
+	st, err := open(
+		modelTag, args.MongoInfo, args.MongoDialOpts,
+		InitDatabase, &args.ControllerConfig, args.NewPolicy, args.Clock, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -500,6 +551,7 @@ func isUnauthorized(err error) bool {
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
+			err.Code == 13 ||
 			err.Message == "need to login" ||
 			err.Message == "unauthorized"
 	}
@@ -509,6 +561,7 @@ func isUnauthorized(err error) bool {
 // newState creates an incomplete *State, with no running workers or
 // controllerTag. You must start() the returned *State before it will
 // function correctly.
+// modelTag is used to filter all queries and transactions.
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
@@ -526,18 +579,11 @@ func newState(
 		}
 	}()
 
-	// Set up database.
-	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(
-		rawDB,
-		modelTag.Id(),
-		runTransactionObserver,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := InitDbLogs(session); err != nil {
-		return nil, errors.Trace(err)
+	db := &database{
+		raw:                    session.DB(jujuDB),
+		schema:                 allCollections(),
+		modelUUID:              modelTag.Id(),
+		runTransactionObserver: runTransactionObserver,
 	}
 
 	// Create State.
@@ -547,7 +593,7 @@ func newState(
 		controllerModelTag:     controllerModelTag,
 		mongoInfo:              mongoInfo,
 		session:                session,
-		database:               database,
+		database:               db,
 		newPolicy:              newPolicy,
 		runTransactionObserver: runTransactionObserver,
 	}

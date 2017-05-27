@@ -79,6 +79,9 @@ const (
 	// before it is pruned, eg "4M"
 	MaxLogsSize = "max-logs-size"
 
+	// MaxTxnLogSize is the maximum size the of capped txn log collection, eg "10M"
+	MaxTxnLogSize = "max-txn-log-size"
+
 	// Attribute Defaults
 
 	// DefaultAuditingEnabled contains the default value for the
@@ -104,6 +107,10 @@ const (
 	// DefaultMaxLogCollectionMB is the maximum size the log collection can
 	// grow to before being pruned.
 	DefaultMaxLogCollectionMB = 4 * 1024 // 4 GB
+
+	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
+	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
+
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -122,6 +129,7 @@ var ControllerOnlyConfigAttributes = []string{
 	MongoMemoryProfile,
 	MaxLogsSize,
 	MaxLogsAge,
+	MaxTxnLogSize,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -299,6 +307,13 @@ func (c Config) MaxLogSizeMB() int {
 	return int(val)
 }
 
+// MaxTxnLogSizeMB is the maximum size in MiB of the txn log collection.
+func (c Config) MaxTxnLogSizeMB() int {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(MaxTxnLogSize))
+	return int(val)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -352,6 +367,12 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[MaxTxnLogSize].(string); ok {
+		if _, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid max txn log size in configuration")
+		}
+	}
+
 	return nil
 }
 
@@ -374,6 +395,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MongoMemoryProfile:      schema.String(),
 	MaxLogsAge:              schema.String(),
 	MaxLogsSize:             schema.String(),
+	MaxTxnLogSize:           schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -387,4 +409,5 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MongoMemoryProfile:      schema.Omit,
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
+	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 })

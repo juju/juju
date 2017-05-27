@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -147,7 +146,7 @@ func (w *IngressAddressWatcher) loop() error {
 			out = nil
 		case c, ok := <-ruw.Changes():
 			if !ok {
-				return watcher.EnsureErr(ruw)
+				return w.catacomb.ErrDying()
 			}
 			// A unit has entered or left scope.
 			// Get the new set of addresses resulting from that

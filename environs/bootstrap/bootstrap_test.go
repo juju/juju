@@ -894,6 +894,9 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	return sourceDir, im
 }
 
+// TestBootstrapMetadata tests:
+// `juju bootstrap --metadata-source <dir>` where <dir>/images
+// and <dir>/tools exist
 func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
 
@@ -929,6 +932,80 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 1)
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestBootstrapMetadataDirNonexistend(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	nonExistentFileName := "/tmp/TestBootstrapMetadataDirNonexistend"
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		MetadataDir:      nonExistentFileName,
+	})
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("simplestreams metadata source: %s not found", nonExistentFileName))
+}
+
+// TestBootstrapMetadataImagesNoTools tests 2 cases:
+// juju bootstrap --metadata-source <dir>
+// juju bootstrap --metadata-source <dir>/images
+// where <dir>/tools doesn't exist
+func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *gc.C) {
+
+	metadataDir, _ := createImageMetadata(c)
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+
+	startingDefaultBaseURL := envtools.DefaultBaseURL
+	for i, suffix := range []string{"", "images"} {
+		environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+		err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      "admin-secret",
+			CAPrivateKey:     coretesting.CAKey,
+			MetadataDir:      filepath.Join(metadataDir, suffix),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.bootstrapCount, gc.Equals, i+1)
+		c.Assert(envtools.DefaultBaseURL, gc.Equals, startingDefaultBaseURL)
+
+		datasources, err := environs.ImageMetadataSources(env)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(datasources, gc.HasLen, 3)
+		c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
+	}
+}
+
+// TestBootstrapMetadataToolsNoImages tests 2 cases:
+// juju bootstrap --metadata-source <dir>
+// juju bootstrap --metadata-source <dir>/tools
+// where <dir>/images doesn't exist
+func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
+	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+
+	metadataDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	for i, suffix := range []string{"", "tools"} {
+		err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      "admin-secret",
+			CAPrivateKey:     coretesting.CAKey,
+			MetadataDir:      filepath.Join(metadataDir, suffix),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.bootstrapCount, gc.Equals, i+1)
+		c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
+		datasources, err := environs.ImageMetadataSources(env)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(datasources, gc.HasLen, 2)
+		c.Assert(datasources[0].Description(), gc.Not(gc.Equals), "bootstrap metadata")
+	}
 }
 
 func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {

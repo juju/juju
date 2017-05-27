@@ -1086,7 +1086,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				return nil
 			},
 			NotifyFunc: func(lastError error, attempt int) {
-				args.StatusCallback(status.Provisioning, fmt.Sprintf("%q, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
+				args.StatusCallback(status.Provisioning, fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
 			},
 			IsFatalError: func(err error) bool {
 				return err != errStillBuilding
@@ -1730,4 +1730,9 @@ func (*Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderS
 // AreSpacesRoutable is specified on environs.NetworkingEnviron.
 func (*Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
+}
+
+// SSHAddresses is specified on environs.SSHAddresses.
+func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
 }

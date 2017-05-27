@@ -853,6 +853,10 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
+		// state.InitDatabase is idempotent and needs to be called just
+		// prior to performing any upgrades since a new Juju binary may
+		// declare new indices or explicit collections.
+		InitDatabaseFunc:       state.InitDatabase,
 		RunTransactionObserver: a.txnmetricsCollector.AfterRunTransaction,
 	})
 	if err != nil {
