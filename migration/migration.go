@@ -245,10 +245,8 @@ func uploadTools(config UploadBinariesConfig) error {
 func uploadResources(config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
 		if res.ApplicationRevision.IsPlaceholder() {
-			err := config.ResourceUploader.SetPlaceholderResource(res.ApplicationRevision)
-			if err != nil {
-				return errors.Annotate(err, "cannot set placeholder resource")
-			}
+			// Resource placeholders created in the migration import rather
+			// than attempting to post empty resources.
 		} else {
 			err := uploadAppResource(config, res.ApplicationRevision)
 			if err != nil {

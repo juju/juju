@@ -15,12 +15,6 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-const (
-	// CleanupKindResourceBlob identifies the cleanup kind
-	// for resource blobs.
-	CleanupKindResourceBlob = "resourceBlob"
-)
-
 // ResourcePersistenceBase exposes the core persistence functionality
 // needed for resources.
 type ResourcePersistenceBase interface {
@@ -43,10 +37,6 @@ type ResourcePersistenceBase interface {
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given application.
 	IncCharmModifiedVersionOps(applicationID string) []txn.Op
-
-	// NewCleanupOp creates a mgo transaction operation that queues up
-	// some cleanup action in state.
-	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 // ResourcePersistence provides the persistence functionality for the
@@ -394,7 +384,7 @@ func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.
 	ops := newRemoveResourcesOps(docs)
 	for _, doc := range docs {
 		if doc.StoragePath != "" { // Don't schedule cleanups for placeholder resources.
-			ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
+			ops = append(ops, newCleanupOp(cleanupResourceBlob, doc.StoragePath))
 		}
 	}
 	return ops, nil
