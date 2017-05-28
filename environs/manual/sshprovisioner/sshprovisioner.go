@@ -195,7 +195,7 @@ if [ "$os_id" = 'centos' ]; then
   echo "centos$os_version"
 elif [ "$os_id" = 'opensuse' ]; then
   os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2 | cut -d. -f1)
-  if [ $os_version -eq 42]; then
+  if [ $os_version -eq 42 ]; then
     echo "opensuseleap"
   fi
 else
