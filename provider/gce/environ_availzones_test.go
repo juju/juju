@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/storage"
 )
 
 type environAZSuite struct {
@@ -76,19 +77,19 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
 	}})
 }
 
-func (s *environAZSuite) TestParseAvailabilityZones(c *gc.C) {
+func (s *environAZSuite) TestStartInstanceAvailabilityZones(c *gc.C) {
 	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
 		ZoneName:  "home-zone",
 		Instances: []instance.Id{s.Instance.Id()},
 	}}
 
-	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
+	zones, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(zones, jc.DeepEquals, []string{"home-zone"})
 }
 
-func (s *environAZSuite) TestParseAvailabilityZonesAPI(c *gc.C) {
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesAPI(c *gc.C) {
 	ids := []instance.Id{s.Instance.Id()}
 	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
 		ZoneName:  "home-zone",
@@ -98,7 +99,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesAPI(c *gc.C) {
 		return ids, nil
 	}
 
-	_, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
+	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
@@ -112,25 +113,25 @@ func (s *environAZSuite) TestParseAvailabilityZonesAPI(c *gc.C) {
 	}})
 }
 
-func (s *environAZSuite) TestParseAvailabilityZonesPlacement(c *gc.C) {
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesPlacement(c *gc.C) {
 	s.StartInstArgs.Placement = "zone=a-zone"
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("a-zone", google.StatusUp, "", ""),
 	}
 
-	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
+	zones, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(zones, jc.DeepEquals, []string{"a-zone"})
 }
 
-func (s *environAZSuite) TestParseAvailabilityZonesPlacementAPI(c *gc.C) {
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesPlacementAPI(c *gc.C) {
 	s.StartInstArgs.Placement = "zone=a-zone"
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("a-zone", google.StatusUp, "", ""),
 	}
 
-	_, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
+	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{})
@@ -140,18 +141,18 @@ func (s *environAZSuite) TestParseAvailabilityZonesPlacementAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "us-east1")
 }
 
-func (s *environAZSuite) TestParseAvailabilityZonesPlacementUnavailable(c *gc.C) {
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesPlacementUnavailable(c *gc.C) {
 	s.StartInstArgs.Placement = "zone=a-zone"
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("a-zone", google.StatusDown, "", ""),
 	}
 
-	_, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
+	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 
 	c.Check(err, gc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
 }
 
-func (s *environAZSuite) TestParseAvailabilityZonesDistGroup(c *gc.C) {
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesDistGroup(c *gc.C) {
 	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
 		ZoneName:  "home-zone",
 		Instances: []instance.Id{s.Instance.Id()},
@@ -160,14 +161,48 @@ func (s *environAZSuite) TestParseAvailabilityZonesDistGroup(c *gc.C) {
 		return []instance.Id{s.Instance.Id()}, nil
 	}
 
-	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
+	zones, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(zones, jc.DeepEquals, []string{"home-zone"})
 }
 
-func (s *environAZSuite) TestParseAvailabilityZonesNoneFound(c *gc.C) {
-	_, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesNoneFound(c *gc.C) {
+	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesVolumeAttachments(c *gc.C) {
+	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
+		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}}
+
+	zones, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zones, jc.DeepEquals, []string{"home-zone"})
+}
+
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesVolumeAttachmentsDifferentZones(c *gc.C) {
+	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
+		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}, {
+		VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}}
+
+	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
+	c.Assert(err, gc.ErrorMatches, `cannot attach volumes from multiple availability zones: home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in home-zone, away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in away-zone`)
+}
+
+func (s *environAZSuite) TestStartInstanceAvailabilityZonesVolumeAttachmentsConflictsPlacement(c *gc.C) {
+	s.StartInstArgs.Placement = "zone=away-zone"
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("away-zone", google.StatusUp, "", ""),
+	}
+	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
+		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}}
+
+	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching disks in zone "home-zone"`)
 }

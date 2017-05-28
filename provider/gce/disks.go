@@ -313,6 +313,7 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 	}
 	return volumes, nil
 }
+
 func (v *volumeSource) DescribeVolumes(volNames []string) ([]storage.DescribeVolumesResult, error) {
 	results := make([]storage.DescribeVolumesResult, len(volNames))
 	for i, vol := range volNames {
