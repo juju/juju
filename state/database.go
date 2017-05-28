@@ -176,13 +176,13 @@ type collectionSchema map[string]collectionInfo
 // Create causes all recorded collections to be created and indexed as specified
 func (schema collectionSchema) Create(
 	db *mgo.Database,
-	settings controller.Config,
+	settings *controller.Config,
 ) error {
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
 			// We allow the max txn log collection size to be overridden by the user.
-			if name == txnLogC {
+			if name == txnLogC && settings != nil {
 				maxSize := settings.MaxTxnLogSizeMB()
 				if maxSize > 0 {
 					logger.Infof("overriding max txn log collection size: %dM", maxSize)
