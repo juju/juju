@@ -741,8 +741,10 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 	tlsConfig1 := *d.opts.tlsConfig
 	tlsConfig1.RootCAs = nil
 	tlsConfig1.ServerName = d.opts.sniHostName
-	conn, err = d.opts.DialWebsocket(d.ctx, d.urlStr, &tlsConfig1)
-	if err != nil {
+	conn, rootCAErr := d.opts.DialWebsocket(d.ctx, d.urlStr, &tlsConfig1)
+	if rootCAErr != nil {
+		logger.Warningf("Failed dialing websocket with both private CA - %q and public CA - %q", err, rootCAErr)
+		// We return the original error as it's usually more meaningful.
 		return nil, nil, errors.Trace(err)
 	}
 	return conn, &tlsConfig1, nil
