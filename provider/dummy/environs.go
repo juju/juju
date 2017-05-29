@@ -715,7 +715,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
-	logger.Infof("would pick tools from %s", availableTools)
+	logger.Infof("would pick agent binaries from %s", availableTools)
 
 	estate, err := e.state()
 	if err != nil {
@@ -992,7 +992,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
 	}
-	logger.Infof("would pick tools from %s", args.Tools)
+	logger.Infof("would pick agent binaries from %s", args.Tools)
 	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)

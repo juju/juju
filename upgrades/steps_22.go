@@ -26,10 +26,10 @@ func stateStepsFor22() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "add controller log pruning config settings",
+			description: "add controller log collection sizing config settings",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().AddControllerLogPruneSettings()
+				return context.State().AddControllerLogCollectionsSizeSettings()
 			},
 		},
 		&upgradeStep{
@@ -37,6 +37,13 @@ func stateStepsFor22() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().AddStatusHistoryPruneSettings()
+			},
+		},
+		&upgradeStep{
+			description: "add storage constraints to storage instance docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddStorageInstanceConstraints()
 			},
 		},
 	}

@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
@@ -56,9 +57,26 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *MigrationImportSuite) importModel(c *gc.C) (*state.Model, *state.State) {
+func (s *MigrationImportSuite) importModel(c *gc.C, transform ...func(map[string]interface{})) (*state.Model, *state.State) {
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
+
+	if len(transform) > 0 {
+		var outM map[string]interface{}
+		outYaml, err := description.Serialize(out)
+		c.Assert(err, jc.ErrorIsNil)
+		err = yaml.Unmarshal(outYaml, &outM)
+		c.Assert(err, jc.ErrorIsNil)
+
+		for _, transform := range transform {
+			transform(outM)
+		}
+
+		outYaml, err = yaml.Marshal(outM)
+		c.Assert(err, jc.ErrorIsNil)
+		out, err = description.Deserialize(outYaml)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
@@ -373,7 +391,12 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	// Add a application with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "starsay", // it has resources
+	})
+	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: charm,
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -428,6 +451,12 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
+
+	rSt, err := newSt.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	resources, err := rSt.ListResources(imported.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resources.Resources, gc.HasLen, 3)
 }
 
 func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
@@ -1107,12 +1136,89 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	c.Check(instance.Kind(), gc.Equals, original.Kind())
 	c.Check(instance.Life(), gc.Equals, original.Life())
 	c.Check(instance.StorageName(), gc.Equals, original.StorageName())
+	c.Check(instance.Pool(), gc.Equals, original.Pool())
 	c.Check(state.StorageAttachmentCount(instance), gc.Equals, originalCount)
 
 	attachments, err := newSt.StorageAttachments(storageTag)
-
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
+}
+
+func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
+	_, _, storageTag := s.makeUnitWithStorage(c)
+	_, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		storages := desc["storages"].(map[interface{}]interface{})
+		for _, item := range storages["storages"].([]interface{}) {
+			storage := item.(map[interface{}]interface{})
+			cons := storage["constraints"].(map[interface{}]interface{})
+			cons["pool"] = "static"
+		}
+	})
+	instance, err := newSt.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance.Pool(), gc.Equals, "static")
+}
+
+func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
+	_, u, storageTag0 := s.makeUnitWithStorage(c)
+
+	err := s.State.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
+		Count: 3,
+		Size:  1234,
+		Pool:  "modelscoped",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag1 := names.NewStorageTag("allecto/1")
+	storageTag2 := names.NewStorageTag("allecto/2")
+
+	// We delete the storage instance constraints for each storage
+	// instance. For data/0 and allecto/1 we also delete the volume,
+	// and we delete the application storage constraints for "data".
+	//
+	// We expect:
+	//  - for data/0, to get the defaults (loop, 1G)
+	//  - for allecto/1, to get the application storage constraints
+	//  - for allecto/2, to get the volume pool/size
+
+	_, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		applications := desc["applications"].(map[interface{}]interface{})
+		volumes := desc["volumes"].(map[interface{}]interface{})
+		storages := desc["storages"].(map[interface{}]interface{})
+		storages["version"] = 2
+
+		app := applications["applications"].([]interface{})[0].(map[interface{}]interface{})
+		sc := app["storage-constraints"].(map[interface{}]interface{})
+		delete(sc, "data")
+		sc["allecto"].(map[interface{}]interface{})["pool"] = "modelscoped-block"
+
+		var keepVolumes []interface{}
+		for _, item := range volumes["volumes"].([]interface{}) {
+			volume := item.(map[interface{}]interface{})
+			switch volume["storage-id"] {
+			case storageTag0.Id(), storageTag1.Id():
+			default:
+				keepVolumes = append(keepVolumes, volume)
+			}
+		}
+		volumes["volumes"] = keepVolumes
+
+		for _, item := range storages["storages"].([]interface{}) {
+			storage := item.(map[interface{}]interface{})
+			delete(storage, "constraints")
+		}
+	})
+
+	instance0, err := newSt.StorageInstance(storageTag0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance0.Pool(), gc.Equals, "loop")
+
+	instance1, err := newSt.StorageInstance(storageTag1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance1.Pool(), gc.Equals, "modelscoped-block")
+
+	instance2, err := newSt.StorageInstance(storageTag2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance2.Pool(), gc.Equals, "modelscoped")
 }
 
 func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {

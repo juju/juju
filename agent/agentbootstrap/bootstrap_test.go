@@ -224,6 +224,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"set-numa-control-policy": false,
 		"max-logs-age":            "72h",
 		"max-logs-size":           "4G",
+		"max-txn-log-size":        "10M",
 	})
 
 	// Check that controller model configuration has been added, and

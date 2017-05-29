@@ -151,7 +151,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
-		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
+		logger.Infof("newer agent binaries requested, looking for %v in stream %v", desiredVersion, stream)
 		hostSeries, err := series.HostSeries()
 		if err != nil {
 			return errors.Trace(err)
@@ -163,12 +163,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
 		if toolsErr == nil {
-			logger.Infof("tools are available, upgrade will occur after bootstrap")
+			logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
 		}
 		if errors.IsNotFound(toolsErr) {
 			// Newer tools not available, so revert to using the tools
 			// matching the current agent version.
-			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
+			logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
 			newConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else if toolsErr != nil {
 			logger.Errorf("cannot find newer tools: %v", toolsErr)
@@ -432,7 +432,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 			Size:    tools.Size,
 			SHA256:  tools.SHA256,
 		}
-		logger.Debugf("Adding tools: %v", toolsVersion)
+		logger.Debugf("Adding agent binaries: %v", toolsVersion)
 		if err := toolstorage.Add(bytes.NewReader(data), metadata); err != nil {
 			return errors.Trace(err)
 		}

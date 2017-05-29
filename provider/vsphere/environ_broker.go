@@ -36,6 +36,19 @@ func controllerFolderName(controllerUUID string) string {
 }
 
 func modelFolderName(modelUUID, modelName string) string {
+	// We must truncate model names at 33 characters, in order to keep the
+	// folder name to a maximum of 80 characters. The documentation says
+	// "less than 80", but testing shows that it is in fact "no more than 80".
+	//
+	// See https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/vim.Folder.html:
+	//   "The name to be given the new folder. An entity name must be
+	//   a non-empty string of less than 80 characters. The slash (/),
+	//   backslash (\) and percent (%) will be escaped using the URL
+	//   syntax. For example, %2F."
+	const modelNameLimit = 33
+	if len(modelName) > modelNameLimit {
+		modelName = modelName[:modelNameLimit]
+	}
 	return fmt.Sprintf("Model %q (%s)", modelName, modelUUID)
 }
 

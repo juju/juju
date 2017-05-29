@@ -7,6 +7,7 @@ package debinterfaces_test
 // dryrun option to the script that is executed.
 
 import (
+	"fmt"
 	"runtime"
 	"time"
 
@@ -41,7 +42,7 @@ func (*BridgeSuite) TestActivateNonExistentDevice(c *gc.C) {
 
 	result, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.IsNil)
+	c.Check(result, gc.IsNil)
 }
 
 func (*BridgeSuite) TestActivateEth0(c *gc.C) {
@@ -58,18 +59,18 @@ func (*BridgeSuite) TestActivateEth0(c *gc.C) {
 
 	result, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Code, gc.Equals, 0)
+	c.Check(result, gc.NotNil)
+	c.Check(result.Code, gc.Equals, 0)
 
-	expected := `
-write_backup testdata/TestInputSourceStanza/interfaces.backup
+	expected := fmt.Sprintf(`
+write_backup testdata/TestInputSourceStanza/interfaces.backup-%d
 write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 10
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
-mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
-`
-	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
+cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
+`, time.Now().Unix())
+	c.Check(string(result.Stdout), gc.Equals, expected[1:])
 }
 
 func (*BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
@@ -86,18 +87,18 @@ func (*BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
 
 	result, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Code, gc.Equals, 0)
+	c.Check(result, gc.NotNil)
+	c.Check(result.Code, gc.Equals, 0)
 
-	expected := `
-write_backup testdata/TestInputSourceStanza/interfaces.backup
+	expected := fmt.Sprintf(`
+write_backup testdata/TestInputSourceStanza/interfaces.backup-%d
 write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 100
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
-mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
-`
-	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
+cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
+`, time.Now().Unix())
+	c.Check(string(result.Stdout), gc.Equals, expected[1:])
 }
 
 func (*BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
@@ -114,18 +115,18 @@ func (*BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 
 	result, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Code, gc.Equals, 0)
+	c.Check(result, gc.NotNil)
+	c.Check(result.Code, gc.Equals, 0)
 
-	expected := `
-write_backup testdata/TestInputSourceStanza/interfaces.backup
+	expected := fmt.Sprintf(`
+write_backup testdata/TestInputSourceStanza/interfaces.backup-%d
 write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 0
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
-mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
-`
-	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
+cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
+`, time.Now().Unix())
+	c.Check(string(result.Stdout), gc.Equals, expected[1:])
 }
 
 func (*BridgeSuite) TestActivateWithNoDevicesSpecified(c *gc.C) {
@@ -140,7 +141,7 @@ func (*BridgeSuite) TestActivateWithNoDevicesSpecified(c *gc.C) {
 
 	_, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "no devices specified")
+	c.Check(err, gc.ErrorMatches, "no devices specified")
 }
 
 func (*BridgeSuite) TestActivateWithParsingError(c *gc.C) {
@@ -157,7 +158,7 @@ func (*BridgeSuite) TestActivateWithParsingError(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.FitsTypeOf, &debinterfaces.ParseError{})
 	parseError := err.(*debinterfaces.ParseError)
-	c.Assert(parseError, gc.DeepEquals, &debinterfaces.ParseError{
+	c.Check(parseError, gc.DeepEquals, &debinterfaces.ParseError{
 		Filename: "testdata/TestInputSourceStanzaWithErrors/interfaces.d/eth1.cfg",
 		Line:     "iface",
 		LineNum:  2,
@@ -180,7 +181,7 @@ func (*BridgeSuite) TestActivateWithTimeout(c *gc.C) {
 
 	_, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "bridge activation error: command cancelled")
+	c.Check(err, gc.ErrorMatches, "bridge activation error: command cancelled")
 }
 
 func (*BridgeSuite) TestActivateFailure(c *gc.C) {
@@ -198,6 +199,6 @@ func (*BridgeSuite) TestActivateFailure(c *gc.C) {
 
 	result, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "bridge activation failed: artificial failure\n")
-	c.Assert(result.Code, gc.Equals, 1)
+	c.Check(err, gc.ErrorMatches, "bridge activation failed: artificial failure\n")
+	c.Check(result.Code, gc.Equals, 1)
 }

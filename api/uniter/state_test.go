@@ -46,7 +46,7 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(unitPorts, gc.HasLen, 0)
 
 	// Add another wordpress unit on the same machine.
-	wordpressUnit1, err := s.wordpressService.AddUnit()
+	wordpressUnit1, err := s.wordpressApplication.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit1.AssignToMachine(s.wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)

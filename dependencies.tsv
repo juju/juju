@@ -21,7 +21,7 @@ github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	7725027b95e0d54635e0fb11efc2debdcdf19f75	2016-12-15T16:06:52Z
 github.com/juju/cmd	git	e47739aefe0adb68a401fcd371c0c92c8f6f8d99	2017-04-13T02:13:06Z
-github.com/juju/description	git	142fe63614f1a2defb592b6bdf6bd0ee47fdccfd	2017-05-10T01:22:00Z
+github.com/juju/description	git	a720edaca89342e01beeb64ad190468468baf248	2017-05-25T03:39:51Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
 github.com/juju/go-oracle-cloud	git	932a8cea00a1cd5cba3829a672c823955db674ae	2017-04-21T13:45:47Z
@@ -42,11 +42,11 @@ github.com/juju/pubsub	git	f4dfa62f30adc6955341b3dd73dde7c8d9b23b9e	2017-03-31T0
 github.com/juju/replicaset	git	6b5becf2232ce76656ea765d8d915d41755a1513	2016-11-25T16:08:49Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:42:13Z
-github.com/juju/romulus	git	b5ad384db5630652da632e49adabb968d1143e4c	2017-04-19T22:07:23Z
+github.com/juju/romulus	git	eede3e29dd7784b7265bb2cc175eca35420d37e7	2017-05-19T13:49:06Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-08-09T13:19:00Z
 github.com/juju/testing	git	06d21ddace802a83d08c82f513e30d84010ce31f	2017-05-01T02:35:42Z
-github.com/juju/txn	git	5c6f1c49ecbd4a916ed7b5a8f81ee67203e86043	2017-04-21T05:33:50Z
+github.com/juju/txn	git	941c396af5296a396a375bd88549552bd7a40dcd	2017-05-16T04:42:59Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
 github.com/juju/utils	git	e126b30255fbcc0f65a84fcef3c919e9b714602e	2017-05-18T11:00:59Z
 github.com/juju/version	git	1f41e27e54f21acccf9b2dddae063a782a8a7ceb	2016-10-31T05:19:06Z
@@ -96,7 +96,7 @@ gopkg.in/juju/charmrepo.v2-unstable	git	e79aa298df89ea887c9bffec46063c24bfb730f7
 gopkg.in/juju/charmstore.v5-unstable	git	fd1eef3002fc6b6daff5e97efab6f5056d22dcc7	2016-09-16T10:09:07Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v2	git	d82160011935ef79fc7aca84aba2c6f74700fe75	2016-06-09T10:52:15Z
-gopkg.in/juju/names.v2	git	8869b97720a9675a8ffbdd506a8f4b72bf720517	2017-03-24T04:25:04Z
+gopkg.in/juju/names.v2	git	0f8ae7499c60de56e4cb4c5eabe2d504615a18ca	2017-05-15T22:48:47Z
 gopkg.in/juju/worker.v1	git	6965b9d826717287bb002e02d1fd4d079978083e	2017-03-08T00:24:58Z
 gopkg.in/macaroon-bakery.v1	git	469b44e6f1f9479e115c8ae879ef80695be624d5	2016-06-22T12:14:21Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z

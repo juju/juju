@@ -192,6 +192,21 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, metadata1)
 }
 
+func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicates(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:   "stream",
+		Version:  "14.04",
+		Series:   "trusty",
+		Arch:     "arch",
+		Source:   "test",
+		Region:   "wonder",
+		VirtType: "lxd",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
+	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0, metadata0})
+	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`duplicate metadata record for image id 1 (key="stream:wonder:trusty:arch:lxd::test")`))
+}
+
 func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDateCreated(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:  "stream",
@@ -366,8 +381,8 @@ func (s *cloudImageMetadataSuite) assertConcurrentSave(c *gc.C, metadata0, metad
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, expected...)
 }
 
-func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemetadata.Metadata) {
-	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{m})
+func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m ...cloudimagemetadata.Metadata) {
+	err := s.storage.SaveMetadata(m)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -208,7 +208,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenRelationsChange bool
-	relationsw, err := w.service.WatchRelations()
+	relationsw, err := w.unit.WatchRelations()
 	if err != nil {
 		return errors.Trace(err)
 	}

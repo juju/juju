@@ -8,11 +8,15 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")
@@ -28,6 +32,9 @@ type MockSender struct {
 }
 
 func (s *MockSender) Do(req *http.Request) (*http.Response, error) {
+	if ua := req.UserAgent(); !strings.HasPrefix(ua, "Juju/"+version.Current.String()) {
+		return nil, errors.Errorf("request has unexpected User-Agent %q", ua)
+	}
 	if s.PathPattern != "" {
 		matched, err := regexp.MatchString(s.PathPattern, req.URL.Path)
 		if err != nil {

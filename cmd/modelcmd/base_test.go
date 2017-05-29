@@ -4,8 +4,10 @@
 package modelcmd_test
 
 import (
+	"io/ioutil"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -53,12 +55,13 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
-	cmd := new(modelcmd.ModelCommandBase)
-	cmd.SetClientStore(s.store)
-	cmd.SetAPIOpen(apiOpen)
-	modelcmd.SetRunStarted(cmd)
-	cmd.SetModelName("foo:admin/badmodel", false)
-	conn, err := cmd.NewAPIRoot()
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(apiOpen)
+	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+	baseCmd.SetModelName("foo:admin/badmodel", false)
+	conn, err := baseCmd.NewAPIRoot()
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.There are 1 accessible models on controller "foo".`)

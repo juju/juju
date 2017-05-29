@@ -1,0 +1,13 @@
+#!/bin/bash
+service corosync start || /bin/true
+sleep 2
+while ! service pacemaker start; do
+    echo "Attempting to start pacemaker"
+    sleep 1;
+done;
+crm node online
+sleep 2
+while crm status | egrep -q 'Stopped$'; do
+    echo "Waiting for nodes to come online"
+    sleep 1
+done

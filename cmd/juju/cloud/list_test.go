@@ -31,9 +31,10 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check couple of snippets of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws-china[ ]*1[ ]*cn-north-1[ ]*ec2.*`)
-	// TODO(wallyworld) - uncomment when we build with go 1.3 or greater
 	// LXD should be there too.
-	// c.Assert(out, gc.Matches, `.*localhost[ ]*lxd[ ]*localhost.*`)
+	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
+	// The private provider types should be there also.
+	c.Assert(out, gc.Matches, `.*maas, manual, openstack, oracle, vsphere.*`)
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {

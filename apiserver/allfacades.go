@@ -202,7 +202,7 @@ func AllFacades() *facade.Registry {
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
 	reg("UnitAssigner", 1, unitassigner.New)
 
-	reg("Uniter", 4, uniter.NewUniterAPI)
+	reg("Uniter", 4, uniter.NewUniterAPIV4)
 	reg("Uniter", 5, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)

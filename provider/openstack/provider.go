@@ -1086,7 +1086,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				return nil
 			},
 			NotifyFunc: func(lastError error, attempt int) {
-				args.StatusCallback(status.Provisioning, fmt.Sprintf("%q, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
+				args.StatusCallback(status.Provisioning, fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
 			},
 			IsFatalError: func(err error) bool {
 				return err != errStillBuilding

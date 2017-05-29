@@ -215,11 +215,9 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 
 	fpHash := charmresource.NewFingerprintHash()
 	appFp := fpHash.Fingerprint()
-	csFp := fpHash.Fingerprint()
 	unitFp := fpHash.Fingerprint()
 
 	appTs := time.Now()
-	csTs := appTs.Add(time.Hour)
 	unitTs := appTs.Add(time.Hour)
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -247,15 +245,15 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Username:       "bob",
 				},
 				CharmStoreRevision: params.SerializedModelResourceRevision{
-					Revision:       3,
-					Type:           "file",
-					Path:           "fink.tar.gz",
-					Description:    "knows who",
-					Origin:         "store",
-					FingerprintHex: csFp.Hex(),
-					Size:           321,
-					Timestamp:      csTs,
-					Username:       "xena",
+					// Imitate a placeholder for the test by having no Timestamp
+					// and an empty Fingerpritn
+					Revision:    3,
+					Type:        "file",
+					Path:        "fink.tar.gz",
+					Description: "knows who",
+					Origin:      "store",
+					Size:        321,
+					Username:    "xena",
 				},
 				UnitRevisions: map[string]params.SerializedModelResourceRevision{
 					"fooapp/0": params.SerializedModelResourceRevision{
@@ -312,14 +310,12 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 						Path:        "fink.tar.gz",
 						Description: "knows who",
 					},
-					Origin:      charmresource.OriginStore,
-					Revision:    3,
-					Fingerprint: csFp,
-					Size:        321,
+					Origin:   charmresource.OriginStore,
+					Revision: 3,
+					Size:     321,
 				},
 				ApplicationID: "fooapp",
 				Username:      "xena",
-				Timestamp:     csTs,
 			},
 			UnitRevisions: map[string]resource.Resource{
 				"fooapp/0": resource.Resource{
