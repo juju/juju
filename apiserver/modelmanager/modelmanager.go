@@ -600,6 +600,9 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	if err == nil {
 		info.ProviderType = cfg.Type()
 		info.DefaultSeries = config.PreferredSeries(cfg)
+		if agentVersion, exists := cfg.AgentVersion(); exists {
+			info.AgentVersion = &agentVersion
+		}
 	}
 
 	status, err := model.Status()

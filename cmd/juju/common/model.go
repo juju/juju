@@ -31,6 +31,7 @@ type ModelInfo struct {
 	Machines       map[string]ModelMachineInfo `json:"machines,omitempty" yaml:"machines,omitempty"`
 	SLA            string                      `json:"sla,omitempty" yaml:"sla,omitempty"`
 	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
+	AgentVersion   string                      `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 }
 
 // ModelMachineInfo contains information about a machine in a model.
@@ -85,6 +86,9 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Life:           string(info.Life),
 		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
+	}
+	if info.AgentVersion != nil {
+		modelInfo.AgentVersion = info.AgentVersion.String()
 	}
 	// Although this may be more performance intensive, we have to use reflection
 	// since structs containing map[string]interface {} cannot be compared, i.e

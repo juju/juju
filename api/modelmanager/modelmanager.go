@@ -104,6 +104,9 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		Owner:           ownerTag.Id(),
 		Life:            string(modelInfo.Life),
 	}
+	if modelInfo.AgentVersion != nil {
+		result.AgentVersion = modelInfo.AgentVersion
+	}
 	result.Status = base.Status{
 		Status: modelInfo.Status.Status,
 		Info:   modelInfo.Status.Info,

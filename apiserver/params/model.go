@@ -157,6 +157,9 @@ type ModelInfo struct {
 
 	// SLA contains the information about the SLA for the model, if set.
 	SLA *ModelSLAInfo `json:"sla"`
+
+	// AgentVersion is the agent version for this model.
+	AgentVersion *version.Number `json:"agent-version"`
 }
 
 // ModelSLAInfo describes the SLA info for a model.

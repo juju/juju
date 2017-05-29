@@ -486,6 +486,9 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		OwnerTag:      model.Owner().String(),
 		Life:          params.Life(model.Life().String()),
 	}
+	if agentVersion, exists := conf.AgentVersion(); exists {
+		info.AgentVersion = &agentVersion
+	}
 	if tag, ok := model.CloudCredential(); ok {
 		info.CloudCredentialTag = tag.String()
 	}
