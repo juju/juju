@@ -10,7 +10,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
@@ -117,7 +116,7 @@ func (a *mockConsumeAPI) Close() error {
 	return a.NextErr()
 }
 
-func (a *mockConsumeAPI) Consume(target names.ModelTag, offer params.ApplicationOffer, alias string) (string, error) {
-	a.MethodCall(a, "Consume", target, offer, alias)
+func (a *mockConsumeAPI) Consume(offer params.ApplicationOffer, alias string) (string, error) {
+	a.MethodCall(a, "Consume", offer, alias)
 	return a.localName, a.NextErr()
 }

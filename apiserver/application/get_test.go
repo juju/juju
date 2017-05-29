@@ -41,7 +41,6 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		backend, s.authorizer, s.BackingStatePool,
 		blockChecker, application.CharmToStateCharm,
 		application.DeployApplication,
-		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

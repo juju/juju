@@ -147,7 +147,7 @@ func (api *BaseAPI) checkOfferAccess(backend Backend, offerName string, perm per
 		return permission.NoAccess, errors.Trace(err)
 	}
 	if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
-		return permission.NoAccess, errors.Trace(err)
+		return permission.NoAccess, nil
 	}
 	return access, nil
 }

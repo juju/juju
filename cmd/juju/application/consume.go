@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
@@ -77,15 +77,15 @@ func (c *consumeCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *consumeCommand) getAPI() (applicationConsumeAPI, error) {
+func (c *consumeCommand) getAPI(modelName string) (applicationConsumeAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewModelAPIRoot(modelName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return applicationoffers.NewClient(root), nil
+	return application.NewClient(root), nil
 }
 
 // Run adds the requested remote application to the model. Implements
@@ -106,7 +106,8 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		url.User = details.User
 		c.remoteApplication = url.Path()
 	}
-	client, err := c.getAPI()
+	// TODO(wallyworld) - use proper model name
+	client, err := c.getAPI("")
 	if err != nil {
 		return err
 	}
@@ -122,5 +123,5 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 
 type applicationConsumeAPI interface {
 	Close() error
-	Consume(names.ModelTag, params.ApplicationOffer, string) (string, error)
+	Consume(params.ApplicationOffer, string) (string, error)
 }

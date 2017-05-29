@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -753,130 +752,6 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *consumeSuite) setupTargetModel() names.ModelTag {
-	targetModelTag := names.NewModelTag(utils.MustNewUUID().String())
-	targetSt := &mockState{
-		modelUUID:          targetModelTag.Id(),
-		applications:       make(map[string]applicationoffers.Application),
-		remoteApplications: make(map[string]applicationoffers.RemoteApplication),
-		applicationOffers:  make(map[string]jujucrossmodel.ApplicationOffer),
-		users:              set.NewStrings(),
-		accessPerms:        make(map[offerAccess]permission.Access),
-	}
-	s.mockStatePool.st[targetModelTag.Id()] = targetSt
-	targetSt.model = &mockModel{uuid: targetModelTag.Id(), name: "target", owner: "fred"}
-	targetSt.modelUUID = targetModelTag.Id()
-	return targetModelTag
-}
-
-func (s *consumeSuite) TestConsumeIdempotent(c *gc.C) {
-	targetModelTag := s.setupTargetModel()
-	for i := 0; i < 2; i++ {
-		results, err := s.api.Consume(params.ConsumeApplicationArgs{
-			Args: []params.ConsumeApplicationArg{{
-				TargetModelTag: targetModelTag.String(),
-				ApplicationOffer: params.ApplicationOffer{
-					SourceModelTag:         testing.ModelTag.String(),
-					OfferName:              "hosted-mysql",
-					ApplicationDescription: "a database",
-					Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
-					OfferURL:               "othermodel.hosted-mysql",
-				},
-			}},
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(results.Results, gc.HasLen, 1)
-		c.Assert(results.Results[0].Error, gc.IsNil)
-	}
-	obtained, ok := s.mockStatePool.st[targetModelTag.Id()].(*mockState).remoteApplications["hosted-mysql"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
-		name:           "hosted-mysql",
-		sourceModelTag: testing.ModelTag,
-		offerName:      "hosted-mysql",
-		offerURL:       "othermodel.hosted-mysql",
-		endpoints: []state.Endpoint{
-			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
-	})
-}
-
-func (s *consumeSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
-	targetModelTag := s.setupTargetModel()
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		CloudType: "grandaddy",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		SpaceInfo: network.SpaceInfo{
-			Name:       "yourspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "5.6.7.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}
-
-	results, err := s.api.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			TargetModelTag:   targetModelTag.String(),
-			ApplicationAlias: "beirut",
-			ApplicationOffer: params.ApplicationOffer{
-				SourceModelTag:         testing.ModelTag.String(),
-				OfferName:              "hosted-mysql",
-				ApplicationDescription: "a database",
-				Endpoints:              []params.RemoteEndpoint{{Name: "server", Interface: "mysql", Role: "provider"}},
-				OfferURL:               "othermodel.hosted-mysql",
-				Bindings:               map[string]string{"server": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						CloudType:  "grandaddy",
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						ProviderAttributes: map[string]interface{}{
-							"thunderjaws": 1,
-						},
-						Subnets: []params.Subnet{{
-							CIDR:       "5.6.7.0/24",
-							ProviderId: "juju-subnet-1",
-							Zones:      []string{"az1"},
-						}},
-					},
-				},
-			},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].LocalName, gc.Equals, "beirut")
-
-	obtained, ok := s.mockStatePool.st[targetModelTag.Id()].(*mockState).remoteApplications["beirut"]
-	c.Assert(ok, jc.IsTrue)
-	endpoints, err := obtained.Endpoints()
-	c.Assert(err, jc.ErrorIsNil)
-	epNames := make([]string, len(endpoints))
-	for i, ep := range endpoints {
-		epNames[i] = ep.Name
-	}
-	c.Assert(epNames, jc.SameContents, []string{"server"})
-	c.Assert(obtained.Bindings(), jc.DeepEquals, map[string]string{"server": "myspace"})
-	c.Assert(obtained.Spaces(), jc.DeepEquals, []state.RemoteSpace{{
-		CloudType:  "grandaddy",
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		Subnets: []state.RemoteSubnet{{
-			CIDR:              "5.6.7.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	}})
-}
-
 // TODO(wallyworld) - re-implement when OfferDetails is done
 //func (s *consumeSuite) TestConsumeRejectsEndpoints(c *gc.C) {
 //	results, err := s.api.Consume(params.ConsumeApplicationArgs{
@@ -942,13 +817,12 @@ func (s *consumeSuite) setupOffer() {
 	s.mockState.allmodels = []applicationoffers.Model{
 		&mockModel{uuid: modelUUID, name: "prod", owner: "fred"}}
 	st := &mockState{
-		modelUUID:          modelUUID,
-		applications:       make(map[string]applicationoffers.Application),
-		remoteApplications: make(map[string]applicationoffers.RemoteApplication),
-		applicationOffers:  make(map[string]jujucrossmodel.ApplicationOffer),
-		users:              set.NewStrings(),
-		accessPerms:        make(map[offerAccess]permission.Access),
-		spaces:             make(map[string]applicationoffers.Space),
+		modelUUID:         modelUUID,
+		applications:      make(map[string]applicationoffers.Application),
+		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
+		users:             set.NewStrings(),
+		accessPerms:       make(map[offerAccess]permission.Access),
+		spaces:            make(map[string]applicationoffers.Space),
 	}
 	s.mockStatePool.st[modelUUID] = st
 	anOffer := jujucrossmodel.ApplicationOffer{

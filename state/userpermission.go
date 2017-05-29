@@ -48,7 +48,7 @@ func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*user
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
 	err := permissions.FindId(id).One(&result.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permissions for user %q", id)
+		return nil, errors.NotFoundf("user permission for %q on %q", subjectGlobalKey, objectGlobalKey)
 	}
 	return result, nil
 }
@@ -63,7 +63,7 @@ func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey stri
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
 	err := permissions.FindId(id).One(&result.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permissions for user %q", id)
+		return nil, errors.NotFoundf("user permission for %q on %q", subjectGlobalKey, objectGlobalKey)
 	}
 	return result, nil
 }

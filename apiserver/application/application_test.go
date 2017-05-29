@@ -5,7 +5,6 @@ package application_test
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"regexp"
 	"sync"
@@ -2764,75 +2763,3 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 //	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
 //	c.Assert(remoteApp.Spaces(), gc.IsNil)
 //}
-
-type mockStorageProvider struct {
-	storage.Provider
-	kind storage.StorageKind
-}
-
-func (m *mockStorageProvider) Scope() storage.Scope {
-	return storage.ScopeMachine
-}
-
-func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
-	return k == m.kind
-}
-
-func (m *mockStorageProvider) ValidateConfig(*storage.Config) error {
-	return nil
-}
-
-type blobs struct {
-	sync.Mutex
-	m map[string]bool // maps path to added (true), or deleted (false)
-}
-
-// Add adds a path to the list of known paths.
-func (b *blobs) Add(path string) {
-	b.Lock()
-	defer b.Unlock()
-	b.check()
-	b.m[path] = true
-}
-
-// Remove marks a path as deleted, even if it was not previously Added.
-func (b *blobs) Remove(path string) {
-	b.Lock()
-	defer b.Unlock()
-	b.check()
-	b.m[path] = false
-}
-
-func (b *blobs) check() {
-	if b.m == nil {
-		b.m = make(map[string]bool)
-	}
-}
-
-type recordingStorage struct {
-	statestorage.Storage
-	putBarrier *sync.WaitGroup
-	blobs      *blobs
-}
-
-func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
-	if s.putBarrier != nil {
-		// This goroutine has gotten to Put() so mark it Done() and
-		// wait for the other goroutines to get to this point.
-		s.putBarrier.Done()
-		s.putBarrier.Wait()
-	}
-	if err := s.Storage.Put(path, r, size); err != nil {
-		return errors.Trace(err)
-	}
-	s.blobs.Add(path)
-	return nil
-}
-
-func (s *recordingStorage) Remove(path string) error {
-	if err := s.Storage.Remove(path); err != nil {
-		return errors.Trace(err)
-	}
-	s.blobs.Remove(path)
-	return nil
-}
