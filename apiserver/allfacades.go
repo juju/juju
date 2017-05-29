@@ -192,7 +192,9 @@ func AllFacades() *facade.Registry {
 	reg("SSHClient", 1, sshclient.NewFacade)
 	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.
 
-	reg("Spaces", 2, spaces.NewAPI)
+	reg("Spaces", 2, spaces.NewAPIV2)
+	reg("Spaces", 3, spaces.NewAPI)
+
 	reg("StatusHistory", 2, statushistory.NewAPI)
 	reg("Storage", 3, storage.NewFacade)
 	reg("StorageProvisioner", 3, storageprovisioner.NewFacade)

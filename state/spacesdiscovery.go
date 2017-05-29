@@ -30,8 +30,7 @@ func (st *State) getModelSubnets() (set.Strings, error) {
 func (st *State) ReloadSpaces(environ environs.Environ) error {
 	netEnviron, ok := environs.SupportsNetworking(environ)
 	if !ok {
-		logger.Debugf("not a networking environ")
-		return nil
+		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
 	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery()
 	if err != nil {

@@ -158,7 +158,7 @@ func (e *networkedEnviron) SupportsSpaceDiscovery() (bool, error) {
 
 func (s *SpacesDiscoverySuite) TestReloadSpacesNetworklessEnviron(c *gc.C) {
 	err := s.State.ReloadSpaces(networkLessEnviron{})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
 }
 
 func (s *SpacesDiscoverySuite) TestReloadSpacesSupportsSpaceDiscoveryBroken(c *gc.C) {

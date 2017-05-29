@@ -326,9 +326,12 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	}
 	defer st.Close()
 
-	err = st.ReloadSpaces(env)
-	if err != nil {
-		return result, errors.Annotate(err, "Failed to perform spaces discovery")
+	if err = st.ReloadSpaces(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return result, errors.Annotate(err, "Failed to perform spaces discovery")
+		}
 	}
 
 	return m.getModelInfo(model.ModelTag())

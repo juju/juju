@@ -35,7 +35,7 @@ type SpaceAPI interface {
 	// TODO(dimitern): All of the following api methods should take
 	// names.SpaceTag instead of name, the only exceptions are
 	// AddSpace, and RenameSpace as the named space doesn't exist
-	// yet.a
+	// yet.
 
 	// RemoveSpace removes an existing Juju network space, transferring
 	// any associated subnets to the default space.

@@ -215,7 +215,11 @@ func InitializeState(
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
 	if err := hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
-		return nil, nil, errors.Annotate(err, "fetching hosted model spaces")
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return nil, nil, errors.Annotate(err, "fetching hosted model spaces")
+		}
 	}
 
 	return st, m, nil
