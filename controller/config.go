@@ -376,9 +376,22 @@ func Validate(c Config) error {
 	return nil
 }
 
+var overriddenCert, overriddenKey string
+
+// OverrideControllerCertAndKey prevents the generation of new certs during
+// testing by using the given caCert and caKey instead.
+func OverrideControllerCertAndKey(caCert, caKey string) {
+	overriddenCert = caCert
+	overriddenKey = caKey
+}
+
 // GenerateControllerCertAndKey makes sure that the config has a CACert and
 // CAPrivateKey, generates and returns new certificate and key.
 func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) (string, string, error) {
+	if overriddenCert != "" && overriddenKey != "" {
+		logger.Warningf("Using overridden cert and key rather than generating")
+		return overriddenCert, overriddenKey, nil
+	}
 	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
 
