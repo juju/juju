@@ -35,7 +35,7 @@ var (
 )
 
 func UserAgent() string {
-	return "Juju/" + version.Current.String()
+	return fmt.Sprintf("Juju/%s arm-graphrbac/%s", version.Current, APIVersion)
 }
 
 type ManagementClient struct {
