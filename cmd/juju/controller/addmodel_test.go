@@ -44,7 +44,7 @@ var _ = gc.Suite(&AddModelSuite{})
 func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	agentVersion, err := version.Parse("2.2-rc1")
+	agentVersion, err := version.Parse("2.55.5")
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeAddModelAPI = &fakeAddClient{
 		model: base.ModelInfo{

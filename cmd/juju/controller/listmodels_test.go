@@ -65,7 +65,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 	if f.infos != nil {
 		return f.infos, nil
 	}
-	agentVersion, _ := version.Parse("2.2-rc1")
+	agentVersion, _ := version.Parse("2.55.5")
 	results := make([]params.ModelInfoResult, len(tags))
 	for i, tag := range tags {
 		for _, model := range f.models {
@@ -271,7 +271,7 @@ func (s *ModelsSuite) TestModelsError(c *gc.C) {
 }
 
 func createBasicModelInfo() *params.ModelInfo {
-	agentVersion, _ := version.Parse("2.2-rc1")
+	agentVersion, _ := version.Parse("2.55.5")
 	return &params.ModelInfo{
 		Name:           "basic-model",
 		UUID:           testing.ModelTag.Id(),

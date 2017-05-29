@@ -479,7 +479,7 @@ func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\",\"owner\":\"owner\"," +
 		"\"cloud\":\"altostratus\",\"region\":\"mid-level\"," +
-		"\"life\":\"dead\",\"agent-version\":\"2.2-rc1\"}}\n"
+		"\"life\":\"dead\",\"agent-version\":\"2.55.5\"}}\n"
 	s.assertShowModelWithAgent(c, "json")
 }
 
@@ -494,7 +494,7 @@ basic-model:
   cloud: altostratus
   region: mid-level
   life: dead
-  agent-version: 2.2-rc1
+  agent-version: 2.55.5
 `[1:]
 	s.assertShowModelWithAgent(c, "yaml")
 }
@@ -502,7 +502,7 @@ basic-model:
 func (s *ShowCommandSuite) assertShowModelWithAgent(c *gc.C, format string) {
 	// Since most of the tests in this suite already test model infos without
 	// agent version, all we need to do here is to test one with it.
-	agentVersion, err := version.Parse("2.2-rc1")
+	agentVersion, err := version.Parse("2.55.5")
 	c.Assert(err, jc.ErrorIsNil)
 	basicTestInfo := createBasicModelInfo()
 	basicTestInfo.AgentVersion = &agentVersion
