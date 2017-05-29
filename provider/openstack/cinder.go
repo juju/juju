@@ -211,13 +211,40 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Vo
 
 // ListVolumes is specified on the storage.VolumeSource interface.
 func (s *cinderVolumeSource) ListVolumes() ([]string, error) {
-	volumes, err := listVolumes(s.storageAdapter, func(v *cinder.Volume) bool {
-		return v.Metadata[tags.JujuModel] == s.modelUUID
-	})
+	cinderVolumes, err := modelCinderVolumes(s.storageAdapter, s.modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return volumeInfoToVolumeIds(volumes), nil
+	return volumeInfoToVolumeIds(cinderToJujuVolumeInfos(cinderVolumes)), nil
+}
+
+// modelCinderVolumes returns all of the cinder volumes for the model.
+func modelCinderVolumes(storageAdapter OpenstackStorage, modelUUID string) ([]cinder.Volume, error) {
+	return cinderVolumes(storageAdapter, func(v *cinder.Volume) bool {
+		return v.Metadata[tags.JujuModel] == modelUUID
+	})
+}
+
+// controllerCinderVolumes returns all of the cinder volumes for the model.
+func controllerCinderVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]cinder.Volume, error) {
+	return cinderVolumes(storageAdapter, func(v *cinder.Volume) bool {
+		return v.Metadata[tags.JujuController] == controllerUUID
+	})
+}
+
+// cinderVolumes returns all of the cinder volumes matching the given predicate.
+func cinderVolumes(storageAdapter OpenstackStorage, pred func(*cinder.Volume) bool) ([]cinder.Volume, error) {
+	allCinderVolumes, err := storageAdapter.GetVolumesDetail()
+	if err != nil {
+		return nil, err
+	}
+	var matching []cinder.Volume
+	for _, v := range allCinderVolumes {
+		if pred(&v) {
+			matching = append(matching, v)
+		}
+	}
+	return matching, nil
 }
 
 func volumeInfoToVolumeIds(volumes []storage.VolumeInfo) []string {
@@ -226,22 +253,6 @@ func volumeInfoToVolumeIds(volumes []storage.VolumeInfo) []string {
 		volumeIds[i] = volume.VolumeId
 	}
 	return volumeIds
-}
-
-// listVolumes returns all of the volumes matching the given function.
-func listVolumes(storageAdapter OpenstackStorage, match func(*cinder.Volume) bool) ([]storage.VolumeInfo, error) {
-	cinderVolumes, err := storageAdapter.GetVolumesDetail()
-	if err != nil {
-		return nil, err
-	}
-	volumes := make([]storage.VolumeInfo, 0, len(cinderVolumes))
-	for _, volume := range cinderVolumes {
-		if !match(&volume) {
-			continue
-		}
-		volumes = append(volumes, cinderToJujuVolumeInfo(&volume))
-	}
-	return volumes, nil
 }
 
 // DescribeVolumes implements storage.VolumeSource.
@@ -443,6 +454,14 @@ func detachVolumes(storageAdapter OpenstackStorage, args []storage.VolumeAttachm
 		}
 	}
 	return results, nil
+}
+
+func cinderToJujuVolumeInfos(volumes []cinder.Volume) []storage.VolumeInfo {
+	out := make([]storage.VolumeInfo, len(volumes))
+	for i, v := range volumes {
+		out[i] = cinderToJujuVolumeInfo(&v)
+	}
+	return out
 }
 
 func cinderToJujuVolumeInfo(volume *cinder.Volume) storage.VolumeInfo {
