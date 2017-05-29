@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,7 +17,6 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/utils/set"
 )
@@ -101,12 +99,6 @@ func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResult
 			continue
 		}
 		defer releaser()
-
-		check := common.NewBlockChecker(backend)
-		if err := check.ChangeAllowed(); err != nil {
-			result[i].Error = common.ServerError(err)
-			continue
-		}
 
 		if err := api.checkAdmin(backend); err != nil {
 			result[i].Error = common.ServerError(err)
@@ -407,155 +399,6 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 		result.Results = append(result.Results, offer.ApplicationOffer)
 	}
 	return result, nil
-}
-
-// TODO(wallyworld) - we'll use this when the ConsumeDetails API is added.
-// applicationUrlEndpointParse is used to split an application url and optional
-// relation name into url and relation name.
-//var applicationUrlEndpointParse = regexp.MustCompile("(?P<url>.*[/.][^:]*)(:(?P<relname>.*)$)?")
-
-// Consume adds remote applications to the model without creating any
-// relations.
-func (api *OffersAPI) Consume(args params.ConsumeApplicationArgs) (params.ConsumeApplicationResults, error) {
-	var consumeResults params.ConsumeApplicationResults
-	results := make([]params.ConsumeApplicationResult, len(args.Args))
-	for i, arg := range args.Args {
-		localName, err := api.consumeOne(arg)
-		results[i].LocalName = localName
-		results[i].Error = common.ServerError(err)
-	}
-	consumeResults.Results = results
-	return consumeResults, nil
-}
-
-func (api *OffersAPI) consumeOne(arg params.ConsumeApplicationArg) (string, error) {
-	targetModelTag, err := names.ParseModelTag(arg.TargetModelTag)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	backend, releaser, err := api.StatePool.Get(targetModelTag.Id())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer releaser()
-
-	check := common.NewBlockChecker(backend)
-	if err := check.ChangeAllowed(); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	appName := arg.ApplicationAlias
-	if appName == "" {
-		appName = arg.OfferName
-	}
-	remoteApp, err := api.saveRemoteApplication(backend, sourceModelTag, appName, arg.ApplicationOffer)
-	return remoteApp.Name(), err
-}
-
-// saveRemoteApplication saves the details of the specified remote application and its endpoints
-// to the state model so relations to the remote application can be created.
-func (api *OffersAPI) saveRemoteApplication(
-	backend Backend,
-	sourceModelTag names.ModelTag,
-	applicationName string,
-	offer params.ApplicationOffer,
-) (RemoteApplication, error) {
-	remoteEps := make([]charm.Relation, len(offer.Endpoints))
-	for j, ep := range offer.Endpoints {
-		remoteEps[j] = charm.Relation{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-			Limit:     ep.Limit,
-			Scope:     ep.Scope,
-		}
-	}
-
-	remoteSpaces := make([]*environs.ProviderSpaceInfo, len(offer.Spaces))
-	for i, space := range offer.Spaces {
-		remoteSpaces[i] = providerSpaceInfoFromParams(space)
-	}
-
-	// If the a remote application with the same name and endpoints from the same
-	// source model already exists, we will use that one.
-	remoteApp, err := api.maybeUpdateExistingApplicationEndpoints(backend, applicationName, sourceModelTag, remoteEps)
-	if err == nil {
-		return remoteApp, nil
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-
-	return backend.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        applicationName,
-		OfferName:   offer.OfferName,
-		URL:         offer.OfferURL,
-		SourceModel: sourceModelTag,
-		Endpoints:   remoteEps,
-		Spaces:      remoteSpaces,
-		Bindings:    offer.Bindings,
-	})
-}
-
-// maybeUpdateExistingApplicationEndpoints looks for a remote application with the
-// specified name and source model tag and tries to update its endpoints with the
-// new ones specified. If the endpoints are compatible, the newly updated remote
-// application is returned.
-func (api *OffersAPI) maybeUpdateExistingApplicationEndpoints(
-	backend Backend, applicationName string, sourceModelTag names.ModelTag, remoteEps []charm.Relation,
-) (RemoteApplication, error) {
-	existingRemoteApp, err := backend.RemoteApplication(applicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	if existingRemoteApp.SourceModel().Id() != sourceModelTag.Id() {
-		return nil, errors.AlreadyExistsf("remote application called %q from a different model", applicationName)
-	}
-	newEpsMap := make(map[charm.Relation]bool)
-	for _, ep := range remoteEps {
-		newEpsMap[ep] = true
-	}
-	existingEps, err := existingRemoteApp.Endpoints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	maybeSameEndpoints := len(newEpsMap) == len(existingEps)
-	existingEpsByName := make(map[string]charm.Relation)
-	for _, ep := range existingEps {
-		existingEpsByName[ep.Name] = ep.Relation
-		delete(newEpsMap, ep.Relation)
-	}
-	sameEndpoints := maybeSameEndpoints && len(newEpsMap) == 0
-	if sameEndpoints {
-		return existingRemoteApp, nil
-	}
-
-	// Gather the new endpoints. All new endpoints passed to AddEndpoints()
-	// below must not have the same name as an existing endpoint.
-	var newEps []charm.Relation
-	for ep := range newEpsMap {
-		// See if we are attempting to update endpoints with the same name but
-		// different relation data.
-		if existing, ok := existingEpsByName[ep.Name]; ok && existing != ep {
-			return nil, errors.Errorf("conflicting endpoint %v", ep.Name)
-		}
-		newEps = append(newEps, ep)
-	}
-
-	if len(newEps) > 0 {
-		// Update the existing remote app to have the new, additional endpoints.
-		if err := existingRemoteApp.AddEndpoints(newEps); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return existingRemoteApp, nil
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.

@@ -42,8 +42,6 @@ func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 type Backend interface {
 	ControllerTag() names.ControllerTag
 	Charm(*charm.URL) (Charm, error)
-	AddRemoteApplication(args state.AddRemoteApplicationParams) (RemoteApplication, error)
-	RemoteApplication(name string) (RemoteApplication, error)
 	Application(name string) (Application, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
@@ -52,8 +50,6 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 	Space(string) (Space, error)
-
-	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 
 	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
@@ -93,16 +89,6 @@ func (s *stateShim) AllModels() ([]Model, error) {
 		result = append(result, &modelShim{m})
 	}
 	return result, err
-}
-
-func (s *stateShim) RemoteApplication(name string) (RemoteApplication, error) {
-	app, err := s.State.RemoteApplication(name)
-	return &remoteApplicationShim{app}, err
-}
-
-func (s *stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (RemoteApplication, error) {
-	app, err := s.State.AddRemoteApplication(args)
-	return &remoteApplicationShim{app}, err
 }
 
 type stateCharmShim struct {
@@ -151,19 +137,6 @@ type applicationShim struct {
 
 func (a *applicationShim) Charm() (ch Charm, force bool, err error) {
 	return a.Application.Charm()
-}
-
-type remoteApplicationShim struct {
-	*state.RemoteApplication
-}
-
-type RemoteApplication interface {
-	Name() string
-	SourceModel() names.ModelTag
-	Endpoints() ([]state.Endpoint, error)
-	AddEndpoints(eps []charm.Relation) error
-	Bindings() map[string]string
-	Spaces() []state.RemoteSpace
 }
 
 type Charm interface {

@@ -259,76 +259,23 @@ type offerAccess struct {
 }
 
 type mockState struct {
-	modelUUID          string
-	model              applicationoffers.Model
-	allmodels          []applicationoffers.Model
-	users              set.Strings
-	applications       map[string]applicationoffers.Application
-	remoteApplications map[string]applicationoffers.RemoteApplication
-	applicationOffers  map[string]jujucrossmodel.ApplicationOffer
-	spaces             map[string]applicationoffers.Space
-	connStatus         applicationoffers.RemoteConnectionStatus
-	accessPerms        map[offerAccess]permission.Access
+	modelUUID         string
+	model             applicationoffers.Model
+	allmodels         []applicationoffers.Model
+	users             set.Strings
+	applications      map[string]applicationoffers.Application
+	applicationOffers map[string]jujucrossmodel.ApplicationOffer
+	spaces            map[string]applicationoffers.Space
+	connStatus        applicationoffers.RemoteConnectionStatus
+	accessPerms       map[offerAccess]permission.Access
 }
 
 func (m *mockState) ControllerTag() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (m *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return nil, false, nil
-}
-
 func (m *mockState) Charm(*charm.URL) (applicationoffers.Charm, error) {
 	return &mockCharm{}, nil
-}
-
-func (m *mockState) AddRemoteApplication(args state.AddRemoteApplicationParams) (applicationoffers.RemoteApplication, error) {
-	app := &mockRemoteApplication{
-		name:           args.Name,
-		sourceModelTag: args.SourceModel,
-		offerName:      args.OfferName,
-		offerURL:       args.URL,
-		bindings:       args.Bindings,
-	}
-	for _, ep := range args.Endpoints {
-		app.endpoints = append(app.endpoints, state.Endpoint{
-			ApplicationName: app.name,
-			Relation: charm.Relation{
-				Name:      ep.Name,
-				Interface: ep.Interface,
-				Role:      ep.Role,
-			},
-		})
-	}
-	for _, sp := range args.Spaces {
-		remoteSpaceInfo := state.RemoteSpace{
-			CloudType:          sp.CloudType,
-			Name:               sp.Name,
-			ProviderId:         string(sp.ProviderId),
-			ProviderAttributes: sp.ProviderAttributes,
-		}
-		for _, sn := range sp.Subnets {
-			remoteSpaceInfo.Subnets = append(remoteSpaceInfo.Subnets, state.RemoteSubnet{
-				CIDR:              sn.CIDR,
-				VLANTag:           sn.VLANTag,
-				ProviderId:        string(sn.ProviderId),
-				ProviderNetworkId: string(sn.ProviderNetworkId),
-				AvailabilityZones: sn.AvailabilityZones,
-			})
-		}
-		app.spaces = append(app.spaces, remoteSpaceInfo)
-	}
-	m.remoteApplications[app.name] = app
-	return app, nil
-}
-
-func (m *mockState) RemoteApplication(name string) (applicationoffers.RemoteApplication, error) {
-	app, ok := m.remoteApplications[name]
-	if !ok {
-		return nil, errors.NotFoundf("remote application %q", name)
-	}
-	return app, nil
 }
 
 func (m *mockState) Application(name string) (applicationoffers.Application, error) {

@@ -128,10 +128,6 @@ type ConsumeApplicationArg struct {
 	// The offer to be consumed.
 	ApplicationOffer
 
-	// TargetModelTag represents the model when the consumed
-	// application is to be saved.
-	TargetModelTag string
-
 	// ApplicationAlias is the name of the alias to use for the application name.
 	ApplicationAlias string `json:"application-alias,omitempty"`
 }

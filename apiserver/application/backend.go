@@ -4,12 +4,14 @@
 package application
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -20,7 +22,8 @@ type Backend interface {
 	AllModels() ([]Model, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
-	RemoteApplication(string) (*state.RemoteApplication, error)
+	RemoteApplication(string) (RemoteApplication, error)
+	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
 	AssignUnit(*state.Unit, state.AssignmentPolicy) error
 	AssignUnitWithPlacement(*state.Unit, *instance.Placement) error
@@ -137,6 +140,30 @@ func (s stateShim) Application(name string) (Application, error) {
 	return stateApplicationShim{a}, nil
 }
 
+type remoteApplicationShim struct {
+	*state.RemoteApplication
+}
+
+type RemoteApplication interface {
+	Name() string
+	SourceModel() names.ModelTag
+	Endpoints() ([]state.Endpoint, error)
+	AddEndpoints(eps []charm.Relation) error
+	Bindings() map[string]string
+	Spaces() []state.RemoteSpace
+	Destroy() error
+}
+
+func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {
+	app, err := s.State.RemoteApplication(name)
+	return &remoteApplicationShim{app}, err
+}
+
+func (s stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (RemoteApplication, error) {
+	app, err := s.State.AddRemoteApplication(args)
+	return &remoteApplicationShim{app}, err
+}
+
 func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
 	r, err := s.State.AddRelation(eps...)
 	if err != nil {
@@ -231,4 +258,42 @@ type stateUnitShim struct {
 
 type stateModelShim struct {
 	*state.Model
+}
+
+type Subnet interface {
+	CIDR() string
+	VLANTag() int
+	ProviderId() network.Id
+	ProviderNetworkId() network.Id
+	AvailabilityZones() []string
+}
+
+type subnetShim struct {
+	*state.Subnet
+}
+
+func (s *subnetShim) AvailabilityZones() []string {
+	return []string{s.Subnet.AvailabilityZone()}
+}
+
+type Space interface {
+	Name() string
+	Subnets() ([]Subnet, error)
+	ProviderId() network.Id
+}
+
+type spaceShim struct {
+	*state.Space
+}
+
+func (s *spaceShim) Subnets() ([]Subnet, error) {
+	subnets, err := s.Space.Subnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]Subnet, len(subnets))
+	for i, subnet := range subnets {
+		result[i] = &subnetShim{subnet}
+	}
+	return result, nil
 }
