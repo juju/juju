@@ -60,12 +60,6 @@ var (
 	}
 )
 
-// DoTestForIPv4AndIPv6 runs the passed test for IPv4 and IPv6.
-func DoTestForIPv4AndIPv6(t func(ipVersion TestIPVersion)) {
-	t(testIPv4)
-	t(testIPv6)
-}
-
 type workerSuite struct {
 	coretesting.BaseSuite
 	clock *testing.Clock
@@ -76,6 +70,25 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.clock = testing.NewClock(time.Now())
+}
+
+type testSuite interface {
+	SetUpTest(c *gc.C)
+	TearDownTest(c *gc.C)
+}
+
+// DoTestForIPv4AndIPv6 runs the passed test for IPv4 and IPv6.
+//
+// TODO(axw) the type of address has little to do with the
+// behaviour of this worker. so we should not need to run the
+// tests for each address type. We can introduce a limited
+// number (probably one) of feature tests to check that we
+// handle both address types as expected.
+func DoTestForIPv4AndIPv6(c *gc.C, s testSuite, t func(ipVersion TestIPVersion)) {
+	t(testIPv4)
+	s.TearDownTest(c)
+	s.SetUpTest(c)
+	t(testIPv6)
 }
 
 // InitState initializes the fake state with a single
@@ -128,7 +141,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.mongo").SetLogLevel(loggo.INFO)
 	loggo.GetLogger("juju.network").SetLogLevel(loggo.INFO)
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		c.Logf("\n\nTestSetsAndUpdatesMembers: %s", ipVersion.version)
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
@@ -205,7 +218,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 }
 
 func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 
 		// Simulate a state where we have four controllers,
@@ -305,7 +318,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 }
 
 func (s *workerSuite) TestAddressChange(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 
@@ -358,7 +371,7 @@ var fatalErrorsTests = []struct {
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		s.PatchValue(&pollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
 			c.Logf("\n(%s) test %d: %s -> %s", ipVersion.version, i, testCase.errPattern, testCase.expectErr)
@@ -389,7 +402,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 	coretesting.SkipIfI386(c, "lp:1425569")
 
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
@@ -424,7 +437,7 @@ func (f PublisherFunc) publishAPIServers(apiServers [][]network.HostPort, instan
 }
 
 func (s *workerSuite) TestControllersArePublished(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		publishCh := make(chan [][]network.HostPort)
 		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 			publishCh <- apiServers
@@ -549,7 +562,7 @@ func runWorkerUntilMongoStateIs(c *gc.C, st *fakeState, w *pgWorker, mss state.M
 }
 
 func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
 
 		for i, machine := range machines {
@@ -577,7 +590,7 @@ func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
 
 func (s *workerSuite) TestMongoErrorNoCommonSpace(c *gc.C) {
 	c.Skip("dimitern: test disabled as it needs refactoring")
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
 
 		for i, machine := range machines {
@@ -606,7 +619,7 @@ func (s *workerSuite) TestMongoErrorNoCommonSpace(c *gc.C) {
 }
 
 func (s *workerSuite) TestMongoNoSpaces(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, true)
 
 		for i, machine := range machines {
@@ -622,7 +635,7 @@ func (s *workerSuite) TestMongoNoSpaces(c *gc.C) {
 }
 
 func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
 
 		for i, machine := range machines {
@@ -650,7 +663,7 @@ func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
 }
 
 func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
 
 		for i, machine := range machines {
@@ -676,7 +689,7 @@ func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C)
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		publishCh := make(chan [][]network.HostPort, 100)
 
 		count := 0
@@ -713,7 +726,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
 		s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
 		s.PatchValue(&maxRetryInterval, initialRetryInterval)
