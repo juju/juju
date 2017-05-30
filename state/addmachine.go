@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -263,7 +264,16 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	if template.InstanceId == "" {
-		if err := st.precheckInstance(template.Series, template.Constraints, template.Placement); err != nil {
+		volumeAttachments, err := st.machineTemplateVolumeAttachmentParams(template)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := st.precheckInstance(
+			template.Series,
+			template.Constraints,
+			template.Placement,
+			volumeAttachments,
+		); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -394,7 +404,16 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, errors.New("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
-		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints, parentTemplate.Placement); err != nil {
+		volumeAttachments, err := st.machineTemplateVolumeAttachmentParams(parentTemplate)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := st.precheckInstance(
+			parentTemplate.Series,
+			parentTemplate.Constraints,
+			parentTemplate.Placement,
+			volumeAttachments,
+		); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -426,6 +445,33 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
 	)
 	return mdoc, append(prereqOps, parentOp, machineOp), nil
+}
+
+func (st *State) machineTemplateVolumeAttachmentParams(t MachineTemplate) ([]storage.VolumeAttachmentParams, error) {
+	out := make([]storage.VolumeAttachmentParams, 0, len(t.VolumeAttachments))
+	for volumeTag, a := range t.VolumeAttachments {
+		v, err := st.Volume(volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		volumeInfo, err := v.Info()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerType, _, err := poolStorageProvider(st, volumeInfo.Pool)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out = append(out, storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: providerType,
+				ReadOnly: a.ReadOnly,
+			},
+			Volume:   volumeTag,
+			VolumeId: volumeInfo.VolumeId,
+		})
+	}
+	return out, nil
 }
 
 func (st *State) machineDocForTemplate(template MachineTemplate, id string) *machineDoc {

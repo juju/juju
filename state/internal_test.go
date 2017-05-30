@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -128,7 +129,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 
 type internalStatePolicy struct{}
 
-func (internalStatePolicy) Prechecker() (Prechecker, error) {
+func (internalStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
 	return nil, errors.NotImplementedf("Prechecker")
 }
 

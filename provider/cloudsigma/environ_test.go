@@ -54,7 +54,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Assert(cfg, gc.NotNil)
 	c.Check(cfg.Name(), gc.Equals, "testname")
 
-	c.Check(env.PrecheckInstance("", constraints.Value{}, ""), gc.IsNil)
+	c.Check(env.PrecheckInstance(environs.PrecheckInstanceParams{}), gc.IsNil)
 
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	c.Check(ok, gc.Equals, true)

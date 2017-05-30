@@ -943,8 +943,6 @@ func removeStorageInstance(c *gc.C, st *state.State, storageTag names.StorageTag
 	for _, a := range attachments {
 		err = st.DetachStorage(storageTag, a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
-		err = st.RemoveStorageAttachment(storageTag, a.Unit())
-		c.Assert(err, jc.ErrorIsNil)
 	}
 	_, err = st.StorageInstance(storageTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

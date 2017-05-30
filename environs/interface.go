@@ -336,6 +336,16 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
+	InstancePrechecker
+
+	// InstanceTypesFetcher represents an environment that can return
+	// information about the available instance types.
+	InstanceTypesFetcher
+}
+
+// InstancePrechecker provides a means of "prechecking" instance
+// arguments before recording them in state.
+type InstancePrechecker interface {
 	// PrecheckInstance performs a preflight check on the specified
 	// series and constraints, ensuring that they are possibly valid for
 	// creating an instance in this model.
@@ -344,16 +354,26 @@ type Environ interface {
 	// all invalid parameters. If PrecheckInstance returns nil, it is not
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
-	//
-	// TODO(axw) find a home for state.Prechecker that isn't state and
-	// isn't environs, so both packages can refer to it. Maybe the
-	// constraints package? Can't be instance, because constraints
-	// import instance...
-	PrecheckInstance(series string, cons constraints.Value, placement string) error
+	PrecheckInstance(PrecheckInstanceParams) error
+}
 
-	// InstanceTypesFetcher represents an environment that can return
-	// information about the available instance types.
-	InstanceTypesFetcher
+// PrecheckInstanceParams contains the parameters for
+// InstancePrechecker.PrecheckInstance.
+type PrecheckInstanceParams struct {
+	// Series contains the series of the machine.
+	Series string
+
+	// Constraints contains the machine constraints.
+	Constraints constraints.Value
+
+	// Placement contains the machine placement directive, if any.
+	Placement string
+
+	// VolumeAttachments contains the parameters for attaching existing
+	// volumes to the instance. The PrecheckInstance method should not
+	// expect the attachment's Machine field to be set, as PrecheckInstance
+	// may be called before a machine ID is allocated.
+	VolumeAttachments []storage.VolumeAttachmentParams
 }
 
 // CreateParams contains the parameters for Environ.Create.

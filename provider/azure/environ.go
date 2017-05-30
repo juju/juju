@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/provider/azure/internal/tracing"
 	"github.com/juju/juju/provider/azure/internal/useragent"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
 
@@ -111,7 +110,6 @@ type azureEnviron struct {
 }
 
 var _ environs.Environ = (*azureEnviron)(nil)
-var _ state.Prechecker = (*azureEnviron)(nil)
 
 // newEnviron creates a new azureEnviron.
 func newEnviron(
@@ -392,12 +390,12 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
+// PrecheckInstance is defined on the environs.InstancePrechecker interface.
+func (env *azureEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if args.Placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", args.Placement)
 	}
-	if !cons.HasInstanceType() {
+	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
@@ -406,11 +404,11 @@ func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value,
 		return err
 	}
 	for _, instanceType := range instanceTypes {
-		if instanceType.Name == *cons.InstanceType {
+		if instanceType.Name == *args.Constraints.InstanceType {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid instance type %q", *cons.InstanceType)
+	return fmt.Errorf("invalid instance type %q", *args.Constraints.InstanceType)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
