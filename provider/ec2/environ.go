@@ -304,10 +304,12 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (e *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	if args.Placement != "" {
-		if _, err := e.parsePlacement(args.Placement); err != nil {
-			return err
-		}
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
+		return errors.Trace(err)
 	}
 	if !args.Constraints.HasInstanceType() {
 		return nil
@@ -411,46 +413,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if volumeAttachmentsZone != "" {
-		logger.Debugf("volume attachment(s) are in availability zone %q", volumeAttachmentsZone)
+	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	var availabilityZones []string
-	var placementSubnetID string
-	if args.Placement != "" {
-		placement, err := e.parsePlacement(args.Placement)
-		if err != nil {
-			return nil, err
-		}
-		if placement.availabilityZone.State != availableState {
-			return nil, errors.Errorf("availability zone %q is %q", placement.availabilityZone.Name, placement.availabilityZone.State)
-		}
-		if volumeAttachmentsZone != "" && volumeAttachmentsZone != placement.availabilityZone.Name {
-			return nil, errors.Errorf(
-				"cannot create instance with placement %q, as this will prevent attaching EBS volumes in zone %q",
-				args.Placement, volumeAttachmentsZone,
-			)
-		}
-		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
-		if placement.subnet != nil {
-			if placement.subnet.State != availableState {
-				return nil, errors.Errorf("subnet %q is %q", placement.subnet.CIDRBlock, placement.subnet.State)
-			}
-			placementSubnetID = placement.subnet.Id
-		}
-	}
-
-	// If any existing volumes are to be attached, and no placement was
-	// specified, we allocate the instance in the same zone as the
-	// volume(s).
-	if volumeAttachmentsZone != "" && len(availabilityZones) == 0 {
-		availabilityZones = append(availabilityZones, volumeAttachmentsZone)
+	if placementZone != "" {
+		availabilityZones = []string{placementZone}
 	}
 
 	// If no availability zone is specified or required, then automatically
 	// spread across the known zones for optimal spread across the instance
 	// distribution group.
-	var zoneInstances []common.AvailabilityZoneInstances
 	if len(availabilityZones) == 0 {
 		var err error
 		var group []instance.Id
@@ -460,7 +434,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 				return nil, err
 			}
 		}
-		zoneInstances, err = availabilityZoneAllocations(e, group)
+		zoneInstances, err := availabilityZoneAllocations(e, group)
 		if err != nil {
 			return nil, err
 		}
@@ -678,6 +652,37 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+func (e *environ) instancePlacementZone(placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {
+	if placement == "" {
+		return volumeAttachmentsZone, "", nil
+	}
+	var placementSubnetID string
+	instPlacement, err := e.parsePlacement(placement)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if instPlacement.availabilityZone.State != availableState {
+		return "", "", errors.Errorf(
+			"availability zone %q is %q",
+			instPlacement.availabilityZone.Name,
+			instPlacement.availabilityZone.State,
+		)
+	}
+	if volumeAttachmentsZone != "" && volumeAttachmentsZone != instPlacement.availabilityZone.Name {
+		return "", "", errors.Errorf(
+			"cannot create instance with placement %q, as this will prevent attaching the requested EBS volumes in zone %q",
+			placement, volumeAttachmentsZone,
+		)
+	}
+	if instPlacement.subnet != nil {
+		if instPlacement.subnet.State != availableState {
+			return "", "", errors.Errorf("subnet %q is %q", instPlacement.subnet.CIDRBlock, instPlacement.subnet.State)
+		}
+		placementSubnetID = instPlacement.subnet.Id
+	}
+	return instPlacement.availabilityZone.Name, placementSubnetID, nil
 }
 
 // volumeAttachmentsZone determines the availability zone for each volume
