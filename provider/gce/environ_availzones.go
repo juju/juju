@@ -92,24 +92,12 @@ func (env *environ) startInstanceAvailabilityZones(args environs.StartInstancePa
 		return nil, errors.Trace(err)
 	}
 
-	if args.Placement != "" {
-		// args.Placement will always be a zone name or empty.
-		placement, err := env.parsePlacement(args.Placement)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if volumeAttachmentsZone != "" && placement.Zone.Name() != volumeAttachmentsZone {
-			return nil, errors.Errorf(
-				"cannot create instance with placement %q, as this will prevent attaching disks in zone %q",
-				args.Placement, volumeAttachmentsZone,
-			)
-		}
-		// TODO(ericsnow) Fail if placement.Zone is not in the env's configured region?
-		return []string{placement.Zone.Name()}, nil
+	placementZone, err := env.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	if volumeAttachmentsZone != "" {
-		return []string{volumeAttachmentsZone}, nil
+	if placementZone != "" {
+		return []string{placementZone}, nil
 	}
 
 	// If no availability zone is specified, then automatically spread across
@@ -160,4 +148,22 @@ func volumeAttachmentsZone(volumeAttachments []storage.VolumeAttachmentParams) (
 		}
 	}
 	return zone, nil
+}
+
+func (env *environ) instancePlacementZone(placement string, volumeAttachmentsZone string) (string, error) {
+	if placement == "" {
+		return volumeAttachmentsZone, nil
+	}
+	// placement will always be a zone name or empty.
+	instPlacement, err := env.parsePlacement(placement)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if volumeAttachmentsZone != "" && instPlacement.Zone.Name() != volumeAttachmentsZone {
+		return "", errors.Errorf(
+			"cannot create instance with placement %q, as this will prevent attaching the requested disks in zone %q",
+			placement, volumeAttachmentsZone,
+		)
+	}
+	return instPlacement.Zone.Name(), nil
 }

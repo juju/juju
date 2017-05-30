@@ -204,5 +204,5 @@ func (s *environAZSuite) TestStartInstanceAvailabilityZonesVolumeAttachmentsConf
 	}}
 
 	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching disks in zone "home-zone"`)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
 }

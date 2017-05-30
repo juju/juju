@@ -13,7 +13,11 @@ import (
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	if _, err := env.parsePlacement(args.Placement); err != nil {
+	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := env.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
 		return errors.Trace(err)
 	}
 
