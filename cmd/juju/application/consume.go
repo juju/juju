@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -38,13 +39,13 @@ See also:
 // NewConsumeCommand returns a command to add remote applications to
 // the model.
 func NewConsumeCommand() cmd.Command {
-	return modelcmd.Wrap(&consumeCommand{})
+	return modelcmd.WrapController(&consumeCommand{})
 }
 
 // consumeCommand adds remote applications to the model without
 // relating them to other applications.
 type consumeCommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 	api               applicationConsumeAPI
 	remoteApplication string
 	applicationAlias  string
@@ -76,11 +77,11 @@ func (c *consumeCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *consumeCommand) getAPI() (applicationConsumeAPI, error) {
+func (c *consumeCommand) getAPI(modelName string) (applicationConsumeAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
+	root, err := c.NewModelAPIRoot(modelName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,20 +106,22 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		url.User = details.User
 		c.remoteApplication = url.Path()
 	}
-	client, err := c.getAPI()
+	// TODO(wallyworld) - use proper model name
+	client, err := c.getAPI("")
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	localName, err := client.Consume(c.remoteApplication, c.applicationAlias)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ctx.Infof("Added %s as %s", c.remoteApplication, localName)
+	// TODO(wallyworld) - re-implement
+	//localName, err := client.Consume(c.remoteApplication, c.applicationAlias)
+	//if err != nil {
+	//	return errors.Trace(err)
+	//}
+	//ctx.Infof("Added %s as %s", c.remoteApplication, localName)
 	return nil
 }
 
 type applicationConsumeAPI interface {
 	Close() error
-	Consume(remoteApplication, alias string) (string, error)
+	Consume(params.ApplicationOffer, string) (string, error)
 }

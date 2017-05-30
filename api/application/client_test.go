@@ -180,26 +180,6 @@ func (s *applicationSuite) TestServiceSetCharm(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestConsume(c *gc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "Consume")
-		args, ok := a.(params.ConsumeApplicationArgs)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
-			{ApplicationURL: "remote app url", ApplicationAlias: "alias"},
-		})
-		result := response.(*params.ConsumeApplicationResults)
-		result.Results = []params.ConsumeApplicationResult{{LocalName: "result"}}
-		return nil
-	})
-	name, err := client.Consume("remote app url", "alias")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "result")
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *applicationSuite) TestDestroyDeprecated(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
@@ -331,4 +311,44 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
 	results, err := client.DestroyUnits("!", "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestConsume(c *gc.C) {
+	offer := params.ApplicationOffer{
+		SourceModelTag:         "source model",
+		OfferName:              "an offer",
+		OfferURL:               "offer url",
+		ApplicationDescription: "description",
+		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
+	}
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Assert(request, gc.Equals, "Consume")
+			args, ok := a.(params.ConsumeApplicationArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
+				{
+					ApplicationAlias: "alias",
+					ApplicationOffer: offer,
+				},
+			})
+			if results, ok := result.(*params.ConsumeApplicationResults); ok {
+				result := params.ConsumeApplicationResult{
+					LocalName: "result",
+				}
+				results.Results = []params.ConsumeApplicationResult{result}
+			}
+			return nil
+		})
+	client := application.NewClient(apiCaller)
+	name, err := client.Consume(offer, "alias")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "result")
+	c.Assert(called, jc.IsTrue)
 }

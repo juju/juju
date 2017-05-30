@@ -29,7 +29,7 @@ type baseSuite struct {
 
 	mockState         *mockState
 	mockStatePool     *mockStatePool
-	applicationOffers *mockApplicationOffers
+	applicationOffers *stubApplicationOffers
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -76,7 +76,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 		})
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}
 	s.mockState.applications = map[string]applicationoffers.Application{
 		"test": &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
 	}

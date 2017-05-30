@@ -408,12 +408,12 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 }
 
 // Consume adds a remote application to the model.
-func (c *Client) Consume(remoteApplication, alias string) (string, error) {
+func (c *Client) Consume(offer params.ApplicationOffer, alias string) (string, error) {
 	var consumeRes params.ConsumeApplicationResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationURL:   remoteApplication,
 			ApplicationAlias: alias,
+			ApplicationOffer: offer,
 		}},
 	}
 	err := c.facade.FacadeCall("Consume", args, &consumeRes)

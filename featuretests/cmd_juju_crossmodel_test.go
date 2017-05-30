@@ -256,6 +256,7 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 }
 
 func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
+	c.Skip("TODO - waiting on new Consume APIs")
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 
@@ -367,6 +368,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 }
 
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C) {
+	c.Skip("TODO - waiting on new Consume APIs")
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 	//otherModel := s.addOtherModelApplication(c)

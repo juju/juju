@@ -4,7 +4,10 @@
 package applicationoffers
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 
@@ -12,27 +15,41 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/utils/set"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.applicationoffers")
+
+type environFromModelFunc func(string) (environs.Environ, error)
 
 // OffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.
 type OffersAPI struct {
 	BaseAPI
+	dataDir    string
+	getEnviron environFromModelFunc
 }
 
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
+	getEnviron environFromModelFunc,
 	backend Backend,
 	statePool StatePool,
 	authorizer facade.Authorizer,
+	resources facade.Resources,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
+	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
+		dataDir:    dataDir.String(),
+		getEnviron: getEnviron,
 		BaseAPI: BaseAPI{
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
@@ -44,9 +61,26 @@ func createOffersAPI(
 
 // NewOffersAPI returns a new application offers OffersAPI facade.
 func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
+	environFromModel := func(modelUUID string) (environs.Environ, error) {
+		st, releaser, err := ctx.StatePool().Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer releaser()
+		g := stateenvirons.EnvironConfigGetter{st}
+		env, err := environs.GetEnviron(g, environs.New)
+		if err != nil {
+			releaser()
+			return nil, errors.Trace(err)
+		}
+		return env, nil
+	}
+
 	return createOffersAPI(
-		GetApplicationOffers, GetStateAccess(ctx.State()),
-		GetStatePool(ctx.StatePool()), ctx.Auth())
+		GetApplicationOffers,
+		environFromModel,
+		GetStateAccess(ctx.State()),
+		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources())
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.
@@ -140,7 +174,7 @@ func (api *OffersAPI) ModifyOfferAccess(args params.ModifyOfferAccessRequest) (r
 	for i, arg := range args.Changes {
 		offerURLs[i] = arg.OfferURL
 	}
-	models, err := api.getModelsFromOffers(offerURLs)
+	models, err := api.getModelsFromOffers(offerURLs...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -365,4 +399,227 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 		result.Results = append(result.Results, offer.ApplicationOffer)
 	}
 	return result, nil
+}
+
+// RemoteApplicationInfo returns information about the requested remote application.
+func (api *OffersAPI) RemoteApplicationInfo(args params.ApplicationURLs) (params.RemoteApplicationInfoResults, error) {
+	results := make([]params.RemoteApplicationInfoResult, len(args.ApplicationURLs))
+	for i, url := range args.ApplicationURLs {
+		info, err := api.oneRemoteApplicationInfo(url)
+		results[i].Result = info
+		results[i].Error = common.ServerError(err)
+	}
+	return params.RemoteApplicationInfoResults{results}, nil
+}
+
+func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicationInfo, error) {
+	url, err := jujucrossmodel.ParseApplicationURL(urlStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We need at least read access to the model to see the application details.
+	offer, err := api.offeredApplicationDetails(url, permission.ReadAccess)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &params.RemoteApplicationInfo{
+		ModelTag:         offer.SourceModelTag,
+		Name:             url.ApplicationName,
+		Description:      offer.ApplicationDescription,
+		ApplicationURL:   url.String(),
+		SourceModelLabel: url.ModelName,
+		Endpoints:        offer.Endpoints,
+		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
+	}, nil
+}
+
+// offeredApplicationDetails returns details of the application offered at the specified URL.
+// The user is required to have the specified permission on the offer.
+func (api *OffersAPI) offeredApplicationDetails(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
+	offer *params.ApplicationOffer,
+	err error,
+) {
+	// We require the hosting model to be specified.
+	if url.ModelName == "" {
+		return nil, errors.Errorf("missing model name in URL %q", url.String())
+	}
+
+	models, err := api.getModelsFromOffers(url.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	one := models[0]
+	if one.err != nil {
+		return nil, errors.Trace(one.err)
+	}
+	sourceModelTag := one.model.ModelTag()
+	return api.offeredApplication(sourceModelTag, url.ApplicationName, perm)
+}
+
+func (api *OffersAPI) offeredApplication(sourceModelTag names.ModelTag, offerName string, perm permission.Access) (
+	*params.ApplicationOffer,
+	error,
+) {
+	// Get the backend state for the source model so we can lookup the application.
+	var backend Backend
+	backend, releaser, err := api.StatePool.Get(sourceModelTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer releaser()
+
+	// For now, offer URL is matched against the specified application
+	// name as seen from the consuming model.
+	offers, err := api.GetApplicationOffers(backend).ListOffers(
+		jujucrossmodel.ApplicationOfferFilter{
+			OfferName: offerName,
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// The offers query succeeded but there were no offers matching the required offer name.
+	if len(offers) == 0 {
+		return nil, errors.NotFoundf("application offer %q", offerName)
+	}
+	// Sanity check - this should never happen.
+	if len(offers) > 1 {
+		return nil, errors.Errorf("unexpected: %d matching offers for %q", len(offers), offerName)
+	}
+
+	// Check the permissions - a user can access the offer if they are an admin
+	// or they have consume access to the offer.
+	isAdmin := false
+	err = api.checkPermission(backend.ControllerTag(), permission.SuperuserAccess)
+	if err == common.ErrPerm {
+		err = api.checkPermission(sourceModelTag, permission.AdminAccess)
+	}
+	if err != nil && err != common.ErrPerm {
+		return nil, errors.Trace(err)
+	}
+	isAdmin = err == nil
+
+	offer := offers[0]
+	if !isAdmin {
+		// Check for consume access on tne offer - we can't use api.checkPermission as
+		// we need to operate on the state containing the offer.
+		access, err := api.checkOfferAccess(backend, offerName, perm)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if access == permission.NoAccess {
+			return nil, common.ErrPerm
+		}
+	}
+	return api.makeOfferParams(backend, &offer)
+}
+
+func (api *OffersAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer) (
+	*params.ApplicationOffer, error,
+) {
+	app, err := backend.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appBindings, err := app.EndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := params.ApplicationOffer{
+		SourceModelTag:         backend.ModelTag().String(),
+		OfferName:              offer.OfferName,
+		ApplicationDescription: offer.ApplicationDescription,
+	}
+
+	spaceNames := set.NewStrings()
+	for _, ep := range offer.Endpoints {
+		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+			Scope:     ep.Scope,
+			Limit:     ep.Limit,
+		})
+		spaceName, ok := appBindings[ep.Name]
+		if !ok {
+			// There should always be some binding (even if it's to
+			// the default space).
+			return nil, errors.Errorf("no binding for %q endpoint", ep.Name)
+		}
+		spaceNames.Add(spaceName)
+	}
+
+	spaces, err := api.collectRemoteSpaces(backend, spaceNames.SortedValues())
+	if errors.IsNotSupported(err) {
+		// Provider doesn't support ProviderSpaceInfo; continue
+		// without any space information, we shouldn't short-circuit
+		// cross-model connections.
+		return &result, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Ensure bindings only contains entries for which we have spaces.
+	result.Bindings = make(map[string]string)
+	for epName, spaceName := range appBindings {
+		space, ok := spaces[spaceName]
+		if !ok {
+			continue
+		}
+		result.Bindings[epName] = spaceName
+		result.Spaces = append(result.Spaces, space)
+	}
+	return &result, nil
+}
+
+// collectRemoteSpaces gets provider information about the spaces from
+// the state passed in. (This state will be for a different model than
+// this API instance, which is why the results are *remote* spaces.)
+// These can be used by the provider later on to decide whether a
+// connection can be made via cloud-local addresses. If the provider
+// doesn't support getting ProviderSpaceInfo the NotSupported error
+// will be returned.
+func (api *OffersAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
+	env, err := api.getEnviron(backend.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		logger.Debugf("cloud provider doesn't support networking, not getting space info")
+		return nil, nil
+	}
+
+	results := make(map[string]params.RemoteSpace)
+	for _, name := range spaceNames {
+		space := environs.DefaultSpaceInfo
+		if name != environs.DefaultSpaceName {
+			dbSpace, err := backend.Space(name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			space, err = spaceInfoFromState(dbSpace)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		providerSpace, err := netEnv.ProviderSpaceInfo(space)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if providerSpace == nil {
+			logger.Errorf("nil provider space info for %q", name)
+			continue
+		}
+		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)
+		// Use the name from state in case provider and state disagree.
+		remoteSpace.Name = name
+		results[name] = remoteSpace
+	}
+	return results, nil
 }
