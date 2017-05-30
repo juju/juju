@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -930,45 +931,10 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if args.ControllerUUID == "" {
 		return nil, errors.New("missing controller UUID")
 	}
-	var availabilityZones []string
-	if args.Placement != "" {
-		placement, err := e.parsePlacement(args.Placement)
-		if err != nil {
-			return nil, err
-		}
-		if !placement.availabilityZone.State.Available {
-			return nil, errors.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
-		}
-		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
-	}
 
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	if len(availabilityZones) == 0 {
-		var group []instance.Id
-		var err error
-		if args.DistributionGroup != nil {
-			group, err = args.DistributionGroup()
-			if err != nil {
-				return nil, err
-			}
-		}
-		zoneInstances, err := availabilityZoneAllocations(e, group)
-		if errors.IsNotImplemented(err) {
-			// Availability zones are an extension, so we may get a
-			// not implemented error; ignore these.
-		} else if err != nil {
-			return nil, err
-		} else {
-			for _, zone := range zoneInstances {
-				availabilityZones = append(availabilityZones, zone.ZoneName)
-			}
-		}
-		if len(availabilityZones) == 0 {
-			// No explicitly selectable zones available, so use an unspecified zone.
-			availabilityZones = []string{""}
-		}
+	availabilityZones, err := e.startInstanceAvailabilityZones(args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	series := args.Tools.OneSeries()
@@ -1205,6 +1171,104 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
+}
+
+func (e *Environ) startInstanceAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var availabilityZones []string
+	if args.Placement != "" {
+		placement, err := e.parsePlacement(args.Placement)
+		if err != nil {
+			return nil, err
+		}
+		if volumeAttachmentsZone != "" && placement.availabilityZone.Name != volumeAttachmentsZone {
+			return nil, errors.Errorf(
+				"cannot create instance with placement %q, as this will prevent attaching disks in zone %q",
+				args.Placement, volumeAttachmentsZone,
+			)
+		}
+		if !placement.availabilityZone.State.Available {
+			return nil, errors.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+		}
+		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
+	}
+
+	if volumeAttachmentsZone != "" {
+		return []string{volumeAttachmentsZone}, nil
+	}
+
+	// If no availability zone is specified, then automatically spread across
+	// the known zones for optimal spread across the instance distribution
+	// group.
+	if len(availabilityZones) == 0 {
+		var group []instance.Id
+		var err error
+		if args.DistributionGroup != nil {
+			group, err = args.DistributionGroup()
+			if err != nil {
+				return nil, err
+			}
+		}
+		zoneInstances, err := availabilityZoneAllocations(e, group)
+		if errors.IsNotImplemented(err) {
+			// Availability zones are an extension, so we may get a
+			// not implemented error; ignore these.
+		} else if err != nil {
+			return nil, err
+		} else {
+			for _, zone := range zoneInstances {
+				availabilityZones = append(availabilityZones, zone.ZoneName)
+			}
+		}
+		if len(availabilityZones) == 0 {
+			// No explicitly selectable zones available, so use an unspecified zone.
+			availabilityZones = []string{""}
+		}
+	}
+	return availabilityZones, nil
+}
+
+// volumeAttachmentsZone determines the availability zone for each volume
+// identified in the volume attachment parameters, checking that they are
+// all the same, and returns the availability zone name.
+func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttachmentParams) (string, error) {
+	if len(volumeAttachments) == 0 {
+		return "", nil
+	}
+	cinderProvider, err := e.cinderProvider()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	volumes, err := modelCinderVolumes(cinderProvider.storageAdapter, cinderProvider.modelUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var zone string
+	for i, a := range volumeAttachments {
+		var v *cinder.Volume
+		for i := range volumes {
+			if volumes[i].ID == a.VolumeId {
+				v = &volumes[i]
+				break
+			}
+		}
+		if v == nil {
+			return "", errors.Errorf("cannot find volume %q to attach to new instance", a.VolumeId)
+		}
+		if zone == "" {
+			zone = v.AvailabilityZone
+		} else if v.AvailabilityZone != zone {
+			return "", errors.Errorf(
+				"cannot attach volumes from multiple availability zones: %s is in %s, %s is in %s",
+				volumeAttachments[i-1].VolumeId, zone, a.VolumeId, v.AvailabilityZone,
+			)
+		}
+	}
+	return zone, nil
 }
 
 func isNoValidHostsError(err error) bool {
@@ -1510,10 +1574,11 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	// Delete all volumes managed by the controller.
 	cinder, err := e.cinderProvider()
 	if err == nil {
-		volIds, err := allControllerManagedVolumes(cinder.storageAdapter, controllerUUID)
+		volumes, err := controllerCinderVolumes(cinder.storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}
+		volIds := volumeInfoToVolumeIds(cinderToJujuVolumeInfos(volumes))
 		errs := destroyVolumes(cinder.storageAdapter, volIds)
 		for i, err := range errs {
 			if err == nil {
@@ -1528,20 +1593,6 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	// Security groups for hosted models are destroyed by the
 	// DeleteAllControllerGroups method call from Destroy().
 	return nil
-}
-
-func allControllerManagedVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]string, error) {
-	volumes, err := listVolumes(storageAdapter, func(v *cinder.Volume) bool {
-		return v.Metadata[tags.JujuController] == controllerUUID
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	volIds := make([]string, len(volumes))
-	for i, v := range volumes {
-		volIds[i] = v.VolumeId
-	}
-	return volIds, nil
 }
 
 func resourceName(namespace instance.Namespace, envName, resourceId string) string {
