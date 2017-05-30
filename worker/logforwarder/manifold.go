@@ -18,7 +18,6 @@ import (
 // Manifold will depend.
 type ManifoldConfig struct {
 	// These are the dependency resource names.
-	StateName     string
 	APICallerName string
 
 	// Sinks are the named functions that opens the underlying log sinks
@@ -50,7 +49,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 	return dependency.Manifold{
 		Inputs: []string{
-			config.StateName, // ...just to force it to run only on the controller.
 			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {

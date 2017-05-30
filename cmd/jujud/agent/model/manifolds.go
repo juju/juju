@@ -34,6 +34,8 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/worker/logforwarder"
+	"github.com/juju/juju/worker/logforwarder/sinks"
 	"github.com/juju/juju/worker/machineundertaker"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationflag"
@@ -300,6 +302,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:   environTrackerName,
 			NewWorker:     machineundertaker.NewWorker,
 		})),
+		logForwarderName: ifNotDead(logforwarder.Manifold(logforwarder.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Sinks: []logforwarder.LogSinkSpec{{
+				Name:   "juju-log-forward",
+				OpenFn: sinks.OpenSyslog,
+			}},
+		})),
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
@@ -404,4 +413,5 @@ const (
 	statusHistoryPrunerName  = "status-history-pruner"
 	machineUndertakerName    = "machine-undertaker"
 	remoteRelationsName      = "remote-relations"
+	logForwarderName         = "log-forwarder"
 )
