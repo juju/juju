@@ -189,6 +189,7 @@ if [[ "$USE_PPA" != "" ]]; then
 fi
 if [[ "$INSTALL_DEPS" == "" ]]; then
     echo "Installing default deps."
+    make install-go
     make install-dependencies
 else
     echo "Installing deps from command line."
