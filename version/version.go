@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013,2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package version contains versioning information for juju.  It also
