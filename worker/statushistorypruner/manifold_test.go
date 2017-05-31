@@ -60,6 +60,7 @@ func (s *ManifoldConfigSuite) validConfig() statushistorypruner.ManifoldConfig {
 	return statushistorypruner.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
+		ClockName:     "clock",
 		NewWorker:     func(statushistorypruner.Config) (worker.Worker, error) { return nil, nil },
 		NewFacade:     func(caller base.APICaller) statushistorypruner.Facade { return nil },
 	}
@@ -77,6 +78,11 @@ func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingEnvironName(c *gc.C) {
 	s.config.EnvironName = ""
 	s.checkNotValid(c, "empty EnvironName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingClockName(c *gc.C) {
+	s.config.ClockName = ""
+	s.checkNotValid(c, "empty ClockName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
