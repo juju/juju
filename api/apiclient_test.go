@@ -836,6 +836,15 @@ func (s *apiclientSuite) TestPing(c *gc.C) {
 	}})
 }
 
+func (s *apiclientSuite) TestPingBroken(c *gc.C) {
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: newRPCConnection(errors.New("no biscuit")),
+		Clock:         &fakeClock{},
+	})
+	err := conn.Ping()
+	c.Assert(err, gc.ErrorMatches, "no biscuit")
+}
+
 func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 	conn := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: newRPCConnection(),
