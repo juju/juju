@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"gopkg.in/juju/names.v2"
 )
 
 type ApplicationSuite struct {
@@ -1726,6 +1727,37 @@ func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
 
 	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
 	assertLife(c, machine, state.Dying)
+}
+
+func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetCharmURL(ch.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(app.Destroy(), gc.IsNil)
+	assertLife(c, app, state.Dying)
+	assertCleanupCount(c, s.State, 2)
+
+	// These next API calls are normally done by the uniter.
+	err = s.State.RemoveStorageAttachment(names.NewStorageTag("data/0"), u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure storage constraints and settings are now gone.
+	_, err = state.AppStorageConstraints(app)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	settings := state.GetApplicationSettings(s.State, app)
+	err = settings.Read()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
