@@ -60,7 +60,7 @@ func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names
 		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
 			return true, nil
 		}
-		if operation == permission.WriteAccess && ut == fa.HasWriteTag {
+		if ut == fa.HasWriteTag && (operation == permission.WriteAccess || operation == permission.ReadAccess) {
 			return true, nil
 		}
 
