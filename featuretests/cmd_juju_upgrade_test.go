@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -37,10 +38,11 @@ func (s *cmdUpgradeSuite) SetUpTest(c *gc.C) {
 
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-precise-amd64", newVersion)))
-	s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-trusty-amd64", newVersion)))
-	s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-xenial-amd64", newVersion)))
-	s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-yakkety-amd64", newVersion)))
+	supported := series.SupportedLts()
+	supported = append(supported, series.MustHostSeries())
+	for _, aSeries := range supported {
+		s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-%v-amd64", newVersion, aSeries)))
+	}
 
 	s.hostedModelUser = "otheruser"
 	s.hostedModelUserTag = names.NewUserTag(s.hostedModelUser)
