@@ -61,7 +61,7 @@ def clean(args):
                     unclean = substrate.delete_detached_interfaces(
                         non_instance_groups.keys())
                     logging.info('Unable to delete {} groups from {}'
-                                 .format(len(unclean)), region)
+                                 .format(str(len(unclean)), region))
                 except:
                     logging.info('Unable to delete non-instance groups {} from {}'
                                  .format(non_instance_groups.keys(), region))
