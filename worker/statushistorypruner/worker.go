@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/statushistory"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
-	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -31,8 +31,7 @@ type Facade interface {
 type Config struct {
 	Facade        Facade
 	PruneInterval time.Duration
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	NewTimer jworker.NewTimerFunc
+	Clock         clock.Clock
 }
 
 // Validate will err unless basic requirements for a valid
@@ -41,8 +40,8 @@ func (c *Config) Validate() error {
 	if c.Facade == nil {
 		return errors.New("missing Facade")
 	}
-	if c.NewTimer == nil {
-		return errors.New("missing Timer")
+	if c.Clock == nil {
+		return errors.New("missing Clock")
 	}
 	return nil
 }
@@ -101,14 +100,15 @@ func (w *Worker) loop() error {
 		modelConfigChanges = modelConfigWatcher.Changes()
 		// We will also get an initial event, but need to ensure that event is
 		// received before doing any pruning.
-		haveConfig = false
 	)
 
-	timer := w.config.NewTimer(0)
+	var timer clock.Timer
+	var timerCh <-chan time.Time
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case _, ok := <-modelConfigChanges:
 			if !ok {
 				return errors.New("model configuration watcher closed")
@@ -117,7 +117,6 @@ func (w *Worker) loop() error {
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
-			haveConfig = true
 			newMaxAge := modelConfig.MaxStatusHistoryAge()
 			newMaxCollectionMB := modelConfig.MaxStatusHistorySizeMB()
 			if newMaxAge != maxAge || newMaxCollectionMB != maxCollectionMB {
@@ -126,11 +125,12 @@ func (w *Worker) loop() error {
 				maxAge = newMaxAge
 				maxCollectionMB = newMaxCollectionMB
 			}
-			continue
-		case <-timer.CountDown():
-			if !haveConfig {
-				continue
+			if timer == nil {
+				timer = w.config.Clock.NewTimer(w.config.PruneInterval)
+				timerCh = timer.Chan()
 			}
+
+		case <-timerCh:
 			err := w.config.Facade.Prune(maxAge, int(maxCollectionMB))
 			if err != nil {
 				return errors.Trace(err)

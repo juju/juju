@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
-	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
@@ -289,11 +288,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		statusHistoryPrunerName: ifNotMigrating(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
+			ClockName:     clockName,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
 			PruneInterval: config.StatusHistoryPrunerInterval,
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			NewTimer: jworker.NewTimer,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
