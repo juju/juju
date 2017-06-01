@@ -174,6 +174,65 @@ func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 		"\n")
 }
 
+func (s *ModelsSuite) TestModelsYaml(c *gc.C) {
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.user, gc.Equals, "admin")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+models:
+- name: admin/test-model1
+  short-name: test-model1
+  model-uuid: test-model1-UUID
+  controller-uuid: ""
+  controller-name: fake
+  owner: admin
+  cloud: dummy
+  life: ""
+  status:
+    current: active
+  users:
+    admin:
+      access: read
+      last-connection: 2015-03-20
+  agent-version: 2.55.5
+- name: carlotta/test-model2
+  short-name: test-model2
+  model-uuid: test-model2-UUID
+  controller-uuid: ""
+  controller-name: fake
+  owner: carlotta
+  cloud: dummy
+  life: ""
+  status:
+    current: active
+  users:
+    admin:
+      access: write
+      last-connection: 2015-03-01
+  agent-version: 2.55.5
+- name: daiwik@external/test-model3
+  short-name: test-model3
+  model-uuid: test-model3-UUID
+  controller-uuid: ""
+  controller-name: fake
+  owner: daiwik@external
+  cloud: dummy
+  life: ""
+  status:
+    current: destroying
+  agent-version: 2.55.5
+current-model: test-model1
+`[1:])
+}
+
+func (s *ModelsSuite) TestModelsJson(c *gc.C) {
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.user, gc.Equals, "admin")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","controller-uuid":"","controller-name":"fake","owner":"admin","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"read","last-connection":"2015-03-20"}},"agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","controller-uuid":"","controller-name":"fake","owner":"carlotta","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"write","last-connection":"2015-03-01"}},"agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","controller-uuid":"","controller-name":"fake","owner":"daiwik@external","cloud":"dummy","life":"","status":{"current":"destroying"},"agent-version":"2.55.5"}],"current-model":"test-model1"}
+`)
+}
+
 func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "bob")
 	c.Assert(err, jc.ErrorIsNil)
