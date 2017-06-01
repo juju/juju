@@ -63,8 +63,8 @@ var logIndexes = [][]string{
 	// This index needs to include _id because
 	// logTailer.processCollection uses _id to ensure log records with
 	// the same time have a consistent ordering.
-	{"e", "t", "_id"},
-	{"e", "n"},
+	{"t", "_id"},
+	{"n"},
 }
 
 func logCollectionName(modelUUID string) string {
@@ -192,15 +192,14 @@ func (logger *LastSentLogTracker) Get() (int64, int64, error) {
 // for increased precision.
 // TODO: remove version from this structure: https://pad.lv/1643743
 type logDoc struct {
-	Id        bson.ObjectId `bson:"_id"`
-	Time      int64         `bson:"t"` // unix nano UTC
-	ModelUUID string        `bson:"e"`
-	Entity    string        `bson:"n"` // e.g. "machine-0"
-	Version   string        `bson:"r"`
-	Module    string        `bson:"m"` // e.g. "juju.worker.firewaller"
-	Location  string        `bson:"l"` // "filename:lineno"
-	Level     int           `bson:"v"`
-	Message   string        `bson:"x"`
+	Id       bson.ObjectId `bson:"_id"`
+	Time     int64         `bson:"t"` // unix nano UTC
+	Entity   string        `bson:"n"` // e.g. "machine-0"
+	Version  string        `bson:"r"`
+	Module   string        `bson:"m"` // e.g. "juju.worker.firewaller"
+	Location string        `bson:"l"` // "filename:lineno"
+	Level    int           `bson:"v"`
+	Message  string        `bson:"x"`
 }
 
 type DbLogger struct {
@@ -222,14 +221,13 @@ func (logger *DbLogger) Log(t time.Time, entity string, module string, location 
 
 	unixEpochNanoUTC := t.UnixNano()
 	return logger.logsColl.Insert(&logDoc{
-		Id:        bson.NewObjectId(),
-		Time:      unixEpochNanoUTC,
-		ModelUUID: logger.modelUUID,
-		Entity:    entity,
-		Module:    module,
-		Location:  location,
-		Level:     int(level),
-		Message:   msg,
+		Id:       bson.NewObjectId(),
+		Time:     unixEpochNanoUTC,
+		Entity:   entity,
+		Module:   module,
+		Location: location,
+		Level:    int(level),
+		Message:  msg,
 	})
 }
 
@@ -264,15 +262,14 @@ func (logger *EntityDbLogger) Log(t time.Time, module string, location string, l
 
 	unixEpochNanoUTC := t.UnixNano()
 	return logger.logsColl.Insert(&logDoc{
-		Id:        bson.NewObjectId(),
-		Time:      unixEpochNanoUTC,
-		ModelUUID: logger.modelUUID,
-		Entity:    logger.entity,
-		Version:   logger.version,
-		Module:    module,
-		Location:  location,
-		Level:     int(level),
-		Message:   msg,
+		Id:       bson.NewObjectId(),
+		Time:     unixEpochNanoUTC,
+		Entity:   logger.entity,
+		Version:  logger.version,
+		Module:   module,
+		Location: location,
+		Level:    int(level),
+		Message:  msg,
 	})
 }
 
@@ -472,7 +469,7 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 	// contents, and then return them in the correct order.
 	queue = queue[cur:]
 	for _, doc := range queue {
-		rec, err := logDocToRecord(&doc)
+		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
 			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
 		}
@@ -509,7 +506,7 @@ func (t *logTailer) processCollection() error {
 	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
 	iter := query.Sort("e", "t", "_id").Iter()
 	for iter.Next(&doc) {
-		rec, err := logDocToRecord(&doc)
+		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
 			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
 		}
@@ -570,7 +567,7 @@ func (t *logTailer) tailOplog() error {
 				}
 				continue
 			}
-			rec, err := logDocToRecord(doc)
+			rec, err := logDocToRecord(t.modelUUID, doc)
 			if err != nil {
 				return errors.Annotate(err, "deserialization failed (possible DB corruption)")
 			}
@@ -682,7 +679,7 @@ func (s *objectIdSet) Length() int {
 	return len(s.ids)
 }
 
-func logDocToRecord(doc *logDoc) (*LogRecord, error) {
+func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 	var ver version.Number
 	if doc.Version != "" {
 		parsed, err := version.Parse(doc.Version)
@@ -706,7 +703,7 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 		ID:   doc.Time,
 		Time: time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
 
-		ModelUUID: doc.ModelUUID,
+		ModelUUID: modelUUID,
 		Entity:    entity,
 		Version:   ver,
 
