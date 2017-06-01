@@ -226,6 +226,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 		Filename:   agent.LogFilename(a.currentConfig.CurrentConfig()),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
+		Compress:   true,
 	}
 
 	return nil

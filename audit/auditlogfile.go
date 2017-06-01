@@ -34,6 +34,7 @@ func NewLogFileSink(logDir string) AuditEntrySinkFn {
 			Filename:   logPath,
 			MaxSize:    300, // MB
 			MaxBackups: 10,
+			Compress:   true,
 		},
 	}
 	return handler.handle
