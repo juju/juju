@@ -131,6 +131,27 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	})
 }
 
+func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"name":               "supercalifragilisticexpialidocious",
+			"image-metadata-url": s.imageServer.URL,
+		}),
+	})
+	startInstArgs := s.createStartInstanceArgs(c)
+	_, err = env.StartInstance(startInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	call := s.client.Calls()[1]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	// The model name in the folder name should be truncated
+	// so that the final part of the model name is 80 characters.
+	c.Assert(path.Base(createVMArgs.Folder), gc.HasLen, 80)
+	c.Assert(createVMArgs.Folder, gc.Equals,
+		`Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "supercalifragilisticexpialidociou" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+	)
+}
+
 func (s *environBrokerSuite) TestStartInstanceImageCaching(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	instanceConfig, err := instancecfg.NewInstanceConfig(

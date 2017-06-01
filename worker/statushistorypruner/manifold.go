@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
-	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -19,17 +19,16 @@ import (
 type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
+	ClockName     string
 	PruneInterval time.Duration
 	NewWorker     func(Config) (worker.Worker, error)
 	NewFacade     func(base.APICaller) Facade
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	NewTimer jworker.NewTimerFunc
 }
 
 // Manifold returns a Manifold that encapsulates the statushistorypruner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.EnvironName},
+		Inputs: []string{config.APICallerName, config.EnvironName, config.ClockName},
 		Start:  config.start,
 	}
 }
@@ -43,12 +42,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
+	var clock clock.Clock
+	if err := context.Get(config.ClockName, &clock); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	facade := config.NewFacade(apiCaller)
 	prunerConfig := Config{
 		Facade:        facade,
 		PruneInterval: config.PruneInterval,
-		NewTimer:      config.NewTimer,
+		Clock:         clock,
 	}
 	w, err := config.NewWorker(prunerConfig)
 	if err != nil {
@@ -64,6 +67,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
+	}
+	if config.ClockName == "" {
+		return errors.NotValidf("empty ClockName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")

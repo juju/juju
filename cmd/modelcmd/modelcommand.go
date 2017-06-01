@@ -33,40 +33,6 @@ You can set current model by running "juju switch"
 or specify any other model on the command line using the "-m" flag.
 `)
 
-// GetCurrentModel returns the name of the current Juju model.
-//
-// If $JUJU_MODEL is set, use that. Otherwise, get the current
-// controller from controllers.yaml, and then identify the current
-// model for that controller in models.yaml. If there is no current
-// controller, then an empty string is returned. It is not an error
-// to have no current model.
-//
-// If there is a current controller, but no current model for that
-// controller, then GetCurrentModel will return the string
-// "<controller>:". If there is a current model as well, it will
-// return "<controller>:<model>". Only when $JUJU_MODEL is set,
-// will the result possibly be unqualified.
-func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
-	if model := os.Getenv(osenv.JujuModelEnvKey); model != "" {
-		return model, nil
-	}
-
-	currentController, err := store.CurrentController()
-	if errors.IsNotFound(err) {
-		return "", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	currentModel, err := store.CurrentModel(currentController)
-	if errors.IsNotFound(err) {
-		return currentController + ":", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-	return JoinModelName(currentController, currentModel), nil
-}
-
 // ModelCommand extends cmd.Command with a SetModelName method.
 type ModelCommand interface {
 	Command
@@ -156,6 +122,9 @@ func (c *ModelCommandBase) initModel() error {
 func (c *ModelCommandBase) initModel0() error {
 	if c._modelName == "" && !c.allowDefaultModel {
 		return errors.Trace(ErrNoModelSpecified)
+	}
+	if c._modelName == "" {
+		c._modelName = os.Getenv(osenv.JujuModelEnvKey)
 	}
 	controllerName, modelName := SplitModelName(c._modelName)
 	if controllerName == "" {

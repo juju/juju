@@ -84,7 +84,6 @@ func (s *LogForwarderSuite) newLogForwarderArgsWithAPI(
 	return logforwarder.OpenLogForwarderArgs{
 		Caller:           &mockCaller{},
 		LogForwardConfig: configAPI,
-		AllModels:        true,
 		ControllerUUID:   "feebdaed-2f18-4fd2-967d-db9663db7bea",
 		OpenSink: func(cfg *syslog.RawConfig) (*logforwarder.LogSink, error) {
 			sender.host = cfg.Host

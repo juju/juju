@@ -1794,7 +1794,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// No cleanup required for placeholder resources.
-	state.AssertNoCleanupsWithKind(c, s.State, state.CleanupKindResourceBlob)
+	state.AssertNoCleanupsWithKind(c, s.State, "resourceBlob")
 }
 
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {

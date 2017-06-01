@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/provider/azure/internal/ad"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azureauth")
@@ -72,6 +73,7 @@ func InteractiveCreateServicePrincipal(
 	subscriptionsClient := subscriptions.Client{
 		subscriptions.NewWithBaseURI(resourceManagerEndpoint),
 	}
+	useragent.UpdateClient(&subscriptionsClient.Client)
 	subscriptionsClient.Sender = sender
 	setClientInspectors(&subscriptionsClient.Client, requestInspector, "azure.subscriptions")
 
@@ -84,7 +86,7 @@ func InteractiveCreateServicePrincipal(
 		return "", "", errors.Trace(err)
 	}
 
-	client := autorest.NewClientWithUserAgent("juju")
+	client := autorest.NewClientWithUserAgent(useragent.JujuPrefix())
 	client.Sender = sender
 	setClientInspectors(&client, requestInspector, "azure.autorest")
 
@@ -113,9 +115,7 @@ func InteractiveCreateServicePrincipal(
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary ARM service principal token")
 	}
-	if client.Sender != nil {
-		armSpt.SetSender(client.Sender)
-	}
+	armSpt.SetSender(&client)
 	if err := armSpt.Refresh(); err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -129,9 +129,7 @@ func InteractiveCreateServicePrincipal(
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary Graph service principal token")
 	}
-	if client.Sender != nil {
-		graphSpt.SetSender(client.Sender)
-	}
+	graphSpt.SetSender(&client)
 	if err := graphSpt.Refresh(); err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -143,6 +141,7 @@ func InteractiveCreateServicePrincipal(
 	directoryURL.Path = path.Join(directoryURL.Path, tenantId)
 	directoryClient := ad.NewManagementClient(directoryURL.String())
 	authorizationClient := authorization.NewWithBaseURI(resourceManagerEndpoint, subscriptionId)
+	useragent.UpdateClient(&authorizationClient.Client)
 	directoryClient.Authorizer = graphSpt
 	authorizationClient.Authorizer = armSpt
 	authorizationClient.Sender = client.Sender

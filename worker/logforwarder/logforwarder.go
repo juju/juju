@@ -55,9 +55,6 @@ type LogForwarder struct {
 
 // OpenLogForwarderArgs holds the info needed to open a LogForwarder.
 type OpenLogForwarderArgs struct {
-	// AllModels indicates that the tracker is handling all models.
-	AllModels bool
-
 	// ControllerUUID identifies the controller.
 	ControllerUUID string
 
@@ -117,11 +114,10 @@ func (lf *LogForwarder) processNewConfig(currentSender SendCloser) (SendCloser, 
 		return nil, errors.Trace(err)
 	}
 	sink, err := OpenTrackingSink(TrackingSinkArgs{
-		Name:      lf.args.Name,
-		AllModels: lf.args.AllModels,
-		Config:    cfg,
-		Caller:    lf.args.Caller,
-		OpenSink:  lf.args.OpenSink,
+		Name:     lf.args.Name,
+		Config:   cfg,
+		Caller:   lf.args.Caller,
+		OpenSink: lf.args.OpenSink,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -197,8 +193,7 @@ func (lf *LogForwarder) loop() error {
 			// Lazily create log streamer if needed.
 			if stream == nil {
 				streamCfg := params.LogStreamConfig{
-					AllModels: lf.args.AllModels,
-					Sink:      lf.args.Name,
+					Sink: lf.args.Name,
 					// TODO(wallyworld) - this should be configurable via lf.args.LogForwardConfig
 					MaxLookbackRecords: 100,
 				}
