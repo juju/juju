@@ -1155,7 +1155,12 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return a.newAPIserverWorker(st, certChanged, dependencyReporter)
+		w, err := a.newAPIserverWorker(st, certChanged, dependencyReporter)
+		if err != nil {
+			st.Close()
+			return nil, errors.Trace(err)
+		}
+		return w, err
 	}
 }
 
