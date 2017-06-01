@@ -41,20 +41,20 @@ func (st *State) ReloadSpaces(environ environs.Environ) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(st.LoadSpacesFromProvider(spaces))
+		return errors.Trace(st.SaveSpacesFromProvider(spaces))
 	} else {
-		logger.Debugf("environ does not support space discovery")
+		logger.Debugf("environ does not support space discovery, falling back to subnet discovery")
 		subnets, err := netEnviron.Subnets(instance.UnknownId, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(st.LoadSubnetsFromProvider(subnets))
+		return errors.Trace(st.SaveSubnetsFromProvider(subnets))
 	}
 }
 
-// LoadSubnetsFromProvider loads subnets into state.
+// SaveSubnetsFromProvider loads subnets into state.
 // Currently it does not delete removed subnets.
-func (st *State) LoadSubnetsFromProvider(subnets []network.SubnetInfo) error {
+func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo) error {
 	modelSubnetIds, err := st.getModelSubnets()
 	if err != nil {
 		return errors.Trace(err)
@@ -81,9 +81,9 @@ func (st *State) LoadSubnetsFromProvider(subnets []network.SubnetInfo) error {
 	return nil
 }
 
-// LoadSpacesFromProvider loads providerSpaces into state.
+// SaveSpacesFromProvider loads providerSpaces into state.
 // Currently it does not delete removed spaces.
-func (st *State) LoadSpacesFromProvider(providerSpaces []network.SpaceInfo) error {
+func (st *State) SaveSpacesFromProvider(providerSpaces []network.SpaceInfo) error {
 	stateSpaces, err := st.AllSpaces()
 	if err != nil {
 		return errors.Trace(err)

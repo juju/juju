@@ -101,18 +101,7 @@ var spaceTwo = []network.SpaceInfo{
 	},
 }
 
-var twoSpaces = []network.SpaceInfo{
-	{
-		Name:       "space1",
-		ProviderId: "1",
-		Subnets:    twoSubnets,
-	},
-	{
-		Name:       "space2",
-		ProviderId: "2",
-		Subnets:    anotherTwoSubnets,
-	},
-}
+var twoSpaces = []network.SpaceInfo{spaceOne[0], spaceTwo[0]}
 
 func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.SubnetInfo) {
 	c.Assert(len(subnetInfos), gc.Equals, len(subnets))
