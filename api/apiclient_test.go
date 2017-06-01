@@ -721,8 +721,10 @@ func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
+	var dialedReal bool
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		if ipAddr == "0.2.2.2:1234" {
+			dialedReal = true
 			return nil, errors.Errorf("cannot connect with real address")
 		}
 		return nil, errors.Errorf("bad address from cache")
@@ -746,9 +748,10 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 		DNSCache: dnsCache,
 		Clock:    &fakeClock{},
 	})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: cannot connect with real address`)
+	c.Assert(err, gc.NotNil)
 	c.Assert(conn, gc.Equals, nil)
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.2.2.2"})
+	c.Assert(dialedReal, jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
