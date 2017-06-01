@@ -60,6 +60,7 @@ func init() {
 	if runtime.GOOS == "linux" {
 		gc.Suite(&cloudImageMetadataSuite{})
 		gc.Suite(&cmdSpaceSuite{})
+		gc.Suite(&cmdUpgradeSuite{})
 	}
 }
 

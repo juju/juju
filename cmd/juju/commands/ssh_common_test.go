@@ -74,7 +74,7 @@ func (s *argsSpec) check(c *gc.C, output string) {
 
 	if s.withProxy {
 		expect("-o ProxyCommand juju ssh " +
-			"--model=admin/controller " +
+			"--model=controller " +
 			"--proxy=false " +
 			"--no-host-key-checks " +
 			"--pty=false ubuntu@localhost -q \"nc %h %p\"")

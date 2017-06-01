@@ -10,6 +10,7 @@ import (
 	"net"
 	"regexp"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/juju/loggo"
@@ -106,6 +107,23 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 	if osFromSeries != os.Ubuntu {
 		c.Skip(fmt.Sprintf("this test requires a controller, therefore does not support OS %q only Ubuntu", osFromSeries.String()))
 	}
+
+	// The default mongo port in controller config is 1234 - override
+	// it with the real one from the running instance.  Without this
+	// the model manifolds (including the log forwarder) never get
+	// started since they depend on the state connection being up.
+	mongod := gitjujutesting.MgoServer
+	host, portStr, err := net.SplitHostPort(mongod.Addr())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host, gc.Equals, "localhost")
+	port, err := strconv.Atoi(portStr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs["state-port"] = port
+
 	s.AgentSuite.SetUpTest(c)
 	// TODO(perrito666) 200160701:
 	// This needs to be done to stop the test from trying to install mongo
@@ -214,7 +232,9 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 	// Ensure there's no logs to begin with.
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer a.Stop()
+	defer func() {
+		c.Assert(a.Stop(), jc.ErrorIsNil)
+	}()
 
 	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
@@ -248,7 +268,9 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	// Ensure there's no logs to begin with.
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer a.Stop()
+	defer func() {
+		c.Assert(a.Stop(), jc.ErrorIsNil)
+	}()
 
 	done := make(chan struct{})
 	received := make(chan rfc5424test.Message)

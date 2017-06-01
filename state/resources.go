@@ -7,7 +7,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
@@ -61,22 +60,10 @@ type Resources interface {
 	NewResolvePendingResourcesOps(applicationID string, pendingIDs map[string]string) ([]txn.Op, error)
 }
 
-var newResources func(Persistence, *State) Resources
-
-// SetResourcesComponent registers the function that provide the state
-// functionality related to resources.
-func SetResourcesComponent(fn func(Persistence, *State) Resources) {
-	newResources = fn
-}
-
 // Resources returns the resources functionality for the current state.
 func (st *State) Resources() (Resources, error) {
-	if newResources == nil {
-		return nil, errors.NotSupportedf("resources")
-	}
-
 	persist := st.newPersistence()
-	resources := newResources(persist, st)
+	resources := NewResourceState(persist, st)
 	return resources, nil
 }
 
@@ -92,22 +79,10 @@ type ResourcesPersistence interface {
 	NewRemoveResourcesOps(applicationID string) ([]txn.Op, error)
 }
 
-var newResourcesPersistence func(Persistence) ResourcesPersistence
-
-// SetResourcesPersistence registers the function that provides the
-// state persistence functionality related to resources.
-func SetResourcesPersistence(fn func(Persistence) ResourcesPersistence) {
-	newResourcesPersistence = fn
-}
-
 // ResourcesPersistence returns the resources persistence functionality
 // for the current state.
 func (st *State) ResourcesPersistence() (ResourcesPersistence, error) {
-	if newResourcesPersistence == nil {
-		return nil, errors.NotSupportedf("resources")
-	}
-
 	base := st.newPersistence()
-	persist := newResourcesPersistence(base)
+	persist := NewResourcePersistence(base)
 	return persist, nil
 }

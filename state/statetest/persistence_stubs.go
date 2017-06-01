@@ -22,7 +22,6 @@ type StubPersistence struct {
 
 	ReturnApplicationExistsOps       []txn.Op
 	ReturnIncCharmModifiedVersionOps []txn.Op
-	ReturnNewCleanupOp               *txn.Op
 }
 
 func NewStubPersistence(stub *testing.Stub) *StubPersistence {
@@ -124,13 +123,4 @@ func (s *StubPersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op 
 	s.NextErr()
 
 	return s.ReturnIncCharmModifiedVersionOps
-}
-
-func (s *StubPersistence) NewCleanupOp(kind, prefix string) txn.Op {
-	s.AddCall("NewCleanupOp", kind, prefix)
-	// pop off an error so num errors == num calls, even though this call
-	// doesn't actually use the error.
-	s.NextErr()
-
-	return *s.ReturnNewCleanupOp
 }
