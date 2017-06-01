@@ -264,10 +264,10 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	// the model display names.
 	loggedInUser := names.NewUserTag(c.loggedInUser)
 	userForLastConn := loggedInUser
-	var userForListing names.UserTag
+	var currentUser names.UserTag
 	if c.user != "" {
-		userForListing = names.NewUserTag(c.user)
-		userForLastConn = userForListing
+		currentUser = names.NewUserTag(c.user)
+		userForLastConn = currentUser
 	}
 
 	tw := output.TabWriter(writer)
@@ -303,8 +303,12 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	for _, model := range modelSet.Models {
 		cloudRegion := strings.Trim(model.Cloud+"/"+model.CloudRegion, "/")
 		owner := names.NewUserTag(model.Owner)
-		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
-		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
+		name := model.Name
+		if currentUser == owner {
+			// No need to display fully qualified model name to its owner.
+			name = model.ShortName
+		}
+		if model.Name == modelSet.CurrentModelQualified {
 			name += "*"
 			w.PrintColor(output.CurrentHighlight, name)
 		} else {

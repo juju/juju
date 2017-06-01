@@ -144,7 +144,7 @@ func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelIn
 			return nil, errors.Trace(err)
 		}
 		out.ControllerName = controllerName
-		output[out.Name] = out
+		output[out.ShortName] = out
 	}
 	return output, nil
 }
