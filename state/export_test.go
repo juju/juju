@@ -684,3 +684,7 @@ func GetControllerSettings(st *State) *Settings {
 func NewSLALevel(level string) (slaLevel, error) {
 	return newSLALevel(level)
 }
+
+func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
+	return readStorageConstraints(app.st, app.storageConstraintsKey())
+}
