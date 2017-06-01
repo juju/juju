@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"crypto/tls"
+	"net"
 	"net/url"
 	"time"
 
@@ -147,14 +148,41 @@ type DialOpts struct {
 	// DialWebsocket is used to make connections to API servers.
 	// It will be called with a websocket URL to connect to,
 	// and the TLS configuration to use to secure the connection.
+	// If ipAddr is non-empty, the actual net.Dial should use
+	// that IP address, regardless of the URL host.
 	//
 	// If DialWebsocket is nil, a default implementation using
 	// gorilla websockets will be used.
-	DialWebsocket func(ctx context.Context, urlStr string, tlsConfig *tls.Config) (jsoncodec.JSONConn, error)
+	DialWebsocket func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error)
+
+	// IPAddrResolver is used to resolve host names to IP addresses.
+	// If it is nil, net.DefaultResolver will be used.
+	IPAddrResolver IPAddrResolver
+
+	// DNSCache is consulted to find and store cached DNS lookups.
+	// If it is nil, no cache will be used or updated.
+	DNSCache DNSCache
 
 	// Clock is used as a time source for retries.
 	// If it is nil, clock.WallClock will be used.
 	Clock clock.Clock
+}
+
+// IPAddrResolver implements a resolved from host name to the
+// set of IP addresses associated with it. It is notably
+// implemented by net.Resolver.
+type IPAddrResolver interface {
+	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
+}
+
+// DNSCache implements a cache of DNS lookup results.
+type DNSCache interface {
+	// Lookup returns an IP addresses associated
+	// with the given host.
+	Lookup(host string) []string
+	// Add sets the IP addresses associated with
+	// the given host name.
+	Add(host string, ips []string)
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -184,6 +212,9 @@ type Connection interface {
 
 	// Addr returns the address used to connect to the API server.
 	Addr() string
+
+	// IPAddr returns the IP address used to connect to the API server.
+	IPAddr() string
 
 	// APIHostPorts returns addresses that may be used to connect
 	// to the API server, including the address used to connect.

@@ -420,7 +420,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	strictCtxt.controllerModelOnly = true
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
+	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(httpCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 	pubsubHandler := srv.trackRequests(newPubSubHandler(httpCtxt, srv.centralHub))
 

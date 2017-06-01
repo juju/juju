@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -470,6 +471,45 @@ func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsJson(c *gc.C) {
 		"\"life\":\"dead\",\"sla\":\"level\"," +
 		"\"sla-owner\":\"owner\"}}\n"
 	s.assertShowOutput(c, "json")
+}
+
+func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
+	s.expectedDisplay = "{\"basic-model\":{\"name\":\"basic-model\"," +
+		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
+		"\"controller-name\":\"testing\",\"owner\":\"owner\"," +
+		"\"cloud\":\"altostratus\",\"region\":\"mid-level\"," +
+		"\"life\":\"dead\",\"agent-version\":\"2.55.5\"}}\n"
+	s.assertShowModelWithAgent(c, "json")
+}
+
+func (s *ShowCommandSuite) TestShowModelWithAgentVersionInYaml(c *gc.C) {
+	s.expectedDisplay = `
+basic-model:
+  name: basic-model
+  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
+  controller-name: testing
+  owner: owner
+  cloud: altostratus
+  region: mid-level
+  life: dead
+  agent-version: 2.55.5
+`[1:]
+	s.assertShowModelWithAgent(c, "yaml")
+}
+
+func (s *ShowCommandSuite) assertShowModelWithAgent(c *gc.C, format string) {
+	// Since most of the tests in this suite already test model infos without
+	// agent version, all we need to do here is to test one with it.
+	agentVersion, err := version.Parse("2.55.5")
+	c.Assert(err, jc.ErrorIsNil)
+	basicTestInfo := createBasicModelInfo()
+	basicTestInfo.AgentVersion = &agentVersion
+	s.fake.infos = []params.ModelInfoResult{
+		params.ModelInfoResult{Result: basicTestInfo},
+	}
+	s.assertShowOutput(c, format)
 }
 
 func (s *ShowCommandSuite) newShowCommand() cmd.Command {

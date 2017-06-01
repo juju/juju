@@ -14,6 +14,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -42,11 +43,15 @@ var _ = gc.Suite(&AddModelSuite{})
 
 func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+
+	agentVersion, err := version.Parse("2.55.5")
+	c.Assert(err, jc.ErrorIsNil)
 	s.fakeAddModelAPI = &fakeAddClient{
 		model: base.ModelInfo{
-			Name:  "test",
-			UUID:  "fake-model-uuid",
-			Owner: "ignored-for-now",
+			Name:         "test",
+			UUID:         "fake-model-uuid",
+			Owner:        "ignored-for-now",
+			AgentVersion: &agentVersion,
 		},
 	}
 	s.fakeCloudAPI = &fakeCloudAPI{

@@ -52,12 +52,14 @@ var (
 		"storage-provisioner",
 		"unit-assigner",
 		"remote-relations",
+		"log-forwarder",
 	}
 	migratingModelWorkers = []string{
 		"environ-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"log-forwarder",
 	}
 	// ReallyLongTimeout should be long enough for the model-tracker
 	// tests that depend on a hosted model; its backing state is not
@@ -94,7 +96,6 @@ var (
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"log-forwarder",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",

@@ -153,6 +153,17 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
 	c.Assert(result.Config["logging-config"].Value, gc.Equals, "<root>=DEBUG;somepackage=ERROR")
 }
 
+func (s *modelconfigSuite) TestUserReadAccess(c *gc.C) {
+	apiUser := names.NewUserTag("read")
+	s.authorizer.Tag = apiUser
+
+	_, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.api.ModelSet(params.ModelSet{})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "permission denied")
+}
+
 func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	args := params.ModelSet{
 		map[string]interface{}{"logging-config": "<root>=DEBUG;somepackage=TRACE"},

@@ -120,35 +120,6 @@ func (s *LogsSuite) TestLastSentLogTrackerIndependentSinks(c *gc.C) {
 	c.Check(ts0, gc.Equals, int64(100))
 }
 
-func (s *LogsSuite) TestAllLastSentLogTrackerSetGet(c *gc.C) {
-	tracker, err := state.NewAllLastSentLogTracker(s.State, "test-sink")
-	c.Assert(err, jc.ErrorIsNil)
-	defer tracker.Close()
-
-	err = tracker.Set(10, 100)
-	c.Assert(err, jc.ErrorIsNil)
-	id1, ts1, err := tracker.Get()
-	c.Assert(err, jc.ErrorIsNil)
-	err = tracker.Set(20, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	id2, ts2, err := tracker.Get()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(id1, gc.Equals, int64(10))
-	c.Check(ts1, gc.Equals, int64(100))
-	c.Check(id2, gc.Equals, int64(20))
-	c.Check(ts2, gc.Equals, int64(200))
-}
-
-func (s *LogsSuite) TestAllLastSentLogTrackerNotController(c *gc.C) {
-	st := s.NewStateForModelNamed(c, "test-model")
-	defer st.Close()
-
-	_, err := state.NewAllLastSentLogTracker(st, "test")
-
-	c.Check(err, gc.ErrorMatches, `only the admin model can track all log records`)
-}
-
 func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	// Indexes should be created on the logs collection when state is opened.
 	indexes, err := s.logsColl.Indexes()
@@ -424,50 +395,7 @@ func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 	s.checkLogTailerFiltering(c, s.otherState, &state.LogTailerParams{}, writeLogs, assert)
 }
 
-func (s *LogTailerSuite) TestTailingLogsForAllModels(c *gc.C) {
-	writeLogs := func() {
-		s.writeLogs(c, 1, logTemplate{
-			ModelUUID: "someuuid0",
-			Message:   "bad",
-		})
-		s.writeLogs(c, 1, logTemplate{
-			ModelUUID: "someuuid1",
-			Message:   "bad",
-		})
-		s.writeLogs(c, 1, logTemplate{Message: "good"})
-	}
-
-	assert := func(tailer state.LogTailer) {
-		messagesFrom := map[string]bool{
-			s.otherState.ModelUUID(): false,
-			"someuuid0":              false,
-			"someuuid1":              false,
-		}
-		defer func() {
-			c.Assert(messagesFrom, gc.HasLen, 3)
-			for _, v := range messagesFrom {
-				c.Assert(v, jc.IsTrue)
-			}
-		}()
-		count := 0
-		for {
-			select {
-			case log := <-tailer.Logs():
-				messagesFrom[log.ModelUUID] = true
-				count++
-				c.Logf("count %d", count)
-				if count >= 3 {
-					return
-				}
-			case <-time.After(coretesting.ShortWait):
-				c.Fatalf("timeout waiting for logs %d", count)
-			}
-		}
-	}
-	s.checkLogTailerFiltering(c, s.State, &state.LogTailerParams{AllModels: true}, writeLogs, assert)
-}
-
-func (s *LogTailerSuite) TestTailingLogsOnlyForControllerModel(c *gc.C) {
+func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
 	writeLogs := func() {
 		s.writeLogs(c, 1, logTemplate{
 			ModelUUID: s.otherState.ModelUUID(),
@@ -510,11 +438,6 @@ func (s *LogTailerSuite) TestTailingLogsOnlyForControllerModel(c *gc.C) {
 		}
 	}
 	s.checkLogTailerFiltering(c, s.State, &state.LogTailerParams{}, writeLogs, assert)
-}
-
-func (s *LogTailerSuite) TestTailingAllLogsFromNonController(c *gc.C) {
-	_, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{AllModels: true})
-	c.Assert(err, gc.ErrorMatches, "not allowed to tail logs from all models: not a controller")
 }
 
 func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {

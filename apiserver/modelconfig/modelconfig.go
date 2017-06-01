@@ -62,11 +62,26 @@ func (c *ModelConfigAPI) isControllerAdmin() error {
 	return nil
 }
 
+func (c *ModelConfigAPI) canReadModel() error {
+	isAdmin, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	canRead, err := c.auth.HasPermission(permission.ReadAccess, c.backend.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !isAdmin && !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // ModelGet implements the server-side part of the
 // model-config CLI command.
 func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.canReadModel(); err != nil {
 		return result, errors.Trace(err)
 	}
 

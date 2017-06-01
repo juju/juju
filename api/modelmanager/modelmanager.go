@@ -103,6 +103,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		CloudCredential: credential,
 		Owner:           ownerTag.Id(),
 		Life:            string(modelInfo.Life),
+		AgentVersion:    modelInfo.AgentVersion,
 	}
 	result.Status = base.Status{
 		Status: modelInfo.Status.Status,

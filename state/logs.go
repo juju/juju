@@ -135,24 +135,10 @@ type LastSentLogTracker struct {
 // the timestamps of the most recent log records forwarded to the
 // identified log sink for the current model.
 func NewLastSentLogTracker(st ModelSessioner, modelUUID, sink string) *LastSentLogTracker {
-	return newLastSentLogTracker(st, modelUUID, sink)
-}
-
-// NewAllLastSentLogTracker returns a new tracker that records and retrieves
-// the timestamps of the most recent log records forwarded to the
-// identified log sink for *all* models.
-func NewAllLastSentLogTracker(st ControllerSessioner, sink string) (*LastSentLogTracker, error) {
-	if !st.IsController() {
-		return nil, errors.New("only the admin model can track all log records")
-	}
-	return newLastSentLogTracker(st, "", sink), nil
-}
-
-func newLastSentLogTracker(st MongoSessioner, model, sink string) *LastSentLogTracker {
 	session := st.MongoSession().Copy()
 	return &LastSentLogTracker{
-		id:      fmt.Sprintf("%s#%s", model, sink),
-		model:   model,
+		id:      fmt.Sprintf("%s#%s", modelUUID, sink),
+		model:   modelUUID,
 		sink:    sink,
 		session: session,
 	}
@@ -341,7 +327,6 @@ type LogTailerParams struct {
 	IncludeModule []string
 	ExcludeModule []string
 	Oplog         *mgo.Collection // For testing only
-	AllModels     bool
 }
 
 // oplogOverlap is used to decide on the initial oplog timestamp to
@@ -377,10 +362,6 @@ type LogTailerState interface {
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
 func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error) {
-	if !st.IsController() && params.AllModels {
-		return nil, errors.NewNotValid(nil, "not allowed to tail logs from all models: not a controller")
-	}
-
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
@@ -601,11 +582,9 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
+	sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
-	}
-	if !params.AllModels {
-		sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	}
 	if params.MinLevel > loggo.UNSPECIFIED {
 		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": int(params.MinLevel)}})
