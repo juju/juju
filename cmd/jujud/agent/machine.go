@@ -347,8 +347,6 @@ type MachineAgent struct {
 	// longer any immediately pending agent upgrades.
 	initialUpgradeCheckComplete gate.Lock
 
-	discoverSpacesComplete gate.Lock
-
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
@@ -1126,7 +1124,6 @@ func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (work
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		InstPollerAggregationDelay:  3 * time.Second,
 		StatusHistoryPrunerInterval: 5 * time.Minute,
-		SpacesImportedGate:          a.discoverSpacesComplete,
 		NewEnvironFunc:              newEnvirons,
 		NewMigrationMaster:          migrationmaster.NewWorker,
 	})

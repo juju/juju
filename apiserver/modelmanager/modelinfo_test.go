@@ -781,6 +781,11 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	}
 }
 
+func (st *mockState) ReloadSpaces(environ environs.Environ) error {
+	st.MethodCall(st, "ReloadSpaces", environ)
+	return st.NextErr()
+}
+
 func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	st.MethodCall(st, "DumpAll")
 	return map[string]interface{}{

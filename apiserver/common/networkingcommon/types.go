@@ -93,7 +93,7 @@ type BackingSpace interface {
 	ProviderId() network.Id
 }
 
-// Backing defines the methods needed by the API facade to store and
+// NetworkBacking defines the methods needed by the API facade to store and
 // retrieve information from the underlying persistency layer (state
 // DB).
 type NetworkBacking interface {
@@ -121,6 +121,9 @@ type NetworkBacking interface {
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
+
+	// ReloadSpaces loads spaces from backing environ
+	ReloadSpaces(environ environs.Environ) error
 }
 
 func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {

@@ -72,3 +72,15 @@ func (api *API) ListSpaces() ([]params.Space, error) {
 	}
 	return response.Results, err
 }
+
+// ReloadSpaces reloads spaces from substrate
+func (api *API) ReloadSpaces() error {
+	if api.facade.BestAPIVersion() < 3 {
+		return errors.NewNotSupported(nil, "Controller does not support reloading spaces")
+	}
+	err := api.facade.FacadeCall("ReloadSpaces", nil, nil)
+	if params.IsCodeNotSupported(err) {
+		return errors.NewNotSupported(nil, err.Error())
+	}
+	return err
+}
