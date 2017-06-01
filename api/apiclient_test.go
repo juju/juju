@@ -657,12 +657,11 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
-	var mu sync.Mutex
-	dialed := make(map[string]bool)
+	dialc := make(chan string)
+	start := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		dialed[ipAddr] = true
+		dialc <- ipAddr
+		<-start
 		if ipAddr == "0.2.2.2:1234" {
 			return fakeConn{}, nil
 		}
@@ -671,26 +670,56 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	dnsCache := dnsCacheMap{
 		"place1.example": {"0.1.1.1"},
 	}
-	conn, err := api.Open(&api.Info{
-		Addrs: []string{
-			"place1.example:1234",
-		},
-		SkipLogin: true,
-		CACert:    jtesting.CACert,
-	}, api.DialOpts{
-		Timeout:       5 * time.Second,
-		RetryDelay:    1 * time.Second,
-		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
-			"place1.example": {"0.2.2.2"},
-		},
-		DNSCache: dnsCache,
-		Clock:    &fakeClock{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
-	mu.Lock()
-	defer mu.Unlock()
+	type openResult struct {
+		conn api.Connection
+		err  error
+	}
+	openc := make(chan openResult)
+	go func() {
+		conn, err := api.Open(&api.Info{
+			Addrs: []string{
+				"place1.example:1234",
+			},
+			SkipLogin: true,
+			CACert:    jtesting.CACert,
+		}, api.DialOpts{
+			// Note: zero timeout means each address attempt
+			// will only try once only.
+			DialWebsocket: fakeDialer,
+			IPAddrResolver: fakeResolver{
+				"place1.example": {"0.2.2.2"},
+			},
+			DNSCache: dnsCache,
+			Clock:    &fakeClock{},
+		})
+		openc <- openResult{conn, err}
+	}()
+	// Wait for both dial attempts to happen.
+	// If we don't, then the second attempt might
+	// happen before the first one and the first
+	// attempt might then never happen.
+	dialed := make(map[string]bool)
+	for i := 0; i < 2; i++ {
+		select {
+		case hostPort := <-dialc:
+			dialed[hostPort] = true
+		case <-time.After(jtesting.LongWait):
+			c.Fatalf("timed out waiting for dial attempt")
+		}
+	}
+	// Allow the dial attempts to return.
+	close(start)
+	// Check that no more dial attempts happen.
+	select {
+	case hostPort := <-dialc:
+		c.Fatalf("unexpected dial attempt to %q; existing attempts: %v", hostPort, dialed)
+	case <-time.After(jtesting.ShortWait):
+	}
+	r := <-openc
+	c.Assert(r.err, jc.ErrorIsNil)
+	c.Assert(r.conn, gc.NotNil)
+	c.Assert(r.conn.Addr(), gc.Equals, "place1.example:1234")
+	c.Assert(r.conn.IPAddr(), gc.Equals, "0.2.2.2:1234")
 	c.Assert(dialed, jc.DeepEquals, map[string]bool{
 		"0.2.2.2:1234": true,
 		"0.1.1.1:1234": true,
