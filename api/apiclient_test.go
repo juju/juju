@@ -611,12 +611,12 @@ func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 		SkipLogin: true,
 		CACert:    jtesting.CACert,
 	}, api.DialOpts{
-		Timeout:       5 * time.Second,
-		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
-			"place1.example": {"0.2.2.2"},
-		},
+		// Note: don't resolve any addresses. If we resolve one,
+		// then there's a possibility that the resolving will
+		// happen and a second dial attempt will happen before
+		// the Open returns, giving rise to a race.
+		IPAddrResolver: fakeResolver{},
 		DNSCache: dnsCacheMap{
 			"place1.example": {"0.1.1.1"},
 		},
