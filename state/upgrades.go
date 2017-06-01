@@ -235,7 +235,7 @@ func DropOldLogIndex(st *State) error {
 	// If the log collection still has the old e,t index, remove it.
 	key := []string{"e", "t"}
 	db := st.MongoSession().DB(logsDB)
-	collection := db.C(logsC)
+	collection := db.C(logCollectionName(st.ModelUUID()))
 	err := collection.DropIndex(key...)
 	if err == nil {
 		return nil

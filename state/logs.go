@@ -29,7 +29,6 @@ import (
 // TODO(wallyworld) - lp:1602508 - collections need to be defined in collections.go
 const (
 	logsDB     = "logs"
-	logsC      = "logs"
 	forwardedC = "forwarded"
 )
 
@@ -43,7 +42,7 @@ type MongoSessioner interface {
 	MongoSession() *mgo.Session
 }
 
-// ModelSessioner supports creating new mongo sessions for the controller.
+// ControllerSessioner supports creating new mongo sessions for the controller.
 type ControllerSessioner interface {
 	MongoSessioner
 
@@ -68,10 +67,14 @@ var logIndexes = [][]string{
 	{"e", "n"},
 }
 
+func logCollectionName(modelUUID string) string {
+	return "logs." + modelUUID
+}
+
 // InitDbLogs sets up the indexes for the logs collection. It should
 // be called as state is opened. It is idempotent.
-func InitDbLogs(session *mgo.Session) error {
-	logsColl := session.DB(logsDB).C(logsC)
+func InitDbLogs(session *mgo.Session, modelUUID string) error {
+	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
 	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
@@ -366,7 +369,7 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
 		session:         session,
-		logsColl:        session.DB(logsDB).C(logsC).With(session),
+		logsColl:        session.DB(logsDB).C(logCollectionName(st.ModelUUID())).With(session),
 		params:          params,
 		logCh:           make(chan *LogRecord),
 		recentIds:       newRecentIdTracker(maxRecentLogIds),
@@ -528,7 +531,7 @@ func (t *logTailer) tailOplog() error {
 	newParams := t.params
 	newParams.StartID = t.lastID // (t.lastID + 1) once Id is a sequential int.
 	oplogSel := append(t.paramsToSelector(newParams, "o."),
-		bson.DocElem{"ns", logsDB + "." + logsC},
+		bson.DocElem{"ns", logsDB + "." + logCollectionName(t.modelUUID)},
 	)
 
 	oplog := t.params.Oplog
@@ -719,7 +722,7 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
 // size is greater than maxLogsMB.
-func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
+func PruneLogs(st ModelSessioner, minLogTime time.Time, maxLogsMB int) error {
 	session, logsColl := initLogsSession(st)
 	defer session.Close()
 
@@ -800,7 +803,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 // initLogsSession creates a new session suitable for logging updates,
 // returning the session and a logs mgo.Collection connected to that
 // session.
-func initLogsSession(st MongoSessioner) (*mgo.Session, *mgo.Collection) {
+func initLogsSession(st ModelSessioner) (*mgo.Session, *mgo.Collection) {
 	// To improve throughput, only wait for the logs to be written to
 	// the primary. For some reason, this makes a huge difference even
 	// when the replicaset only has one member (i.e. a single primary).
@@ -809,7 +812,7 @@ func initLogsSession(st MongoSessioner) (*mgo.Session, *mgo.Collection) {
 		W: 1,
 	})
 	db := session.DB(logsDB)
-	return session, db.C(logsC).With(session)
+	return session, db.C(logCollectionName(st.ModelUUID())).With(session)
 }
 
 // getCollectionMB returns the size of a MongoDB collection (in
@@ -868,14 +871,13 @@ func getLogCountForModel(coll *mgo.Collection, modelUUID string) (int, error) {
 
 func removeModelLogs(session *mgo.Session, modelUUID string) error {
 	logsDB := session.DB(logsDB)
-	logsColl := logsDB.C(logsC)
-	_, err := logsColl.RemoveAll(bson.M{"e": modelUUID})
-	if err != nil {
+	logsColl := logsDB.C(logCollectionName(modelUUID))
+	if err := logsColl.DropCollection(); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Also remove the tracked high-water times.
 	trackersColl := logsDB.C(forwardedC)
-	_, err = trackersColl.RemoveAll(bson.M{"model-uuid": modelUUID})
+	_, err := trackersColl.RemoveAll(bson.M{"model-uuid": modelUUID})
 	return errors.Trace(err)
 }

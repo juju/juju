@@ -382,6 +382,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
+	logsC := logCollectionName(s.state.ModelUUID())
 	coll := s.state.MongoSession().DB(logsDB).C(logsC)
 	err := coll.EnsureIndexKey("e", "t")
 	c.Assert(err, jc.ErrorIsNil)
@@ -398,6 +399,7 @@ func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestDropOldIndexWhenNoIndex(c *gc.C) {
+	logsC := logCollectionName(s.state.ModelUUID())
 	coll := s.state.MongoSession().DB(logsDB).C(logsC)
 	exists, err := hasIndex(coll, []string{"e", "t"})
 	c.Assert(err, jc.ErrorIsNil)

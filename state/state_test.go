@@ -2798,8 +2798,8 @@ func writeLogs(c *gc.C, st *state.State, n int) {
 }
 
 func assertLogCount(c *gc.C, st *state.State, expected int) {
-	logColl := st.MongoSession().DB("logs").C("logs")
-	actual, err := logColl.Find(bson.M{"e": st.ModelUUID()}).Count()
+	logColl := st.MongoSession().DB("logs").C("logs." + st.ModelUUID())
+	actual, err := logColl.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.Equals, expected)
 }

@@ -33,7 +33,7 @@ func (s *LogsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	session := s.State.MongoSession()
-	s.logsColl = session.DB("logs").C("logs")
+	s.logsColl = session.DB("logs").C("logs." + s.State.ModelUUID())
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
@@ -262,7 +262,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
 		var doc bson.M
-		err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Sort("-t").One(&doc)
+		err := s.logsColl.Find(nil).Sort("-t").One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(doc["t"], gc.Equals, now.UnixNano())
 	}
@@ -282,7 +282,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 }
 
 func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
-	count, err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Count()
+	count, err := s.logsColl.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
