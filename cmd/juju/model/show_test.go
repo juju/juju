@@ -74,7 +74,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.expectedOutput = attrs{
-		"admin/mymodel": attrs{
+		"mymodel": attrs{
 			"name":            "admin/mymodel",
 			"short-name":      "mymodel",
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -161,7 +161,7 @@ func (s *ShowCommandSuite) TestShowBasicIncompleteModelsYaml(c *gc.C) {
 		params.ModelInfoResult{Result: createBasicModelInfo()},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -179,7 +179,7 @@ func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: createBasicModelInfo()},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -197,7 +197,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsYaml(c *gc.C) 
 		params.ModelInfoResult{Result: createBasicModelInfoWithStatus()},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -217,7 +217,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsJson(c *gc.C) 
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: createBasicModelInfoWithStatus()},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -239,7 +239,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsYaml(c *gc.
 		params.ModelInfoResult{Result: basicAndMigrationStatusInfo},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -262,7 +262,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsJson(c *gc.
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: basicAndMigrationStatusInfo},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -283,7 +283,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsYa
 		params.ModelInfoResult{Result: basicAndStatusAndMigrationInfo},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -307,7 +307,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsJs
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: basicAndStatusAndMigrationInfo},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -329,7 +329,7 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsYaml(c *gc.C
 		params.ModelInfoResult{Result: basicAndProviderTypeInfo},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -350,7 +350,7 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *gc.C
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: basicAndProviderTypeInfo},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -373,7 +373,7 @@ func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsYaml(c *gc.C) {
 		params.ModelInfoResult{Result: basicAndUsersInfo},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -401,7 +401,7 @@ func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: basicAndUsersInfo},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -425,7 +425,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsYaml(c *gc.C
 		params.ModelInfoResult{Result: basicAndMachinesInfo},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -453,7 +453,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *gc.C
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: basicAndMachinesInfo},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -477,7 +477,7 @@ func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsYaml(c *gc.C) {
 		params.ModelInfoResult{Result: basicAndSLAInfo},
 	}
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -502,7 +502,7 @@ func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsJson(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		params.ModelInfoResult{Result: basicAndSLAInfo},
 	}
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -518,7 +518,7 @@ func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsJson(c *gc.C) {
 }
 
 func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
-	s.expectedDisplay = "{\"owner/basic-model\":" +
+	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
@@ -534,7 +534,7 @@ func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
 
 func (s *ShowCommandSuite) TestShowModelWithAgentVersionInYaml(c *gc.C) {
 	s.expectedDisplay = `
-owner/basic-model:
+basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -611,7 +611,7 @@ func (s *showSLACommandSuite) SetUpTest(c *gc.C) {
 		Level: "next",
 		Owner: "user",
 	}
-	slaOutput := s.expectedOutput["admin/mymodel"].(attrs)
+	slaOutput := s.expectedOutput["mymodel"].(attrs)
 	slaOutput["sla"] = "next"
 	slaOutput["sla-owner"] = "user"
 }

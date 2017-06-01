@@ -144,12 +144,7 @@ func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelIn
 			return nil, errors.Trace(err)
 		}
 		out.ControllerName = controllerName
-		// TODO (anastasiamac 2017-06-01) Since we have changed model.Name
-		// to be a quantified model name, i.e. $owner/$name, I wonder
-		// if we should now key on model.ShortName to preserve previous
-		// behavior. We need to revisit this area anyway when re-working owner
-		// concept in the models.
-		output[out.Name] = out
+		output[out.ShortName] = out
 	}
 	return output, nil
 }
