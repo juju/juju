@@ -2627,3 +2627,50 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 
 	s.assertApplicationRemovedWithItsBindings(c, service)
 }
+
+func (s *ApplicationSuite) setupAppicationWithUnitsForUpgradeCharmScenario(c *gc.C, numOfUnits int) (deployedV int, err error) {
+	originalCharmMeta := mysqlBaseMeta + `
+peers:
+  replication:
+    interface: pgreplication
+`
+	originalCharm := s.AddMetaCharm(c, "mysql", originalCharmMeta, 2)
+	cfg := state.SetCharmConfig{Charm: originalCharm}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationRelations(c, s.mysql, "mysql:replication")
+	deployedV = s.mysql.CharmModifiedVersion()
+
+	for i := 0; i < numOfUnits; i++ {
+		_, err = s.mysql.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// New mysql charm renames peer relation.
+	updatedCharmMeta := mysqlBaseMeta + `
+peers:
+  replication:
+    interface: pgpeer
+`
+	updatedCharm := s.AddMetaCharm(c, "mysql", updatedCharmMeta, 3)
+
+	cfg = state.SetCharmConfig{Charm: updatedCharm}
+	err = s.mysql.SetCharm(cfg)
+	return
+}
+
+func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithOneUnit(c *gc.C) {
+	obtainedV, err := s.setupAppicationWithUnitsForUpgradeCharmScenario(c, 1)
+
+	// ensure upgrade happened
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV+1, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c *gc.C) {
+	obtainedV, err := s.setupAppicationWithUnitsForUpgradeCharmScenario(c, 2)
+
+	// ensure upgrade did not happen
+	c.Assert(err, gc.ErrorMatches, `*would break relation "mysql:replication"*`)
+	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV, jc.IsTrue)
+}
