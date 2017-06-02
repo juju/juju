@@ -150,7 +150,7 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Ing
 }
 
 func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.Unit, *state.Machine) {
-	u, err := app.AddUnit()
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -419,7 +419,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	s.assertPorts(c, inst, m.Id(), nil)
 
 	// Complete steps to open port.
-	u, err := app.AddUnit()
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -437,7 +437,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	inst := s.startInstance(c, m)
 
 	app := s.AddTestingService(c, "wordpress", s.charm)
-	u, err := app.AddUnit()
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -893,7 +893,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.startInstance(c, m)
 
 	app := s.AddTestingService(c, "wordpress", s.charm)
-	u, err := app.AddUnit()
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)

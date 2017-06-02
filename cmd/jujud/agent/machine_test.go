@@ -250,9 +250,9 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// check that unassigned units don't trigger any deployments.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit()
+	u0, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	u1, err := svc.AddUnit()
+	u1, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx.waitDeployed(c)
@@ -343,7 +343,7 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	svc := s.AddTestingService(c, "test-service", charm)
 	err := svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -395,7 +395,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	// Add one unit to a service;
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "test-service", charm)
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -694,7 +694,7 @@ func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
 		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-		unit, err := service.AddUnit()
+		unit, err := service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = service.Destroy()
 		c.Assert(err, jc.ErrorIsNil)

@@ -31,7 +31,7 @@ func (*BenchmarkSuite) BenchmarkAddUnit(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", charm)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		_, err := svc.AddUnit()
+		_, err := svc.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -46,7 +46,7 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", charm)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		unit, err := svc.AddUnit()
+		unit, err := svc.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(unit, state.AssignClean)
 		c.Assert(err, jc.ErrorIsNil)
@@ -80,7 +80,7 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	}
 	charm := s.AddTestingCharm(c, "wordpress")
 	svc := s.AddTestingService(c, "wordpress", charm)
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	serviceCharmURL, _ := svc.CharmURL()
 	err = unit.SetCharmURL(serviceCharmURL)
@@ -114,7 +114,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(state.CleanupAge))
 	charm := s.AddTestingCharm(c, "wordpress")
 	svc := s.AddTestingService(c, "wordpress", charm)
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	serviceCharmURL, _ := svc.CharmURL()
 	err = unit.SetCharmURL(serviceCharmURL)

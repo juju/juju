@@ -210,7 +210,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,7 +355,7 @@ func (s *FilesystemStateSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() *state.Unit {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -397,7 +397,7 @@ func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() *state.Unit {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -439,7 +439,7 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() *state.Unit {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -488,7 +488,7 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem", "machinescoped", "modelscoped")
 	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
 		var err error
-		u, err = app.AddUnit()
+		u, err = app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		if to != nil {
 			err = u.AssignToMachine(to)
@@ -985,7 +985,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
 	}
 
 	app := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1035,7 +1035,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 			Location: location,
 		}, rev)
 		app := s.AddTestingServiceWithStorage(c, applicationname, ch, storage)
-		unit, err := app.AddUnit()
+		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		return unit.AssignToMachine(machine)
 	}
@@ -1065,7 +1065,7 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsConcurrentRemove(c 
 		Location: "/not/in/srv",
 	})
 	app := s.AddTestingService(c, "storage-filesystem", ch)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -1090,7 +1090,7 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 		Location: "/var/lib/juju/storage",
 	})
 	app := s.AddTestingService(c, "storage-filesystem", ch)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit \"storage-filesystem/0\" to machine: `+
@@ -1113,7 +1113,7 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentLocationConflict(c *gc.C)
 	})
 	svc := s.AddTestingService(c, "storage-filesystem", ch)
 
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, gc.ErrorMatches,

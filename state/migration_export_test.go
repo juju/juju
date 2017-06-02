@@ -117,7 +117,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 
 	machine := s.Factory.MakeMachine(c, nil)
 	err = unit.AssignToMachine(machine)

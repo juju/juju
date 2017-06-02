@@ -55,7 +55,7 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return app, unit, storageTag
@@ -89,7 +89,7 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingServiceWithStorage(c, ch.URL().Name, ch, storage)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
 	return app, unit, storageTag
@@ -566,7 +566,7 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	}
 	app := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
 	for i := 0; i < 2; i++ {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		storageAttachments, err := s.State.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -720,7 +720,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 
 func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit()
+	u2, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -739,7 +739,7 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit()
+	u2, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
@@ -769,7 +769,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc.C) {
 	// Create volume-backed filesystem storage.
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "filesystem", "modelscoped-block")
-	u2, err := app.AddUnit()
+	u2, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the first unit to a machine so that we have a
@@ -816,7 +816,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 
 func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttached(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
-	u2, err := app.AddUnit()
+	u2, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the first unit to a machine so that we have a
@@ -904,7 +904,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 	// application creation should fail.
 	var storageTags []names.StorageTag
 	for i := 0; i < 3; i++ {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		storageTag := names.NewStorageTag("data/" + fmt.Sprint(i+1))
 		storageTags = append(storageTags, storageTag)
@@ -1044,7 +1044,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
 	app := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
-	u, err := app.AddUnit()
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.State.WatchStorageAttachments(u.UnitTag())
@@ -1084,7 +1084,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 
 func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
-	u, err := app.AddUnit()
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1176,7 +1176,7 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	svc1 := s.AddTestingService(c, "storage-filesystem", ch1)
 	svc2 := s.AddTestingService(c, "storage-filesystem2", ch2)
 
-	u1, err := svc1.AddUnit()
+	u1, err := svc1.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(u1, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1186,7 +1186,7 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	m, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, err := svc2.AddUnit()
+	u2, err := svc2.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u2.AssignToMachine(m)
 	if expectErr == "" {
@@ -1273,7 +1273,7 @@ func (s *StorageSubordinateStateSuite) SetUpTest(c *gc.C) {
 	storageCharm := s.AddTestingCharm(c, "storage-filesystem-subordinate")
 	s.subordinateApplication = s.AddTestingService(c, "storage-filesystem-subordinate", storageCharm)
 	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.mysqlUnit, err = s.mysql.AddUnit()
+	s.mysqlUnit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("mysql", "storage-filesystem-subordinate")

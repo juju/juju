@@ -128,7 +128,7 @@ func (s *HookContextSuite) GetContext(
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit {
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {
 		err = unit.AssignToMachine(s.machine)

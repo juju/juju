@@ -378,7 +378,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 
 	var unitNames []string
 	for i := 0; i < 3; i++ {
-		unit, err := wordpress.AddUnit()
+		unit, err := wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		unitNames = append(unitNames, unit.Name())
 		err = unit.AssignToMachine(machine1)

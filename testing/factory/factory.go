@@ -488,7 +488,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	unit, err := params.Application.AddUnit()
+	unit, err := params.Application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
 	c.Assert(err, jc.ErrorIsNil)

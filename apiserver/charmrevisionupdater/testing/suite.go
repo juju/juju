@@ -127,7 +127,7 @@ func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string) {
 func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
 	svc, err := s.jcSuite.State.Application(serviceName)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.jcSuite.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)

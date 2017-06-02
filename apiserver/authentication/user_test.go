@@ -70,7 +70,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	// add a unit for testing unit agent authentication
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := wordpress.AddUnit()
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

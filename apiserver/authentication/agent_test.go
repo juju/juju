@@ -55,7 +55,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	// add a unit for testing unit agent authentication
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := wordpress.AddUnit()
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unit = unit
 	password, err = utils.RandomPassword()

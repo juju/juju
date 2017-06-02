@@ -256,7 +256,7 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Destroy()

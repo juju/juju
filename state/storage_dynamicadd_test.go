@@ -32,7 +32,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 	charm := s.AddTestingCharm(c, "storage-block2")
 	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: charm, Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := service.AddUnit()
+	u, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitTag = u.UnitTag()
 	all, err := s.State.AllStorageInstances()
