@@ -956,8 +956,8 @@ func (api *API) DestroyRelation(args params.DestroyRelation) error {
 
 // Consume adds remote applications to the model without creating any
 // relations.
-func (api *API) Consume(args params.ConsumeApplicationArgs) (params.ConsumeApplicationResults, error) {
-	var consumeResults params.ConsumeApplicationResults
+func (api *API) Consume(args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
+	var consumeResults params.ErrorResults
 	if !featureflag.Enabled(feature.CrossModelRelations) {
 		err := errors.Errorf(
 			"set %q feature flag to enable consuming remote applications",
@@ -972,28 +972,27 @@ func (api *API) Consume(args params.ConsumeApplicationArgs) (params.ConsumeAppli
 		return consumeResults, errors.Trace(err)
 	}
 
-	results := make([]params.ConsumeApplicationResult, len(args.Args))
+	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
-		localName, err := api.consumeOne(arg)
-		results[i].LocalName = localName
+		err := api.consumeOne(arg)
 		results[i].Error = common.ServerError(err)
 	}
 	consumeResults.Results = results
 	return consumeResults, nil
 }
 
-func (api *API) consumeOne(arg params.ConsumeApplicationArg) (string, error) {
+func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	appName := arg.ApplicationAlias
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	remoteApp, err := api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOffer)
-	return remoteApp.Name(), err
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOffer)
+	return err
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints

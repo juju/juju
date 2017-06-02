@@ -4,6 +4,7 @@
 package applicationoffers_test
 
 import (
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -14,6 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -24,26 +27,32 @@ const (
 )
 
 type baseSuite struct {
+	jtesting.IsolationSuite
+
 	resources  *common.Resources
 	authorizer *testing.FakeAuthorizer
 
 	mockState         *mockState
 	mockStatePool     *mockStatePool
+	env               *mockEnviron
 	applicationOffers *stubApplicationOffers
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.authorizer = &testing.FakeAuthorizer{
 		Tag:      names.NewUserTag("read"),
 		AdminTag: names.NewUserTag("admin"),
 	}
 
+	s.env = &mockEnviron{}
 	s.mockState = &mockState{
 		modelUUID:         coretesting.ModelTag.Id(),
 		users:             set.NewStrings(),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		accessPerms:       make(map[offerAccess]permission.Access),
+		spaces:            make(map[string]applicationoffers.Space),
 	}
 	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
 }
@@ -78,8 +87,29 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}
 	s.mockState.applications = map[string]applicationoffers.Application{
-		"test": &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
+		"test": &mockApplication{
+			charm: ch, curl: charm.MustParseURL("db2-2"),
+			bindings: map[string]string{"db2": "myspace"},
+		},
 	}
 	s.mockState.model = &mockModel{uuid: coretesting.ModelTag.Id(), name: "prod", owner: "fred"}
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
+	s.mockState.spaces["myspace"] = &mockSpace{
+		name:       "myspace",
+		providerId: "juju-space-myspace",
+		subnets: []applicationoffers.Subnet{
+			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+		},
+	}
+	s.env.spaceInfo = &environs.ProviderSpaceInfo{
+		SpaceInfo: network.SpaceInfo{
+			Name:       "myspace",
+			ProviderId: "juju-space-myspace",
+			Subnets: []network.SubnetInfo{{
+				CIDR:              "4.3.2.0/24",
+				ProviderId:        "juju-subnet-1",
+				AvailabilityZones: []string{"az1"},
+			}},
+		},
+	}
 }

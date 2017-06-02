@@ -71,6 +71,9 @@ type mockEnviron struct {
 
 func (e *mockEnviron) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	e.stub.MethodCall(e, "ProviderSpaceInfo", space)
+	if e.spaceInfo == nil || space.Name != e.spaceInfo.Name {
+		return nil, errors.NotFoundf("space %s", space.Name)
+	}
 	return e.spaceInfo, e.stub.NextErr()
 }
 

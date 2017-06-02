@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/model"
@@ -450,4 +451,27 @@ func (s *crossmodelSuite) TestOfferRevoke(c *gc.C) {
 	access, err := s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
+}
+
+func (s *crossmodelSuite) TestConsumeWithPermission(c *gc.C) {
+	s.addOtherModelApplication(c)
+	s.createTestUser(c)
+	s.loginTestUser(c)
+	ctx, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+		"otheruser/othermodel.hosted-mysql")
+	c.Assert(err, gc.ErrorMatches, `application offer "otheruser/othermodel.hosted-mysql" not found`)
+
+	s.loginAdminUser(c)
+	_, err = cmdtesting.RunCommand(c, model.NewGrantCommand(), "test", "consume", "otheruser/othermodel.hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cmdtesting.RunCommand(c, model.NewGrantCommand(), "test", "write", "admin/controller")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.loginTestUser(c)
+	ctx, err = cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+		"-m", "admin/controller", "otheruser/othermodel.hosted-mysql", "othermysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
+Added otheruser/othermodel.hosted-mysql as othermysql
+`[1:])
 }

@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -339,6 +340,8 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		ApplicationDescription: "description",
 		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 	}
+	mac, err := macaroon.New(nil, "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
 	var called bool
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -354,19 +357,18 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 				{
 					ApplicationAlias: "alias",
 					ApplicationOffer: offer,
+					Macaroon:         mac,
 				},
 			})
-			if results, ok := result.(*params.ConsumeApplicationResults); ok {
-				result := params.ConsumeApplicationResult{
-					LocalName: "result",
-				}
-				results.Results = []params.ConsumeApplicationResult{result}
+			if results, ok := result.(*params.ErrorResults); ok {
+				result := params.ErrorResult{}
+				results.Results = []params.ErrorResult{result}
 			}
 			return nil
 		})
 	client := application.NewClient(apiCaller)
-	name, err := client.Consume(offer, "alias")
+	name, err := client.Consume(offer, "alias", mac)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "result")
+	c.Assert(name, gc.Equals, "alias")
 	c.Assert(called, jc.IsTrue)
 }

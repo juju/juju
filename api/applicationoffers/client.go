@@ -181,7 +181,7 @@ func (c *Client) ApplicationOffer(urlStr string) (params.ApplicationOffer, error
 	if theOne.Error != nil {
 		return params.ApplicationOffer{}, errors.Trace(theOne.Error)
 	}
-	return theOne.Result, nil
+	return *theOne.Result, nil
 }
 
 // FindApplicationOffers returns all application offers matching the supplied filter.
@@ -212,4 +212,37 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
+}
+
+// GetConsumeDetails returns details necessary to consue an offer at a given URL.
+func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, error) {
+
+	url, err := crossmodel.ParseApplicationURL(urlStr)
+	if err != nil {
+		return params.ConsumeOfferDetails{}, errors.Trace(err)
+	}
+	if url.Source != "" {
+		return params.ConsumeOfferDetails{}, errors.NotSupportedf("query for non-local application offers")
+	}
+
+	found := params.ConsumeOfferDetailsResults{}
+
+	err = c.facade.FacadeCall("GetConsumeDetails", params.ApplicationURLs{[]string{urlStr}}, &found)
+	if err != nil {
+		return params.ConsumeOfferDetails{}, errors.Trace(err)
+	}
+
+	result := found.Results
+	if len(result) != 1 {
+		return params.ConsumeOfferDetails{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
+	}
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return params.ConsumeOfferDetails{}, errors.Trace(theOne.Error)
+	}
+	return params.ConsumeOfferDetails{
+		Offer:    theOne.Offer,
+		Macaroon: theOne.Macaroon,
+	}, nil
 }

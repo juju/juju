@@ -5,6 +5,7 @@ package params
 
 import (
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 )
 
 // EndpointFilterAttributes is used to filter offers matching the
@@ -105,7 +106,7 @@ type FindApplicationOffersResults struct {
 // ApplicationOfferResult is a result of listing a remote application offer.
 type ApplicationOfferResult struct {
 	// Result contains application offer information.
-	Result ApplicationOffer `json:"result"`
+	Result *ApplicationOffer `json:"result,omitempty"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`
@@ -127,6 +128,9 @@ type ApplicationURLs struct {
 type ConsumeApplicationArg struct {
 	// The offer to be consumed.
 	ApplicationOffer
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
 	// ApplicationAlias is the name of the alias to use for the application name.
 	ApplicationAlias string `json:"application-alias,omitempty"`
@@ -365,16 +369,24 @@ type RemoteApplicationInfoResults struct {
 	Results []RemoteApplicationInfoResult `json:"results"`
 }
 
-// ConsumeApplicationResult is the response for one request to consume
-// a remote application.
-type ConsumeApplicationResult struct {
-	LocalName string `json:"local-name,omitempty"`
-	Error     *Error `json:"error,omitempty"`
+// ConsumeOfferDetails contains the details necessary to
+// consume an application offer.
+type ConsumeOfferDetails struct {
+	Offer    *ApplicationOffer  `json:"offer,omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
-// ConsumeApplicationResults is the result of a Consume call.
-type ConsumeApplicationResults struct {
-	Results []ConsumeApplicationResult `json:"results"`
+// ConsumeOfferDetailsResult contains the details necessary to
+// consume an application offer or an error.
+type ConsumeOfferDetailsResult struct {
+	ConsumeOfferDetails
+	Error *Error `json:"error,omitempty"`
+}
+
+// ConsumeOfferDetailsResults represents the result of a
+// ConsumeOfferDetails call.
+type ConsumeOfferDetailsResults struct {
+	Results []ConsumeOfferDetailsResult `json:"results,omitempty"`
 }
 
 // RemoteEntities identifies multiple remote entities.
