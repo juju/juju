@@ -29,6 +29,7 @@ import (
 // TODO(wallyworld) - lp:1602508 - collections need to be defined in collections.go
 const (
 	logsDB     = "logs"
+	logsPrefix = "logs."
 	forwardedC = "forwarded"
 )
 
@@ -68,7 +69,7 @@ var logIndexes = [][]string{
 }
 
 func logCollectionName(modelUUID string) string {
-	return "logs." + modelUUID
+	return logsPrefix + modelUUID
 }
 
 // InitDbLogs sets up the indexes for the logs collection. It should
@@ -504,7 +505,7 @@ func (t *logTailer) processCollection() error {
 	// Important: it is critical that the sort index includes _id,
 	// otherwise MongoDB won't use the index, which risks hitting
 	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
-	iter := query.Sort("e", "t", "_id").Iter()
+	iter := query.Sort("t", "_id").Iter()
 	for iter.Next(&doc) {
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
@@ -582,7 +583,6 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
-	sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
 	}
@@ -719,22 +719,23 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
 // size is greater than maxLogsMB.
-func PruneLogs(st ModelSessioner, minLogTime time.Time, maxLogsMB int) error {
-	session, logsColl := initLogsSession(st)
+func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int) error {
+	if !st.IsController() {
+		return errors.Errorf("pruning logs requires a controller state")
+	}
+	session, logsDB := initLogsSessionDB(st)
 	defer session.Close()
 
-	modelUUIDs, err := getModelsInLogs(logsColl)
+	logColls, err := getLogCollections(logsDB)
 	if err != nil {
 		return errors.Annotate(err, "failed to get log counts")
 	}
 
 	pruneCounts := make(map[string]int)
 
-	// Remove old log entries (per model UUID to take advantage
-	// of indexes on the logs collection).
-	for _, modelUUID := range modelUUIDs {
-		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": modelUUID,
+	// Remove old log entries for each model.
+	for modelUUID, logColl := range logColls {
+		removeInfo, err := logColl.RemoveAll(bson.M{
 			"t": bson.M{"$lt": minLogTime.UnixNano()},
 		})
 		if err != nil {
@@ -745,7 +746,7 @@ func PruneLogs(st ModelSessioner, minLogTime time.Time, maxLogsMB int) error {
 
 	// Do further pruning if the logs collection is over the maximum size.
 	for {
-		collMB, err := getCollectionMB(logsColl)
+		collMB, err := getCollectionTotalMB(logColls)
 		if err != nil {
 			return errors.Annotate(err, "failed to retrieve log counts")
 		}
@@ -753,7 +754,7 @@ func PruneLogs(st ModelSessioner, minLogTime time.Time, maxLogsMB int) error {
 			break
 		}
 
-		modelUUID, count, err := findModelWithMostLogs(logsColl, modelUUIDs)
+		modelUUID, count, err := findModelWithMostLogs(logColls)
 		if err != nil {
 			return errors.Annotate(err, "log count query failed")
 		}
@@ -768,7 +769,8 @@ func PruneLogs(st ModelSessioner, minLogTime time.Time, maxLogsMB int) error {
 		// NOTE: this assumes that there are no more logs being added
 		// for the time range being pruned (which should be true for
 		// any realistic minimum log collection size).
-		tsQuery := logsColl.Find(bson.M{"e": modelUUID}).Sort("e", "t")
+		logColl := logColls[modelUUID]
+		tsQuery := logColl.Find(nil).Sort("t", "_id")
 		tsQuery = tsQuery.Skip(toRemove)
 		tsQuery = tsQuery.Select(bson.M{"t": 1})
 		var doc bson.M
@@ -779,8 +781,7 @@ func PruneLogs(st ModelSessioner, minLogTime time.Time, maxLogsMB int) error {
 		thresholdTs := doc["t"]
 
 		// Remove old records.
-		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": modelUUID,
+		removeInfo, err := logColl.RemoveAll(bson.M{
 			"t": bson.M{"$lt": thresholdTs},
 		})
 		if err != nil {
@@ -797,10 +798,7 @@ func PruneLogs(st ModelSessioner, minLogTime time.Time, maxLogsMB int) error {
 	return nil
 }
 
-// initLogsSession creates a new session suitable for logging updates,
-// returning the session and a logs mgo.Collection connected to that
-// session.
-func initLogsSession(st ModelSessioner) (*mgo.Session, *mgo.Collection) {
+func initLogsSessionDB(st MongoSessioner) (*mgo.Session, *mgo.Database) {
 	// To improve throughput, only wait for the logs to be written to
 	// the primary. For some reason, this makes a huge difference even
 	// when the replicaset only has one member (i.e. a single primary).
@@ -808,8 +806,15 @@ func initLogsSession(st ModelSessioner) (*mgo.Session, *mgo.Collection) {
 	session.SetSafe(&mgo.Safe{
 		W: 1,
 	})
-	db := session.DB(logsDB)
-	return session, db.C(logCollectionName(st.ModelUUID())).With(session)
+	return session, session.DB(logsDB)
+}
+
+// initLogsSession creates a new session suitable for logging updates,
+// returning the session and a logs mgo.Collection connected to that
+// session.
+func initLogsSession(st ModelSessioner) (*mgo.Session, *mgo.Collection) {
+	session, db := initLogsSessionDB(st)
+	return session, db.C(logCollectionName(st.ModelUUID()))
 }
 
 // getCollectionMB returns the size of a MongoDB collection (in
@@ -826,25 +831,45 @@ func getCollectionMB(coll *mgo.Collection) (int, error) {
 	return result["size"].(int), nil
 }
 
-// getModelsInLogs returns the unique model UUIDs that exist in
-// the logs collection. This uses the one of the indexes on the
-// collection and should be fast.
-func getModelsInLogs(coll *mgo.Collection) ([]string, error) {
-	var modelUUIDs []string
-	err := coll.Find(nil).Distinct("e", &modelUUIDs)
+// getCollectionTotalMB returns the total size of the log collections
+// passed.
+func getCollectionTotalMB(colls map[string]*mgo.Collection) (int, error) {
+	total := 0
+	for _, coll := range colls {
+		size, err := getCollectionMB(coll)
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+		total += size
+	}
+	return total, nil
+}
+
+// getLogCollections returns all of the log collections in the DB by
+// model UUID.
+func getLogCollections(db *mgo.Database) (map[string]*mgo.Collection, error) {
+	result := make(map[string]*mgo.Collection)
+	names, err := db.CollectionNames()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return modelUUIDs, nil
+	for _, name := range names {
+		if !strings.HasPrefix(name, logsPrefix) {
+			continue
+		}
+		uuid := name[len(logsPrefix):]
+		result[uuid] = db.C(name)
+	}
+	return result, nil
 }
 
-// findModelWithMostLogs returns the modelUUID and log count for the
-// model with the most logs in the logs collection.
-func findModelWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string, int, error) {
+// findModelWithMostLogs returns the modelUUID and row count for the
+// collection with the most logs in the logs DB.
+func findModelWithMostLogs(colls map[string]*mgo.Collection) (string, int, error) {
 	var maxModelUUID string
 	var maxCount int
-	for _, modelUUID := range modelUUIDs {
-		count, err := getLogCountForModel(logsColl, modelUUID)
+	for modelUUID, coll := range colls {
+		count, err := getRowCountForCollection(coll)
 		if err != nil {
 			return "", -1, errors.Trace(err)
 		}
@@ -856,10 +881,10 @@ func findModelWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (strin
 	return maxModelUUID, maxCount, nil
 }
 
-// getLogCountForModel returns the number of log records stored for a
-// given model.
-func getLogCountForModel(coll *mgo.Collection, modelUUID string) (int, error) {
-	count, err := coll.Find(bson.M{"e": modelUUID}).Count()
+// getRowCountForCollection returns the number of log records stored for a
+// given model log collection.
+func getRowCountForCollection(coll *mgo.Collection) (int, error) {
+	count, err := coll.Count()
 	if err != nil {
 		return -1, errors.Annotate(err, "failed to get log count")
 	}

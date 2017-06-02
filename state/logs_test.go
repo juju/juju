@@ -31,9 +31,12 @@ var _ = gc.Suite(&LogsSuite{})
 
 func (s *LogsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	s.logsColl = s.logCollFor(s.State)
+}
 
-	session := s.State.MongoSession()
-	s.logsColl = session.DB("logs").C("logs." + s.State.ModelUUID())
+func (s *LogsSuite) logCollFor(st *state.State) *mgo.Collection {
+	session := st.MongoSession()
+	return session.DB("logs").C("logs." + st.ModelUUID())
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
@@ -129,9 +132,9 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 		keys = append(keys, strings.Join(index.Key, "-"))
 	}
 	c.Assert(keys, jc.SameContents, []string{
-		"_id",     // default index
-		"e-t-_id", // model-uuid and timestamp
-		"e-n",     // model-uuid and entity
+		"_id",   // default index
+		"t-_id", // model-uuid and timestamp
+		"n",     // model-uuid and entity
 	})
 }
 
@@ -149,7 +152,6 @@ func (s *LogsSuite) TestEntityDbLogger(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 2)
 
 	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
-	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[0]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
@@ -157,7 +159,6 @@ func (s *LogsSuite) TestEntityDbLogger(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
-	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
@@ -179,7 +180,6 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 2)
 
 	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
-	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[0]["n"], gc.Equals, "machine-45")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
@@ -187,7 +187,6 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
-	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-47")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
@@ -244,6 +243,11 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	startingLogsS2 := 12000
 	s.generateLogs(c, s2, now, startingLogsS2)
 
+	// Sanity check
+	c.Assert(s.countLogs(c, s0), gc.Equals, startingLogsS0)
+	c.Assert(s.countLogs(c, s1), gc.Equals, startingLogsS1)
+	c.Assert(s.countLogs(c, s2), gc.Equals, startingLogsS2)
+
 	// Prune logs collection back to 1 MiB.
 	tsNoPrune := coretesting.NonZeroTime().Add(-3 * 24 * time.Hour)
 	err := state.PruneLogs(s.State, tsNoPrune, 1)
@@ -254,10 +258,12 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 
 	// Logs for second env should be pruned.
 	c.Assert(s.countLogs(c, s1), jc.LessThan, startingLogsS1)
+	c.Assert(s.countLogs(c, s1), jc.GreaterThan, 5000)
 
 	// Logs for third env should be pruned to a similar level as
 	// second env.
 	c.Assert(s.countLogs(c, s2), jc.LessThan, startingLogsS1)
+	c.Assert(s.countLogs(c, s2), jc.GreaterThan, 5000)
 
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
@@ -282,16 +288,16 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 }
 
 func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
-	count, err := s.logsColl.Count()
+	count, err := s.logCollFor(st).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
 
 type LogTailerSuite struct {
 	ConnWithWallClockSuite
-	logsColl   *mgo.Collection
-	oplogColl  *mgo.Collection
-	otherState *state.State
+	oplogColl            *mgo.Collection
+	otherState           *state.State
+	modelUUID, otherUUID string
 }
 
 var _ = gc.Suite(&LogTailerSuite{})
@@ -300,8 +306,6 @@ func (s *LogTailerSuite) SetUpTest(c *gc.C) {
 	s.ConnWithWallClockSuite.SetUpTest(c)
 
 	session := s.State.MongoSession()
-	s.logsColl = session.DB("logs").C("logs")
-
 	// Create a fake oplog collection.
 	s.oplogColl = session.DB("logs").C("oplog.fake")
 	err := s.oplogColl.Create(&mgo.CollectionInfo{
@@ -317,19 +321,26 @@ func (s *LogTailerSuite) SetUpTest(c *gc.C) {
 		err := s.otherState.Close()
 		c.Assert(err, jc.ErrorIsNil)
 	})
+	s.modelUUID = s.State.ModelUUID()
+	s.otherUUID = s.otherState.ModelUUID()
+}
+
+func (s *LogTailerSuite) getCollection(modelUUID string) *mgo.Collection {
+	return s.State.MongoSession().DB("logs").C("logs." + modelUUID)
 }
 
 func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 10 logs that shouldn't be returned.
 	threshT := coretesting.NonZeroTime()
 	s.writeLogsT(c,
+		s.otherUUID,
 		threshT.Add(-5*time.Second), threshT.Add(-time.Millisecond), 5,
 		logTemplate{Message: "dont want"},
 	)
 
 	// Add 5 logs that should be returned.
 	want := logTemplate{Message: "want"}
-	s.writeLogsT(c, threshT, threshT.Add(5*time.Second), 5, want)
+	s.writeLogsT(c, s.otherUUID, threshT, threshT.Add(5*time.Second), 5, want)
 	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		StartTime: threshT,
 		Oplog:     s.oplogColl,
@@ -340,7 +351,7 @@ func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 
 	// Write more logs. These will be read from the the oplog.
 	want2 := logTemplate{Message: "want 2"}
-	s.writeLogsT(c, threshT.Add(6*time.Second), threshT.Add(10*time.Second), 5, want2)
+	s.writeLogsT(c, s.otherUUID, threshT.Add(6*time.Second), threshT.Add(10*time.Second), 5, want2)
 	s.assertTailer(c, tailer, 5, want2)
 
 }
@@ -353,7 +364,7 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 	// challenging scenario for the tailer.
 
 	for i := 0; i < 5; i++ {
-		s.writeLogs(c, 1, logTemplate{Message: strconv.Itoa(i)})
+		s.writeLogs(c, s.otherUUID, 1, logTemplate{Message: strconv.Itoa(i)})
 	}
 
 	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
@@ -368,7 +379,7 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 	// Write more logs. These will be read from the the oplog.
 	for i := 5; i < 10; i++ {
 		lt := logTemplate{Message: strconv.Itoa(i)}
-		s.writeLogs(c, 2, lt)
+		s.writeLogs(c, s.otherUUID, 2, lt)
 		s.assertTailer(c, tailer, 2, lt)
 	}
 }
@@ -376,15 +387,13 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 	good := logTemplate{Message: "good"}
 	writeLogs := func() {
-		s.writeLogs(c, 1, logTemplate{
-			ModelUUID: "someuuid0",
-			Message:   "bad",
+		s.writeLogs(c, "someuuid0", 1, logTemplate{
+			Message: "bad",
 		})
-		s.writeLogs(c, 1, logTemplate{
-			ModelUUID: "someuuid1",
-			Message:   "bad",
+		s.writeLogs(c, "someuuid1", 1, logTemplate{
+			Message: "bad",
 		})
-		s.writeLogs(c, 1, good)
+		s.writeLogs(c, s.otherUUID, 1, good)
 	}
 
 	assert := func(tailer state.LogTailer) {
@@ -397,17 +406,14 @@ func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 
 func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
 	writeLogs := func() {
-		s.writeLogs(c, 1, logTemplate{
-			ModelUUID: s.otherState.ModelUUID(),
-			Message:   "bad"},
+		s.writeLogs(c, s.otherUUID, 1, logTemplate{
+			Message: "bad"},
 		)
-		s.writeLogs(c, 1, logTemplate{
-			ModelUUID: s.State.ModelUUID(),
-			Message:   "good1",
+		s.writeLogs(c, s.modelUUID, 1, logTemplate{
+			Message: "good1",
 		})
-		s.writeLogs(c, 1, logTemplate{
-			ModelUUID: s.State.ModelUUID(),
-			Message:   "good2",
+		s.writeLogs(c, s.modelUUID, 1, logTemplate{
+			Message: "good2",
 		})
 	}
 
@@ -415,7 +421,7 @@ func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
 		messages := map[string]bool{}
 		defer func() {
 			c.Assert(messages, gc.HasLen, 2)
-			for m, _ := range messages {
+			for m := range messages {
 				if m != "good1" && m != "good2" {
 					c.Fatalf("received message: %v", m)
 				}
@@ -444,9 +450,9 @@ func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
 	info := logTemplate{Level: loggo.INFO}
 	error := logTemplate{Level: loggo.ERROR}
 	writeLogs := func() {
-		s.writeLogs(c, 1, logTemplate{Level: loggo.DEBUG})
-		s.writeLogs(c, 1, info)
-		s.writeLogs(c, 1, error)
+		s.writeLogs(c, s.otherUUID, 1, logTemplate{Level: loggo.DEBUG})
+		s.writeLogs(c, s.otherUUID, 1, info)
+		s.writeLogs(c, s.otherUUID, 1, error)
 	}
 	params := &state.LogTailerParams{
 		MinLevel: loggo.INFO,
@@ -460,8 +466,8 @@ func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
 
 func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 	expected := logTemplate{Message: "want"}
-	s.writeLogs(c, 3, logTemplate{Message: "dont want"})
-	s.writeLogs(c, 5, expected)
+	s.writeLogs(c, s.otherUUID, 3, logTemplate{Message: "dont want"})
+	s.writeLogs(c, s.otherUUID, 5, expected)
 
 	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		InitialLines: 5,
@@ -480,9 +486,9 @@ func (s *LogTailerSuite) TestRecordsAddedOutOfTimeOrder(c *gc.C) {
 	t2, err := time.Parse(format, "2016-11-25 09:20")
 	c.Assert(err, jc.ErrorIsNil)
 	here := logTemplate{Message: "logged here"}
-	s.writeLogsT(c, t2, t2, 1, here)
+	s.writeLogsT(c, s.otherUUID, t2, t2, 1, here)
 	migrated := logTemplate{Message: "transferred by migration"}
-	s.writeLogsT(c, t1, t1, 1, migrated)
+	s.writeLogsT(c, s.otherUUID, t1, t1, 1, migrated)
 
 	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -495,7 +501,7 @@ func (s *LogTailerSuite) TestRecordsAddedOutOfTimeOrder(c *gc.C) {
 
 func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 	expected := logTemplate{Message: "want"}
-	s.writeLogs(c, 2, expected)
+	s.writeLogs(c, s.otherUUID, 2, expected)
 
 	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		InitialLines: 5,
@@ -510,11 +516,11 @@ func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 
 func (s *LogTailerSuite) TestNoTail(c *gc.C) {
 	expected := logTemplate{Message: "want"}
-	s.writeLogs(c, 2, expected)
+	s.writeLogs(c, s.otherUUID, 2, expected)
 
 	// Write a log entry that's only in the oplog.
 	doc := s.logTemplateToDoc(logTemplate{Message: "dont want"}, coretesting.ZeroTime())
-	err := s.writeLogToOplog(doc)
+	err := s.writeLogToOplog(s.otherUUID, doc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
@@ -549,10 +555,10 @@ func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
 	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
 	writeLogs := func() {
-		s.writeLogs(c, 3, machine0)
-		s.writeLogs(c, 2, foo0)
-		s.writeLogs(c, 1, foo1)
-		s.writeLogs(c, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 2, foo0)
+		s.writeLogs(c, s.otherUUID, 1, foo1)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
 	params := &state.LogTailerParams{
 		IncludeEntity: []string{
@@ -572,10 +578,10 @@ func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
 	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
 	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
 	writeLogs := func() {
-		s.writeLogs(c, 3, machine0)
-		s.writeLogs(c, 2, foo0)
-		s.writeLogs(c, 1, foo1)
-		s.writeLogs(c, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 2, foo0)
+		s.writeLogs(c, s.otherUUID, 1, foo1)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
 	params := &state.LogTailerParams{
 		IncludeEntity: []string{
@@ -594,10 +600,10 @@ func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
 	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
 	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
 	writeLogs := func() {
-		s.writeLogs(c, 3, machine0)
-		s.writeLogs(c, 2, foo0)
-		s.writeLogs(c, 1, foo1)
-		s.writeLogs(c, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 2, foo0)
+		s.writeLogs(c, s.otherUUID, 1, foo1)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
 	params := &state.LogTailerParams{
 		ExcludeEntity: []string{
@@ -616,10 +622,10 @@ func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
 	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
 	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
 	writeLogs := func() {
-		s.writeLogs(c, 3, machine0)
-		s.writeLogs(c, 2, foo0)
-		s.writeLogs(c, 1, foo1)
-		s.writeLogs(c, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
+		s.writeLogs(c, s.otherUUID, 2, foo0)
+		s.writeLogs(c, s.otherUUID, 1, foo1)
+		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
 	params := &state.LogTailerParams{
 		ExcludeEntity: []string{
@@ -638,12 +644,12 @@ func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 	subMod1 := logTemplate{Module: "juju.thing.hai"}
 	mod2 := logTemplate{Module: "elsewhere"}
 	writeLogs := func() {
-		s.writeLogs(c, 1, mod0)
-		s.writeLogs(c, 1, mod1)
-		s.writeLogs(c, 1, mod0)
-		s.writeLogs(c, 1, subMod1)
-		s.writeLogs(c, 1, mod0)
-		s.writeLogs(c, 1, mod2)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, subMod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod2)
 	}
 	params := &state.LogTailerParams{
 		IncludeModule: []string{"juju.thing", "elsewhere"},
@@ -662,12 +668,12 @@ func (s *LogTailerSuite) TestExcludeModule(c *gc.C) {
 	subMod1 := logTemplate{Module: "juju.thing.hai"}
 	mod2 := logTemplate{Module: "elsewhere"}
 	writeLogs := func() {
-		s.writeLogs(c, 1, mod0)
-		s.writeLogs(c, 1, mod1)
-		s.writeLogs(c, 1, mod0)
-		s.writeLogs(c, 1, subMod1)
-		s.writeLogs(c, 1, mod0)
-		s.writeLogs(c, 1, mod2)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, subMod1)
+		s.writeLogs(c, s.otherUUID, 1, mod0)
+		s.writeLogs(c, s.otherUUID, 1, mod2)
 	}
 	params := &state.LogTailerParams{
 		ExcludeModule: []string{"juju.thing", "elsewhere"},
@@ -685,11 +691,11 @@ func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
 	baz := logTemplate{Module: "baz"}
 	qux := logTemplate{Module: "qux"}
 	writeLogs := func() {
-		s.writeLogs(c, 1, foo)
-		s.writeLogs(c, 1, bar)
-		s.writeLogs(c, 1, barSub)
-		s.writeLogs(c, 1, baz)
-		s.writeLogs(c, 1, qux)
+		s.writeLogs(c, s.otherUUID, 1, foo)
+		s.writeLogs(c, s.otherUUID, 1, bar)
+		s.writeLogs(c, s.otherUUID, 1, barSub)
+		s.writeLogs(c, s.otherUUID, 1, baz)
+		s.writeLogs(c, s.otherUUID, 1, qux)
 	}
 	params := &state.LogTailerParams{
 		IncludeModule: []string{"foo", "bar", "qux"},
@@ -726,34 +732,33 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 }
 
 type logTemplate struct {
-	ModelUUID string
-	Entity    names.Tag
-	Version   version.Number
-	Module    string
-	Location  string
-	Level     loggo.Level
-	Message   string
+	Entity   names.Tag
+	Version  version.Number
+	Module   string
+	Location string
+	Level    loggo.Level
+	Message  string
 }
 
 // writeLogs creates count log messages at the current time using
 // the supplied template. As well as writing to the logs collection,
 // entries are also made into the fake oplog collection.
-func (s *LogTailerSuite) writeLogs(c *gc.C, count int, lt logTemplate) {
+func (s *LogTailerSuite) writeLogs(c *gc.C, modelUUID string, count int, lt logTemplate) {
 	t := coretesting.ZeroTime()
-	s.writeLogsT(c, t, t, count, lt)
+	s.writeLogsT(c, modelUUID, t, t, count, lt)
 }
 
 // writeLogsT creates count log messages between startTime and
 // endTime using the supplied template. As well as writing to the logs
 // collection, entries are also made into the fake oplog collection.
-func (s *LogTailerSuite) writeLogsT(c *gc.C, startTime, endTime time.Time, count int, lt logTemplate) {
+func (s *LogTailerSuite) writeLogsT(c *gc.C, modelUUID string, startTime, endTime time.Time, count int, lt logTemplate) {
 	interval := endTime.Sub(startTime) / time.Duration(count)
 	t := startTime
 	for i := 0; i < count; i++ {
 		doc := s.logTemplateToDoc(lt, t)
-		err := s.writeLogToOplog(doc)
+		err := s.writeLogToOplog(modelUUID, doc)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.logsColl.Insert(doc)
+		err = s.getCollection(modelUUID).Insert(doc)
 		c.Assert(err, jc.ErrorIsNil)
 		t = t.Add(interval)
 	}
@@ -761,20 +766,17 @@ func (s *LogTailerSuite) writeLogsT(c *gc.C, startTime, endTime time.Time, count
 
 // writeLogToOplog writes out a log record to the a (probably fake)
 // oplog collection.
-func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
+func (s *LogTailerSuite) writeLogToOplog(modelUUID string, doc interface{}) error {
 	return s.oplogColl.Insert(bson.D{
 		{"ts", bson.MongoTimestamp(coretesting.ZeroTime().Unix() << 32)}, // an approximation which will do
 		{"h", rand.Int63()},                                              // again, a suitable fake
 		{"op", "i"},                                                      // this will always be an insert
-		{"ns", "logs.logs"},
+		{"ns", "logs.logs." + modelUUID},
 		{"o", doc},
 	})
 }
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
-	if lt.ModelUUID == "" {
-		lt.ModelUUID = s.otherState.ModelUUID()
-	}
 	if lt.Entity == nil {
 		lt.Entity = names.NewMachineTag("0")
 	}
@@ -798,7 +800,6 @@ func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 func (s *LogTailerSuite) logTemplateToDoc(lt logTemplate, t time.Time) interface{} {
 	s.normaliseLogTemplate(&lt)
 	return state.MakeLogDoc(
-		lt.ModelUUID,
 		lt.Entity,
 		t,
 		lt.Module,
@@ -825,7 +826,6 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedC
 			c.Assert(log.Location, gc.Equals, lt.Location)
 			c.Assert(log.Level, gc.Equals, lt.Level)
 			c.Assert(log.Message, gc.Equals, lt.Message)
-			c.Assert(log.ModelUUID, gc.Equals, lt.ModelUUID)
 			count++
 			if count == expectedCount {
 				return
