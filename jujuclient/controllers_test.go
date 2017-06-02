@@ -29,12 +29,11 @@ func (s *ControllersSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclient.NewFileClientStore()
 	s.controllerName = "test.controller"
 	s.controller = jujuclient.ControllerDetails{
-		UnresolvedAPIEndpoints: []string{"test.server.hostname"},
-		ControllerUUID:         "test.uuid",
-		APIEndpoints:           []string{"test.api.endpoint"},
-		CACert:                 "test.ca.cert",
-		Cloud:                  "aws",
-		CloudRegion:            "southeastasia",
+		ControllerUUID: "test.uuid",
+		APIEndpoints:   []string{"test.api.endpoint"},
+		CACert:         "test.ca.cert",
+		Cloud:          "aws",
+		CloudRegion:    "southeastasia",
 	}
 }
 
@@ -60,7 +59,7 @@ func (s *ControllersSuite) TestControllerByName(c *gc.C) {
 	found, err := s.store.ControllerByName(name)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.getControllers(c)[name]
-	c.Assert(found, gc.DeepEquals, &expected)
+	c.Assert(found, jc.DeepEquals, &expected)
 }
 
 func (s *ControllersSuite) TestAddController(c *gc.C) {
@@ -220,7 +219,9 @@ func (s *ControllersSuite) assertControllerNotExists(c *gc.C) {
 }
 
 func (s *ControllersSuite) assertUpdateSucceeded(c *gc.C) {
-	c.Assert(s.getControllers(c)[s.controllerName], gc.DeepEquals, s.controller)
+	ctl := s.getControllers(c)[s.controllerName]
+	ctl.DNSCache = nil
+	c.Assert(ctl, jc.DeepEquals, s.controller)
 }
 
 func (s *ControllersSuite) getControllers(c *gc.C) map[string]jujuclient.ControllerDetails {

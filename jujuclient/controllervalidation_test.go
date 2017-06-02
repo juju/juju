@@ -18,12 +18,11 @@ type ControllerValidationSuite struct {
 func (s *ControllerValidationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.controller = jujuclient.ControllerDetails{
-		UnresolvedAPIEndpoints: []string{"test.server.hostname"},
-		ControllerUUID:         "test.uuid",
-		APIEndpoints:           []string{"test.api.endpoint"},
-		CACert:                 "test.ca.cert",
-		Cloud:                  "aws",
-		CloudRegion:            "southeastasia",
+		ControllerUUID: "test.uuid",
+		APIEndpoints:   []string{"test.api.endpoint"},
+		CACert:         "test.ca.cert",
+		Cloud:          "aws",
+		CloudRegion:    "southeastasia",
 	}
 }
 

@@ -52,12 +52,11 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
-		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-		CACert:                 testing.CACert,
-		Cloud:                  "mycloud",
-		CloudRegion:            "a-region",
-		APIEndpoints:           []string{"10.0.1.1:17777"},
-		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
+		ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		CACert:         testing.CACert,
+		Cloud:          "mycloud",
+		CloudRegion:    "a-region",
+		APIEndpoints:   []string{"10.0.1.1:17777"},
 	}
 	s.store.CurrentControllerName = "testing"
 	s.store.Models["testing"] = &jujuclient.ControllerModels{
@@ -205,12 +204,11 @@ func (s *restoreSuite) TestFailedRestoreReboostrapMaintainsControllerInfo(c *gc.
 	c.Assert(err, gc.ErrorMatches, "failed")
 	// The details below are as per what was done in test setup, so no changes.
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
-		Cloud:                  "mycloud",
-		CloudRegion:            "a-region",
-		CACert:                 testing.CACert,
-		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-		APIEndpoints:           []string{"10.0.1.1:17777"},
-		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
+		Cloud:          "mycloud",
+		CloudRegion:    "a-region",
+		CACert:         testing.CACert,
+		ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		APIEndpoints:   []string{"10.0.1.1:17777"},
 	})
 }
 
@@ -248,13 +246,12 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boostrapped, jc.IsTrue)
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
-		Cloud:                  "mycloud",
-		CloudRegion:            "a-region",
-		CACert:                 testing.CACert,
-		ControllerUUID:         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		APIEndpoints:           []string{"10.0.0.1:17777"},
-		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
-		AgentVersion:           version.Current.String(),
+		Cloud:          "mycloud",
+		CloudRegion:    "a-region",
+		CACert:         testing.CACert,
+		ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		APIEndpoints:   []string{"10.0.0.1:17777"},
+		AgentVersion:   version.Current.String(),
 		// We won't get correct model and machine counts until
 		// we connect properly eventually.
 		ModelCount:             nil,

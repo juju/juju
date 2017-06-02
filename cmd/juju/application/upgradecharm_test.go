@@ -684,6 +684,10 @@ func (m *mockAPIConnection) Addr() string {
 	return "0.1.2.3:1234"
 }
 
+func (m *mockAPIConnection) IPAddr() string {
+	return "0.1.2.3:1234"
+}
+
 func (m *mockAPIConnection) AuthTag() names.Tag {
 	return names.NewUserTag("testuser")
 }

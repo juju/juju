@@ -4,10 +4,10 @@
 package juju_test
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -16,21 +16,19 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/filestorage"
+	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver/params"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc/jsoncodec"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type NewAPIClientSuite struct {
@@ -39,26 +37,14 @@ type NewAPIClientSuite struct {
 	envtesting.ToolsFixture
 }
 
+var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
+
 var _ = gc.Suite(&NewAPIClientSuite{})
 
 func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
 	cs.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	// Since most tests use invalid testing API server addresses, we
-	// need to mock this to avoid errors.
-	cs.PatchValue(juju.ServerAddress, func(addr string) (network.HostPort, error) {
-		host, strPort, err := net.SplitHostPort(addr)
-		if err != nil {
-			c.Logf("serverAddress %q invalid, ignoring error: %v", addr, err)
-		}
-		port, err := strconv.Atoi(strPort)
-		if err != nil {
-			c.Logf("serverAddress %q port, ignoring error: %v", addr, err)
-			port = 0
-		}
-		return network.NewHostPorts(port, host)[0], nil
-	})
 }
 
 func (cs *NewAPIClientSuite) TearDownSuite(c *gc.C) {
@@ -78,43 +64,6 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	cs.ToolsFixture.TearDownTest(c)
 	cs.MgoSuite.TearDownTest(c)
 	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-}
-
-func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclient.ClientStore) {
-	const controllerName = "my-controller"
-
-	store := jujuclient.NewMemStore()
-
-	ctx := envtesting.BootstrapContext(c)
-
-	env, err := bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		ControllerName:   controllerName,
-		ModelConfig:      dummy.SampleConfig(),
-		Cloud:            dummy.SampleCloudSpec(),
-		AdminSecret:      "admin-secret",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	storageDir := c.MkDir()
-	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
-	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
-
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		Cloud: cloud.Cloud{
-			Name:      "dummy",
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		},
-		AdminSecret:  "admin-secret",
-		CAPrivateKey: coretesting.CAKey,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	return env, store
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
@@ -191,6 +140,7 @@ func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *gc.C) {
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		conn := mockedAPIState(noFlags)
 		conn.publicDNSName = "somewhere.invalid"
+		conn.addr = "0.1.2.3:1234"
 		return conn, nil
 	}
 
@@ -263,13 +213,6 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
 }
 
-func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
-	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
-	c.Check(string(apiInfo.CACert), gc.Equals, "certificate")
-	c.Check(apiInfo.Password, gc.Equals, "hunter2")
-	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
-}
-
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	jujuClient := newClientStore(c, "noconfig")
 
@@ -281,6 +224,276 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	// fatal to have no bootstrap config.
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(st, gc.IsNil)
+}
+
+func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	err := store.AddController("foo", jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		APIEndpoints: []string{
+			"example1:1111",
+			"example2:2222",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	dialed := make(chan string, 10)
+	start := make(chan struct{})
+	// Wait for both dials to complete, so we
+	// know their addresses are cached.
+	go func() {
+		addrs := make(map[string]bool)
+		for len(addrs) < 2 {
+			addrs[<-dialed] = true
+		}
+		// Allow the dials to complete.
+		close(start)
+	}()
+	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+		Store:          store,
+		ControllerName: "foo",
+		DialOpts: api.DialOpts{
+			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+				apiConn := testRootAPI{
+					serverAddrs: [][]params.HostPort{makeHostPorts([]string{
+						"example3:3333",
+						"example4:4444",
+					})},
+				}
+				dialed <- ipAddr
+				<-start
+				if ipAddr != "0.1.1.2:1111" {
+					return nil, errors.New("fail")
+				}
+				return jsoncodec.NetJSONConn(apitesting.FakeAPIServer(apiConn)), nil
+			},
+			IPAddrResolver: apitesting.IPAddrResolverMap{
+				"example1": {"0.1.1.1", "0.1.1.2"},
+				"example2": {"0.2.2.2"},
+			},
+		},
+		AccountDetails: new(jujuclient.AccountDetails),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+	details, err := store.ControllerByName("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	// The cache should contain both results. The IP address
+	// that was successfully dialed should be at the start of its
+	// slice.
+	c.Assert(details.DNSCache, jc.DeepEquals, map[string][]string{
+		"example1": {"0.1.1.2", "0.1.1.1"},
+		"example2": {"0.2.2.2"},
+	})
+	// The API addresses should have all the returned server addresses
+	// there as well as the one we actually succeeded in dialing.
+	// The successfully dialed address should be at the start.
+	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+		"example1:1111",
+		"example3:3333",
+		"example4:4444",
+	})
+}
+
+func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	err := store.AddController("foo", jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		APIEndpoints: []string{
+			"example1:1111",
+			"example3:3333",
+			"example4:4444",
+		},
+		DNSCache: map[string][]string{
+			"example1": {"0.1.1.2", "0.1.1.1"},
+			"example2": {"0.2.2.2"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	start := make(chan struct{})
+	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+		Store:          store,
+		ControllerName: "foo",
+		DialOpts: api.DialOpts{
+			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+				apiConn := testRootAPI{
+					serverAddrs: [][]params.HostPort{makeHostPorts([]string{
+						"example3:3333",
+						"example5:5555",
+					})},
+				}
+				if ipAddr != "0.1.1.2:1111" {
+					// It's not the blessed IP address - block indefinitely
+					// until we're called upon to start.
+					<-start
+					return nil, errors.New("fail")
+				}
+				// We're trying to connect to the blessed IP address.
+				// Succeed immediately.
+				return jsoncodec.NetJSONConn(apitesting.FakeAPIServer(apiConn)), nil
+			},
+			IPAddrResolver: ipAddrResolverFunc(func(ctx context.Context, host string) ([]net.IPAddr, error) {
+				// DNS resolution blocks.
+				select {
+				case <-start:
+				case <-ctx.Done():
+				}
+				return nil, errors.New("no DNS available")
+			}),
+		},
+		AccountDetails: new(jujuclient.AccountDetails),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+	close(start)
+	details, err := store.ControllerByName("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	// The DNS cache should not have changed.
+	c.Assert(details.DNSCache, jc.DeepEquals, map[string][]string{
+		"example1": {"0.1.1.2", "0.1.1.1"},
+		"example2": {"0.2.2.2"},
+	})
+	// The API addresses should have all the returned server addresses
+	// there as well as the one we actually succeeded in dialing.
+	// The successfully dialed address should be still at the start.
+	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+		"example1:1111",
+		"example3:3333",
+		"example5:5555",
+	})
+}
+
+func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	err := store.AddController("foo", jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		APIEndpoints: []string{
+			"example1:1111",
+		},
+		DNSCache: map[string][]string{
+			"example1": {"0.1.1.1"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+		Store:          store,
+		ControllerName: "foo",
+		DialOpts: api.DialOpts{
+			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+				apiConn := testRootAPI{
+					serverAddrs: [][]params.HostPort{
+						networkHostPortsToParams(network.NewHostPorts(1234,
+							"0.1.2.3",     // public
+							"2001:db8::1", // public ipv6
+							"10.0.0.1",    // cloud-local
+							"127.0.0.1",   // machine-local
+							"169.254.1.1", // link-local
+						)), networkHostPortsToParams([]network.HostPort{
+							// duplicate
+							network.NewHostPorts(1234, "0.1.2.3")[0],
+							// duplicate host, same IP.
+							network.NewHostPorts(1235, "0.1.2.3")[0],
+						}),
+					},
+				}
+				return jsoncodec.NetJSONConn(apitesting.FakeAPIServer(apiConn)), nil
+			},
+			IPAddrResolver: ipAddrResolverFunc(func(ctx context.Context, host string) ([]net.IPAddr, error) {
+				return nil, errors.New("no DNS available")
+			}),
+		},
+		AccountDetails: new(jujuclient.AccountDetails),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+	details, err := store.ControllerByName("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	// The API addresses should have filtered out duplicates
+	// and unusable addresses.
+	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+		"example1:1111",
+		"0.1.2.3:1234",
+		"[2001:db8::1]:1234",
+		"10.0.0.1:1234",
+		"0.1.2.3:1235",
+	})
+}
+
+var moveToFrontTests = []struct {
+	item   string
+	items  []string
+	expect []string
+}{{
+	item:   "x",
+	items:  []string{"y", "x"},
+	expect: []string{"x", "y"},
+}, {
+	item:   "z",
+	items:  []string{"y", "x"},
+	expect: []string{"y", "x"},
+}, {
+	item:   "y",
+	items:  []string{"y", "x"},
+	expect: []string{"y", "x"},
+}, {
+	item:   "x",
+	items:  []string{"y", "x", "z"},
+	expect: []string{"x", "y", "z"},
+}, {
+	item:   "d",
+	items:  []string{"a", "b", "c", "d", "e", "f"},
+	expect: []string{"d", "a", "b", "c", "e", "f"},
+}}
+
+func (s *NewAPIClientSuite) TestMoveToFront(c *gc.C) {
+	for i, test := range moveToFrontTests {
+		c.Logf("test %d: moveToFront %q %v", i, test.item, test.items)
+		juju.MoveToFront(test.item, test.items)
+		c.Assert(test.items, jc.DeepEquals, test.expect)
+	}
+}
+
+type testRootAPI struct {
+	serverAddrs [][]params.HostPort
+}
+
+func (r testRootAPI) Admin(id string) (testAdminAPI, error) {
+	return testAdminAPI{r: r}, nil
+}
+
+type testAdminAPI struct {
+	r testRootAPI
+}
+
+func (a testAdminAPI) Login(req params.LoginRequest) params.LoginResult {
+	return params.LoginResult{
+		ControllerTag: names.NewControllerTag(fakeUUID).String(),
+		Servers:       a.r.serverAddrs,
+		ServerVersion: version.Current.String(),
+	}
+}
+
+func makeHostPorts(hps []string) []params.HostPort {
+	hps1, err := network.ParseHostPorts(hps...)
+	if err != nil {
+		panic(err)
+	}
+	return networkHostPortsToParams(hps1)
+}
+
+func networkHostPortsToParams(hps []network.HostPort) []params.HostPort {
+	hps1 := make([]params.HostPort, len(hps))
+	for i, hp := range hps {
+		hps1[i] = params.FromNetworkHostPort(hp)
+	}
+	return hps1
+}
+
+func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
+	opts.DNSCache = nil
+	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
+	c.Check(string(apiInfo.CACert), gc.Equals, "certificate")
+	c.Check(apiInfo.Password, gc.Equals, "hunter2")
+	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }
 
 // newClientStore returns a client store that contains information
@@ -309,404 +522,6 @@ func newClientStore(c *gc.C, controllerName string) *jujuclient.MemStore {
 	c.Assert(err, jc.ErrorIsNil)
 	return store
 }
-
-type CacheAPIEndpointsSuite struct {
-	jujutesting.JujuConnSuite
-
-	hostPorts   [][]network.HostPort
-	modelTag    names.ModelTag
-	apiHostPort network.HostPort
-
-	resolveSeq      int
-	resolveNumCalls int
-	numResolved     int
-	gocheckC        *gc.C
-}
-
-var _ = gc.Suite(&CacheAPIEndpointsSuite{})
-
-func (s *CacheAPIEndpointsSuite) SetUpTest(c *gc.C) {
-	s.hostPorts = [][]network.HostPort{
-		network.NewHostPorts(1234,
-			"1.0.0.1",
-			"192.0.0.1",
-			"127.0.0.1",
-			"ipv4+6.example.com",
-			"localhost",
-			"169.254.1.1",
-			"ipv4.example.com",
-			"invalid host",
-			"ipv6+6.example.com",
-			"ipv4+4.example.com",
-			"::1",
-			"fe80::1",
-			"ipv6.example.com",
-			"fc00::111",
-			"2001:db8::1",
-		),
-		network.NewHostPorts(1235,
-			"1.0.0.2",
-			"2001:db8::2",
-			"::1",
-			"127.0.0.1",
-			"ipv6+4.example.com",
-			"localhost",
-		),
-	}
-	s.gocheckC = c
-	s.resolveSeq = 1
-	s.resolveNumCalls = 0
-	s.numResolved = 0
-	s.modelTag = names.NewModelTag(fakeUUID)
-
-	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(juju.ResolveOrDropHostnames, s.mockResolveOrDropHostnames)
-
-	apiHostPort, err := network.ParseHostPorts(s.APIState.Addr())
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiHostPort = apiHostPort[0]
-}
-
-func (s *CacheAPIEndpointsSuite) assertCreateController(c *gc.C, name string) jujuclient.ControllerDetails {
-	// write controller
-	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID: fakeUUID,
-		CACert:         "certificate",
-	}
-	err := s.ControllerStore.AddController(name, controllerDetails)
-	c.Assert(err, jc.ErrorIsNil)
-	return controllerDetails
-}
-
-func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name string, check gc.Checker) {
-	found, err := s.ControllerStore.ControllerByName(name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.UnresolvedAPIEndpoints, check, 0)
-	c.Assert(found.APIEndpoints, check, 0)
-	c.Assert(found.AgentVersion, gc.Equals, "1.2.3")
-	c.Assert(found.ModelCount, gc.IsNil)
-	c.Assert(found.MachineCount, gc.IsNil)
-	c.Assert(found.ControllerMachineCount, gc.Equals, 0)
-}
-
-func (s *CacheAPIEndpointsSuite) assertControllerUpdated(c *gc.C, name string) {
-	s.assertControllerDetailsUpdated(c, name, gc.Not(gc.HasLen))
-}
-
-func (s *CacheAPIEndpointsSuite) assertControllerNotUpdated(c *gc.C, name string) {
-	s.assertControllerDetailsUpdated(c, name, gc.HasLen)
-}
-
-func (s *CacheAPIEndpointsSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
-	s.assertCreateController(c, "controller-name1")
-	params := juju.UpdateControllerParams{
-		AgentVersion:     "1.2.3",
-		AddrConnectedTo:  &s.apiHostPort,
-		CurrentHostPorts: s.hostPorts,
-	}
-	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", params)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerDetails, err := s.ControllerStore.ControllerByName("controller-name1")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEndpoints(c, controllerDetails)
-	s.assertControllerUpdated(c, "controller-name1")
-}
-
-func intptr(i int) *int {
-	return &i
-}
-
-func (s *CacheAPIEndpointsSuite) TestUpdateModelMachineCount(c *gc.C) {
-	s.assertCreateController(c, "controller-name1")
-	params := juju.UpdateControllerParams{
-		AgentVersion:           "1.2.3",
-		ControllerMachineCount: intptr(1),
-		ModelCount:             intptr(2),
-		MachineCount:           intptr(3),
-	}
-	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", params)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerDetails, err := s.ControllerStore.ControllerByName("controller-name1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerDetails.UnresolvedAPIEndpoints, gc.HasLen, 0)
-	c.Assert(controllerDetails.APIEndpoints, gc.HasLen, 0)
-	c.Assert(controllerDetails.AgentVersion, gc.Equals, "1.2.3")
-	c.Assert(controllerDetails.ControllerMachineCount, gc.Equals, 1)
-	c.Assert(*controllerDetails.ModelCount, gc.Equals, 2)
-	c.Assert(*controllerDetails.MachineCount, gc.Equals, 3)
-}
-
-func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.C) {
-	// Test that if new endpoints hostnames are the same as the
-	// cached, no DNS resolution happens (i.e. we don't resolve on
-	// every connection, but as needed).
-	hps := network.NewHostPorts(1234,
-		"8.8.8.8",
-		"example.com",
-		"10.0.0.1",
-	)
-	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID:         fakeUUID,
-		CACert:                 "certificate",
-		UnresolvedAPIEndpoints: network.HostPortsToStrings(hps),
-	}
-	err := s.ControllerStore.AddController("controller-name", controllerDetails)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{hps}, &controllerDetails, nil)
-
-	c.Assert(resolved, jc.DeepEquals, controllerDetails.APIEndpoints)
-	c.Assert(unresolved, jc.DeepEquals, controllerDetails.UnresolvedAPIEndpoints)
-	c.Assert(s.resolveNumCalls, gc.Equals, 0)
-	c.Assert(
-		c.GetTestLog(),
-		jc.Contains,
-		"DEBUG juju.juju API hostnames unchanged - not resolving",
-	)
-}
-
-func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) {
-	// Test that if new endpoints hostnames are different than the
-	// cached hostnames DNS resolution happens and we compare resolved
-	// addresses.
-	// Because Hostnames are sorted before caching, reordering them
-	// will simulate they have changed.
-	unsortedHPs := network.NewHostPorts(1234,
-		"ipv4.example.com",
-		"8.8.8.8",
-		"ipv6.example.com",
-		"10.0.0.1",
-	)
-	strUnsorted := network.HostPortsToStrings(unsortedHPs)
-	sortedHPs := network.NewHostPorts(1234,
-		"8.8.8.8",
-		"ipv4.example.com",
-		"ipv6.example.com",
-		"10.0.0.1",
-	)
-	strSorted := network.HostPortsToStrings(sortedHPs)
-	resolvedHPs := network.NewHostPorts(1234,
-		"0.1.2.1", // from ipv4.example.com
-		"8.8.8.8",
-		"10.0.0.1",
-		"fc00::2", // from ipv6.example.com
-	)
-	strResolved := network.HostPortsToStrings(resolvedHPs)
-	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID:         fakeUUID,
-		CACert:                 "certificate",
-		UnresolvedAPIEndpoints: strUnsorted,
-	}
-	err := s.ControllerStore.AddController("controller-name", controllerDetails)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{unsortedHPs}, &controllerDetails, nil)
-
-	c.Assert(resolved, jc.DeepEquals, strResolved)
-	c.Assert(unresolved, jc.DeepEquals, strSorted)
-	c.Assert(s.resolveNumCalls, gc.Equals, 1)
-	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
-	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-}
-
-func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesStillCached(c *gc.C) {
-	// Test that if new endpoints hostnames are different than the
-	// cached hostnames, but after resolving the addresses match the
-	// cached addresses, we still reorder the unresolved endpoints correctly.
-
-	// Because Hostnames are sorted before caching, reordering them
-	// will simulate they have changed.
-	unsortedHPs := network.NewHostPorts(1234,
-		"ipv4.example.com",
-		"8.8.8.8",
-		"ipv6.example.com",
-		"10.0.0.1",
-	)
-	strUnsorted := network.HostPortsToStrings(unsortedHPs)
-	sortedHPs := network.NewHostPorts(1234,
-		"8.8.8.8",
-		"ipv4.example.com",
-		"ipv6.example.com",
-		"10.0.0.1",
-	)
-	strSorted := network.HostPortsToStrings(sortedHPs)
-	resolvedHPs := network.NewHostPorts(1234,
-		"0.1.2.1", // from ipv4.example.com
-		"8.8.8.8",
-		"10.0.0.1",
-		"fc00::2", // from ipv6.example.com
-	)
-	strResolved := network.HostPortsToStrings(resolvedHPs)
-	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID:         fakeUUID,
-		CACert:                 "certificate",
-		UnresolvedAPIEndpoints: strUnsorted,
-		APIEndpoints:           strResolved,
-	}
-	err := s.ControllerStore.AddController("controller-name", controllerDetails)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{unsortedHPs}, &controllerDetails, nil)
-
-	c.Assert(resolved, jc.DeepEquals, controllerDetails.APIEndpoints)
-	c.Assert(unresolved, jc.DeepEquals, strSorted)
-	c.Assert(s.resolveNumCalls, gc.Equals, 1)
-	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
-	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-}
-
-func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) {
-	// Test that if no hostnames exist cached we call resolve (i.e.
-	// simulate the behavior right after bootstrap)
-
-	// Because Hostnames are sorted before caching, reordering them
-	// will simulate they have changed.
-	unsortedHPs := network.NewHostPorts(1234,
-		"ipv4.example.com",
-		"8.8.8.8",
-		"ipv6.example.com",
-		"10.0.0.1",
-	)
-	sortedHPs := network.NewHostPorts(1234,
-		"8.8.8.8",
-		"ipv4.example.com",
-		"ipv6.example.com",
-		"10.0.0.1",
-	)
-	strSorted := network.HostPortsToStrings(sortedHPs)
-	resolvedHPs := network.NewHostPorts(1234,
-		"0.1.2.1", // from ipv4.example.com
-		"8.8.8.8",
-		"10.0.0.1",
-		"fc00::2", // from ipv6.example.com
-	)
-	strResolved := network.HostPortsToStrings(resolvedHPs)
-
-	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID: fakeUUID,
-		CACert:         "certificate",
-	}
-	err := s.ControllerStore.AddController("controller-name", controllerDetails)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resolved, unresolved := juju.FilterAndResolveControllerHostPorts([][]network.HostPort{unsortedHPs}, &controllerDetails, nil)
-
-	c.Assert(resolved, jc.DeepEquals, strResolved)
-	c.Assert(unresolved, jc.DeepEquals, strSorted)
-	c.Assert(s.resolveNumCalls, gc.Equals, 1)
-	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
-	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-}
-
-func (s *CacheAPIEndpointsSuite) assertEndpoints(c *gc.C, controllerDetails *jujuclient.ControllerDetails) {
-	c.Assert(s.resolveNumCalls, gc.Equals, 1)
-	c.Assert(s.numResolved, gc.Equals, 10)
-	// Check Addresses after resolving.
-	c.Check(controllerDetails.APIEndpoints, jc.DeepEquals, []string{
-		s.apiHostPort.NetAddr(), // Last endpoint successfully connected to is always on top.
-		"0.1.2.1:1234",          // From ipv4+4.example.com
-		"0.1.2.2:1234",          // From ipv4+4.example.com
-		"0.1.2.3:1234",          // From ipv4+6.example.com
-		"0.1.2.5:1234",          // From ipv4.example.com
-		"0.1.2.6:1234",          // From ipv6+4.example.com
-		"1.0.0.1:1234",
-		"1.0.0.2:1235",
-		"192.0.0.1:1234",
-		"[2001:db8::1]:1234",
-		"[2001:db8::2]:1235",
-		"localhost:1234",  // Left intact on purpose.
-		"localhost:1235",  // Left intact on purpose.
-		"[fc00::10]:1234", // From ipv6.example.com
-		"[fc00::111]:1234",
-		"[fc00::3]:1234", // From ipv4+6.example.com
-		"[fc00::6]:1234", // From ipv6+4.example.com
-		"[fc00::8]:1234", // From ipv6+6.example.com
-		"[fc00::9]:1234", // From ipv6+6.example.com
-	})
-	// Check Hostnames before resolving
-	c.Check(controllerDetails.UnresolvedAPIEndpoints, jc.DeepEquals, []string{
-		s.apiHostPort.NetAddr(), // Last endpoint successfully connected to is always on top.
-		"1.0.0.1:1234",
-		"1.0.0.2:1235",
-		"192.0.0.1:1234",
-		"[2001:db8::1]:1234",
-		"[2001:db8::2]:1235",
-		"invalid host:1234",
-		"ipv4+4.example.com:1234",
-		"ipv4+6.example.com:1234",
-		"ipv4.example.com:1234",
-		"ipv6+4.example.com:1235",
-		"ipv6+6.example.com:1234",
-		"ipv6.example.com:1234",
-		"localhost:1234",
-		"localhost:1235",
-		"[fc00::111]:1234",
-	})
-}
-
-func (s *CacheAPIEndpointsSuite) nextHostPorts(host string, types ...network.AddressType) []network.HostPort {
-	result := make([]network.HostPort, len(types))
-	num4, num6 := 0, 0
-	for i, tp := range types {
-		addr := ""
-		switch tp {
-		case network.IPv4Address:
-			addr = fmt.Sprintf("0.1.2.%d", s.resolveSeq+num4)
-			num4++
-		case network.IPv6Address:
-			addr = fmt.Sprintf("fc00::%d", s.resolveSeq+num6)
-			num6++
-		}
-		result[i] = network.NewHostPorts(1234, addr)[0]
-	}
-	s.resolveSeq += num4 + num6
-	s.gocheckC.Logf("resolving %q as %v", host, result)
-	return result
-}
-
-func (s *CacheAPIEndpointsSuite) mockResolveOrDropHostnames(hps []network.HostPort) []network.HostPort {
-	s.resolveNumCalls++
-	var result []network.HostPort
-	for _, hp := range hps {
-		if hp.Value == "invalid host" || hp.Scope == network.ScopeLinkLocal {
-			// Simulate we dropped this.
-			continue
-		} else if hp.Value == "localhost" || hp.Type != network.HostName {
-			// Leave localhost and IPs alone.
-			result = append(result, hp)
-			continue
-		}
-		var types []network.AddressType
-		switch strings.TrimSuffix(hp.Value, ".example.com") {
-		case "ipv4":
-			// Simulate it resolves to an IPv4 address.
-			types = append(types, network.IPv4Address)
-		case "ipv6":
-			// Simulate it resolves to an IPv6 address.
-			types = append(types, network.IPv6Address)
-		case "ipv4+6":
-			// Simulate it resolves to both IPv4 and IPv6 addresses.
-			types = append(types, network.IPv4Address, network.IPv6Address)
-		case "ipv6+6":
-			// Simulate it resolves to two IPv6 addresses.
-			types = append(types, network.IPv6Address, network.IPv6Address)
-		case "ipv4+4":
-			// Simulate it resolves to two IPv4 addresses.
-			types = append(types, network.IPv4Address, network.IPv4Address)
-		case "ipv6+4":
-			// Simulate it resolves to both IPv4 and IPv6 addresses.
-			types = append(types, network.IPv6Address, network.IPv4Address)
-		}
-		result = append(result, s.nextHostPorts(hp.Value, types...)...)
-		s.numResolved += len(types)
-	}
-	return result
-}
-
-var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
 func newAPIConnectionFromNames(
 	c *gc.C,
@@ -739,4 +554,14 @@ func mustParseHostPorts(ss []string) []network.HostPort {
 		panic(err)
 	}
 	return hps
+}
+
+func newInt(i int) *int {
+	return &i
+}
+
+type ipAddrResolverFunc func(ctx context.Context, host string) ([]net.IPAddr, error)
+
+func (f ipAddrResolverFunc) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return f(ctx, host)
 }

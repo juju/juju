@@ -6,7 +6,6 @@ package jsoncodec
 import (
 	"encoding/json"
 	"io"
-	"net"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -65,20 +64,24 @@ func (conn *wsJSONConn) Close() error {
 	return conn.conn.Close()
 }
 
-// NewNet returns an rpc codec that uses the given net
-// connection to send and receive messages.
-func NewNet(conn net.Conn) *Codec {
-	return New(&netConn{
+// NewNet returns an rpc codec that uses the given connection
+// to send and receive messages.
+func NewNet(conn io.ReadWriteCloser) *Codec {
+	return New(NetJSONConn(conn))
+}
+
+func NetJSONConn(conn io.ReadWriteCloser) JSONConn {
+	return &netConn{
 		enc:  json.NewEncoder(conn),
 		dec:  json.NewDecoder(conn),
 		conn: conn,
-	})
+	}
 }
 
 type netConn struct {
 	enc  *json.Encoder
 	dec  *json.Decoder
-	conn net.Conn
+	conn io.ReadWriteCloser
 }
 
 func (conn *netConn) Send(msg interface{}) error {
