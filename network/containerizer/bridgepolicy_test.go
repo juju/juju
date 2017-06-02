@@ -343,7 +343,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUnitBindin
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 	svc := addApplication(c, s.State, "", "mysql",
 		addCharm(c, s.State, "quantal", "mysql"), map[string]string{"server": "default"})
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)

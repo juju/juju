@@ -69,7 +69,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	assertNoRelations(c, mysql)
 
 	// Check that a relation can't be added to a Dying service.
-	_, err = wordpress.AddUnit()
+	_, err = wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

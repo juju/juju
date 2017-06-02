@@ -83,7 +83,7 @@ func (s *uniterSuite) addMachineBoundAppCharmAndUnit(c *gc.C, appName string, bi
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.AssignToMachine(machine)

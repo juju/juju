@@ -1251,8 +1251,11 @@ func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 	return op
 }
 
+// AddUnitParams contains parameters for the Application.AddUnit method.
+type AddUnitParams struct{}
+
 // AddUnit adds a new principal unit to the application.
-func (a *Application) AddUnit() (unit *Unit, err error) {
+func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", a)
 	name, ops, err := a.addUnitOps("", nil)
 	if err != nil {

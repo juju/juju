@@ -60,7 +60,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create principal and subordinate units and assign them.
-	s.principal, err = s.service0.AddUnit()
+	s.principal, err = s.service0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +139,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 	// First create a new machine and deploy another unit there.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	principal1, err := s.service0.AddUnit()
+	principal1, err := s.service0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = principal1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)

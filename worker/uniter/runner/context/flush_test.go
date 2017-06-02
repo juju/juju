@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -101,7 +102,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(machinePorts, gc.HasLen, 0)
 
 	// Add another unit on the same machine.
-	otherUnit, err := s.service.AddUnit()
+	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherUnit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)

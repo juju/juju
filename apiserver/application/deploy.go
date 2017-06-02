@@ -50,7 +50,7 @@ type UnitAssigner interface {
 }
 
 type UnitAdder interface {
-	AddUnit() (*state.Unit, error)
+	AddUnit(state.AddUnitParams) (*state.Unit, error)
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
@@ -178,7 +178,7 @@ func addUnits(
 	policy := state.AssignCleanEmpty
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		unit, err := unitAdder.AddUnit()
+		unit, err := unitAdder.AddUnit(state.AddUnitParams{})
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}

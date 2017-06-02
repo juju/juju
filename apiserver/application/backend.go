@@ -53,7 +53,7 @@ type BlockChecker interface {
 // details on the methods, see the methods on state.Application with
 // the same names.
 type Application interface {
-	AddUnit() (*state.Unit, error)
+	AddUnit(state.AddUnitParams) (*state.Unit, error)
 	AllUnits() ([]Unit, error)
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)

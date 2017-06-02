@@ -197,7 +197,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	}
 	wordpressCharm := s.AddTestingCharm(c, "wordpress")
 	wordpressService := s.AddTestingServiceWithBindings(c, "wordpress", wordpressCharm, bindings)
-	wordpressUnit, err := wordpressService.AddUnit()
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)

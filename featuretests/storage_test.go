@@ -49,7 +49,7 @@ func createUnitWithStorage(c *gc.C, s *jujutesting.JujuConnSuite, poolName strin
 		"data": makeStorageCons(poolName, 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -611,7 +611,7 @@ func createUnitWithFileSystemStorage(c *gc.C, s *jujutesting.JujuConnSuite, pool
 		"data": makeStorageCons(poolName, 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -623,7 +623,7 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 	app, err := s.State.Application("storage-block")
 	c.Assert(err, jc.ErrorIsNil)
-	u2, err := app.AddUnit()
+	u2, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)

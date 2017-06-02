@@ -823,7 +823,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
 		svc := s.AddTestingService(c, name, s.AddTestingCharm(c, name))
 		for _, m := range machines {
-			unit, err := svc.AddUnit()
+			unit, err := svc.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)

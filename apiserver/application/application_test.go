@@ -2124,7 +2124,7 @@ func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	units := make([]*state.Unit, 5)
 	for i := range units {
-		unit, err := wordpress.AddUnit()
+		unit, err := wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2143,7 +2143,7 @@ func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
 
 func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit()
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -2209,7 +2209,7 @@ func (s *applicationSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	units := make([]*state.Unit, 5)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for i := range units {
-		unit, err := wordpress.AddUnit()
+		unit, err := wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2285,7 +2285,7 @@ func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, lo
 
 func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit()
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -2320,7 +2320,7 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 
 func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit()
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -2355,7 +2355,7 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 
 func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit()
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")

@@ -659,7 +659,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)

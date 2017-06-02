@@ -469,7 +469,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmWithDyingService(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
-	_, err := s.mysql.AddUnit()
+	_, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,7 +483,7 @@ func (s *ApplicationSuite) TestSetCharmWithDyingService(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
 	err = unit.Destroy()
@@ -491,16 +491,16 @@ func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.mysql = s.AddTestingService(c, "mysql", s.charm)
-	unit, err = s.mysql.AddUnit()
+	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
 }
 
 func (s *ApplicationSuite) TestSequenceUnitIds(c *gc.C) {
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	unit, err = s.mysql.AddUnit()
+	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
 }
@@ -509,7 +509,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.mysql.AddUnit()
+		_, err := s.mysql.AddUnit(state.AddUnitParams{})
 		err = s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
@@ -572,7 +572,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.mysql.AddUnit()
+		_, err := s.mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -669,9 +669,9 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				// and newCh settings greater than 0, while the service's
 				// charm URLs change between oldCh and newCh. Ensure
 				// refcounts change as expected.
-				unit1, err := s.mysql.AddUnit()
+				unit1, err := s.mysql.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
-				unit2, err := s.mysql.AddUnit()
+				unit2, err := s.mysql.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
 				cfg := state.SetCharmConfig{Charm: newCh}
 				err = s.mysql.SetCharm(cfg)
@@ -974,7 +974,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 
 	// Adding a unit without a charm URL set does not affect the
 	// refcount.
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	curl, ok := u.CharmURL()
 	c.Assert(ok, jc.IsFalse)
@@ -1028,7 +1028,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 	appName := "mywp"
 
 	app := s.AddTestingService(c, appName, oldCh)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// just before setting the unit charm url, switch the service
@@ -1053,7 +1053,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 	appName := "mywp"
 
 	app := s.AddTestingService(c, appName, oldCh)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// just before updating the app charm url, set that charm url on
@@ -1373,7 +1373,7 @@ func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {
 
 	// Make the service Dying and check that ClearExposed and SetExposed fail.
 	// TODO(fwereade): maybe service destruction should always unexpose?
-	u, err := s.mysql.AddUnit()
+	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1395,14 +1395,14 @@ func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {
 
 func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	// Check that principal units can be added on their own.
-	unitZero, err := s.mysql.AddUnit()
+	unitZero, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitZero.Name(), gc.Equals, "mysql/0")
 	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, s.State.ModelUUID())
 
-	unitOne, err := s.mysql.AddUnit()
+	unitOne, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitOne.Name(), gc.Equals, "mysql/1")
 	c.Assert(unitOne.IsPrincipal(), jc.IsTrue)
@@ -1418,7 +1418,7 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	// to add a subordinate unit.
 	subCharm := s.AddTestingCharm(c, "logging")
 	logging := s.AddTestingService(c, "logging", subCharm)
-	_, err = logging.AddUnit()
+	_, err = logging.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "logging": application is a subordinate`)
 
 	// Indirectly create a subordinate unit by adding a relation and entering
@@ -1446,24 +1446,24 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
-	u, err := s.mysql.AddUnit()
+	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.mysql.AddUnit()
+	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not alive`)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.mysql.AddUnit()
+	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
 }
 
 func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
-	_, err := s.mysql.AddUnit()
+	_, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.mysql.AddUnit()
+	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that retrieving a unit from state works correctly.
@@ -1487,7 +1487,7 @@ func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
 
 func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 	// Test that we can still read units when the service is Dying...
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	err = s.mysql.Destroy()
@@ -1521,7 +1521,7 @@ func (s *ApplicationSuite) TestDestroySimple(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1540,7 +1540,7 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1555,7 +1555,7 @@ func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1572,7 +1572,7 @@ func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.Destroy()
@@ -1634,7 +1634,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
-	unit, err := wordpress.AddUnit()
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel0.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1672,7 +1672,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	// Add 5 units; block quick-remove of mysql/1 and mysql/3
 	units := make([]*state.Unit, 5)
 	for i := range units {
-		unit, err := s.mysql.AddUnit()
+		unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 		if i%2 != 0 {
@@ -1712,7 +1712,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1877,7 +1877,7 @@ func (s *ApplicationSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	// Dying.
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1912,18 +1912,18 @@ func (s *ApplicationSuite) TestSubordinateConstraints(c *gc.C) {
 
 func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	// Alive unit...
-	alive, err := s.mysql.AddUnit()
+	alive, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dying unit...
-	dying, err := s.mysql.AddUnit()
+	dying, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, dying)
 	err = dying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead unit...
-	dead, err := s.mysql.AddUnit()
+	dead, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, dead)
 	err = dead.Destroy()
@@ -1932,7 +1932,7 @@ func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Gone unit.
-	gone, err := s.mysql.AddUnit()
+	gone, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = gone.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1966,7 +1966,7 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Create one unit, check one change.
-	quick, err := s.mysql.AddUnit()
+	quick, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(quick.Name())
 	wc.AssertNoChange()
@@ -1978,7 +1978,7 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Create another, check one change.
-	slow, err := s.mysql.AddUnit()
+	slow, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(slow.Name())
 	wc.AssertNoChange()
@@ -2056,7 +2056,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a unit to the new relation; check no change.
-	unit, err := s.mysql.AddUnit()
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru2, err := rel2.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2155,7 +2155,7 @@ func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestMetricCredentialsOnDying(c *gc.C) {
-	_, err := s.mysql.AddUnit()
+	_, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetMetricCredentials([]byte("set before dying"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2167,7 +2167,7 @@ func (s *ApplicationSuite) TestMetricCredentialsOnDying(c *gc.C) {
 }
 
 func (s *ApplicationSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
-	u1, err := s.mysql.AddUnit()
+	u1, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
@@ -2178,7 +2178,7 @@ func (s *ApplicationSuite) testStatus(c *gc.C, status1, status2, expected status
 	err = u1.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, err := s.mysql.AddUnit()
+	u2, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status2,
@@ -2349,7 +2349,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 	})
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Adding a unit will cause the storage to be in-use.
-		_, err := svc.AddUnit()
+		_, err := svc.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	cfg := state.SetCharmConfig{Charm: newCh}
@@ -2369,7 +2369,7 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoRequiredStorageMeta, 3)
 	svc := s.AddTestingService(c, "test", oldCh)
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{Charm: newCh}
@@ -2386,7 +2386,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoOptionalStorageMeta, 3)
 	svc := s.AddTestingService(c, "test", oldCh)
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{

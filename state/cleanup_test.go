@@ -34,7 +34,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit()
+		unit, err := mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -220,7 +220,7 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit()
+		unit, err := mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -341,7 +341,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit()
+	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -506,7 +506,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	// Create a application with a unit.
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit()
+	unit, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -548,7 +548,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 	// Create a application with a unit.
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit()
+	unit, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -581,7 +581,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit()
+	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -614,7 +614,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 		"allecto": makeStorageCons("modelscoped-block", 1024, 1),
 	}
 	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit()
+	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -653,7 +653,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 		"data": makeStorageCons("modelscoped", 1024, 1),
 	}
 	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	unit, err := application.AddUnit()
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
