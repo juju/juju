@@ -658,10 +658,10 @@ func (e *environ) checkBroken(method string) error {
 	return nil
 }
 
-// PrecheckInstance is specified in the state.Prechecker interface.
-func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" && placement != "valid" {
-		return fmt.Errorf("%s placement is invalid", placement)
+// PrecheckInstance is specified in the environs.InstancePrechecker interface.
+func (*environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if args.Placement != "" && args.Placement != "valid" {
+		return fmt.Errorf("%s placement is invalid", args.Placement)
 	}
 	return nil
 }

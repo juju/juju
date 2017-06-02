@@ -1007,7 +1007,8 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1165,7 +1166,8 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)

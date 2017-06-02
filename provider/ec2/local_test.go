@@ -816,7 +816,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementC
 		}},
 	}
 	_, err = testing.StartInstanceWithParams(env, "1", args)
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching EBS volumes in zone "volume-zone"`)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
 }
 
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
@@ -1316,46 +1316,115 @@ func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      series.LatestLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      series.LatestLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      series.LatestLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.ErrorIsNil)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+	})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZone(c, "")
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZone(c, "zone=test-available")
+}
+
+func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placement string) {
+	env := t.Prepare(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "test-available",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) {
+	env := t.Prepare(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {

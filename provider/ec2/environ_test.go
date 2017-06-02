@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 // Ensure EC2 provider supports the expected interfaces,
@@ -23,7 +22,6 @@ var (
 	_ environs.NetworkingEnviron = (*environ)(nil)
 	_ config.ConfigSchemaSource  = (*environProvider)(nil)
 	_ simplestreams.HasRegion    = (*environ)(nil)
-	_ state.Prechecker           = (*environ)(nil)
 	_ instance.Distributor       = (*environ)(nil)
 )
 

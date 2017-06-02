@@ -292,8 +292,10 @@ func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag
 	for _, a := range attachments {
 		err = s.State.DetachStorage(a.StorageInstance(), a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.RemoveStorageAttachment(a.StorageInstance(), a.Unit())
-		c.Assert(err, jc.ErrorIsNil)
+		if _, err := s.State.StorageAttachment(a.StorageInstance(), a.Unit()); err == nil {
+			err = s.State.RemoveStorageAttachment(a.StorageInstance(), a.Unit())
+			c.Assert(err, jc.ErrorIsNil)
+		}
 	}
 }
 
@@ -676,8 +678,6 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
 }
@@ -705,8 +705,6 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
 
 	si, err = s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -728,8 +726,6 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 	// Detach, but do not destroy, the storage.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Now attach the storage to the second unit.
 	err = s.State.AttachStorage(storageTag, u2.UnitTag())
@@ -748,8 +744,6 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 
 	// Detach, but do not destroy, the storage.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
@@ -794,8 +788,6 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 
 	// Detach, but do not destroy, the storage.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -845,8 +837,6 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttach
 	// another unit/machine until it's gone.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.AttachStorage(storageTag, u2.UnitTag())
 	c.Assert(err, gc.ErrorMatches,
@@ -859,8 +849,6 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 
 	// Detach, but do not destroy, the storage.
 	err := s.State.DetachStorage(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, _, err := app.Charm()
@@ -924,8 +912,6 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 		// Detach, but do not destroy, the storage.
 		err = s.State.DetachStorage(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
-		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	ch, _, err := app.Charm()
@@ -955,8 +941,6 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.DetachStorage(storageTag, u.UnitTag())
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1024,8 +1008,6 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 	// changes to the storage instance's life, and recompute operations
 	// if it does.
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
