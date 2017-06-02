@@ -358,7 +358,6 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].LocalName, gc.Equals, "beirut")
 
 	obtained, ok := s.backend.remoteApplications["beirut"]
 	c.Assert(ok, jc.IsTrue)
