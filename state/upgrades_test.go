@@ -4,10 +4,13 @@
 package state
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -382,8 +385,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
-	logsC := logCollectionName(s.state.ModelUUID())
-	coll := s.state.MongoSession().DB(logsDB).C(logsC)
+	coll := s.state.MongoSession().DB(logsDB).C("logs")
 	err := coll.EnsureIndexKey("e", "t")
 	c.Assert(err, jc.ErrorIsNil)
 	err = DropOldLogIndex(s.state)
@@ -399,8 +401,11 @@ func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestDropOldIndexWhenNoIndex(c *gc.C) {
-	logsC := logCollectionName(s.state.ModelUUID())
-	coll := s.state.MongoSession().DB(logsDB).C(logsC)
+	coll := s.state.MongoSession().DB(logsDB).C("logs")
+	// Ensure the collection exists by creating some other index on
+	// it. (This is made more confusing now that versions beyond this
+	// one don't have the logs table.)
+	err := coll.EnsureIndexKey("e", "g")
 	exists, err := hasIndex(coll, []string{"e", "t"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsFalse)
@@ -1309,4 +1314,79 @@ func (x bsonMById) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 
 func (x bsonMById) Less(i, j int) bool {
 	return x[i]["_id"].(string) < x[j]["_id"].(string)
+}
+
+func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
+	db := s.state.MongoSession().DB(logsDB)
+	oldLogs := db.C("logs")
+
+	uuids := []string{"fake-1", "fake-2", "fake-3"}
+
+	expected := map[string][]bson.M{}
+
+	// set batch remove size to 10 to trigger removal.
+	splitBatchRemoveSize = 10
+
+	for i := 0; i < 15; i++ {
+		modelUUID := uuids[i%3]
+		logRow := bson.M{
+			"_id": fmt.Sprintf("fake-objectid-%02d", i),
+			"t":   100 * i,
+			"e":   modelUUID,
+			"r":   "2.1.2",
+			"n":   fmt.Sprintf("fake-entitiy-%d", i),
+			"m":   "juju.testing",
+			"l":   "fake-file.go:1234",
+			"v":   int(loggo.DEBUG),
+			"x":   "test message",
+		}
+		err := oldLogs.Insert(logRow)
+		c.Assert(err, jc.ErrorIsNil)
+
+		delete(logRow, "e")
+		vals := expected[modelUUID]
+		expected[modelUUID] = append(vals, logRow)
+	}
+
+	err := SplitLogCollections(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now check the logs.
+	for _, uuid := range uuids {
+		newLogs := db.C(fmt.Sprintf("logs.%s", uuid))
+		numDocs, err := newLogs.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(numDocs, gc.Equals, 5)
+
+		var docs []bson.M
+		err = newLogs.Find(nil).All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+
+		sort.Sort(bsonMById(docs))
+		c.Assert(docs, jc.DeepEquals, expected[uuid])
+	}
+
+	numDocs, err := oldLogs.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numDocs, gc.Equals, 0)
+
+	// Run again, should be fine.
+	err = SplitLogCollections(s.state)
+	c.Logf("%#v", errors.Cause(err))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now check the logs, just to be sure.
+	for _, uuid := range uuids {
+		newLogs := db.C(fmt.Sprintf("logs.%s", uuid))
+		numDocs, err := newLogs.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(numDocs, gc.Equals, 5)
+
+		var docs []bson.M
+		err = newLogs.Find(nil).All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+
+		sort.Sort(bsonMById(docs))
+		c.Assert(docs, jc.DeepEquals, expected[uuid])
+	}
 }

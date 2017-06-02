@@ -235,7 +235,7 @@ func DropOldLogIndex(st *State) error {
 	// If the log collection still has the old e,t index, remove it.
 	key := []string{"e", "t"}
 	db := st.MongoSession().DB(logsDB)
-	collection := db.C(logCollectionName(st.ModelUUID()))
+	collection := db.C("logs")
 	err := collection.DropIndex(key...)
 	if err == nil {
 		return nil
@@ -812,6 +812,67 @@ func addStorageInstanceConstraints(st *State) error {
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runTransaction(ops))
+	}
+	return nil
+}
+
+var splitBatchRemoveSize = 1000
+
+// SplitLogCollections moves log entries from the old single log collection
+// to the log collection per environment.
+func SplitLogCollections(st *State) error {
+	session := st.MongoSession()
+	db := session.DB(logsDB)
+	oldLogs := db.C("logs")
+
+	// If we haven't seen any particular environment, we need to initialise
+	// the logs collection with the right indices.
+	seen := set.NewStrings()
+
+	iter := oldLogs.Find(nil).Iter()
+	var (
+		doc bson.M
+		ids []interface{}
+	)
+
+	for iter.Next(&doc) {
+		modelUUID := doc["e"].(string)
+		newCollName := logCollectionName(modelUUID)
+		newLogs := db.C(newCollName)
+
+		if !seen.Contains(newCollName) {
+			if err := InitDbLogs(session, modelUUID); err != nil {
+				return errors.Annotatef(err, "failed to init new logs collection %q", newCollName)
+			}
+			seen.Add(newCollName)
+		}
+
+		delete(doc, "e") // old env uuid
+
+		if err := newLogs.Insert(doc); err != nil {
+			return errors.Annotate(err, "failed to insert log record")
+		}
+		ids = append(ids, doc["_id"])
+		if len(ids) >= splitBatchRemoveSize {
+			if err := oldLogs.Remove(bson.D{{"_id", bson.D{{"$in", ids}}}}); err != nil {
+				return errors.Annotate(err, "failed to remove batch of logs")
+			}
+			ids = nil
+		}
+
+		doc = nil
+	}
+
+	// drop the old collection
+	if err := oldLogs.DropCollection(); err != nil {
+		// If the error is &mgo.QueryError{Code:26, Message:"ns not found", Assertion:false}
+		// that's fine.
+		if merr, ok := err.(*mgo.QueryError); ok {
+			if merr.Code == 26 {
+				return nil
+			}
+		}
+		return errors.Annotate(err, "failed to drop old logs collection")
 	}
 	return nil
 }

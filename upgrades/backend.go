@@ -30,6 +30,7 @@ type StateBackend interface {
 	AddControllerLogCollectionsSizeSettings() error
 	AddStatusHistoryPruneSettings() error
 	AddStorageInstanceConstraints() error
+	SplitLogCollections() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -110,6 +111,10 @@ func (s stateBackend) AddStatusHistoryPruneSettings() error {
 
 func (s stateBackend) AddStorageInstanceConstraints() error {
 	return state.AddStorageInstanceConstraints(s.st)
+}
+
+func (s stateBackend) SplitLogCollections() error {
+	return state.SplitLogCollections(s.st)
 }
 
 type modelShim struct {
