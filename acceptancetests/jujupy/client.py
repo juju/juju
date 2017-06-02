@@ -2479,7 +2479,9 @@ class ModelClient:
         if not models:
             yield self
         for model in models:
-            yield self._acquire_model_client(model['name'], model.get('owner'))
+            # 2.2-rc1 introduced new model listing output name/short-name.
+            model_name = model.get('short-name', model['name'])
+            yield self._acquire_model_client(model_name, model.get('owner'))
 
     def get_controller_model_name(self):
         """Return the name of the 'controller' model.
