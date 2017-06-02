@@ -180,7 +180,6 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	c.Assert(uploader.resources, jc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
-		"app2/blob2": "<placeholder>",
 	})
 	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
 }

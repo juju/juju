@@ -6,6 +6,8 @@ package base
 import (
 	"time"
 
+	"github.com/juju/version"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -57,6 +59,7 @@ type ModelInfo struct {
 	Status          Status
 	Users           []UserInfo
 	Machines        []Machine
+	AgentVersion    *version.Number
 }
 
 // Status represents the status of a machine, application, or unit.

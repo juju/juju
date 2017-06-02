@@ -326,6 +326,14 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	}
 	defer st.Close()
 
+	if err = st.ReloadSpaces(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return result, errors.Annotate(err, "Failed to perform spaces discovery")
+		}
+	}
+
 	return m.getModelInfo(model.ModelTag())
 }
 
@@ -600,6 +608,9 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	if err == nil {
 		info.ProviderType = cfg.Type()
 		info.DefaultSeries = config.PreferredSeries(cfg)
+		if agentVersion, exists := cfg.AgentVersion(); exists {
+			info.AgentVersion = &agentVersion
+		}
 	}
 
 	status, err := model.Status()

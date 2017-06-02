@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"time"
@@ -758,6 +759,8 @@ func (i *importer) application(a description.Application) error {
 		},
 	})
 
+	ops = append(ops, i.appResourceOps(a)...)
+
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
@@ -787,6 +790,61 @@ func (i *importer) application(a description.Application) error {
 	}
 
 	return nil
+}
+
+func (i *importer) appResourceOps(app description.Application) []txn.Op {
+	// Add a placeholder record for each resource that is a placeholder.
+	// Resources define placeholders as resources where the timestamp is Zero.
+	var result []txn.Op
+	appName := app.Name()
+
+	var makeResourceDoc = func(id, name string, rev description.ResourceRevision) resourceDoc {
+		fingerprint, _ := hex.DecodeString(rev.FingerprintHex())
+		return resourceDoc{
+			ID:            id,
+			ApplicationID: appName,
+			Name:          name,
+			Type:          rev.Type(),
+			Path:          rev.Path(),
+			Description:   rev.Description(),
+			Origin:        rev.Origin(),
+			Revision:      rev.Revision(),
+			Fingerprint:   fingerprint,
+			Size:          rev.Size(),
+			Username:      rev.Username(),
+		}
+	}
+
+	for _, r := range app.Resources() {
+		// I cannot for the life of me find the function where the underlying
+		// resource id is defined to be the appname/resname but that is what
+		// ends up in the DB.
+		resName := r.Name()
+		resID := appName + "/" + resName
+		// Check both the app and charmstore
+		if appRev := r.ApplicationRevision(); appRev.Timestamp().IsZero() {
+			result = append(result, txn.Op{
+				C:      resourcesC,
+				Id:     applicationResourceID(resID),
+				Assert: txn.DocMissing,
+				Insert: makeResourceDoc(resID, resName, appRev),
+			})
+		}
+		if storeRev := r.CharmStoreRevision(); storeRev.Timestamp().IsZero() {
+			doc := makeResourceDoc(resID, resName, storeRev)
+			// Now the resource code is particularly stupid and instead of using
+			// the ID, or encoding the type somewhere, it uses the fact that the
+			// LastPolled time to indicate it is the charm store version.
+			doc.LastPolled = time.Now()
+			result = append(result, txn.Op{
+				C:      resourcesC,
+				Id:     charmStoreResourceID(resID),
+				Assert: txn.DocMissing,
+				Insert: doc,
+			})
+		}
+	}
+	return result
 }
 
 func (i *importer) storageConstraints(cons map[string]description.StorageConstraint) map[string]StorageConstraints {

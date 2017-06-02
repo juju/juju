@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -64,6 +65,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 	if f.infos != nil {
 		return f.infos, nil
 	}
+	agentVersion, _ := version.Parse("2.55.5")
 	results := make([]params.ModelInfoResult, len(tags))
 	for i, tag := range tags {
 		for _, model := range f.models {
@@ -71,11 +73,12 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 				continue
 			}
 			result := &params.ModelInfo{
-				Name:     model.Name,
-				UUID:     model.UUID,
-				OwnerTag: names.NewUserTag(model.Owner).String(),
-				CloudTag: "cloud-dummy",
-				Status:   params.EntityStatus{},
+				Name:         model.Name,
+				UUID:         model.UUID,
+				OwnerTag:     names.NewUserTag(model.Owner).String(),
+				CloudTag:     "cloud-dummy",
+				Status:       params.EntityStatus{},
+				AgentVersion: &agentVersion,
 			}
 			switch model.Name {
 			case "test-model1":
@@ -169,6 +172,65 @@ func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
+}
+
+func (s *ModelsSuite) TestModelsYaml(c *gc.C) {
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.user, gc.Equals, "admin")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+models:
+- name: admin/test-model1
+  short-name: test-model1
+  model-uuid: test-model1-UUID
+  controller-uuid: ""
+  controller-name: fake
+  owner: admin
+  cloud: dummy
+  life: ""
+  status:
+    current: active
+  users:
+    admin:
+      access: read
+      last-connection: 2015-03-20
+  agent-version: 2.55.5
+- name: carlotta/test-model2
+  short-name: test-model2
+  model-uuid: test-model2-UUID
+  controller-uuid: ""
+  controller-name: fake
+  owner: carlotta
+  cloud: dummy
+  life: ""
+  status:
+    current: active
+  users:
+    admin:
+      access: write
+      last-connection: 2015-03-01
+  agent-version: 2.55.5
+- name: daiwik@external/test-model3
+  short-name: test-model3
+  model-uuid: test-model3-UUID
+  controller-uuid: ""
+  controller-name: fake
+  owner: daiwik@external
+  cloud: dummy
+  life: ""
+  status:
+    current: destroying
+  agent-version: 2.55.5
+current-model: test-model1
+`[1:])
+}
+
+func (s *ModelsSuite) TestModelsJson(c *gc.C) {
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.user, gc.Equals, "admin")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","controller-uuid":"","controller-name":"fake","owner":"admin","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"read","last-connection":"2015-03-20"}},"agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","controller-uuid":"","controller-name":"fake","owner":"carlotta","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"write","last-connection":"2015-03-01"}},"agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","controller-uuid":"","controller-name":"fake","owner":"daiwik@external","cloud":"dummy","life":"","status":{"current":"destroying"},"agent-version":"2.55.5"}],"current-model":"test-model1"}
+`)
 }
 
 func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
@@ -268,6 +330,7 @@ func (s *ModelsSuite) TestModelsError(c *gc.C) {
 }
 
 func createBasicModelInfo() *params.ModelInfo {
+	agentVersion, _ := version.Parse("2.55.5")
 	return &params.ModelInfo{
 		Name:           "basic-model",
 		UUID:           testing.ModelTag.Id(),
@@ -276,6 +339,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		Life:           params.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
 		CloudRegion:    "mid-level",
+		AgentVersion:   &agentVersion,
 	}
 }
 
@@ -314,4 +378,24 @@ owner/basic-model  altostratus/mid-level  -              0      -  admin   never
 owner/basic-model  altostratus/mid-level  -              2      -  -       never connected
 
 `[1:])
+}
+
+func (s *ModelsSuite) assertAgentVersionPresent(c *gc.C, testInfo *params.ModelInfo, checker gc.Checker) {
+	s.api.infos = []params.ModelInfoResult{
+		params.ModelInfoResult{Result: testInfo},
+	}
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format=yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), checker, "agent-version")
+}
+
+func (s *ModelsSuite) TestListModelsWithAgent(c *gc.C) {
+	basicInfo := createBasicModelInfo()
+	s.assertAgentVersionPresent(c, basicInfo, jc.Contains)
+}
+
+func (s *ModelsSuite) TestListModelsWithNoAgent(c *gc.C) {
+	basicInfo := createBasicModelInfo()
+	basicInfo.AgentVersion = nil
+	s.assertAgentVersionPresent(c, basicInfo, gc.Not(jc.Contains))
 }

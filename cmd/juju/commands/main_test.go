@@ -475,6 +475,7 @@ var commandNames = []string{
 	"regions",
 	"register",
 	"relate", //alias for add-relation
+	"reload-spaces",
 	"remove-application",
 	"remove-backup",
 	"remove-cached-images",

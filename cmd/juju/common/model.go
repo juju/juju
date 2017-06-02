@@ -4,7 +4,6 @@
 package common
 
 import (
-	"fmt"
 	"reflect"
 	"time"
 
@@ -12,12 +11,17 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/status"
 )
 
 // ModelInfo contains information about a model.
 type ModelInfo struct {
-	Name           string                      `json:"name" yaml:"name"`
+	// Name is a fully qualified model name, i.e. having the format $owner/$model.
+	Name string `json:"name" yaml:"name"`
+
+	// ShortName is un-qualified model name.
+	ShortName      string                      `json:"short-name" yaml:"short-name"`
 	UUID           string                      `json:"model-uuid" yaml:"model-uuid"`
 	ControllerUUID string                      `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName string                      `json:"controller-name" yaml:"controller-name"`
@@ -31,6 +35,7 @@ type ModelInfo struct {
 	Machines       map[string]ModelMachineInfo `json:"machines,omitempty" yaml:"machines,omitempty"`
 	SLA            string                      `json:"sla,omitempty" yaml:"sla,omitempty"`
 	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
+	AgentVersion   string                      `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 }
 
 // ModelMachineInfo contains information about a machine in a model.
@@ -69,7 +74,7 @@ func friendlyDuration(when *time.Time, now time.Time) string {
 
 // ModelInfoFromParams translates a params.ModelInfo to ModelInfo.
 func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error) {
-	tag, err := names.ParseUserTag(info.OwnerTag)
+	ownerTag, err := names.ParseUserTag(info.OwnerTag)
 	if err != nil {
 		return ModelInfo{}, errors.Trace(err)
 	}
@@ -78,13 +83,17 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		return ModelInfo{}, errors.Trace(err)
 	}
 	modelInfo := ModelInfo{
-		Name:           info.Name,
+		ShortName:      info.Name,
+		Name:           jujuclient.JoinOwnerModelName(ownerTag, info.Name),
 		UUID:           info.UUID,
 		ControllerUUID: info.ControllerUUID,
-		Owner:          tag.Id(),
+		Owner:          ownerTag.Id(),
 		Life:           string(info.Life),
 		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
+	}
+	if info.AgentVersion != nil {
+		modelInfo.AgentVersion = info.AgentVersion.String()
 	}
 	// Although this may be more performance intensive, we have to use reflection
 	// since structs containing map[string]interface {} cannot be compared, i.e
@@ -178,6 +187,5 @@ func OwnerQualifiedModelName(modelName string, owner, user names.UserTag) string
 	if owner.Id() == user.Id() {
 		return modelName
 	}
-	ownerName := owner.Id()
-	return fmt.Sprintf("%s/%s", ownerName, modelName)
+	return jujuclient.JoinOwnerModelName(owner, modelName)
 }

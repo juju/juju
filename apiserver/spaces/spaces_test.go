@@ -357,3 +357,26 @@ func (s *SpacesSuite) TestListSpacesNotSupportedError(c *gc.C) {
 	_, err := s.facade.ListSpaces()
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
+
+func (s *SpacesSuite) TestReloadSpacesNotSupportedError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		nil, // Backing.ModelConfig()
+		nil, // Backing.CloudSpec()
+		nil, // Provider.Open()
+		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
+	)
+	err := s.facade.ReloadSpaces()
+	c.Assert(err, gc.ErrorMatches, "spaces not supported")
+}
+
+func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
+	agentAuthorizer := s.authorizer
+	agentAuthorizer.Tag = names.NewUserTag("regular")
+	facade, err := spaces.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, agentAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = facade.ReloadSpaces()
+	c.Check(err, gc.ErrorMatches, "permission denied")
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+}

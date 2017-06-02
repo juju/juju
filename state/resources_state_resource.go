@@ -3,8 +3,6 @@
 
 package state
 
-// TODO(ericsnow) Figure out a way to drop the txn dependency here?
-
 import (
 	"fmt"
 	"io"
@@ -38,7 +36,7 @@ type resourcePersistence interface {
 	// if the resource isn't already staged. If the resource already
 	// exists then it is treated as unavailable as long as the new one
 	// is staged.
-	StageResource(res resource.Resource, storagePath string) (StagedResource, error)
+	StageResource(res resource.Resource, storagePath string) (*StagedResource, error)
 
 	// SetResource stores the info for the resource.
 	SetResource(args resource.Resource) error
@@ -59,31 +57,6 @@ type resourcePersistence interface {
 	NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error)
 }
 
-// StagedResource represents resource info that has been added to the
-// "staging" area of the persistence layer.
-//
-// A separate staging area is necessary because we are dealing with
-// the DB and storage at the same time for the same resource in some
-// operations (e.g. SetResource).  Resources are staged in the DB,
-// added to storage, and then finalized in the DB.
-type StagedResource interface {
-	// Unstage ensures that the resource is removed
-	// from the staging area. If it isn't in the staging area
-	// then this is a noop.
-	Unstage() error
-
-	// Activate makes the staged resource the active resource.
-	Activate() error
-}
-
-type rawState interface {
-	// VerifyService ensures that the application is in state.
-	VerifyService(id string) error
-
-	// Units returns the tags for all units in the application.
-	Units(applicationID string) ([]names.UnitTag, error)
-}
-
 type resourceStorage interface {
 	// PutAndCheckHash stores the content of the reader into the storage.
 	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
@@ -100,9 +73,7 @@ type resourceState struct {
 	persist resourcePersistence
 	raw     rawState
 	storage resourceStorage
-
-	newPendingID     func() (string, error)
-	currentTimestamp func() time.Time
+	clock   clock.Clock
 }
 
 // ListResources returns the resource data for the given application ID.
@@ -209,7 +180,7 @@ func (st resourceState) SetUnitResource(unitName, userID string, chRes charmreso
 		ApplicationID: applicationID,
 	}
 	res.Username = userID
-	res.Timestamp = st.currentTimestamp()
+	res.Timestamp = st.clock.Now().UTC()
 	if err := res.Validate(); err != nil {
 		return empty, errors.Annotate(err, "bad resource metadata")
 	}
@@ -223,7 +194,7 @@ func (st resourceState) SetUnitResource(unitName, userID string, chRes charmreso
 
 // AddPendingResource stores the resource in the Juju model.
 func (st resourceState) AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
-	pendingID, err = st.newPendingID()
+	pendingID, err = newPendingID()
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
@@ -260,7 +231,7 @@ func (st resourceState) setResource(pendingID, applicationID, userID string, chR
 	if r != nil {
 		// TODO(ericsnow) Validate the user ID (or use a tag).
 		res.Username = userID
-		res.Timestamp = st.currentTimestamp()
+		res.Timestamp = st.clock.Now().UTC()
 	}
 
 	if err := res.Validate(); err != nil {

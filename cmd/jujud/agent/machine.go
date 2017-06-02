@@ -226,6 +226,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 		Filename:   agent.LogFilename(a.currentConfig.CurrentConfig()),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
+		Compress:   true,
 	}
 
 	return nil
@@ -345,8 +346,6 @@ type MachineAgent struct {
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
 	initialUpgradeCheckComplete gate.Lock
-
-	discoverSpacesComplete gate.Lock
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -856,6 +855,10 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		// state.InitDatabase is idempotent and needs to be called just
 		// prior to performing any upgrades since a new Juju binary may
 		// declare new indices or explicit collections.
+		// NB until https://jira.mongodb.org/browse/SERVER-1864 is resolved,
+		// it is not possible to resize capped collections so there's no
+		// point in reading existing controller config from state in order
+		// to pass in the max-txn-log-size value.
 		InitDatabaseFunc:       state.InitDatabase,
 		RunTransactionObserver: a.txnmetricsCollector.AfterRunTransaction,
 	})
@@ -1121,7 +1124,6 @@ func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (work
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		InstPollerAggregationDelay:  3 * time.Second,
 		StatusHistoryPrunerInterval: 5 * time.Minute,
-		SpacesImportedGate:          a.discoverSpacesComplete,
 		NewEnvironFunc:              newEnvirons,
 		NewMigrationMaster:          migrationmaster.NewWorker,
 	})
@@ -1151,7 +1153,12 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return a.newAPIserverWorker(st, certChanged, dependencyReporter)
+		w, err := a.newAPIserverWorker(st, certChanged, dependencyReporter)
+		if err != nil {
+			st.Close()
+			return nil, errors.Trace(err)
+		}
+		return w, err
 	}
 }
 

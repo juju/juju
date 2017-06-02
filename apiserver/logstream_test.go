@@ -34,7 +34,6 @@ var _ = gc.Suite(&LogStreamIntSuite{})
 
 func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 	cfg := params.LogStreamConfig{
-		AllModels:          true,
 		Sink:               "spam",
 		MaxLookbackRecords: 100,
 	}
@@ -48,15 +47,13 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 		newSource: source.newSource,
 	}
 
-	reqHandler, err := handler.newLogStreamRequestHandler(nil, req, clock.WallClock)
+	_, err := handler.newLogStreamRequestHandler(nil, req, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(reqHandler.sendModelUUID, jc.IsTrue)
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
-	stub.CheckCall(c, 1, "getStart", "spam", true)
+	stub.CheckCall(c, 1, "getStart", "spam")
 	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
 		StartTime:    time.Unix(10, 0),
-		AllModels:    true,
 		InitialLines: 100,
 	})
 }
@@ -88,12 +85,11 @@ func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
 	now := time.Now()
 	clock := &mockClock{now: now}
 
-	reqHandler, err := handler.newLogStreamRequestHandler(nil, req, clock)
+	_, err := handler.newLogStreamRequestHandler(nil, req, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(reqHandler.sendModelUUID, jc.IsFalse)
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
-	stub.CheckCall(c, 1, "getStart", "spam", false)
+	stub.CheckCall(c, 1, "getStart", "spam")
 	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
 		StartTime: now.Add(-2 * time.Hour),
 	})
@@ -152,8 +148,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	tailer := &stubLogTailer{stub: &testing.Stub{}}
 	tailer.ReturnLogs = tailer.newChannel(logs)
 	req := s.newReq(c, params.LogStreamConfig{
-		AllModels: true,
-		Sink:      "eggs",
+		Sink: "eggs",
 	})
 
 	// Start the websocket server, which apes expected apiserver
@@ -169,10 +164,9 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 
 		sendInitialErrorV0(conn, nil)
 		handler := &logStreamRequestHandler{
-			conn:          conn,
-			req:           req,
-			tailer:        tailer,
-			sendModelUUID: true,
+			conn:   conn,
+			req:    req,
+			tailer: tailer,
 		}
 		handler.serveWebsocket(abortServer)
 	})
@@ -271,8 +265,8 @@ func (s *stubSource) newSource(req *http.Request) (logStreamSource, closerFunc, 
 	return s, closer, nil
 }
 
-func (s *stubSource) getStart(sink string, allModels bool) (time.Time, error) {
-	s.stub.AddCall("getStart", sink, allModels)
+func (s *stubSource) getStart(sink string) (time.Time, error) {
+	s.stub.AddCall("getStart", sink)
 	if err := s.stub.NextErr(); err != nil {
 		return time.Time{}, errors.Trace(err)
 	}

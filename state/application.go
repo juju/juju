@@ -275,17 +275,19 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		},
 	}
 	// Note that appCharmDecRefOps might not catch the final decref
-	// when run in a transaction that decrefs more than once. In
-	// this case, luckily, we can be sure that we unconditionally
-	// need finalAppCharmRemoveOps; and we trust that it's written
-	// such that it's safe to run multiple times.
+	// when run in a transaction that decrefs more than once. So we
+	// avoid attempting to do the final cleanup in the ref dec ops and
+	// do it explicitly below.
 	name := a.doc.Name
 	curl := a.doc.CharmURL
-	charmOps, err := appCharmDecRefOps(a.st, name, curl)
+	charmOps, err := appCharmDecRefOps(a.st, name, curl, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, charmOps...)
+	// By the time we get to here, all units and charm refs have been removed,
+	// so it's safe to do this additonal cleanup.
+	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
 	globalKey := a.globalKey()
 	ops = append(ops,
@@ -437,12 +439,30 @@ func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.R
 
 func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
+
+	isPeerToItself := func(ep Endpoint) bool {
+		// We do not want to prevent charm upgrade when endpoint relation is
+		// peer-scoped and there is only one unit of this application.
+		// Essentially, this is the corner case when a unit relates to itself.
+		// For example, in this case, we want to allow charm upgrade, for e.g.
+		// interface name change does not affect anything.
+		units, err := a.AllUnits()
+		if err != nil {
+			// Whether we could get application units does not matter.
+			// We are only interested in thinking further if we can get units.
+			return false
+		}
+		return len(units) == 1 && isPeer(ep)
+	}
+
 	// All relations must still exist and their endpoints are implemented by the charm.
 	for _, rel := range relations {
 		if ep, err := rel.Endpoint(a.doc.Name); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			return nil, errors.Errorf("would break relation %q", rel)
+			if !isPeerToItself(ep) {
+				return nil, errors.Errorf("would break relation %q", rel)
+			}
 		}
 		asserts = append(asserts, txn.Op{
 			C:      relationsC,
@@ -675,7 +695,7 @@ func (a *Application) changeCharmOps(
 	// Drop the references to the old settings, storage constraints,
 	// and charm docs (if the refs actually exist yet).
 	if oldSettings != nil {
-		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL) // current charm
+		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true) // current charm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1256,7 +1276,10 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)
 	if u.doc.CharmURL != nil {
-		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL)
+		// If the unit has a different URL to the application, allow any final
+		// cleanup to happen; otherwise we just do it when the app itself is removed.
+		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
+		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if err != nil {

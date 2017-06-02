@@ -54,12 +54,14 @@ func init() {
 	gc.Suite(&remoteRelationsSuite{})
 	gc.Suite(&crossmodelSuite{})
 	gc.Suite(&ApplicationConfigSuite{})
+	gc.Suite(&CharmUpgradeSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.
 	if runtime.GOOS == "linux" {
 		gc.Suite(&cloudImageMetadataSuite{})
 		gc.Suite(&cmdSpaceSuite{})
+		gc.Suite(&cmdUpgradeSuite{})
 	}
 }
 

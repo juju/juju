@@ -149,6 +149,8 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	expectedAgentVersion, exists := s.st.model.cfg.AgentVersion()
+	c.Assert(exists, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:               "testenv",
 		UUID:               s.st.model.cfg.UUID(),
@@ -194,6 +196,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			Level: "essential",
 			Owner: "user",
 		},
+		AgentVersion: &expectedAgentVersion,
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
@@ -776,6 +779,11 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	} else {
 		return nil, false, nil
 	}
+}
+
+func (st *mockState) ReloadSpaces(environ environs.Environ) error {
+	st.MethodCall(st, "ReloadSpaces", environ)
+	return st.NextErr()
 }
 
 func (st *mockState) DumpAll() (map[string]interface{}, error) {

@@ -146,18 +146,7 @@ func open(
 		return nil, errors.Trace(err)
 	}
 	if initDatabase != nil {
-		if controllerConfig == nil {
-			// If no controller config is passed in, we get
-			// it from state. This occurs if we are opening
-			// an existing state database as opposed to creating
-			// a new one for the first time.
-			cfg, err := st.ControllerConfig()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			controllerConfig = &cfg
-		}
-		if err := initDatabase(session, *controllerConfig); err != nil {
+		if err := initDatabase(session, controllerConfig); err != nil {
 			session.Close()
 			return nil, errors.Trace(err)
 		}
@@ -269,10 +258,10 @@ func (p InitializeParams) Validate() error {
 
 // InitDatabaseFunc defines a function used to
 // create the collections and indices in a Juju database.
-type InitDatabaseFunc func(*mgo.Session, controller.Config) error
+type InitDatabaseFunc func(*mgo.Session, *controller.Config) error
 
 // InitDatabase creates all the collections and indices in a Juju database.
-func InitDatabase(session *mgo.Session, settings controller.Config) error {
+func InitDatabase(session *mgo.Session, settings *controller.Config) error {
 	schema := allCollections()
 	err := schema.Create(
 		session.DB(jujuDB),

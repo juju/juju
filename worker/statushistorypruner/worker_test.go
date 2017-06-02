@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
-	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/statushistorypruner"
 )
 
@@ -25,15 +25,7 @@ type statusHistoryPrunerSuite struct {
 
 var _ = gc.Suite(&statusHistoryPrunerSuite{})
 
-func (s *statusHistoryPrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *mockTimer) {
-	fakeTimer := newMockTimer()
-
-	fakeTimerFunc := func(d time.Duration) jworker.PeriodicTimer {
-		// construction of timer should be with 0 because we intend it to
-		// run once before waiting.
-		c.Assert(d, gc.Equals, 0*time.Nanosecond)
-		return fakeTimer
-	}
+func (s *statusHistoryPrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.Clock) {
 	facade := newFakeFacade()
 	attrs := coretesting.FakeConfig()
 	attrs["max-status-history-age"] = "1s"
@@ -42,10 +34,11 @@ func (s *statusHistoryPrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *mockTimer
 	c.Assert(err, jc.ErrorIsNil)
 	facade.modelConfig = cfg
 
+	testClock := testing.NewClock(time.Time{})
 	conf := statushistorypruner.Config{
 		Facade:        facade,
 		PruneInterval: coretesting.ShortWait,
-		NewTimer:      fakeTimerFunc,
+		Clock:         testClock,
 	}
 
 	pruner, err := statushistorypruner.New(conf)
@@ -60,56 +53,52 @@ func (s *statusHistoryPrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *mockTimer
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for model configr")
 	}
-	return facade, fakeTimer
+
+	return facade, testClock
 }
 
-func (s *statusHistoryPrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, fakeTimer *mockTimer, collectionSize int) {
-	err := fakeTimer.fire()
-	c.Check(err, jc.ErrorIsNil)
-
-	var passedMB int
+func (s *statusHistoryPrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testClock *testing.Clock, collectionSize int) {
+	// NewTimer/Reset will have been called with the PruneInterval.
+	testClock.WaitAdvance(coretesting.ShortWait-time.Nanosecond, coretesting.LongWait, 1)
 	select {
-	case passedMB = <-facade.passedMaxHistoryMB:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for passed logs to pruner")
+	case <-facade.pruned:
+		c.Fatal("unexpected call to Prune")
+	case <-time.After(coretesting.ShortWait):
 	}
-	c.Assert(passedMB, gc.Equals, collectionSize)
-
-	// Reset will have been called with the actual PruneInterval
-	var period time.Duration
+	testClock.Advance(time.Nanosecond)
 	select {
-	case period = <-fakeTimer.period:
+	case args := <-facade.pruned:
+		c.Assert(args.maxHistoryMB, gc.Equals, collectionSize)
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for period reset by pruner")
+		c.Fatal("timed out waiting for call to Prune")
 	}
-	c.Assert(period, gc.Equals, coretesting.ShortWait)
 }
 
 func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
-	facade, fakeTimer := s.setupPruner(c)
-	s.assertWorkerCallsPrune(c, facade, fakeTimer, 3)
+	facade, clock := s.setupPruner(c)
+	s.assertWorkerCallsPrune(c, facade, clock, 3)
 }
 
 func (s *statusHistoryPrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
 	facade, _ := s.setupPruner(c)
 
 	select {
-	case <-facade.passedMaxHistoryMB:
+	case <-facade.pruned:
 		c.Fatal("called before firing timer.")
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
 func (s *statusHistoryPrunerSuite) TestModelConfigChange(c *gc.C) {
-	facade, fakeTimer := s.setupPruner(c)
-	s.assertWorkerCallsPrune(c, facade, fakeTimer, 3)
+	facade, clock := s.setupPruner(c)
+	s.assertWorkerCallsPrune(c, facade, clock, 3)
 
 	var err error
 	facade.modelConfig, err = facade.modelConfig.Apply(map[string]interface{}{"max-status-history-size": "4M"})
 	c.Assert(err, jc.ErrorIsNil)
 	facade.changesWatcher.changes <- struct{}{}
 
-	s.assertWorkerCallsPrune(c, facade, fakeTimer, 4)
+	s.assertWorkerCallsPrune(c, facade, clock, 4)
 }
 
 type mockTimer struct {
@@ -146,26 +135,29 @@ func newMockTimer() *mockTimer {
 }
 
 type fakeFacade struct {
-	passedMaxHistoryMB chan int
-	changesWatcher     *mockNotifyWatcher
-	modelConfig        *config.Config
-	gotConfig          chan struct{}
+	pruned         chan pruneParams
+	changesWatcher *mockNotifyWatcher
+	modelConfig    *config.Config
+	gotConfig      chan struct{}
+}
+
+type pruneParams struct {
+	maxAge       time.Duration
+	maxHistoryMB int
 }
 
 func newFakeFacade() *fakeFacade {
 	return &fakeFacade{
-		passedMaxHistoryMB: make(chan int, 1),
-		gotConfig:          make(chan struct{}, 1),
-		changesWatcher:     newMockNotifyWatcher(),
+		pruned:         make(chan pruneParams, 1),
+		gotConfig:      make(chan struct{}, 1),
+		changesWatcher: newMockNotifyWatcher(),
 	}
 }
 
 // Prune implements Facade
-func (f *fakeFacade) Prune(_ time.Duration, maxHistoryMB int) error {
-	// TODO(perrito666) either make this send its actual args, or just use
-	// a stub and drop the unnecessary channel malarkey entirely
+func (f *fakeFacade) Prune(maxAge time.Duration, maxHistoryMB int) error {
 	select {
-	case f.passedMaxHistoryMB <- maxHistoryMB:
+	case f.pruned <- pruneParams{maxAge, maxHistoryMB}:
 	case <-time.After(coretesting.LongWait):
 		return errors.New("timed out waiting for facade call Prune to run")
 	}

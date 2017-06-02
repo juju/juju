@@ -235,3 +235,8 @@ func (sa *StubAPI) RenameSpace(name, newName string) error {
 	sa.MethodCall(sa, "RenameSpace", name, newName)
 	return sa.NextErr()
 }
+
+func (sa *StubAPI) ReloadSpaces() error {
+	sa.MethodCall(sa, "ReloadSpaces")
+	return sa.NextErr()
+}

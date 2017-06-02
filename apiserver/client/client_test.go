@@ -112,6 +112,8 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info.UUID, gc.Equals, model.UUID())
 	c.Assert(info.OwnerTag, gc.Equals, model.Owner().String())
 	c.Assert(info.Life, gc.Equals, params.Alive)
+	expectedAgentVersion, _ := conf.AgentVersion()
+	c.Assert(info.AgentVersion, gc.DeepEquals, &expectedAgentVersion)
 	// The controller UUID is not returned by the ModelInfo endpoint on the
 	// Client facade.
 	c.Assert(info.ControllerUUID, gc.Equals, "")

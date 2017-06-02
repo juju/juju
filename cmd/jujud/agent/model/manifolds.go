@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
-	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
@@ -27,13 +26,13 @@ import (
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/worker/logforwarder"
+	"github.com/juju/juju/worker/logforwarder/sinks"
 	"github.com/juju/juju/worker/machineundertaker"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationflag"
@@ -86,10 +85,6 @@ type ManifoldsConfig struct {
 	// behaviour.
 	StatusHistoryPrunerInterval time.Duration
 
-	// SpacesImportedGate will be unlocked when spaces are known to
-	// have been imported.
-	SpacesImportedGate gate.Lock
-
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc environs.NewEnvironFunc
@@ -121,12 +116,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
 		}),
-
-		// The spaces-imported gate will be unlocked when space
-		// discovery is known to be complete. Various manifolds
-		// should also come to depend upon it (or rather, on a
-		// Flag depending on it) in the future.
-		spacesImportedGateName: gate.ManifoldEx(config.SpacesImportedGate),
 
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
@@ -228,14 +217,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// All the rest depend on ifNotMigrating.
-		spaceImporterName: ifNotMigrating(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
-			EnvironName:   environTrackerName,
-			APICallerName: apiCallerName,
-			UnlockerName:  spacesImportedGateName,
-
-			NewFacade: discoverspaces.NewFacade,
-			NewWorker: discoverspaces.NewWorker,
-		})),
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:          agentName,
 			APICallerName:      apiCallerName,
@@ -289,16 +270,22 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		statusHistoryPrunerName: ifNotMigrating(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
+			ClockName:     clockName,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
 			PruneInterval: config.StatusHistoryPrunerInterval,
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			NewTimer: jworker.NewTimer,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 			NewWorker:     machineundertaker.NewWorker,
+		})),
+		logForwarderName: ifNotDead(logforwarder.Manifold(logforwarder.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Sinks: []logforwarder.LogSinkSpec{{
+				Name:   "juju-log-forward",
+				OpenFn: sinks.OpenSyslog,
+			}},
 		})),
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
@@ -380,10 +367,9 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 
-	spacesImportedGateName = "spaces-imported-gate"
-	isResponsibleFlagName  = "is-responsible-flag"
-	notDeadFlagName        = "not-dead-flag"
-	notAliveFlagName       = "not-alive-flag"
+	isResponsibleFlagName = "is-responsible-flag"
+	notDeadFlagName       = "not-dead-flag"
+	notAliveFlagName      = "not-alive-flag"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
@@ -391,7 +377,6 @@ const (
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
-	spaceImporterName        = "space-importer"
 	computeProvisionerName   = "compute-provisioner"
 	storageProvisionerName   = "storage-provisioner"
 	firewallerName           = "firewaller"
@@ -404,4 +389,5 @@ const (
 	statusHistoryPrunerName  = "status-history-pruner"
 	machineUndertakerName    = "machine-undertaker"
 	remoteRelationsName      = "remote-relations"
+	logForwarderName         = "log-forwarder"
 )
