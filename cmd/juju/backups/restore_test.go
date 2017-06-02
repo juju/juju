@@ -263,6 +263,42 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 	})
 }
 
+func (s *restoreSuite) TestRestoreReboostrapControllerConfigDefaults(c *gc.C) {
+	metadata := params.BackupsMetadataResult{
+		CACert:       testing.CACert,
+		CAPrivateKey: testing.CAKey,
+	}
+	fakeEnv := fakeEnviron{}
+	s.command = backups.NewRestoreCommandForTest(
+		s.store, &mockRestoreAPI{},
+		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
+			return &mockArchiveReader{}, &metadata, nil
+		},
+		backups.GetEnvironFunc(fakeEnv),
+		nil,
+	)
+	boostrapped := false
+	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
+		c.Assert(args.ControllerConfig, jc.DeepEquals, controller.Config{
+			"controller-uuid":         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+			"ca-cert":                 testing.CACert,
+			"state-port":              37017,
+			"api-port":                17070,
+			"set-numa-control-policy": false,
+			"max-logs-age":            "72h",
+			"max-logs-size":           "4096M",
+			"max-txn-log-size":        "10M",
+			"auditing-enabled":        false,
+		})
+		boostrapped = true
+		return nil
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(boostrapped, jc.IsTrue)
+}
+
 func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
 	metadata := params.BackupsMetadataResult{
 		CACert:       testing.CACert,
