@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -382,36 +383,6 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 		"access":             "add-model",
 	}}
 	s.assertUpgradedData(c, RenameAddModelPermission, expectUpgradedData{coll, expected})
-}
-
-func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
-	coll := s.state.MongoSession().DB(logsDB).C("logs")
-	err := coll.EnsureIndexKey("e", "t")
-	c.Assert(err, jc.ErrorIsNil)
-	err = DropOldLogIndex(s.state)
-	c.Assert(err, jc.ErrorIsNil)
-
-	exists, err := hasIndex(coll, []string{"e", "t"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsFalse)
-
-	// Sanity check for idempotency.
-	err = DropOldLogIndex(s.state)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *upgradesSuite) TestDropOldIndexWhenNoIndex(c *gc.C) {
-	coll := s.state.MongoSession().DB(logsDB).C("logs")
-	// Ensure the collection exists by creating some other index on
-	// it. (This is made more confusing now that versions beyond this
-	// one don't have the logs table.)
-	err := coll.EnsureIndexKey("e", "g")
-	exists, err := hasIndex(coll, []string{"e", "t"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsFalse)
-
-	err = DropOldLogIndex(s.state)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
@@ -1324,9 +1295,6 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 
 	expected := map[string][]bson.M{}
 
-	// set batch remove size to 10 to trigger removal.
-	splitBatchRemoveSize = 10
-
 	for i := 0; i < 15; i++ {
 		modelUUID := uuids[i%3]
 		logRow := bson.M{
@@ -1389,4 +1357,73 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 		sort.Sort(bsonMById(docs))
 		c.Assert(docs, jc.DeepEquals, expected[uuid])
 	}
+}
+
+func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
+	db := s.state.MongoSession().DB(logsDB)
+	oldLogs := db.C("logs")
+
+	uuids := []string{"fake-1", "fake-2", "fake-3"}
+	expected := map[string][]bson.M{}
+
+	for i := 0; i < 15; i++ {
+		modelUUID := uuids[i%3]
+		logRow := bson.M{
+			"_id": fmt.Sprintf("fake-objectid-%02d", i),
+			"t":   100 * i,
+			"e":   modelUUID,
+			"r":   "2.1.2",
+			"n":   fmt.Sprintf("fake-entitiy-%d", i),
+			"m":   "juju.testing",
+			"l":   "fake-file.go:1234",
+			"v":   int(loggo.DEBUG),
+			"x":   "test message",
+		}
+		err := oldLogs.Insert(logRow)
+		c.Assert(err, jc.ErrorIsNil)
+
+		delete(logRow, "e")
+		vals := expected[modelUUID]
+		expected[modelUUID] = append(vals, logRow)
+	}
+
+	// Put the first expected output row in each destination
+	// collection already.
+	for modelUUID, rows := range expected {
+		targetColl := db.C("logs." + modelUUID)
+		err := targetColl.Insert(rows[0])
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err := SplitLogCollections(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now check the logs - the duplicates were ignored.
+	for _, uuid := range uuids {
+		newLogs := db.C(fmt.Sprintf("logs.%s", uuid))
+		numDocs, err := newLogs.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(numDocs, gc.Equals, 5)
+
+		var docs []bson.M
+		err = newLogs.Find(nil).All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+
+		sort.Sort(bsonMById(docs))
+		c.Assert(docs, jc.DeepEquals, expected[uuid])
+	}
+
+	numDocs, err := oldLogs.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numDocs, gc.Equals, 0)
+}
+
+func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
+	db := s.state.MongoSession().DB(logsDB)
+	names, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("logs"), jc.IsFalse)
+
+	err = SplitLogCollections(s.state)
+	c.Assert(err, jc.ErrorIsNil)
 }

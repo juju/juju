@@ -396,7 +396,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	if err := InitDbLogs(session, uuid); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "initialising model logs collection")
 	}
 	return newModel, newSt, nil
 }

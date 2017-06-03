@@ -28,9 +28,9 @@ import (
 
 // TODO(wallyworld) - lp:1602508 - collections need to be defined in collections.go
 const (
-	logsDB     = "logs"
-	logsPrefix = "logs."
-	forwardedC = "forwarded"
+	logsDB      = "logs"
+	logsCPrefix = "logs."
+	forwardedC  = "forwarded"
 )
 
 // ErrNeverForwarded signals to the caller that the ID of a
@@ -69,7 +69,7 @@ var logIndexes = [][]string{
 }
 
 func logCollectionName(modelUUID string) string {
-	return logsPrefix + modelUUID
+	return logsCPrefix + modelUUID
 }
 
 // InitDbLogs sets up the indexes for the logs collection. It should
@@ -744,7 +744,8 @@ func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int) erro
 		pruneCounts[modelUUID] = removeInfo.Removed
 	}
 
-	// Do further pruning if the logs collection is over the maximum size.
+	// Do further pruning if the total size of the log collections is
+	// over the maximum size.
 	for {
 		collMB, err := getCollectionTotalMB(logColls)
 		if err != nil {
@@ -854,10 +855,10 @@ func getLogCollections(db *mgo.Database) (map[string]*mgo.Collection, error) {
 		return nil, errors.Trace(err)
 	}
 	for _, name := range names {
-		if !strings.HasPrefix(name, logsPrefix) {
+		if !strings.HasPrefix(name, logsCPrefix) {
 			continue
 		}
-		uuid := name[len(logsPrefix):]
+		uuid := name[len(logsCPrefix):]
 		result[uuid] = db.C(name)
 	}
 	return result, nil

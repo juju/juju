@@ -20,7 +20,6 @@ type StateBackend interface {
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
-	DropOldLogIndex() error
 	AddMigrationAttempt() error
 	AddLocalCharmSequences() error
 	UpdateLegacyLXDCloudCredentials(string, cloud.Credential) error
@@ -71,10 +70,6 @@ func (s stateBackend) StripLocalUserDomain() error {
 
 func (s stateBackend) RenameAddModelPermission() error {
 	return state.RenameAddModelPermission(s.st)
-}
-
-func (s stateBackend) DropOldLogIndex() error {
-	return state.DropOldLogIndex(s.st)
 }
 
 func (s stateBackend) AddMigrationAttempt() error {
