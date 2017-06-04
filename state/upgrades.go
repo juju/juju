@@ -231,23 +231,6 @@ func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.O
 	return ops, nil
 }
 
-func DropOldLogIndex(st *State) error {
-	// If the log collection still has the old e,t index, remove it.
-	key := []string{"e", "t"}
-	db := st.MongoSession().DB(logsDB)
-	collection := db.C(logsC)
-	err := collection.DropIndex(key...)
-	if err == nil {
-		return nil
-	}
-	if queryErr, ok := err.(*mgo.QueryError); ok {
-		if strings.HasPrefix(queryErr.Message, "index not found") {
-			return nil
-		}
-	}
-	return errors.Trace(err)
-}
-
 // AddMigrationAttempt adds an "attempt" field to migration documents
 // which are missing one.
 func AddMigrationAttempt(st *State) error {
@@ -812,6 +795,63 @@ func addStorageInstanceConstraints(st *State) error {
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runTransaction(ops))
+	}
+	return nil
+}
+
+// SplitLogCollections moves log entries from the old single log collection
+// to the log collection per model.
+func SplitLogCollections(st *State) error {
+	session := st.MongoSession()
+	db := session.DB(logsDB)
+	oldLogs := db.C("logs")
+
+	// If we haven't seen any particular model, we need to initialise
+	// the logs collection with the right indices.
+	seen := set.NewStrings()
+
+	iter := oldLogs.Find(nil).Iter()
+	var doc bson.M
+
+	for iter.Next(&doc) {
+		modelUUID := doc["e"].(string)
+		newCollName := logCollectionName(modelUUID)
+		newLogs := db.C(newCollName)
+
+		if !seen.Contains(newCollName) {
+			if err := InitDbLogs(session, modelUUID); err != nil {
+				return errors.Annotatef(err, "failed to init new logs collection %q", newCollName)
+			}
+			seen.Add(newCollName)
+		}
+
+		delete(doc, "e") // old model uuid
+
+		if err := newLogs.Insert(doc); err != nil {
+			// In the case of a restart, we may have already moved some
+			// of these rows, in which case we'd get a duplicate id error.
+			if merr, ok := err.(*mgo.LastError); ok {
+				if merr.Code != 11000 {
+					return errors.Annotate(err, "failed to insert log record")
+				}
+				// Otherwise we just skip the duplicate row.
+			} else {
+				return errors.Annotate(err, "failed to insert log record")
+			}
+		}
+		doc = nil
+	}
+
+	// drop the old collection
+	if err := oldLogs.DropCollection(); err != nil {
+		// If the error is &mgo.QueryError{Code:26, Message:"ns not found", Assertion:false}
+		// that's fine.
+		if merr, ok := err.(*mgo.QueryError); ok {
+			if merr.Code == 26 {
+				return nil
+			}
+		}
+		return errors.Annotate(err, "failed to drop old logs collection")
 	}
 	return nil
 }

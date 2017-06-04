@@ -20,12 +20,6 @@ type steps21Suite struct {
 
 var _ = gc.Suite(&steps21Suite{})
 
-func (s *steps21Suite) TestDropOldLogIndex(c *gc.C) {
-	step := findStateStep(c, v210, "drop old log index")
-	// Logic for step itself is tested in state package.
-	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
-}
-
 func (s *steps21Suite) TestAddMigrationAttempt(c *gc.C) {
 	step := findStateStep(c, v210, "add attempt to migration docs")
 	// Logic for step itself is tested in state package.

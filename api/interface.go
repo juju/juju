@@ -177,7 +177,7 @@ type IPAddrResolver interface {
 
 // DNSCache implements a cache of DNS lookup results.
 type DNSCache interface {
-	// Lookup returns an IP addresses associated
+	// Lookup returns the IP addresses associated
 	// with the given host.
 	Lookup(host string) []string
 	// Add sets the IP addresses associated with

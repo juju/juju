@@ -77,18 +77,14 @@ func (v Value) GoValue() reflect.Value {
 // It returns an error if either the root method or the object
 // method were not found.
 // It panics if called on the zero Value.
+// The version argument is ignored - all versions will find
+// the same method.
 func (v Value) FindMethod(rootMethodName string, version int, objMethodName string) (MethodCaller, error) {
 	if !v.IsValid() {
 		panic("FindMethod called on invalid Value")
 	}
 	caller := methodCaller{
 		rootValue: v.rootValue,
-	}
-	if version != 0 {
-		return nil, &CallNotImplementedError{
-			RootMethod: rootMethodName,
-			Version:    version,
-		}
 	}
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)

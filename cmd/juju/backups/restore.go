@@ -203,12 +203,14 @@ func (c *restoreCommand) getRebootstrapParams(
 		return nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 
-	controllerCfg := make(controller.Config)
+	controllerCfgAttrs := make(map[string]interface{})
 	for k, v := range config.ControllerConfig {
-		controllerCfg[k] = v
+		controllerCfgAttrs[k] = v
 	}
-	controllerCfg[controller.ControllerUUIDKey] = controllerDetails.ControllerUUID
-	controllerCfg[controller.CACertKey] = meta.CACert
+	controllerCfg, err := controller.NewConfig(controllerDetails.ControllerUUID, meta.CACert, controllerCfgAttrs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create controller config")
+	}
 
 	return &restoreBootstrapParams{
 		controllerCfg,

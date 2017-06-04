@@ -71,7 +71,7 @@ func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
 		ControllerConfig: controllerConfig,
 	})
 	s.AddCleanup(func(*gc.C) { s.state.Close() })
-	s.logsColl = s.state.MongoSession().DB("logs").C("logs")
+	s.logsColl = s.state.MongoSession().DB("logs").C("logs." + s.state.ModelUUID())
 }
 
 func (s *suite) startWorker(c *gc.C) {

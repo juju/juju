@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -210,7 +211,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 			DialAddressInterval: dialAddressInterval,
 			DialWebsocket:       fakeDialer,
 			Clock:               clock,
-			IPAddrResolver: fakeResolver{
+			IPAddrResolver: apitesting.IPAddrResolverMap{
 				"place1.example": {"0.1.1.1"},
 				"place2.example": {"0.2.2.2"},
 			},
@@ -587,7 +588,7 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 		Timeout:       5 * time.Second,
 		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
+		IPAddrResolver: apitesting.IPAddrResolverMap{
 			"place1.example": {"0.1.1.1"},
 		},
 		DNSCache: dnsCache,
@@ -616,7 +617,7 @@ func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 		// then there's a possibility that the resolving will
 		// happen and a second dial attempt will happen before
 		// the Open returns, giving rise to a race.
-		IPAddrResolver: fakeResolver{},
+		IPAddrResolver: apitesting.IPAddrResolverMap{},
 		DNSCache: dnsCacheMap{
 			"place1.example": {"0.1.1.1"},
 		},
@@ -645,7 +646,7 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 		Timeout:        5 * time.Second,
 		RetryDelay:     1 * time.Second,
 		DialWebsocket:  fakeDialer,
-		IPAddrResolver: fakeResolver{},
+		IPAddrResolver: apitesting.IPAddrResolverMap{},
 		DNSCache:       dnsCache,
 		Clock:          &fakeClock{},
 	})
@@ -686,7 +687,7 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 			// Note: zero timeout means each address attempt
 			// will only try once only.
 			DialWebsocket: fakeDialer,
-			IPAddrResolver: fakeResolver{
+			IPAddrResolver: apitesting.IPAddrResolverMap{
 				"place1.example": {"0.2.2.2"},
 			},
 			DNSCache: dnsCache,
@@ -742,7 +743,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
 		Timeout:        5 * time.Second,
 		RetryDelay:     1 * time.Second,
 		DialWebsocket:  fakeDialer,
-		IPAddrResolver: fakeResolver{},
+		IPAddrResolver: apitesting.IPAddrResolverMap{},
 		Clock:          &fakeClock{},
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot resolve "nowhere.example": mock resolver cannot resolve "nowhere.example"`)
@@ -771,7 +772,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 		Timeout:       5 * time.Second,
 		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
+		IPAddrResolver: apitesting.IPAddrResolverMap{
 			"place1.example": {"0.2.2.2"},
 		},
 		DNSCache: dnsCache,
@@ -1019,37 +1020,11 @@ func (c fakeConn) Close() error {
 	return nil
 }
 
-// fakeResolver implements IPAddrResolver
-// by looking up the addresses in the map,
-// which maps host names to IP addresses.
-type fakeResolver map[string][]string
-
-func (r fakeResolver) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
-	if ip := net.ParseIP(host); ip != nil {
-		return []net.IPAddr{{IP: ip}}, nil
-	}
-	ipStrs := r[host]
-	if len(ipStrs) == 0 {
-		return nil, errors.Errorf("mock resolver cannot resolve %q", host)
-	}
-	ipAddrs := make([]net.IPAddr, len(ipStrs))
-	for i, ipStr := range ipStrs {
-		ip := net.ParseIP(ipStr)
-		if ip == nil {
-			panic("invalid IP address: " + ipStr)
-		}
-		ipAddrs[i] = net.IPAddr{
-			IP: ip,
-		}
-	}
-	return ipAddrs, nil
-}
-
 // seqResolver returns an implementation of
 // IPAddrResolver that maps the given addresses
 // to sequential IP addresses 0.1.1.1, 0.2.2.2, etc.
 func seqResolver(addrs ...string) api.IPAddrResolver {
-	r := make(fakeResolver)
+	r := make(apitesting.IPAddrResolverMap)
 	for i, addr := range addrs {
 		host, _, err := net.SplitHostPort(addr)
 		if err != nil {
