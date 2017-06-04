@@ -464,7 +464,6 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -473,15 +472,14 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:        bson.NewObjectId(),
-		Time:      t.UnixNano(),
-		ModelUUID: modelUUID,
-		Entity:    entity.String(),
-		Version:   version.Current.String(),
-		Module:    module,
-		Location:  location,
-		Level:     int(level),
-		Message:   msg,
+		Id:       bson.NewObjectId(),
+		Time:     t.UnixNano(),
+		Entity:   entity.String(),
+		Version:  version.Current.String(),
+		Module:   module,
+		Location: location,
+		Level:    int(level),
+		Message:  msg,
 	}
 }
 

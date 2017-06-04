@@ -146,7 +146,7 @@ func open(
 		return nil, errors.Trace(err)
 	}
 	if initDatabase != nil {
-		if err := initDatabase(session, controllerConfig); err != nil {
+		if err := initDatabase(session, controllerModelTag.Id(), controllerConfig); err != nil {
 			session.Close()
 			return nil, errors.Trace(err)
 		}
@@ -258,10 +258,10 @@ func (p InitializeParams) Validate() error {
 
 // InitDatabaseFunc defines a function used to
 // create the collections and indices in a Juju database.
-type InitDatabaseFunc func(*mgo.Session, *controller.Config) error
+type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
 
 // InitDatabase creates all the collections and indices in a Juju database.
-func InitDatabase(session *mgo.Session, settings *controller.Config) error {
+func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.Config) error {
 	schema := allCollections()
 	err := schema.Create(
 		session.DB(jujuDB),
@@ -270,7 +270,7 @@ func InitDatabase(session *mgo.Session, settings *controller.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := InitDbLogs(session); err != nil {
+	if err := InitDbLogs(session, modelUUID); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

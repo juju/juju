@@ -38,16 +38,6 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: agent.BootstrapNonce,
@@ -75,10 +65,11 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	return s.waitForLogs(c, m.Tag())
+	foundLogs := s.waitForLogs(c, m.Tag())
+	c.Assert(foundLogs, jc.IsTrue)
 }
 
-func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
+func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password)
@@ -95,14 +86,15 @@ func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
 	go func() { c.Assert(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	return s.waitForLogs(c, u.Tag())
+	foundLogs := s.waitForLogs(c, u.Tag())
+	c.Assert(foundLogs, jc.IsTrue)
 }
 
 func (s *dblogSuite) getLogCount(c *gc.C, entity names.Tag) int {
 	// TODO(mjs) - replace this with State's functionality for reading
 	// logs from the DB, once it gets this. This will happen before
 	// the DB logging feature branch is merged.
-	logs := s.Session.DB("logs").C("logs")
+	logs := s.Session.DB("logs").C("logs." + s.State.ModelUUID())
 	count, err := logs.Find(bson.M{"n": entity.String()}).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
