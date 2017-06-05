@@ -13,9 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 )
 
 // Backend defines the state functionality required by the application
@@ -38,8 +36,6 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
-	NewStorage() storage.Storage
-	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -18,9 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"strings"
 )
 
 type mockEnviron struct {
@@ -239,18 +238,19 @@ type mockBackend struct {
 	jtesting.Stub
 	application.Backend
 
-	modelUUID              string
-	model                  application.Model
-	charm                  *mockCharm
-	allmodels              []application.Model
-	users                  set.Strings
-	applications           map[string]application.Application
-	remoteApplications     map[string]application.RemoteApplication
-	spaces                 map[string]application.Space
-	endpoints              *[]state.Endpoint
-	relation               *mockRelation
-	unitStorageAttachments map[string][]state.StorageAttachment
-	storageInstances       map[string]*mockStorage
+	modelUUID                  string
+	model                      application.Model
+	charm                      *mockCharm
+	allmodels                  []application.Model
+	users                      set.Strings
+	applications               map[string]application.Application
+	remoteApplications         map[string]application.RemoteApplication
+	spaces                     map[string]application.Space
+	endpoints                  *[]state.Endpoint
+	relation                   *mockRelation
+	unitStorageAttachments     map[string][]state.StorageAttachment
+	storageInstances           map[string]*mockStorage
+	storageInstanceFilesystems map[string]*mockFilesystem
 }
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {
@@ -334,6 +334,18 @@ func (m *mockBackend) StorageInstance(tag names.StorageTag) (state.StorageInstan
 		return nil, errors.NotFoundf("storage %s", tag.Id())
 	}
 	return s, nil
+}
+
+func (m *mockBackend) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	m.MethodCall(m, "StorageInstanceFilesystem", tag)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	f, ok := m.storageInstanceFilesystems[tag.Id()]
+	if !ok {
+		return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
+	}
+	return f, nil
 }
 
 func (m *mockBackend) AddRemoteApplication(args state.AddRemoteApplicationParams) (application.RemoteApplication, error) {
