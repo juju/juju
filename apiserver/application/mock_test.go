@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -20,7 +21,6 @@ import (
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"strings"
 )
 
 type mockEnviron struct {

@@ -47,10 +47,8 @@ func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 }
 
 // NewAddRelationCommandForTest returns an AddRelationCommand with the api provided as specified.
-func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) modelcmd.ModelCommand {
-	cmd := &addRelationCommand{newAPIFunc: func() (ApplicationAddRelationAPI, error) {
-		return api, nil
-	}}
+func NewAddRelationCommandForTest(addAPI applicationAddRelationAPI, consumeAPI applicationConsumeDetailsAPI) modelcmd.ModelCommand {
+	cmd := &addRelationCommand{addRelationAPI: addAPI, consumeDetailsAPI: consumeAPI}
 	return modelcmd.Wrap(cmd)
 }
 

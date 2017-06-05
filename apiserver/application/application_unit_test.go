@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -29,7 +30,7 @@ type ApplicationSuite struct {
 	endpoints []state.Endpoint
 	relation  mockRelation
 
-	env          *mockEnviron
+	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
 	api          *application.API
@@ -295,8 +296,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 			}},
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(results.Results, gc.HasLen, 1)
-		c.Assert(results.Results[0].Error, gc.IsNil)
+		c.Assert(results.OneError(), gc.IsNil)
 	}
 	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
 	c.Assert(ok, jc.IsTrue)
@@ -311,7 +311,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
+	s.env.(*mockEnviron).spaceInfo = &environs.ProviderSpaceInfo{
 		CloudType: "grandaddy",
 		ProviderAttributes: map[string]interface{}{
 			"thunderjaws": 1,
@@ -356,8 +356,7 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.OneError(), gc.IsNil)
 
 	obtained, ok := s.backend.remoteApplications["beirut"]
 	c.Assert(ok, jc.IsTrue)
@@ -384,60 +383,61 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	}})
 }
 
-// TODO(wallyworld) - re-implement when OfferDetails is done
-//func (s *ApplicationSuite) TestConsumeRejectsEndpoints(c *gc.C) {
-//	results, err := s.api.Consume(params.ConsumeApplicationArgs{
-//		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
-//	})
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(results.Results, gc.HasLen, 1)
-//	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
-//	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "othermodel.application:db" shouldn't include endpoint`)
-//}
-//
-//func (s *ApplicationSuite) TestConsumeNoPermission(c *gc.C) {
-//	s.setupOffer()
-//	s.mockBackend.users.Add("someone")
-//	user := names.NewUserTag("someone")
-//	offer := names.NewApplicationOfferTag("hosted-mysql")
-//	err := s.mockBackend.CreateOfferAccess(offer, user, permission.NoAccess)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	targetModelTag := s.setupTargetModel()
-//
-//	s.authorizer.Tag = names.NewUserTag("someone")
-//	results, err := s.api.Consume(params.ConsumeApplicationArgs{
-//		Args: []params.ConsumeApplicationArg{{
-//			SourceModelTag:         testing.ModelTag.String(),
-//			OfferName:              "hosted-mysql",
-//			ApplicationDescription: "a database",
-//			Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
-//			OfferURL:               "othermodel.hosted-mysql",
-//			ApplicationAlias:       "mysql",
-//			TargetModelTag:         targetModelTag.String(),
-//		}},
-//	})
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(results.Results, gc.HasLen, 1)
-//	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*permission denied.*")
-//}
-//
-//func (s *ApplicationSuite) TestConsumeWithPermission(c *gc.C) {
-//	st := s.mockStatePool.st[testing.ModelTag.Id()]
-//	st.(*mockBackend).users.Add("postgresqlbar")
+func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.C) {
+	arg := params.ConsumeApplicationArg{
+		ApplicationOffer: params.ApplicationOffer{
+			SourceModelTag:         coretesting.ModelTag.String(),
+			OfferName:              "hosted-mysql",
+			ApplicationDescription: "a database",
+			Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+			OfferURL:               "othermodel.hosted-mysql",
+		},
+	}
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 
-//_, err := s.otherModel.AddUser("someone", "spmeone", "secret", "admin")
-//c.Assert(err, jc.ErrorIsNil)
-//apiUser := names.NewUserTag("someone")
-//err = s.otherModel.CreateOfferAccess(
-//	names.NewApplicationOfferTag("hosted-mysql"), apiUser, permission.ConsumeAccess)
-//s.authorizer.Tag = apiUser
-//results, err := s.api.Consume(params.ConsumeApplicationArgs{
-//	Args: []params.ConsumeApplicationArg{
-//		{ApplicationURL: "admin/othermodel.hosted-mysql"},
-//	},
-//})
-//c.Assert(err, jc.ErrorIsNil)
-//c.Assert(results.Results, gc.HasLen, 1)
-//c.Assert(results.Results[0].Error, gc.IsNil)
-//}
+	arg.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
+	results, err = s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.ErrorMatches, `remote application called "hosted-mysql" from a different model already exists`)
+}
+
+func (s *ApplicationSuite) assertConsumeWithNoSpacesInfoAvailable(c *gc.C) {
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag:         coretesting.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "a database",
+				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+				OfferURL:               "othermodel.hosted-mysql",
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+
+	// Successfully added, but with no bindings or spaces since the
+	// environ doesn't support networking.
+	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained.Bindings(), gc.IsNil)
+	c.Assert(obtained.Spaces(), gc.IsNil)
+}
+
+func (s *ApplicationSuite) TestConsumeWithNonNetworkingEnviron(c *gc.C) {
+	s.env = &mockNoNetworkEnviron{}
+	s.assertConsumeWithNoSpacesInfoAvailable(c)
+}
+
+func (s *ApplicationSuite) TestConsumeProviderSpaceInfoNotSupported(c *gc.C) {
+	s.env.(*mockEnviron).stub.SetErrors(errors.NotSupportedf("provider space info"))
+	s.assertConsumeWithNoSpacesInfoAvailable(c)
+}

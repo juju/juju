@@ -191,17 +191,15 @@ otheruser/othermodel.hosted-mysql:
 }
 
 func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
-	c.Skip("add relation from URL not currently supported")
-
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 	ch = s.AddTestingCharm(c, "mysql")
 	s.AddTestingService(c, "mysql", ch)
 
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
-		"mysql:server", "me/model.hosted-mysql")
+		"mysql:server", "hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runJujuCommand(c, "add-relation", "wordpress", "me/model.hosted-mysql")
+	_, err = runJujuCommand(c, "add-relation", "wordpress", "admin/controller.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,7 +246,7 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 			},
 		}, {
 			ApplicationName: "hosted-mysql",
-			Relation: charm.Relation{Name: "server",
+			Relation: charm.Relation{Name: "database",
 				Role:      "provider",
 				Interface: "mysql",
 				Scope:     "global"},
@@ -257,7 +255,6 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 }
 
 func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
-	c.Skip("TODO - waiting on new Consume APIs")
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 
@@ -365,20 +362,19 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 	s.loginTestUser(c)
 	context, err := runJujuCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.NotNil)
-	c.Assert(cmdtesting.Stderr(context), jc.Contains, "You do not have permission to add a relation")
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, `application offer "otheruser/othermodel.hosted-mysql" not found`)
 }
 
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C) {
-	c.Skip("TODO - waiting on new Consume APIs")
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
-	//otherModel := s.addOtherModelApplication(c)
 	s.addOtherModelApplication(c)
 
 	s.createTestUser(c)
 
 	// Users with consume permission to the offer can add relations.
 	runJujuCommand(c, "grant", "test", "consume", "otheruser/othermodel.hosted-mysql")
+	runJujuCommand(c, "grant", "test", "write", "admin/controller")
 
 	s.loginTestUser(c)
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
