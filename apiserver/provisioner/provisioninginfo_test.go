@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/provisioner"
@@ -16,12 +17,17 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -191,7 +197,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	}
 	wordpressCharm := s.AddTestingCharm(c, "wordpress")
 	wordpressService := s.AddTestingServiceWithBindings(c, "wordpress", wordpressCharm, bindings)
-	wordpressUnit, err := wordpressService.AddUnit()
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +281,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "loop"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}
@@ -304,6 +310,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
+				// volume-0 should not be included as it is not managed by
+				// the environ provider.
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-1",
 					Size:       1000,
@@ -322,6 +330,60 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 			}},
 		},
 	})
+}
+
+func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{
+			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
+		},
+	}
+	machine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision just one of the volumes, but neither of the attachments.
+	err = s.State.SetVolumeInfo(names.NewVolumeTag("1"), state.VolumeInfo{
+		Pool:       "modelscoped",
+		Size:       1000,
+		VolumeId:   "vol-ume",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: machine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Result, gc.NotNil)
+
+	// volume-0 should be created, as it hasn't yet been provisioned.
+	c.Assert(result.Results[0].Result.Volumes, jc.DeepEquals, []params.VolumeParams{{
+		VolumeTag: "volume-0",
+		Size:      1000,
+		Provider:  "modelscoped",
+		Tags: map[string]string{
+			tags.JujuController: coretesting.ControllerTag.Id(),
+			tags.JujuModel:      coretesting.ModelTag.Id(),
+		},
+		Attachment: &params.VolumeAttachmentParams{
+			MachineTag: machine.Tag().String(),
+			VolumeTag:  "volume-0",
+			Provider:   "modelscoped",
+		},
+	}})
+
+	// volume-1 has already been provisioned, it just needs to be attached.
+	c.Assert(result.Results[0].Result.VolumeAttachments, jc.DeepEquals, []params.VolumeAttachmentParams{{
+		MachineTag: machine.Tag().String(),
+		VolumeTag:  "volume-1",
+		VolumeId:   "vol-ume",
+		Provider:   "modelscoped",
+	}})
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {

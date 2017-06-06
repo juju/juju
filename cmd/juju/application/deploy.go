@@ -91,9 +91,6 @@ type DeployAPI interface {
 	GetBundle(*charm.URL) (charm.Bundle, error)
 
 	WatchAll() (*api.AllWatcher, error)
-
-	// AddPendingResources(client.AddPendingResourcesArgs) (ids []string, _ error)
-	// DeployResources(cmd.DeployResourcesArgs) (ids []string, _ error)
 }
 
 // The following structs exist purely because Go cannot create a
@@ -288,6 +285,13 @@ type DeployCommand struct {
 	// the storage name defined in that application's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
+	// TODO(axw) move this to UnitCommandBase once we support --attach-storage
+	// on add-unit too.
+	//
+	// AttachStorage is a list of storage IDs, identifying storage to
+	// attach to the unit created by deploy.
+	AttachStorage []string
+
 	// Resources is a map of resource name to filename to be uploaded on deploy.
 	Resources map[string]string
 
@@ -444,7 +448,10 @@ func (c *DeployCommand) Info() *cmd.Info {
 var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
+	charmOnlyFlags = []string{
+		"bind", "config", "constraints", "force", "n", "num-units",
+		"series", "to", "resource", "attach-storage",
+	}
 	bundleOnlyFlags = []string{}
 )
 
@@ -460,6 +467,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 
@@ -472,6 +480,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DeployCommand) Init(args []string) error {
 	if c.Force && c.Series == "" && c.PlacementSpec == "" {
 		return errors.New("--force is only used with --series")
+	}
+	if len(c.AttachStorage) > 0 && c.NumUnits != 1 {
+		return errors.New("--attach-storage cannot be used with -n")
 	}
 	switch len(args) {
 	case 2:
@@ -625,6 +636,7 @@ func (c *DeployCommand) deployCharm(
 		ConfigYAML:       string(configYAML),
 		Placement:        c.Placement,
 		Storage:          c.Storage,
+		AttachStorage:    c.AttachStorage,
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
 	}))

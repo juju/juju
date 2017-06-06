@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -973,6 +974,7 @@ type AddApplicationArgs struct {
 	Charm            *Charm
 	Channel          csparams.Channel
 	Storage          map[string]StorageConstraints
+	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	Settings         charm.Settings
 	NumUnits         int
@@ -992,6 +994,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
+	}
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}
 
 	if err := validateCharmVersion(args.Charm); err != nil {
@@ -1093,7 +1098,44 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			}
 
 		case directivePlacement:
-			if err := st.precheckInstance(args.Series, args.Constraints, data.directive); err != nil {
+			// Obtain volume attachment params corresponding to storage being
+			// attached. We need to pass them along to precheckInstance, in
+			// case the volumes cannot be attached to a machine with the given
+			// placement directive.
+			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
+			for _, storageTag := range args.AttachStorage {
+				v, err := st.StorageInstanceVolume(storageTag)
+				if errors.IsNotFound(err) {
+					continue
+				} else if err != nil {
+					return nil, errors.Trace(err)
+				}
+				volumeInfo, err := v.Info()
+				if err != nil {
+					// Volume has not been provisioned yet,
+					// so it cannot be attached.
+					continue
+				}
+				providerType, _, err := poolStorageProvider(st, volumeInfo.Pool)
+				if err != nil {
+					return nil, errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
+				}
+				storageName, _ := names.StorageName(storageTag.Id())
+				volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						Provider: providerType,
+						ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
+					},
+					Volume:   v.VolumeTag(),
+					VolumeId: volumeInfo.VolumeId,
+				})
+			}
+			if err := st.precheckInstance(
+				args.Series,
+				args.Constraints,
+				data.directive,
+				volumeAttachments,
+			); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -1209,7 +1251,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
-			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{
+				cons:          args.Constraints,
+				storageCons:   args.Storage,
+				attachStorage: args.AttachStorage,
+			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

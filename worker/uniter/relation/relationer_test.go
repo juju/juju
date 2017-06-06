@@ -74,7 +74,7 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
-	u, err := s.app.AddUnit()
+	u, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Name(), gc.Equals, name)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -297,7 +297,7 @@ var _ = gc.Suite(&RelationerImplicitSuite{})
 func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	u, err := mysql.AddUnit()
+	u, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

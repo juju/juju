@@ -48,7 +48,7 @@ func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 }
 
 func (s *runSuite) addUnit(c *gc.C, service *state.Application) *state.Unit {
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,7 +63,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 
 	notAssigned, err := s.State.AddApplication(state.AddApplicationArgs{Name: "not-assigned", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = notAssigned.AddUnit()
+	_, err = notAssigned.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "no-units", Charm: charm})

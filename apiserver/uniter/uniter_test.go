@@ -284,7 +284,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 
 	// Add another unit, so the service will stay dying when we
 	// destroy it later.
-	extraUnit, err := s.wordpress.AddUnit()
+	extraUnit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(extraUnit, gc.NotNil)
 
@@ -2275,7 +2275,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2407,7 +2407,7 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(unitPorts, gc.HasLen, 0)
 
 	// Add another mysql unit on machine 0.
-	mysqlUnit1, err := s.mysql.AddUnit()
+	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysqlUnit1.AssignToMachine(s.machine0)
 	c.Assert(err, jc.ErrorIsNil)

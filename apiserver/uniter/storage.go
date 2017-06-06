@@ -315,7 +315,11 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 	if err != nil {
 		return err
 	}
-	return s.st.RemoveStorageAttachment(storageTag, unitTag)
+	err = s.st.RemoveStorageAttachment(storageTag, unitTag)
+	if errors.IsNotFound(err) {
+		err = nil
+	}
+	return err
 }
 
 // AddUnitStorage validates and creates additional storage instances for units.

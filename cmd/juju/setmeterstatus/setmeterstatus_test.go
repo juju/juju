@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -96,9 +97,9 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 func (s *DebugMetricsCommandSuite) TestService(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
-	unit0, err := service.AddUnit()
+	unit0, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit1, err := service.AddUnit()
+	unit1, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmdtesting.RunCommand(c, setmeterstatus.New(), "mysql", "RED", "--info", "foobar")
 	c.Assert(err, jc.ErrorIsNil)

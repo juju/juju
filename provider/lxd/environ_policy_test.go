@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/lxd"
 )
 
@@ -23,18 +24,8 @@ type environPolSuite struct {
 
 var _ = gc.Suite(&environPolSuite{})
 
-func (s *environPolSuite) TestPrecheckInstanceOkay(c *gc.C) {
-	cons := constraints.Value{}
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
-	cons := constraints.Value{}
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CheckNoAPI(c)
@@ -42,16 +33,14 @@ func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=some-instance-type")
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 
 	c.Check(err, gc.ErrorMatches, `LXD does not support instance types.*`)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	cons := constraints.MustParse("root-disk=1G")
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -60,16 +49,14 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	cons := constraints.MustParse("arch=i386")
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
-	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `unknown placement directive: .*`)
 }

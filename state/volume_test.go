@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 )
@@ -112,7 +113,10 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	// Register a default pool.
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateModelConfig(map[string]interface{}{
@@ -274,7 +278,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -315,14 +319,14 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	addUnit()
 
-	w := s.State.WatchEnvironVolumeAttachments()
+	w := s.State.WatchModelVolumeAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
@@ -346,7 +350,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func() {
-		u, err := app.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -387,7 +391,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
 		var err error
-		u, err = app.AddUnit()
+		u, err = app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		if to != nil {
 			err = u.AssignToMachine(to)
@@ -396,10 +400,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 		}
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
-		mid, err := u.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		m, err = s.State.Machine(mid)
-		c.Assert(err, jc.ErrorIsNil)
+		m = unitMachine(c, s.State, u)
 		return u, m
 	}
 	_, m0 := addUnit(nil)
@@ -517,6 +518,22 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision volume attachment so that detaching the storage
+	// attachment does not short-circuit.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		machine := unitMachine(c, s.State, u)
+		err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.SetVolumeAttachmentInfo(
+			machine.MachineTag(), volume.VolumeTag(),
+			state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
@@ -881,9 +898,8 @@ func (s *VolumeStateSuite) setupStorageVolumeAttachment(c *gc.C) (state.Volume, 
 	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
-	assignedMachineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	return s.storageInstanceVolume(c, storageTag), s.machine(c, assignedMachineId), u
+	machine := unitMachine(c, s.State, u)
+	return s.storageInstanceVolume(c, storageTag), machine, u
 }
 
 func (s *VolumeStateSuite) setupModelScopedVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {
@@ -926,8 +942,6 @@ func removeStorageInstance(c *gc.C, st *state.State, storageTag names.StorageTag
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
 		err = st.DetachStorage(storageTag, a.Unit())
-		c.Assert(err, jc.ErrorIsNil)
-		err = st.RemoveStorageAttachment(storageTag, a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	_, err = st.StorageInstance(storageTag)

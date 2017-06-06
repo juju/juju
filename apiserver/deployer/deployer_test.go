@@ -68,12 +68,12 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.principal0, err = s.service0.AddUnit()
+	s.principal0, err = s.service0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal0.AssignToMachine(s.machine1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.principal1, err = s.service0.AddUnit()
+	s.principal1, err = s.service0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal1.AssignToMachine(s.machine0)
 	c.Assert(err, jc.ErrorIsNil)

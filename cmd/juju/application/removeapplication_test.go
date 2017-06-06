@@ -60,10 +60,17 @@ func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
 }
 
 func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
-
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
 	_, err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,rootfs")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Materialise the storage by assigning units to machines.
+	for _, id := range []string{"storage-filesystem-multi-series/0", "storage-filesystem-multi-series/1"} {
+		u, err := s.State.Unit(id)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	ctx, err := runRemoveApplication(c, "storage-filesystem-multi-series")
 	c.Assert(err, jc.ErrorIsNil)

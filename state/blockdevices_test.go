@@ -75,6 +75,16 @@ func (s *BlockDevicesSuite) TestSetMachineBlockDevicesUpdates(c *gc.C) {
 	})
 }
 
+func (s *BlockDevicesSuite) TestSetMachineBlockDevicesMachineDying(c *gc.C) {
+	err := s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sda := state.BlockDeviceInfo{DeviceName: "sda"}
+	err = s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlockDevices(c, s.machine.MachineTag(), []state.BlockDeviceInfo{sda})
+}
+
 func (s *BlockDevicesSuite) TestSetMachineBlockDevicesUnchanged(c *gc.C) {
 	sda := state.BlockDeviceInfo{DeviceName: "sda"}
 	err := s.machine.SetMachineBlockDevices(sda)

@@ -295,7 +295,7 @@ func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	otherUnit, err := s.service.AddUnit()
+	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.State.EnqueueAction(otherUnit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)

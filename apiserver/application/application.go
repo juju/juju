@@ -20,13 +20,13 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -50,15 +50,8 @@ type API struct {
 	// state wherever we pass in a state.Charm currently.
 	stateCharm func(Charm) *state.Charm
 
-	deployApplicationFunc func(backend Backend, args jjj.DeployApplicationParams) error
+	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 	getEnviron            stateenvirons.NewEnvironFunc
-}
-
-// DeployApplication is a wrapper around juju.DeployApplication, to
-// match the function signature expected by NewAPI.
-func DeployApplication(backend Backend, args jjj.DeployApplicationParams) error {
-	_, err := jjj.DeployApplication(backend, args)
-	return err
 }
 
 // NewFacade provides the signature required for facade registration.
@@ -86,7 +79,7 @@ func NewAPI(
 	statePool *state.StatePool,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
-	deployApplication func(Backend, jjj.DeployApplicationParams) error,
+	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	getEnviron stateenvirons.NewEnvironFunc,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
@@ -175,7 +168,7 @@ func deployApplication(
 	backend Backend,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
-	deployApplicationFunc func(Backend, jjj.DeployApplicationParams) error,
+	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -217,7 +210,20 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(deployApplicationFunc(backend, jjj.DeployApplicationParams{
+	// Parse storage tags in AttachStorage.
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", args.NumUnits)
+	}
+	attachStorage := make([]names.StorageTag, len(args.AttachStorage))
+	for i, tagString := range args.AttachStorage {
+		tag, err := names.ParseStorageTag(tagString)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		attachStorage[i] = tag
+	}
+
+	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:  args.ApplicationName,
 		Series:           args.Series,
 		Charm:            stateCharm(ch),
@@ -227,9 +233,11 @@ func deployApplication(
 		Constraints:      args.Constraints,
 		Placement:        args.Placement,
 		Storage:          args.Storage,
+		AttachStorage:    attachStorage,
 		EndpointBindings: args.EndpointBindings,
 		Resources:        args.Resources,
-	}))
+	})
+	return errors.Trace(err)
 }
 
 // ApplicationSetSettingsStrings updates the settings for the given application,
@@ -597,18 +605,6 @@ func (api *API) Unexpose(args params.ApplicationUnexpose) error {
 	return app.ClearExposed()
 }
 
-// addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]*state.Unit, error) {
-	application, err := backend.Application(args.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
-	}
-	return jjj.AddUnits(backend, application, args.ApplicationName, args.NumUnits, args.Placement)
-}
-
 // AddUnits adds a given number of units to an application.
 func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if err := api.checkCanWrite(); err != nil {
@@ -626,6 +622,18 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 		unitNames[i] = unit.String()
 	}
 	return params.AddApplicationUnitsResults{Units: unitNames}, nil
+}
+
+// addApplicationUnits adds a given number of units to an application.
+func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]*state.Unit, error) {
+	application, err := backend.Application(args.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if args.NumUnits < 1 {
+		return nil, errors.New("must add at least one unit")
+	}
+	return addUnits(backend, application, args.ApplicationName, args.NumUnits, args.Placement)
 }
 
 // DestroyUnits removes a given set of application units.
@@ -665,7 +673,7 @@ func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 // DestroyUnit removes a given set of application units.
 func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
 	if err := api.checkCanWrite(); err != nil {
-		return params.DestroyUnitResults{}, err
+		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
 	if err := api.check.RemoveAllowed(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
@@ -673,7 +681,7 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 	destroyUnit := func(entity params.Entity) (*params.DestroyUnitInfo, error) {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		name := unitTag.Id()
 		unit, err := api.backend.Unit(name)
@@ -686,13 +694,18 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+		storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		info.DestroyedStorage, info.DetachedStorage = common.ClassifyDetachedStorage(storage)
+		info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+			api.backend, storage,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		if err := unit.Destroy(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		return &info, nil
 	}
@@ -773,7 +786,7 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -791,7 +804,12 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 			}
 			storage = unseen
 
-			destroyed, detached := common.ClassifyDetachedStorage(storage)
+			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
+				api.backend, storage,
+			)
+			if err != nil {
+				return nil, err
+			}
 			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
 			info.DetachedStorage = append(info.DetachedStorage, detached...)
 		}

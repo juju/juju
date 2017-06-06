@@ -47,7 +47,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)
 	s.rel = rels[0]
-	unit, err := s.svc.AddUnit()
+	unit, err := s.svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	s.ru, err = s.rel.Unit(unit)
@@ -73,7 +73,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
-	unit, err := s.svc.AddUnit()
+	unit, err := s.svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,7 +105,7 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
-	unit, err := s.svc.AddUnit()
+	unit, err := s.svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)

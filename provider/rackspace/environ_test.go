@@ -214,8 +214,8 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	return nil
 }
 
-func (e *fakeEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	e.Push("PrecheckInstance", series, cons, placement)
+func (e *fakeEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	e.Push("PrecheckInstance", args)
 	return nil
 }
 

@@ -65,7 +65,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 func (s *InstanceDistributorSuite) setupScenario(c *gc.C) {
 	// Assign a unit so we have a non-empty distribution group, and
 	// provision all instances so we have candidates.
-	unit, err := s.wordpress.AddUnit()
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machines[0])
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,7 +78,7 @@ func (s *InstanceDistributorSuite) setupScenario(c *gc.C) {
 
 func (s *InstanceDistributorSuite) TestDistributeInstances(c *gc.C) {
 	s.setupScenario(c)
-	unit, err := s.wordpress.AddUnit()
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstances(c *gc.C) {
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesInvalidInstances(c *gc.C) {
 	s.setupScenario(c)
-	unit, err := s.wordpress.AddUnit()
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.distributor.result = []instance.Id{"notthere"}
 	_, err = unit.AssignToCleanMachine()
@@ -101,7 +101,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesInvalidInstances(c *gc
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoEmptyMachines(c *gc.C) {
 	for i := range s.machines {
 		// Assign a unit so we have a non-empty distribution group.
-		unit, err := s.wordpress.AddUnit()
+		unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		m, err := unit.AssignToCleanMachine()
 		c.Assert(err, jc.ErrorIsNil)
@@ -112,7 +112,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoEmptyMachines(c *gc.
 
 	// InstanceDistributor is not called if there are no empty instances.
 	s.distributor.err = fmt.Errorf("no assignment for you")
-	unit, err := s.wordpress.AddUnit()
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
@@ -120,7 +120,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoEmptyMachines(c *gc.
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	s.setupScenario(c)
-	unit, err := s.wordpress.AddUnit()
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that assignment fails when DistributeInstances returns an error.
@@ -141,14 +141,14 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 	s.distributor.err = fmt.Errorf("no assignment for you")
 
 	// InstanceDistributor is not called if the distribution group is empty.
-	unit0, err := s.wordpress.AddUnit()
+	unit0, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit0.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Distribution group is still empty, because the machine assigned to has
 	// not been provisioned.
-	unit1, err := s.wordpress.AddUnit()
+	unit1, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit1.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
 		return nil, distributorErr
 	}
-	unit, err := s.wordpress.AddUnit()
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: policy returned nil instance distributor without an error`)
@@ -175,7 +175,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
 		return nil, nil
 	}
 	state.SetPolicy(s.State, nil)
-	unit, err := s.wordpress.AddUnit()
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)

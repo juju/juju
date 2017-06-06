@@ -1561,7 +1561,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	// Create the principal service and add a relation.
 	wps := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wpu, err := wps.AddUnit()
+	wpu, err := wps.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "u")
 	c.Assert(err, jc.ErrorIsNil)

@@ -1082,6 +1082,7 @@ type applicationAddUnitOpsArgs struct {
 	principalName string
 	cons          constraints.Value
 	storageCons   map[string]StorageConstraints
+	attachStorage []names.StorageTag
 }
 
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
@@ -1112,6 +1113,30 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		return "", nil, err
 	}
 
+	// Reduce the count of new storage created for each existing storage
+	// being attached.
+	var storageCons map[string]StorageConstraints
+	for _, tag := range args.attachStorage {
+		storageName, err := names.StorageName(tag.Id())
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		if cons, ok := args.storageCons[storageName]; ok && cons.Count > 0 {
+			if storageCons == nil {
+				// We must not modify the conents of the original
+				// args.storageCons map, as it comes from the
+				// user. Make a copy and modify that.
+				storageCons = make(map[string]StorageConstraints)
+				for name, cons := range args.storageCons {
+					storageCons[name] = cons
+				}
+				args.storageCons = storageCons
+			}
+			cons.Count--
+			storageCons[storageName] = cons
+		}
+	}
+
 	// Add storage instances/attachments for the unit. If the
 	// application is subordinate, we'll add the machine storage
 	// if the principal is assigned to a machine. Otherwise, we
@@ -1125,7 +1150,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		}
 		machineAssignable = pu
 	}
-	storageOps, numStorageAttachments, err := createStorageOps(
+	storageOps, storageCounts, numStorageAttachments, err := createStorageOps(
 		a.st,
 		unitTag,
 		charm.Meta(),
@@ -1135,6 +1160,39 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	)
 	if err != nil {
 		return "", nil, errors.Trace(err)
+	}
+	for _, storageTag := range args.attachStorage {
+		si, err := a.st.storageInstance(storageTag)
+		if err != nil {
+			return "", nil, errors.Annotatef(
+				err, "attaching %s",
+				names.ReadableString(storageTag),
+			)
+		}
+		ops, err := a.st.attachStorageOps(
+			si,
+			unitTag,
+			a.doc.Series,
+			charm,
+			machineAssignable,
+		)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		storageOps = append(storageOps, ops...)
+		numStorageAttachments++
+		storageCounts[si.StorageName()]++
+	}
+	for name, count := range storageCounts {
+		charmStorage := charm.Meta().Storage[name]
+		if err := validateCharmStorageCountChange(charmStorage, 0, count); err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		incRefOp, err := increfEntityStorageOp(a.st, unitTag, name, count)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		storageOps = append(storageOps, incRefOp)
 	}
 
 	docID := a.st.docID(name)
@@ -1213,8 +1271,11 @@ func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 	return op
 }
 
+// AddUnitParams contains parameters for the Application.AddUnit method.
+type AddUnitParams struct{}
+
 // AddUnit adds a new principal unit to the application.
-func (a *Application) AddUnit() (unit *Unit, err error) {
+func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", a)
 	name, ops, err := a.addUnitOps("", nil)
 	if err != nil {

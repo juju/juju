@@ -606,16 +606,17 @@ type AgentVersionResult struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
-	Constraints      constraints.Value         `json:"constraints"`
-	Series           string                    `json:"series"`
-	Placement        string                    `json:"placement"`
-	Jobs             []multiwatcher.MachineJob `json:"jobs"`
-	Volumes          []VolumeParams            `json:"volumes,omitempty"`
-	Tags             map[string]string         `json:"tags,omitempty"`
-	SubnetsToZones   map[string][]string       `json:"subnets-to-zones,omitempty"`
-	ImageMetadata    []CloudImageMetadata      `json:"image-metadata,omitempty"`
-	EndpointBindings map[string]string         `json:"endpoint-bindings,omitempty"`
-	ControllerConfig map[string]interface{}    `json:"controller-config,omitempty"`
+	Constraints       constraints.Value         `json:"constraints"`
+	Series            string                    `json:"series"`
+	Placement         string                    `json:"placement"`
+	Jobs              []multiwatcher.MachineJob `json:"jobs"`
+	Volumes           []VolumeParams            `json:"volumes,omitempty"`
+	VolumeAttachments []VolumeAttachmentParams  `json:"volume-attachments,omitempty"`
+	Tags              map[string]string         `json:"tags,omitempty"`
+	SubnetsToZones    map[string][]string       `json:"subnets-to-zones,omitempty"`
+	ImageMetadata     []CloudImageMetadata      `json:"image-metadata,omitempty"`
+	EndpointBindings  map[string]string         `json:"endpoint-bindings,omitempty"`
+	ControllerConfig  map[string]interface{}    `json:"controller-config,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

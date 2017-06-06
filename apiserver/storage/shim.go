@@ -110,12 +110,20 @@ type storageAccess interface {
 	// GetBlockForType is required to block operations.
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 
+	// AttachStorage attaches the storage instance with the
+	// specified tag to the unit with the specified tag.
+	AttachStorage(names.StorageTag, names.UnitTag) error
+
 	// DetachStorage detaches the storage instance with the
 	// specified tag from the unit with the specified tag.
 	DetachStorage(names.StorageTag, names.UnitTag) error
 
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
 	DestroyStorageInstance(names.StorageTag) error
+
+	// UnitStorageAttachments returns the storage attachments for the
+	// identified unit.
+	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 }
 
 var getState = func(st *state.State) storageAccess {

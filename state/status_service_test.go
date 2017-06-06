@@ -100,7 +100,7 @@ func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	_, err := s.service.AddUnit()
+	_, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,7 +162,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 
 	// Create a unit with each possible status.
 	addUnit := func(unitStatus status.Status) *state.Unit {
-		unit, err := s.service.AddUnit()
+		unit, err := s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, gc.IsNil)
 		now := testing.ZeroTime()
 		sInfo := status.StatusInfo{
@@ -182,7 +182,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	unknownUnit := addUnit(status.Unknown)
 
 	// ...and create one with error status by setting it on the agent :-/.
-	errorUnit, err := s.service.AddUnit()
+	errorUnit, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.IsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
@@ -218,7 +218,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) TestServiceStatusOverridesDerivedStatus(c *gc.C) {
-	unit, err := s.service.AddUnit()
+	unit, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.IsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{

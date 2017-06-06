@@ -260,8 +260,8 @@ func (e *environSuite) TestProvider(c *gc.C) {
 	c.Assert(p, gc.NotNil)
 }
 
-func (e *environSuite) TestPrecheckInstnace(c *gc.C) {
-	err := e.env.PrecheckInstance("", constraints.Value{}, "")
+func (e *environSuite) TestPrecheckInstance(c *gc.C) {
+	err := e.env.PrecheckInstance(environs.PrecheckInstanceParams{})
 	c.Assert(err, gc.IsNil)
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -28,7 +29,7 @@ type NewPolicyFunc func(*State) Policy
 // in the use of the policy.
 type Policy interface {
 	// Prechecker returns a Prechecker or an error.
-	Prechecker() (Prechecker, error)
+	Prechecker() (environs.InstancePrechecker, error)
 
 	// ProviderConfigSchemaSource returns a config.ConfigSchemaSource
 	// for the environ provider, or an error.
@@ -47,23 +48,14 @@ type Policy interface {
 	StorageProviderRegistry() (storage.ProviderRegistry, error)
 }
 
-// Prechecker is a policy interface that is provided to State
-// to perform pre-flight checking of instance creation.
-type Prechecker interface {
-	// PrecheckInstance performs a preflight check on the specified
-	// series and constraints, ensuring that they are possibly valid for
-	// creating an instance in this model.
-	//
-	// PrecheckInstance is best effort, and not guaranteed to eliminate
-	// all invalid parameters. If PrecheckInstance returns nil, it is not
-	// guaranteed that the constraints are valid; if a non-nil error is
-	// returned, then the constraints are definitely invalid.
-	PrecheckInstance(series string, cons constraints.Value, placement string) error
-}
-
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
 // a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
-func (st *State) precheckInstance(series string, cons constraints.Value, placement string) error {
+func (st *State) precheckInstance(
+	series string,
+	cons constraints.Value,
+	placement string,
+	volumeAttachments []storage.VolumeAttachmentParams,
+) error {
 	if st.policy == nil {
 		return nil
 	}
@@ -76,7 +68,12 @@ func (st *State) precheckInstance(series string, cons constraints.Value, placeme
 	if prechecker == nil {
 		return errors.New("policy returned nil prechecker without an error")
 	}
-	return prechecker.PrecheckInstance(series, cons, placement)
+	return prechecker.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:            series,
+		Constraints:       cons,
+		Placement:         placement,
+		VolumeAttachments: volumeAttachments,
+	})
 }
 
 func (st *State) constraintsValidator() (constraints.Validator, error) {

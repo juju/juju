@@ -6,6 +6,7 @@ package machinemanager
 import (
 	names "gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -13,6 +14,8 @@ import (
 )
 
 type stateInterface interface {
+	storagecommon.StorageInterface
+
 	Machine(string) (Machine, error)
 	ModelConfig() (*config.Config, error)
 	Model() (*state.Model, error)
@@ -27,8 +30,6 @@ type stateInterface interface {
 	Clouds() (map[names.CloudTag]cloud.Cloud, error)
 	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
-	StorageInstance(names.StorageTag) (state.StorageInstance, error)
-	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 }
 
 type stateShim struct {

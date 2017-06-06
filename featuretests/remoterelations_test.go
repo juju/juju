@@ -152,7 +152,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 
 	// Add a unit of wordpress, expect a change.
 	settings := map[string]interface{}{"key": "value"}
-	wordpress0, err := wordpress.AddUnit()
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(wordpress0)
 	c.Assert(err, jc.ErrorIsNil)

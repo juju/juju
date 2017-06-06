@@ -8,6 +8,7 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
@@ -19,6 +20,8 @@ import (
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
+	storagecommon.StorageInterface
+
 	AllModels() ([]Model, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
@@ -34,8 +37,6 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
 	NewStorage() storage.Storage
-	StorageInstance(names.StorageTag) (state.StorageInstance, error)
-	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 }
 
@@ -52,7 +53,7 @@ type BlockChecker interface {
 // details on the methods, see the methods on state.Application with
 // the same names.
 type Application interface {
-	AddUnit() (*state.Unit, error)
+	AddUnit(state.AddUnitParams) (*state.Unit, error)
 	AllUnits() ([]Unit, error)
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)

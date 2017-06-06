@@ -52,25 +52,25 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	actionlessSURL, _ := s.actionlessService.CharmURL()
 	c.Assert(actionlessSURL, gc.NotNil)
 
-	s.unit, err = s.service.AddUnit()
+	s.unit, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 
 	err = s.unit.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unit2, err = s.service.AddUnit()
+	s.unit2, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 
 	err = s.unit2.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmlessUnit, err = s.service.AddUnit()
+	s.charmlessUnit, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.charmlessUnit.Series(), gc.Equals, "quantal")
 
-	s.actionlessUnit, err = s.actionlessService.AddUnit()
+	s.actionlessUnit, err = s.actionlessService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.actionlessUnit.Series(), gc.Equals, "quantal")
 
@@ -283,7 +283,7 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 
 		// Add a unit
 		var err error
-		u, err := svc.AddUnit()
+		u, err := svc.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(u.Series(), gc.Equals, "quantal")
 		err = u.SetCharmURL(sURL)
@@ -532,7 +532,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 
 	// preamble
 	svc := s.AddTestingService(c, "dummy3", s.charm)
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.State.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -744,7 +744,7 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 
 func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	svc := s.AddTestingService(c, "dummy2", s.charm)
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := u.WatchActionNotifications()
