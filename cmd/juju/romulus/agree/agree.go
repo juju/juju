@@ -47,8 +47,8 @@ Examples:
 
 // NewAgreeCommand returns a new command that can be
 // used to create user agreements.
-func NewAgreeCommand() cmd.Command {
-	return modelcmd.WrapBase(&agreeCommand{})
+func NewAgreeCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&agreeCommand{})
 }
 
 type term struct {
@@ -59,7 +59,7 @@ type term struct {
 
 // agreeCommand creates a user agreement to the specified terms.
 type agreeCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.ControllerCommandBase
 
 	terms           []term
 	termIds         []string
@@ -68,7 +68,7 @@ type agreeCommand struct {
 
 // SetFlags implements Command.SetFlags.
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
 }
 
@@ -102,7 +102,7 @@ func (c *agreeCommand) Init(args []string) error {
 	if len(c.terms) == 0 {
 		return errors.New("must specify a valid term revision")
 	}
-	return c.JujuCommandBase.Init([]string{})
+	return c.CommandBase.Init([]string{})
 }
 
 // Run implements Command.Run.

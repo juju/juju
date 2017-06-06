@@ -85,21 +85,32 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 		return errors.Annotatef(err, "listing VMs at %q", path)
 	}
 
+	// Retrieve VM details so we know which ones to power off.
+	refs := make([]types.ManagedObjectReference, len(vms))
+	for i, vm := range vms {
+		refs[i] = vm.Reference()
+	}
+	var mos []mo.VirtualMachine
+	if err := c.client.Retrieve(ctx, refs, nil, &mos); err != nil {
+		return errors.Annotate(err, "retrieving VM details")
+	}
+
 	// We run all tasks in parallel, and wait for them below.
 	var lastError error
 	tasks := make([]*object.Task, 0, len(vms)*2)
-	for _, vm := range vms {
-		c.logger.Debugf("powering off %q", vm.Name())
-		task, err := vm.PowerOff(ctx)
-		if err != nil {
-			lastError = errors.Annotatef(err, "powering off %q", vm.Name())
-			c.logger.Errorf(err.Error())
-			continue
+	for i, vm := range vms {
+		if mos[i].Runtime.PowerState == types.VirtualMachinePowerStatePoweredOn {
+			c.logger.Debugf("powering off %q", vm.Name())
+			task, err := vm.PowerOff(ctx)
+			if err != nil {
+				lastError = errors.Annotatef(err, "powering off %q", vm.Name())
+				c.logger.Errorf(err.Error())
+				continue
+			}
+			tasks = append(tasks, task)
 		}
-		tasks = append(tasks, task)
-
 		c.logger.Debugf("destroying %q", vm.Name())
-		task, err = vm.Destroy(ctx)
+		task, err := vm.Destroy(ctx)
 		if err != nil {
 			lastError = errors.Annotatef(err, "destroying %q", vm.Name())
 			c.logger.Errorf(err.Error())

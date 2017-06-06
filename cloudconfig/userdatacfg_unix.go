@@ -68,6 +68,10 @@ var (
 	// CentOSGroups is the set of unix groups to add the "ubuntu" user to
 	// when initializing a CentOS system.
 	CentOSGroups = []string{"adm", "systemd-journal", "wheel"}
+
+	// OpenSUSEGroups is the set of unix groups to add the "ubuntu" user to
+	// when initializing a OpenSUSE system.
+	OpenSUSEGroups = []string{"users"}
 )
 
 type unixConfigure struct {
@@ -122,8 +126,37 @@ func (w *unixConfigure) ConfigureBasic() error {
 			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
 		)
 		w.addCleanShutdownJob(service.InitSystemSystemd)
+	case os.OpenSUSE:
+		w.conf.AddScripts(
+			// Mask and stop firewalld, if enabled, so it cannot start. See
+			// http://pad.lv/1492066. firewalld might be missing, in which case
+			// is-enabled and is-active prints an error, which is why the output
+			// is surpressed.
+			"systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true",
+			"systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true",
+			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
+			//Scripts assume ubuntu group for ubuntu user...
+			`(grep ubuntu /etc/group) || groupadd ubuntu`,
+			`usermod -g ubuntu -G ubuntu,users ubuntu`,
+		)
+		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
+
+	if w.icfg.Bootstrap != nil {
+		// For the bootstrap machine only, we set the host keys
+		// except when manually provisioning.
+		icfgKeys := w.icfg.Bootstrap.InitialSSHHostKeys
+		var keys cloudinit.SSHKeys
+		if icfgKeys.RSA != nil {
+			keys.RSA = &cloudinit.SSHKey{
+				Private: icfgKeys.RSA.Private,
+				Public:  icfgKeys.RSA.Public,
+			}
+		}
+		w.conf.SetSSHKeys(keys)
+	}
+
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
 	// nonce. The presence and contents of this file will be verified
@@ -152,7 +185,7 @@ func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
 func (w *unixConfigure) setDataDirPermissions() string {
 	var user string
 	switch w.os {
-	case os.CentOS:
+	case os.CentOS, os.OpenSUSE:
 		user = "root"
 	default:
 		user = "syslog"
@@ -183,6 +216,25 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLog))
 	}
 
+	if w.icfg.Bootstrap != nil {
+		// Before anything else, we must regenerate the SSH host keys.
+		var any bool
+		keys := w.icfg.Bootstrap.InitialSSHHostKeys
+		if keys.RSA != nil {
+			any = true
+			w.conf.AddBootCmd(cloudinit.LogProgressCmd("Regenerating SSH RSA host key"))
+			w.conf.AddBootCmd(`rm /etc/ssh/ssh_host_rsa_key*`)
+			w.conf.AddBootCmd(`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`)
+		}
+		if any {
+			// ssh_keys was specified in cloud-config, which will
+			// disable all key generation. Generate the other keys
+			// that we did not generate previously.
+			w.conf.AddBootCmd(`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`)
+			w.conf.AddBootCmd(`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`)
+		}
+	}
+
 	w.conf.AddPackageCommands(
 		w.icfg.AptProxySettings,
 		w.icfg.AptMirror,
@@ -194,17 +246,20 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// sourced by bash, and ssh through that.
 	w.conf.AddScripts(
 		// We look to see if the proxy line is there already as
-		// the manual provider may have had it already. The ubuntu
-		// user may not exist.
-		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
-			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
+		// the manual provider may have had it already.
+		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
+			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
 	if (w.icfg.ProxySettings != proxy.Settings{}) {
 		exportedProxyEnv := w.icfg.ProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
-				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
+
+		// Write out systemd proxy settings
+		w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
+			shquote(w.icfg.ProxySettings.AsSystemdDefaultEnv())))
 	}
 
 	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {

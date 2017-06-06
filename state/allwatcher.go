@@ -94,6 +94,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 			collection.subsidiary = true
 		case remoteApplicationsC:
 			collection.docType = reflect.TypeOf(backingRemoteApplication{})
+		case applicationOffersC:
+			collection.docType = reflect.TypeOf(backingApplicationOffer{})
 		default:
 			panic(errors.Errorf("unknown collection %q", collName))
 		}
@@ -115,8 +117,18 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 
 type backingModel modelDoc
 
+func (e *backingModel) isNotFoundAndModelDead(err error) bool {
+	// Return true if the error is not found and the model is dead.
+	// This will be the case if the model has been marked dead, pending cleanup.
+	return errors.IsNotFound(err) && e.Life == Dead
+}
+
 func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) error {
 	cfg, err := st.ModelConfig()
+	if e.isNotFoundAndModelDead(err) {
+		// Treat it as if the model is removed.
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -129,11 +141,19 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		Config:         cfg.AllAttrs(),
 	}
 	c, err := readConstraints(st, modelGlobalKey)
+	// Treat it as if the model is removed.
+	if e.isNotFoundAndModelDead(err) {
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 	info.Constraints = c
 	modelStatus, err := getStatus(st, modelGlobalKey, "model")
+	if e.isNotFoundAndModelDead(err) {
+		// Treat it as if the model is removed.
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -494,6 +514,11 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 	if app.Name == "" {
 		return errors.Errorf("remote application name is not set")
 	}
+	if app.IsConsumerProxy {
+		// Since this is a consumer proxy, we update the offer
+		// info in this (the offering) model.
+		return app.updateOfferInfo(st, store)
+	}
 	info := &multiwatcher.RemoteApplicationInfo{
 		ModelUUID:      st.ModelUUID(),
 		Name:           app.Name,
@@ -524,17 +549,95 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 	return nil
 }
 
-func (svc *backingRemoteApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+func (app *backingRemoteApplication) updateOfferInfo(st *State, store *multiwatcherStore) error {
+	offerId := multiwatcher.EntityId{
+		Kind:      "applicationOffer",
+		ModelUUID: st.ModelUUID(),
+		Id:        app.OfferName,
+	}
+	// If we have an existing remote application,
+	// adjust any offer info also.
+	info := store.Get(offerId)
+	if info == nil {
+		return nil
+	}
+	offerInfo := info.(*multiwatcher.ApplicationOfferInfo)
+	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerInfo.ConnectedCount = remoteConnection.ConnectionCount()
+	store.Update(offerInfo)
+	return nil
+}
+
+func (app *backingRemoteApplication) removed(store *multiwatcherStore, modelUUID, id string, st *State) (err error) {
+	err = app.updateOfferInfo(st, store)
+	if err != nil {
+		// We log the error but don't prevent the remote app removal.
+		logger.Errorf("updating application offer info: %v", err)
+	}
 	store.Remove(multiwatcher.EntityId{
 		Kind:      "remoteApplication",
+		ModelUUID: modelUUID,
+		Id:        id,
+	})
+	return err
+}
+
+func (app *backingRemoteApplication) mongoId() string {
+	return app.DocID
+}
+
+type backingApplicationOffer applicationOfferDoc
+
+func (offer *backingApplicationOffer) updated(st *State, store *multiwatcherStore, id string) error {
+	info := &multiwatcher.ApplicationOfferInfo{
+		ModelUUID:       st.ModelUUID(),
+		OfferName:       offer.OfferName,
+		ApplicationName: offer.ApplicationName,
+	}
+	err := updateOfferInfo(st, info)
+	if err != nil {
+		return errors.Annotatef(err, "reading application offer details for %s", offer.OfferName)
+	}
+	store.Update(info)
+	return nil
+}
+
+func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) error {
+	offers := NewApplicationOffers(st)
+	offer, err := offers.ApplicationOffer(offerInfo.OfferName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	localApp, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curl, _ := localApp.CharmURL()
+	offerInfo.ApplicationName = offer.ApplicationName
+	offerInfo.CharmName = curl.Name
+
+	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerInfo.ConnectedCount = remoteConnection.ConnectionCount()
+	return nil
+}
+
+func (offer *backingApplicationOffer) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+	store.Remove(multiwatcher.EntityId{
+		Kind:      "applicationOffer",
 		ModelUUID: modelUUID,
 		Id:        id,
 	})
 	return nil
 }
 
-func (app *backingRemoteApplication) mongoId() string {
-	return app.DocID
+func (offer *backingApplicationOffer) mongoId() string {
+	return offer.DocID
 }
 
 type backingAction actionDoc
@@ -1081,7 +1184,7 @@ type backingEntityDoc interface {
 	mongoId() string
 }
 
-func newAllWatcherStateBacking(st *State) Backing {
+func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
 	collections := makeAllWatcherCollectionInfo(
 		machinesC,
 		unitsC,
@@ -1096,7 +1199,11 @@ func newAllWatcherStateBacking(st *State) Backing {
 		blocksC,
 	)
 	if featureflag.Enabled(feature.CrossModelRelations) {
-		crossModelCollections := makeAllWatcherCollectionInfo(remoteApplicationsC)
+		cmrCollections := []string{remoteApplicationsC}
+		if params.IncludeOffers {
+			cmrCollections = append(cmrCollections, applicationOffersC)
+		}
+		crossModelCollections := makeAllWatcherCollectionInfo(cmrCollections...)
 		for name, w := range crossModelCollections {
 			collections[name] = w
 		}

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -149,18 +148,11 @@ func waitForClock(c *gc.C, clock *testing.Clock) {
 }
 
 func checkConnectionDies(c *gc.C, conn api.Connection) {
-	attempt := utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: coretesting.ShortWait,
+	select {
+	case <-conn.Broken():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("connection didn't get shut down")
 	}
-	for a := attempt.Start(); a.Next(); {
-		err := pingConn(conn)
-		if err != nil {
-			c.Assert(err, gc.ErrorMatches, "connection is shut down")
-			return
-		}
-	}
-	c.Fatal("connection didn't get shut down")
 }
 
 func pingConn(conn api.Connection) error {

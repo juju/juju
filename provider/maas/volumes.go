@@ -314,33 +314,70 @@ func (mi *maas2Instance) volumes(
 		if label == rootDiskLabel {
 			continue
 		}
+
 		// We only care about the volumes we specifically asked for.
 		if !validVolumes.Contains(label) {
 			continue
 		}
 
-		for _, device := range devices {
-			volumeTag := names.NewVolumeTag(label)
-			vol := storage.Volume{
-				volumeTag,
-				storage.VolumeInfo{
-					VolumeId:   volumeTag.String(),
-					Size:       uint64(device.Size() / humanize.MiByte),
-					Persistent: false,
-				},
-			}
-			volumes = append(volumes, vol)
-
-			attachment := storage.VolumeAttachment{
-				volumeTag,
-				mTag,
-				storage.VolumeAttachmentInfo{
-					DeviceLink: device.Path(),
-					ReadOnly:   false,
-				},
-			}
-			attachments = append(attachments, attachment)
+		// There should be exactly one block device per label.
+		if len(devices) == 0 {
+			continue
+		} else if len(devices) > 1 {
+			// This should never happen, as we only request one block
+			// device per label. If it does happen, we'll just report
+			// the first block device and log this warning.
+			logger.Warningf(
+				"expected 1 block device for label %s, received %d",
+				label, len(devices),
+			)
 		}
+
+		device := devices[0]
+		volumeTag := names.NewVolumeTag(label)
+		vol := storage.Volume{
+			volumeTag,
+			storage.VolumeInfo{
+				VolumeId:   volumeTag.String(),
+				Size:       uint64(device.Size() / humanize.MiByte),
+				Persistent: false,
+			},
+		}
+		attachment := storage.VolumeAttachment{
+			volumeTag,
+			mTag,
+			storage.VolumeAttachmentInfo{
+				ReadOnly: false,
+			},
+		}
+
+		const devDiskByIdPrefix = "/dev/disk/by-id/"
+		const devPrefix = "/dev/"
+
+		idPath := device.IDPath()
+		if idPath == devPrefix+device.Name() {
+			// On vMAAS (i.e. with virtio), the device name
+			// will be stable, and is what is used to form
+			// id_path.
+			deviceName := idPath[len(devPrefix):]
+			attachment.DeviceName = deviceName
+		} else if strings.HasPrefix(idPath, devDiskByIdPrefix) {
+			const wwnPrefix = "wwn-"
+			id := idPath[len(devDiskByIdPrefix):]
+			if strings.HasPrefix(id, wwnPrefix) {
+				vol.WWN = id[len(wwnPrefix):]
+			} else {
+				vol.HardwareId = id
+			}
+		} else {
+			// It's neither /dev/<name> nor /dev/disk/by-id/<hardware-id>,
+			// so set it as the device link and hope for
+			// the best. At worst, the path won't exist
+			// and the storage will remain pending.
+			attachment.DeviceLink = idPath
+		}
+		volumes = append(volumes, vol)
+		attachments = append(attachments, attachment)
 	}
 	return volumes, attachments, nil
 }

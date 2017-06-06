@@ -19,10 +19,11 @@ var logger = loggo.GetLogger("vsphereclient")
 type mockRoundTripper struct {
 	testing.Stub
 
-	serverURL  string
-	roundTrip  func(ctx context.Context, req, res soap.HasFault) error
-	contents   map[string][]types.ObjectContent
-	collectors map[string]*collector
+	serverURL     string
+	roundTrip     func(ctx context.Context, req, res soap.HasFault) error
+	contents      map[string][]types.ObjectContent
+	collectors    map[string]*collector
+	leaseProgress chan int32
 }
 
 func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault) error {
@@ -92,12 +93,14 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 					types.OvfFileItem{
 						DeviceId: "key1",
 						Path:     "ubuntu-14.04-server-cloudimg-amd64.vmdk",
+						Size:     14,
 					},
 				},
 				ImportSpec: &types.VirtualMachineImportSpec{},
 			},
 		}
 	case *methods.ImportVAppBody:
+		r.MethodCall(r, "ImportVApp")
 		res.Res = &types.ImportVAppResponse{lease}
 	case *methods.CreatePropertyCollectorBody:
 		r.MethodCall(r, "CreatePropertyCollector")
@@ -118,8 +121,17 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		}
 	case *methods.HttpNfcLeaseCompleteBody:
 		req := req.(*methods.HttpNfcLeaseCompleteBody).Req
+		r.MethodCall(r, "HttpNfcLeaseComplete", req.This.Value)
 		delete(r.collectors, req.This.Value)
 		res.Res = &types.HttpNfcLeaseCompleteResponse{}
+	case *methods.HttpNfcLeaseProgressBody:
+		req := req.(*methods.HttpNfcLeaseProgressBody).Req
+		r.MethodCall(r, "HttpNfcLeaseProgress", req.This.Value, req.Percent)
+		res.Res = &types.HttpNfcLeaseProgressResponse{}
+		select {
+		case r.leaseProgress <- req.Percent:
+		default:
+		}
 	case *methods.WaitForUpdatesExBody:
 		r.MethodCall(r, "WaitForUpdatesEx")
 		req := req.(*methods.WaitForUpdatesExBody).Req
@@ -170,29 +182,36 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 
 func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *types.RetrievePropertiesResponse {
 	spec := req.SpecSet[0]
-	obj := spec.ObjectSet[0].Obj.Value
-	r.MethodCall(r, "RetrieveProperties", obj)
-	logger.Debugf("RetrieveProperties for %s", obj)
+	var args []interface{}
+	for _, obj := range spec.ObjectSet {
+		args = append(args, obj.Obj.Value)
+	}
+	r.MethodCall(r, "RetrieveProperties", args...)
+	logger.Debugf("RetrieveProperties for %s", args)
 	var contents []types.ObjectContent
-	for _, content := range r.contents[obj] {
-		var match bool
-		for _, prop := range spec.PropSet {
-			if prop.Type == content.Obj.Type {
-				match = true
-				break
+	for _, obj := range spec.ObjectSet {
+		for _, content := range r.contents[obj.Obj.Value] {
+			var match bool
+			for _, prop := range spec.PropSet {
+				if prop.Type == content.Obj.Type {
+					match = true
+					break
+				}
 			}
-		}
-		if match {
-			contents = append(contents, content)
+			if match {
+				contents = append(contents, content)
+			}
 		}
 	}
 	return &types.RetrievePropertiesResponse{contents}
 }
 
-func retrievePropertiesStubCall(obj string) testing.StubCall {
-	return testing.StubCall{
-		"RetrieveProperties", []interface{}{obj},
+func retrievePropertiesStubCall(objs ...string) testing.StubCall {
+	args := make([]interface{}, len(objs))
+	for i, obj := range objs {
+		args[i] = obj
 	}
+	return testing.StubCall{"RetrieveProperties", args}
 }
 
 type collector struct {

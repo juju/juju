@@ -100,7 +100,6 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	return migration.MigrationStatus{
 		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
-		ExternalControl:  status.Spec.ExternalControl,
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
@@ -344,9 +343,11 @@ func convertResourceRevision(app, name string, rev params.SerializedModelResourc
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	fp, err := charmresource.ParseFingerprint(rev.FingerprintHex)
-	if err != nil {
-		return empty, errors.Annotate(err, "invalid fingerprint")
+	var fp charmresource.Fingerprint
+	if rev.FingerprintHex != "" {
+		if fp, err = charmresource.ParseFingerprint(rev.FingerprintHex); err != nil {
+			return empty, errors.Annotate(err, "invalid fingerprint")
+		}
 	}
 	return resource.Resource{
 		Resource: charmresource.Resource{

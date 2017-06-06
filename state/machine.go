@@ -1209,12 +1209,30 @@ func (m *Machine) SetInstanceInfo(
 	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Record volumes and volume attachments, and set the initial
+	// status: attached or attaching.
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)
 	}
 	if err := setMachineVolumeAttachmentInfo(m.st, m.Id(), volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
+	volumeStatus := make(map[names.VolumeTag]status.Status)
+	for tag := range volumes {
+		volumeStatus[tag] = status.Attaching
+	}
+	for tag := range volumeAttachments {
+		volumeStatus[tag] = status.Attached
+	}
+	for tag, status := range volumeStatus {
+		if err := m.st.SetVolumeStatus(tag, status, "", nil, nil); err != nil {
+			return errors.Annotatef(
+				err, "setting status of %s", names.ReadableString(tag),
+			)
+		}
+	}
+
 	return m.SetProvisioned(id, nonce, characteristics)
 }
 

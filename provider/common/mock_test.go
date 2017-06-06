@@ -20,6 +20,7 @@ import (
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
+type instancesFunc func([]instance.Id) ([]instance.Instance, error)
 type startInstanceFunc func(string, constraints.Value, []string, tools.List, *instancecfg.InstanceConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
@@ -29,6 +30,7 @@ type setConfigFunc func(*config.Config) error
 type mockEnviron struct {
 	storage          storage.Storage
 	allInstances     allInstancesFunc
+	instances        instancesFunc
 	startInstance    startInstanceFunc
 	stopInstances    stopInstancesFunc
 	getToolsSources  getToolsSourcesFunc
@@ -44,6 +46,10 @@ func (env *mockEnviron) Storage() storage.Storage {
 
 func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
+}
+
+func (env *mockEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	return env.instances(ids)
 }
 
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -118,11 +124,16 @@ type mockInstance struct {
 	addressesErr      error
 	dnsName           string
 	dnsNameErr        error
+	status            instance.InstanceStatus
 	instance.Instance // stub out other methods with panics
 }
 
 func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
+}
+
+func (inst *mockInstance) Status() instance.InstanceStatus {
+	return inst.status
 }
 
 func (inst *mockInstance) Addresses() ([]network.Address, error) {

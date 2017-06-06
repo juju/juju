@@ -5,6 +5,7 @@ package vsphere_test
 
 import (
 	"net/url"
+	"sync"
 
 	"github.com/juju/testing"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -26,58 +27,82 @@ func newMockDialFunc(dialStub *testing.Stub, client vsphere.Client) vsphere.Dial
 }
 
 type mockClient struct {
+	// mu guards testing.Stub access, to ensure that the recorded
+	// method calls correspond to the errors returned.
+	mu sync.Mutex
 	testing.Stub
+
 	computeResources      []*mo.ComputeResource
 	createdVirtualMachine *mo.VirtualMachine
 	virtualMachines       []*mo.VirtualMachine
 }
 
 func (c *mockClient) Close(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "Close", ctx)
 	return c.NextErr()
 }
 
 func (c *mockClient) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "ComputeResources", ctx)
 	return c.computeResources, c.NextErr()
 }
 
 func (c *mockClient) CreateVirtualMachine(ctx context.Context, args vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "CreateVirtualMachine", ctx, args)
 	return c.createdVirtualMachine, c.NextErr()
 }
 
 func (c *mockClient) DestroyVMFolder(ctx context.Context, path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "DestroyVMFolder", ctx, path)
 	return c.NextErr()
 }
 
 func (c *mockClient) EnsureVMFolder(ctx context.Context, path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "EnsureVMFolder", ctx, path)
 	return c.NextErr()
 }
 
 func (c *mockClient) MoveVMFolderInto(ctx context.Context, parent string, child string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "MoveVMFolderInto", ctx, parent, child)
 	return c.NextErr()
 }
 
 func (c *mockClient) MoveVMsInto(ctx context.Context, folder string, vms ...types.ManagedObjectReference) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "MoveVMsInto", ctx, folder, vms)
 	return c.NextErr()
 }
 
 func (c *mockClient) RemoveVirtualMachines(ctx context.Context, path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "RemoveVirtualMachines", ctx, path)
 	return c.NextErr()
 }
 
 func (c *mockClient) UpdateVirtualMachineExtraConfig(ctx context.Context, vm *mo.VirtualMachine, attrs map[string]string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "UpdateVirtualMachineExtraConfig", ctx, vm, attrs)
 	return c.NextErr()
 }
 
 func (c *mockClient) VirtualMachines(ctx context.Context, path string) ([]*mo.VirtualMachine, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.MethodCall(c, "VirtualMachines", ctx, path)
 	return c.virtualMachines, c.NextErr()
 }

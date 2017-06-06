@@ -23,11 +23,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -49,6 +51,7 @@ type API struct {
 	stateCharm func(Charm) *state.Charm
 
 	deployApplicationFunc func(backend Backend, args jjj.DeployApplicationParams) error
+	getEnviron            stateenvirons.NewEnvironFunc
 }
 
 // DeployApplication is a wrapper around juju.DeployApplication, to
@@ -71,6 +74,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		blockChecker,
 		stateCharm,
 		DeployApplication,
+		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
 }
 
@@ -83,6 +87,7 @@ func NewAPI(
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(Backend, jjj.DeployApplicationParams) error,
+	getEnviron stateenvirons.NewEnvironFunc,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -96,6 +101,7 @@ func NewAPI(
 		statePool:             statePool,
 		dataDir:               dataDir.String(),
 		deployApplicationFunc: deployApplication,
+		getEnviron:            getEnviron,
 	}, nil
 }
 
@@ -946,7 +952,7 @@ func (api *API) sameControllerSourceModel(userName, modelName string) (names.Mod
 // of the application and endpoint. These details are saved to the state model so relations to
 // the remote application can be created.
 func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
-	offer, sourceModelTag, err := api.offeredApplicationDetails(url, permission.ConsumeAccess)
+	offer, err := api.offeredApplicationDetails(url, permission.ConsumeAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -955,28 +961,18 @@ func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, ali
 	if appName == "" {
 		appName = url.ApplicationName
 	}
-	remoteApp, err := api.saveRemoteApplication(sourceModelTag, appName, url.ApplicationName, url.String(), offer.Endpoints)
+	remoteApp, err := api.saveRemoteApplication(url.String(), appName, offer)
 	return remoteApp, err
 }
 
 // offeredApplicationDetails returns details of the application offered at the specified URL.
 // The user is required to have the specified permission on the offer.
 func (api *API) offeredApplicationDetails(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
-	offer *params.ApplicationOffer,
-	sourceModelTag names.ModelTag,
-	err error,
+	*params.ApplicationOffer, error,
 ) {
-	fail := func(err error) (
-		*params.ApplicationOffer,
-		names.ModelTag,
-		error,
-	) {
-		return nil, sourceModelTag, err
-	}
-
 	// We require the hosting model to be specified.
 	if url.ModelName == "" {
-		return fail(errors.Errorf("missing model name in URL %q", url.String()))
+		return nil, errors.Errorf("missing model name in URL %q", url.String())
 	}
 
 	// The user name is either specified in URL, or else we default to
@@ -987,38 +983,27 @@ func (api *API) offeredApplicationDetails(url *jujucrossmodel.ApplicationURL, pe
 	}
 
 	// Get the hosting model from the name.
-	sourceModelTag, err = api.sameControllerSourceModel(userName, url.ModelName)
+	sourceModelTag, err := api.sameControllerSourceModel(userName, url.ModelName)
 	if err == nil {
-		app, releaser, err := api.sameControllerOfferedApplication(sourceModelTag, url.ApplicationName, perm)
+		offerParams, err := api.sameControllerOfferedApplication(sourceModelTag, url.ApplicationName, perm)
 		if err != nil {
-			return fail(errors.Trace(err))
+			return nil, errors.Trace(err)
 		}
-		defer releaser()
-		offer, err := api.makeOfferParamsFromApplication(url.ApplicationName, app)
-		return offer, sourceModelTag, err
+		return offerParams, err
 	}
-	if !errors.IsNotFound(err) {
-		return fail(errors.Trace(err))
+	if errors.IsNotFound(err) {
+		return api.differentControllerOfferedApplication(userName, url.ModelName, url.ApplicationName)
 	}
-	return api.differentControllerOfferedApplication(userName, url.ModelName, url.ApplicationName)
+	return nil, errors.Trace(err)
 }
 
 func (api *API) differentControllerOfferedApplication(userName, modelName, offerName string) (
 	*params.ApplicationOffer,
-	names.ModelTag,
 	error,
 ) {
-	fail := func(err error) (
-		*params.ApplicationOffer,
-		names.ModelTag,
-		error,
-	) {
-		return nil, names.ModelTag{}, err
-	}
-
 	// TODO(wallyworld) - we need a way to pass in the JEM api Info
 	// For now act as if the offer is not found.
-	return fail(errors.NotFoundf("application offer at %s/%s.%s", userName, modelName, offerName))
+	return nil, errors.NotFoundf("application offer at %s/%s.%s", userName, modelName, offerName)
 
 	//dialOpts := jujuapi.DefaultDialOpts()
 	//conn, err := jujuapi.Open(nil, dialOpts)
@@ -1049,18 +1034,24 @@ func (api *API) differentControllerOfferedApplication(userName, modelName, offer
 	//return &offers[0], sourceModelTag, nil
 }
 
-func (api *API) makeOfferParamsFromApplication(offerName string, app *state.Application) (*params.ApplicationOffer, error) {
-	ch, _, err := app.Charm()
+func (api *API) makeOfferParams(st *state.State, offer *jujucrossmodel.ApplicationOffer) (
+	*params.ApplicationOffer, error,
+) {
+	app, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appBindings, err := app.EndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	result := params.ApplicationOffer{
-		SourceModelTag:         api.backend.ModelTag().String(),
-		OfferName:              offerName,
-		ApplicationDescription: ch.Meta().Description,
+		OfferName:              offer.OfferName,
+		ApplicationDescription: offer.ApplicationDescription,
 	}
-	eps, err := app.Endpoints()
-	for _, ep := range eps {
+
+	spaceNames := set.NewStrings()
+	for _, ep := range offer.Endpoints {
 		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
 			Name:      ep.Name,
 			Interface: ep.Interface,
@@ -1068,35 +1059,95 @@ func (api *API) makeOfferParamsFromApplication(offerName string, app *state.Appl
 			Scope:     ep.Scope,
 			Limit:     ep.Limit,
 		})
+		spaceName, ok := appBindings[ep.Name]
+		if !ok {
+			// There should always be some binding (even if it's to
+			// the default space).
+			return nil, errors.Errorf("no binding for %q endpoint", ep.Name)
+		}
+		spaceNames.Add(spaceName)
+	}
+
+	spaces, err := api.collectRemoteSpaces(st, spaceNames.SortedValues())
+	if errors.IsNotSupported(err) {
+		// Provider doesn't support ProviderSpaceInfo; continue
+		// without any space information, we shouldn't short-circuit
+		// cross-model connections.
+		return &result, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Ensure bindings only contains entries for which we have spaces.
+	result.Bindings = make(map[string]string)
+	for epName, spaceName := range appBindings {
+		space, ok := spaces[spaceName]
+		if !ok {
+			continue
+		}
+		result.Bindings[epName] = spaceName
+		result.Spaces = append(result.Spaces, space)
 	}
 	return &result, nil
 }
 
-func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, offerName string, perm permission.Access) (
-	_ *state.Application,
-	releaser func(),
-	err error,
-) {
-	defer func() {
-		if err != nil && releaser != nil {
-			releaser()
-		}
-	}()
-
-	fail := func(err error) (
-		*state.Application,
-		func(),
-		error,
-	) {
-		return nil, releaser, err
-	}
-
-	// Get the backend state for the source model so we can lookup the application.
-	var st *state.State
-	st, releaser, err = api.statePool.Get(sourceModelTag.Id())
+// collectRemoteSpaces gets provider information about the spaces from
+// the state passed in. (This state will be for a different model than
+// this API instance, which is why the results are *remote* spaces.)
+// These can be used by the provider later on to decide whether a
+// connection can be made via cloud-local addresses. If the provider
+// doesn't support getting ProviderSpaceInfo the NotSupported error
+// will be returned.
+func (api *API) collectRemoteSpaces(st *state.State, spaceNames []string) (map[string]params.RemoteSpace, error) {
+	env, err := api.getEnviron(st)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		logger.Debugf("cloud provider doesn't support networking, not getting space info")
+		return nil, nil
+	}
+
+	results := make(map[string]params.RemoteSpace)
+	for _, name := range spaceNames {
+		space := environs.DefaultSpaceInfo
+		if name != environs.DefaultSpaceName {
+			dbSpace, err := st.Space(name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			space, err = spaceInfoFromState(dbSpace)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		providerSpace, err := netEnv.ProviderSpaceInfo(space)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if providerSpace == nil {
+			logger.Errorf("nil provider space info for %q", name)
+			continue
+		}
+		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)
+		// Use the name from state in case provider and state disagree.
+		remoteSpace.Name = name
+		results[name] = remoteSpace
+	}
+	return results, nil
+}
+
+func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, offerName string, perm permission.Access) (
+	*params.ApplicationOffer, error,
+) {
+	// Get the backend state for the source model so we can lookup the application.
+	st, releaser, err := api.statePool.Get(sourceModelTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer releaser()
 
 	// For now, offer URL is matched against the specified application
 	// name as seen from the consuming model.
@@ -1107,16 +1158,16 @@ func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, 
 		},
 	)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 
 	// The offers query succeeded but there were no offers matching the required offer name.
 	if len(offers) == 0 {
-		return fail(errors.NotFoundf("application offer %q", offerName))
+		return nil, errors.NotFoundf("application offer %q", offerName)
 	}
 	// Sanity check - this should never happen.
 	if len(offers) > 1 {
-		return fail(errors.Errorf("unexpected: %d matching offers for %q", len(offers), offerName))
+		return nil, errors.Errorf("unexpected: %d matching offers for %q", len(offers), offerName)
 	}
 
 	// Check the permissions - a user can access the offer if they are an admin
@@ -1127,7 +1178,7 @@ func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, 
 		err = api.checkPermission(sourceModelTag, permission.AdminAccess)
 	}
 	if err != nil && err != common.ErrPerm {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 	isAdmin = err == nil
 
@@ -1138,26 +1189,27 @@ func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, 
 		apiUser := api.authorizer.GetAuthTag().(names.UserTag)
 		access, err := st.GetOfferAccess(names.NewApplicationOfferTag(offer.OfferName), apiUser)
 		if err != nil && !errors.IsNotFound(err) {
-			return fail(errors.Trace(err))
+			return nil, errors.Trace(err)
 		}
 		if !access.EqualOrGreaterOfferAccessThan(perm) {
-			return fail(common.ErrPerm)
+			return nil, common.ErrPerm
 		}
 	}
-	app, err := st.Application(offer.ApplicationName)
+	offerParams, err := api.makeOfferParams(st, &offer)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
-	return app, releaser, err
+	offerParams.SourceModelTag = sourceModelTag.String()
+	return offerParams, nil
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
 // to the state model so relations to the remote application can be created.
-func (api *API) saveRemoteApplication(
-	sourceModelTag names.ModelTag, applicationName, offerName, url string, endpoints []params.RemoteEndpoint,
-) (*state.RemoteApplication, error) {
-	remoteEps := make([]charm.Relation, len(endpoints))
-	for j, ep := range endpoints {
+func (api *API) saveRemoteApplication(url, applicationName string, offer *params.ApplicationOffer) (
+	*state.RemoteApplication, error,
+) {
+	remoteEps := make([]charm.Relation, len(offer.Endpoints))
+	for j, ep := range offer.Endpoints {
 		remoteEps[j] = charm.Relation{
 			Name:      ep.Name,
 			Role:      ep.Role,
@@ -1167,8 +1219,20 @@ func (api *API) saveRemoteApplication(
 		}
 	}
 
+	remoteSpaces := make([]*environs.ProviderSpaceInfo, len(offer.Spaces))
+	for i, space := range offer.Spaces {
+		remoteSpaces[i] = providerSpaceInfoFromParams(space)
+	}
+
 	// If the a remote application with the same name and endpoints from the same
 	// source model already exists, we will use that one.
+	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// TODO(babbageclunk): how should we handle changed spaces and/or
+	// bindings as well here?
 	remoteApp, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
 	if err == nil {
 		return remoteApp, nil
@@ -1178,10 +1242,12 @@ func (api *API) saveRemoteApplication(
 
 	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        applicationName,
-		OfferName:   offerName,
+		OfferName:   offer.OfferName,
 		URL:         url,
 		SourceModel: sourceModelTag,
 		Endpoints:   remoteEps,
+		Bindings:    offer.Bindings,
+		Spaces:      remoteSpaces,
 	})
 }
 
@@ -1263,13 +1329,13 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 	}
 
 	// We need at least read access to the model to see the application details.
-	offer, sourceModelTag, err := api.offeredApplicationDetails(url, permission.ReadAccess)
+	offer, err := api.offeredApplicationDetails(url, permission.ReadAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &params.RemoteApplicationInfo{
-		ModelTag:         sourceModelTag.String(),
+		ModelTag:         offer.SourceModelTag,
 		Name:             url.ApplicationName,
 		Description:      offer.ApplicationDescription,
 		ApplicationURL:   url.String(),

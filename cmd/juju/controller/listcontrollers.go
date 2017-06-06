@@ -56,7 +56,7 @@ func (c *listControllersCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.refresh, "refresh", false, "Connect to each controller to download the latest details")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -185,7 +185,7 @@ func controllerMachineCounts(controllerModelUUID string, modelStatus []base.Mode
 }
 
 type listControllersCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 
 	out     cmd.Output
 	store   jujuclient.ClientStore

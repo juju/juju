@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )
@@ -50,12 +51,13 @@ type watcherSuite struct {
 	gitjujutesting.MgoSuite
 	testing.BaseSuite
 
-	log       *mgo.Collection
-	stash     *mgo.Collection
-	runner    *txn.Runner
-	w         *watcher.Watcher
-	ch        chan watcher.Change
-	oldPeriod time.Duration
+	log          *mgo.Collection
+	stash        *mgo.Collection
+	runner       *txn.Runner
+	w            *watcher.Watcher
+	ch           chan watcher.Change
+	oldPeriod    time.Duration
+	iteratorFunc func() mongo.Iterator
 }
 
 // FastPeriodSuite implements tests that should
@@ -96,7 +98,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.stash = db.C("txn.stash")
 	s.runner = txn.NewRunner(db.C("txn"))
 	s.runner.ChangeLog(s.log)
-	s.w = watcher.New(s.log)
+	s.w = watcher.NewTestWatcher(s.log, s.iteratorFunc)
 	s.ch = make(chan watcher.Change)
 }
 
@@ -300,7 +302,7 @@ func (s *FastPeriodSuite) TestWatchMultipleChannels(c *gc.C) {
 func (s *FastPeriodSuite) TestIgnoreAncientHistory(c *gc.C) {
 	s.insert(c, "test", "a")
 
-	w := watcher.New(s.log)
+	w := watcher.NewTestWatcher(s.log, s.iteratorFunc)
 	defer w.Stop()
 	w.StartSync()
 
@@ -702,4 +704,71 @@ func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
 		c.Fatalf("got event %#v when starting watcher after doc was removed", got)
 	case <-time.After(justLongEnough):
 	}
+}
+
+type badIter struct {
+	*mgo.Iter
+
+	errorAfter int
+}
+
+func (b *badIter) Close() (err error) {
+	defer func() {
+		err2 := b.Iter.Close()
+		if err == nil {
+			err = err2
+		}
+	}()
+
+	b.errorAfter--
+	if b.errorAfter < 0 {
+		return &mgo.QueryError{
+			Code: 136,
+		}
+	}
+	return nil
+}
+
+type WatcherErrorSuite struct {
+	watcherSuite
+}
+
+func (s *WatcherErrorSuite) SetUpSuite(c *gc.C) {
+	s.watcherSuite.SetUpSuite(c)
+	iter := &badIter{
+		errorAfter: 2,
+	}
+	s.iteratorFunc = func() mongo.Iterator {
+		iter.Iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+		return iter
+	}
+	watcher.Period = fastPeriod
+}
+
+func (s *WatcherErrorSuite) TearDownTest(c *gc.C) {
+	s.MgoSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
+}
+
+var _ = gc.Suite(&WatcherErrorSuite{})
+
+func (s *WatcherErrorSuite) TestCappedCollectionError(c *gc.C) {
+	s.w.Watch("test", "a", -1, s.ch)
+	s.w.StartSync()
+
+	s.insert(c, "test", "a")
+	for i := 1; i < 30; i++ {
+		s.update(c, "test", "a")
+	}
+
+	select {
+	case <-s.w.Dead():
+		// the watcher will die when the iter close fails.
+	case <-time.After(worstCase):
+		c.Fatalf("watcher didn't die")
+	}
+
+	err := s.w.Stop()
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "agent should be restarted")
 }

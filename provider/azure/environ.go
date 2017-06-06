@@ -42,6 +42,7 @@ import (
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
@@ -177,6 +178,7 @@ func (env *azureEnviron) initEnviron() error {
 		"azure.network":   &env.network.Client,
 	}
 	for id, client := range clients {
+		useragent.UpdateClient(client)
 		client.Authorizer = env.authorizer
 		logger := loggo.GetLogger(id)
 		if env.provider.config.Sender != nil {
@@ -495,7 +497,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("picked tools %q", selectedTools[0].Version)
+	logger.Infof("picked agent binaries %q", selectedTools[0].Version)
 
 	// Finalize the instance config, which we'll render to CustomData below.
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {

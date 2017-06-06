@@ -346,6 +346,10 @@ func (i *fakeIterator) Timeout() bool {
 	return i.timeout
 }
 
+func (i *fakeIterator) Close() error {
+	return nil
+}
+
 func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
 	return &fakeIterator{docs: docs, err: err}
 }
@@ -363,7 +367,7 @@ type fakeSession struct {
 
 var timeoutIterator = fakeIterator{timeout: true}
 
-func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIterator {
+func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.Iterator {
 	if s.pos >= len(s.iterators) {
 		// We've run out of results - at this point the calls to get
 		// more data would just keep timing out.

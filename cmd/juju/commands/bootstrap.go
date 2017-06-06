@@ -30,8 +30,10 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -147,6 +149,7 @@ type bootstrapCommand struct {
 	Cloud               string
 	Region              string
 	noGUI               bool
+	noSwitch            bool
 	interactive         bool
 }
 
@@ -178,9 +181,10 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
-	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
+	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -457,14 +461,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-		return errors.Trace(err)
-	}
 
-	// Set the current controller so "juju status" can be run while
-	// bootstrapping is underway.
-	if err := store.SetCurrentController(c.controllerName); err != nil {
-		return errors.Trace(err)
+	if !c.noSwitch {
+		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+			return errors.Trace(err)
+		}
+		if err := store.SetCurrentController(c.controllerName); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	cloudRegion := c.Cloud
@@ -580,7 +584,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName)); err != nil {
+	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -588,8 +592,21 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, config.controller.APIPort(), environ)
+	addrs, err := common.BootstrapEndpointAddresses(environ)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := juju.UpdateControllerDetailsFromLogin(
+		c.ClientStore(),
+		c.controllerName,
+		juju.UpdateControllerParams{
+			AgentVersion:           agentVersion.String(),
+			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+			PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
+			MachineCount:           newInt(1),
+			ControllerMachineCount: newInt(1),
+			ModelCount:             newInt(2), // controller model + default model
+		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
@@ -1073,4 +1090,15 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 		err, "juju update-clouds",
 	)
 	return cmd.ErrSilent
+}
+
+func newInt(i int) *int {
+	return &i
+}
+
+func newStringIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

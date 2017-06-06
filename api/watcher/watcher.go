@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.api.watcher")
@@ -83,7 +84,10 @@ func (w *commonWatcher) commonLoop() {
 		defer wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
-			logger.Errorf("error trying to stop watcher: %v", err)
+			// Don't log an error if a watcher is stopped due to an agent restart.
+			if err.Error() != worker.ErrRestartAgent.Error() {
+				logger.Errorf("error trying to stop watcher: %v", err)
+			}
 		}
 	}()
 	wg.Add(1)

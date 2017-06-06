@@ -19,9 +19,12 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type detectCredentialsSuite struct {
+	testing.BaseSuite
+
 	store       *jujuclient.MemStore
 	aCredential jujucloud.CloudCredential
 }
@@ -93,10 +96,15 @@ func (p *mockProvider) FinalizeCredential(
 }
 
 func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
-	environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
+	s.BaseSuite.SetUpSuite(c)
+	unreg := environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
+	s.AddCleanup(func(_ *gc.C) {
+		unreg()
+	})
 }
 
 func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.store = jujuclient.NewMemStore()
 	s.aCredential = jujucloud.CloudCredential{}
 }

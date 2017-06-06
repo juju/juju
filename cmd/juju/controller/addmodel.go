@@ -54,6 +54,7 @@ type addModelCommand struct {
 	CredentialName string
 	CloudRegion    string
 	Config         common.ConfigFlag
+	noSwitch       bool
 }
 
 const addModelHelpDoc = `
@@ -115,6 +116,7 @@ func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Owner, "owner", "", "The owner of the new model if not the current user")
 	f.StringVar(&c.CredentialName, "credential", "", "Credential used to add the model")
 	f.Var(&c.Config, "config", "Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...])")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 }
 
 func (c *addModelCommand) Init(args []string) error {
@@ -162,6 +164,10 @@ func (c *addModelCommand) newAPIRoot() (api.Connection, error) {
 }
 
 func (c *addModelCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	api, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Annotate(err, "opening API connection")
@@ -169,7 +175,6 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	store := c.ClientStore()
-	controllerName := c.ControllerName()
 	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil {
 		return errors.Trace(err)
@@ -204,15 +209,23 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// If the user has specified a credential, then we will upload it if
-	// it doesn't already exist in the controller, and it exists locally.
-	//
-	// If no credential is specified, but there is exactly one on the
-	// client, then we use that; otherwise we attempt to detect one from
-	// the environment.
-	credentialTag, err := c.maybeUploadCredential(ctx, cloudClient, cloudTag, cloudRegion, cloud, modelOwner)
+	// Find a credential to use with the new model.
+	credential, credentialTag, cloudRegion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
+		cloudTag:    cloudTag,
+		cloudRegion: cloudRegion,
+		cloud:       cloud,
+		modelOwner:  modelOwner,
+	})
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Upload the credential if it was found locally.
+	if credential != nil {
+		ctx.Infof("Uploading credential '%s' to controller", credentialTag.Id())
+		if err := cloudClient.UpdateCredential(credentialTag, *credential); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	addModelClient := c.newAddModelAPI(api)
@@ -228,14 +241,15 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	messageArgs := []interface{}{c.Name}
 
 	if modelOwner == accountDetails.User {
-		controllerName := c.ControllerName()
 		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
 			model.UUID,
 		}); err != nil {
 			return errors.Trace(err)
 		}
-		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
-			return errors.Trace(err)
+		if !c.noSwitch {
+			if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -412,98 +426,151 @@ more than one credential is available. List credentials with:
 and then run the add-model command again with the --credential flag.`[1:],
 )
 
-func (c *addModelCommand) maybeUploadCredential(
-	ctx *cmd.Context,
-	cloudClient CloudAPI,
-	cloudTag names.CloudTag,
-	cloudRegion string,
-	cloud jujucloud.Cloud,
-	modelOwner string,
-) (names.CloudCredentialTag, error) {
+type findCredentialParams struct {
+	cloudTag    names.CloudTag
+	cloud       jujucloud.Cloud
+	cloudRegion string
+	modelOwner  string
+}
 
+// findCredential finds a suitable credential to use for the new model.
+// The credential will first be searched for locally and then on the
+// controller. If a credential is found locally then it's value will be
+// returned as the first return value. If it is found on the controller
+// this will be nil as there is no need to upload it in that case.
+func (c *addModelCommand) findCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, _ error) {
+	if c.CredentialName == "" {
+		return c.findUnspecifiedCredential(ctx, cloudClient, p)
+	}
+	return c.findSpecifiedCredential(ctx, cloudClient, p)
+}
+
+func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, _ error) {
+	fail := func(err error) (*jujucloud.Credential, names.CloudCredentialTag, string, error) {
+		return nil, names.CloudCredentialTag{}, "", err
+	}
 	// If the user has not specified a credential, and the cloud advertises
 	// itself as supporting the "empty" auth-type, then return immediately.
-	if c.CredentialName == "" {
-		for _, authType := range cloud.AuthTypes {
-			if authType == jujucloud.EmptyAuthType {
-				return names.CloudCredentialTag{}, nil
-			}
+	for _, authType := range p.cloud.AuthTypes {
+		if authType == jujucloud.EmptyAuthType {
+			return nil, names.CloudCredentialTag{}, p.cloudRegion, nil
 		}
 	}
 
-	// Check if the credential is already in the controller.
-	modelOwnerTag := names.NewUserTag(modelOwner)
-	credentialTags, err := cloudClient.UserCredentials(modelOwnerTag, cloudTag)
+	// No credential has been specified, so see if there is one already on the controller we can use.
+	modelOwnerTag := names.NewUserTag(p.modelOwner)
+	credentialTags, err := cloudClient.UserCredentials(modelOwnerTag, p.cloudTag)
 	if err != nil {
-		return names.CloudCredentialTag{}, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	if c.CredentialName != "" {
+	var credentialTag names.CloudCredentialTag
+	if len(credentialTags) == 1 {
+		credentialTag = credentialTags[0]
+	}
+
+	if (credentialTag != names.CloudCredentialTag{}) {
+		// If the controller already has a credential, see if
+		// there is a local version that has an associated
+		// region.
+		credential, _, cloudRegion, err := c.findLocalCredential(ctx, p, credentialTag.Name())
+		if err == nil || errors.IsNotFound(err) {
+			// If there is a credential in the controller use it even if we don't have a local version.
+			return credential, credentialTag, cloudRegion, nil
+		}
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+	}
+	// There is not a default credential on the controller (either
+	// there are no credentials, or there is more than one). Look for
+	// a local credential we might use.
+	credential, credentialName, cloudRegion, err := c.findLocalCredential(ctx, p, "")
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	// We've got a local credential to use.
+	credentialTag, err = common.ResolveCloudCredentialTag(
+		modelOwnerTag, p.cloudTag, credentialName,
+	)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	return credential, credentialTag, cloudRegion, nil
+}
+
+func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient CloudAPI, p *findCredentialParams) (_ *jujucloud.Credential, _ names.CloudCredentialTag, cloudRegion string, _ error) {
+	fail := func(err error) (*jujucloud.Credential, names.CloudCredentialTag, string, error) {
+		return nil, names.CloudCredentialTag{}, "", err
+	}
+	// Look for a local credential with the specified name
+	credential, credentialName, cloudRegion, err := c.findLocalCredential(ctx, p, c.CredentialName)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	if credential != nil {
+		// We found a local credential with the specified name.
+		modelOwnerTag := names.NewUserTag(p.modelOwner)
 		credentialTag, err := common.ResolveCloudCredentialTag(
-			modelOwnerTag, cloudTag, c.CredentialName,
+			modelOwnerTag, p.cloudTag, credentialName,
 		)
 		if err != nil {
-			return names.CloudCredentialTag{}, errors.Trace(err)
+			return fail(errors.Trace(err))
 		}
-		credentialId := credentialTag.Id()
-		for _, tag := range credentialTags {
-			if tag.Id() != credentialId {
-				continue
-			}
-			ctx.Infof("Using credential '%s' cached in controller", c.CredentialName)
-			return credentialTag, nil
-		}
-		if credentialTag.Owner().Id() != modelOwner {
-			// Another user's credential was specified, so
-			// we cannot automatically upload.
-			return names.CloudCredentialTag{}, errors.NotFoundf(
-				"credential '%s'", c.CredentialName,
-			)
-		}
+		return credential, credentialTag, cloudRegion, nil
 	}
 
-	// The user has either not specified a credential, or if they have, it
-	// is not cached in the controller, and isn't qualified with another
-	// user name.
-
-	if c.CredentialName == "" && len(credentialTags) == 1 {
-		tag := credentialTags[0]
-		ctx.Infof("Using credential '%s' cached in controller", tag.Name())
-		return tag, nil
-	}
-
-	// Upload the credential from the client, if it exists locally.
-	provider, err := c.providerRegistry.Provider(cloud.Type)
+	// There was no local credential with that name, check the controller
+	modelOwnerTag := names.NewUserTag(p.modelOwner)
+	credentialTags, err := cloudClient.UserCredentials(modelOwnerTag, p.cloudTag)
 	if err != nil {
-		return names.CloudCredentialTag{}, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	credential, credentialName, _, _, err := common.GetOrDetectCredential(
+	credentialTag, err := common.ResolveCloudCredentialTag(
+		modelOwnerTag, p.cloudTag, c.CredentialName,
+	)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	credentialId := credentialTag.Id()
+	for _, tag := range credentialTags {
+		if tag.Id() != credentialId {
+			continue
+		}
+		ctx.Infof("Using credential '%s' cached in controller", c.CredentialName)
+		return nil, credentialTag, "", nil
+	}
+	// Cannot find a credential with the correct name
+	return fail(errors.NotFoundf("credential '%s'", c.CredentialName))
+}
+
+func (c *addModelCommand) findLocalCredential(ctx *cmd.Context, p *findCredentialParams, name string) (_ *jujucloud.Credential, credentialName, cloudRegion string, _ error) {
+	fail := func(err error) (*jujucloud.Credential, string, string, error) {
+		return nil, "", "", err
+	}
+	provider, err := c.providerRegistry.Provider(p.cloud.Type)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	credential, credentialName, cloudRegion, _, err := common.GetOrDetectCredential(
 		ctx, c.ClientStore(), provider, modelcmd.GetCredentialsParams{
-			Cloud:          cloud,
-			CloudRegion:    cloudRegion,
-			CredentialName: c.CredentialName,
+			Cloud:          p.cloud,
+			CloudRegion:    p.cloudRegion,
+			CredentialName: name,
 		},
 	)
+	if err == nil {
+		return credential, credentialName, cloudRegion, nil
+	}
+	if errors.IsNotFound(err) {
+		return nil, "", "", nil
+	}
 	switch errors.Cause(err) {
-	case nil:
 	case modelcmd.ErrMultipleCredentials:
-		return names.CloudCredentialTag{}, ambiguousCredentialError
+		return fail(ambiguousCredentialError)
 	case common.ErrMultipleDetectedCredentials:
-		return names.CloudCredentialTag{}, ambiguousDetectedCredentialError
-	default:
-		return names.CloudCredentialTag{}, errors.Trace(err)
+		return fail(ambiguousDetectedCredentialError)
 	}
-
-	credentialTag, err := common.ResolveCloudCredentialTag(
-		modelOwnerTag, cloudTag, credentialName,
-	)
-	if err != nil {
-		return names.CloudCredentialTag{}, errors.Trace(err)
-	}
-	ctx.Infof("Uploading credential '%s' to controller", credentialTag.Id())
-	if err := cloudClient.UpdateCredential(credentialTag, *credential); err != nil {
-		return names.CloudCredentialTag{}, errors.Trace(err)
-	}
-	return credentialTag, nil
+	return fail(errors.Trace(err))
 }
 
 func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interface{}, error) {

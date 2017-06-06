@@ -1,5 +1,5 @@
 name: juju
-version: 2.2-beta3
+version: 2.2-rc1
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
@@ -34,6 +34,7 @@ parts:
       - github.com/juju/juju/cmd/juju
       #If you are releasing a build with public streams, you don't need to build the agent
       - github.com/juju/juju/cmd/jujud
+      - github.com/juju/juju/cmd/plugins/juju-metadata
     install: |
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.

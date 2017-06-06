@@ -11,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -184,11 +185,39 @@ type BootstrapConfig struct {
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
 
+	// InitialSSHHostKeys contains the initial SSH host keys to configure
+	// on the bootstrap machine, indexed by algorithm. These will only be
+	// valid for the initial SSH connection. The first thing we do upon
+	// making the initial SSH connection is to replace each of these host
+	// keys, to avoid the host keys being extracted from the metadata
+	// service by a bad actor post-bootstrap.
+	//
+	// Any existing host keys on the machine with algorithms not specified
+	// in the map will be left alone. This is important so that we do not
+	// trample on the host keys of manually provisioned machines.
+	InitialSSHHostKeys SSHHostKeys
+
 	// StateServingInfo holds the information for serving the state.
 	// This is only specified for bootstrap; controllers started
 	// subsequently will acquire their serving info from another
 	// server.
 	StateServingInfo params.StateServingInfo
+}
+
+// SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
+type SSHHostKeys struct {
+	// RSA, if non-nil, contains the RSA key to configure as the initial
+	// SSH host key.
+	RSA *SSHKeyPair
+}
+
+// SSHKeyPair is an SSH host key pair.
+type SSHKeyPair struct {
+	// Private contains the private key, PEM-encoded.
+	Private string
+
+	// Public contains the public key in authorized_keys format.
+	Public string
 }
 
 // StateInitializationParams contains parameters for initializing the
@@ -438,6 +467,24 @@ func (cfg *InstanceConfig) APIHostAddrs() []string {
 	return hosts
 }
 
+func (cfg *InstanceConfig) APIHosts() []string {
+	var hosts []string
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, "localhost")
+	}
+	if cfg.APIInfo != nil {
+		for _, addr := range cfg.APIInfo.Addrs {
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				logger.Errorf("Can't split API address %q to host:port - %q", host, err)
+				continue
+			}
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
+}
+
 // AgentVersion returns the version of the Juju agent that will be configured
 // on the instance. The zero value will be returned if there are no tools set.
 func (cfg *InstanceConfig) AgentVersion() version.Binary {
@@ -633,13 +680,9 @@ func (cfg *ControllerConfig) VerifyConfig() error {
 	return nil
 }
 
-// DefaultBridgePrefix is the prefix for all network bridge device
-// name used for LXC and KVM containers.
-const DefaultBridgePrefix = "br-"
-
 // DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
-const DefaultBridgeName = DefaultBridgePrefix + "eth0"
+const DefaultBridgeName = "br-eth0"
 
 // NewInstanceConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
@@ -743,6 +786,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AgentEnvironment[agent.ContainerType] = string(icfg.MachineContainerType)
 	icfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	icfg.ProxySettings = proxySettings
+	icfg.ProxySettings.AutoNoProxy = strings.Join(icfg.APIHosts(), ",")
 	icfg.AptProxySettings = aptProxySettings
 	icfg.AptMirror = aptMirror
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates

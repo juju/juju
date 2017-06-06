@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {
@@ -31,6 +32,24 @@ func (s *modelInfoSuite) assertResponse(c *gc.C, result interface{}) *params.Mod
 	return result.(*params.ModelInfoResults)
 }
 
+func (s *modelInfoSuite) assertExpectedModelInfo(c *gc.C, expectedInfo params.ModelInfoResults) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, result interface{}) error {
+			s.checkCall(c, objType, id, request)
+			resp := s.assertResponse(c, result)
+			*resp = expectedInfo
+			return nil
+		})
+	client := modelmanager.NewClient(apiCaller)
+	input := []names.ModelTag{}
+	for i := 0; i < len(expectedInfo.Results); i++ {
+		input = append(input, testing.ModelTag)
+	}
+	info, err := client.ModelInfo(input)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expectedInfo.Results)
+}
+
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{
@@ -39,17 +58,16 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			Error: &params.Error{Message: "woop"},
 		}},
 	}
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
-			s.checkCall(c, objType, id, request)
-			resp := s.assertResponse(c, result)
-			*resp = results
-			return nil
-		})
-	client := modelmanager.NewClient(apiCaller)
-	info, err := client.ModelInfo([]names.ModelTag{testing.ModelTag, testing.ModelTag})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, results.Results)
+	s.assertExpectedModelInfo(c, results)
+}
+
+func (s *modelInfoSuite) TestModelInfoWithAgentVersion(c *gc.C) {
+	results := params.ModelInfoResults{
+		Results: []params.ModelInfoResult{{
+			Result: &params.ModelInfo{Name: "name", UUID: "etc.", AgentVersion: &version.Current},
+		}},
+	}
+	s.assertExpectedModelInfo(c, results)
 }
 
 func (s *modelInfoSuite) TestInvalidResultCount(c *gc.C) {

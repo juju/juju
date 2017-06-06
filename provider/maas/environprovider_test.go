@@ -149,6 +149,7 @@ func (suite *EnvironProviderSuite) testMAASServerFromEndpoint(c *gc.C, endpoint 
 // up at the end of the test calling this method.
 func createTempFile(c *gc.C, content []byte) string {
 	file, err := ioutil.TempFile(c.MkDir(), "")
+	defer file.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	filename := file.Name()
 	err = ioutil.WriteFile(filename, content, 0644)

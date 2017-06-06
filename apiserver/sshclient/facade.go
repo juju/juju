@@ -7,13 +7,17 @@ package sshclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.sshclient")
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
@@ -62,22 +66,42 @@ func (facade *Facade) PrivateAddress(args params.Entities) (params.SSHAddressRes
 	return facade.getAddressPerEntity(args, getter)
 }
 
-// AllAddresses reports all addresses known to Juju for each given entity in
-// args. Machines and units are supported as entity types. Since the returned
-// addresses are gathered from multiple sources, results may include duplicates.
+// AllAddresses reports all addresses that might have SSH listening for each given
+// entity in args. Machines and units are supported as entity types.
+// TODO(wpk): 2017-05-17 This is a temporary solution, we should not fetch environ here
+// but get the addresses from state. We will be changing it since we want to have space-aware
+// SSH settings.
 func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesResults, error) {
 	if err := facade.checkIsModelAdmin(); err != nil {
 		return params.SSHAddressesResults{}, errors.Trace(err)
 	}
+	env, err := environs.GetEnviron(facade.backend, environs.New)
+	if err != nil {
+		return params.SSHAddressesResults{}, errors.Annotate(err, "opening environment")
+	}
 
+	environ, supportsNetworking := environs.SupportsNetworking(env)
 	getter := func(m SSHMachine) ([]network.Address, error) {
 		devicesAddresses, err := m.AllNetworkAddresses()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		legacyAddresses := m.Addresses()
-		return append(devicesAddresses, legacyAddresses...), nil
+		devicesAddresses = append(devicesAddresses, legacyAddresses...)
+		// Make the list unique
+		addressMap := make(map[network.Address]bool)
+		uniqueAddresses := []network.Address{}
+		for _, address := range devicesAddresses {
+			if !addressMap[address] {
+				addressMap[address] = true
+				uniqueAddresses = append(uniqueAddresses, address)
+			}
+		}
+		if supportsNetworking {
+			return environ.SSHAddresses(uniqueAddresses)
+		} else {
+			return uniqueAddresses, nil
+		}
 	}
 
 	return facade.getAllEntityAddresses(args, getter)

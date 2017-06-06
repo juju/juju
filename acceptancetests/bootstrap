@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+from argparse import ArgumentParser
+
+from jujupy import (
+    bootstrap_from_env,
+    client_from_config,
+    get_juju_home,
+)
+
+
+def main():
+    parser = ArgumentParser(description="""
+    Bootstrap a customized environment.  The first argument is the configured
+    environment to use as the starting point.  Subsequent arguments are
+    options to override, e.g. "region=lcy03".
+    """)
+    parser.add_argument('env', help='The environment to base deployment on.')
+    parser.add_argument('option', nargs='*',
+                        help='Override an environment option with value.')
+    parser.add_argument('--name', help='A name for the new environment.')
+    args = parser.parse_args()
+    client = client_from_config(args.env, None)
+    env = client.env
+    if args.name is not None:
+        env.set_model_name(args.name)
+    new_config = {}
+    for option in args.option:
+        key, value = option.split('=', 1)
+        new_config[key] = value
+    env.update_config(new_config)
+    bootstrap_from_env(get_juju_home(), client)
+
+
+if __name__ == '__main__':
+    main()

@@ -43,32 +43,33 @@ func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
-	err := runDeploy(c, ch, "riak", "--series", "quantal")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	_, err := runDeploy(c, ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
 	s.setupTestApplication(c)
-	ctx, err := runRemoveApplication(c, "riak")
+	ctx, err := runRemoveApplication(c, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, "removing application riak\n")
-	riak, err := s.State.Application("riak")
+	c.Assert(stderr, gc.Equals, "removing application multi-series\n")
+	multiSeries, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(riak.Life(), gc.Equals, state.Dying)
+	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
 }
 
 func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem")
-	err := runDeploy(c, ch, "storage-filesystem", "--series", "quantal", "-n2", "--storage", "data=2,rootfs")
+
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
+	_, err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,rootfs")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := runRemoveApplication(c, "storage-filesystem")
+	ctx, err := runRemoveApplication(c, "storage-filesystem-multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing application storage-filesystem
+removing application storage-filesystem-multi-series
 - will remove storage data/0
 - will remove storage data/1
 - will remove storage data/2
@@ -97,15 +98,15 @@ func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
 }
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
-	deploy := NewDefaultDeployCommand()
-	_, err := cmdtesting.RunCommand(c, deploy, ch, "--series", "quantal")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered-multi-series")
+	deploy := NewDeployCommand()
+	_, err := cmdtesting.RunCommand(c, deploy, ch)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runRemoveApplication(c, "metered")
+	_, err = runRemoveApplication(c, "metered-multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Application("metered")
+	multiSeries, err := s.State.Application("metered-multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(riak.Life(), gc.Equals, state.Dying)
+	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
 }
 
 func (s *RemoveApplicationSuite) TestBlockRemoveService(c *gc.C) {
@@ -113,11 +114,11 @@ func (s *RemoveApplicationSuite) TestBlockRemoveService(c *gc.C) {
 
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveService")
-	_, err := runRemoveApplication(c, "riak")
+	_, err := runRemoveApplication(c, "multi-series")
 	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
-	riak, err := s.State.Application("riak")
+	multiSeries, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(riak.Life(), gc.Equals, state.Alive)
+	c.Assert(multiSeries.Life(), gc.Equals, state.Alive)
 }
 
 func (s *RemoveApplicationSuite) TestFailure(c *gc.C) {

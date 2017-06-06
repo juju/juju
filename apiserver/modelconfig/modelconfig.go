@@ -5,6 +5,7 @@ package modelconfig
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -50,7 +51,7 @@ func (c *ModelConfigAPI) checkCanWrite() error {
 	return nil
 }
 
-func (c *ModelConfigAPI) isAdmin() error {
+func (c *ModelConfigAPI) isControllerAdmin() error {
 	hasAccess, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -61,11 +62,26 @@ func (c *ModelConfigAPI) isAdmin() error {
 	return nil
 }
 
+func (c *ModelConfigAPI) canReadModel() error {
+	isAdmin, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	canRead, err := c.auth.HasPermission(permission.ReadAccess, c.backend.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !isAdmin && !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // ModelGet implements the server-side part of the
 // model-config CLI command.
 func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.canReadModel(); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -110,9 +126,40 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 		}
 		return nil
 	}
+	// Only controller admins can set trace level debugging on a model.
+	checkLogTrace := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		spec, ok := updateAttrs["logging-config"]
+		if !ok {
+			return nil
+		}
+		logCfg, err := loggo.ParseConfigString(spec.(string))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Does at least one package have TRACE level logging requested.
+		haveTrace := false
+		for _, level := range logCfg {
+			haveTrace = level == loggo.TRACE
+			if haveTrace {
+				break
+			}
+		}
+		// No TRACE level requested, so no need to check for admin.
+		if !haveTrace {
+			return nil
+		}
+		if err := c.isControllerAdmin(); err != nil {
+			if errors.Cause(err) != common.ErrPerm {
+				return errors.Trace(err)
+			}
+			return errors.New("only controller admins can set a model's logging level to TRACE")
+		}
+		return nil
+	}
+
 	// Replace any deprecated attributes with their new values.
 	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion)
+	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace)
 }
 
 // ModelUnset implements the server-side part of the
@@ -124,7 +171,7 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	return c.backend.UpdateModelConfig(nil, args.Keys, nil)
+	return c.backend.UpdateModelConfig(nil, args.Keys)
 }
 
 // SetSLALevel sets the sla level on the model.

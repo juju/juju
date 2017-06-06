@@ -16,6 +16,14 @@ import (
 // Networking in this case.
 var SupportsNetworking = supportsNetworking
 
+// DefaultSpaceInfo should be passed into Networking.ProviderSpaceInfo
+// to get information about the default space.
+var DefaultSpaceInfo *network.SpaceInfo
+
+// DefaultSpaceName is the name of the default space (to which
+// application endpoints are bound if no explicit binding is given).
+const DefaultSpaceName = ""
+
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
@@ -42,6 +50,31 @@ type Networking interface {
 	// provider that have subnets available.
 	Spaces() ([]network.SpaceInfo, error)
 
+	// ProviderSpaceInfo returns the details of the space requested as
+	// a ProviderSpaceInfo. This will contain everything needed to
+	// decide whether an Environ of the same type in another
+	// controller could route to the space. Details for the default
+	// space can be retrieved by passing DefaultSpaceInfo (which is nil).
+	//
+	// This method accepts a SpaceInfo with details of the space that
+	// we need provider details for - this is the Juju model's view of
+	// what subnets are in the space. If the provider supports spaces
+	// and space discovery then it is the authority on what subnets
+	// are actually in the space, and it's free to collect the full
+	// space and subnet info using the space's ProviderId (discarding
+	// the subnet details passed in which might be out-of date).
+	//
+	// If the provider doesn't support space discovery then the Juju
+	// model's opinion of what subnets are in the space is
+	// authoritative. In that case the provider should collect up any
+	// other information needed to determine routability and include
+	// the passed-in space info in the ProviderSpaceInfo returned.
+	ProviderSpaceInfo(space *network.SpaceInfo) (*ProviderSpaceInfo, error)
+
+	// AreSpacesRoutable returns whether the communication between the
+	// two spaces can use cloud-local addresses.
+	AreSpacesRoutable(space1, space2 *ProviderSpaceInfo) (bool, error)
+
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also
 	// return an IsNotSupported error.
@@ -55,6 +88,9 @@ type Networking interface {
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
 	ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error
+
+	// SSHAddresses filters provided addresses for addresses usable for SSH
+	SSHAddresses(addresses []network.Address) ([]network.Address, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
@@ -104,4 +140,18 @@ func SupportsContainerAddresses(env Environ) bool {
 		return false
 	}
 	return ok
+}
+
+// ProviderSpaceInfo contains all the information about a space needed
+// by another environ to decide whether it can be routed to.
+type ProviderSpaceInfo struct {
+	network.SpaceInfo
+
+	// Cloud type governs what attributes will exist in the
+	// provider-specific map.
+	CloudType string
+
+	// Any provider-specific information to needed to identify the
+	// network within the cloud, e.g. VPC ID for EC2.
+	ProviderAttributes map[string]interface{}
 }

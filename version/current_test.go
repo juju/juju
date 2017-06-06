@@ -42,6 +42,13 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 			}
 		}
 	} else {
-		c.Assert(string(out), gc.Equals, "Codename:\t"+s+"\n")
+		//OpenSUSE lsb-release returns n/a
+		current_os, err := series.GetOSFromSeries(s)
+		c.Assert(err, gc.IsNil)
+		if string(out) == "n/a" && current_os == os.OpenSUSE {
+			c.Check(s, gc.Matches, "opensuseleap")
+		} else {
+			c.Assert(string(out), gc.Equals, "Codename:\t"+s+"\n")
+		}
 	}
 }

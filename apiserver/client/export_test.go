@@ -3,6 +3,10 @@
 
 package client
 
+import (
+	"github.com/juju/juju/environs"
+)
+
 // Filtering exports
 var (
 	MatchPortRanges = matchPortRanges
@@ -14,5 +18,9 @@ var (
 	ProcessMachines   = processMachines
 	MakeMachineStatus = makeMachineStatus
 )
+
+func SetNewEnviron(c *Client, newEnviron func() (environs.Environ, error)) {
+	c.newEnviron = newEnviron
+}
 
 type MachineAndContainers machineAndContainers

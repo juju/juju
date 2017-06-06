@@ -86,6 +86,10 @@ type Model interface {
 	DestroyIncludingHosted() error
 	SLALevel() string
 	SLAOwner() string
+	MigrationMode() state.MigrationMode
+	Name() string
+	UUID() string
+	ControllerUUID() string
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

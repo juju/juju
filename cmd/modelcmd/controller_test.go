@@ -22,8 +22,11 @@ type ControllerCommandSuite struct {
 var _ = gc.Suite(&ControllerCommandSuite{})
 
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
-	_, _, err := initTestControllerCommand(c, nil)
+	cmd, err := runTestControllerCommand(c, jujuclient.NewMemStore())
+	c.Assert(err, jc.ErrorIsNil)
+	controllerName, err := cmd.ControllerName()
 	c.Assert(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
+	c.Assert(controllerName, gc.Equals, "")
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
@@ -56,6 +59,12 @@ func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
 }
 
+func (s *ControllerCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testControllerCommand)
+	wrapped := modelcmd.WrapController(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
+}
+
 type testControllerCommand struct {
 	modelcmd.ControllerCommandBase
 }
@@ -68,20 +77,17 @@ func (c *testControllerCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func initTestControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (cmd.Command, *testControllerCommand, error) {
-	cmd := new(testControllerCommand)
-	cmd.SetClientStore(store)
-	wrapped := modelcmd.WrapController(cmd)
-	if err := cmdtesting.InitCommand(wrapped, args); err != nil {
-		return nil, nil, err
-	}
-	return wrapped, cmd, nil
+func testEnsureControllerName(c *gc.C, store jujuclient.ClientStore, expect string, args ...string) {
+	cmd, err := runTestControllerCommand(c, store, args...)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerName, err := cmd.ControllerName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerName, gc.Equals, expect)
 }
 
-func testEnsureControllerName(c *gc.C, store jujuclient.ClientStore, expect string, args ...string) {
-	cmd, controllerCmd, err := initTestControllerCommand(c, store, args...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerCmd.ControllerName(), gc.Equals, expect)
+func runTestControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ControllerCommand, error) {
+	cmd := modelcmd.WrapController(new(testControllerCommand))
+	cmd.SetClientStore(store)
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmd, errors.Trace(err)
 }

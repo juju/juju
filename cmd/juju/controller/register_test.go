@@ -87,10 +87,6 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 	err := cmdtesting.InitCommand(registerCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "registration data missing")
 
-	err = cmdtesting.InitCommand(registerCommand, []string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(registerCommand.Arg, gc.Equals, "foo")
-
 	err = cmdtesting.InitCommand(registerCommand, []string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
@@ -114,8 +110,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
@@ -146,8 +142,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
@@ -191,8 +187,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 `[1:]+noModelsText)
@@ -260,7 +256,6 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »
 You must specify a non-empty controller name.
 Enter a name for this controller: »
@@ -283,10 +278,10 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »controller-name
 Controller "controller-name" already exists.
 Enter a name for this controller: »other-name
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 `[1:]+noModelsText)
@@ -324,6 +319,7 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
+Enter a name for this controller: »foo
 Initial password successfully set for bob.
 `[1:])
 	err = s.run(c, prompter, registrationData)
@@ -353,10 +349,10 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »controller-name
 Controller "controller-name" already exists.
 Enter a name for this controller: »other-name
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 
@@ -406,6 +402,7 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
+Enter a name for this controller: »foo
 `[1:])
 	defer prompter.CheckDone()
 	s.apiOpenError = errors.New("open failed")
@@ -427,6 +424,8 @@ func (s *RegisterSuite) TestRegisterServerError(c *gc.C) {
 Enter a new password: »hunter2
 
 Confirm password: »hunter2
+
+Enter a name for this controller: »foo
 
 `[1:])
 
@@ -474,7 +473,11 @@ Welcome, bob@external. You are now logged into "public-controller-name".
 
 func (s *RegisterSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	s.apiOpenError = errors.New("open failed")
-	err := s.run(c, noPrompts(c), "0.1.2.3")
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a name for this controller: »public-controller-name
+`[1:])
+	defer prompter.CheckDone()
+	err := s.run(c, prompter, "0.1.2.3")
 	c.Assert(err, gc.ErrorMatches, `open failed`)
 }
 

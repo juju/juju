@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
+	"github.com/juju/juju/jujuclient"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -47,11 +48,26 @@ func (s *supportCommandSuite) SetUpTest(c *gc.C) {
 	s.mockSLAClient = &mockSlaClient{}
 	s.modelUUID = utils.MustNewUUID().String()
 	s.fakeAPIRoot = &fakeAPIConnection{model: s.modelUUID}
+	s.PatchValue(sla.NewJujuClientStore, s.newMockClientStore)
 }
 
 func (s *supportCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := sla.NewSLACommandForTest(s.fakeAPIRoot, s.mockSLAClient, s.mockAPI)
+	command.SetClientStore(newMockStore())
 	return cmdtesting.RunCommand(c, command, args...)
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	store.Models["foo"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/bar",
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
+	}
+	return store
 }
 
 func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
@@ -93,11 +109,14 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		if test.apiErr != nil {
 			s.mockAPI.SetErrors(test.apiErr)
 		}
-		_, err := s.run(c, test.level, "--budget", test.budget)
+		ctx, err := s.run(c, test.level, "--budget", test.budget)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
 			s.mockAPI.CheckCalls(c, test.apiCalls)
+			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `Model	SLA      	       Message
+c:m1 	essential	a test message
+`)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
@@ -105,9 +124,40 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 }
 
 func (s *supportCommandSuite) TestDiplayCurrentLevel(c *gc.C) {
-	ctx, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("%s", errors.Details(err)))
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "mock-level\n")
+	tests := []struct {
+		format         string
+		expectedOutput string
+	}{{
+		expectedOutput: `Model	SLA       	Message
+c:m1 	mock-level	       
+`,
+	}, {
+		format: "tabular",
+		expectedOutput: `Model	SLA       	Message
+c:m1 	mock-level	       
+`,
+	}, {
+		format: "json",
+		expectedOutput: `{"model":"c:m1","sla":"mock-level"}
+`,
+	}, {
+		format: "yaml",
+		expectedOutput: `model: c:m1
+sla: mock-level
+`,
+	},
+	}
+
+	for i, test := range tests {
+		c.Logf("running test %d", i)
+		args := []string{}
+		if test.format != "" {
+			args = append(args, "--format", test.format)
+		}
+		ctx, err := s.run(c, args...)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("%s", errors.Details(err)))
+		c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, test.expectedOutput)
+	}
 }
 
 func newMockAPI() (*mockapi, error) {
@@ -149,7 +199,11 @@ func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*slawire.SL
 		return nil, errors.Trace(err)
 	}
 	m.macaroon = macaroon
-	return &slawire.SLAResponse{Credentials: m.macaroon, Owner: "bob"}, nil
+	return &slawire.SLAResponse{
+		Credentials: m.macaroon,
+		Owner:       "bob",
+		Message:     "a test message",
+	}, nil
 }
 
 type mockSlaClient struct {
@@ -176,4 +230,30 @@ func (f *fakeAPIConnection) BestFacadeVersion(facade string) int {
 
 func (f *fakeAPIConnection) ModelTag() (names.ModelTag, bool) {
 	return names.NewModelTag(f.model), false
+}
+
+type mockClientStore struct {
+	jujuclient.ClientStore
+	modelUUID string
+}
+
+func (s *supportCommandSuite) newMockClientStore() jujuclient.ClientStore {
+	return &mockClientStore{modelUUID: s.modelUUID}
+}
+
+func (s *mockClientStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
+	n := 3
+	return map[string]jujuclient.ControllerDetails{
+		"c": jujuclient.ControllerDetails{
+			ModelCount: &n,
+		},
+	}, nil
+}
+
+func (s *mockClientStore) AllModels(controllerName string) (map[string]jujuclient.ModelDetails, error) {
+	return map[string]jujuclient.ModelDetails{
+		"m1": jujuclient.ModelDetails{ModelUUID: s.modelUUID},
+		"m2": jujuclient.ModelDetails{ModelUUID: "uuid2"},
+		"m3": jujuclient.ModelDetails{ModelUUID: "uuid3"},
+	}, nil
 }

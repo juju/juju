@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+import os
+from deploy_stack import destroy_job_instances
+
+if __name__ == '__main__':
+    destroy_job_instances(os.environ['JOB_NAME'])

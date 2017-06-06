@@ -119,9 +119,6 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	expectedRegion := region
 	if expectedRegion == "" {
 		expectedRegion = s.store.Credentials["cloud"].DefaultRegion
-		if expectedRegion == "" && len(s.cloud.Regions) > 0 {
-			expectedRegion = "first-region"
-		}
 	}
 	c.Assert(regionName, gc.Equals, expectedRegion)
 	c.Assert(credentialName, gc.Equals, cred)

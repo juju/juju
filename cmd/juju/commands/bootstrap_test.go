@@ -512,6 +512,15 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	c.Assert(modelName, gc.Equals, "admin/default")
 }
 
+func (s *BootstrapSuite) TestNoSwitch(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--no-switch")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.store.CurrentControllerName, gc.Equals, "")
+}
+
 func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
@@ -972,11 +981,11 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	stderr := cmdtesting.Stderr(ctx)
 	c.Check(stderr, gc.Matches,
-		"(.|\n)*Looking for packaged Juju agent version 1\\.2\\.0 for amd64\n"+
-			"No packaged binary found, preparing local Juju agent binary(.|\n)*",
+		"Creating Juju controller \"devcontroller\" on dummy/dummy\n"+
+			"Looking for packaged Juju agent version 1.2.0 for amd64\n",
 	)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you"},
+		{loggo.ERROR, "failed to bootstrap model: no matching agent binaries available"},
 	})
 }
 
@@ -1654,6 +1663,7 @@ azure-china
 cloudsigma                                   
 google                                       
 joyent                                       
+oracle                                       
 rackspace                                    
 localhost                                    
 dummy-cloud                     joe          home
@@ -1709,7 +1719,9 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
 	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _, _ string) error {
-		seenControllerName = base.ControllerName()
+		controllerName, err := base.ControllerName()
+		c.Check(err, jc.ErrorIsNil)
+		seenControllerName = controllerName
 		return nil
 	})
 

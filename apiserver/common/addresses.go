@@ -15,7 +15,6 @@ import (
 // controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
-	APIAddressesFromMachines() ([]string, error)
 	CACert() string
 	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)

@@ -732,7 +732,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	subnetCIDR := ipNet.String()
 	subnet, err := m.st.Subnet(subnetCIDR)
 	if errors.IsNotFound(err) {
-		logger.Infof(
+		logger.Debugf(
 			"address %q on machine %q uses unknown or machine-local subnet %q",
 			addressValue, m.Id(), subnetCIDR,
 		)
@@ -1119,4 +1119,126 @@ func generateMACAddress() string {
 		digits[i] = rand.Intn(256)
 	}
 	return fmt.Sprintf(macAddressTemplate, digits...)
+}
+
+// MachineNetworkInfoResult contains an error or a list of NetworkInfo structures for a specific space.
+type MachineNetworkInfoResult struct {
+	NetworkInfos []network.NetworkInfo
+	Error        *error
+}
+
+// Add address to a device in list or create a new device with this address.
+func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([]network.NetworkInfo, error) {
+	ifaceAddress := network.InterfaceAddress{
+		Address: address.Value(),
+		CIDR:    address.SubnetCIDR(),
+	}
+	for i := range networkInfos {
+		networkInfo := &networkInfos[i]
+		if networkInfo.InterfaceName == address.DeviceName() {
+			networkInfo.Addresses = append(networkInfo.Addresses, ifaceAddress)
+			return networkInfos, nil
+		}
+	}
+
+	MAC := ""
+	device, err := address.Device()
+	if err == nil {
+		MAC = device.MACAddress()
+	} else if !errors.IsNotFound(err) {
+		return nil, err
+	}
+	networkInfo := network.NetworkInfo{
+		InterfaceName: address.DeviceName(),
+		MACAddress:    MAC,
+		Addresses:     []network.InterfaceAddress{ifaceAddress},
+	}
+	return append(networkInfos, networkInfo), nil
+}
+
+// GetNetworkInfoForSpaces returns MachineNetworkInfoResult with a list of devices for each space in spaces
+// TODO(wpk): 2017-05-04 This does not work for L2-only devices as it iterates over addresses, needs to be fixed.
+// When changing the method we have to keep the ordering.
+func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](MachineNetworkInfoResult) {
+	results := make(map[string](MachineNetworkInfoResult))
+
+	var privateAddress network.Address
+
+	if spaces.Contains("") {
+		var err error
+		privateAddress, err = m.PrivateAddress()
+		if err != nil {
+			error := errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())
+			results[""] = MachineNetworkInfoResult{Error: &error}
+			spaces.Remove("")
+		}
+	}
+
+	addresses, err := m.AllAddresses()
+	logger.Debugf("Looking for something from spaces %v in %v", spaces, addresses)
+	if err != nil {
+		newErr := errors.Annotate(err, "cannot get devices addresses")
+		result := MachineNetworkInfoResult{Error: &newErr}
+		for space := range spaces {
+			if _, ok := results[space]; !ok {
+				results[space] = result
+			}
+		}
+		return results
+	}
+	actualSpaces := set.NewStrings()
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		switch {
+		case errors.IsNotFound(err):
+			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+		case err != nil:
+			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
+		default:
+			space := subnet.SpaceName()
+			actualSpaces.Add(space)
+			if spaces.Contains(space) {
+				r := results[space]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = &err
+				} else {
+					results[space] = r
+				}
+			}
+			if spaces.Contains("") && privateAddress.Value == addr.Value() {
+				r := results[""]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = &err
+				} else {
+					results[""] = r
+				}
+			}
+		}
+	}
+
+	// For a spaceless environment we won't find a subnet that's linked to privateAddress,
+	// we have to work around that and at least return minimal information for --primary-address.
+	if r, filledPrivateAddress := results[""]; !filledPrivateAddress && spaces.Contains("") {
+		r.NetworkInfos = []network.NetworkInfo{{
+			Addresses: []network.InterfaceAddress{{
+				Address: privateAddress.Value,
+			}},
+		}}
+		results[""] = r
+	}
+	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
+
+	for space := range spaces {
+		if _, ok := results[space]; !ok {
+			newErr := errors.Errorf("machine %q has no devices in space %q, only spaces %s", m.doc.Id, space, actualSpacesStr)
+			results[space] = MachineNetworkInfoResult{
+				Error: &newErr,
+			}
+		}
+		return results
+	}
+
+	return results
 }

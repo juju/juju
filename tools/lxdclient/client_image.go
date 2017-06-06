@@ -203,6 +203,10 @@ func seriesRemoteAliases(series, arch string) ([]string, error) {
 		if series == "centos7" && arch == jujuarch.AMD64 {
 			return []string{"centos/7/amd64"}, nil
 		}
+	case os.OpenSUSE:
+		if series == "opensuseleap" && arch == jujuarch.AMD64 {
+			return []string{"opensuse/42.2/amd64"}, nil
+		}
 	}
 	return nil, errors.NotSupportedf("series %q", series)
 }

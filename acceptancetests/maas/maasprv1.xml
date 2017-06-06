@@ -1,0 +1,4 @@
+<network>
+  <name>maasprv1</name>
+  <bridge name='maasprvbr1'/>
+</network>

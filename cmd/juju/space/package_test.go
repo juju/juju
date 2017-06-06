@@ -16,7 +16,9 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -29,8 +31,8 @@ type BaseSpaceSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	coretesting.BaseSuite
 
-	command cmd.Command
-	api     *StubAPI
+	newCommand func() modelcmd.ModelCommand
+	api        *StubAPI
 }
 
 var _ = gc.Suite(&BaseSpaceSuite{})
@@ -60,7 +62,7 @@ func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.api, gc.NotNil)
 
 	// All subcommand suites embedding this one should initialize
-	// s.command immediately after calling this method!
+	// s.newCommand immediately after calling this method!
 }
 
 func (s *BaseSpaceSuite) TearDownTest(c *gc.C) {
@@ -68,18 +70,33 @@ func (s *BaseSpaceSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-// RunCommand executes the s.command subcommand passing any args
-// and returning the stdout and stderr output as strings, as well as
-// any error.
+// InitCommand creates a command with s.newCommand and runs its
+// Init method only. It returns the inner command and any error.
+func (s *BaseSpaceSuite) InitCommand(c *gc.C, args ...string) (cmd.Command, error) {
+	cmd := s.newCommandForTest()
+	err := cmdtesting.InitCommand(cmd, args)
+	return modelcmd.InnerCommand(cmd), err
+}
+
+// RunCommand creates a command with s.newCommand and executes it,
+// passing any args and returning the stdout and stderr output as
+// strings, as well as any error.
 func (s *BaseSpaceSuite) RunCommand(c *gc.C, args ...string) (string, string, error) {
-	if s.command == nil {
-		panic("subcommand is nil")
-	}
-	ctx, err := cmdtesting.RunCommand(c, s.command, args...)
-	if ctx != nil {
-		return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
-	}
-	return "", "", err
+	cmd := s.newCommandForTest()
+	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
+}
+
+func (s *BaseSpaceSuite) newCommandForTest() modelcmd.ModelCommand {
+	cmd := s.newCommand()
+	// The client store shouldn't be used, but mock it
+	// out to make sure.
+	cmd.SetClientStore(jujuclient.NewMemStore())
+	cmd1 := modelcmd.InnerCommand(cmd).(interface {
+		SetAPI(space.SpaceAPI)
+	})
+	cmd1.SetAPI(s.api)
+	return cmd
 }
 
 // AssertRunSpacesNotSupported is a shortcut for calling RunCommand with the

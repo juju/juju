@@ -75,19 +75,19 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions: []cloud.Region{
-				cloud.Region{
+				{
 					Name:             "dummy-region",
 					Endpoint:         "dummy-endpoint",
 					IdentityEndpoint: "dummy-identity-endpoint",
 					StorageEndpoint:  "dummy-storage-endpoint",
 				},
-				cloud.Region{
+				{
 					Name:             "nether-region",
 					Endpoint:         "nether-endpoint",
 					IdentityEndpoint: "nether-identity-endpoint",
 					StorageEndpoint:  "nether-storage-endpoint",
 				},
-				cloud.Region{
+				{
 					Name:             "unused-region",
 					Endpoint:         "unused-endpoint",
 					IdentityEndpoint: "unused-identity-endpoint",
@@ -109,8 +109,9 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 func NewMongoInfo() *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{jujutesting.MgoServer.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 }

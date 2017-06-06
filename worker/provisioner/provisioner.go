@@ -30,7 +30,7 @@ var _ Provisioner = (*containerProvisioner)(nil)
 
 var (
 	retryStrategyDelay = 10 * time.Second
-	retryStrategyCount = 3
+	retryStrategyCount = 10
 )
 
 // Provisioner represents a running provisioner worker.

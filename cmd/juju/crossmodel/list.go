@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/jujuclient"
 )
 
 const listCommandDoc = `
@@ -63,7 +64,7 @@ func NewListEndpointsCommand() cmd.Command {
 	listCmd.newAPIFunc = func() (ListAPI, error) {
 		return listCmd.NewApplicationOffersAPI()
 	}
-	return modelcmd.Wrap(listCmd)
+	return modelcmd.WrapController(listCmd)
 }
 
 // Init implements Command.Init.
@@ -103,6 +104,29 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	// TODO (anastasiamac 2015-11-17) add input filters
+	// For now, just filter on the current model.
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelName, err := c.ClientStore().CurrentModel(controllerName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return errors.New("no current model, use juju switch to select a model on which to operate")
+		} else {
+			return errors.Annotate(err, "cannot load current model")
+		}
+	}
+
+	unqualifiedModelName, ownerTag, err := jujuclient.SplitModelName(modelName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.filters = []crossmodel.ApplicationOfferFilter{{
+		OwnerName: ownerTag.Name(),
+		ModelName: unqualifiedModelName,
+	}}
+
 	offeredApplications, err := api.ListOffers(c.filters...)
 	if err != nil {
 		return err
@@ -124,7 +148,6 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	// For now, all offers come from the one controller.
-	controllerName := c.ControllerName()
 	data, err := formatApplicationOfferDetails(controllerName, valid)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found applications")

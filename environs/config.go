@@ -20,6 +20,9 @@ type ProviderRegistry interface {
 	// given name or alias, an error will be returned.
 	RegisterProvider(p EnvironProvider, providerType string, providerTypeAliases ...string) error
 
+	// unregisterProvider unregisters the environment provider with the given name.
+	unregisterProvider(providerType string)
+
 	// RegisteredProviders returns the names of the registered environment
 	// providers.
 	RegisteredProviders() []string
@@ -60,6 +63,15 @@ func (r *globalProviderRegistry) RegisterProvider(p EnvironProvider, providerTyp
 	return nil
 }
 
+func (r *globalProviderRegistry) unregisterProvider(providerType string) {
+	delete(r.providers, providerType)
+	for a, p := range r.aliases {
+		if p == providerType {
+			delete(r.aliases, a)
+		}
+	}
+}
+
 func (r *globalProviderRegistry) RegisteredProviders() []string {
 	var p []string
 	for k := range r.providers {
@@ -86,9 +98,13 @@ func (r *globalProviderRegistry) Provider(providerType string) (EnvironProvider,
 //
 // RegisterProvider will panic if the provider name or any of the aliases
 // are registered more than once.
-func RegisterProvider(name string, p EnvironProvider, alias ...string) {
+// The return function can be used to unregister the provider and is used by tests.
+func RegisterProvider(name string, p EnvironProvider, alias ...string) (unregister func()) {
 	if err := GlobalProviderRegistry().RegisterProvider(p, name, alias...); err != nil {
 		panic(fmt.Errorf("juju: %v", err))
+	}
+	return func() {
+		GlobalProviderRegistry().unregisterProvider(name)
 	}
 }
 

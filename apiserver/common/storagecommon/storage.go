@@ -229,7 +229,10 @@ func volumeAttachmentDevicePath(
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
 	blockDevice state.BlockDeviceInfo,
 ) (string, error) {
-	if volumeInfo.HardwareId != "" || volumeAttachmentInfo.DeviceName != "" || volumeAttachmentInfo.DeviceLink != "" {
+	if volumeInfo.HardwareId != "" ||
+		volumeInfo.WWN != "" ||
+		volumeAttachmentInfo.DeviceName != "" ||
+		volumeAttachmentInfo.DeviceLink != "" {
 		// Prefer the volume attachment's information over what is
 		// in the published block device information.
 		var deviceLinks []string
@@ -238,6 +241,7 @@ func volumeAttachmentDevicePath(
 		}
 		return storage.BlockDevicePath(storage.BlockDevice{
 			HardwareId:  volumeInfo.HardwareId,
+			WWN:         volumeInfo.WWN,
 			DeviceName:  volumeAttachmentInfo.DeviceName,
 			DeviceLinks: deviceLinks,
 		})

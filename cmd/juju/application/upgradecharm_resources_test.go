@@ -44,8 +44,7 @@ func (s *UpgradeCharmResourceSuite) SetUpSuite(c *gc.C) {
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-
-	_, err := cmdtesting.RunCommand(c, application.NewDefaultDeployCommand(), chPath, "riak", "--series", "quantal")
+	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,13 +192,11 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	err := ioutil.WriteFile(resourceFile, []byte(resourceContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := cmdtesting.RunCommand(c, application.NewDefaultDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
+	output, err := runDeploy(c, "trusty/starsay", "--resource", "upload-resource="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
-	output := cmdtesting.Stderr(ctx)
 
 	expectedOutput := `Located charm "cs:trusty/starsay-1".
-Deploying charm "cs:trusty/starsay-1".
-`
+Deploying charm "cs:trusty/starsay-1".`
 	c.Assert(output, gc.Equals, expectedOutput)
 	s.assertCharmsUploaded(c, "cs:trusty/starsay-1")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
@@ -373,4 +370,12 @@ type serviceInfo struct {
 	exposed          bool
 	storage          map[string]state.StorageConstraints
 	endpointBindings map[string]string
+}
+
+// runDeploy executes the deploy command in order to deploy the given
+// charm or bundle. The deployment stderr output and error are returned.
+// TODO(rog) delete this when tests are universally internal or external.
+func runDeploy(c *gc.C, args ...string) (string, error) {
+	ctx, err := cmdtesting.RunCommand(c, application.NewDeployCommand(), args...)
+	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }

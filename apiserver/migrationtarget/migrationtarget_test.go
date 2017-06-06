@@ -100,6 +100,12 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *Suite) TestCACert(c *gc.C) {
+	api := s.mustNewAPI(c)
+	r := api.CACert()
+	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
+}
+
 func (s *Suite) TestPrechecksFail(c *gc.C) {
 	controllerVersion := s.controllerVersion(c)
 

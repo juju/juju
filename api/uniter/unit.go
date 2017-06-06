@@ -173,6 +173,28 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	return common.Watch(u.st.facade, u.tag)
 }
 
+// WatchRelations returns a StringsWatcher that notifies of changes to
+// the lifecycles of relations involving u.
+func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchUnitRelations", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
 // Service returns the service.
 func (u *Unit) Application() (*Application, error) {
 	service := &Application{
@@ -744,4 +766,19 @@ func (u *Unit) NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
 	}
 
 	return result.Config, nil
+}
+
+func (u *Unit) NetworkInfo(bindings []string) (map[string]params.NetworkInfoResult, error) {
+	var results params.NetworkInfoResults
+	args := params.NetworkInfoParams{
+		Unit:     u.tag.String(),
+		Bindings: bindings,
+	}
+
+	err := u.st.facade.FacadeCall("NetworkInfo", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return results.Results, nil
 }

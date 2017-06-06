@@ -172,7 +172,7 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 
 	if c.noHostKeyChecks {
 		options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
-		options.SetKnownHostsFile("/dev/null")
+		options.SetKnownHostsFile(os.DevNull)
 	} else {
 		knownHostsPath, err := c.generateKnownHosts(targets)
 		if err != nil {
@@ -189,10 +189,6 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 			// strict host key checking.
 			options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
 			options.SetKnownHostsFile(knownHostsPath)
-		} else {
-			// If the user's personal known_hosts is used, also use
-			// the user's personal StrictHostKeyChecking preferences.
-			options.SetStrictHostKeyChecking(ssh.StrictHostChecksUnset)
 		}
 	}
 
@@ -277,6 +273,10 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the
 	// host key of the controller machine being used for proxying
 	// here. This isn't too serious as all traffic passing through the
@@ -285,7 +285,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	// this extra level of checking.
 	options.SetProxyCommand(
 		juju, "ssh",
-		"--model="+c.ModelName(),
+		"--model="+modelName,
 		"--proxy=false",
 		"--no-host-key-checks",
 		"--pty=false",
@@ -399,13 +399,16 @@ func (c *SSHCommon) legacyAddressGetter(entity string) (string, error) {
 
 // reachableAddressGetter dials all addresses of the given entity, returning the
 // first one that succeeds. Only used with SSHClient API facade v2 or later is
-// available.
+// available. It does not try to dial if only one address is available.
 func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 	addresses, err := c.apiClient.AllAddresses(entity)
 	if err != nil {
 		return "", errors.Trace(err)
 	} else if len(addresses) == 0 {
 		return "", network.NoAddressError("available")
+	} else if len(addresses) == 1 {
+		logger.Debugf("Only one SSH address provided (%s), using it without probing", addresses[0])
+		return addresses[0], nil
 	}
 	publicKeys := []string{}
 	if !c.noHostKeyChecks {

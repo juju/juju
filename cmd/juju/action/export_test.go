@@ -25,6 +25,10 @@ type StatusCommand struct {
 	*statusCommand
 }
 
+type CancelCommand struct {
+	*cancelCommand
+}
+
 type RunCommand struct {
 	*runCommand
 }
@@ -71,6 +75,12 @@ func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Status
 	c := &statusCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &StatusCommand{c}
+}
+
+func NewCancelCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CancelCommand) {
+	c := &cancelCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c), &CancelCommand{c}
 }
 
 func NewListCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListCommand) {

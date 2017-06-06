@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/version"
@@ -1017,20 +1018,44 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 	}
 
-	var apiPort int
-	if args.InstanceConfig.Controller != nil {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
-	} else {
-		// All ports are the same so pick the first.
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	// For BUG 1680787: openstack: add support for neutron networks where port
+	// security is disabled.
+	// If any network specified for instance boot has PortSecurityEnabled equals
+	// false, don't create security groups, instance boot will fail.
+	createSecurityGroups := true
+	if len(networks) > 0 && e.supportsNeutron() {
+		client := e.neutron()
+		for _, n := range networks {
+			net, err := client.GetNetworkV2(n.NetworkId)
+			if err != nil {
+				return nil, err
+			}
+			if net.PortSecurityEnabled != nil &&
+				*net.PortSecurityEnabled == false {
+				createSecurityGroups = *net.PortSecurityEnabled
+				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
+				break
+			}
+		}
 	}
-	groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot set up groups")
-	}
-	novaGroupNames := make([]nova.SecurityGroupName, len(groupNames))
-	for i, name := range groupNames {
-		novaGroupNames[i].Name = name
+
+	var novaGroupNames = []nova.SecurityGroupName{}
+	if createSecurityGroups {
+		var apiPort int
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		} else {
+			// All ports are the same so pick the first.
+			apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+		}
+		groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set up groups")
+		}
+		novaGroupNames = make([]nova.SecurityGroupName, len(groupNames))
+		for i, name := range groupNames {
+			novaGroupNames[i].Name = name
+		}
 	}
 
 	machineName := resourceName(
@@ -1039,6 +1064,40 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		args.InstanceConfig.MachineId,
 	)
 
+	waitForActiveServerDetails := func(
+		client *nova.Client,
+		id string,
+		timeout time.Duration,
+	) (server *nova.ServerDetail, err error) {
+
+		var errStillBuilding = errors.Errorf("instance %q has status BUILD", id)
+		err = retry.Call(retry.CallArgs{
+			Clock:       e.clock,
+			Delay:       10 * time.Second,
+			MaxDuration: timeout,
+			Func: func() error {
+				server, err = client.GetServer(id)
+				if err != nil {
+					return err
+				}
+				if server.Status == nova.StatusBuild {
+					return errStillBuilding
+				}
+				return nil
+			},
+			NotifyFunc: func(lastError error, attempt int) {
+				args.StatusCallback(status.Provisioning, fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
+			},
+			IsFatalError: func(err error) bool {
+				return err != errStillBuilding
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		return server, nil
+	}
+
 	tryStartNovaInstance := func(
 		attempts utils.AttemptStrategy,
 		client *nova.Client,
@@ -1046,7 +1105,26 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	) (server *nova.Entity, err error) {
 		for a := attempts.Start(); a.Next(); {
 			server, err = client.RunServer(instanceOpts)
-			if err == nil || gooseerrors.IsNotFound(err) == false {
+			if err != nil {
+				break
+			}
+			var serverDetail *nova.ServerDetail
+			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
+			if err != nil {
+				server = nil
+				break
+			} else if serverDetail.Status == nova.StatusActive {
+				break
+			} else if serverDetail.Status == nova.StatusError {
+				// Perhaps there is an error case where a retry in the same AZ
+				// is a good idea.
+				logger.Infof("Instance %q in ERROR state with fault %q", server.Id, serverDetail.Fault.Message)
+				logger.Infof("Deleting instance %q in ERROR state", server.Id)
+				if err = e.terminateInstances([]instance.Id{instance.Id(server.Id)}); err != nil {
+					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
+				}
+				server = nil
+				err = errors.New(serverDetail.Fault.Message)
 				break
 			}
 		}
@@ -1060,20 +1138,21 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		availabilityZones []string,
 	) (server *nova.Entity, err error) {
 		for _, zone := range availabilityZones {
+			logger.Infof("trying to build instance in availability zone %q", zone)
 			instanceOpts.AvailabilityZone = zone
 			e.configurator.ModifyRunServerOptions(&instanceOpts)
 			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
+			// 'No valid host available' is typically a resource error,
+			// therefore it a good idea to try another AZ if available.
 			if err == nil || isNoValidHostsError(err) == false {
 				break
 			}
+			logger.Infof("failed to build instance in availability zone %q", zone)
 
-			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
 		}
-
 		if err != nil {
 			err = errors.Annotate(err, "cannot run instance")
 		}
-
 		return server, err
 	}
 
@@ -1129,10 +1208,8 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 }
 
 func isNoValidHostsError(err error) bool {
-	if gooseErr, ok := err.(gooseerrors.Error); ok {
-		if cause := gooseErr.Cause(); cause != nil {
-			return strings.Contains(cause.Error(), "No valid host was found")
-		}
+	if cause := errors.Cause(err); cause != nil {
+		return strings.Contains(cause.Error(), "No valid host was found")
 	}
 	return false
 }
@@ -1205,7 +1282,7 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
 func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
-	servers, err := e.nova().ListServersDetail(nil)
+	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		return err
 	}
@@ -1643,4 +1720,19 @@ func (e *Environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 // ReleaseContainerAddresses is specified on environs.Networking.
 func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("release container address")
+}
+
+// ProviderSpaceInfo is specified on environs.NetworkingEnviron.
+func (*Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable is specified on environs.NetworkingEnviron.
+func (*Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses is specified on environs.SSHAddresses.
+func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
 }

@@ -1,0 +1,14 @@
+name: ubuntu
+summary: A pristine Ubuntu Server
+maintainer: Charmers <juju@lists.ubuntu.com>
+description: |
+  This simply deploys Ubuntu Server.
+categories:
+     - misc
+series:
+  - trusty
+  - precise
+  - utopic
+  - vivid
+  - wily
+  - xenial

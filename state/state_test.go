@@ -211,7 +211,7 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.Watch()
 
-	w := s.State.Watch()
+	w := s.State.Watch(state.WatchParams{IncludeOffers: true})
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
 	s.State.StartSync()
@@ -769,15 +769,6 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 		fmt.Sprintf("10.0.0.0:%d", cfg.StatePort()),
 		fmt.Sprintf("10.0.0.2:%d", cfg.StatePort()),
 		fmt.Sprintf("10.0.0.3:%d", cfg.StatePort()),
-	})
-
-	addrs, err = s.State.APIAddressesFromMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.HasLen, 3)
-	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.0:%d", cfg.APIPort()),
-		fmt.Sprintf("10.0.0.2:%d", cfg.APIPort()),
-		fmt.Sprintf("10.0.0.3:%d", cfg.APIPort()),
 	})
 }
 
@@ -3605,7 +3596,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)
+	c.Assert(s.State.UpdateModelConfig(attrs, nil), gc.IsNil)
 }
 
 func assertAgentVersion(c *gc.C, st *state.State, vers string) {
@@ -4573,13 +4564,22 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	calls := getCalls()
-	c.Assert(calls, gc.HasLen, 1)
-	c.Assert(calls[0].dbName, gc.Equals, "juju")
-	c.Assert(calls[0].modelUUID, gc.Equals, s.modelTag.Id())
-	c.Assert(calls[0].err, gc.IsNil)
-	c.Assert(calls[0].ops, gc.HasLen, 1)
-	c.Assert(calls[0].ops[0].C, gc.Equals, "constraints")
-	c.Assert(calls[0].ops[0].Update, gc.NotNil)
+	// There may be some leadership txns in the call list.
+	// We onlt care about the constraints call.
+	found := false
+	for _, call := range calls {
+		if call.ops[0].C != "constraints" {
+			continue
+		}
+		c.Check(call.dbName, gc.Equals, "juju")
+		c.Check(call.modelUUID, gc.Equals, s.modelTag.Id())
+		c.Check(call.err, gc.IsNil)
+		c.Check(call.ops, gc.HasLen, 1)
+		c.Check(call.ops[0].Update, gc.NotNil)
+		found = true
+		break
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 type SetAdminMongoPasswordSuite struct {
@@ -4598,7 +4598,7 @@ func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.Use
 
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{EnableAuth: true}
-	err := inst.Start(testing.Certs)
+	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.DestroyWithLog()
 
@@ -4612,8 +4612,9 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 	noAuthInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{inst.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{inst.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: true,
 		},
 	}
 	authInfo := &mongo.MongoInfo{

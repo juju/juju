@@ -38,20 +38,13 @@ import (
 
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
-	setAdminAPI func(*apiserver.Server)
 }
 
 type loginSuite struct {
 	baseLoginSuite
 }
 
-var _ = gc.Suite(&loginSuite{
-	baseLoginSuite{
-		setAdminAPI: func(srv *apiserver.Server) {
-			apiserver.SetAdminAPIVersions(srv, 3)
-		},
-	},
-})
+var _ = gc.Suite(&loginSuite{})
 
 func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -1109,13 +1102,7 @@ func setEveryoneAccess(c *gc.C, st *state.State, adminUser names.UserTag, access
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var _ = gc.Suite(&migrationSuite{
-	baseLoginSuite{
-		setAdminAPI: func(srv *apiserver.Server) {
-			apiserver.SetAdminAPIVersions(srv, 3)
-		},
-	},
-})
+var _ = gc.Suite(&migrationSuite{})
 
 type migrationSuite struct {
 	baseLoginSuite

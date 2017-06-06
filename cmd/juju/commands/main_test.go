@@ -41,7 +41,7 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(application.NewDefaultDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
 }
 func configHelpText() string {
 	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
@@ -401,13 +401,13 @@ var commandNames = []string{
 	"add-user",
 	"agree",
 	"agreements",
-	"allocate",
 	"attach",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
-	"budgets",
+	"budget",
 	"cached-images",
+	"cancel-action",
 	"change-user-password",
 	"charm",
 	"clouds",
@@ -416,8 +416,8 @@ var commandNames = []string{
 	"controller-config",
 	"controllers",
 	"create-backup",
-	"create-budget",
 	"create-storage-pool",
+	"create-wallet",
 	"credentials",
 	"debug-hooks",
 	"debug-log",
@@ -444,7 +444,6 @@ var commandNames = []string{
 	"list-actions",
 	"list-agreements",
 	"list-backups",
-	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
 	"list-controllers",
@@ -462,6 +461,7 @@ var commandNames = []string{
 	"list-storage-pools",
 	"list-subnets",
 	"list-users",
+	"list-wallets",
 	"login",
 	"logout",
 	"machines",
@@ -494,17 +494,16 @@ var commandNames = []string{
 	"run",
 	"run-action",
 	"scp",
-	"set-budget",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
 	"set-meter-status",
 	"set-model-constraints",
 	"set-plan",
+	"set-wallet",
 	"show-action-output",
 	"show-action-status",
 	"show-backup",
-	"show-budget",
 	"show-cloud",
 	"show-controller",
 	"show-machine",
@@ -513,6 +512,7 @@ var commandNames = []string{
 	"show-status-log",
 	"show-storage",
 	"show-user",
+	"show-wallet",
 	"sla",
 	"spaces",
 	"ssh",
@@ -533,6 +533,7 @@ var commandNames = []string{
 	"upload-backup",
 	"users",
 	"version",
+	"wallets",
 	"whoami",
 }
 

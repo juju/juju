@@ -1886,3 +1886,18 @@ func (e *environ) hasDefaultVPC() (bool, error) {
 	}
 	return e.defaultVPC != nil, nil
 }
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements NetworkingEnviron.
+func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses implements environs.SSHAddresses.
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
+}

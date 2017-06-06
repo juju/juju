@@ -364,6 +364,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewRunCommand())
 	r.Register(action.NewShowOutputCommand())
 	r.Register(action.NewListCommand())
+	r.Register(action.NewCancelCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())
@@ -371,7 +372,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage and control services
 	r.Register(application.NewAddUnitCommand())
 	r.Register(application.NewConfigCommand())
-	r.Register(application.NewDefaultDeployCommand())
+	r.Register(application.NewDeployCommand())
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewServiceGetConstraintsCommand())

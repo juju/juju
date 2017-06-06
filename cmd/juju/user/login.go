@@ -72,7 +72,7 @@ See also:
 
 // Functions defined as variables so they can be overridden in tests.
 var (
-	apiOpen          = (*modelcmd.JujuCommandBase).APIOpen
+	apiOpen          = (*modelcmd.CommandBase).APIOpen
 	newAPIConnection = juju.NewAPIConnection
 	listModels       = func(c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return modelmanager.NewClient(c).ListModels(userName)
@@ -188,7 +188,9 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 	}
 	switch {
 	case c.domain != "":
-		conn, publicControllerDetails, accountDetails, err = c.publicControllerLogin(ctx, c.domain, oldAccountDetails)
+		// Note: the controller name is guaranteed to be non-empty
+		// in this case via the test at the start of this function.
+		conn, publicControllerDetails, accountDetails, err = c.publicControllerLogin(ctx, c.domain, c.controllerName, oldAccountDetails)
 		if err != nil {
 			return errors.Annotatef(err, "cannot log into %q", c.domain)
 		}
@@ -274,13 +276,14 @@ func (c *loginCommand) existingControllerLogin(ctx *cmd.Context, store jujuclien
 func (c *loginCommand) publicControllerLogin(
 	ctx *cmd.Context,
 	host string,
+	controllerName string,
 	currentAccountDetails *jujuclient.AccountDetails,
 ) (api.Connection, *jujuclient.ControllerDetails, *jujuclient.AccountDetails, error) {
 	fail := func(err error) (api.Connection, *jujuclient.ControllerDetails, *jujuclient.AccountDetails, error) {
 		return nil, nil, nil, err
 	}
 	if !strings.ContainsAny(host, ".:") {
-		host1, err := c.getKnownControllerDomain(host)
+		host1, err := c.getKnownControllerDomain(host, controllerName)
 		if errors.IsNotFound(err) {
 			return fail(errors.Errorf("%q is not a known public controller", host))
 		}
@@ -299,7 +302,7 @@ func (c *loginCommand) publicControllerLogin(
 	// Unfortunately this means we'll connect twice to the controller
 	// but it's probably best to go through the conventional path the
 	// second time.
-	bclient, err := c.BakeryClient()
+	bclient, err := c.CommandBase.BakeryClient(c.ClientStore(), controllerName)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -311,7 +314,7 @@ func (c *loginCommand) publicControllerLogin(
 		if d.User != "" {
 			tag = names.NewUserTag(d.User)
 		}
-		return apiOpen(&c.JujuCommandBase, &api.Info{
+		return apiOpen(&c.CommandBase, &api.Info{
 			Tag:      tag,
 			Password: d.Password,
 			Addrs:    []string{host},
@@ -324,7 +327,7 @@ func (c *loginCommand) publicControllerLogin(
 	// If we get to here, then we have a cached macaroon for the registered
 	// user. If we encounter an error after here, we need to clear it.
 	c.onRunError = func() {
-		if err := c.ClearControllerMacaroons([]string{host}); err != nil {
+		if err := c.ClearControllerMacaroons(c.ClientStore(), controllerName); err != nil {
 			logger.Errorf("failed to clear macaroon: %v", err)
 		}
 	}
@@ -468,7 +471,7 @@ const defaultJujuDirectory = "https://api.jujucharms.com/directory"
 
 // getKnownControllerDomain returns the list of known
 // controller domain aliases.
-func (c *loginCommand) getKnownControllerDomain(name string) (string, error) {
+func (c *loginCommand) getKnownControllerDomain(name, controllerName string) (string, error) {
 	if strings.Contains(name, ".") || strings.Contains(name, ":") {
 		return "", errors.NotFoundf("controller %q", name)
 	}
@@ -476,7 +479,7 @@ func (c *loginCommand) getKnownControllerDomain(name string) (string, error) {
 	if u := os.Getenv("JUJU_DIRECTORY"); u != "" {
 		baseURL = u
 	}
-	client, err := c.BakeryClient()
+	client, err := c.CommandBase.BakeryClient(c.ClientStore(), controllerName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

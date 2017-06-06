@@ -108,10 +108,6 @@ func (fakeAddresses) Addresses() ([]string, error) {
 	return []string{"addresses:1", "addresses:2"}, nil
 }
 
-func (fakeAddresses) APIAddressesFromMachines() ([]string, error) {
-	panic("should never be called")
-}
-
 func (fakeAddresses) CACert() string {
 	return "a cert"
 }

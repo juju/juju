@@ -37,7 +37,7 @@ func RequiredError(name string) error {
 func IsFatal(err error) bool {
 	err = errors.Cause(err)
 	switch err {
-	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine:
+	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine, jworker.ErrRestartAgent:
 		return true
 	}
 
@@ -112,6 +112,9 @@ func AgentDone(logger loggo.Logger, err error) error {
 			logger.Infof(err.Error())
 			return err
 		}
+	}
+	if err == jworker.ErrRestartAgent {
+		logger.Warningf("agent restarting")
 	}
 	return err
 }

@@ -4,6 +4,7 @@
 package featuretests
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"time"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type cmdControllerSuite struct {
@@ -102,7 +104,7 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 		"\n"+
 		"Model              Cloud/Region        Status     Access  Last connection\n"+
 		"admin/controller*  dummy/dummy-region  available  admin   just now\n"+
-		"test/new-model     dummy/dummy-region  available          never connected\n"+
+		"test/new-model     dummy/dummy-region  available  -       never connected\n"+
 		"\n")
 }
 
@@ -111,7 +113,7 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 	two := uint64(2)
 	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
 	context := s.run(c, "list-models", "--format=yaml")
-	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
+	expectedOutput := `
 models:
 - name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -136,8 +138,10 @@ models:
     "1":
       cores: 2
   sla: unsupported
+  agent-version: %v
 current-model: controller
-`[1:])
+`[1:]
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current))
 }
 
 func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {

@@ -14,6 +14,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -42,11 +43,15 @@ var _ = gc.Suite(&AddModelSuite{})
 
 func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+
+	agentVersion, err := version.Parse("2.55.5")
+	c.Assert(err, jc.ErrorIsNil)
 	s.fakeAddModelAPI = &fakeAddClient{
 		model: base.ModelInfo{
-			Name:  "test",
-			UUID:  "fake-model-uuid",
-			Owner: "ignored-for-now",
+			Name:         "test",
+			UUID:         "fake-model-uuid",
+			Owner:        "ignored-for-now",
+			AgentVersion: &agentVersion,
 		},
 	}
 	s.fakeCloudAPI = &fakeCloudAPI{
@@ -366,11 +371,49 @@ lxd
 }
 
 func (s *AddModelSuite) TestCloudUnspecifiedRegionPassedThrough(c *gc.C) {
+	// Use a cloud that doesn't support empty authorization.
+	s.fakeCloudAPI = &fakeCloudAPI{
+		authTypes: []cloud.AuthType{
+			cloud.AccessKeyAuthType,
+		},
+		credentials: []names.CloudCredentialTag{
+			names.NewCloudCredentialTag("cloud/admin/default"),
+			names.NewCloudCredentialTag("aws/other/secrets"),
+		},
+	}
 	_, err := s.run(c, "test", "aws")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "")
+}
+
+func (s *AddModelSuite) TestCloudDefaultRegionUsedIfSet(c *gc.C) {
+	// Overwrite the credentials with a default region.
+	s.store.Credentials["aws"] = cloud.CloudCredential{
+		DefaultRegion: "us-west-1",
+		AuthCredentials: map[string]cloud.Credential{
+			"secrets": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+				"access-key": "key",
+				"secret-key": "sekret",
+			}),
+		},
+	}
+	// Use a cloud that doesn't support empty authorization.
+	s.fakeCloudAPI = &fakeCloudAPI{
+		authTypes: []cloud.AuthType{
+			cloud.AccessKeyAuthType,
+		},
+		credentials: []names.CloudCredentialTag{
+			names.NewCloudCredentialTag("cloud/admin/default"),
+			names.NewCloudCredentialTag("aws/other/secrets"),
+		},
+	}
+	_, err := s.run(c, "test", "aws")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
+	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-west-1")
 }
 
 func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *gc.C) {
@@ -499,10 +542,36 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
+	const controllerName = "test-master"
+
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.store.ModelByName("test-master", "bob/test")
+	c.Check(s.store.CurrentControllerName, gc.Equals, controllerName)
+	modelName, err := s.store.CurrentModel(controllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelName, gc.Equals, "bob/test")
+
+	model, err := s.store.ModelByName(controllerName, modelName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+}
+
+func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
+	const controllerName = "test-master"
+	checkNoModelSelected := func() {
+		_, err := s.store.CurrentModel(controllerName)
+		c.Check(err, jc.Satisfies, errors.IsNotFound)
+	}
+	checkNoModelSelected()
+
+	_, err := s.run(c, "test", "--no-switch")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// New model should not be selected by should still exist in the
+	// store.
+	checkNoModelSelected()
+	model, err := s.store.ModelByName(controllerName, "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }

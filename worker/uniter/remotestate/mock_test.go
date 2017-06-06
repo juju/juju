@@ -191,6 +191,7 @@ type mockUnit struct {
 	configSettingsWatcher *mockNotifyWatcher
 	storageWatcher        *mockStringsWatcher
 	actionWatcher         *mockStringsWatcher
+	relationsWatcher      *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -233,6 +234,10 @@ func (u *mockUnit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	return u.actionWatcher, nil
 }
 
+func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
+	return u.relationsWatcher, nil
+}
+
 type mockService struct {
 	tag                   names.ApplicationTag
 	life                  params.Life
@@ -241,7 +246,6 @@ type mockService struct {
 	forceUpgrade          bool
 	serviceWatcher        *mockNotifyWatcher
 	leaderSettingsWatcher *mockNotifyWatcher
-	relationsWatcher      *mockStringsWatcher
 }
 
 func (s *mockService) CharmModifiedVersion() (int, error) {
@@ -270,10 +274,6 @@ func (s *mockService) Watch() (watcher.NotifyWatcher, error) {
 
 func (s *mockService) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
 	return s.leaderSettingsWatcher, nil
-}
-
-func (s *mockService) WatchRelations() (watcher.StringsWatcher, error) {
-	return s.relationsWatcher, nil
 }
 
 type mockRelation struct {

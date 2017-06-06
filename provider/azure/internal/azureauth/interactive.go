@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/arm/authorization"
@@ -17,12 +18,14 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/provider/azure/internal/ad"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azureauth")
@@ -70,6 +73,7 @@ func InteractiveCreateServicePrincipal(
 	subscriptionsClient := subscriptions.Client{
 		subscriptions.NewWithBaseURI(resourceManagerEndpoint),
 	}
+	useragent.UpdateClient(&subscriptionsClient.Client)
 	subscriptionsClient.Sender = sender
 	setClientInspectors(&subscriptionsClient.Client, requestInspector, "azure.subscriptions")
 
@@ -82,7 +86,7 @@ func InteractiveCreateServicePrincipal(
 		return "", "", errors.Trace(err)
 	}
 
-	client := autorest.NewClientWithUserAgent("juju")
+	client := autorest.NewClientWithUserAgent(useragent.JujuPrefix())
 	client.Sender = sender
 	setClientInspectors(&client, requestInspector, "azure.autorest")
 
@@ -111,9 +115,7 @@ func InteractiveCreateServicePrincipal(
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary ARM service principal token")
 	}
-	if client.Sender != nil {
-		armSpt.SetSender(client.Sender)
-	}
+	armSpt.SetSender(&client)
 	if err := armSpt.Refresh(); err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -127,9 +129,7 @@ func InteractiveCreateServicePrincipal(
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary Graph service principal token")
 	}
-	if client.Sender != nil {
-		graphSpt.SetSender(client.Sender)
-	}
+	graphSpt.SetSender(&client)
 	if err := graphSpt.Refresh(); err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -141,6 +141,7 @@ func InteractiveCreateServicePrincipal(
 	directoryURL.Path = path.Join(directoryURL.Path, tenantId)
 	directoryClient := ad.NewManagementClient(directoryURL.String())
 	authorizationClient := authorization.NewWithBaseURI(resourceManagerEndpoint, subscriptionId)
+	useragent.UpdateClient(&authorizationClient.Client)
 	directoryClient.Authorizer = graphSpt
 	authorizationClient.Authorizer = armSpt
 	authorizationClient.Sender = client.Sender
@@ -171,6 +172,7 @@ func InteractiveCreateServicePrincipal(
 		subscriptionId,
 		servicePrincipalObjectId,
 		newUUID,
+		clock,
 	); err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -206,17 +208,44 @@ func createOrUpdateServicePrincipal(
 		return "", "", errors.Annotate(err, "preparing password credential")
 	}
 
-	servicePrincipal, err := client.Create(
-		ad.ServicePrincipalCreateParameters{
-			ApplicationID:       jujuApplicationId,
-			AccountEnabled:      true,
-			PasswordCredentials: []ad.PasswordCredential{passwordCredential},
+	// Attempt to create the service principal. When the user
+	// authenticates, Azure will replicate the application
+	// into the user's AAD. This happens asynchronously, so
+	// it may not exist by the time we try to create the
+	// service principal; thus, we retry until it exists. The
+	// error checking is based on the logic in azure-cli's
+	// create_service_principal_for_rbac.
+	var servicePrincipal ad.ServicePrincipal
+	createServicePrincipal := func() error {
+		var err error
+		servicePrincipal, err = client.Create(
+			ad.ServicePrincipalCreateParameters{
+				ApplicationID:       jujuApplicationId,
+				AccountEnabled:      true,
+				PasswordCredentials: []ad.PasswordCredential{passwordCredential},
+			},
+			nil, // abort
+		)
+		return err
+	}
+	retryArgs := retry.CallArgs{
+		Func: createServicePrincipal,
+		IsFatalError: func(err error) bool {
+			serviceErr, ok := errorutils.ServiceError(err)
+			if ok && (strings.Contains(serviceErr.Message, " does not reference ") ||
+				strings.Contains(serviceErr.Message, " does not exist ")) {
+				// The application doesn't exist yet, retry later.
+				return false
+			}
+			return true
 		},
-		nil, // abort
-	)
-	if err != nil {
+		Clock:       clock,
+		Delay:       5 * time.Second,
+		MaxDuration: time.Minute,
+	}
+	if err := retry.Call(retryArgs); err != nil {
 		if !isMultipleObjectsWithSameKeyValueErr(err) {
-			return "", "", errors.Trace(err)
+			return "", "", errors.Annotate(err, "creating service principal")
 		}
 		// The service principal already exists, so we'll fall out
 		// and update the service principal's password credentials.
@@ -309,6 +338,7 @@ func createRoleAssignment(
 	subscriptionId string,
 	servicePrincipalObjectId string,
 	newUUID func() (utils.UUID, error),
+	clock clock.Clock,
 ) error {
 	// Find the role definition with the name "Owner".
 	roleScope := path.Join("subscriptions", subscriptionId)
@@ -331,12 +361,32 @@ func createRoleAssignment(
 	}
 	roleAssignmentsClient := authorization.RoleAssignmentsClient{authorizationClient}
 	roleAssignmentName := roleAssignmentUUID.String()
-	if _, err := roleAssignmentsClient.Create(roleScope, roleAssignmentName, authorization.RoleAssignmentCreateParameters{
-		Properties: &authorization.RoleAssignmentProperties{
-			RoleDefinitionID: roleDefinitionId,
-			PrincipalID:      to.StringPtr(servicePrincipalObjectId),
+	retryArgs := retry.CallArgs{
+		Func: func() error {
+			_, err := roleAssignmentsClient.Create(
+				roleScope, roleAssignmentName,
+				authorization.RoleAssignmentCreateParameters{
+					Properties: &authorization.RoleAssignmentProperties{
+						RoleDefinitionID: roleDefinitionId,
+						PrincipalID:      to.StringPtr(servicePrincipalObjectId),
+					},
+				},
+			)
+			return err
 		},
-	}); err != nil {
+		IsFatalError: func(err error) bool {
+			serviceErr, ok := errorutils.ServiceError(err)
+			if ok && strings.Contains(serviceErr.Message, " does not exist in the directory ") {
+				// The service principal doesn't exist yet, retry later.
+				return false
+			}
+			return true
+		},
+		Clock:       clock,
+		Delay:       5 * time.Second,
+		MaxDuration: time.Minute,
+	}
+	if err := retry.Call(retryArgs); err != nil {
 		if err, ok := errorutils.ServiceError(err); ok {
 			const serviceErrorCodeRoleAssignmentExists = "RoleAssignmentExists"
 			if err.Code == serviceErrorCodeRoleAssignmentExists {

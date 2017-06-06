@@ -159,14 +159,8 @@ type ContextNetworking interface {
 	// protocol, then by number.
 	OpenedPorts() []network.PortRange
 
-	// NetworkConfig returns the network configuration for the unit and the
-	// given bindingName.
-	//
-	// TODO(dimitern): Currently, only the Address is populated, add the
-	// rest later.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
+	// NetworkInfo returns detailed information about interfaces for specified bindings
+	NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error)
 }
 
 // ContextLeadership is the part of a hook context related to the

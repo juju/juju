@@ -79,7 +79,7 @@ func SyncTools(syncContext *SyncContext) error {
 		return errors.Trace(err)
 	}
 
-	logger.Infof("listing available tools")
+	logger.Infof("listing available agent binaries")
 	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
 		syncContext.MajorVersion = jujuversion.Current.Major
 		syncContext.MinorVersion = -1
@@ -111,17 +111,17 @@ func SyncTools(syncContext *SyncContext) error {
 		return errors.Trace(err)
 	}
 
-	logger.Infof("found %d tools", len(sourceTools))
+	logger.Infof("found %d agent binaries", len(sourceTools))
 	if !syncContext.AllVersions {
 		var latest version.Number
 		latest, sourceTools = sourceTools.Newest()
-		logger.Infof("found %d recent tools (version %s)", len(sourceTools), latest)
+		logger.Infof("found %d recent agent binaries (version %s)", len(sourceTools), latest)
 	}
 	for _, tool := range sourceTools {
 		logger.Debugf("found source tool: %v", tool)
 	}
 
-	logger.Infof("listing target tools storage")
+	logger.Infof("listing target agent binaries storage")
 	targetTools, err := syncContext.TargetToolsFinder.FindTools(syncContext.MajorVersion, syncContext.Stream)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
@@ -129,11 +129,11 @@ func SyncTools(syncContext *SyncContext) error {
 		return errors.Trace(err)
 	}
 	for _, tool := range targetTools {
-		logger.Debugf("found target tool: %v", tool)
+		logger.Debugf("found target agent binary: %v", tool)
 	}
 
 	missing := sourceTools.Exclude(targetTools)
-	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
+	logger.Infof("found %d agent binaries in target; %d agent binaries to be copied", len(targetTools), len(missing))
 	if syncContext.DryRun {
 		for _, tools := range missing {
 			logger.Infof("copying %s from %s", tools.Version, tools.URL)
@@ -145,7 +145,7 @@ func SyncTools(syncContext *SyncContext) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("copied %d tools", len(missing))
+	logger.Infof("copied %d agent binaries", len(missing))
 	return nil
 }
 
@@ -159,7 +159,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("using sync tools source: %v", sourceURL)
+	logger.Infof("source for sync of agent binaries: %v", sourceURL)
 	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
@@ -273,7 +273,7 @@ func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("generating tools metadata")
+	logger.Debugf("generating agent binary metadata")
 	return envtools.MergeAndWriteMetadata(metadataStore, stream, stream, targetTools, false)
 }
 
@@ -421,7 +421,7 @@ func (u StorageToolsUploader) UploadTools(toolsDir, stream string, tools *coreto
 	}
 	err := envtools.MergeAndWriteMetadata(u.Storage, toolsDir, stream, coretools.List{tools}, u.WriteMirrors)
 	if err != nil {
-		logger.Errorf("error writing tools metadata: %v", err)
+		logger.Errorf("error writing agent binary metadata: %v", err)
 		return err
 	}
 	return nil

@@ -184,35 +184,35 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no tools available",
+	expectErr:      "no agent binaries available",
 }, {
 	about:          "specified version, no matching major version",
 	tools:          []string{"4.2.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching tools available",
+	expectErr:      "no matching agent binaries available",
 }, {
 	about:          "specified version, no matching minor version",
 	tools:          []string{"3.4.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching tools available",
+	expectErr:      "no matching agent binaries available",
 }, {
 	about:          "specified version, no matching patch version",
 	tools:          []string{"3.2.5-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching tools available",
+	expectErr:      "no matching agent binaries available",
 }, {
 	about:          "specified version, no matching build version",
 	tools:          []string{"3.2.0.2-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching tools available",
+	expectErr:      "no matching agent binaries available",
 }, {
 	about:          "incompatible version (minor != 0)",
 	tools:          []string{"3.2.0-quantal-amd64"},
@@ -332,7 +332,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			"agent-version":      test.agentVersion,
 			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
-		err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+		err := s.State.UpdateModelConfig(updateAttrs, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
@@ -424,7 +424,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	}
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
 
@@ -629,7 +629,7 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 		"agent-metadata-url": "file://" + toolsDir + "/tools",
 	}
 
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	versions := make([]version.Binary, len(tools))
 	for i, v := range tools {

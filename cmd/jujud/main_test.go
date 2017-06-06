@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,38 +28,11 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-var caCertFile string
-
-func mkdtemp(prefix string) string {
-	d, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
-func mktemp(prefix string, content string) string {
-	f, err := ioutil.TempFile("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	_, err = f.WriteString(content)
-	if err != nil {
-		panic(err)
-	}
-	f.Close()
-	return f.Name()
-}
-
 func TestPackage(t *stdtesting.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 
-	// Create a CA certificate available for all tests.
-	caCertFile = mktemp("juju-test-cert", coretesting.CACert)
-	defer os.Remove(caCertFile)
-
-	coretesting.MgoTestPackage(t)
+	coretesting.MgoSSLTestPackage(t)
 }
 
 type MainSuite struct{}

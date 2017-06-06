@@ -4,7 +4,6 @@
 package tools
 
 var (
-	Setenv                        = setenv
 	FindExecutable                = findExecutable
 	CheckToolsSeries              = checkToolsSeries
 	ArchiveAndSHA256              = archiveAndSHA256

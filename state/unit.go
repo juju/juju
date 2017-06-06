@@ -1796,10 +1796,6 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting charm")
 	}
-	allCons, err := u.StorageConstraints()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting storage constraints")
-	}
 
 	// Sort storage attachments so the volume ids are consistent (for testing).
 	sort.Sort(byStorageInstance(storageAttachments))
@@ -1816,7 +1812,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), u.Series(), allCons, storage,
+			u.st, chMeta, u.UnitTag(), u.Series(), storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1850,7 +1846,6 @@ func machineStorageParamsForStorageInstance(
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
 	series string,
-	allCons map[string]StorageConstraints,
 	storage *storageInstance,
 ) (*machineStorageParams, error) {
 
@@ -1869,11 +1864,10 @@ func machineStorageParamsForStorageInstance(
 		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a volume.
-			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
 			}
 			volumes = append(volumes, MachineVolumeParams{
 				volumeParams, volumeAttachmentParams,
@@ -1904,11 +1898,10 @@ func machineStorageParamsForStorageInstance(
 		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a filesystem.
-			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
 			}
 			filesystems = append(filesystems, MachineFilesystemParams{
 				filesystemParams, filesystemAttachmentParams,
@@ -2471,4 +2464,25 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 		filter:    filter,
 	}
 	return statusHistory(args)
+}
+
+func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
+	app, err := u.Application()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	bindings, err := app.EndpointBindings()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	boundSpace, known := bindings[bindingName]
+	if !known {
+		// If default binding is not explicitly defined we'll use default space
+		if bindingName == "" {
+			return "", nil
+		}
+		return "", errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
+	}
+	return boundSpace, nil
 }

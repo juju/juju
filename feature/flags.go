@@ -46,3 +46,6 @@ const PersistentStorage = "persistent-storage"
 // StrictMigration will cause migration to error if there are unexported
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"
+
+// CAAS enables creating models on CAAS infrastructure (k8s, etc)
+const CAAS = "caas"

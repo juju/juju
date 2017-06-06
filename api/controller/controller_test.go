@@ -31,15 +31,9 @@ func (s *Suite) TestInitiateMigration(c *gc.C) {
 	s.checkInitiateMigration(c, makeSpec())
 }
 
-func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
+func (s *Suite) TestInitiateMigrationEmptyCACert(c *gc.C) {
 	spec := makeSpec()
-	spec.ExternalControl = true
-	s.checkInitiateMigration(c, spec)
-}
-
-func (s *Suite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
-	spec := makeSpec()
-	spec.SkipInitialPrechecks = true
+	spec.TargetCACert = ""
 	s.checkInitiateMigration(c, spec)
 }
 
@@ -77,8 +71,6 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl:      spec.ExternalControl,
-			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 }
@@ -122,7 +114,7 @@ func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
 	spec.ModelUUID = "not-a-uuid"
 	id, err := client.InitiateMigration(spec)
 	c.Check(id, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "model UUID not valid")
+	c.Check(err, gc.ErrorMatches, "client-side validation failed: model UUID not valid")
 	c.Check(stub.Calls(), gc.HasLen, 0) // API call shouldn't have happened
 }
 

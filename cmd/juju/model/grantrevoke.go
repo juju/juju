@@ -142,18 +142,10 @@ func (c *accessCommand) Init(args []string) error {
 
 	c.User = args[0]
 	c.Access = args[1]
-
 	// The remaining args are either model names or offer names.
 	for _, arg := range args[2:] {
 		if featureflag.Enabled(feature.CrossModelRelations) {
 			url, err := crossmodel.ParseApplicationURL(arg)
-			if err == nil && url.User == "" {
-				details, err := c.ClientStore().AccountDetails(c.ControllerName())
-				if err != nil {
-					return err
-				}
-				url.User = details.User
-			}
 			if err == nil {
 				c.OfferURLs = append(c.OfferURLs, url)
 				continue
@@ -245,11 +237,11 @@ func (c *grantCommand) getControllerAPI() (GrantControllerAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
-func (c *grantCommand) getOfferAPI(modelName string) (GrantOfferAPI, error) {
+func (c *grantCommand) getOfferAPI() (GrantOfferAPI, error) {
 	if c.offersApi != nil {
 		return c.offersApi, nil
 	}
-	root, err := c.NewModelAPIRoot(modelName)
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -271,7 +263,7 @@ type GrantControllerAPI interface {
 // GrantOfferAPI defines the API functions used by the grant command.
 type GrantOfferAPI interface {
 	Close() error
-	GrantOffer(user, access string, offers ...string) error
+	GrantOffer(user, access string, offerURLs ...string) error
 }
 
 // Run implements cmd.Command.
@@ -280,6 +272,9 @@ func (c *grantCommand) Run(ctx *cmd.Context) error {
 		return c.runForModel()
 	}
 	if len(c.OfferURLs) > 0 {
+		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
+			return errors.Trace(err)
+		}
 		return c.runForOffers()
 	}
 	return c.runForController()
@@ -310,21 +305,18 @@ func (c *grantCommand) runForModel() error {
 }
 
 func (c *grantCommand) runForOffers() error {
-	// For each model, process the grants.
-	offersForModel := offersForModel(c.OfferURLs)
-	for model, urls := range offersForModel {
-		client, err := c.getOfferAPI(model)
-		if err != nil {
-			return err
-		}
-		defer client.Close()
-
-		err = client.GrantOffer(c.User, c.Access, urls...)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
+	client, err := c.getOfferAPI()
+	if err != nil {
+		return err
 	}
-	return nil
+	defer client.Close()
+
+	urls := make([]string, len(c.OfferURLs))
+	for i, url := range c.OfferURLs {
+		urls[i] = url.String()
+	}
+	err = client.GrantOffer(c.User, c.Access, urls...)
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 // NewRevokeCommand returns a new revoke command.
@@ -371,11 +363,11 @@ func (c *revokeCommand) getControllerAPI() (RevokeControllerAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
-func (c *revokeCommand) getOfferAPI(modelName string) (RevokeOfferAPI, error) {
+func (c *revokeCommand) getOfferAPI() (RevokeOfferAPI, error) {
 	if c.offersApi != nil {
 		return c.offersApi, nil
 	}
-	root, err := c.NewModelAPIRoot(modelName)
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -397,7 +389,7 @@ type RevokeControllerAPI interface {
 // RevokeOfferAPI defines the API functions used by the revoke command.
 type RevokeOfferAPI interface {
 	Close() error
-	RevokeOffer(user, access string, offers ...string) error
+	RevokeOffer(user, access string, offerURLs ...string) error
 }
 
 // Run implements cmd.Command.
@@ -406,6 +398,9 @@ func (c *revokeCommand) Run(ctx *cmd.Context) error {
 		return c.runForModel()
 	}
 	if len(c.OfferURLs) > 0 {
+		if err := setUnsetUsers(c, c.OfferURLs); err != nil {
+			return errors.Trace(err)
+		}
 		return c.runForOffers()
 	}
 	return c.runForController()
@@ -435,6 +430,30 @@ func (c *revokeCommand) runForModel() error {
 	return block.ProcessBlockedError(client.RevokeModel(c.User, c.Access, models...), block.BlockChange)
 }
 
+type accountDetailsGetter interface {
+	CurrentAccountDetails() (*jujuclient.AccountDetails, error)
+}
+
+// setUnsetUsers sets any empty user entries in the given offer URLs
+// to the currently logged in user.
+func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.ApplicationURL) error {
+	var currentAccountDetails *jujuclient.AccountDetails
+	for _, url := range offerURLs {
+		if url.User != "" {
+			continue
+		}
+		if currentAccountDetails == nil {
+			var err error
+			currentAccountDetails, err = c.CurrentAccountDetails()
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		url.User = currentAccountDetails.User
+	}
+	return nil
+}
+
 // offersForModel group the offer URLs per model.
 func offersForModel(offerURLs []*crossmodel.ApplicationURL) map[string][]string {
 	offersForModel := make(map[string][]string)
@@ -448,19 +467,16 @@ func offersForModel(offerURLs []*crossmodel.ApplicationURL) map[string][]string 
 }
 
 func (c *revokeCommand) runForOffers() error {
-	// For each model, process the grant.
-	offersForModel := offersForModel(c.OfferURLs)
-	for model, urls := range offersForModel {
-		client, err := c.getOfferAPI(model)
-		if err != nil {
-			return err
-		}
-		defer client.Close()
-
-		err = client.RevokeOffer(c.User, c.Access, urls...)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
+	client, err := c.getOfferAPI()
+	if err != nil {
+		return err
 	}
-	return nil
+	defer client.Close()
+
+	urls := make([]string, len(c.OfferURLs))
+	for i, url := range c.OfferURLs {
+		urls[i] = url.String()
+	}
+	err = client.RevokeOffer(c.User, c.Access, urls...)
+	return block.ProcessBlockedError(err, block.BlockChange)
 }

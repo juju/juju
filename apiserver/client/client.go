@@ -49,11 +49,18 @@ func (api *API) state() *state.State {
 	return api.stateAccessor.(stateShim).State
 }
 
+// caCerter implements the subset of common.APIAddresser
+// methods that we choose to expose in the client facade.
+type caCerter interface {
+	CACert() params.BytesResult
+}
+
 // Client serves client-specific API methods.
 type Client struct {
 	// TODO(wallyworld) - we'll retain model config facade methods
 	// on the client facade until GUI and Python client library are updated.
 	*modelconfig.ModelConfigAPI
+	caCerter
 
 	api        *API
 	newEnviron func() (environs.Environ, error)
@@ -106,6 +113,7 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	addresser := common.NewAPIAddresser(st, resources)
 	return NewClient(
 		NewStateBackend(st),
 		modelConfigAPI,
@@ -115,6 +123,7 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 		toolsFinder,
 		newEnviron,
 		blockChecker,
+		addresser,
 	)
 }
 
@@ -128,30 +137,47 @@ func NewClient(
 	toolsFinder *common.ToolsFinder,
 	newEnviron func() (environs.Environ, error),
 	blockChecker *common.BlockChecker,
+	caCerter caCerter,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	client := &Client{
-		modelConfigAPI,
-		&API{
+		ModelConfigAPI: modelConfigAPI,
+		caCerter:       caCerter,
+		api: &API{
 			stateAccessor: st,
 			auth:          authorizer,
 			resources:     resources,
 			statusSetter:  statusSetter,
 			toolsFinder:   toolsFinder,
 		},
-		newEnviron,
-		blockChecker,
+		newEnviron: newEnviron,
+		check:      blockChecker,
 	}
 	return client, nil
 }
 
+// WatchAll initiates a watcher for entities in the connected model.
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
-	w := c.api.stateAccessor.Watch()
+	model, err := c.api.stateAccessor.Model()
+	if err != nil {
+		return params.AllWatcherId{}, errors.Trace(err)
+	}
+
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := c.api.auth.GetAuthTag().(names.UserTag)
+	isAdmin, err := common.HasModelAdmin(c.api.auth, apiUser, c.api.stateAccessor.ControllerTag(), model)
+	if err != nil {
+		return params.AllWatcherId{}, errors.Trace(err)
+	}
+	watchParams := state.WatchParams{IncludeOffers: isAdmin}
+
+	w := c.api.stateAccessor.Watch(watchParams)
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
 	}, nil
@@ -459,6 +485,9 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		UUID:          model.UUID(),
 		OwnerTag:      model.Owner().String(),
 		Life:          params.Life(model.Life().String()),
+	}
+	if agentVersion, exists := conf.AgentVersion(); exists {
+		info.AgentVersion = &agentVersion
 	}
 	if tag, ok := model.CloudCredential(); ok {
 		info.CloudCredentialTag = tag.String()

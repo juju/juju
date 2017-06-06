@@ -4,29 +4,35 @@
 package api_test
 
 import (
+	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"net"
-	"net/http"
-	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/parallel"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -71,6 +77,7 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 	// Now break Addrs[0], and ensure that Addrs[1]
 	// is successfully connected to.
 	proxy.Close()
+
 	info.Addrs = []string{proxy.Addr(), serverAddr}
 	conn, location, err = api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,25 +86,29 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
-	defer listener.Close()
+	var addrs []string
+
 	// count holds the number of times we've accepted a connection.
 	var count int32
-	go func() {
-		for {
-			client, err := listener.Accept()
-			if err != nil {
-				return
+	for i := 0; i < 3; i++ {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		c.Assert(err, jc.ErrorIsNil)
+		defer listener.Close()
+		addrs = append(addrs, listener.Addr().String())
+		go func() {
+			for {
+				client, err := listener.Accept()
+				if err != nil {
+					return
+				}
+				atomic.AddInt32(&count, 1)
+				client.Close()
 			}
-			atomic.AddInt32(&count, 1)
-			client.Close()
-		}
-	}()
+		}()
+	}
 	info := s.APIInfo(c)
-	addr := listener.Addr().String()
-	info.Addrs = []string{addr, addr, addr}
-	_, _, err = api.DialAPI(info, api.DialOpts{})
+	info.Addrs = addrs
+	_, _, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: .*`)
 	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
 }
@@ -116,14 +127,6 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
 	c.Assert(remoteVersion, gc.Equals, jujuversion.Current)
-}
-
-func (s *apiclientSuite) splitAddressPort(c *gc.C, addr string) (string, string) {
-	pos := strings.LastIndex(addr, ":")
-	if pos == -1 {
-		panic("missing :")
-	}
-	return addr[:pos], addr[pos+1:]
 }
 
 func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
@@ -163,13 +166,116 @@ func (s *apiclientSuite) TestServerRoot(c *gc.C) {
 	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
 }
 
-func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
-	f := api.NewWebsocketDialer("", api.DialOpts{})
-	stopped := make(chan struct{})
-	close(stopped)
-	result, err := f(stopped)
-	c.Assert(err, gc.Equals, parallel.ErrStopped)
-	c.Assert(result, gc.IsNil)
+func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
+	// Try to open the API with two addresses.
+	// Wait for connection attempts to both.
+	// Let one succeed.
+	// Wait for the other to be canceled.
+
+	type dialResponse struct {
+		conn jsoncodec.JSONConn
+	}
+	type dialInfo struct {
+		ctx      context.Context
+		location string
+		replyc   chan<- dialResponse
+	}
+	dialed := make(chan dialInfo)
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		reply := make(chan dialResponse)
+		dialed <- dialInfo{
+			ctx:      ctx,
+			location: urlStr,
+			replyc:   reply,
+		}
+		r := <-reply
+		return r.conn, nil
+	}
+	conn0 := fakeConn{}
+	clock := testing.NewClock(time.Now())
+	openDone := make(chan struct{})
+	const dialAddressInterval = 50 * time.Millisecond
+	go func() {
+		defer close(openDone)
+		conn, err := api.Open(&api.Info{
+			Addrs: []string{
+				"place1.example:1234",
+				"place2.example:1234",
+			},
+			SkipLogin: true,
+			CACert:    jtesting.CACert,
+		}, api.DialOpts{
+			Timeout:             5 * time.Second,
+			RetryDelay:          1 * time.Second,
+			DialAddressInterval: dialAddressInterval,
+			DialWebsocket:       fakeDialer,
+			Clock:               clock,
+			IPAddrResolver: fakeResolver{
+				"place1.example": {"0.1.1.1"},
+				"place2.example": {"0.2.2.2"},
+			},
+		})
+		c.Check(api.UnderlyingConn(conn), gc.Equals, conn0)
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
+	// Wait for first connection, but don't
+	// reply immediately because we want
+	// to wait for the second connection before
+	// letting the first one succeed.
+	var info0 dialInfo
+	select {
+	case info0 = <-dialed:
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for dial")
+	}
+	c.Assert(info0.location, gc.Equals, "wss://place1.example:1234/api")
+
+	var info1 dialInfo
+	// Wait for the next dial to be made.
+	err := clock.WaitAdvance(dialAddressInterval, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case info1 = <-dialed:
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for dial")
+	}
+	c.Assert(info1.location, gc.Equals, "wss://place2.example:1234/api")
+
+	// Allow the first dial to succeed.
+	info0.replyc <- dialResponse{
+		conn: conn0,
+	}
+
+	// The Open returns immediately without waiting
+	// for the second dial to complete.
+	select {
+	case <-openDone:
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for connection")
+	}
+
+	// The second dial's context is canceled to tell
+	// it to stop.
+	select {
+	case <-info1.ctx.Done():
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for context to be closed")
+	}
+	conn1 := fakeConn{
+		closed: make(chan struct{}),
+	}
+	// Allow the second dial to succeed.
+	info1.replyc <- dialResponse{
+		conn: conn1,
+	}
+	// Check that the connection it returns is closed.
+	select {
+	case <-conn1.closed:
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for connection to be closed")
+	}
 }
 
 type apiDialInfo struct {
@@ -209,13 +315,13 @@ var openWithSNIHostnameTests = []struct {
 }, {
 	about: "with cert; DNS name - use cert",
 	info: &api.Info{
-		Addrs:       []string{"foo.com:1234"},
+		Addrs:       []string{"0.1.1.1:1234"},
 		SNIHostName: "foo.com",
 		SkipLogin:   true,
 		CACert:      jtesting.CACert,
 	},
 	expectDial: apiDialInfo{
-		location:   "wss://foo.com:1234/api",
+		location:   "wss://0.1.1.1:1234/api",
 		hasRootCAs: true,
 		serverName: "juju-apiserver",
 	},
@@ -237,42 +343,148 @@ var openWithSNIHostnameTests = []struct {
 func (s *apiclientSuite) TestOpenWithSNIHostname(c *gc.C) {
 	for i, test := range openWithSNIHostnameTests {
 		c.Logf("test %d: %v", i, test.about)
-		s.testSNIHostName(c, test.info, test.expectDial)
+		s.testOpenDialError(c, dialTest{
+			apiInfo:         test.info,
+			expectOpenError: `unable to connect to API: nope`,
+			expectDials: []dialAttempt{{
+				check: func(info dialInfo) {
+					c.Check(info.location, gc.Equals, test.expectDial.location)
+					c.Assert(info.tlsConfig, gc.NotNil)
+					c.Check(info.tlsConfig.RootCAs != nil, gc.Equals, test.expectDial.hasRootCAs)
+					c.Check(info.tlsConfig.ServerName, gc.Equals, test.expectDial.serverName)
+				},
+				returnError: errors.New("nope"),
+			}},
+			allowMoreDials: true,
+		})
 	}
 }
 
-// testSNIHostName tests that when the API is dialed with the given info,
-// api.newWebsocketDialer is called with the expected information.
-func (s *apiclientSuite) testSNIHostName(c *gc.C, info *api.Info, expectDial apiDialInfo) {
-	type config struct {
-		location  string
-		tlsConfig *tls.Config
-	}
-	dialed := make(chan config)
-	fakeDialer := func(urlStr string, tlsConfig *tls.Config, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
-		dialed <- config{
+func (s *apiclientSuite) TestFallbackToSNIHostnameOnCertErrorAndNonNumericHostname(c *gc.C) {
+	s.testOpenDialError(c, dialTest{
+		apiInfo: &api.Info{
+			Addrs:       []string{"x.com:1234"},
+			CACert:      jtesting.CACert,
+			SNIHostName: "foo.com",
+		},
+		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign in this domain`,
+		expectDials: []dialAttempt{{
+			// The first dial attempt should use the private CA cert.
+			check: func(info dialInfo) {
+				c.Assert(info.tlsConfig, gc.NotNil)
+				c.Check(info.tlsConfig.RootCAs.Subjects(), gc.HasLen, 1)
+				c.Check(info.tlsConfig.ServerName, gc.Equals, "juju-apiserver")
+			},
+			returnError: x509.CertificateInvalidError{
+				Reason: x509.CANotAuthorizedForThisName,
+			},
+		}, {
+			// The second dial attempt should fall back to using the
+			// SNI hostname.
+			check: func(info dialInfo) {
+				c.Assert(info.tlsConfig, gc.NotNil)
+				c.Check(info.tlsConfig.RootCAs, gc.IsNil)
+				c.Check(info.tlsConfig.ServerName, gc.Equals, "foo.com")
+			},
+			// Note: we return another certificate error so that
+			// the Open logic returns immediately rather than waiting
+			// for the timeout.
+			returnError: x509.SystemRootsError{},
+		}},
+	})
+}
+
+func (s *apiclientSuite) TestFailImmediatelyOnCertErrorAndNumericHostname(c *gc.C) {
+	s.testOpenDialError(c, dialTest{
+		apiInfo: &api.Info{
+			Addrs:  []string{"0.1.2.3:1234"},
+			CACert: jtesting.CACert,
+		},
+		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign in this domain`,
+		expectDials: []dialAttempt{{
+			// The first dial attempt should use the private CA cert.
+			check: func(info dialInfo) {
+				c.Assert(info.tlsConfig, gc.NotNil)
+				c.Check(info.tlsConfig.RootCAs.Subjects(), gc.HasLen, 1)
+				c.Check(info.tlsConfig.ServerName, gc.Equals, "juju-apiserver")
+			},
+			returnError: x509.CertificateInvalidError{
+				Reason: x509.CANotAuthorizedForThisName,
+			},
+		}},
+	})
+}
+
+type dialTest struct {
+	apiInfo *api.Info
+	// expectDials holds an entry for each dial
+	// attempt that's expected to be made.
+	// If allowMoreDials is true, any number of
+	// attempts will be allowed and the last entry
+	// of expectDials will be used when the
+	// number exceeds
+	expectDials     []dialAttempt
+	allowMoreDials  bool
+	expectOpenError string
+}
+
+type dialAttempt struct {
+	check       func(info dialInfo)
+	returnError error
+}
+
+type dialInfo struct {
+	location  string
+	tlsConfig *tls.Config
+	errc      chan<- error
+}
+
+func (s *apiclientSuite) testOpenDialError(c *gc.C, t dialTest) {
+	dialed := make(chan dialInfo)
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		reply := make(chan error)
+		dialed <- dialInfo{
 			location:  urlStr,
 			tlsConfig: tlsConfig,
+			errc:      reply,
 		}
-		return nil, nil, errors.New("nope")
+		return nil, <-reply
 	}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		conn, err := api.Open(info, api.DialOpts{
-			DialWebsocket: fakeDialer,
+		conn, err := api.Open(t.apiInfo, api.DialOpts{
+			Timeout:        5 * time.Second,
+			RetryDelay:     1 * time.Second,
+			DialWebsocket:  fakeDialer,
+			IPAddrResolver: seqResolver(t.apiInfo.Addrs...),
+			Clock:          &fakeClock{},
 		})
 		c.Check(conn, gc.Equals, nil)
-		c.Check(err, gc.ErrorMatches, `unable to connect to API: nope`)
+		c.Check(err, gc.ErrorMatches, t.expectOpenError)
 	}()
-	select {
-	case cfg := <-dialed:
-		c.Check(cfg.location, gc.Equals, expectDial.location)
-		c.Assert(cfg.tlsConfig, gc.NotNil)
-		c.Check(cfg.tlsConfig.RootCAs != nil, gc.Equals, expectDial.hasRootCAs)
-		c.Check(cfg.tlsConfig.ServerName, gc.Equals, expectDial.serverName)
-	case <-time.After(jtesting.LongWait):
-		c.Fatalf("timed out waiting for dial")
+	for i := 0; t.allowMoreDials || i < len(t.expectDials); i++ {
+		c.Logf("attempt %d", i)
+		var attempt dialAttempt
+		if i < len(t.expectDials) {
+			attempt = t.expectDials[i]
+		} else if t.allowMoreDials {
+			attempt = t.expectDials[len(t.expectDials)-1]
+		} else {
+			break
+		}
+		select {
+		case info := <-dialed:
+			attempt.check(info)
+			info.errc <- attempt.returnError
+		case <-done:
+			if i < len(t.expectDials) {
+				c.Fatalf("Open returned early - expected dials not made")
+			}
+			return
+		case <-time.After(jtesting.LongWait):
+			c.Fatalf("timed out waiting for dial")
+		}
 	}
 	select {
 	case <-done:
@@ -303,6 +515,36 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 	}
 }
 
+func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
+	// Start an API server with a (non-working) autocert hostname,
+	// so we can check that the PublicDNSName in the result goes
+	// all the way through the layers.
+	// Note that NewServer closes the listener when it stops.
+	listener, err := net.Listen("tcp", "localhost:0")
+	c.Assert(err, gc.IsNil)
+	machineTag := names.NewMachineTag("0")
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+		Clock:           clock.WallClock,
+		Cert:            jtesting.ServerCert,
+		Key:             jtesting.ServerKey,
+		Tag:             machineTag,
+		Hub:             centralhub.New(machineTag),
+		DataDir:         c.MkDir(),
+		LogDir:          c.MkDir(),
+		StatePool:       state.NewStatePool(s.State),
+		AutocertDNSName: "somewhere.example.com",
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(srv)
+	apiInfo := s.APIInfo(c)
+	apiInfo.Addrs = []string{listener.Addr().String()}
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")
+}
+
 func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 	redirectToHosts := []string{"0.1.2.3:1234", "0.1.2.4:1235"}
 	redirectToCACert := "fake CA cert"
@@ -328,6 +570,188 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 		Servers: [][]network.HostPort{hps},
 		CACert:  redirectToCACert,
 	})
+}
+
+func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		return fakeConn{}, nil
+	}
+	dnsCache := make(dnsCacheMap)
+	conn, err := api.Open(&api.Info{
+		Addrs: []string{
+			"place1.example:1234",
+		},
+		SkipLogin: true,
+		CACert:    jtesting.CACert,
+	}, api.DialOpts{
+		Timeout:       5 * time.Second,
+		RetryDelay:    1 * time.Second,
+		DialWebsocket: fakeDialer,
+		IPAddrResolver: fakeResolver{
+			"place1.example": {"0.1.1.1"},
+		},
+		DNSCache: dnsCache,
+		Clock:    &fakeClock{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
+}
+
+func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
+	var dialed string
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		dialed = ipAddr
+		return fakeConn{}, nil
+	}
+	conn, err := api.Open(&api.Info{
+		Addrs: []string{
+			"place1.example:1234",
+		},
+		SkipLogin: true,
+		CACert:    jtesting.CACert,
+	}, api.DialOpts{
+		Timeout:       5 * time.Second,
+		RetryDelay:    1 * time.Second,
+		DialWebsocket: fakeDialer,
+		IPAddrResolver: fakeResolver{
+			"place1.example": {"0.2.2.2"},
+		},
+		DNSCache: dnsCacheMap{
+			"place1.example": {"0.1.1.1"},
+		},
+		Clock: &fakeClock{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	// The dialed IP address should have come from the cache, not the IP address
+	// resolver.
+	c.Assert(dialed, gc.Equals, "0.1.1.1:1234")
+	c.Assert(conn.IPAddr(), gc.Equals, "0.1.1.1:1234")
+}
+
+func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		return fakeConn{}, nil
+	}
+	dnsCache := make(dnsCacheMap)
+	conn, err := api.Open(&api.Info{
+		Addrs: []string{
+			"0.1.2.3:1234",
+		},
+		SkipLogin: true,
+		CACert:    jtesting.CACert,
+	}, api.DialOpts{
+		Timeout:        5 * time.Second,
+		RetryDelay:     1 * time.Second,
+		DialWebsocket:  fakeDialer,
+		IPAddrResolver: fakeResolver{},
+		DNSCache:       dnsCache,
+		Clock:          &fakeClock{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	c.Assert(conn.Addr(), gc.Equals, "0.1.2.3:1234")
+	c.Assert(conn.IPAddr(), gc.Equals, "0.1.2.3:1234")
+	c.Assert(dnsCache, gc.HasLen, 0)
+}
+
+func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
+	var mu sync.Mutex
+	dialed := make(map[string]bool)
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		dialed[ipAddr] = true
+		if ipAddr == "0.2.2.2:1234" {
+			return fakeConn{}, nil
+		}
+		return nil, errors.Errorf("bad address")
+	}
+	dnsCache := dnsCacheMap{
+		"place1.example": {"0.1.1.1"},
+	}
+	conn, err := api.Open(&api.Info{
+		Addrs: []string{
+			"place1.example:1234",
+		},
+		SkipLogin: true,
+		CACert:    jtesting.CACert,
+	}, api.DialOpts{
+		Timeout:       5 * time.Second,
+		RetryDelay:    1 * time.Second,
+		DialWebsocket: fakeDialer,
+		IPAddrResolver: fakeResolver{
+			"place1.example": {"0.2.2.2"},
+		},
+		DNSCache: dnsCache,
+		Clock:    &fakeClock{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	mu.Lock()
+	defer mu.Unlock()
+	c.Assert(dialed, jc.DeepEquals, map[string]bool{
+		"0.2.2.2:1234": true,
+		"0.1.1.1:1234": true,
+	})
+	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.2.2.2"})
+}
+
+func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		c.Errorf("dial was called but should not have been")
+		return nil, errors.Errorf("cannot dial")
+	}
+	conn, err := api.Open(&api.Info{
+		Addrs: []string{
+			"nowhere.example:1234",
+		},
+		SkipLogin: true,
+		CACert:    jtesting.CACert,
+	}, api.DialOpts{
+		Timeout:        5 * time.Second,
+		RetryDelay:     1 * time.Second,
+		DialWebsocket:  fakeDialer,
+		IPAddrResolver: fakeResolver{},
+		Clock:          &fakeClock{},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot resolve "nowhere.example": mock resolver cannot resolve "nowhere.example"`)
+	c.Assert(conn, jc.ErrorIsNil)
+}
+
+func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
+	var dialedReal bool
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		if ipAddr == "0.2.2.2:1234" {
+			dialedReal = true
+			return nil, errors.Errorf("cannot connect with real address")
+		}
+		return nil, errors.Errorf("bad address from cache")
+	}
+	dnsCache := dnsCacheMap{
+		"place1.example": {"0.1.1.1"},
+	}
+	conn, err := api.Open(&api.Info{
+		Addrs: []string{
+			"place1.example:1234",
+		},
+		SkipLogin: true,
+		CACert:    jtesting.CACert,
+	}, api.DialOpts{
+		Timeout:       5 * time.Second,
+		RetryDelay:    1 * time.Second,
+		DialWebsocket: fakeDialer,
+		IPAddrResolver: fakeResolver{
+			"place1.example": {"0.2.2.2"},
+		},
+		DNSCache: dnsCache,
+		Clock:    &fakeClock{},
+	})
+	c.Assert(err, gc.NotNil)
+	c.Assert(conn, gc.Equals, nil)
+	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.2.2.2"})
+	c.Assert(dialedReal, jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
@@ -386,8 +810,8 @@ func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 	})
 
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
-	c.Check(err, jc.Satisfies, retry.IsDurationExceeded)
 	c.Check(err, gc.ErrorMatches, `.*hmm... \(retry\)`)
+	c.Check(params.ErrCode(err), gc.Equals, params.CodeRetry)
 	c.Check(clock.waits, jc.DeepEquals, []time.Duration{
 		100 * time.Millisecond,
 		200 * time.Millisecond,
@@ -413,6 +837,15 @@ func (s *apiclientSuite) TestPing(c *gc.C) {
 	rpcConn.stub.CheckCalls(c, []testing.StubCall{{
 		"Pinger.Ping", []interface{}{0, nil},
 	}})
+}
+
+func (s *apiclientSuite) TestPingBroken(c *gc.C) {
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: newRPCConnection(errors.New("no biscuit")),
+		Clock:         &fakeClock{},
+	})
+	err := conn.Ping()
+	c.Assert(err, gc.ErrorMatches, "no biscuit")
 }
 
 func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
@@ -445,11 +878,14 @@ func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
 type fakeClock struct {
 	clock.Clock
 
+	mu    sync.Mutex
 	now   time.Time
 	waits []time.Duration
 }
 
 func (f *fakeClock) Now() time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.now.IsZero() {
 		f.now = time.Now()
 	}
@@ -457,6 +893,8 @@ func (f *fakeClock) Now() time.Time {
 }
 
 func (f *fakeClock) After(d time.Duration) <-chan time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.waits = append(f.waits, d)
 	f.now = f.now.Add(d)
 	return time.After(0)
@@ -531,4 +969,74 @@ func assertConnAddrForModel(c *gc.C, location, addr, modelUUID string) {
 
 func assertConnAddrForRoot(c *gc.C, location, addr string) {
 	c.Assert(location, gc.Matches, "wss://"+addr+"/api")
+}
+
+type fakeConn struct {
+	closed chan struct{}
+}
+
+func (c fakeConn) Receive(x interface{}) error {
+	return errors.New("no data available from fake connection")
+}
+
+func (c fakeConn) Send(x interface{}) error {
+	return errors.New("cannot write to fake connection")
+}
+
+func (c fakeConn) Close() error {
+	if c.closed != nil {
+		close(c.closed)
+	}
+	return nil
+}
+
+// fakeResolver implements IPAddrResolver
+// by looking up the addresses in the map,
+// which maps host names to IP addresses.
+type fakeResolver map[string][]string
+
+func (r fakeResolver) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	if ip := net.ParseIP(host); ip != nil {
+		return []net.IPAddr{{IP: ip}}, nil
+	}
+	ipStrs := r[host]
+	if len(ipStrs) == 0 {
+		return nil, errors.Errorf("mock resolver cannot resolve %q", host)
+	}
+	ipAddrs := make([]net.IPAddr, len(ipStrs))
+	for i, ipStr := range ipStrs {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			panic("invalid IP address: " + ipStr)
+		}
+		ipAddrs[i] = net.IPAddr{
+			IP: ip,
+		}
+	}
+	return ipAddrs, nil
+}
+
+// seqResolver returns an implementation of
+// IPAddrResolver that maps the given addresses
+// to sequential IP addresses 0.1.1.1, 0.2.2.2, etc.
+func seqResolver(addrs ...string) api.IPAddrResolver {
+	r := make(fakeResolver)
+	for i, addr := range addrs {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			panic(err)
+		}
+		r[host] = []string{fmt.Sprintf("0.%[1]d.%[1]d.%[1]d", i+1)}
+	}
+	return r
+}
+
+type dnsCacheMap map[string][]string
+
+func (m dnsCacheMap) Lookup(host string) []string {
+	return m[host]
+}
+
+func (m dnsCacheMap) Add(host string, ips []string) {
+	m[host] = append([]string{}, ips...)
 }

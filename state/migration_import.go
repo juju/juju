@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/tools"
 )
 
@@ -446,6 +448,7 @@ func (i *importer) importMachineBlockDevices(machine *Machine, m description.Mac
 			Label:          device.Label(),
 			UUID:           device.UUID(),
 			HardwareId:     device.HardwareID(),
+			WWN:            device.WWN(),
 			BusAddress:     device.BusAddress(),
 			Size:           device.Size(),
 			FilesystemType: device.FilesystemType(),
@@ -756,6 +759,8 @@ func (i *importer) application(a description.Application) error {
 		},
 	})
 
+	ops = append(ops, i.appResourceOps(a)...)
+
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
@@ -785,6 +790,61 @@ func (i *importer) application(a description.Application) error {
 	}
 
 	return nil
+}
+
+func (i *importer) appResourceOps(app description.Application) []txn.Op {
+	// Add a placeholder record for each resource that is a placeholder.
+	// Resources define placeholders as resources where the timestamp is Zero.
+	var result []txn.Op
+	appName := app.Name()
+
+	var makeResourceDoc = func(id, name string, rev description.ResourceRevision) resourceDoc {
+		fingerprint, _ := hex.DecodeString(rev.FingerprintHex())
+		return resourceDoc{
+			ID:            id,
+			ApplicationID: appName,
+			Name:          name,
+			Type:          rev.Type(),
+			Path:          rev.Path(),
+			Description:   rev.Description(),
+			Origin:        rev.Origin(),
+			Revision:      rev.Revision(),
+			Fingerprint:   fingerprint,
+			Size:          rev.Size(),
+			Username:      rev.Username(),
+		}
+	}
+
+	for _, r := range app.Resources() {
+		// I cannot for the life of me find the function where the underlying
+		// resource id is defined to be the appname/resname but that is what
+		// ends up in the DB.
+		resName := r.Name()
+		resID := appName + "/" + resName
+		// Check both the app and charmstore
+		if appRev := r.ApplicationRevision(); appRev.Timestamp().IsZero() {
+			result = append(result, txn.Op{
+				C:      resourcesC,
+				Id:     applicationResourceID(resID),
+				Assert: txn.DocMissing,
+				Insert: makeResourceDoc(resID, resName, appRev),
+			})
+		}
+		if storeRev := r.CharmStoreRevision(); storeRev.Timestamp().IsZero() {
+			doc := makeResourceDoc(resID, resName, storeRev)
+			// Now the resource code is particularly stupid and instead of using
+			// the ID, or encoding the type somewhere, it uses the fact that the
+			// LastPolled time to indicate it is the charm store version.
+			doc.LastPolled = time.Now()
+			result = append(result, txn.Op{
+				C:      resourcesC,
+				Id:     charmStoreResourceID(resID),
+				Assert: txn.DocMissing,
+				Insert: doc,
+			})
+		}
+	}
+	return result
 }
 
 func (i *importer) storageConstraints(cons map[string]description.StorageConstraint) map[string]StorageConstraints {
@@ -1176,14 +1236,20 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
-		err := i.addSubnet(SubnetInfo{
+		info := SubnetInfo{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			AvailabilityZone:  subnet.AvailabilityZone(),
 			SpaceName:         subnet.SpaceName(),
-		})
+		}
+		// TODO(babbageclunk): at the moment state.Subnet only stores
+		// one AZ.
+		zones := subnet.AvailabilityZones()
+		if len(zones) > 0 {
+			info.AvailabilityZone = zones[0]
+		}
+		err := i.addSubnet(info)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1484,6 +1550,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Owner:           storageOwner,
 		StorageName:     storage.Name(),
 		AttachmentCount: len(attachments),
+		Constraints:     i.storageInstanceConstraints(storage),
 	}
 	ops = append(ops, txn.Op{
 		C:      storageInstancesC,
@@ -1505,6 +1572,69 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (i *importer) storageInstanceConstraints(storage description.Storage) storageInstanceConstraints {
+	if cons, ok := storage.Constraints(); ok {
+		return storageInstanceConstraints(cons)
+	}
+	// Older versions of Juju did not record storage constraints on the
+	// storage instance, so we must do what we do during upgrade steps:
+	// reconstitute the constraints from the corresponding volume or
+	// filesystem, or else look in the owner's application storage
+	// constraints, and if all else fails, apply the defaults.
+	var cons storageInstanceConstraints
+	var defaultPool string
+	switch parseStorageKind(storage.Kind()) {
+	case StorageKindBlock:
+		defaultPool = string(provider.LoopProviderType)
+		for _, volume := range i.model.Volumes() {
+			if volume.Storage() == storage.Tag() {
+				cons.Pool = volume.Pool()
+				cons.Size = volume.Size()
+				break
+			}
+		}
+	case StorageKindFilesystem:
+		defaultPool = string(provider.RootfsProviderType)
+		for _, filesystem := range i.model.Filesystems() {
+			if filesystem.Storage() == storage.Tag() {
+				cons.Pool = filesystem.Pool()
+				cons.Size = filesystem.Size()
+				break
+			}
+		}
+	}
+	if cons.Pool == "" {
+		cons.Pool = defaultPool
+		cons.Size = 1024
+		if owner, _ := storage.Owner(); owner != nil {
+			var appName string
+			switch owner := owner.(type) {
+			case names.ApplicationTag:
+				appName = owner.Id()
+			case names.UnitTag:
+				appName, _ = names.UnitApplication(owner.Id())
+			}
+			for _, app := range i.model.Applications() {
+				if app.Name() != appName {
+					continue
+				}
+				storageName, _ := names.StorageName(storage.Tag().Id())
+				appStorageCons, ok := app.StorageConstraints()[storageName]
+				if ok {
+					cons.Pool = appStorageCons.Pool()
+					cons.Size = appStorageCons.Size()
+				}
+				break
+			}
+		}
+		logger.Warningf(
+			"no volume or filesystem found, using application storage constraints for %s",
+			names.ReadableString(storage.Tag()),
+		)
+	}
+	return cons
 }
 
 func (i *importer) volumes() error {
@@ -1529,6 +1659,7 @@ func (i *importer) addVolume(volume description.Volume) error {
 	if volume.Provisioned() {
 		info = &VolumeInfo{
 			HardwareId: volume.HardwareID(),
+			WWN:        volume.WWN(),
 			Size:       volume.Size(),
 			Pool:       volume.Pool(),
 			VolumeId:   volume.VolumeID(),

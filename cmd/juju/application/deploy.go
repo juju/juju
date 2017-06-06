@@ -182,20 +182,50 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 	return a.annotationsClient.Set(annotations)
 }
 
-type NewAPIRootFn func() (DeployAPI, error)
+// NewDeployCommandForTest returns a command to deploy services inteded to be used only in tests.
+func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+	deployCmd := &DeployCommand{
+		Steps:      steps,
+		NewAPIRoot: newAPIRoot,
+	}
+	if newAPIRoot == nil {
+		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			bakeryClient, err := deployCmd.BakeryClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
 
-func NewDefaultDeployCommand() cmd.Command {
-	return NewDeployCommandWithDefaultAPI([]DeployStep{
+			return &deployAPIAdapter{
+				Connection:        apiRoot,
+				apiClient:         &apiClient{Client: apiRoot.Client()},
+				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
+				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+				charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+				charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			}, nil
+		}
+	}
+	return modelcmd.Wrap(deployCmd)
+}
+
+// NewDeployCommand returns a command to deploy services.
+func NewDeployCommand() modelcmd.ModelCommand {
+	steps := []DeployStep{
 		&RegisterMeteredCharm{
 			RegisterURL: planURL + "/plan/authorize",
 			QueryURL:    planURL + "/charm",
 		},
-	})
-}
-
-func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
-	deployCmd := &DeployCommand{Steps: steps}
-	cmd := modelcmd.Wrap(deployCmd)
+	}
+	deployCmd := &DeployCommand{
+		Steps: steps,
+	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 		if err != nil {
@@ -207,7 +237,7 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 		}
 		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
 
-		adapter := &deployAPIAdapter{
+		return &deployAPIAdapter{
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
@@ -216,19 +246,10 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
-		}
-
-		return adapter, nil
+		}, nil
 	}
-	return cmd
-}
 
-// NewDeployCommand returns a command to deploy services.
-func NewDeployCommand(newAPIRoot NewAPIRootFn, steps []DeployStep) cmd.Command {
-	return modelcmd.Wrap(&DeployCommand{
-		Steps:      steps,
-		NewAPIRoot: newAPIRoot,
-	})
+	return modelcmd.Wrap(deployCmd)
 }
 
 type DeployCommand struct {
@@ -274,7 +295,7 @@ type DeployCommand struct {
 	Steps    []DeployStep
 
 	// NewAPIRoot stores a function which returns a new API root.
-	NewAPIRoot NewAPIRootFn
+	NewAPIRoot func() (DeployAPI, error)
 
 	flagSet *gnuflag.FlagSet
 }
@@ -353,10 +374,20 @@ latter prefixed with "^", similar to the 'tags' constraint).
 
 
 Examples:
-    juju deploy mysql --to 23       (deploy to machine 23)
-    juju deploy mysql --to 24/lxd/3 (deploy to lxd container 3 on machine 24)
-    juju deploy mysql --to lxd:25   (deploy to a new lxd container on machine 25)
-    juju deploy mysql --to lxd      (deploy to a new lxd container on a new machine)
+    juju deploy mysql               (deploy to a new machine)
+    juju deploy mysql --to 23       (deploy to preexisting machine 23)
+    juju deploy mysql --to lxd      (deploy to a new LXD container on a new machine)
+    juju deploy mysql --to lxd:25   (deploy to a new LXD container on machine 25)
+    juju deploy mysql --to 24/lxd/3 (deploy to LXD container 3 on machine 24)
+
+    juju deploy mysql -n 2 --to 3,lxd:5
+    (deploy 2 units, one on machine 3 & one to a new LXD container on machine 5)
+
+    juju deploy mysql -n 3 --to 3
+    (deploy 3 units, one on machine 3 & the remaining two on new machines)
+
+    juju deploy mysql -n 5 --constraints mem=8G
+    (deploy 5 units to machines with at least 8 GB of memory)
 
     juju deploy mysql --to zone=us-east-1a
     (provider-dependent; deploy to a specific AZ)
@@ -364,12 +395,9 @@ Examples:
     juju deploy mysql --to host.maas
     (deploy to a specific MAAS node)
 
-    juju deploy mysql -n 5 --constraints mem=8G
-    (deploy 5 units to machines with at least 8 GB of memory)
-
     juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
-    (deploy 2 units to machines that are part of the 'dmz' space but not of the
-    'cmd' or the 'database' spaces)
+    (deploy 2 units to machines that are in the 'dmz' space but not of
+    the 'cmd' or the 'database' spaces)
 
 See also:
     spaces
@@ -416,9 +444,8 @@ func (c *DeployCommand) Info() *cmd.Info {
 var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags        = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
-	bundleOnlyFlags       = []string{}
-	modelCommandBaseFlags = []string{"B", "no-browser-login"}
+	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
+	bundleOnlyFlags = []string{}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -531,7 +558,6 @@ func (c *DeployCommand) deployCharm(
 	if serviceName == "" {
 		serviceName = charmInfo.Meta.Name
 	}
-
 	var configYAML []byte
 	if c.Config.Path != "" {
 		configYAML, err = c.Config.Read(ctx)
@@ -663,7 +689,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	deploy, err := findDeployerFIFO(
 		c.maybeReadLocalBundle,
-		c.maybeReadLocalCharm,
+		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
 		c.maybePredeployedLocalCharm,
 		c.maybeReadCharmstoreBundleFn(apiRoot),
 		c.charmStoreCharm, // This always returns a deployer
@@ -794,16 +820,51 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	}, nil
 }
 
-func (c *DeployCommand) maybeReadLocalCharm() (deployFn, error) {
+func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error) {
+	// NOTE: Here we select the series using the algorithm defined by
+	// `seriesSelector.CharmSeries`. This serves to override the algorithm found in
+	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
+	// called since the code is coupled with path interpretation logic which
+	// cannot easily be factored out).
+
+	// NOTE: Reading the charm here is only meant to aid in inferring the correct
+	// series, if this fails we fall back to the argument series. If reading
+	// the charm fails here it will also fail below (the charm is read again
+	// below) where it is handled properly. This is just an expedient to get
+	// the correct series. A proper refactoring of the charmrepo package is
+	// needed for a more elegant fix.
+
+	ch, err := charm.ReadCharm(c.CharmOrBundle)
+	series := c.Series
+	if err == nil {
+		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		seriesSelector := seriesSelector{
+			seriesFlag:      series,
+			supportedSeries: ch.Meta().Series,
+			force:           c.Force,
+			conf:            modelCfg,
+			fromBundle:      false,
+		}
+
+		series, err = seriesSelector.charmSeries()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
+	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, series, c.Force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
 	if charm.IsMissingSeriesError(err) {
 		return nil, err
 	} else if charm.IsUnsupportedSeriesError(err) {
-		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
+		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", c.CharmOrBundle)
 	} else if _, ok := err.(*charmrepo.NotFoundError); ok {

@@ -983,7 +983,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "static-pool",
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision machine 0 first.
@@ -1169,13 +1169,15 @@ func (s *withoutControllerSuite) TestContainerManagerConfig(c *gc.C) {
 func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy":            "http://proxy.example.com:9000",
+		"apt-https-proxy":       "https://proxy.example.com:9000",
 		"allow-lxd-loop-mounts": true,
 		"apt-mirror":            "http://example.mirror.com",
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",
+		Https:   "https://proxy.example.com:9000",
 		NoProxy: "127.0.0.1,localhost,::1",
 	}
 

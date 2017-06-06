@@ -195,7 +195,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	s.setupModel(c)
 
 	// Setting proxy-ssh=true in the environment overrides --proxy.
-	err := s.State.UpdateModelConfig(map[string]interface{}{"proxy-ssh": true}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"proxy-ssh": true}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.setForceAPIv1(true)

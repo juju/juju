@@ -60,11 +60,12 @@ func init() {
 	if runtime.GOOS == "linux" {
 		gc.Suite(&cloudImageMetadataSuite{})
 		gc.Suite(&cmdSpaceSuite{})
+		gc.Suite(&cmdUpgradeSuite{})
 	}
 }
 
 func TestPackage(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	coretesting.MgoSSLTestPackage(t)
 }
 
 func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {

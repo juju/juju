@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
+	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
@@ -213,9 +214,13 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			}
 		}
 	}
-	// Logs are in a separate database so don't get caught by that
+	// Logs and presence are in separate databases so don't get caught by that
 	// loop.
 	removeModelLogs(st.MongoSession(), modelUUID)
+	err := presence.RemovePresenceForModel(st.getPresenceCollection(), st.modelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Remove all user permissions for the model.
 	permPattern := bson.M{
@@ -538,8 +543,15 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-func (st *State) Watch() *Multiwatcher {
-	return NewMultiwatcher(st.workers.allManager())
+// WatchParams defines config to control which
+// entites are included when watching a model.
+type WatchParams struct {
+	// IncludeOffers controls whether application offers should be watched.
+	IncludeOffers bool
+}
+
+func (st *State) Watch(params WatchParams) *Multiwatcher {
+	return NewMultiwatcher(st.workers.allManager(params))
 }
 
 func (st *State) WatchAllModels(pool *StatePool) *Multiwatcher {
@@ -1551,13 +1563,23 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 }
 
 func applicationByName(st *State, name string) (ApplicationEntity, error) {
-	s, err := st.RemoteApplication(name)
+	app, err := st.Application(name)
 	if err == nil {
-		return s, nil
+		return app, nil
 	} else if err != nil && !errors.IsNotFound(err) {
 		return nil, err
+	} else if !featureflag.Enabled(feature.CrossModelRelations) {
+		return nil, err
 	}
-	return st.Application(name)
+	remoteApp, remoteErr := st.RemoteApplication(name)
+	if errors.IsNotFound(remoteErr) {
+		// We can't find either an application or a remote application
+		// by that name. Report the missing application, since that's
+		// probably what was intended (and still indicates the problem
+		// for remote applications).
+		return nil, err
+	}
+	return remoteApp, remoteErr
 }
 
 // endpoints returns all endpoints that could be intended by the

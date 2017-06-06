@@ -7,43 +7,67 @@
 package jujuclient
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
+	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/juju/osenv"
 )
 
-var _ ClientStore = (*store)(nil)
+var (
+	_ ClientStore = (*store)(nil)
 
-var logger = loggo.GetLogger("juju.jujuclient")
+	logger = loggo.GetLogger("juju.jujuclient")
 
-// A second should be enough to write or read any files. But
-// some disks are slow when under load, so lets give the disk a
-// reasonable time to get the lock.
-var lockTimeout = 5 * time.Second
+	// A second should be enough to write or read any files. But
+	// some disks are slow when under load, so lets give the disk a
+	// reasonable time to get the lock.
+	lockTimeout = 5 * time.Second
+)
 
 // NewFileClientStore returns a new filesystem-based client store
 // that manages files in $XDG_DATA_HOME/juju.
 func NewFileClientStore() ClientStore {
-	return &store{}
+	return &store{
+		lockName: generateStoreLockName(),
+	}
 }
 
 // NewFileCredentialStore returns a new filesystem-based credentials store
 // that manages credentials in $XDG_DATA_HOME/juju.
 func NewFileCredentialStore() CredentialStore {
-	return &store{}
+	return &store{
+		lockName: generateStoreLockName(),
+	}
 }
 
-type store struct{}
+type store struct {
+	lockName string
+}
+
+// generateStoreLockName uses part of the hash of the controller path as the
+// name of the lock. This is to avoid contention between multiple users on a
+// single machine with different controller files, but also helps with
+// contention in tests.
+func generateStoreLockName() string {
+	h := sha256.New()
+	h.Write([]byte(JujuControllersPath()))
+	fullHash := fmt.Sprintf("%x", h.Sum(nil))
+	return fmt.Sprintf("store-lock-%x", fullHash[:8])
+}
 
 func (s *store) acquireLock() (mutex.Releaser, error) {
-	const lockName = "store-lock"
 	spec := mutex.Spec{
-		Name:    lockName,
+		Name:    s.lockName,
 		Clock:   clock.WallClock,
 		Delay:   20 * time.Millisecond,
 		Timeout: lockTimeout,
@@ -284,6 +308,14 @@ func (s *store) RemoveController(name string) error {
 			if err := WriteBootstrapConfigFile(bootstrapConfigurations); err != nil {
 				return errors.Trace(err)
 			}
+		}
+	}
+
+	// Remove the controller cookie jars.
+	for _, name := range names {
+		err := os.Remove(JujuCookiePath(name))
+		if err != nil && !os.IsNotExist(err) {
+			return errors.Trace(err)
 		}
 	}
 
@@ -702,4 +734,41 @@ func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapC
 		cfg.CloudType, _ = cfg.Config["type"].(string)
 	}
 	return &cfg, nil
+}
+
+// CookieJar returns the cookie jar associated with the given controller.
+func (s *store) CookieJar(controllerName string) (CookieJar, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	path := JujuCookiePath(controllerName)
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: path,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &cookieJar{
+		path: path,
+		Jar:  jar,
+	}, nil
+}
+
+type cookieJar struct {
+	path string
+	*cookiejar.Jar
+}
+
+func (jar *cookieJar) Save() error {
+	// Ensure that the directory exists before saving.
+	if err := os.MkdirAll(filepath.Dir(jar.path), 0700); err != nil {
+		return errors.Annotatef(err, "cannot make cookies directory")
+	}
+	return jar.Jar.Save()
+}
+
+// JujuCookiePath is the location where cookies associated
+// with the given controller are expected to be found.
+func JujuCookiePath(controllerName string) string {
+	return osenv.JujuXDGDataHomePath("cookies", controllerName+".json")
 }

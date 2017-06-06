@@ -92,6 +92,23 @@ func createServicePrincipalAlreadyExistsSender(withUTF8BOM bool) autorest.Sender
 	return sender
 }
 
+func createServicePrincipalNotExistSender() autorest.Sender {
+	sender := mocks.NewSender()
+	bodyData := `{"odata.error":{"code":"Request_ResourceNotFound","message":{"lang":"en","value":"... does not exist in the directory ..."}}}`
+	body := mocks.NewBody(bodyData)
+	sender.AppendResponse(mocks.NewResponseWithBodyAndStatus(body, http.StatusNotFound, ""))
+	return sender
+}
+
+func createServicePrincipalNotReferenceSender() autorest.Sender {
+	sender := mocks.NewSender()
+	// Error message cribbed from https://github.com/kubernetes/kubernetes-anywhere/issues/251
+	bodyData := `{"odata.error":{"code":"Request_BadRequest","message":{"lang":"en","value":"The appId of the service principal does not reference a valid application object."}}}`
+	body := mocks.NewBody(bodyData)
+	sender.AppendResponse(mocks.NewResponseWithBodyAndStatus(body, http.StatusBadRequest, ""))
+	return sender
+}
+
 func servicePrincipalListSender() autorest.Sender {
 	return azuretesting.NewSenderWithValue(ad.ServicePrincipalListResult{
 		Value: []ad.ServicePrincipal{{
@@ -119,6 +136,14 @@ func roleAssignmentAlreadyExistsSender() autorest.Sender {
 	sender := mocks.NewSender()
 	body := mocks.NewBody(`{"error":{"code":"RoleAssignmentExists"}}`)
 	sender.AppendResponse(mocks.NewResponseWithBodyAndStatus(body, http.StatusConflict, ""))
+	return sender
+}
+
+func roleAssignmentPrincipalNotExistSender() autorest.Sender {
+	sender := mocks.NewSender()
+	// Based on https://github.com/Azure/azure-powershell/issues/655#issuecomment-186332230
+	body := mocks.NewBody(`{"error":{"code":"PrincipalNotFound","message":"Principal foo does not exist in the directory bar"}}`)
+	sender.AppendResponse(mocks.NewResponseWithBodyAndStatus(body, http.StatusNotFound, ""))
 	return sender
 }
 
@@ -185,21 +210,22 @@ Creating/updating service principal.
 Assigning Owner role to service principal.
 `[1:])
 
-	// Token refreshes don't go through the inspectors.
-	c.Assert(requests, gc.HasLen, 7)
+	c.Assert(requests, gc.HasLen, 9)
 	c.Check(requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222")
 	c.Check(requests[1].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/devicecode")
 	c.Check(requests[2].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
-	c.Check(requests[3].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/me")
-	c.Check(requests[4].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals")
-	c.Check(requests[5].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleDefinitions")
-	c.Check(requests[6].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleAssignments/55555555-5555-5555-5555-555555555555")
+	c.Check(requests[3].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[4].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[5].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/me")
+	c.Check(requests[6].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals")
+	c.Check(requests[7].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleDefinitions")
+	c.Check(requests[8].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleAssignments/55555555-5555-5555-5555-555555555555")
 
 	// The service principal creation includes the password. Check that the
 	// password returned from the function is the same as the one set in the
 	// request.
 	var params ad.ServicePrincipalCreateParameters
-	err = json.NewDecoder(requests[4].Body).Decode(&params)
+	err = json.NewDecoder(requests[6].Body).Decode(&params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(params.PasswordCredentials, gc.HasLen, 1)
 	assertPasswordCredential(c, params.PasswordCredentials[0])
@@ -289,23 +315,25 @@ func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C,
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 
-	c.Assert(requests, gc.HasLen, 10)
+	c.Assert(requests, gc.HasLen, 12)
 	c.Check(requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222")
 	c.Check(requests[1].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/devicecode")
 	c.Check(requests[2].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
-	c.Check(requests[3].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/me")
-	c.Check(requests[4].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals")                                  // create
-	c.Check(requests[5].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals")                                  // list
-	c.Check(requests[6].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals/sp-object-id/passwordCredentials") // list
-	c.Check(requests[7].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals/sp-object-id/passwordCredentials") // update
-	c.Check(requests[8].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleDefinitions")
-	c.Check(requests[9].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleAssignments/55555555-5555-5555-5555-555555555555")
+	c.Check(requests[3].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[4].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[5].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/me")
+	c.Check(requests[6].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals")                                  // create
+	c.Check(requests[7].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals")                                  // list
+	c.Check(requests[8].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals/sp-object-id/passwordCredentials") // list
+	c.Check(requests[9].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals/sp-object-id/passwordCredentials") // update
+	c.Check(requests[10].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleDefinitions")
+	c.Check(requests[11].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleAssignments/55555555-5555-5555-5555-555555555555")
 
 	// Make sure that we don't wipe existing password credentials, and that
 	// the new password credential matches the one returned from the
 	// function.
 	var params ad.PasswordCredentialsUpdateParameters
-	err = json.NewDecoder(requests[7].Body).Decode(&params)
+	err = json.NewDecoder(requests[9].Body).Decode(&params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(params.Value, gc.HasLen, 2)
 	c.Assert(params.Value[0], jc.DeepEquals, ad.PasswordCredential{
@@ -314,4 +342,100 @@ func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C,
 		EndDate:   time.Time{}.UTC(),
 	})
 	assertPasswordCredential(c, params.Value[1])
+}
+
+func (s *InteractiveSuite) TestInteractiveServicePrincipalApplicationNotExist(c *gc.C) {
+	s.testInteractiveRetriesCreateServicePrincipal(c, createServicePrincipalNotExistSender())
+}
+
+func (s *InteractiveSuite) TestInteractiveServicePrincipalApplicationNotReference(c *gc.C) {
+	s.testInteractiveRetriesCreateServicePrincipal(c, createServicePrincipalNotReferenceSender())
+}
+
+func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C, errorSender autorest.Sender) {
+	var requests []*http.Request
+	senders := azuretesting.Senders{
+		oauthConfigSender(),
+		deviceCodeSender(),
+		tokenSender(),
+		tokenSender(),
+		tokenSender(),
+		currentUserSender(),
+		errorSender,
+		createServicePrincipalSender(),
+		roleDefinitionListSender(),
+		roleAssignmentAlreadyExistsSender(),
+	}
+	_, password, err := azureauth.InteractiveCreateServicePrincipal(
+		ioutil.Discard,
+		&senders,
+		azuretesting.RequestRecorder(&requests),
+		"https://arm.invalid",
+		"https://management.core.invalid/",
+		"https://graph.invalid",
+		"22222222-2222-2222-2222-222222222222",
+		&testing.AutoAdvancingClock{
+			Clock:   s.clock,
+			Advance: s.clock.Advance,
+		},
+		s.newUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
+
+	c.Assert(requests, gc.HasLen, 10)
+	c.Check(requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222")
+	c.Check(requests[1].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/devicecode")
+	c.Check(requests[2].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[3].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[4].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[5].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/me")
+	c.Check(requests[6].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals") // create
+	c.Check(requests[7].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals") // create
+	c.Check(requests[8].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleDefinitions")
+	c.Check(requests[9].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleAssignments/55555555-5555-5555-5555-555555555555")
+}
+
+func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
+	var requests []*http.Request
+	senders := azuretesting.Senders{
+		oauthConfigSender(),
+		deviceCodeSender(),
+		tokenSender(),
+		tokenSender(),
+		tokenSender(),
+		currentUserSender(),
+		createServicePrincipalSender(),
+		roleDefinitionListSender(),
+		roleAssignmentPrincipalNotExistSender(),
+		roleAssignmentSender(),
+	}
+	_, password, err := azureauth.InteractiveCreateServicePrincipal(
+		ioutil.Discard,
+		&senders,
+		azuretesting.RequestRecorder(&requests),
+		"https://arm.invalid",
+		"https://management.core.invalid/",
+		"https://graph.invalid",
+		"22222222-2222-2222-2222-222222222222",
+		&testing.AutoAdvancingClock{
+			Clock:   s.clock,
+			Advance: s.clock.Advance,
+		},
+		s.newUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
+
+	c.Assert(requests, gc.HasLen, 10)
+	c.Check(requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222")
+	c.Check(requests[1].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/devicecode")
+	c.Check(requests[2].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[3].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[4].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/oauth2/token")
+	c.Check(requests[5].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/me")
+	c.Check(requests[6].URL.Path, gc.Equals, "/11111111-1111-1111-1111-111111111111/servicePrincipals") // create
+	c.Check(requests[7].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleDefinitions")
+	c.Check(requests[8].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleAssignments/55555555-5555-5555-5555-555555555555")
+	c.Check(requests[9].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/providers/Microsoft.Authorization/roleAssignments/55555555-5555-5555-5555-555555555555")
 }

@@ -120,7 +120,7 @@ func (c *destroyCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no model specified")
 	case 1:
-		return c.SetModelName(args[0])
+		return c.SetModelName(args[0], false)
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
@@ -141,7 +141,7 @@ func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 	if c.configApi != nil {
 		return c.configApi, nil
 	}
-	root, err := c.NewControllerAPIRoot()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -151,8 +151,14 @@ func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
-	controllerName := c.ControllerName()
-	modelName := c.ModelName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
@@ -227,7 +233,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	// Check if the model has an sla auth.
 	if slaIsSet {
-		err = c.removeModelAllocation(modelDetails.ModelUUID)
+		err = c.removeModelBudget(modelDetails.ModelUUID)
 		if err != nil {
 			ctx.Warningf("model allocation not removed: %v", err)
 		}
@@ -236,7 +242,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *destroyCommand) removeModelAllocation(uuid string) error {
+func (c *destroyCommand) removeModelBudget(uuid string) error {
 	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -244,7 +250,7 @@ func (c *destroyCommand) removeModelAllocation(uuid string) error {
 
 	budgetClient := getBudgetAPIClient(bakeryClient)
 
-	resp, err := budgetClient.DeleteAllocation(uuid)
+	resp, err := budgetClient.DeleteBudget(uuid)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -315,5 +321,5 @@ func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) BudgetAPIClient {
 
 // BudgetAPIClient defines the budget API client interface.
 type BudgetAPIClient interface {
-	DeleteAllocation(string) (string, error)
+	DeleteBudget(string) (string, error)
 }

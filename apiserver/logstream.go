@@ -19,7 +19,7 @@ import (
 )
 
 type logStreamSource interface {
-	getStart(sink string, allModels bool) (time.Time, error)
+	getStart(sink string) (time.Time, error)
 	newTailer(*state.LogTailerParams) (state.LogTailer, error)
 }
 
@@ -101,17 +101,16 @@ func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter
 	}
 
 	reqHandler := &logStreamRequestHandler{
-		conn:          conn,
-		req:           req,
-		tailer:        tailer,
-		closer:        closer,
-		sendModelUUID: cfg.AllModels,
+		conn:   conn,
+		req:    req,
+		tailer: tailer,
+		closer: closer,
 	}
 	return reqHandler, nil
 }
 
 func (h *logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig, clock clock.Clock) (state.LogTailer, error) {
-	start, err := source.getStart(cfg.Sink, cfg.AllModels)
+	start, err := source.getStart(cfg.Sink)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting log start position")
 	}
@@ -129,7 +128,6 @@ func (h *logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.
 	tailerArgs := &state.LogTailerParams{
 		StartTime:    start,
 		InitialLines: cfg.MaxLookbackRecords,
-		AllModels:    cfg.AllModels,
 	}
 	tailer, err := source.newTailer(tailerArgs)
 	if err != nil {
@@ -156,17 +154,8 @@ type logStreamState struct {
 	state.LogTailerState
 }
 
-func (st logStreamState) getStart(sink string, allModels bool) (time.Time, error) {
-	var tracker *state.LastSentLogTracker
-	if allModels {
-		var err error
-		tracker, err = state.NewAllLastSentLogTracker(st, sink)
-		if err != nil {
-			return time.Time{}, errors.Trace(err)
-		}
-	} else {
-		tracker = state.NewLastSentLogTracker(st, st.ModelUUID(), sink)
-	}
+func (st logStreamState) getStart(sink string) (time.Time, error) {
+	tracker := state.NewLastSentLogTracker(st, st.ModelUUID(), sink)
 	defer tracker.Close()
 
 	// Resume for the sink...
@@ -195,11 +184,10 @@ func (st logStreamState) newTailer(args *state.LogTailerParams) (state.LogTailer
 }
 
 type logStreamRequestHandler struct {
-	conn          messageWriter
-	req           *http.Request
-	tailer        state.LogTailer
-	sendModelUUID bool
-	closer        closerFunc
+	conn   messageWriter
+	req    *http.Request
+	tailer state.LogTailer
+	closer closerFunc
 }
 
 func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
@@ -216,7 +204,7 @@ func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 				logger.Errorf("tailer stopped: %v", h.tailer.Err())
 				return
 			}
-			if err := h.sendRecords([]*state.LogRecord{rec}, h.sendModelUUID); err != nil {
+			if err := h.sendRecords([]*state.LogRecord{rec}); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("logstream handler stopped (client disconnected)")
 				} else {
@@ -232,17 +220,18 @@ func (h *logStreamRequestHandler) close() {
 	h.closer()
 }
 
-func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord, sendModelUUID bool) error {
-	apiRec := h.apiFromRecords(rec, sendModelUUID)
+func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord) error {
+	apiRec := h.apiFromRecords(rec)
 	return errors.Trace(h.conn.WriteJSON(apiRec))
 }
 
-func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord, sendModelUUID bool) params.LogStreamRecords {
+func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord) params.LogStreamRecords {
 	var result params.LogStreamRecords
 	result.Records = make([]params.LogStreamRecord, len(records))
 	for i, rec := range records {
 		apiRec := params.LogStreamRecord{
 			ID:        rec.ID,
+			ModelUUID: rec.ModelUUID,
 			Version:   rec.Version.String(),
 			Entity:    rec.Entity.String(),
 			Timestamp: rec.Time,
@@ -250,9 +239,6 @@ func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord, sen
 			Location:  rec.Location,
 			Level:     rec.Level.String(),
 			Message:   rec.Message,
-		}
-		if sendModelUUID {
-			apiRec.ModelUUID = rec.ModelUUID
 		}
 		result.Records[i] = apiRec
 	}

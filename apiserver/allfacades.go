@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/apiserver/proxyupdater"
 	"github.com/juju/juju/apiserver/reboot"
-	"github.com/juju/juju/apiserver/remoteendpoints"
 	"github.com/juju/juju/apiserver/remotefirewaller"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/apiserver/resources"
@@ -203,7 +202,7 @@ func AllFacades() *facade.Registry {
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
 	reg("UnitAssigner", 1, unitassigner.New)
 
-	reg("Uniter", 4, uniter.NewUniterAPI)
+	reg("Uniter", 4, uniter.NewUniterAPIV4)
 	reg("Uniter", 5, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
@@ -211,7 +210,6 @@ func AllFacades() *facade.Registry {
 
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
-		reg("RemoteEndpoints", 1, remoteendpoints.NewEndpointsAPI)
 		reg("RemoteFirewaller", 1, remotefirewaller.NewStateRemoteFirewallerAPI)
 		reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 	}
@@ -231,6 +229,27 @@ func AllFacades() *facade.Registry {
 	regRaw("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
 
 	return registry
+}
+
+var adminAPIFactories = map[int]adminAPIFactory{
+	3: newAdminAPIV3,
+}
+
+// AdminFacadeDetails returns information on the Admin facade provided
+// at login time. The Facade field of the returned slice elements will
+// be nil.
+func AdminFacadeDetails() []facade.Details {
+	var fs []facade.Details
+	for v, f := range adminAPIFactories {
+		api := f(nil, nil, nil)
+		t := reflect.TypeOf(api)
+		fs = append(fs, facade.Details{
+			Name:    "Admin",
+			Version: v,
+			Type:    t,
+		})
+	}
+	return fs
 }
 
 type hookContextFacadeFn func(*state.State, *state.Unit) (interface{}, error)

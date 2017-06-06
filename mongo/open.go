@@ -81,6 +81,10 @@ type Info struct {
 	// CACert holds the CA certificate that will be used
 	// to validate the controller's certificate, in PEM format.
 	CACert string
+
+	// DisableTLS controls whether the connection to MongoDB servers
+	// is made using TLS (the default), or not.
+	DisableTLS bool
 }
 
 // MongoInfo encapsulates information about cluster of
@@ -89,6 +93,7 @@ type Info struct {
 type MongoInfo struct {
 	// mongo.Info contains the addresses and cert of the mongo cluster.
 	Info
+
 	// Tag holds the name of the entity that is connecting.
 	// It should be nil when connecting as an administrator.
 	Tag names.Tag
@@ -104,27 +109,31 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
 	}
-	if len(info.CACert) == 0 {
-		return nil, stderrors.New("missing CA certificate")
-	}
-	xcert, err := cert.ParseCert(info.CACert)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
-	}
-	pool := x509.NewCertPool()
-	pool.AddCert(xcert)
-	tlsConfig := utils.SecureTLSConfig()
 
-	// TODO(natefinch): revisit this when are full-time on mongo 3.
-	// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
-	moreSuites := []uint16{
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-	}
+	var tlsConfig *tls.Config
+	if !info.DisableTLS {
+		if len(info.CACert) == 0 {
+			return nil, stderrors.New("missing CA certificate")
+		}
+		xcert, err := cert.ParseCert(info.CACert)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
+		}
+		pool := x509.NewCertPool()
+		pool.AddCert(xcert)
 
-	tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
-	tlsConfig.RootCAs = pool
-	tlsConfig.ServerName = "juju-mongodb"
+		tlsConfig = utils.SecureTLSConfig()
+		tlsConfig.RootCAs = pool
+		tlsConfig.ServerName = "juju-mongodb"
+
+		// TODO(natefinch): revisit this when are full-time on mongo 3.
+		// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
+		moreSuites := []uint16{
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		}
+		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
+	}
 
 	dial := func(server *mgo.ServerAddr) (net.Conn, error) {
 		addr := server.TCPAddr().String()
@@ -133,16 +142,19 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 			logger.Warningf("mongodb connection failed, will retry: %v", err)
 			return nil, err
 		}
-		cc := tls.Client(c, tlsConfig)
-		if err := cc.Handshake(); err != nil {
-			logger.Warningf("TLS handshake failed: %v", err)
-			if err := c.Close(); err != nil {
-				logger.Warningf("failed to close connection: %v", err)
+		if tlsConfig != nil {
+			cc := tls.Client(c, tlsConfig)
+			if err := cc.Handshake(); err != nil {
+				logger.Warningf("TLS handshake failed: %v", err)
+				if err := c.Close(); err != nil {
+					logger.Warningf("failed to close connection: %v", err)
+				}
+				return nil, err
 			}
-			return nil, err
+			c = cc
 		}
 		logger.Debugf("dialled mongodb server at %q", addr)
-		return cc, nil
+		return c, nil
 	}
 
 	return &mgo.DialInfo{

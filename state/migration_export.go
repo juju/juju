@@ -394,6 +394,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 			Label:          device.Label,
 			UUID:           device.UUID,
 			HardwareID:     device.HardwareId,
+			WWN:            device.WWN,
 			BusAddress:     device.BusAddress,
 			Size:           device.Size,
 			FilesystemType: device.FilesystemType,
@@ -943,14 +944,20 @@ func (e *exporter) subnets() error {
 	e.logger.Debugf("read %d subnets", len(subnets))
 
 	for _, subnet := range subnets {
-		e.model.AddSubnet(description.SubnetArgs{
+		args := description.SubnetArgs{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        string(subnet.ProviderId()),
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			AvailabilityZone:  subnet.AvailabilityZone(),
 			SpaceName:         subnet.SpaceName(),
-		})
+		}
+		// TODO(babbageclunk): at the moment state.Subnet only stores
+		// one AZ.
+		az := subnet.AvailabilityZone()
+		if az != "" {
+			args.AvailabilityZones = []string{az}
+		}
+		e.model.AddSubnet(args)
 	}
 	return nil
 }
@@ -1326,7 +1333,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		case string:
 			return value
 		default:
-			optionalErr = errors.Errorf("expected uint64 for %s, got %T", name, value)
+			optionalErr = errors.Errorf("expected string for %s, got %T", name, value)
 		}
 		return ""
 	}
@@ -1347,8 +1354,19 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		case nil:
 		case []string:
 			return value
+		case []interface{}:
+			var result []string
+			for _, val := range value {
+				sval, ok := val.(string)
+				if !ok {
+					optionalErr = errors.Errorf("expected string slice for %s, got %T value", name, val)
+					return nil
+				}
+				result = append(result, sval)
+			}
+			return result
 		default:
-			optionalErr = errors.Errorf("expected []string] for %s, got %T", name, value)
+			optionalErr = errors.Errorf("expected []string for %s, got %T", name, value)
 		}
 		return nil
 	}
@@ -1422,8 +1440,14 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 		URL:             url,
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
+		Bindings:        app.Bindings(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
+	status, err := e.statusArgs(app.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	descApp.SetStatus(status)
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)
@@ -1437,7 +1461,29 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 			Scope:     string(ep.Scope),
 		})
 	}
+	for _, space := range app.Spaces() {
+		e.addRemoteSpace(descApp, space)
+	}
 	return nil
+}
+
+func (e *exporter) addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
+	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
+		CloudType:          space.CloudType,
+		Name:               space.Name,
+		ProviderId:         space.ProviderId,
+		ProviderAttributes: space.ProviderAttributes,
+	})
+	for _, subnet := range space.Subnets {
+		descSpace.AddSubnet(description.SubnetArgs{
+			CIDR:              subnet.CIDR,
+			ProviderId:        subnet.ProviderId,
+			VLANTag:           subnet.VLANTag,
+			AvailabilityZones: subnet.AvailabilityZones,
+			ProviderSpaceId:   subnet.ProviderSpaceId,
+			ProviderNetworkId: subnet.ProviderNetworkId,
+		})
+	}
 }
 
 func (e *exporter) storage() error {
@@ -1500,6 +1546,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		args.Size = info.Size
 		args.Pool = info.Pool
 		args.HardwareID = info.HardwareId
+		args.WWN = info.WWN
 		args.VolumeID = info.VolumeId
 		args.Persistent = info.Persistent
 	} else {
@@ -1697,12 +1744,14 @@ func (e *exporter) addStorage(instance *storageInstance, attachments []names.Uni
 	if !ok {
 		owner = nil
 	}
+	cons := description.StorageInstanceConstraints(instance.doc.Constraints)
 	args := description.StorageArgs{
 		Tag:         instance.StorageTag(),
 		Kind:        instance.Kind().String(),
 		Owner:       owner,
 		Name:        instance.StorageName(),
 		Attachments: attachments,
+		Constraints: &cons,
 	}
 	e.model.AddStorage(args)
 	return nil

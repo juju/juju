@@ -54,6 +54,13 @@ func NewConfigCommand() cmd.Command {
 	return modelcmd.Wrap(&configCommand{})
 }
 
+// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
+func NewConfigCommandForTest(api configCommandAPI) modelcmd.ModelCommand {
+	return modelcmd.Wrap(&configCommand{
+		api: api,
+	})
+}
+
 type attributes map[string]string
 
 // configCommand get, sets, and resets configuration values of an application.

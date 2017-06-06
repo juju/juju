@@ -3,10 +3,10 @@ juju
 
 juju is devops distilled.
 
-Juju enables you to use [Charms](http://jujucharms.com/charms) to deploy your application architectures to EC2, OpenStack,
-Azure, HP your data center and even your own Ubuntu based laptop.
-Moving between models is simple giving you the flexibility to switch hosts
-whenever you want — for free.
+Juju enables you to use [Charms](http://jujucharms.com/charms) to deploy your
+application architectures to EC2, OpenStack, Azure, GCE, your data center, and
+even your own Ubuntu based laptop.  Moving between models is simple giving you
+the flexibility to switch hosts whenever you want — for free.
 
 For more information, see the [docs](https://jujucharms.com/docs/stable/getting-started).
 
@@ -67,7 +67,7 @@ install `juju` and its dependencies. To checkout without installing, use the
     go help get
 
 At this point you will have the git local repository of the `juju` source at
-`$GOPATH/github.com/juju/juju`. The source for any dependent packages will
+`$GOPATH/src/github.com/juju/juju`. The source for any dependent packages will
 also be available inside `$GOPATH`. You can use `git pull --rebase`, or the 
 less convenient `go get -u github.com/juju/juju/...` to update the source
 from time to time.

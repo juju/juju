@@ -8,10 +8,13 @@ package sla
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 
+	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/romulus/api/sla"
 	slawire "github.com/juju/romulus/wireformat/sla"
 	"gopkg.in/macaroon.v1"
@@ -20,18 +23,27 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
+
+var logger = loggo.GetLogger("romulus.cmd.sla")
 
 // authorizationClient defines the interface of an api client that
 // the command uses to create an sla authorization macaroon.
 type authorizationClient interface {
 	// Authorize returns the sla authorization macaroon for the specified model,
-	Authorize(modelUUID, supportLevel, budget string) (*slawire.SLAResponse, error)
+	Authorize(modelUUID, supportLevel, wallet string) (*slawire.SLAResponse, error)
 }
 
 type slaClient interface {
 	SetSLALevel(level, owner string, creds []byte) error
 	SLALevel() (string, error)
+}
+
+type slaLevel struct {
+	Model   string `json:"model,omitempty" yaml:"model,omitempty"`
+	SLA     string `json:"sla,omitempty" yaml:"sla,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 var newSLAClient = func(conn api.Connection) slaClient {
@@ -48,6 +60,8 @@ var modelId = func(conn api.Connection) string {
 	return tag.Id()
 }
 
+var newJujuClientStore = jujuclient.NewFileClientStore
+
 // NewSLACommand returns a new command that is used to set SLA credentials for a
 // deployed application.
 func NewSLACommand() cmd.Command {
@@ -63,6 +77,7 @@ func NewSLACommand() cmd.Command {
 // Model.SLACredential for development & demonstration purposes.
 type slaCommand struct {
 	modelcmd.ModelCommandBase
+	out cmd.Output
 
 	newAPIRoot             func() (api.Connection, error)
 	newSLAClient           func(api.Connection) slaClient
@@ -75,6 +90,11 @@ type slaCommand struct {
 // SetFlags sets additional flags for the support command.
 func (c *slaCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"tabular": formatTabular,
+		"json":    cmd.FormatJson,
+		"yaml":    cmd.FormatYaml,
+	})
 	f.StringVar(&c.Budget, "budget", "", "the maximum spend for the model")
 }
 
@@ -88,7 +108,7 @@ func (c *slaCommand) Info() *cmd.Info {
 Set the support level for the model, effective immediately.
 Examples:
     juju sla essential              # set the support level to essential
-    juju sla standard --budget 1000 # set the support level to essential witha maximum budget of $1000
+    juju sla standard --budget 1000 # set the support level to essential with a maximum budget of $1000
     juju sla                        # display the current support level for the model.
 `,
 	}
@@ -103,38 +123,43 @@ func (c *slaCommand) Init(args []string) error {
 	return c.ModelCommandBase.Init(args[1:])
 }
 
-func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, []byte, error) {
+func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, string, []byte, error) {
+	fail := func(err error) (string, string, []byte, error) {
+		return "", "", nil, err
+	}
 	hc, err := c.BakeryClient()
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	authClient, err := c.newAuthorizationClient(sla.HTTPClient(hc))
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
 	if err != nil {
 		err = common.MaybeTermsAgreementError(err)
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
-			return "", nil, errors.Trace(termErr.UserErr())
+			return fail(errors.Trace(termErr.UserErr()))
 		}
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	ms := macaroon.Slice{slaResp.Credentials}
 	mbuf, err := json.Marshal(ms)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	return slaResp.Owner, mbuf, nil
+	return slaResp.Owner, slaResp.Message, mbuf, nil
 }
 
-func displayCurrentLevel(client slaClient, ctx *cmd.Context) error {
+func (c *slaCommand) displayCurrentLevel(client slaClient, modelName string, ctx *cmd.Context) error {
 	level, err := client.SLALevel()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprintln(ctx.Stdout, level)
-	return nil
+	return errors.Trace(c.out.Write(ctx, &slaLevel{
+		Model: modelName,
+		SLA:   level,
+	}))
 }
 
 // Run implements cmd.Command.
@@ -145,17 +170,70 @@ func (c *slaCommand) Run(ctx *cmd.Context) error {
 	}
 	client := c.newSLAClient(root)
 	modelId := modelId(root)
+	modelNameMap := modelNameMap()
+	modelName := modelId
+	if name, ok := modelNameMap[modelId]; ok {
+		modelName = name
+	}
 
 	if c.Level == "" {
-		return displayCurrentLevel(client, ctx)
+		return c.displayCurrentLevel(client, modelName, ctx)
 	}
-	owner, credentials, err := c.requestSupportCredentials(modelId)
+	owner, message, credentials, err := c.requestSupportCredentials(modelId)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if message != "" {
+		err = c.out.Write(ctx, &slaLevel{
+			Model:   modelName,
+			SLA:     c.Level,
+			Message: message,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	err = client.SetSLALevel(c.Level, owner, credentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func formatTabular(writer io.Writer, value interface{}) error {
+	l, ok := value.(*slaLevel)
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", l, value)
+	}
+	table := uitable.New()
+	table.MaxColWidth = 50
+	table.Wrap = true
+	for _, col := range []int{2, 3, 5} {
+		table.RightAlign(col)
+	}
+	table.AddRow("Model", "SLA", "Message")
+	table.AddRow(l.Model, l.SLA, l.Message)
+	fmt.Fprint(writer, table)
+	return nil
+}
+
+func modelNameMap() map[string]string {
+	store := newJujuClientStore()
+	uuidToName := map[string]string{}
+	controllers, err := store.AllControllers()
+	if err != nil {
+		logger.Warningf("failed to read juju client controller names")
+		return map[string]string{}
+	}
+	for cname := range controllers {
+		models, err := store.AllModels(cname)
+		if err != nil {
+			logger.Warningf("failed to read juju client model names")
+			return map[string]string{}
+		}
+		for mname, mdetails := range models {
+			uuidToName[mdetails.ModelUUID] = cname + ":" + mname
+		}
+	}
+	return uuidToName
 }

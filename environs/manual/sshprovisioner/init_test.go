@@ -104,7 +104,18 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 			"cpu cores: 1",
 		},
 		"arch=armhf cores=2 mem=4M",
+	}, {
+		"4 CPU sockets, each single-core, no hyper-threading, no physical id field",
+		[]string{
+			"edgy", "arm64", "MemTotal: 16384 kB",
+			"processor: 0",
+			"processor: 1",
+			"processor: 2",
+			"processor: 3",
+		},
+		"arch=arm64 cores=4 mem=16M",
 	}}
+
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.summary)
 		scriptResponse := strings.Join(test.scriptResponse, "\n")

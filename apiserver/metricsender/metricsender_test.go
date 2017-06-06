@@ -96,6 +96,7 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 
 func (s *MetricSenderSuite) TestSendingHandlesModelMeterStatus(c *gc.C) {
 	var sender testing.MockSender
+	sender.MeterStatusResponse = "RED"
 	now := time.Now()
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
@@ -109,6 +110,24 @@ func (s *MetricSenderSuite) TestSendingHandlesModelMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus.Code.String(), gc.Equals, "RED")
 	c.Assert(meterStatus.Info, gc.Equals, "mocked response")
+}
+
+func (s *MetricSenderSuite) TestSendingHandlesEmptyModelMeterStatus(c *gc.C) {
+	var sender testing.MockSender
+	sender.MeterStatusResponse = ""
+	now := time.Now()
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sender.Data, gc.HasLen, 1)
+	c.Assert(sender.Data[0], gc.HasLen, 2)
+
+	meterStatus, err := s.State.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meterStatus.Code.String(), gc.Equals, "NOT AVAILABLE")
+	c.Assert(meterStatus.Info, gc.Equals, "")
 }
 
 // TestSendMetricsAbort creates 7 unsent metrics and

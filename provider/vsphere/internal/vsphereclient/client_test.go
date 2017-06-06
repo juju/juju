@@ -33,6 +33,7 @@ type clientSuite struct {
 	serviceContent types.ServiceContent
 	roundTripper   mockRoundTripper
 	uploadRequests []*http.Request
+	onImageUpload  func(*http.Request)
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -58,7 +59,8 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.roundTripper = mockRoundTripper{
-		collectors: make(map[string]*collector),
+		collectors:    make(map[string]*collector),
+		leaseProgress: make(chan int32, 2),
 	}
 	s.roundTripper.contents = map[string][]types.ObjectContent{
 		"FakeRootFolder": []types.ObjectContent{{
@@ -174,6 +176,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			},
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "vm-0"},
+				{Name: "runtime.powerState", Val: "poweredOff"},
 				{
 					Name: "resourcePool",
 					Val: types.ManagedObjectReference{
@@ -190,6 +193,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			},
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "vm-1"},
+				{Name: "runtime.powerState", Val: "poweredOn"},
 				{
 					Name: "resourcePool",
 					Val: types.ManagedObjectReference{
@@ -209,7 +213,12 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		rcopy := *r
 		rcopy.Body = ioutil.NopCloser(&buf)
 		s.uploadRequests = append(s.uploadRequests, &rcopy)
+		if s.onImageUpload != nil {
+			s.onImageUpload(r)
+		}
 	})
+	s.uploadRequests = nil
+	s.onImageUpload = nil
 	s.server = httptest.NewServer(mux)
 	s.AddCleanup(func(*gc.C) {
 		s.server.Close()
@@ -380,13 +389,10 @@ func (s *clientSuite) TestRemoveVirtualMachines(c *gc.C) {
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeModelVmFolder"),
-		testing.StubCall{"PowerOffVM_Task", nil},
+		retrievePropertiesStubCall("FakeVm0", "FakeVm1"),
 		testing.StubCall{"Destroy_Task", nil},
 		testing.StubCall{"PowerOffVM_Task", nil},
 		testing.StubCall{"Destroy_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
 		testing.StubCall{"CreatePropertyCollector", nil},
 		testing.StubCall{"CreateFilter", nil},
 		testing.StubCall{"WaitForUpdatesEx", nil},
