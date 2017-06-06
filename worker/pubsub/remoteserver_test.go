@@ -145,7 +145,7 @@ func (s *RemoteServerSuite) TestConnectErrorRetryDelay(c *gc.C) {
 	// Starts immediately, with a one second delay doubling each failure
 	// up to a max wait time of 5 minutes.
 	c.Assert(delays, jc.DeepEquals, []string{
-		"0", "1s", "2s", "4s", "8s", "16s", "32s",
+		"0s", "1s", "2s", "4s", "8s", "16s", "32s",
 		"1m4s", "2m8s", "4m16s",
 		"5m0s", "5m0s",
 	})
@@ -186,7 +186,7 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedOnTargetConnection(c *gc.
 	}
 
 	c.Assert(delays, jc.DeepEquals, []string{
-		"0", "1s", "2s", "4s", "8s", "16s", // standard fallback
+		"0s", "1s", "2s", "4s", "8s", "16s", // standard fallback
 		"5s",             // 4s due to interruption, 1s due to loop delay on failure
 		"1s", "2s", "4s", // standard fallback
 	})
@@ -222,7 +222,7 @@ func (s *RemoteServerSuite) TestConnectRetryInterruptedWithNewAddresses(c *gc.C)
 	}
 
 	c.Assert(delays, jc.DeepEquals, []string{
-		"0", "1s", "2s", "4s", "8s", "16s", // standard fallback
+		"0s", "1s", "2s", "4s", "8s", "16s", // standard fallback
 		"5s",             // 4s due to interruption, 1s due to loop delay on failure
 		"1s", "2s", "4s", // standard fallback
 	})
