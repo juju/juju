@@ -47,6 +47,9 @@ type SpaceAPI interface {
 
 	// RenameSpace changes the name of the space.
 	RenameSpace(name, newName string) error
+
+	// ReloadSpaces fetches spaces and subnets from substrate
+	ReloadSpaces() error
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.space")
@@ -135,6 +138,10 @@ func (m *mvpAPIShim) AddSpace(name string, subnetIds []string, public bool) erro
 
 func (m *mvpAPIShim) ListSpaces() ([]params.Space, error) {
 	return m.facade.ListSpaces()
+}
+
+func (m *mvpAPIShim) ReloadSpaces() error {
+	return m.facade.ReloadSpaces()
 }
 
 // NewAPI returns a SpaceAPI for the root api endpoint that the

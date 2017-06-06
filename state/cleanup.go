@@ -35,8 +35,7 @@ const (
 	cleanupModelsForDyingController      cleanupKind = "models"
 	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
 	cleanupResourceBlob                  cleanupKind = "resourceBlob"
-	cleanupVolumesForDyingModel          cleanupKind = "modelVolumes"
-	cleanupFilesystemsForDyingModel      cleanupKind = "modelFilesystems"
+	cleanupStorageForDyingModel          cleanupKind = "modelStorage"
 )
 
 // cleanupDoc originally represented a set of documents that should be
@@ -113,12 +112,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupModelsForDyingController()
 		case cleanupMachinesForDyingModel:
 			err = st.cleanupMachinesForDyingModel()
-		case cleanupVolumesForDyingModel:
-			err = st.cleanupVolumesForDyingModel()
-		case cleanupFilesystemsForDyingModel:
-			err = st.cleanupFilesystemsForDyingModel()
 		case cleanupResourceBlob:
 			err = st.cleanupResourceBlob(doc.Prefix)
+		case cleanupStorageForDyingModel:
+			err = st.cleanupStorageForDyingModel()
 		default:
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -212,19 +209,16 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupVolumesForDyingModel sets all persistent volumes to Dying,
-// if they are not already Dying or Dead. It's expected to be used when
-// a model is destroyed.
-func (st *State) cleanupVolumesForDyingModel() (err error) {
-	volumes, err := st.AllVolumes()
+// cleanupStorageForDyingModel sets all storage to Dying, if they are not
+// already Dying or Dead. It's expected to be used when a model is destroyed.
+func (st *State) cleanupStorageForDyingModel() (err error) {
+	storage, err := st.AllStorageInstances()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, v := range volumes {
-		err := st.DestroyVolume(v.VolumeTag())
+	for _, s := range storage {
+		err := st.DestroyStorageInstance(s.StorageTag())
 		if errors.IsNotFound(err) {
-			continue
-		} else if IsContainsFilesystem(err) {
 			continue
 		} else if err != nil {
 			return errors.Trace(err)

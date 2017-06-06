@@ -296,7 +296,6 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	controller, err := s.store.ControllerByName(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.CACert, gc.Not(gc.Equals), "")
-	c.Assert(controller.UnresolvedAPIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 	// We don't care about build numbers here.

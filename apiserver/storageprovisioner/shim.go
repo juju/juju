@@ -44,11 +44,11 @@ type Backend interface {
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchModelFilesystems() state.StringsWatcher
-	WatchEnvironFilesystemAttachments() state.StringsWatcher
+	WatchModelFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
 	WatchMachineFilesystemAttachments(names.MachineTag) state.StringsWatcher
 	WatchModelVolumes() state.StringsWatcher
-	WatchEnvironVolumeAttachments() state.StringsWatcher
+	WatchModelVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher

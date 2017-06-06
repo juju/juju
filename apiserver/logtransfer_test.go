@@ -164,7 +164,7 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for the log documents to be written to the DB.
-	logsColl := s.State.MongoSession().DB("logs").C("logs")
+	logsColl := s.State.MongoSession().DB("logs").C("logs." + s.State.ModelUUID())
 	var docs []bson.M
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		err := logsColl.Find(nil).Sort("t").All(&docs)
@@ -181,9 +181,7 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 	}
 
 	// Check the recorded logs are correct.
-	modelUUID := s.State.ModelUUID()
 	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
-	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, "machine-23")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:42")
@@ -191,7 +189,6 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
-	c.Assert(docs[1]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[1]["n"], gc.Equals, "machine-101")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:99")

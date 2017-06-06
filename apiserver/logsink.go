@@ -133,6 +133,7 @@ func newLogSinkWriter(logPath string) (io.WriteCloser, error) {
 		Filename:   logPath,
 		MaxSize:    300, // MB
 		MaxBackups: 2,
+		Compress:   true,
 	}, nil
 }
 

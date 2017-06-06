@@ -607,11 +607,11 @@ func (e *maasEnviron) parsePlacement(placement string) (*maasPlacement, error) {
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
-func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement == "" {
+func (env *maasEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if args.Placement == "" {
 		return nil
 	}
-	_, err := env.parsePlacement(placement)
+	_, err := env.parsePlacement(args.Placement)
 	return err
 }
 

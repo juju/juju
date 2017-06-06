@@ -254,7 +254,7 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 		// Set the service deployment constraints.
 		err = service.SetConstraints(constraints.MustParse(t.consToSet))
 		c.Check(err, jc.ErrorIsNil)
-		u, err := service.AddUnit()
+		u, err := service.AddUnit(state.AddUnitParams{})
 		c.Check(err, jc.ErrorIsNil)
 		// New unit deployment constraints get merged with the fallbacks.
 		ucons, err := u.Constraints()

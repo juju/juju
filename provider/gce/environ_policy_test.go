@@ -10,8 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/storage"
 )
 
 type environPolSuite struct {
@@ -20,22 +22,8 @@ type environPolSuite struct {
 
 var _ = gc.Suite(&environPolSuite{})
 
-func (s *environPolSuite) TestPrecheckInstance(c *gc.C) {
-	cons := constraints.Value{}
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp, "", ""),
-	}
-
-	cons := constraints.Value{}
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
@@ -48,7 +36,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 
 	cons := constraints.MustParse("instance-type=n1-standard-1 arch=amd64 root-disk=1G")
 	placement := "zone=home-zone"
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons, Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -58,16 +46,14 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1")
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1.invalid")
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 
 	c.Check(err, gc.ErrorMatches, `.*invalid GCE instance type.*`)
 }
@@ -75,15 +61,14 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1 root-disk=1G")
 	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons, Placement: placement})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1 arch=i386")
-	placement := ""
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -93,9 +78,8 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 		google.NewZone("a-zone", google.StatusUp, "", ""),
 	}
 
-	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -105,9 +89,8 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 		google.NewZone("a-zone", google.StatusDown, "", ""),
 	}
 
-	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
 }
@@ -117,11 +100,49 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 		google.NewZone("home-zone", google.StatusUp, "", ""),
 	}
 
-	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *gc.C) {
+	s.testPrecheckInstanceVolumeAvailZone(c, "")
+}
+
+func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c *gc.C) {
+	s.testPrecheckInstanceVolumeAvailZone(c, "zone=away-zone")
+}
+
+func (s *environPolSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placement string) {
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("away-zone", google.StatusUp, "", ""),
+	}
+
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		}},
+	})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) {
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("away-zone", google.StatusUp, "", ""),
+	}
+
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: "zone=away-zone",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		}},
+	})
+
+	c.Check(err, gc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
 }
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {

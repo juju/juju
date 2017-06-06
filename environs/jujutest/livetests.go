@@ -33,7 +33,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -234,14 +233,13 @@ func (t *LiveTests) Destroy(c *gc.C) {
 }
 
 func (t *LiveTests) TestPrechecker(c *gc.C) {
-	// Providers may implement Prechecker. If they do, then they should
-	// return nil for empty constraints (excluding the null provider).
-	prechecker, ok := t.Env.(state.Prechecker)
-	if !ok {
-		return
-	}
-	const placement = ""
-	err := prechecker.PrecheckInstance("precise", constraints.Value{}, placement)
+	// All implementations of InstancePrechecker should
+	// return nil for empty constraints (excluding the
+	// manual provider).
+	t.PrepareOnce(c)
+	err := t.Env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series: "precise",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -661,9 +659,10 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(st, svc, "dummy", 1, nil)
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit := units[0]
+	err = st.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for the unit's machine and associated agent to come up
 	// and announce itself.

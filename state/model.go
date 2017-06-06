@@ -395,6 +395,9 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
+	if err := InitDbLogs(session, uuid); err != nil {
+		return nil, nil, errors.Annotate(err, "initialising model logs collection")
+	}
 	return newModel, newSt, nil
 }
 
@@ -1014,13 +1017,11 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// cleanups, because the cleanups collection is non-global.
 		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
 		cleanupApplicationsOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
-		cleanupVolumesOp := newCleanupOp(cleanupVolumesForDyingModel, modelUUID)
-		cleanupFilesystemsOp := newCleanupOp(cleanupFilesystemsForDyingModel, modelUUID)
+		cleanupStorageOp := newCleanupOp(cleanupStorageForDyingModel, modelUUID)
 		ops = append(ops,
 			cleanupMachinesOp,
 			cleanupApplicationsOp,
-			cleanupVolumesOp,
-			cleanupFilesystemsOp,
+			cleanupStorageOp,
 		)
 	}
 	return append(prereqOps, ops...), nil

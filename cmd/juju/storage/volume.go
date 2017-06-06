@@ -161,6 +161,9 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 		}
 		info.Storage = storageTag.Id()
 		if storageInfo.Attachments != nil {
+			if info.Attachments == nil {
+				info.Attachments = &VolumeAttachments{}
+			}
 			info.Attachments.Units = storageInfo.Attachments.Units
 		}
 	}

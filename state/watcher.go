@@ -268,17 +268,17 @@ func (st *State) watchMachineStorage(m names.MachineTag, collection string) Stri
 	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
-// WatchEnvironVolumeAttachments returns a StringsWatcher that notifies of
+// WatchModelVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
-func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
+func (st *State) WatchModelVolumeAttachments() StringsWatcher {
 	return st.watchModelMachinestorageAttachments(volumeAttachmentsC)
 }
 
-// WatchEnvironFilesystemAttachments returns a StringsWatcher that notifies
+// WatchModelFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
-func (st *State) WatchEnvironFilesystemAttachments() StringsWatcher {
+func (st *State) WatchModelFilesystemAttachments() StringsWatcher {
 	return st.watchModelMachinestorageAttachments(filesystemAttachmentsC)
 }
 

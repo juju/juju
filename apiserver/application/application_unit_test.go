@@ -7,27 +7,29 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/application"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ApplicationSuite struct {
 	testing.IsolationSuite
-	backend     mockBackend
-	application mockApplication
-	charm       mockCharm
-	endpoints   []state.Endpoint
-	relation    mockRelation
+	coretesting.JujuOSEnvSuite
+	backend   mockBackend
+	endpoints []state.Endpoint
+	relation  mockRelation
 
+	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
 	api          *application.API
@@ -35,70 +37,97 @@ type ApplicationSuite struct {
 
 var _ = gc.Suite(&ApplicationSuite{})
 
+func (s *ApplicationSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
+	s.IsolationSuite.SetUpSuite(c)
+}
+
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	s.JujuOSEnvSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
-	s.application = mockApplication{
-		units: []mockUnit{{
-			tag: names.NewUnitTag("foo/0"),
-		}, {
-			tag: names.NewUnitTag("foo/1"),
-		}},
-	}
-	s.charm = mockCharm{
-		config: &charm.Config{
-			Options: map[string]charm.Option{
-				"stringOption": {Type: "string"},
-				"intOption":    {Type: "int", Default: int(123)},
-			},
-		},
-	}
+	s.env = &mockEnviron{}
 	s.endpoints = []state.Endpoint{
-		{ApplicationName: "foo"},
+		{ApplicationName: "postgresql"},
 		{ApplicationName: "bar"},
 	}
 	s.relation = mockRelation{}
 	s.backend = mockBackend{
-		application: &s.application,
-		charm:       &s.charm,
-		endpoints:   &s.endpoints,
-		relation:    &s.relation,
+		applications: map[string]application.Application{
+			"postgresql": &mockApplication{
+				name: "postgresql",
+				charm: &mockCharm{
+					config: &charm.Config{
+						Options: map[string]charm.Option{
+							"stringOption": {Type: "string"},
+							"intOption":    {Type: "int", Default: int(123)},
+						},
+					},
+				}, units: []mockUnit{{
+					tag: names.NewUnitTag("postgresql/0"),
+				}, {
+					tag: names.NewUnitTag("postgresql/1"),
+				}},
+			},
+		},
+		remoteApplications: make(map[string]application.RemoteApplication), charm: &mockCharm{
+			meta: &charm.Meta{}, config: &charm.Config{
+				Options: map[string]charm.Option{
+					"stringOption": {Type: "string"},
+					"intOption":    {Type: "int", Default: int(123)}},
+			},
+		},
+		endpoints: &s.endpoints,
+		relation:  &s.relation,
 		unitStorageAttachments: map[string][]state.StorageAttachment{
-			"foo/0": {
+			"postgresql/0": {
+				&mockStorageAttachment{
+					unit:    names.NewUnitTag("postgresql/0"),
+					storage: names.NewStorageTag("pgdata/0"),
+				},
 				&mockStorageAttachment{
 					unit:    names.NewUnitTag("foo/0"),
-					storage: names.NewStorageTag("pgdata/0"),
+					storage: names.NewStorageTag("pgdata/1"),
 				},
 			},
 		},
 		storageInstances: map[string]*mockStorage{
 			"pgdata/0": {
 				tag:   names.NewStorageTag("pgdata/0"),
+				owner: names.NewUnitTag("postgresql/0"),
+			},
+			"pgdata/1": {
+				tag:   names.NewStorageTag("pgdata/1"),
 				owner: names.NewUnitTag("foo/0"),
 			},
 		},
+		storageInstanceFilesystems: map[string]*mockFilesystem{
+			"pgdata/0": {detachable: true},
+			"pgdata/1": {detachable: false},
+		},
 	}
 	s.blockChecker = mockBlockChecker{}
-	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	api, err := application.NewAPI(
 		&s.backend,
 		s.authorizer,
-		resources,
 		nil,
 		&s.blockChecker,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
-		func(application.Backend, juju.DeployApplicationParams) error {
-			return nil
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
 		},
-		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
+}
+
+func (s *ApplicationSuite) TearDownTest(c *gc.C) {
+	s.JujuOSEnvSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
@@ -117,8 +146,9 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
-	s.application.CheckCallNames(c, "SetCharm")
-	s.application.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	app := s.backend.applications["postgresql"].(*mockApplication)
+	app.CheckCallNames(c, "SetCharm")
+	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -137,9 +167,10 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
-	s.charm.CheckCallNames(c, "Config")
-	s.application.CheckCallNames(c, "SetCharm")
-	s.application.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	s.backend.charm.CheckCallNames(c, "Config")
+	app := s.backend.applications["postgresql"].(*mockApplication)
+	app.CheckCallNames(c, "SetCharm")
+	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -156,9 +187,10 @@ postgresql:
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
-	s.charm.CheckCallNames(c, "Config")
-	s.application.CheckCallNames(c, "SetCharm")
-	s.application.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	s.backend.charm.CheckCallNames(c, "Config")
+	app := s.backend.applications["postgresql"].(*mockApplication)
+	app.CheckCallNames(c, "SetCharm")
+	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -186,9 +218,9 @@ func (s *ApplicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
-	s.blockChecker.SetErrors(errors.New("foo"))
+	s.blockChecker.SetErrors(errors.New("postgresql"))
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
-	c.Assert(err, gc.ErrorMatches, "foo")
+	c.Assert(err, gc.ErrorMatches, "postgresql")
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
 	s.backend.CheckCallNames(c, "ModelTag")
 	s.relation.CheckNoCalls(c)
@@ -197,7 +229,7 @@ func (s *ApplicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	results, err := s.api.DestroyApplication(params.Entities{
 		Entities: []params.Entity{
-			{Tag: "application-foo"},
+			{Tag: "application-postgresql"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -205,21 +237,24 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
 		Info: &params.DestroyApplicationInfo{
 			DestroyedUnits: []params.Entity{
-				{Tag: "unit-foo-0"},
-				{Tag: "unit-foo-1"},
+				{Tag: "unit-postgresql-0"},
+				{Tag: "unit-postgresql-1"},
+			},
+			DetachedStorage: []params.Entity{
+				{Tag: "storage-pgdata-0"},
 			},
 			DestroyedStorage: []params.Entity{
-				{Tag: "storage-pgdata-0"},
+				{Tag: "storage-pgdata-1"},
 			},
 		},
 	})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
-	s.backend.application = nil
+	delete(s.backend.applications, "postgresql")
 	results, err := s.api.DestroyApplication(params.Entities{
 		Entities: []params.Entity{
-			{Tag: "application-foo"},
+			{Tag: "application-postgresql"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,7 +262,7 @@ func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
 		Error: &params.Error{
 			Code:    params.CodeNotFound,
-			Message: `application "foo" not found`,
+			Message: `application "postgresql" not found`,
 		},
 	})
 }
@@ -235,16 +270,19 @@ func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	results, err := s.api.DestroyUnit(params.Entities{
 		Entities: []params.Entity{
-			{Tag: "unit-foo-0"},
-			{Tag: "unit-foo-1"},
+			{Tag: "unit-postgresql-0"},
+			{Tag: "unit-postgresql-1"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results, jc.DeepEquals, []params.DestroyUnitResult{{
 		Info: &params.DestroyUnitInfo{
-			DestroyedStorage: []params.Entity{
+			DetachedStorage: []params.Entity{
 				{Tag: "storage-pgdata-0"},
+			},
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-1"},
 			},
 		},
 	}, {
@@ -252,218 +290,195 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	}})
 }
 
-type mockBackend struct {
-	application.Backend
-	testing.Stub
-	application            *mockApplication
-	charm                  *mockCharm
-	endpoints              *[]state.Endpoint
-	relation               *mockRelation
-	unitStorageAttachments map[string][]state.StorageAttachment
-	storageInstances       map[string]*mockStorage
-}
-
-func (b *mockBackend) ModelTag() names.ModelTag {
-	b.MethodCall(b, "ModelTag")
-	b.PopNoErr()
-	return coretesting.ModelTag
-}
-
-func (b *mockBackend) RemoteApplication(name string) (*state.RemoteApplication, error) {
-	b.MethodCall(b, "RemoteApplication", name)
-	return nil, errors.NotFoundf("remote application %q", name)
-}
-
-func (b *mockBackend) Application(name string) (application.Application, error) {
-	b.MethodCall(b, "Application", name)
-	if err := b.NextErr(); err != nil {
-		return nil, err
+func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			AttachStorage:   []string{"storage-foo-0"},
+		}, {
+			ApplicationName: "bar",
+			CharmURL:        "local:bar-1",
+			NumUnits:        2,
+			AttachStorage:   []string{"storage-bar-0"},
+		}, {
+			ApplicationName: "baz",
+			CharmURL:        "local:baz-2",
+			NumUnits:        1,
+			AttachStorage:   []string{"volume-baz-0"},
+		}},
 	}
-	if b.application != nil {
-		return b.application, nil
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
+}
+
+func (s *ApplicationSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags()
+	_, err := s.api.Consume(params.ConsumeApplicationArgs{})
+	c.Assert(err, gc.ErrorMatches, `set "cross-model" feature flag to enable consuming remote applications`)
+}
+
+func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
+	for i := 0; i < 2; i++ {
+		results, err := s.api.Consume(params.ConsumeApplicationArgs{
+			Args: []params.ConsumeApplicationArg{{
+				ApplicationOffer: params.ApplicationOffer{
+					SourceModelTag:         coretesting.ModelTag.String(),
+					OfferName:              "hosted-mysql",
+					ApplicationDescription: "a database",
+					Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+					OfferURL:               "othermodel.hosted-mysql",
+				},
+			}},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results.OneError(), gc.IsNil)
 	}
-	return nil, errors.NotFoundf("application %q", name)
+	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
+		name:           "hosted-mysql",
+		sourceModelTag: coretesting.ModelTag,
+		offerName:      "hosted-mysql",
+		offerURL:       "othermodel.hosted-mysql",
+		endpoints: []state.Endpoint{
+			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
+	})
 }
 
-func (b *mockBackend) Unit(name string) (application.Unit, error) {
-	b.MethodCall(b, "Unit", name)
-	if err := b.NextErr(); err != nil {
-		return nil, err
+func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
+	s.env.(*mockEnviron).spaceInfo = &environs.ProviderSpaceInfo{
+		CloudType: "grandaddy",
+		ProviderAttributes: map[string]interface{}{
+			"thunderjaws": 1,
+		},
+		SpaceInfo: network.SpaceInfo{
+			Name:       "yourspace",
+			ProviderId: "juju-space-myspace",
+			Subnets: []network.SubnetInfo{{
+				CIDR:              "5.6.7.0/24",
+				ProviderId:        "juju-subnet-1",
+				AvailabilityZones: []string{"az1"},
+			}},
+		},
 	}
-	if b.application != nil {
-		for _, u := range b.application.units {
-			if u.tag.Id() == name {
-				return &u, nil
-			}
-		}
+
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			ApplicationAlias: "beirut",
+			ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag:         coretesting.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "a database",
+				Endpoints:              []params.RemoteEndpoint{{Name: "server", Interface: "mysql", Role: "provider"}},
+				OfferURL:               "othermodel.hosted-mysql",
+				Bindings:               map[string]string{"server": "myspace"},
+				Spaces: []params.RemoteSpace{
+					{
+						CloudType:  "grandaddy",
+						Name:       "myspace",
+						ProviderId: "juju-space-myspace",
+						ProviderAttributes: map[string]interface{}{
+							"thunderjaws": 1,
+						},
+						Subnets: []params.Subnet{{
+							CIDR:       "5.6.7.0/24",
+							ProviderId: "juju-subnet-1",
+							Zones:      []string{"az1"},
+						}},
+					},
+				},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+
+	obtained, ok := s.backend.remoteApplications["beirut"]
+	c.Assert(ok, jc.IsTrue)
+	endpoints, err := obtained.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	epNames := make([]string, len(endpoints))
+	for i, ep := range endpoints {
+		epNames[i] = ep.Name
 	}
-	return nil, errors.NotFoundf("unit %q", name)
+	c.Assert(epNames, jc.SameContents, []string{"server"})
+	c.Assert(obtained.Bindings(), jc.DeepEquals, map[string]string{"server": "myspace"})
+	c.Assert(obtained.Spaces(), jc.DeepEquals, []state.RemoteSpace{{
+		CloudType:  "grandaddy",
+		Name:       "myspace",
+		ProviderId: "juju-space-myspace",
+		ProviderAttributes: map[string]interface{}{
+			"thunderjaws": 1,
+		},
+		Subnets: []state.RemoteSubnet{{
+			CIDR:              "5.6.7.0/24",
+			ProviderId:        "juju-subnet-1",
+			AvailabilityZones: []string{"az1"},
+		}},
+	}})
 }
 
-func (b *mockBackend) Charm(curl *charm.URL) (application.Charm, error) {
-	b.MethodCall(b, "Charm", curl)
-	if err := b.NextErr(); err != nil {
-		return nil, err
+func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.C) {
+	arg := params.ConsumeApplicationArg{
+		ApplicationOffer: params.ApplicationOffer{
+			SourceModelTag:         coretesting.ModelTag.String(),
+			OfferName:              "hosted-mysql",
+			ApplicationDescription: "a database",
+			Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+			OfferURL:               "othermodel.hosted-mysql",
+		},
 	}
-	if b.charm != nil {
-		return b.charm, nil
-	}
-	return nil, errors.NotFoundf("charm %q", curl)
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	arg.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
+	results, err = s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{arg},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.ErrorMatches, `remote application called "hosted-mysql" from a different model already exists`)
 }
 
-func (b *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {
-	b.MethodCall(b, "InferEndpoints", endpoints)
-	if err := b.NextErr(); err != nil {
-		return nil, err
-	}
-	if b.endpoints != nil {
-		return *b.endpoints, nil
-	}
-	return nil, errors.Errorf("no relations found")
+func (s *ApplicationSuite) assertConsumeWithNoSpacesInfoAvailable(c *gc.C) {
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag:         coretesting.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "a database",
+				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+				OfferURL:               "othermodel.hosted-mysql",
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+
+	// Successfully added, but with no bindings or spaces since the
+	// environ doesn't support networking.
+	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained.Bindings(), gc.IsNil)
+	c.Assert(obtained.Spaces(), gc.IsNil)
 }
 
-func (b *mockBackend) EndpointsRelation(endpoints ...state.Endpoint) (application.Relation, error) {
-	b.MethodCall(b, "EndpointsRelation", endpoints)
-	if err := b.NextErr(); err != nil {
-		return nil, err
-	}
-	if b.relation != nil {
-		return b.relation, nil
-	}
-	return nil, errors.NotFoundf("relation")
+func (s *ApplicationSuite) TestConsumeWithNonNetworkingEnviron(c *gc.C) {
+	s.env = &mockNoNetworkEnviron{}
+	s.assertConsumeWithNoSpacesInfoAvailable(c)
 }
 
-func (b *mockBackend) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
-	b.MethodCall(b, "UnitStorageAttachments", tag)
-	if err := b.NextErr(); err != nil {
-		return nil, err
-	}
-	return b.unitStorageAttachments[tag.Id()], nil
-}
-
-func (b *mockBackend) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
-	b.MethodCall(b, "StorageInstance", tag)
-	if err := b.NextErr(); err != nil {
-		return nil, err
-	}
-	s, ok := b.storageInstances[tag.Id()]
-	if !ok {
-		return nil, errors.NotFoundf("storage %s", tag.Id())
-	}
-	return s, nil
-}
-
-type mockApplication struct {
-	application.Application
-	testing.Stub
-	units []mockUnit
-}
-
-func (a *mockApplication) AllUnits() ([]application.Unit, error) {
-	a.MethodCall(a, "AllUnits")
-	if err := a.NextErr(); err != nil {
-		return nil, err
-	}
-	units := make([]application.Unit, len(a.units))
-	for i := range a.units {
-		units[i] = &a.units[i]
-	}
-	return units, nil
-}
-
-func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
-	a.MethodCall(a, "SetCharm", cfg)
-	return a.NextErr()
-}
-
-func (a *mockApplication) Destroy() error {
-	a.MethodCall(a, "Destroy")
-	return a.NextErr()
-}
-
-type mockCharm struct {
-	application.Charm
-	testing.Stub
-	config *charm.Config
-}
-
-func (c *mockCharm) Config() *charm.Config {
-	c.MethodCall(c, "Config")
-	c.PopNoErr()
-	return c.config
-}
-
-type mockBlockChecker struct {
-	testing.Stub
-}
-
-func (c *mockBlockChecker) ChangeAllowed() error {
-	c.MethodCall(c, "ChangeAllowed")
-	return c.NextErr()
-}
-
-func (c *mockBlockChecker) RemoveAllowed() error {
-	c.MethodCall(c, "RemoveAllowed")
-	return c.NextErr()
-}
-
-type mockRelation struct {
-	application.Relation
-	testing.Stub
-}
-
-func (r *mockRelation) Destroy() error {
-	r.MethodCall(r, "Destroy")
-	return r.NextErr()
-}
-
-type mockUnit struct {
-	application.Unit
-	testing.Stub
-	tag names.UnitTag
-}
-
-func (u *mockUnit) UnitTag() names.UnitTag {
-	return u.tag
-}
-
-func (u *mockUnit) IsPrincipal() bool {
-	u.MethodCall(u, "IsPrincipal")
-	u.PopNoErr()
-	return true
-}
-
-func (u *mockUnit) Destroy() error {
-	u.MethodCall(u, "Destroy")
-	return u.NextErr()
-}
-
-type mockStorageAttachment struct {
-	state.StorageAttachment
-	testing.Stub
-	unit    names.UnitTag
-	storage names.StorageTag
-}
-
-func (a *mockStorageAttachment) Unit() names.UnitTag {
-	return a.unit
-}
-
-func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
-	return a.storage
-}
-
-type mockStorage struct {
-	state.StorageInstance
-	testing.Stub
-	tag   names.StorageTag
-	owner names.Tag
-}
-
-func (a *mockStorage) StorageTag() names.StorageTag {
-	return a.tag
-}
-
-func (a *mockStorage) Owner() (names.Tag, bool) {
-	return a.owner, a.owner != nil
+func (s *ApplicationSuite) TestConsumeProviderSpaceInfoNotSupported(c *gc.C) {
+	s.env.(*mockEnviron).stub.SetErrors(errors.NotSupportedf("provider space info"))
+	s.assertConsumeWithNoSpacesInfoAvailable(c)
 }

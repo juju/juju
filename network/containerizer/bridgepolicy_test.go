@@ -343,7 +343,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUnitBindin
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 	svc := addApplication(c, s.State, "", "mysql",
 		addCharm(c, s.State, "quantal", "mysql"), map[string]string{"server": "default"})
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -735,6 +735,38 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridg
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
 	c.Check(reconfigureDelay, gc.Equals, 0)
+}
+
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridgesDefinedHostSpace(c *gc.C) {
+	// There is a "default" and "dmz" space, our machine has 1 network
+	// interface, which is part of "default" space. We have UseLocalBridges
+	// set, which means we should fall back to using 'lxdbr0' instead of
+	// bridging the host device.
+	s.setupTwoSpaces(c)
+	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
+	s.createAllDefaultDevices(c, s.machine)
+	s.addContainerMachine(c)
+	bridgePolicy := &containerizer.BridgePolicy{
+		NetBondReconfigureDelay: 13,
+		UseLocalBridges:         true,
+	}
+	// No defined spaces for the container, host has spaces but we have
+	// UseLocalBridges set so we should fall back to lxdbr0
+	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, gc.Equals, 0)
+
+	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	containerDevice := containerDevices[0]
+	c.Check(containerDevice.Name(), gc.Matches, "eth0")
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#lxdbr0`)
 }
 
 func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridgesNoAddress(c *gc.C) {

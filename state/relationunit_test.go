@@ -56,7 +56,7 @@ func assertNotJoined(c *gc.C, ru *state.RelationUnit) {
 
 func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
-	u0, err := riak.AddUnit()
+	u0, err := riak.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
@@ -272,7 +272,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	punit, err := psvc.AddUnit()
+	punit, err := psvc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	pru, err := rel.Unit(punit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -950,7 +950,7 @@ func addRU(c *gc.C, svc *state.Application, rel *state.Relation, principal *stat
 	// relation's scope as the principal.
 	var u *state.Unit
 	if principal == nil {
-		unit, err := svc.AddUnit()
+		unit, err := svc.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		u = unit
 	} else {
@@ -1055,7 +1055,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	// the information to be available, and uses it to populate the
 	// relation settings node.)
 	addUnit := func(i int) *state.RelationUnit {
-		unit, err := riak.AddUnit()
+		unit, err := riak.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1185,7 +1185,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 
 	// Add some units to the services and set their private addresses.
 	addUnit := func(srv *state.Application, sub string, ep state.Endpoint) *state.RelationUnit {
-		unit, err := srv.AddUnit()
+		unit, err := srv.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1318,7 +1318,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 
 	// Add some units to the services and set their private addresses.
 	addUnits := func(i int) (*state.RelationUnit, *state.RelationUnit) {
-		msu, err := mysql.AddUnit()
+		msu, err := mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		msru, err := rel.Unit(msu)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1462,7 +1462,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 
 	// Add some units to the services and set their private addresses.
 	addUnit := func(srv *state.Application) *state.RelationUnit {
-		unit, err := srv.AddUnit()
+		unit, err := srv.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)

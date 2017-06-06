@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
@@ -46,6 +47,7 @@ import (
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
+	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	workerstate "github.com/juju/juju/worker/state"
@@ -142,8 +144,9 @@ type ManifoldsConfig struct {
 	// CentralHub is the primary hub that exists in the apiserver.
 	CentralHub *pubsub.StructuredHub
 
-	// DepEngineReporter is a dependency engine reporter.
-	DepEngineReporter dependency.Reporter
+	// PubSubReporter is the introspection reporter for the pubsub forwarding
+	// worker.
+	PubSubReporter psworker.Reporter
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -209,6 +212,24 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
 			StateConfigWatcherName: stateConfigWatcherName,
 			Hub: config.CentralHub,
+		}),
+
+		// The pubsub manifold gets the APIInfo from the agent config,
+		// and uses this as a basis to talk to the other API servers.
+		// The worker subscribes to the messages sent by the peergrouper
+		// that defines the set of machines that are the API servers.
+		// All non-local messages that originate from the machine that
+		// is running the worker get forwarded to the other API servers.
+		// This worker does not run in non-API server machines through
+		// the hub dependency, as that is only available if the machine
+		// is an API server.
+		pubSubName: psworker.Manifold(psworker.ManifoldConfig{
+			AgentName:      agentName,
+			CentralHubName: centralHubName,
+			Clock:          config.Clock,
+			Logger:         loggo.GetLogger("juju.worker.pubsub"),
+			NewWorker:      psworker.NewWorker,
+			Reporter:       config.PubSubReporter,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -500,6 +521,7 @@ const (
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
+	pubSubName             = "pubsub-forwarder"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"

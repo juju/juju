@@ -152,9 +152,12 @@ type Conn struct {
 
 // NewConn creates a new connection that uses the given codec for
 // transport, but it does not start it. Conn.Start must be called before
-// any requests are sent or received. If notifier is non-nil, the
+// any requests are sent or received. If observerFactory is non-nil, the
 // appropriate method will be called for every RPC request.
 func NewConn(codec Codec, observerFactory ObserverFactory) *Conn {
+	if observerFactory == nil {
+		observerFactory = nopObserverFactory{}
+	}
 	return &Conn{
 		codec:           codec,
 		clientPending:   make(map[uint64]*Call),
@@ -519,3 +522,15 @@ func (e *serverError) ErrorCode() string {
 	// serverError only knows one error code.
 	return codeNotImplemented
 }
+
+type nopObserverFactory struct{}
+
+func (nopObserverFactory) RPCObserver() Observer {
+	return nopObserver{}
+}
+
+type nopObserver struct{}
+
+func (nopObserver) ServerRequest(hdr *Header, body interface{}) {}
+
+func (nopObserver) ServerReply(req Request, hdr *Header, body interface{}) {}

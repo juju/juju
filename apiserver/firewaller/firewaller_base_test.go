@@ -53,7 +53,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	s.service = s.AddTestingService(c, "wordpress", s.charm)
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
-		unit, err := s.service.AddUnit()
+		unit, err := s.service.AddUnit(state.AddUnitParams{})
 		c.Check(err, jc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
 		c.Check(err, jc.ErrorIsNil)

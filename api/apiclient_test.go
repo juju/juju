@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -210,7 +211,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 			DialAddressInterval: dialAddressInterval,
 			DialWebsocket:       fakeDialer,
 			Clock:               clock,
-			IPAddrResolver: fakeResolver{
+			IPAddrResolver: apitesting.IPAddrResolverMap{
 				"place1.example": {"0.1.1.1"},
 				"place2.example": {"0.2.2.2"},
 			},
@@ -587,7 +588,7 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 		Timeout:       5 * time.Second,
 		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
+		IPAddrResolver: apitesting.IPAddrResolverMap{
 			"place1.example": {"0.1.1.1"},
 		},
 		DNSCache: dnsCache,
@@ -611,12 +612,12 @@ func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 		SkipLogin: true,
 		CACert:    jtesting.CACert,
 	}, api.DialOpts{
-		Timeout:       5 * time.Second,
-		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
-			"place1.example": {"0.2.2.2"},
-		},
+		// Note: don't resolve any addresses. If we resolve one,
+		// then there's a possibility that the resolving will
+		// happen and a second dial attempt will happen before
+		// the Open returns, giving rise to a race.
+		IPAddrResolver: apitesting.IPAddrResolverMap{},
 		DNSCache: dnsCacheMap{
 			"place1.example": {"0.1.1.1"},
 		},
@@ -645,7 +646,7 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 		Timeout:        5 * time.Second,
 		RetryDelay:     1 * time.Second,
 		DialWebsocket:  fakeDialer,
-		IPAddrResolver: fakeResolver{},
+		IPAddrResolver: apitesting.IPAddrResolverMap{},
 		DNSCache:       dnsCache,
 		Clock:          &fakeClock{},
 	})
@@ -657,12 +658,11 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
-	var mu sync.Mutex
-	dialed := make(map[string]bool)
+	dialc := make(chan string)
+	start := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		dialed[ipAddr] = true
+		dialc <- ipAddr
+		<-start
 		if ipAddr == "0.2.2.2:1234" {
 			return fakeConn{}, nil
 		}
@@ -671,26 +671,56 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	dnsCache := dnsCacheMap{
 		"place1.example": {"0.1.1.1"},
 	}
-	conn, err := api.Open(&api.Info{
-		Addrs: []string{
-			"place1.example:1234",
-		},
-		SkipLogin: true,
-		CACert:    jtesting.CACert,
-	}, api.DialOpts{
-		Timeout:       5 * time.Second,
-		RetryDelay:    1 * time.Second,
-		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
-			"place1.example": {"0.2.2.2"},
-		},
-		DNSCache: dnsCache,
-		Clock:    &fakeClock{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
-	mu.Lock()
-	defer mu.Unlock()
+	type openResult struct {
+		conn api.Connection
+		err  error
+	}
+	openc := make(chan openResult)
+	go func() {
+		conn, err := api.Open(&api.Info{
+			Addrs: []string{
+				"place1.example:1234",
+			},
+			SkipLogin: true,
+			CACert:    jtesting.CACert,
+		}, api.DialOpts{
+			// Note: zero timeout means each address attempt
+			// will only try once only.
+			DialWebsocket: fakeDialer,
+			IPAddrResolver: apitesting.IPAddrResolverMap{
+				"place1.example": {"0.2.2.2"},
+			},
+			DNSCache: dnsCache,
+			Clock:    &fakeClock{},
+		})
+		openc <- openResult{conn, err}
+	}()
+	// Wait for both dial attempts to happen.
+	// If we don't, then the second attempt might
+	// happen before the first one and the first
+	// attempt might then never happen.
+	dialed := make(map[string]bool)
+	for i := 0; i < 2; i++ {
+		select {
+		case hostPort := <-dialc:
+			dialed[hostPort] = true
+		case <-time.After(jtesting.LongWait):
+			c.Fatalf("timed out waiting for dial attempt")
+		}
+	}
+	// Allow the dial attempts to return.
+	close(start)
+	// Check that no more dial attempts happen.
+	select {
+	case hostPort := <-dialc:
+		c.Fatalf("unexpected dial attempt to %q; existing attempts: %v", hostPort, dialed)
+	case <-time.After(jtesting.ShortWait):
+	}
+	r := <-openc
+	c.Assert(r.err, jc.ErrorIsNil)
+	c.Assert(r.conn, gc.NotNil)
+	c.Assert(r.conn.Addr(), gc.Equals, "place1.example:1234")
+	c.Assert(r.conn.IPAddr(), gc.Equals, "0.2.2.2:1234")
 	c.Assert(dialed, jc.DeepEquals, map[string]bool{
 		"0.2.2.2:1234": true,
 		"0.1.1.1:1234": true,
@@ -713,7 +743,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
 		Timeout:        5 * time.Second,
 		RetryDelay:     1 * time.Second,
 		DialWebsocket:  fakeDialer,
-		IPAddrResolver: fakeResolver{},
+		IPAddrResolver: apitesting.IPAddrResolverMap{},
 		Clock:          &fakeClock{},
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot resolve "nowhere.example": mock resolver cannot resolve "nowhere.example"`)
@@ -742,7 +772,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 		Timeout:       5 * time.Second,
 		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
-		IPAddrResolver: fakeResolver{
+		IPAddrResolver: apitesting.IPAddrResolverMap{
 			"place1.example": {"0.2.2.2"},
 		},
 		DNSCache: dnsCache,
@@ -990,37 +1020,11 @@ func (c fakeConn) Close() error {
 	return nil
 }
 
-// fakeResolver implements IPAddrResolver
-// by looking up the addresses in the map,
-// which maps host names to IP addresses.
-type fakeResolver map[string][]string
-
-func (r fakeResolver) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
-	if ip := net.ParseIP(host); ip != nil {
-		return []net.IPAddr{{IP: ip}}, nil
-	}
-	ipStrs := r[host]
-	if len(ipStrs) == 0 {
-		return nil, errors.Errorf("mock resolver cannot resolve %q", host)
-	}
-	ipAddrs := make([]net.IPAddr, len(ipStrs))
-	for i, ipStr := range ipStrs {
-		ip := net.ParseIP(ipStr)
-		if ip == nil {
-			panic("invalid IP address: " + ipStr)
-		}
-		ipAddrs[i] = net.IPAddr{
-			IP: ip,
-		}
-	}
-	return ipAddrs, nil
-}
-
 // seqResolver returns an implementation of
 // IPAddrResolver that maps the given addresses
 // to sequential IP addresses 0.1.1.1, 0.2.2.2, etc.
 func seqResolver(addrs ...string) api.IPAddrResolver {
-	r := make(fakeResolver)
+	r := make(apitesting.IPAddrResolverMap)
 	for i, addr := range addrs {
 		host, _, err := net.SplitHostPort(addr)
 		if err != nil {

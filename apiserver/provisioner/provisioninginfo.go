@@ -36,6 +36,10 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	env, err := environs.GetEnviron(p.configGetter, environs.New)
+	if err != nil {
+		return result, errors.Annotate(err, "could not get environ")
+	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
@@ -44,20 +48,20 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = p.getProvisioningInfo(machine)
+			result.Results[i].Result, err = p.getProvisioningInfo(machine, env)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
+func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfo, error) {
 	cons, err := m.Constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	volumes, err := p.machineVolumeParams(m)
+	volumes, volumeAttachments, err := p.machineVolumeParams(m, env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -81,97 +85,117 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot determine machine endpoint bindings")
 	}
-	imageMetadata, err := p.availableImageMetadata(m)
+
+	imageMetadata, err := p.availableImageMetadata(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get available image metadata")
 	}
+
 	controllerCfg, err := p.st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get controller configuration")
 	}
 
 	return &params.ProvisioningInfo{
-		Constraints:      cons,
-		Series:           m.Series(),
-		Placement:        m.Placement(),
-		Jobs:             jobs,
-		Volumes:          volumes,
-		Tags:             tags,
-		SubnetsToZones:   subnetsToZones,
-		EndpointBindings: endpointBindings,
-		ImageMetadata:    imageMetadata,
-		ControllerConfig: controllerCfg,
+		Constraints:       cons,
+		Series:            m.Series(),
+		Placement:         m.Placement(),
+		Jobs:              jobs,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
+		Tags:              tags,
+		SubnetsToZones:    subnetsToZones,
+		EndpointBindings:  endpointBindings,
+		ImageMetadata:     imageMetadata,
+		ControllerConfig:  controllerCfg,
 	}, nil
 }
 
 // machineVolumeParams retrieves VolumeParams for the volumes that should be
 // provisioned with, and attached to, the machine. The client should ignore
 // parameters that it does not know how to handle.
-func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeParams, error) {
+func (p *ProvisionerAPI) machineVolumeParams(
+	m *state.Machine,
+	env environs.Environ,
+) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
 	volumeAttachments, err := m.VolumeAttachments()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	if len(volumeAttachments) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	modelConfig, err := p.st.ModelConfig()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	controllerCfg, err := p.st.ControllerConfig()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
+	var allVolumeAttachmentParams []params.VolumeAttachmentParams
 	for _, volumeAttachment := range volumeAttachments {
 		volumeTag := volumeAttachment.Volume()
 		volume, err := p.st.Volume(volumeTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
+			return nil, nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
 		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
 			volume.StorageInstance, p.st.StorageInstance,
 		)
 		if err != nil {
-			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
+			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
 		volumeParams, err := storagecommon.VolumeParams(
 			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
 			modelConfig, p.storagePoolManager, p.storageProviderRegistry,
 		)
 		if err != nil {
-			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
+			return nil, nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
-		provider, err := p.storageProviderRegistry.StorageProvider(storage.ProviderType(volumeParams.Provider))
-		if err != nil {
-			return nil, errors.Annotate(err, "getting storage provider")
+		if _, err := env.StorageProvider(storage.ProviderType(volumeParams.Provider)); errors.IsNotFound(err) {
+			// This storage type is not managed by the environ
+			// provider, so ignore it. It'll be managed by one
+			// of the storage provisioners.
+			continue
+		} else if err != nil {
+			return nil, nil, errors.Annotate(err, "getting storage provider")
 		}
-		if provider.Dynamic() {
-			// Leave dynamic storage to the storage provisioner.
+
+		var volumeProvisioned bool
+		volumeInfo, err := volume.Info()
+		if err == nil {
+			volumeProvisioned = true
+		} else if !errors.IsNotProvisioned(err) {
+			return nil, nil, errors.Annotate(err, "getting volume info")
+		}
+		stateVolumeAttachmentParams, volumeDetached := volumeAttachment.Params()
+		if !volumeDetached {
+			// Volume is already attached to the machine, so
+			// there's nothing more to do for it.
 			continue
 		}
-		volumeAttachmentParams, ok := volumeAttachment.Params()
-		if !ok {
-			// Attachment is already provisioned; this is an insane
-			// state, so we should not proceed with the volume.
-			return nil, errors.Errorf(
-				"volume %s already attached to machine %s",
-				volumeTag.Id(), m.Id(),
-			)
-		}
-		// Not provisioned yet, so ask the cloud provisioner do it.
-		volumeParams.Attachment = &params.VolumeAttachmentParams{
+		volumeAttachmentParams := params.VolumeAttachmentParams{
 			volumeTag.String(),
 			m.Tag().String(),
-			"", // we're creating the volume, so it has no volume ID.
+			volumeInfo.VolumeId,
 			"", // we're creating the machine, so it has no instance ID.
 			volumeParams.Provider,
-			volumeAttachmentParams.ReadOnly,
+			stateVolumeAttachmentParams.ReadOnly,
 		}
-		allVolumeParams = append(allVolumeParams, volumeParams)
+		if volumeProvisioned {
+			// Volume is already provisioned, so we just need to attach it.
+			allVolumeAttachmentParams = append(
+				allVolumeAttachmentParams, volumeAttachmentParams,
+			)
+		} else {
+			// Not provisioned yet, so ask the cloud provisioner do it.
+			volumeParams.Attachment = &volumeAttachmentParams
+			allVolumeParams = append(allVolumeParams, volumeParams)
+		}
 	}
-	return allVolumeParams, nil
+	return allVolumeParams, allVolumeAttachmentParams, nil
 }
 
 // machineTags returns machine-specific tags to set on the instance.
@@ -354,8 +378,8 @@ func (p *ProvisionerAPI) allSpaceNamesToProviderIds() (map[string]string, error)
 
 // availableImageMetadata returns all image metadata available to this machine
 // or an error fetching them.
-func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.CloudImageMetadata, error) {
-	imageConstraint, env, err := p.constructImageConstraint(m)
+func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine, env environs.Environ) ([]params.CloudImageMetadata, error) {
+	imageConstraint, err := p.constructImageConstraint(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not construct image constraint")
 	}
@@ -371,14 +395,7 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 }
 
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
-func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetadata.ImageConstraint, environs.Environ, error) {
-	// If we can determine current region,
-	// we want only metadata specific to this region.
-	cloud, env, err := p.obtainEnvCloudConfig()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
+func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
 	lookup := simplestreams.LookupParams{
 		Series: []string{m.Series()},
 		Stream: env.Config().ImageStream(),
@@ -386,37 +403,26 @@ func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetad
 
 	mcons, err := m.Constraints()
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot get machine constraints for machine %v", m.MachineTag().Id())
+		return nil, errors.Annotatef(err, "cannot get machine constraints for machine %v", m.MachineTag().Id())
 	}
 
 	if mcons.Arch != nil {
 		lookup.Arches = []string{*mcons.Arch}
 	}
-	if cloud != nil {
-		lookup.CloudSpec = *cloud
-	}
 
-	return imagemetadata.NewImageConstraint(lookup), env, nil
-}
-
-// obtainEnvCloudConfig returns environment specific cloud information
-// to be used in search for compatible images and their metadata.
-func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, environs.Environ, error) {
-	env, err := environs.GetEnviron(p.configGetter, environs.New)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not get model")
-	}
-
-	if inst, ok := env.(simplestreams.HasRegion); ok {
-		cloud, err := inst.Region()
+	if hasRegion, ok := env.(simplestreams.HasRegion); ok {
+		// We can determine current region; we want only
+		// metadata specific to this region.
+		spec, err := hasRegion.Region()
 		if err != nil {
 			// can't really find images if we cannot determine cloud region
 			// TODO (anastasiamac 2015-12-03) or can we?
-			return nil, nil, errors.Annotate(err, "getting provider region information (cloud spec)")
+			return nil, errors.Annotate(err, "getting provider region information (cloud spec)")
 		}
-		return &cloud, env, nil
+		lookup.CloudSpec = spec
 	}
-	return nil, env, nil
+
+	return imagemetadata.NewImageConstraint(lookup), nil
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.

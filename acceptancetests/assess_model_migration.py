@@ -168,7 +168,10 @@ def wait_until_model_disappears(client, model_name, timeout=60):
             if 'cannot get model details' not in e.stderr:
                 raise
         else:
-            if model_name not in [m['name'] for m in models['models']]:
+            # 2.2-rc1 introduced new model listing output name/short-name.
+            all_model_names = [
+                m.get('short-name', m['name']) for m in models['models']]
+            if model_name not in all_model_names:
                 return True
 
     try:
@@ -187,7 +190,10 @@ def wait_for_model(client, model_name, timeout=60):
     """
     def model_check(client):
         models = client.get_controller_client().get_models()
-        if model_name in [m['name'] for m in models['models']]:
+        # 2.2-rc1 introduced new model listing output name/short-name.
+        all_model_names = [
+            m.get('short-name', m['name']) for m in models['models']]
+        if model_name in all_model_names:
             return True
     try:
         _wait_for_model_check(client, model_check, timeout)

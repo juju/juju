@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package juju
+package application
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -33,6 +34,7 @@ type DeployApplicationParams struct {
 	// instead of a machine spec.
 	Placement        []*instance.Placement
 	Storage          map[string]storage.Constraints
+	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
 	Resources map[string]string
@@ -48,11 +50,11 @@ type UnitAssigner interface {
 }
 
 type UnitAdder interface {
-	AddUnit() (*state.Unit, error)
+	AddUnit(state.AddUnitParams) (*state.Unit, error)
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
-func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*state.Application, error) {
+func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Application, error) {
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -79,6 +81,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*s
 		Charm:            args.Charm,
 		Channel:          args.Channel,
 		Storage:          stateStorageConstraints(args.Storage),
+		AttachStorage:    args.AttachStorage,
 		Settings:         settings,
 		NumUnits:         args.NumUnits,
 		Placement:        args.Placement,
@@ -90,7 +93,11 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*s
 		asa.Constraints = args.Constraints
 	}
 
-	return st.AddApplication(asa)
+	app, err := st.AddApplication(asa)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stateApplicationShim{app}, nil
 }
 
 func quoteStrings(vals []string) string {
@@ -157,9 +164,9 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 	return effectiveBindings, nil
 }
 
-// AddUnits starts n units of the given application using the specified placement
+// addUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
-func AddUnits(
+func addUnits(
 	unitAssigner UnitAssigner,
 	unitAdder UnitAdder,
 	appName string,
@@ -171,7 +178,7 @@ func AddUnits(
 	policy := state.AssignCleanEmpty
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		unit, err := unitAdder.AddUnit()
+		unit, err := unitAdder.AddUnit(state.AddUnitParams{})
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}

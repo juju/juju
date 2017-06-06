@@ -207,7 +207,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err == nil {
 		slaIsSet = slaLevel != "" && slaLevel != slaUnsupported
 	} else {
-		ctx.Warningf("could not determine model SLA level: %v", err)
+		logger.Debugf("could not determine model SLA level: %v", err)
 	}
 
 	// Attempt to destroy the model.

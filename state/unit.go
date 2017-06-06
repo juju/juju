@@ -1135,7 +1135,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1423,7 +1423,35 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 	if err != nil {
 		return err
 	}
-	return validateDynamicMachineStoragePools(m, pools)
+	if err := validateDynamicMachineStoragePools(m, pools); err != nil {
+		return err
+	}
+	// Validate the volume/filesystem attachments for the machine.
+	for volumeTag := range params.volumeAttachments {
+		volume, err := m.st.volumeByTag(volumeTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !volume.Detachable() && volume.doc.MachineId != m.Id() {
+			return errors.Errorf(
+				"storage is non-detachable (bound to machine %s)",
+				volume.doc.MachineId,
+			)
+		}
+	}
+	for filesystemTag := range params.filesystemAttachments {
+		filesystem, err := m.st.filesystemByTag(filesystemTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !filesystem.Detachable() && filesystem.doc.MachineId != m.Id() {
+			return errors.Errorf(
+				"storage is non-detachable (bound to machine %s)",
+				filesystem.doc.MachineId,
+			)
+		}
+	}
+	return nil
 }
 
 // machineStoragePools returns the names of storage pools in each of the
@@ -1857,31 +1885,6 @@ func machineStorageParamsForStorageInstance(
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 
 	switch storage.Kind() {
-	case StorageKindBlock:
-		volumeAttachmentParams := VolumeAttachmentParams{
-			charmStorage.ReadOnly,
-		}
-		if unit == storage.maybeOwner() {
-			// The storage instance is owned by the unit, so we'll need
-			// to create a volume.
-			volumeParams := VolumeParams{
-				storage: storage.StorageTag(),
-				Pool:    storage.doc.Constraints.Pool,
-				Size:    storage.doc.Constraints.Size,
-			}
-			volumes = append(volumes, MachineVolumeParams{
-				volumeParams, volumeAttachmentParams,
-			})
-		} else {
-			// The storage instance is owned by the service, so there
-			// should be a (shared) volume already, for which we will
-			// just add an attachment.
-			volume, err := st.StorageInstanceVolume(storage.StorageTag())
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
-			}
-			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
-		}
 	case StorageKindFilesystem:
 		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
 		if err != nil {
@@ -1895,9 +1898,35 @@ func machineStorageParamsForStorageInstance(
 			location,
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.maybeOwner() {
-			// The storage instance is owned by the unit, so we'll need
-			// to create a filesystem.
+		var volumeBacked bool
+		if filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
+			// The filesystem already exists, so just attach it.
+			// When creating ops to attach the storage to the
+			// machine, we will check if the attachment already
+			// exists, and whether the storage can be attached to
+			// the machine.
+			if !charmStorage.Shared {
+				// The storage is not shared, so make sure that it is
+				// not currently attached to any other machine. If it
+				// is, it should be in the process of being detached.
+				existing, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if len(existing) > 0 {
+					return nil, errors.Errorf(
+						"%s is attached to %s",
+						names.ReadableString(filesystem.FilesystemTag()),
+						names.ReadableString(existing[0].Machine()),
+					)
+				}
+			}
+			filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+			if _, err := filesystem.Volume(); err == nil {
+				// The filesystem is volume-backed, so make sure we attach the volume too.
+				volumeBacked = true
+			}
+		} else if errors.IsNotFound(err) {
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
 				Pool:    storage.doc.Constraints.Pool,
@@ -1907,14 +1936,52 @@ func machineStorageParamsForStorageInstance(
 				filesystemParams, filesystemAttachmentParams,
 			})
 		} else {
-			// The storage instance is owned by the service, so there
-			// should be a (shared) filesystem already, for which we will
-			// just add an attachment.
-			filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag())
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+			return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+		}
+
+		if !volumeBacked {
+			break
+		}
+		// Fall through to attach the volume that backs the filesystem.
+		fallthrough
+
+	case StorageKindBlock:
+		volumeAttachmentParams := VolumeAttachmentParams{
+			charmStorage.ReadOnly,
+		}
+		if volume, err := st.StorageInstanceVolume(storage.StorageTag()); err == nil {
+			// The volume already exists, so just attach it. When
+			// creating ops to attach the storage to the machine,
+			// we will check if the attachment already exists, and
+			// whether the storage can be attached to the machine.
+			if !charmStorage.Shared {
+				// The storage is not shared, so make sure that it is
+				// not currently attached to any other machine. If it
+				// is, it should be in the process of being detached.
+				existing, err := st.VolumeAttachments(volume.VolumeTag())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if len(existing) > 0 {
+					return nil, errors.Errorf(
+						"%s is attached to %s",
+						names.ReadableString(volume.VolumeTag()),
+						names.ReadableString(existing[0].Machine()),
+					)
+				}
 			}
-			filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
+		} else if errors.IsNotFound(err) {
+			volumeParams := VolumeParams{
+				storage: storage.StorageTag(),
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
+			}
+			volumes = append(volumes, MachineVolumeParams{
+				volumeParams, volumeAttachmentParams,
+			})
+		} else {
+			return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
 		}
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storage.Kind())

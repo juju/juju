@@ -3317,7 +3317,7 @@ type addUnit struct {
 func (au addUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Application(au.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := s.AddUnit()
+	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := ctx.st.Machine(au.machineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3333,7 +3333,7 @@ type addAliveUnit struct {
 func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Application(aau.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := s.AddUnit()
+	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	pinger := ctx.setAgentPresence(c, u)
 	m, err := ctx.st.Machine(aau.machineId)

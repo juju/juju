@@ -774,7 +774,7 @@ func (o *OracleEnviron) Provider() environs.EnvironProvider {
 }
 
 // PrecheckInstance is part of the environs.Environ interface.
-func (o *OracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+func (o *OracleEnviron) PrecheckInstance(environs.PrecheckInstanceParams) error {
 	return nil
 }
 

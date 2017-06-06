@@ -7,13 +7,6 @@ package upgrades
 func stateStepsFor21() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "drop old log index",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return context.State().DropOldLogIndex()
-			},
-		},
-		&upgradeStep{
 			description: "add attempt to migration docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {

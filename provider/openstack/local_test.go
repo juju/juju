@@ -161,9 +161,10 @@ func makeMockAdapter() *mockAdapter {
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			metadata := args.Metadata.(map[string]string)
 			volume := cinder.Volume{
-				ID:       args.Name,
-				Metadata: metadata,
-				Status:   "cool",
+				ID:               args.Name,
+				Metadata:         metadata,
+				Status:           "cool",
+				AvailabilityZone: args.AvailabilityZone,
 			}
 			volumes[volume.ID] = &volume
 			return &volume, nil
@@ -1259,42 +1260,112 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.ErrorIsNil)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZonesNoPlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZones(c, "")
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZonesSameZonePlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZones(c, "zone=az1")
+}
+
+func (t *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placement string) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = t.env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:            series.LatestLts(),
+		Placement:         placement,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = t.env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:            series.LatestLts(),
+		Placement:         "zone=az2",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
@@ -1949,6 +2020,111 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
 }
 
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az2",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		VolumeAttachments: []storage.VolumeAttachmentParams{
+			{VolumeId: "foo"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(openstack.InstanceServerDetail(result.Instance).AvailabilityZone, gc.Equals, "az2")
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsMultipleAvailZones(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, az := range []string{"az1", "az2"} {
+		_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+			Size:             123,
+			Name:             "vol-" + az,
+			AvailabilityZone: az,
+			Metadata: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id(),
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		VolumeAttachments: []storage.VolumeAttachmentParams{
+			{VolumeId: "vol-az1"},
+			{VolumeId: "vol-az2"},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot attach volumes from multiple availability zones: vol-az1 is in az1, vol-az2 is in az2`)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsPlacement(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+		ControllerUUID:    t.ControllerUUID,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+		Placement:         "zone=test-available",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested disks in zone "az1"`)
+}
+
 func (t *localServerSuite) TestStartInstanceNoValidHost(c *gc.C) {
 
 	t.srv.Nova.SetAvailabilityZones(
@@ -2146,7 +2322,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 	s.checkGroupController(c, env, newController)
 }
 
-func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) {
+func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) *storage.Volume {
 	storageAdapter, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := env.Config().UUID()
@@ -2161,6 +2337,7 @@ func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Error, jc.ErrorIsNil)
+	return result[0].Volume
 }
 
 func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expectedController string) {

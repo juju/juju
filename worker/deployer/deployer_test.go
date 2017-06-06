@@ -58,9 +58,9 @@ func (s *deployerSuite) makeDeployerAndContext(c *gc.C) (worker.Worker, deployer
 func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	// Create a machine, and a couple of units.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit()
+	u0, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	u1, err := svc.AddUnit()
+	u1, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dep, ctx := s.makeDeployerAndContext(c)
@@ -110,7 +110,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 
 func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit()
+	u0, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dep, _ := s.makeDeployerAndContext(c)
@@ -126,9 +126,9 @@ func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// Create a service, and a couple of units.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit()
+	u0, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	u1, err := svc.AddUnit()
+	u1, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the units to the machine, and set them to Dying/Dead.
@@ -163,7 +163,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 
 func (s *deployerSuite) prepareSubordinates(c *gc.C) (*state.Unit, []*state.RelationUnit) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)

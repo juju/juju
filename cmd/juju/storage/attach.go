@@ -36,7 +36,7 @@ Attach existing storage to a unit. Specify a unit
 and one or more storage IDs to attach to it.
 
 Examples:
-    juju attach-storage postgresq/1 pgdata/0
+    juju attach-storage postgresql/1 pgdata/0
 `
 
 	attachStorageCommandArgs = `<unit> <storage> [<storage> ...]`

@@ -74,12 +74,12 @@ def ensure_multiple_models_forward_messages(
     :raises JujuAssertionError: If the log message check fails in an unexpected
       way.
     """
-    enable_log_forwarding(dummy)
-
     model1 = dummy.add_model('{}-{}'.format(dummy.env.environment, 'model1'))
 
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=model1.version)
+
+    enable_log_forwarding(model1)
 
     model1.deploy(charm_path)
     model1.wait_for_started()
@@ -163,6 +163,7 @@ def get_assert_regex(raw_uuid, message=None):
 
 
 def enable_log_forwarding(client):
+    client.set_env_option('logforward-enabled', 'true')
     client.get_controller_client().set_env_option('logforward-enabled', 'true')
 
 

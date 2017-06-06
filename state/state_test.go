@@ -586,7 +586,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				dummyCharm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 				service := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
-				unit, err := service.AddUnit()
+				unit, err := service.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
 				return unit.WatchActionNotifications()
 			},
@@ -1373,13 +1373,13 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	_, err = mysql.AddUnit()
+	_, err = mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpressCharm := s.AddTestingCharm(c, "wordpress")
 	for i := 0; i < numRelations; i++ {
 		applicationname := fmt.Sprintf("wordpress%d", i)
 		wordpress := s.AddTestingService(c, applicationname, wordpressCharm)
-		_, err = wordpress.AddUnit()
+		_, err = wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		eps, err := s.State.InferEndpoints(applicationname, "mysql")
 		c.Assert(err, jc.ErrorIsNil)
@@ -2068,7 +2068,7 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 
 	// Dying service...
 	dying := s.AddTestingService(c, "service1", dummyCharm)
-	keepDying, err := dying.AddUnit()
+	keepDying, err := dying.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2108,7 +2108,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the service: not reported.
-	keepDying, err := service.AddUnit()
+	keepDying, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2798,8 +2798,8 @@ func writeLogs(c *gc.C, st *state.State, n int) {
 }
 
 func assertLogCount(c *gc.C, st *state.State, expected int) {
-	logColl := st.MongoSession().DB("logs").C("logs")
-	actual, err := logColl.Find(bson.M{"e": st.ModelUUID()}).Count()
+	logColl := st.MongoSession().DB("logs").C("logs." + st.ModelUUID())
+	actual, err := logColl.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.Equals, expected)
 }
@@ -2868,7 +2868,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress1, jc.DeepEquals, wordpress2)
 
-	unit1, err := wordpress1.AddUnit()
+	unit1, err := wordpress1.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	unit2, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -3047,7 +3047,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3119,7 +3119,7 @@ func (s *StateSuite) TestParseApplicationTag(c *gc.C) {
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, u.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3129,7 +3129,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
-	u, err := svc.AddUnit()
+	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3254,11 +3254,11 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wordpressName := wordpress.Name()
 
 	// Add service units for later use.
-	wordpress0, err := wordpress.AddUnit()
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress1, err := wordpress.AddUnit()
+	wordpress1, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	mysql0, err := mysql.AddUnit()
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// No events should occur.
 	wc.AssertNoChange()
@@ -3532,17 +3532,17 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// with the new version.
 	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
-	unit0, err := service.AddUnit()
+	unit0, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = service.AddUnit()
+	_, err = service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit2, err := service.AddUnit()
+	unit2, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	unit3, err := service.AddUnit()
+	unit3, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -3582,7 +3582,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	c.Assert(err, jc.ErrorIsNil)
 	service, err := st.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))

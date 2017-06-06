@@ -148,7 +148,7 @@ def check_expected_backup(key, logprefix, action_output):
         raise LogRotateError(
             "Missing backup log '{}' after rotation.".format(key))
 
-    backup_pattern = "/var/log/juju/%s-(.+?)\.log" % logprefix
+    backup_pattern = "/var/log/juju/%s-(.+?)\.log.gz" % logprefix
 
     log_name = log["name"]
     matches = re.match(backup_pattern, log_name)
@@ -158,9 +158,9 @@ def check_expected_backup(key, logprefix, action_output):
             (log_name, backup_pattern))
 
     size = int(log["size"])
-    if size < 299 or size > 301:
+    if size > 30:
         raise LogRotateError(
-            "Backup log '%s' should be ~300MB, but is %sMB." %
+            "Backup log '%s' should be less than 30MB (as gzipped), but is %sMB." %
             (log_name, size))
 
     dt = matches.groups()[0]

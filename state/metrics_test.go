@@ -428,7 +428,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	nonMeteredUnit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "metered-service", Charm: s.meteredCharm})
 	meteredUnit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	dyingUnit, err := meteredApplication.AddUnit()
+	dyingUnit, err := meteredApplication.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = dyingUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -667,7 +667,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	newUnit, err := s.application.AddUnit()
+	newUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddMetrics(
 		state.BatchParam{
@@ -713,7 +713,7 @@ func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	newUnit, err := s.application.AddUnit()
+	newUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddMetrics(
 		state.BatchParam{
@@ -758,7 +758,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	newUnit, err := s.application.AddUnit()
+	newUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddMetrics(
 		state.BatchParam{
@@ -827,7 +827,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 }
 
 func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
-	newUnit, err := s.application.AddUnit()
+	newUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	t0 := time.Date(2016, time.August, 16, 16, 00, 35, 0, time.Local)

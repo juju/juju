@@ -35,7 +35,7 @@ type ProviderRegistry interface {
 
 	// StorageProvider returns the storage provider with the given
 	// provider type. StorageProvider must return an errors satisfying
-	// errors.IsNotFound if the registry does not contain said the
+	// errors.IsNotFound if the registry does not contain the
 	// specified provider type.
 	StorageProvider(ProviderType) (Provider, error)
 }

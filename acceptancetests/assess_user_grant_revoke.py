@@ -381,7 +381,7 @@ def parse_args(argv):
 
 def main(argv=None):
     args = parse_args(argv)
-    configure_logging(logging.DEBUG)
+    configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         assess_user_grant_revoke(bs_manager.client)
