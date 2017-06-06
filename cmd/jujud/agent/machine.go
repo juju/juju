@@ -95,6 +95,7 @@ import (
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
+	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -525,6 +526,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			var reporter dependency.Reporter = engine
 			return a.startStateWorkers(st, reporter)
 		}
+		pubsubReporter := psworker.NewReporter()
 		manifolds := machineManifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
@@ -544,6 +546,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			ValidateMigration:    a.validateMigration,
 			PrometheusRegisterer: a.prometheusRegistry,
 			CentralHub:           a.centralHub,
+			PubSubReporter:       pubsubReporter,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -555,6 +558,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			Agent:              a,
 			Engine:             engine,
 			StatePoolReporter:  a.statePool,
+			PubSubReporter:     pubsubReporter,
 			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,

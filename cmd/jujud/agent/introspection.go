@@ -30,6 +30,7 @@ type introspectionConfig struct {
 	Agent              agent.Agent
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.IntrospectionReporter
+	PubSubReporter     introspection.IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 	NewSocketName      func(names.Tag) string
 	WorkerFunc         func(config introspection.Config) (worker.Worker, error)
@@ -52,6 +53,7 @@ func startIntrospection(cfg introspectionConfig) error {
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,
 		StatePool:          cfg.StatePoolReporter,
+		PubSub:             cfg.PubSubReporter,
 		PrometheusGatherer: cfg.PrometheusGatherer,
 	})
 	if err != nil {
