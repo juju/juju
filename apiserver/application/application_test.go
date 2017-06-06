@@ -5,7 +5,6 @@ package application_test
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"regexp"
 	"sync"
@@ -29,17 +28,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -52,8 +48,6 @@ type applicationSuite struct {
 	applicationAPI *application.API
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
-	env            *mockEnviron
-	otherModel     *state.State
 }
 
 var _ = gc.Suite(&applicationSuite{})
@@ -75,27 +69,12 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
-	s.otherModel = s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel"})
-	s.AddCleanup(func(*gc.C) { s.otherModel.Close() })
-
 	s.application = s.Factory.MakeApplication(c, nil)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	s.env = &mockEnviron{}
-
-	s.applicationAPI = s.makeAPI(c, s.env)
-
-	// Add a space in othermodel that applications can be bound to.
-	_, err := s.otherModel.AddSubnet(state.SubnetInfo{
-		ProviderId:       "juju-subnet-1",
-		CIDR:             "4.3.2.0/24",
-		AvailabilityZone: "az1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.otherModel.AddSpace("myspace", "juju-space-myspace", []string{"4.3.2.0/24"}, true)
-	c.Assert(err, jc.ErrorIsNil)
+	s.applicationAPI = s.makeAPI(c)
 }
 
 func (s *applicationSuite) TearDownTest(c *gc.C) {
@@ -103,18 +82,15 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C, env environs.Environ) *application.API {
-	getEnviron := func(*state.State) (environs.Environ, error) {
-		return env, nil
-	}
+func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	backend := application.NewStateBackend(s.State)
 	blockChecker := common.NewBlockChecker(s.State)
 	api, err := application.NewAPI(
-		backend, s.authorizer, resources, s.BackingStatePool,
+		backend, s.authorizer, s.BackingStatePool,
 		blockChecker, application.CharmToStateCharm,
-		application.DeployApplication, getEnviron,
+		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -2571,94 +2547,44 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
 }
 
-func (s *applicationSuite) addTestingCharmOtherModel(c *gc.C, name string) *state.Charm {
-	ch := testcharms.Repo.CharmDir(name)
-	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charmrepo.InferRepository(
-		curl,
-		charmrepo.NewCharmStoreParams{},
-		testcharms.Repo.Path())
-	c.Assert(err, jc.ErrorIsNil)
-	sch, err := jujutesting.PutCharm(s.otherModel, curl, repo, false)
-	c.Assert(err, jc.ErrorIsNil)
-	return sch
-}
-
-func (s *applicationSuite) setupOtherModelOffer(c *gc.C) {
-	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
-		Name:  "othermysql",
-		Charm: s.addTestingCharmOtherModel(c, "mysql"),
-	})
-}
-
-func (s *applicationSuite) setupOtherModelOfferWithArgs(c *gc.C, args state.AddApplicationArgs) {
-	_, err := s.otherModel.AddApplication(args)
-	c.Assert(err, jc.ErrorIsNil)
-	offersAPI := state.NewApplicationOffers(s.otherModel)
-	_, err = offersAPI.AddOffer(crossmodel.AddApplicationOfferArgs{
-		OfferName:              "hosted-mysql",
-		ApplicationName:        "othermysql",
-		ApplicationDescription: "A pretty popular database",
-		Endpoints:              map[string]string{"database": "server"},
-		Owner:                  s.AdminUserTag(c).Id(),
+func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag:         testing.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "A pretty popular database",
+				Endpoints: []params.RemoteEndpoint{
+					{Name: "server", Interface: "mysql", Role: "provider", Scope: "global"},
+				},
+			}},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
 }
 
-func (s *applicationSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
-	s.setupOtherModelOffer(c)
-	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
-	s.assertAddRelation(c, endpoints)
+func (s *applicationSuite) TestAddRemoteRelation(c *gc.C) {
+	s.setupRemoteApplication(c)
+	// There's already a wordpress in the scenario this assertion sets up.
+	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"})
 }
 
-func (s *applicationSuite) TestAddRemoteRelationRemoteAppExists(c *gc.C) {
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "othermysql",
-		SourceModel: s.otherModel.ModelTag(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.setupOtherModelOffer(c)
-	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
-	s.assertAddRelation(c, endpoints)
-}
-
-func (s *applicationSuite) TestAddRemoteRelationRemoteAppExistsDifferentSourceModel(c *gc.C) {
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "hosted-mysql",
-		SourceModel: names.NewModelTag(utils.MustNewUUID().String()),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.setupOtherModelOffer(c)
-	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
-	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `remote application called "hosted-mysql" from a different model already exists`)
-}
-
-func (s *applicationSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
-	s.setupOtherModelOffer(c)
-	endpoints := []string{"wordpress", "othermodel.hosted-mysql:server"}
-	s.assertAddRelation(c, endpoints)
+func (s *applicationSuite) TestAddRemoteRelationWithRelName(c *gc.C) {
+	s.setupRemoteApplication(c)
+	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql:server"})
 }
 
 func (s *applicationSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
-	s.setupOtherModelOffer(c)
-	endpoints := []string{"othermodel.hosted-mysql"}
+	s.setupRemoteApplication(c)
+	endpoints := []string{"hosted-mysql"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
-
-	otherMySql, err := s.otherModel.Application("othermysql")
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherMySql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(otherMySql.IsExposed(), jc.IsFalse)
 }
 
 func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
-	s.setupOtherModelOffer(c)
-	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
+	s.setupRemoteApplication(c)
+	endpoints := []string{"wordpress", "hosted-mysql"}
 	s.assertAddRelation(c, endpoints)
 
 	// And try to add it again.
@@ -2667,373 +2593,38 @@ func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
-	s.setupOtherModelOffer(c)
+	s.setupRemoteApplication(c)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	endpoints := []string{"wordpress", "othermodel.hosted-mysql:nope"}
+	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, `remote application "hosted-mysql" has no "nope" relation`)
 }
 
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
-	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "riak",
-		Charm: s.addTestingCharmOtherModel(c, "riak"),
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag: testing.ModelTag.String(),
+				OfferName:      "hosted-db2",
+				Endpoints: []params.RemoteEndpoint{
+					{Name: "database", Interface: "db2", Role: "provider", Scope: "global"},
+				},
+			}},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	offersAPi := state.NewApplicationOffers(s.otherModel)
-	_, err = offersAPi.AddOffer(crossmodel.AddApplicationOfferArgs{
-		OfferName:       "hosted-riak",
-		ApplicationName: "riak",
-		Endpoints:       map[string]string{"endpoint": "endpoint"},
-		Owner:           s.AdminUserTag(c).Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
 
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "othermodel.hosted-riak"}
+	endpoints := []string{"wordpress", "hosted-db2"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
-func (s *applicationSuite) TestRemoteRelationApplicationOfferNotFound(c *gc.C) {
+func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "othermodel.unknown"}
+	endpoints := []string{"wordpress", "unknown"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `application offer "unknown" not found`)
-}
-
-func (s *applicationSuite) TestRemoteRelationApplicationOfferWithEndpointNotFound(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "othermodel.unknown:db"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `application offer "unknown" not found`)
-}
-
-func (s *applicationSuite) TestRemoteRelationNotFound(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "unknownmodel.unknown"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `application offer at admin/unknownmodel.unknown not found`)
-}
-
-func (s *applicationSuite) TestConsumeRejectsEndpoints(c *gc.C) {
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
-	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "othermodel.application:db" shouldn't include endpoint`)
-}
-
-func (s *applicationSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	_, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
-	})
-	c.Assert(err, gc.ErrorMatches, `set "cross-model" feature flag to enable consuming remote applications`)
-}
-
-func (s *applicationSuite) TestConsumeIdempotent(c *gc.C) {
-	s.setupOtherModelOffer(c)
-
-	for i := 0; i < 2; i++ {
-		results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-			Args: []params.ConsumeApplicationArg{
-				{ApplicationURL: "othermodel.hosted-mysql"},
-			},
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(results.Results, gc.HasLen, 1)
-		c.Assert(results.Results[0].Error, gc.IsNil)
-	}
-}
-
-func (s *applicationSuite) TestConsumeLocalAlreadyExists(c *gc.C) {
-	s.setupOtherModelOffer(c)
-
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationURL: "othermodel.hosted-mysql", ApplicationAlias: "mysql"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.DeepEquals, &params.Error{
-		Message: `cannot add remote application "mysql": local application with same name already exists`,
-		Code:    "already exists",
-	})
-}
-
-func (s *applicationSuite) TestConsumeNoPermission(c *gc.C) {
-	s.setupOtherModelOffer(c)
-
-	s.authorizer.Tag = names.NewUserTag("someone")
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationURL: "admin/othermodel.hosted-mysql"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*permission denied.*")
-}
-
-func (s *applicationSuite) TestConsumeWithPermission(c *gc.C) {
-	s.setupOtherModelOffer(c)
-
-	_, err := s.otherModel.AddUser("someone", "spmeone", "secret", "admin")
-	c.Assert(err, jc.ErrorIsNil)
-	apiUser := names.NewUserTag("someone")
-	err = s.otherModel.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"), apiUser, permission.ConsumeAccess)
-	s.authorizer.Tag = apiUser
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationURL: "admin/othermodel.hosted-mysql"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	// Check that it sets up endpoints, spaces and bindings as we expect.
-	// Aliasing on the endpoints isn't handled yet - if it was done
-	// this would be database.
-	s.assertRemoteEndpointNames(c, "hosted-mysql", "server")
-}
-
-func (s *applicationSuite) assertRemoteEndpointNames(c *gc.C, remoteAppName string, expectedEndpoints ...string) {
-	remoteApp, err := s.State.RemoteApplication(remoteAppName)
-	c.Assert(err, jc.ErrorIsNil)
-	endpoints, err := remoteApp.Endpoints()
-	c.Assert(err, jc.ErrorIsNil)
-	epNames := make([]string, len(endpoints))
-	for i, ep := range endpoints {
-		epNames[i] = ep.Name
-	}
-	c.Assert(epNames, jc.SameContents, expectedEndpoints)
-}
-
-func (s *applicationSuite) TestConsumingAndAddingRelation(c *gc.C) {
-	s.setupOtherModelOffer(c)
-	_, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{
-			{ApplicationURL: "othermodel.hosted-mysql"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// There's already a wordpress in the scenario this assertion sets up.
-	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"})
-}
-
-type mockStorageProvider struct {
-	storage.Provider
-	kind storage.StorageKind
-}
-
-func (m *mockStorageProvider) Scope() storage.Scope {
-	return storage.ScopeMachine
-}
-
-func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
-	return k == m.kind
-}
-
-func (m *mockStorageProvider) ValidateConfig(*storage.Config) error {
-	return nil
-}
-
-type blobs struct {
-	sync.Mutex
-	m map[string]bool // maps path to added (true), or deleted (false)
-}
-
-// Add adds a path to the list of known paths.
-func (b *blobs) Add(path string) {
-	b.Lock()
-	defer b.Unlock()
-	b.check()
-	b.m[path] = true
-}
-
-// Remove marks a path as deleted, even if it was not previously Added.
-func (b *blobs) Remove(path string) {
-	b.Lock()
-	defer b.Unlock()
-	b.check()
-	b.m[path] = false
-}
-
-func (b *blobs) check() {
-	if b.m == nil {
-		b.m = make(map[string]bool)
-	}
-}
-
-type recordingStorage struct {
-	statestorage.Storage
-	putBarrier *sync.WaitGroup
-	blobs      *blobs
-}
-
-func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
-	if s.putBarrier != nil {
-		// This goroutine has gotten to Put() so mark it Done() and
-		// wait for the other goroutines to get to this point.
-		s.putBarrier.Done()
-		s.putBarrier.Wait()
-	}
-	if err := s.Storage.Put(path, r, size); err != nil {
-		return errors.Trace(err)
-	}
-	s.blobs.Add(path)
-	return nil
-}
-
-func (s *recordingStorage) Remove(path string) error {
-	if err := s.Storage.Remove(path); err != nil {
-		return errors.Trace(err)
-	}
-	s.blobs.Remove(path)
-	return nil
-}
-
-func (s *applicationSuite) TestRemoteApplicationInfo(c *gc.C) {
-	s.setupOtherModelOffer(c)
-	results, err := s.applicationAPI.RemoteApplicationInfo(params.ApplicationURLs{
-		ApplicationURLs: []string{"othermodel.hosted-mysql", "othermodel.unknown"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
-		{Result: &params.RemoteApplicationInfo{
-			ModelTag:         s.otherModel.ModelTag().String(),
-			Name:             "hosted-mysql",
-			Description:      "A pretty popular database",
-			ApplicationURL:   "othermodel.hosted-mysql",
-			SourceModelLabel: "othermodel",
-			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
-			Endpoints: []params.RemoteEndpoint{
-				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"},
-			},
-		}},
-		{
-			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
-		},
-	})
-}
-
-func (s *applicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
-	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
-		Name:             "othermysql",
-		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
-		EndpointBindings: map[string]string{"server": "myspace"},
-	})
-	s.env.spaceInfo = &environs.ProviderSpaceInfo{
-		CloudType: "grandaddy",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		SpaceInfo: network.SpaceInfo{
-			Name:       "yourspace",
-			ProviderId: "juju-space-myspace",
-			Subnets: []network.SubnetInfo{{
-				CIDR:              "5.6.7.0/24",
-				ProviderId:        "juju-subnet-1",
-				AvailabilityZones: []string{"az1"},
-			}},
-		},
-	}
-
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
-		Args: []params.ConsumeApplicationArg{{
-			ApplicationURL:   "othermodel.hosted-mysql",
-			ApplicationAlias: "beirut",
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].LocalName, gc.Equals, "beirut")
-
-	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
-	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		Subnets: []network.SubnetInfo{{
-			CIDR:              "4.3.2.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	})
-
-	remoteApp, err := s.State.RemoteApplication("beirut")
-	c.Assert(err, jc.ErrorIsNil)
-	endpoints, err := remoteApp.Endpoints()
-	c.Assert(err, jc.ErrorIsNil)
-	epNames := make([]string, len(endpoints))
-	for i, ep := range endpoints {
-		epNames[i] = ep.Name
-	}
-	c.Assert(epNames, jc.SameContents, []string{"server"})
-	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{"server": "myspace"})
-	c.Assert(remoteApp.Spaces(), gc.DeepEquals, []state.RemoteSpace{{
-		CloudType:  "grandaddy",
-		Name:       "myspace",
-		ProviderId: "juju-space-myspace",
-		ProviderAttributes: map[string]interface{}{
-			"thunderjaws": 1,
-		},
-		Subnets: []state.RemoteSubnet{{
-			CIDR:              "5.6.7.0/24",
-			ProviderId:        "juju-subnet-1",
-			AvailabilityZones: []string{"az1"},
-		}},
-	}})
-}
-
-func (s *applicationSuite) TestAddRemoteRelationWithNonNetworkingEnviron(c *gc.C) {
-	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
-		Name:             "othermysql",
-		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
-		EndpointBindings: map[string]string{"server": "myspace"},
-	})
-	s.setupRelationScenario(c)
-	api := s.makeAPI(c, mockNoNetworkEnviron{})
-	res, err := api.AddRelation(params.AddRelation{
-		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
-
-	// Successfully added, but with no bindings or spaces since the
-	// environ doesn't support networking.
-	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
-	c.Assert(remoteApp.Spaces(), gc.IsNil)
-}
-
-func (s *applicationSuite) TestAddRemoteRelationProviderSpaceInfoNotSupported(c *gc.C) {
-	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
-		Name:             "othermysql",
-		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
-		EndpointBindings: map[string]string{"server": "myspace"},
-	})
-	s.setupRelationScenario(c)
-	s.env.stub.SetErrors(errors.NotSupportedf("provider space info"))
-	res, err := s.applicationAPI.AddRelation(params.AddRelation{
-		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
-
-	// Successfully added, but with no bindings or spaces since the
-	// environ doesn't support ProviderSpaceInfo.
-	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
-	c.Assert(remoteApp.Spaces(), gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }

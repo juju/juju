@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -424,12 +425,13 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 }
 
 // Consume adds a remote application to the model.
-func (c *Client) Consume(remoteApplication, alias string) (string, error) {
-	var consumeRes params.ConsumeApplicationResults
+func (c *Client) Consume(offer params.ApplicationOffer, alias string, macaroon *macaroon.Macaroon) (string, error) {
+	var consumeRes params.ErrorResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationURL:   remoteApplication,
 			ApplicationAlias: alias,
+			ApplicationOffer: offer,
+			Macaroon:         macaroon,
 		}},
 	}
 	err := c.facade.FacadeCall("Consume", args, &consumeRes)
@@ -442,5 +444,9 @@ func (c *Client) Consume(remoteApplication, alias string) (string, error) {
 	if err := consumeRes.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	return consumeRes.Results[0].LocalName, nil
+	localName := offer.OfferName
+	if alias != "" {
+		localName = alias
+	}
+	return localName, nil
 }

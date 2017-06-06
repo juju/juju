@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/applicationoffers"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -242,7 +243,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
-					{Result: params.ApplicationOffer{
+					{Result: &params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
 						OfferURL:               url,
@@ -333,14 +334,14 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
-					{Result: params.ApplicationOffer{
+					{Result: &params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
 						OfferURL:               url,
 						OfferName:              offerName,
 						Access:                 access,
 					}},
-					{Result: params.ApplicationOffer{
+					{Result: &params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
 						OfferURL:               url,
@@ -530,4 +531,61 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 	results, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
+}
+
+func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
+	offer := params.ApplicationOffer{
+		SourceModelTag:         "source model",
+		OfferName:              "an offer",
+		OfferURL:               "offer url",
+		ApplicationDescription: "description",
+		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
+	}
+	mac, err := macaroon.New(nil, "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Assert(request, gc.Equals, "GetConsumeDetails")
+			args, ok := a.(params.ApplicationURLs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.ApplicationURLs, jc.DeepEquals, []string{"me/prod.app"})
+			if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
+				result := params.ConsumeOfferDetailsResult{
+					ConsumeOfferDetails: params.ConsumeOfferDetails{
+						Offer:    &offer,
+						Macaroon: mac,
+					},
+				}
+				results.Results = []params.ConsumeOfferDetailsResult{result}
+			}
+			return nil
+		})
+	client := applicationoffers.NewClient(apiCaller)
+	details, err := client.GetConsumeDetails("me/prod.app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
+		Offer:    &offer,
+		Macaroon: mac,
+	})
+}
+
+func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			return errors.New("should not be called")
+		})
+	client := applicationoffers.NewClient(apiCaller)
+	_, err := client.GetConsumeDetails("badurl")
+	c.Assert(err, gc.ErrorMatches, "application offer URL is missing application")
 }

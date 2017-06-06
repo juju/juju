@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/applicationoffers"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
@@ -28,14 +29,15 @@ var _ = gc.Suite(&offerAccessSuite{})
 func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.authorizer.Tag = names.NewUserTag("admin")
-	s.applicationOffers = &mockApplicationOffers{}
 	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
-		return s.applicationOffers
+		return &stubApplicationOffers{}
 	}
 
+	resources := common.NewResources()
+	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	var err error
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, s.mockState, s.mockStatePool, s.authorizer,
+		getApplicationOffers, nil, s.mockState, s.mockStatePool, s.authorizer, resources,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -83,7 +85,7 @@ func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName str
 }
 
 func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	s.setupOffer("uuid", "test", "admin", "someoffer")
 	user := names.NewUserTag("foobar")
 	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `could not grant offer access: user "foobar" not found`
@@ -91,7 +93,7 @@ func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantMissingOfferFails(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "differentoffer")
+	s.setupOffer("uuid", "test", "admin", "differentoffer")
 	user := names.NewUserTag("foobar")
 	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `.*application offer "someoffer" not found`
@@ -99,8 +101,8 @@ func (s *offerAccessSuite) TestGrantMissingOfferFails(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("foobar")
 
 	user := names.NewUserTag("foobar")
@@ -117,8 +119,8 @@ func (s *offerAccessSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestRevokeReadRemovesPermission(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("foobar")
 
 	user := names.NewUserTag("foobar")
@@ -134,8 +136,8 @@ func (s *offerAccessSuite) TestRevokeReadRemovesPermission(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 
 	user := names.NewUserTag("bob")
 	err := s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
@@ -147,8 +149,8 @@ func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "admin", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("foobar")
 
 	user := names.NewUserTag("foobar")
@@ -160,8 +162,8 @@ func (s *offerAccessSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 }
 
 func (s *offerAccessSuite) assertGrantOfferAddUser(c *gc.C, user names.UserTag) {
-	s.setupOffer("model-uuid", "test", "superuser-bob", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "superuser-bob", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("other")
 	st.(*mockState).users.Add(user.Name())
 
@@ -186,8 +188,8 @@ func (s *offerAccessSuite) TestGrantOfferAddRemoteUser(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantOfferSuperUser(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "superuser-bob", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "superuser-bob", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("other")
 
 	user := names.NewUserTag("superuser-bob")
@@ -204,8 +206,8 @@ func (s *offerAccessSuite) TestGrantOfferSuperUser(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantIncreaseAccess(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "other", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "other", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("other")
 
 	user := names.NewUserTag("other")
@@ -225,8 +227,8 @@ func (s *offerAccessSuite) TestGrantIncreaseAccess(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantToOfferNoAccess(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "bob@remote", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "bob@remote", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("other")
 	st.(*mockState).users.Add("bob")
 
@@ -239,8 +241,8 @@ func (s *offerAccessSuite) TestGrantToOfferNoAccess(c *gc.C) {
 }
 
 func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Access) {
-	s.setupOffer("model-uuid", "test", "bob@remote", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "bob@remote", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("other")
 	st.(*mockState).users.Add("bob")
 
@@ -265,8 +267,8 @@ func (s *offerAccessSuite) TestGrantToOfferConsumeAccess(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "foobar", "someoffer")
-	st := s.mockStatePool.st["model-uuid"]
+	s.setupOffer("uuid", "test", "foobar", "someoffer")
+	st := s.mockStatePool.st["uuid"]
 	st.(*mockState).users.Add("other")
 	st.(*mockState).users.Add("foobar")
 
@@ -287,7 +289,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	s.setupOffer("uuid", "test", "admin", "someoffer")
 	for _, testParam := range []struct {
 		tag      string
 		validTag bool
@@ -355,7 +357,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	s.setupOffer("uuid", "test", "admin", "someoffer")
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
 
@@ -366,7 +368,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *gc.C) {
 }
 
 func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
-	s.setupOffer("model-uuid", "test", "admin", "someoffer")
+	s.setupOffer("uuid", "test", "admin", "someoffer")
 
 	var dance params.OfferAction = "dance"
 	args := params.ModifyOfferAccessRequest{
