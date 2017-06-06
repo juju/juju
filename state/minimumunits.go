@@ -195,5 +195,5 @@ func aliveUnitsCount(app *Application) (int, error) {
 // will be aborted if the application document changes when running the operations.
 func ensureMinUnitsOps(app *Application) (string, []txn.Op, error) {
 	asserts := bson.D{{"txn-revno", app.doc.TxnRevno}}
-	return app.addUnitOps("", asserts)
+	return app.addUnitOps("", AddUnitParams{}, asserts)
 }

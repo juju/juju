@@ -524,22 +524,22 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 
 // addUnit adds a single unit to an application already present in the environment.
 func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error {
-	application := resolve(p.Application, h.results)
+	applicationName := resolve(p.Application, h.results)
 	// Check whether the desired number of units already exist in the
 	// environment, in which case avoid adding other units.
-	machine := h.chooseMachine(application)
+	machine := h.chooseMachine(applicationName)
 	if machine != "" {
 		h.results[id] = machine
-		if !h.ignoredUnits[application] {
-			h.ignoredUnits[application] = true
-			num := h.numUnitsForService(application)
+		if !h.ignoredUnits[applicationName] {
+			h.ignoredUnits[applicationName] = true
+			num := h.numUnitsForService(applicationName)
 			var msg string
 			if num == 1 {
 				msg = "1 unit already present"
 			} else {
 				msg = fmt.Sprintf("%d units already present", num)
 			}
-			h.log.Infof("avoid adding new units to application %s: %s", application, msg)
+			h.log.Infof("avoid adding new units to application %s: %s", applicationName, msg)
 		}
 		return nil
 	}
@@ -549,7 +549,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		var err error
 		if machineSpec, err = h.resolveMachine(p.To); err != nil {
 			// Should never happen.
-			return errors.Annotatef(err, "cannot retrieve placement for %q unit", application)
+			return errors.Annotatef(err, "cannot retrieve placement for %q unit", applicationName)
 		}
 		placement, err := parsePlacement(machineSpec)
 		if err != nil {
@@ -557,9 +557,13 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		}
 		placementArg = append(placementArg, placement)
 	}
-	r, err := h.api.AddUnits(application, 1, placementArg)
+	r, err := h.api.AddUnits(application.AddUnitsParams{
+		ApplicationName: applicationName,
+		NumUnits:        1,
+		Placement:       placementArg,
+	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot add unit for application %q", application)
+		return errors.Annotatef(err, "cannot add unit for application %q", applicationName)
 	}
 	unit := r[0]
 	if machineSpec == "" {

@@ -47,7 +47,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -60,9 +60,9 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
-	f := &fakeDeployer{State: s.State}
+	var f fakeDeployer
 
-	_, err := application.DeployApplication(f,
+	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -78,7 +78,7 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
@@ -133,7 +133,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -169,7 +169,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 	_, err = s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -206,7 +206,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	_, err = s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -232,7 +232,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
 	_, err = s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -252,9 +252,9 @@ func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
-	f := &fakeDeployer{State: s.State}
+	var f fakeDeployer
 
-	_, err := application.DeployApplication(f,
+	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -271,7 +271,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -288,7 +288,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
-	_, err := application.DeployApplication(s.State,
+	_, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -305,7 +305,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
 	serviceCons := constraints.MustParse("cores=2")
-	app, err := application.DeployApplication(s.State,
+	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -316,10 +316,10 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
-	f := &fakeDeployer{State: s.State}
+	var f fakeDeployer
 
 	serviceCons := constraints.MustParse("cores=2")
-	_, err := application.DeployApplication(f,
+	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -335,10 +335,10 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
-	f := &fakeDeployer{State: s.State}
+	var f fakeDeployer
 
 	serviceCons := constraints.MustParse("cores=2")
-	_, err := application.DeployApplication(f,
+	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -357,10 +357,10 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
-	f := &fakeDeployer{State: s.State}
+	var f fakeDeployer
 
 	serviceCons := constraints.MustParse("cores=2")
-	_, err := application.DeployApplication(f,
+	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -378,7 +378,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
-	f := &fakeDeployer{State: s.State}
+	var f fakeDeployer
 
 	serviceCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{
@@ -387,7 +387,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		{Scope: "lxd", Directive: "1"},
 		{Scope: "lxd", Directive: ""},
 	}
-	_, err := application.DeployApplication(f,
+	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -405,10 +405,10 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
-	f := &fakeDeployer{State: s.State}
+	var f fakeDeployer
 	serviceCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
-	_, err := application.DeployApplication(f,
+	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -477,12 +477,23 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 	c.Assert(unseenIds, gc.DeepEquals, set.NewStrings())
 }
 
-type fakeDeployer struct {
+type stateDeployer struct {
 	*state.State
+}
+
+func (d stateDeployer) AddApplication(args state.AddApplicationArgs) (application.Application, error) {
+	app, err := d.State.AddApplication(args)
+	if err != nil {
+		return nil, err
+	}
+	return application.NewStateApplication(d.State, app), nil
+}
+
+type fakeDeployer struct {
 	args state.AddApplicationArgs
 }
 
-func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs) (*state.Application, error) {
+func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs) (application.Application, error) {
 	f.args = args
 	return nil, nil
 }

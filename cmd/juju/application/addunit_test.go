@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apiapplication "github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
@@ -25,11 +26,12 @@ type AddUnitSuite struct {
 }
 
 type fakeServiceAddUnitAPI struct {
-	envType     string
-	application string
-	numUnits    int
-	placement   []*instance.Placement
-	err         error
+	envType       string
+	application   string
+	numUnits      int
+	placement     []*instance.Placement
+	attachStorage []string
+	err           error
 }
 
 func (f *fakeServiceAddUnitAPI) Close() error {
@@ -40,16 +42,17 @@ func (f *fakeServiceAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
-func (f *fakeServiceAddUnitAPI) AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error) {
+func (f *fakeServiceAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]string, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	if application != f.application {
-		return nil, errors.NotFoundf("application %q", application)
+	if args.ApplicationName != f.application {
+		return nil, errors.NotFoundf("application %q", args.ApplicationName)
 	}
 
-	f.numUnits += numUnits
-	f.placement = placement
+	f.numUnits += args.NumUnits
+	f.placement = args.Placement
+	f.attachStorage = args.AttachStorage
 	return nil, nil
 }
 
@@ -85,6 +88,9 @@ var initAddUnitErrorTests = []struct {
 	}, {
 		args: []string{"some-application-name", "--to", "1,#:foo"},
 		err:  `invalid --to parameter "#:foo"`,
+	}, {
+		args: []string{"some-application-name", "--attach-storage", "foo/0", "-n", "2"},
+		err:  `--attach-storage cannot be used with -n`,
 	},
 }
 
@@ -125,6 +131,18 @@ func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
 		{"#", "1/lxd/2"},
 		{"fake-uuid", "foo"},
 	})
+}
+
+func (s *AddUnitSuite) TestAddUnitAttachStorage(c *gc.C) {
+	err := s.runAddUnit(c, "some-application-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.numUnits, gc.Equals, 2)
+	c.Assert(s.fake.attachStorage, gc.HasLen, 0)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0,bar/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.numUnits, gc.Equals, 3)
+	c.Assert(s.fake.attachStorage, jc.DeepEquals, []string{"foo/0", "bar/1"})
 }
 
 func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {

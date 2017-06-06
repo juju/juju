@@ -934,6 +934,27 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 			`attaching 3 storage instances brings the total to 3, exceeding the maximum of 2`)
 }
 
+func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
+	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
+
+	// Detach, but do not destroy, the storage.
+	err := s.State.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a new unit, attaching the existing storage.
+	u2, err := app.AddUnit(state.AddUnitParams{
+		AttachStorage: []names.StorageTag{storageTag},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The storage instance should be attached to the new application unit.
+	storageInstance, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	owner, hasOwner := storageInstance.Owner()
+	c.Assert(hasOwner, jc.IsTrue)
+	c.Assert(owner, gc.Equals, u2.UnitTag())
+}
+
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := u.Destroy()

@@ -317,6 +317,41 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
 }
 
+func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
+	results, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+		AttachStorage:   []string{"storage-pgdata-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
+		Units: []string{"postgresql/99"},
+	})
+
+	app := s.backend.applications["postgresql"].(*mockApplication)
+	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{
+		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
+	})
+}
+
+func (s *ApplicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        2,
+		AttachStorage:   []string{"storage-foo-0"},
+	})
+	c.Assert(err, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
+}
+
+func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        1,
+		AttachStorage:   []string{"volume-0"},
+	})
+	c.Assert(err, gc.ErrorMatches, `"volume-0" is not a valid storage tag`)
+}
+
 func (s *ApplicationSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags()
 	_, err := s.api.Consume(params.ConsumeApplicationArgs{})

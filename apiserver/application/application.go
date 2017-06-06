@@ -608,21 +608,39 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 	}
 	unitNames := make([]string, len(units))
 	for i, unit := range units {
-		unitNames[i] = unit.String()
+		unitNames[i] = unit.UnitTag().Id()
 	}
 	return params.AddApplicationUnitsResults{Units: unitNames}, nil
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]*state.Unit, error) {
+func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]Unit, error) {
+	if args.NumUnits < 1 {
+		return nil, errors.New("must add at least one unit")
+	}
+	// Parse storage tags in AttachStorage.
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return nil, errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", args.NumUnits)
+	}
+	attachStorage := make([]names.StorageTag, len(args.AttachStorage))
+	for i, tagString := range args.AttachStorage {
+		tag, err := names.ParseStorageTag(tagString)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		attachStorage[i] = tag
+	}
 	application, err := backend.Application(args.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
-	}
-	return addUnits(backend, application, args.ApplicationName, args.NumUnits, args.Placement)
+	return addUnits(
+		application,
+		args.ApplicationName,
+		args.NumUnits,
+		args.Placement,
+		attachStorage,
+	)
 }
 
 // DestroyUnits removes a given set of application units.

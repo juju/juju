@@ -130,6 +130,44 @@ func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 	c.Assert(called, jc.IsFalse)
 }
 
+func (s *applicationSuite) TestAddUnits(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "AddUnits")
+		args, ok := a.(params.AddApplicationUnits)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args.ApplicationName, gc.Equals, "foo")
+		c.Assert(args.NumUnits, gc.Equals, 1)
+		c.Assert(args.Placement, jc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+		c.Assert(args.AttachStorage, jc.DeepEquals, []string{"storage-data-0"})
+		result := response.(*params.AddApplicationUnitsResults)
+		result.Units = []string{"foo/0"}
+		return nil
+	})
+
+	units, err := client.AddUnits(application.AddUnitsParams{
+		ApplicationName: "foo",
+		NumUnits:        1,
+		Placement:       []*instance.Placement{{"scope", "directive"}},
+		AttachStorage:   []string{"data/0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, jc.DeepEquals, []string{"foo/0"})
+}
+
+func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		return nil
+	})
+	_, err := client.AddUnits(application.AddUnitsParams{
+		NumUnits:      2,
+		AttachStorage: []string{"data/0"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
+	c.Assert(called, jc.IsFalse)
+}
+
 func (s *applicationSuite) TestServiceGetCharmURL(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {

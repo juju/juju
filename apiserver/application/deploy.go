@@ -41,16 +41,11 @@ type DeployApplicationParams struct {
 }
 
 type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs) (*state.Application, error)
-}
-
-type UnitAssigner interface {
-	AssignUnit(*state.Unit, state.AssignmentPolicy) error
-	AssignUnitWithPlacement(*state.Unit, *instance.Placement) error
+	AddApplication(state.AddApplicationArgs) (Application, error)
 }
 
 type UnitAdder interface {
-	AddUnit(state.AddUnitParams) (*state.Unit, error)
+	AddUnit(state.AddUnitParams) (Unit, error)
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
@@ -92,12 +87,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	if !args.Charm.Meta().Subordinate {
 		asa.Constraints = args.Constraints
 	}
-
-	app, err := st.AddApplication(asa)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return stateApplicationShim{app}, nil
+	return st.AddApplication(asa)
 }
 
 func quoteStrings(vals []string) string {
@@ -167,31 +157,33 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 // addUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
 func addUnits(
-	unitAssigner UnitAssigner,
 	unitAdder UnitAdder,
 	appName string,
 	n int,
 	placement []*instance.Placement,
-) ([]*state.Unit, error) {
-	units := make([]*state.Unit, n)
+	attachStorage []names.StorageTag,
+) ([]Unit, error) {
+	units := make([]Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		unit, err := unitAdder.AddUnit(state.AddUnitParams{})
+		unit, err := unitAdder.AddUnit(state.AddUnitParams{
+			AttachStorage: attachStorage,
+		})
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
-			if err := unitAssigner.AssignUnit(unit, policy); err != nil {
+			if err := unit.AssignWithPolicy(policy); err != nil {
 				return nil, errors.Trace(err)
 			}
 			units[i] = unit
 			continue
 		}
-		if err := unitAssigner.AssignUnitWithPlacement(unit, placement[i]); err != nil {
-			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.Name())
+		if err := unit.AssignWithPlacement(placement[i]); err != nil {
+			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.UnitTag().Id())
 		}
 		units[i] = unit
 	}
