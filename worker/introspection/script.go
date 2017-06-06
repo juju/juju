@@ -81,6 +81,10 @@ juju-statepool-report () {
   jujuMachineOrUnit statepool/ $@
 }
 
+juju-pubsub-report () {
+  jujuMachineOrUnit pubsub/ $@
+}
+
 juju-statetracker-report () {
   jujuMachineOrUnit debug/pprof/juju/state/tracker?debug=1 $@
 }
@@ -93,4 +97,5 @@ export -f juju-heap-profile
 export -f juju-engine-report
 export -f juju-statepool-report
 export -f juju-statetracker-report
+export -f juju-pubsub-report
 `

@@ -124,6 +124,12 @@ func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 	matches(c, buf, "State Pool Report: missing reporter")
 }
 
+func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
+	buf := s.call(c, "/pubsub/")
+	matches(c, buf, "404 Not Found")
+	matches(c, buf, "PubSub Report: missing reporter")
+}
+
 func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
 	buf := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
 	matches(c, buf, "200 OK")
