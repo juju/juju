@@ -20,7 +20,6 @@ type StateBackend interface {
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
-	DropOldLogIndex() error
 	AddMigrationAttempt() error
 	AddLocalCharmSequences() error
 	UpdateLegacyLXDCloudCredentials(string, cloud.Credential) error
@@ -30,6 +29,7 @@ type StateBackend interface {
 	AddControllerLogCollectionsSizeSettings() error
 	AddStatusHistoryPruneSettings() error
 	AddStorageInstanceConstraints() error
+	SplitLogCollections() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -72,10 +72,6 @@ func (s stateBackend) RenameAddModelPermission() error {
 	return state.RenameAddModelPermission(s.st)
 }
 
-func (s stateBackend) DropOldLogIndex() error {
-	return state.DropOldLogIndex(s.st)
-}
-
 func (s stateBackend) AddMigrationAttempt() error {
 	return state.AddMigrationAttempt(s.st)
 }
@@ -110,6 +106,10 @@ func (s stateBackend) AddStatusHistoryPruneSettings() error {
 
 func (s stateBackend) AddStorageInstanceConstraints() error {
 	return state.AddStorageInstanceConstraints(s.st)
+}
+
+func (s stateBackend) SplitLogCollections() error {
+	return state.SplitLogCollections(s.st)
 }
 
 type modelShim struct {

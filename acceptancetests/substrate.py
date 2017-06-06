@@ -507,9 +507,12 @@ class AzureARMAccount:
             return instance_ids
 
         models = client.get_models()['models']
-        model = [m for m in models if m['name'] == client.model_name][0]
+        # 2.2-rc1 introduced new model listing output name/short-name.
+        model = [
+            m for m in models
+            if m.get('short-name', m['name']) == client.model_name][0]
         resource_group = 'juju-{}-model-{}'.format(
-            model['name'], model['model-uuid'])
+            model.get('short-name', model['name']), model['model-uuid'])
         resources = winazurearm.list_resources(
             self.arm_client, glob=resource_group, recursive=True)
         vm_ids = []

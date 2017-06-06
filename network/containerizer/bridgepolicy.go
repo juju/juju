@@ -61,10 +61,15 @@ var _ Container = (*state.Machine)(nil)
 // inferContainerSpaces tries to find a valid space for the container to be
 // on. This should only be used when the container itself doesn't have any
 // valid constraints on what spaces it should be in.
+// If UseLocalBridges is set we fall back to "" and use lxdbr0 as we probably
+// won't be able to get an IP on hosts space.
 // If this machine is in a single space, then that space is used. Else, if
 // the machine has the default space, then that space is used.
 // If neither of those conditions is true, then we return an error.
 func (p *BridgePolicy) inferContainerSpaces(m Machine, containerId, defaultSpaceName string) (set.Strings, error) {
+	if p.UseLocalBridges {
+		return set.NewStrings(""), nil
+	}
 	hostSpaces, err := m.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)

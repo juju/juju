@@ -25,6 +25,7 @@ else
     NETWORK="timeout -s INT 20m $SCRIPTS/assess_network_health.py parallel-rackspace $JUJU_BIN $WORKSPACE/artifacts/network merge-juju-network --series xenial --bundle 'cs:bundle/mediawiki-single'"
     NETWORK="echo 'Skipping network tests.'"
     GRANT="timeout -s INT 20m $SCRIPTS/assess_user_grant_revoke.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/grant merge-juju-grant --timeout 1500 --series xenial"
+    GRANT="echo 'Skipping grant unit tests.'"
     RACE="run-unit-tests c4.4xlarge $XENIAL_AMI --force-archive --race --local $TARFILE_NAME"
     RACE="echo 'Skipping race unit tests.'"
 fi

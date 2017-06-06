@@ -395,6 +395,9 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
+	if err := InitDbLogs(session, uuid); err != nil {
+		return nil, nil, errors.Annotate(err, "initialising model logs collection")
+	}
 	return newModel, newSt, nil
 }
 

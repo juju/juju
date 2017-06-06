@@ -40,11 +40,11 @@ func fillUnit() error {
 }
 
 func unitLogSizes() error {
-	return writeSizes("/var/log/juju/unit-fill-logs*.log")
+	return writeSizes("/var/log/juju/unit-fill-logs*.log*")
 }
 
 func machineLogSizes() error {
-	return writeSizes("/var/log/juju/machine-*.log")
+	return writeSizes("/var/log/juju/machine-*.log*")
 }
 
 func fillMachine() (err error) {

@@ -24,8 +24,8 @@ const testControllersYAML = `
 controllers:
   aws-test:
     uuid: this-is-the-aws-test-uuid
-    unresolved-api-endpoints: [instance-1-2-4.useast.aws.com]
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    dns-cache: {example.com: [0.1.1.1, 0.2.2.2]}
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
@@ -33,7 +33,6 @@ controllers:
     active-controller-machine-count: 0
   mallards:
     uuid: this-is-another-uuid
-    unresolved-api-endpoints: [maas-1-05.cluster.mallards]
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
@@ -41,7 +40,6 @@ controllers:
     active-controller-machine-count: 0
   mark-test-prodstack:
     uuid: this-is-a-uuid
-    unresolved-api-endpoints: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
@@ -80,7 +78,6 @@ func parseControllers(c *gc.C) *jujuclient.Controllers {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
-	c.Assert(controllers.Controllers["mark-test-prodstack"].UnresolvedAPIEndpoints, gc.HasLen, 2)
 	c.Assert(controllers.Controllers["mallards"].APIEndpoints, gc.HasLen, 2)
 	return controllers
 }

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
@@ -294,11 +293,6 @@ func (st *state) Reboot() (reboot.State, error) {
 	default:
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-}
-
-// DiscoverSpaces returns access to the DiscoverSpacesAPI.
-func (st *state) DiscoverSpaces() *discoverspaces.API {
-	return discoverspaces.NewAPI(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API

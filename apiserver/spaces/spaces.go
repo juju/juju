@@ -10,12 +10,20 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
 // API defines the methods the Spaces API facade implements.
 type API interface {
+	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
+	ListSpaces() (params.ListSpacesResults, error)
+	ReloadSpaces() error
+}
+
+// APIV2 is missing ReloadSpaces method
+type APIV2 interface {
 	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
 	ListSpaces() (params.ListSpacesResults, error)
 }
@@ -45,6 +53,11 @@ func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade
 		resources:  resources,
 		authorizer: authorizer,
 	}, nil
+}
+
+// NewAPIV2 is a wrapper that creates a V2 spaces API.
+func NewAPIV2(st *state.State, res facade.Resources, auth facade.Authorizer) (APIV2, error) {
+	return NewAPI(st, res, auth)
 }
 
 // CreateSpaces creates a new Juju network space, associating the
@@ -101,4 +114,20 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+// RefreshSpaces refreshes spaces from substrate
+func (api *spacesAPI) ReloadSpaces() error {
+	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ServerError(common.ErrPerm)
+	}
+	env, err := environs.GetEnviron(api.backing, environs.New)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(api.backing.ReloadSpaces(env))
 }

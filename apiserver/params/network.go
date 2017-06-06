@@ -638,11 +638,6 @@ type Space struct {
 	Error   *Error   `json:"error,omitempty"`
 }
 
-// DiscoverSpacesResults holds the list of all provider spaces.
-type DiscoverSpacesResults struct {
-	Results []ProviderSpace `json:"results"`
-}
-
 // ProviderSpace holds the information about a single space and its associated subnets.
 type ProviderSpace struct {
 	Name       string   `json:"name"`

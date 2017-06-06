@@ -26,9 +26,8 @@ import (
 // and that's is the simplest way to get one in there.
 type DeployLocalSuite struct {
 	testing.JujuConnSuite
-	repo        charmrepo.Interface
-	charm       *state.Charm
-	oldCacheDir string
+	repo  charmrepo.Interface
+	charm *state.Charm
 }
 
 var _ = gc.Suite(&DeployLocalSuite{})
@@ -423,16 +422,6 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 3)
 	c.Assert(f.args.Placement, gc.DeepEquals, placement)
-}
-
-func (s *DeployLocalSuite) assertAssignedUnit(c *gc.C, u *state.Unit, mId string, cons constraints.Value) {
-	id, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	machineCons, err := machine.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineCons, gc.DeepEquals, cons)
 }
 
 func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, expect *charm.URL) {

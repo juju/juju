@@ -286,6 +286,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
+	// Fetch spaces from substrate
+	if err = st.ReloadSpaces(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return err
+		}
+	}
+
 	// Populate the tools catalogue.
 	if err := c.populateTools(st, env); err != nil {
 		return err

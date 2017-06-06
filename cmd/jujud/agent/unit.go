@@ -118,6 +118,7 @@ func (a *UnitAgent) Init(args []string) error {
 			Filename:   agent.LogFilename(agentConfig),
 			MaxSize:    300, // megabytes
 			MaxBackups: 2,
+			Compress:   true,
 		}
 
 	}

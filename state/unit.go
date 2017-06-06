@@ -1135,7 +1135,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
