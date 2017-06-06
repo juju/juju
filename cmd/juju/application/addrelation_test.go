@@ -11,6 +11,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -35,7 +36,7 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
-	cmd := NewAddRelationCommandForTest(s.mockAPI)
+	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
 	cmd.SetClientStore(NewMockStore())
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
@@ -84,7 +85,7 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	cmd := NewAddRelationCommandForTest(s.mockAPI)
+	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
 	cmd.SetClientStore(NewMockStore())
 	ctx, _ := cmdtesting.RunCommand(c, cmd, "application1", "application2")
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
@@ -109,4 +110,12 @@ func (s mockAddAPI) AddRelation(endpoints ...string) (*params.AddRelationResults
 func (s mockAddAPI) BestAPIVersion() int {
 	s.MethodCall(s, "BestAPIVersion")
 	return 2
+}
+
+func (mockAddAPI) Consume(params.ApplicationOffer, string, *macaroon.Macaroon) (string, error) {
+	return "", errors.New("unexpected method call: Consume")
+}
+
+func (mockAddAPI) GetConsumeDetails(string) (params.ConsumeOfferDetails, error) {
+	return params.ConsumeOfferDetails{}, errors.New("unexpected method call: GetConsumeDetails")
 }
