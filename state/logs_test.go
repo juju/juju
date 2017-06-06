@@ -258,12 +258,12 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 
 	// Logs for second env should be pruned.
 	c.Assert(s.countLogs(c, s1), jc.LessThan, startingLogsS1)
-	c.Assert(s.countLogs(c, s1), jc.GreaterThan, 5000)
+	c.Assert(s.countLogs(c, s1), jc.GreaterThan, 2000)
 
 	// Logs for third env should be pruned to a similar level as
 	// second env.
 	c.Assert(s.countLogs(c, s2), jc.LessThan, startingLogsS1)
-	c.Assert(s.countLogs(c, s2), jc.GreaterThan, 5000)
+	c.Assert(s.countLogs(c, s2), jc.GreaterThan, 2000)
 
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
