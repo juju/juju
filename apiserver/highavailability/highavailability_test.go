@@ -238,7 +238,7 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
-		constraints.MustParse("mem=4G"),
+		{},
 		constraints.MustParse("mem=4G"),
 	}
 	expectedPlacement := []string{"", "valid", ""}
