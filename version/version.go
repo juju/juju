@@ -31,6 +31,8 @@ var Current = semversion.MustParse(version)
 
 var Compiler = runtime.Compiler
 
+var Foobar = ""
+
 func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
