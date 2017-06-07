@@ -18,8 +18,9 @@ type mockBackend struct {
 	modelFilesystemAttachmentsW   *watchertest.StringsWatcher
 	modelVolumeAttachmentsW       *watchertest.StringsWatcher
 
-	filesystems       map[string]*mockFilesystem
-	volumeAttachments map[string]*mockVolumeAttachment
+	filesystems               map[string]*mockFilesystem
+	volumeAttachments         map[string]*mockVolumeAttachment
+	volumeAttachmentRequested chan names.VolumeTag
 }
 
 func (b *mockBackend) Filesystem(tag names.FilesystemTag) (state.Filesystem, error) {
@@ -36,6 +37,15 @@ func (b *mockBackend) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (s
 		// never get here.
 		return nil, errors.New("should not get here")
 	}
+	// Inform the test code that the volume attachment has been requested.
+	// This gives the test a way of knowing when events have been handled,
+	// and it's safe to make modifications.
+	defer func() {
+		select {
+		case b.volumeAttachmentRequested <- v:
+		default:
+		}
+	}()
 	if a, ok := b.volumeAttachments[v.Id()]; ok {
 		return a, nil
 	}
