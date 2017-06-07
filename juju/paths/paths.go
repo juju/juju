@@ -22,6 +22,7 @@ const (
 	metricsSpoolDir
 	uniterStateDir
 	jujuDumpLogs
+	jujuIntrospect
 )
 
 var nixVals = map[osVarType]string{
@@ -32,6 +33,7 @@ var nixVals = map[osVarType]string{
 	confDir:         "/etc/juju",
 	jujuRun:         "/usr/bin/juju-run",
 	jujuDumpLogs:    "/usr/bin/juju-dumplogs",
+	jujuIntrospect:  "/usr/bin/juju-introspect",
 	certDir:         "/etc/juju/certs.d",
 	metricsSpoolDir: "/var/lib/juju/metricspool",
 	uniterStateDir:  "/var/lib/juju/uniter/state",
@@ -45,6 +47,7 @@ var winVals = map[osVarType]string{
 	confDir:         "C:/Juju/etc",
 	jujuRun:         "C:/Juju/bin/juju-run.exe",
 	jujuDumpLogs:    "C:/Juju/bin/juju-dumplogs.exe",
+	jujuIntrospect:  "C:/Juju/bin/juju-introspect.exe",
 	certDir:         "C:/Juju/certs",
 	metricsSpoolDir: "C:/Juju/lib/juju/metricspool",
 	uniterStateDir:  "C:/Juju/lib/juju/uniter/state",
@@ -120,6 +123,12 @@ func JujuRun(series string) (string, error) {
 // for a particular series.
 func JujuDumpLogs(series string) (string, error) {
 	return osVal(series, jujuDumpLogs)
+}
+
+// JujuIntrospect returns the absolute path to the juju-introspect
+// binary for a particular series.
+func JujuIntrospect(series string) (string, error) {
+	return osVal(series, jujuIntrospect)
 }
 
 func MustSucceed(s string, e error) string {
