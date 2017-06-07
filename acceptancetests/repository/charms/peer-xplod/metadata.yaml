@@ -5,8 +5,11 @@ description: |
   Every peer connects to every other peer, and on every change, broadcasts an update to its own values.
   This triggers all the other units to wake up and try to do the same.
   You can use the config setting "maximum" to cause the exploding to stop after reaching a certain value.
-categories:
+tags:
   - misc
+series:
+  - xenial
+  - trusty
 subordinate: false
 peers:
   xplod:
