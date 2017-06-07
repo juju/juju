@@ -803,7 +803,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	_, done := s.waitForOpenState(c, a)
 
 	// Symlinks should have been created
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range []string{jujuRun, jujuDumpLogs, jujuIntrospect} {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
 	}
@@ -823,7 +823,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	defer a.Stop()
 
 	// Pre-create the symlinks, but pointing to the incorrect location.
-	links := []string{jujuRun, jujuDumpLogs}
+	links := []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 	a.rootDir = c.MkDir()
 	for _, link := range links {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
@@ -853,9 +853,8 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// juju-run and juju-dumplogs symlinks should have been removed on
-	// termination.
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	// juju-* symlinks should have been removed on termination.
+	for _, link := range []string{jujuRun, jujuDumpLogs, jujuIntrospect} {
 		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
