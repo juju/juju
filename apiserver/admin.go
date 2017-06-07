@@ -90,6 +90,9 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 			// Users are not rate limited, all other entities are.
 			if !a.srv.limiter.Acquire() {
 				logger.Debugf("rate limiting for agent %s", req.AuthTag)
+				select {
+				case <-time.After(loginRetyPause):
+				}
 				return fail, common.ErrTryAgain
 			}
 			defer a.srv.limiter.Release()

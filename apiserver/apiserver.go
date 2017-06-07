@@ -11,11 +11,14 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/websocket"
@@ -47,9 +50,43 @@ var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
-// loginRateLimit defines how many concurrent Login requests we will
-// accept
-const loginRateLimit = 10
+// These vars define how we rate limit incoming connections.
+var (
+	loginRateLimit = 10
+	loginMinPause  = 100 * time.Millisecond
+	loginMaxPause  = 1 * time.Second
+	loginRetyPause = 5 * time.Second
+	connMinPause   = 10 * time.Millisecond
+	connMaxPause   = 5 * time.Second
+)
+
+// These knobs are only intended to set various rate limits are for testing,
+// not general use.
+func init() {
+	var (
+		num int
+		dur time.Duration
+		err error
+	)
+	if num, err = strconv.Atoi(os.Getenv("JUJU_AGENT_LOGIN_RATE_LIMIT")); err == nil {
+		loginRateLimit = num
+	}
+	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_LOGIN_MIN_PAUSE")); err == nil {
+		loginMinPause = dur
+	}
+	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_LOGIN_MAX_PAUSE")); err == nil {
+		loginMaxPause = dur
+	}
+	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_LOGIN_RETRY_PAUSE")); err == nil {
+		loginRetyPause = dur
+	}
+	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_CONN_MIN_PAUSE")); err == nil {
+		connMinPause = dur
+	}
+	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_CONN_MAX_PAUSE")); err == nil {
+		connMaxPause = dur
+	}
+}
 
 // Server holds the server side of the API.
 type Server struct {
@@ -212,7 +249,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
-		limiter:                       utils.NewLimiter(loginRateLimit),
+		limiter:                       utils.NewLimiterWithPause(loginRateLimit, loginMinPause, loginMaxPause, clock.WallClock),
 		validator:                     cfg.Validator,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
@@ -223,7 +260,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
-	srv.lis = tls.NewListener(lis, srv.tlsConfig)
+	srv.lis = newThrottlingListener(tls.NewListener(lis, srv.tlsConfig), connMinPause, connMaxPause, clock.WallClock)
 
 	srv.authCtxt, err = newAuthContext(s)
 	if err != nil {
