@@ -793,6 +793,7 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFu
 		if err == nil || !isNotFoundError(err) {
 			break
 		}
+		logger.Debugf("Starting failed with: %v", err)
 		try++
 	}
 	return resp, err
