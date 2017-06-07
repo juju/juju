@@ -43,6 +43,7 @@ func (s *WatchersSuite) SetUpTest(c *gc.C) {
 			"1": {life: state.Alive},
 			"2": {life: state.Alive},
 		},
+		volumeAttachmentRequested: make(chan names.VolumeTag, 10),
 	}
 	s.AddCleanup(func(*gc.C) {
 		s.backend.machineFilesystemsW.Stop()
@@ -150,6 +151,8 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c
 	// ... but before the client consumes the event, the backing volume
 	// attachments 0:1 and 0:2 become Dead and removed respectively,
 	// negating the previous change.
+	<-s.backend.volumeAttachmentRequested
+	<-s.backend.volumeAttachmentRequested
 	s.backend.volumeAttachments["1"].life = state.Dead
 	delete(s.backend.volumeAttachments, "2")
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2"}
@@ -221,6 +224,8 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	// ... but before the client consumes the event, the backing volume
 	// attachments 0:1 and 0:2 become Dead and removed respectively,
 	// negating the previous change.
+	<-s.backend.volumeAttachmentRequested
+	<-s.backend.volumeAttachmentRequested
 	s.backend.volumeAttachments["1"].life = state.Dead
 	delete(s.backend.volumeAttachments, "2")
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2"}
