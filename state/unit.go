@@ -346,15 +346,14 @@ func (u *Unit) Destroy() (err error) {
 }
 
 func (u *Unit) eraseHistory() error {
-	history, closer := u.st.getCollection(statusesHistoryC)
-	defer closer()
-	historyW := history.Writeable()
-
-	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
-		return err
+	if err := eraseStatusHistory(u.st, u.globalKey()); err != nil {
+		return errors.Annotate(err, "workload")
 	}
-	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
-		return err
+	if err := eraseStatusHistory(u.st, u.globalAgentKey()); err != nil {
+		return errors.Annotate(err, "agent")
+	}
+	if err := eraseStatusHistory(u.st, u.globalWorkloadVersionKey()); err != nil {
+		return errors.Annotate(err, "version")
 	}
 	return nil
 }
