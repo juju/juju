@@ -201,6 +201,9 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 func (c *Client) DumpModel(model names.ModelTag, simplified bool) (map[string]interface{}, error) {
 	if bestVer := c.BestAPIVersion(); bestVer < 3 {
 		logger.Debugf("calling older dump model on v%d", bestVer)
+		if simplified {
+			logger.Warningf("simplified dump-model not available, server too old")
+		}
 		return c.dumpModelV2(model)
 	}
 

@@ -54,6 +54,7 @@ func createArgs(owner names.UserTag) params.ModelCreateArgs {
 type modelManagerSuite struct {
 	gitjujutesting.IsolationSuite
 	st         *mockState
+	pool       *mockPool
 	authoriser apiservertesting.FakeAuthorizer
 	api        *modelmanager.ModelManagerAPI
 }
@@ -142,14 +143,15 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
-	api, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authoriser)
+	s.pool = &mockPool{s.st}
+	api, err := modelmanager.NewModelManagerAPI(s.st, s.pool, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	mm, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authoriser)
+	mm, err := modelmanager.NewModelManagerAPI(s.st, s.pool, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -548,7 +550,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	calls := s.st.Calls()
 	c.Logf("%#v", calls)
 	lastCall := calls[len(calls)-1]
-	c.Check(lastCall.FuncName, gc.Equals, "ForModel")
+	c.Check(lastCall.FuncName, gc.Equals, "ModelUUID")
 
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -701,6 +703,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.State),
+		nil,
 		stateenvirons.EnvironConfigGetter{s.State},
 		s.authoriser,
 	)
@@ -712,7 +715,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State), nil, anAuthoriser,
+		common.NewModelManagerBackend(s.State), nil, nil, anAuthoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -722,7 +725,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State), nil, anAuthoriser,
+		common.NewModelManagerBackend(s.State), nil, nil, anAuthoriser,
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -938,7 +941,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), nil, s.authoriser,
+		common.NewModelManagerBackend(st), nil, nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -966,7 +969,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), nil, s.authoriser,
+		common.NewModelManagerBackend(st), nil, nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -996,7 +999,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), nil, s.authoriser,
+		common.NewModelManagerBackend(st), nil, nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

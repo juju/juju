@@ -61,6 +61,7 @@ type ModelManagerV2 interface {
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
+	pool        StatePool
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
@@ -80,24 +81,47 @@ var (
 )
 
 // NewFacade is used for API registration.
-func NewFacadeV3(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
+func NewFacadeV3(ctx facade.Context) (*ModelManagerAPI, error) {
+	st := ctx.State()
+	auth := ctx.Auth()
+	pool := ctx.StatePool()
 	configGetter := stateenvirons.EnvironConfigGetter{st}
-	return NewModelManagerAPI(common.NewModelManagerBackend(st), configGetter, auth)
+
+	return NewModelManagerAPI(
+		common.NewModelManagerBackend(st),
+		&statePool{pool}, configGetter, auth)
 }
 
 // NewFacade is used for API registration.
-func NewFacadeV2(st *state.State, resources facade.Resources, auth facade.Authorizer) (*ModelManagerAPIV2, error) {
-	v3, err := NewFacadeV3(st, resources, auth)
+func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
+	v3, err := NewFacadeV3(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &ModelManagerAPIV2{v3}, nil
 }
 
+// StatePool provides access to a pool of states.
+type StatePool interface {
+	Get(modelUUID string) (common.ModelManagerBackend, func(), error)
+}
+
+// TODO: move statePool shim into common package.
+type statePool struct {
+	pool *state.StatePool
+}
+
+// Get implements StatePool.
+func (p *statePool) Get(modelUUID string) (common.ModelManagerBackend, func(), error) {
+	st, releaser, err := p.pool.Get(modelUUID)
+	return common.NewModelManagerBackend(st), releaser, err
+}
+
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
+	statePool StatePool,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
 ) (*ModelManagerAPI, error) {
@@ -117,6 +141,7 @@ func NewModelManagerAPI(
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
+		pool:           statePool,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
@@ -380,18 +405,14 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte
 		return nil, common.ErrPerm
 	}
 
-	st := m.state
-	if st.ModelTag() != modelTag {
-		// XXX state pool
-		st, err = m.state.ForModel(modelTag)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Trace(common.ErrBadId)
-			}
-			return nil, errors.Trace(err)
+	st, releaser, err := m.pool.Get(modelTag.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.Trace(common.ErrBadId)
 		}
-		defer st.Close()
+		return nil, errors.Trace(err)
 	}
+	defer releaser()
 
 	var exportConfig state.ExportConfig
 	if simplified {
@@ -467,6 +488,9 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 	return st.DumpAll()
 }
 
+// DumpModels will export the models into the database agnostic
+// representation. The user needs to either be a controller admin, or have
+// admin privileges on the model itself.
 func (m *ModelManagerAPI) DumpModels(args params.DumpModelRequest) params.StringResults {
 	results := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
