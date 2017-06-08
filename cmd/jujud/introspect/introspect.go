@@ -37,8 +37,8 @@ type IntrospectCommand struct {
 const introspectCommandDoc = `
 Introspect Juju agents running on this machine.
 
-The juju-introspect can be used to expose the
-agent's introspection socket via HTTP, using
+The juju-introspect command can be used to expose
+the agent's introspection socket via HTTP, using
 the --listen flag. e.g.
 
     juju-introspect --listen=:6060
