@@ -244,7 +244,37 @@ type dumpModelSuite struct {
 
 var _ = gc.Suite(&dumpModelSuite{})
 
-func (s *dumpModelSuite) TestDumpModel(c *gc.C) {
+func (s *dumpModelSuite) TestDumpModelV3(c *gc.C) {
+	expected := map[string]interface{}{
+		"model-uuid": "some-uuid",
+		"other-key":  "special",
+	}
+	results := params.StringResults{Results: []params.StringResult{{
+		Result: "model-uuid: some-uuid\nother-key: special\n",
+	}}}
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 3,
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, args, result interface{}) error {
+				c.Check(objType, gc.Equals, "ModelManager")
+				c.Check(request, gc.Equals, "DumpModels")
+				c.Check(version, gc.Equals, 3)
+				c.Assert(args, gc.DeepEquals, params.DumpModelRequest{
+					Entities:   []params.Entity{{testing.ModelTag.String()}},
+					Simplified: true})
+				res, ok := result.(*params.StringResults)
+				c.Assert(ok, jc.IsTrue)
+				*res = results
+				return nil
+			}),
+	}
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.DumpModel(testing.ModelTag, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func (s *dumpModelSuite) TestDumpModelV2(c *gc.C) {
 	expected := map[string]interface{}{
 		"model-uuid": "some-uuid",
 		"other-key":  "special",
@@ -252,37 +282,61 @@ func (s *dumpModelSuite) TestDumpModel(c *gc.C) {
 	results := params.MapResults{Results: []params.MapResult{{
 		Result: expected,
 	}}}
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, args, result interface{}) error {
-			c.Check(objType, gc.Equals, "ModelManager")
-			c.Check(request, gc.Equals, "DumpModels")
-			in, ok := args.(params.Entities)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(in, gc.DeepEquals, params.Entities{[]params.Entity{{testing.ModelTag.String()}}})
-			res, ok := result.(*params.MapResults)
-			c.Assert(ok, jc.IsTrue)
-			*res = results
-			return nil
-		})
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 2,
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, args, result interface{}) error {
+				c.Check(objType, gc.Equals, "ModelManager")
+				c.Check(request, gc.Equals, "DumpModels")
+				c.Check(version, gc.Equals, 2)
+				c.Assert(args, gc.DeepEquals, params.Entities{[]params.Entity{{testing.ModelTag.String()}}})
+				res, ok := result.(*params.MapResults)
+				c.Assert(ok, jc.IsTrue)
+				*res = results
+				return nil
+			}),
+	}
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModel(testing.ModelTag)
+	out, err := client.DumpModel(testing.ModelTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, expected)
 }
 
-func (s *dumpModelSuite) TestDumpModelError(c *gc.C) {
-	results := params.MapResults{Results: []params.MapResult{{
+func (s *dumpModelSuite) TestDumpModelErrorV3(c *gc.C) {
+	results := params.StringResults{Results: []params.StringResult{{
 		Error: &params.Error{Message: "fake error"},
 	}}}
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, args, result interface{}) error {
-			res, ok := result.(*params.MapResults)
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 3,
+		APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+			res, ok := result.(*params.StringResults)
 			c.Assert(ok, jc.IsTrue)
 			*res = results
 			return nil
-		})
+		}),
+	}
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModel(testing.ModelTag)
+	out, err := client.DumpModel(testing.ModelTag, false)
+	c.Assert(err, gc.ErrorMatches, "fake error")
+	c.Assert(out, gc.IsNil)
+}
+
+func (s *dumpModelSuite) TestDumpModelErrorV2(c *gc.C) {
+	results := params.MapResults{Results: []params.MapResult{{
+		Error: &params.Error{Message: "fake error"},
+	}}}
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 2,
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, args, result interface{}) error {
+				res, ok := result.(*params.MapResults)
+				c.Assert(ok, jc.IsTrue)
+				*res = results
+				return nil
+			}),
+	}
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.DumpModel(testing.ModelTag, false)
 	c.Assert(err, gc.ErrorMatches, "fake error")
 	c.Assert(out, gc.IsNil)
 }
