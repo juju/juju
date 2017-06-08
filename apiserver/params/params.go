@@ -989,3 +989,11 @@ type DestroyUnitInfo struct {
 	// destroyed as a result of destroying the unit.
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
 }
+
+// DumpModelRequest wraps the request for a dump-model call.
+// A simplified dump will not contain a complete export, but instead
+// a reduced set that is determined by the server.
+type DumpModelRequest struct {
+	Entities   []Entity `json:"entities"`
+	Simplified bool     `json:"simplified"`
+}

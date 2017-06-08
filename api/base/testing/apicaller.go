@@ -53,6 +53,16 @@ func (APICallerFunc) ConnectControllerStream(path string, attrs url.Values, head
 	return nil, errors.NotImplementedf("controller stream connection")
 }
 
+// BestVersionCaller is an APICallerFunc that has a particular best version.
+type BestVersionCaller struct {
+	APICallerFunc
+	BestVersion int
+}
+
+func (c BestVersionCaller) BestFacadeVersion(facade string) int {
+	return c.BestVersion
+}
+
 // CallChecker is an APICaller implementation that checks
 // calls as they are made.
 type CallChecker struct {

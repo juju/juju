@@ -492,8 +492,10 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 	c.Assert(cfg.Config["attr2"].Controller.(string), gc.Equals, "val3")
 }
 
-func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
-	results := s.api.DumpModels(params.Entities{[]params.Entity{{
+func (s *modelManagerSuite) TestDumpModelV2(c *gc.C) {
+	api := &modelmanager.ModelManagerAPIV2{s.api}
+
+	results := api.DumpModels(params.Entities{[]params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: "application-foo",
@@ -515,10 +517,32 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 	})
 }
 
+func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
+	results := s.api.DumpModels(params.DumpModelRequest{
+		Entities: []params.Entity{{
+			Tag: "bad-tag",
+		}, {
+			Tag: "application-foo",
+		}, {
+			Tag: s.st.ModelTag().String(),
+		}}})
+
+	c.Assert(results.Results, gc.HasLen, 3)
+	bad, notApp, good := results.Results[0], results.Results[1], results.Results[2]
+	c.Check(bad.Result, gc.Equals, "")
+	c.Check(bad.Error.Message, gc.Equals, `"bad-tag" is not a valid tag`)
+
+	c.Check(notApp.Result, gc.Equals, "")
+	c.Check(notApp.Error.Message, gc.Equals, `"application-foo" is not a valid model tag`)
+
+	c.Check(good.Error, gc.IsNil)
+	c.Check(good.Result, jc.DeepEquals, "model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n")
+}
+
 func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	s.st.SetErrors(errors.NotFoundf("boom"))
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
-	models := params.Entities{[]params.Entity{{Tag: tag.String()}}}
+	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModels(models)
 
 	calls := s.st.Calls()
@@ -528,14 +552,14 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Result, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "")
 	c.Assert(result.Error, gc.NotNil)
 	c.Check(result.Error.Code, gc.Equals, `not found`)
 	c.Check(result.Error.Message, gc.Equals, `id not found`)
 }
 
 func (s *modelManagerSuite) TestDumpModelUsers(c *gc.C) {
-	models := params.Entities{[]params.Entity{{Tag: s.st.ModelTag().String()}}}
+	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: s.st.ModelTag().String()}}}
 	for _, user := range []names.UserTag{
 		names.NewUserTag("otheruser"),
 		names.NewUserTag("unknown"),
@@ -544,7 +568,7 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *gc.C) {
 		results := s.api.DumpModels(models)
 		c.Assert(results.Results, gc.HasLen, 1)
 		result := results.Results[0]
-		c.Assert(result.Result, gc.IsNil)
+		c.Assert(result.Result, gc.Equals, "")
 		c.Assert(result.Error, gc.NotNil)
 		c.Check(result.Error.Message, gc.Equals, `permission denied`)
 	}

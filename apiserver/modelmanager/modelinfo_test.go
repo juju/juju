@@ -563,6 +563,10 @@ func (st *mockState) Export() (description.Model, error) {
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
+func (st *mockState) ExportPartial(state.ExportConfig) (description.Model, error) {
+	return st.Export()
+}
+
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
 	return st.model.UUID()

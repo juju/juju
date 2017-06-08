@@ -12,6 +12,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -36,8 +36,19 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
-// ModelManager defines the methods on the modelmanager API endpoint.
-type ModelManager interface {
+// ModelManagerV3 defines the methods on the version 2 facade for the
+// modelmanager API endpoint.
+type ModelManagerV3 interface {
+	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
+	DumpModels(args params.DumpModelRequest) params.StringResults
+	DumpModelsDB(args params.Entities) params.MapResults
+	ListModels(user params.Entity) (params.UserModelList, error)
+	DestroyModels(args params.Entities) (params.ErrorResults, error)
+}
+
+// ModelManagerV2 defines the methods on the version 2 facade for the
+// modelmanager API endpoint.
+type ModelManagerV2 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.Entities) params.MapResults
 	DumpModelsDB(args params.Entities) params.MapResults
@@ -57,12 +68,30 @@ type ModelManagerAPI struct {
 	isAdmin     bool
 }
 
-var _ ModelManager = (*ModelManagerAPI)(nil)
+// ModelManagerAPIV2 provides a way to wrap the different calls between
+// version 2 and version 3 of the model manager API
+type ModelManagerAPIV2 struct {
+	*ModelManagerAPI
+}
+
+var (
+	_ ModelManagerV3 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
+)
 
 // NewFacade is used for API registration.
-func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
+func NewFacadeV3(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	return NewModelManagerAPI(common.NewModelManagerBackend(st), configGetter, auth)
+}
+
+// NewFacade is used for API registration.
+func NewFacadeV2(st *state.State, resources facade.Resources, auth facade.Authorizer) (*ModelManagerAPIV2, error) {
+	v3, err := NewFacadeV3(st, resources, auth)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV2{v3}, nil
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -337,7 +366,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	return m.getModelInfo(model.ModelTag())
 }
 
-func (m *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}, error) {
+func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -353,6 +382,7 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{},
 
 	st := m.state
 	if st.ModelTag() != modelTag {
+		// XXX state pool
 		st, err = m.state.ForModel(modelTag)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -363,7 +393,32 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{},
 		defer st.Close()
 	}
 
-	bytes, err := migration.ExportModel(st)
+	var exportConfig state.ExportConfig
+	if simplified {
+		exportConfig.SkipActions = true
+		exportConfig.SkipAnnotations = true
+		exportConfig.SkipCloudImageMetadata = true
+		exportConfig.SkipCredentials = true
+		exportConfig.SkipIPAddresses = true
+		exportConfig.SkipSettings = true
+		exportConfig.SkipSSHHostKeys = true
+		exportConfig.SkipStatusHistory = true
+		exportConfig.SkipLinkLayerDevices = true
+	}
+
+	model, err := st.ExportPartial(exportConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bytes, err := description.Serialize(model)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bytes, nil
+}
+
+func (m *ModelManagerAPIV2) dumpModel(args params.Entity) (map[string]interface{}, error) {
+	bytes, err := m.ModelManagerAPI.dumpModel(args, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -412,10 +467,26 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 	return st.DumpAll()
 }
 
+func (m *ModelManagerAPI) DumpModels(args params.DumpModelRequest) params.StringResults {
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		bytes, err := m.dumpModel(entity, args.Simplified)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// We know here that the bytes are valid YAML.
+		results.Results[i].Result = string(bytes)
+	}
+	return results
+}
+
 // DumpModels will export the models into the database agnostic
 // representation. The user needs to either be a controller admin, or have
 // admin privileges on the model itself.
-func (m *ModelManagerAPI) DumpModels(args params.Entities) params.MapResults {
+func (m *ModelManagerAPIV2) DumpModels(args params.Entities) params.MapResults {
 	results := params.MapResults{
 		Results: make([]params.MapResult, len(args.Entities)),
 	}
