@@ -136,7 +136,7 @@ def update_locally():
 
 
 def check_set_v(v, maximum, info, relation_id=None):
-    if v <= maximum:
+    if maximum <= 0 or v <= maximum:
         juju_log("setting v %s.v=%s" % (unitName, v))
         relation_set(relation_id=relation_id, v=v, stopped="")
         set_unit_status(STATE_ACTIVE)
@@ -144,7 +144,7 @@ def check_set_v(v, maximum, info, relation_id=None):
         juju_log("maximum (%s) exceeded %s" % (maximum, v))
         check_set_stopped(info, maximum, relation_id=relation_id)
         set_unit_status(STATE_WAITING, "reached maximum count %d" % (maximum,))
-    
+
 
 def update_value():
     info = my_info()
