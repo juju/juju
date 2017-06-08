@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
+	"github.com/juju/juju/provider/azure/internal/azurecli"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 )
@@ -32,10 +33,9 @@ var _ = gc.Suite(&environProviderSuite{})
 func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                            &s.sender,
-		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
-		RandomWindowsAdminPassword:        func() string { return "sorandom" },
-		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
+		Sender:                     &s.sender,
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.spec = environs.CloudSpec{
 		Type:             "azure",
@@ -108,8 +108,11 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 	if config.RetryClock == nil {
 		config.RetryClock = jujutesting.NewClock(time.Time{})
 	}
-	if config.InteractiveCreateServicePrincipal == nil {
-		config.InteractiveCreateServicePrincipal = azureauth.InteractiveCreateServicePrincipal
+	if config.ServicePrincipalCreator == nil {
+		config.ServicePrincipalCreator = &azureauth.ServicePrincipalCreator{}
+	}
+	if config.AzureCLI == nil {
+		config.AzureCLI = azurecli.AzureCLI{}
 	}
 	config.RandomWindowsAdminPassword = func() string { return "sorandom" }
 	config.GenerateSSHKey = func(string) (string, string, error) {
