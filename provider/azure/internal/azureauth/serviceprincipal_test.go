@@ -166,37 +166,38 @@ func (s *InteractiveSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InteractiveSuite) TestInteractive(c *gc.C) {
-
 	var requests []*http.Request
-	senders := azuretesting.Senders{
-		oauthConfigSender(),
-		deviceCodeSender(),
-		tokenSender(), // CheckForUserCompletion returns a token.
+	spc := azureauth.ServicePrincipalCreator{
+		Sender: &azuretesting.Senders{
+			oauthConfigSender(),
+			deviceCodeSender(),
+			tokenSender(), // CheckForUserCompletion returns a token.
 
-		// Token.Refresh returns a token. We do this
-		// twice: once for ARM, and once for AAD.
-		tokenSender(),
-		tokenSender(),
+			// Token.Refresh returns a token. We do this
+			// twice: once for ARM, and once for AAD.
+			tokenSender(),
+			tokenSender(),
 
-		currentUserSender(),
-		createServicePrincipalSender(),
-		roleDefinitionListSender(),
-		roleAssignmentSender(),
+			currentUserSender(),
+			createServicePrincipalSender(),
+			roleDefinitionListSender(),
+			roleAssignmentSender(),
+		},
+		RequestInspector: azuretesting.RequestRecorder(&requests),
+		Clock:            s.clock,
+		NewUUID:          s.newUUID,
 	}
 
 	var stderr bytes.Buffer
 	subscriptionId := "22222222-2222-2222-2222-222222222222"
-	appId, password, err := azureauth.InteractiveCreateServicePrincipal(
-		&stderr,
-		&senders,
-		azuretesting.RequestRecorder(&requests),
-		"https://arm.invalid",
-		"https://management.core.invalid/",
-		"https://graph.invalid",
-		subscriptionId,
-		s.clock,
-		s.newUUID,
-	)
+
+	appId, password, err := spc.InteractiveCreate(&stderr, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid",
+		GraphResourceId:           "https://graph.invalid",
+		ResourceManagerEndpoint:   "https://arm.invalid",
+		ResourceManagerResourceId: "https://management.core.invalid/",
+		SubscriptionId:            subscriptionId,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appId, gc.Equals, "cbb548f1-5039-4836-af0b-727e8571f6a9")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
@@ -206,8 +207,6 @@ Initiating interactive authentication.
 open your browser, etc.
 
 Authenticated as "Foo Bar".
-Creating/updating service principal.
-Assigning Owner role to service principal.
 `[1:])
 
 	c.Assert(requests, gc.HasLen, 9)
@@ -248,28 +247,29 @@ func assertPasswordCredential(c *gc.C, cred ad.PasswordCredential) {
 
 func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 	var requests []*http.Request
-	senders := azuretesting.Senders{
-		oauthConfigSender(),
-		deviceCodeSender(),
-		tokenSender(),
-		tokenSender(),
-		tokenSender(),
-		currentUserSender(),
-		createServicePrincipalSender(),
-		roleDefinitionListSender(),
-		roleAssignmentAlreadyExistsSender(),
+	spc := azureauth.ServicePrincipalCreator{
+		Sender: &azuretesting.Senders{
+			oauthConfigSender(),
+			deviceCodeSender(),
+			tokenSender(),
+			tokenSender(),
+			tokenSender(),
+			currentUserSender(),
+			createServicePrincipalSender(),
+			roleDefinitionListSender(),
+			roleAssignmentAlreadyExistsSender(),
+		},
+		RequestInspector: azuretesting.RequestRecorder(&requests),
+		Clock:            s.clock,
+		NewUUID:          s.newUUID,
 	}
-	_, _, err := azureauth.InteractiveCreateServicePrincipal(
-		ioutil.Discard,
-		&senders,
-		azuretesting.RequestRecorder(&requests),
-		"https://arm.invalid",
-		"https://management.core.invalid/",
-		"https://graph.invalid",
-		"22222222-2222-2222-2222-222222222222",
-		s.clock,
-		s.newUUID,
-	)
+	_, _, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid",
+		GraphResourceId:           "https://graph.invalid",
+		ResourceManagerEndpoint:   "https://arm.invalid",
+		ResourceManagerResourceId: "https://management.core.invalid/",
+		SubscriptionId:            "22222222-2222-2222-2222-222222222222",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -287,31 +287,32 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalAlreadyExistsWithUTF8B
 
 func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C, withUTF8BOM bool) {
 	var requests []*http.Request
-	senders := azuretesting.Senders{
-		oauthConfigSender(),
-		deviceCodeSender(),
-		tokenSender(),
-		tokenSender(),
-		tokenSender(),
-		currentUserSender(),
-		createServicePrincipalAlreadyExistsSender(withUTF8BOM),
-		servicePrincipalListSender(),
-		passwordCredentialsListSender(),
-		updatePasswordCredentialsSender(),
-		roleDefinitionListSender(),
-		roleAssignmentAlreadyExistsSender(),
+	spc := azureauth.ServicePrincipalCreator{
+		Sender: &azuretesting.Senders{
+			oauthConfigSender(),
+			deviceCodeSender(),
+			tokenSender(),
+			tokenSender(),
+			tokenSender(),
+			currentUserSender(),
+			createServicePrincipalAlreadyExistsSender(withUTF8BOM),
+			servicePrincipalListSender(),
+			passwordCredentialsListSender(),
+			updatePasswordCredentialsSender(),
+			roleDefinitionListSender(),
+			roleAssignmentAlreadyExistsSender(),
+		},
+		RequestInspector: azuretesting.RequestRecorder(&requests),
+		Clock:            s.clock,
+		NewUUID:          s.newUUID,
 	}
-	_, password, err := azureauth.InteractiveCreateServicePrincipal(
-		ioutil.Discard,
-		&senders,
-		azuretesting.RequestRecorder(&requests),
-		"https://arm.invalid",
-		"https://management.core.invalid/",
-		"https://graph.invalid",
-		"22222222-2222-2222-2222-222222222222",
-		s.clock,
-		s.newUUID,
-	)
+	_, password, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid",
+		GraphResourceId:           "https://graph.invalid",
+		ResourceManagerEndpoint:   "https://arm.invalid",
+		ResourceManagerResourceId: "https://management.core.invalid/",
+		SubscriptionId:            "22222222-2222-2222-2222-222222222222",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 
@@ -354,32 +355,33 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalApplicationNotReferenc
 
 func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C, errorSender autorest.Sender) {
 	var requests []*http.Request
-	senders := azuretesting.Senders{
-		oauthConfigSender(),
-		deviceCodeSender(),
-		tokenSender(),
-		tokenSender(),
-		tokenSender(),
-		currentUserSender(),
-		errorSender,
-		createServicePrincipalSender(),
-		roleDefinitionListSender(),
-		roleAssignmentAlreadyExistsSender(),
-	}
-	_, password, err := azureauth.InteractiveCreateServicePrincipal(
-		ioutil.Discard,
-		&senders,
-		azuretesting.RequestRecorder(&requests),
-		"https://arm.invalid",
-		"https://management.core.invalid/",
-		"https://graph.invalid",
-		"22222222-2222-2222-2222-222222222222",
-		&testing.AutoAdvancingClock{
+	spc := azureauth.ServicePrincipalCreator{
+		Sender: &azuretesting.Senders{
+			oauthConfigSender(),
+			deviceCodeSender(),
+			tokenSender(),
+			tokenSender(),
+			tokenSender(),
+			currentUserSender(),
+			errorSender,
+			createServicePrincipalSender(),
+			roleDefinitionListSender(),
+			roleAssignmentAlreadyExistsSender(),
+		},
+		RequestInspector: azuretesting.RequestRecorder(&requests),
+		Clock: &testing.AutoAdvancingClock{
 			Clock:   s.clock,
 			Advance: s.clock.Advance,
 		},
-		s.newUUID,
-	)
+		NewUUID: s.newUUID,
+	}
+	_, password, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid",
+		GraphResourceId:           "https://graph.invalid",
+		ResourceManagerEndpoint:   "https://arm.invalid",
+		ResourceManagerResourceId: "https://management.core.invalid/",
+		SubscriptionId:            "22222222-2222-2222-2222-222222222222",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 
@@ -398,32 +400,33 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 
 func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 	var requests []*http.Request
-	senders := azuretesting.Senders{
-		oauthConfigSender(),
-		deviceCodeSender(),
-		tokenSender(),
-		tokenSender(),
-		tokenSender(),
-		currentUserSender(),
-		createServicePrincipalSender(),
-		roleDefinitionListSender(),
-		roleAssignmentPrincipalNotExistSender(),
-		roleAssignmentSender(),
-	}
-	_, password, err := azureauth.InteractiveCreateServicePrincipal(
-		ioutil.Discard,
-		&senders,
-		azuretesting.RequestRecorder(&requests),
-		"https://arm.invalid",
-		"https://management.core.invalid/",
-		"https://graph.invalid",
-		"22222222-2222-2222-2222-222222222222",
-		&testing.AutoAdvancingClock{
+	spc := azureauth.ServicePrincipalCreator{
+		Sender: &azuretesting.Senders{
+			oauthConfigSender(),
+			deviceCodeSender(),
+			tokenSender(),
+			tokenSender(),
+			tokenSender(),
+			currentUserSender(),
+			createServicePrincipalSender(),
+			roleDefinitionListSender(),
+			roleAssignmentPrincipalNotExistSender(),
+			roleAssignmentSender(),
+		},
+		RequestInspector: azuretesting.RequestRecorder(&requests),
+		Clock: &testing.AutoAdvancingClock{
 			Clock:   s.clock,
 			Advance: s.clock.Advance,
 		},
-		s.newUUID,
-	)
+		NewUUID: s.newUUID,
+	}
+	_, password, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+		GraphEndpoint:             "https://graph.invalid",
+		GraphResourceId:           "https://graph.invalid",
+		ResourceManagerEndpoint:   "https://arm.invalid",
+		ResourceManagerResourceId: "https://management.core.invalid/",
+		SubscriptionId:            "22222222-2222-2222-2222-222222222222",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 
