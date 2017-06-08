@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"strconv"
 	"time" // Only used for time types.
 
@@ -909,6 +910,54 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, s.unit)
+}
+
+func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
+	err := s.unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	now := coretesting.NonZeroTime()
+	for i := 0; i < 10; i++ {
+		info := status.StatusInfo{
+			Status:  status.Executing,
+			Message: fmt.Sprintf("status %d", i),
+			Since:   &now,
+		}
+		err := s.unit.SetAgentStatus(info)
+		c.Assert(err, jc.ErrorIsNil)
+		info.Status = status.Active
+		err = s.unit.SetStatus(info)
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = s.unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i))
+	}
+
+	filter := status.StatusHistoryFilter{Size: 100}
+	agentInfo, err := s.unit.AgentHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(agentInfo), jc.GreaterThan, 9)
+
+	workloadInfo, err := s.unit.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(workloadInfo), jc.GreaterThan, 9)
+
+	versionInfo, err := s.unit.WorkloadVersionHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(versionInfo), jc.GreaterThan, 9)
+
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentInfo, err = s.unit.AgentHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentInfo, gc.HasLen, 0)
+
+	workloadInfo, err = s.unit.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(workloadInfo, gc.HasLen, 0)
+
+	versionInfo, err = s.unit.WorkloadVersionHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(versionInfo, gc.HasLen, 0)
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
