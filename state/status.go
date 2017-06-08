@@ -163,6 +163,10 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 	}
 }
 
+// globalKeyField must have the same value as the tag for
+// historicalStatusDoc.GlobalKey.
+const globalKeyField = "globalkey"
+
 type historicalStatusDoc struct {
 	ModelUUID  string                 `bson:"model-uuid"`
 	GlobalKey  string                 `bson:"globalkey"`
@@ -189,6 +193,17 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 	if err := historyW.Insert(historyDoc); err != nil {
 		logger.Errorf("failed to write status history: %v", err)
 	}
+}
+
+func eraseStatusHistory(st *State, globalKey string) error {
+	history, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+	historyW := history.Writeable()
+
+	if _, err := historyW.RemoveAll(bson.D{{globalKeyField, globalKey}}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // statusHistoryArgs hold the arguments to call statusHistory.
