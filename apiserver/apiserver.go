@@ -11,10 +11,8 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -51,42 +49,14 @@ var logger = loggo.GetLogger("juju.apiserver")
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
 // These vars define how we rate limit incoming connections.
-var (
-	loginRateLimit = 10
-	loginMinPause  = 100 * time.Millisecond
-	loginMaxPause  = 1 * time.Second
-	loginRetyPause = 5 * time.Second
-	connMinPause   = 10 * time.Millisecond
-	connMaxPause   = 5 * time.Second
+const (
+	DefaultLoginRateLimit  = 10
+	DefaultLoginMinPause   = 100 * time.Millisecond
+	DefaultLoginMaxPause   = 1 * time.Second
+	DefaultLoginRetryPause = 5 * time.Second
+	DefaultConnMinPause    = 10 * time.Millisecond
+	DefaultConnMaxPause    = 5 * time.Second
 )
-
-// These knobs are only intended to set various rate limits are for testing,
-// not general use.
-func init() {
-	var (
-		num int
-		dur time.Duration
-		err error
-	)
-	if num, err = strconv.Atoi(os.Getenv("JUJU_AGENT_LOGIN_RATE_LIMIT")); err == nil {
-		loginRateLimit = num
-	}
-	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_LOGIN_MIN_PAUSE")); err == nil {
-		loginMinPause = dur
-	}
-	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_LOGIN_MAX_PAUSE")); err == nil {
-		loginMaxPause = dur
-	}
-	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_LOGIN_RETRY_PAUSE")); err == nil {
-		loginRetyPause = dur
-	}
-	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_CONN_MIN_PAUSE")); err == nil {
-		connMinPause = dur
-	}
-	if dur, err = time.ParseDuration(os.Getenv("JUJU_AGENT_CONN_MAX_PAUSE")); err == nil {
-		connMaxPause = dur
-	}
-}
 
 // Server holds the server side of the API.
 type Server struct {
@@ -101,6 +71,7 @@ type Server struct {
 	dataDir          string
 	logDir           string
 	limiter          utils.Limiter
+	loginRetryPause  time.Duration
 	validator        LoginValidator
 	facades          *facade.Registry
 	modelUUID        string
@@ -183,6 +154,10 @@ type ServerConfig struct {
 	// is to support registering the handlers underneath the
 	// "/introspection" prefix.
 	RegisterIntrospectionHandlers func(func(string, http.Handler))
+
+	// RateLimitConfig holds paramaters to control
+	// aspects of rate limiting connections and logins.
+	RateLimitConfig RateLimitConfig
 }
 
 func (c *ServerConfig) Validate() error {
@@ -199,7 +174,7 @@ func (c *ServerConfig) Validate() error {
 		return errors.NotValidf("missing StatePool")
 	}
 
-	return nil
+	return errors.Annotate(c.RateLimitConfig.Validate(), "validating rate limit configuration")
 }
 
 func (c *ServerConfig) pingClock() clock.Clock {
@@ -207,6 +182,40 @@ func (c *ServerConfig) pingClock() clock.Clock {
 		return c.Clock
 	}
 	return c.PingClock
+}
+
+// RateLimitConfig holds holds parameters to control
+// aspects of rate limiting connections and logins.
+type RateLimitConfig struct {
+	LoginRateLimit  int
+	LoginMinPause   time.Duration
+	LoginMaxPause   time.Duration
+	LoginRetryPause time.Duration
+	ConnMinPause    time.Duration
+	ConnMaxPause    time.Duration
+}
+
+// Validate validates the rate limit configuration.
+func (c RateLimitConfig) Validate() error {
+	if c.LoginRateLimit <= 0 {
+		return errors.NotValidf("login-rate-limit %d <= 0", c.LoginRateLimit)
+	}
+	if c.LoginMinPause < 0 {
+		return errors.NotValidf("login-min-pause %d < 0", c.LoginMinPause)
+	}
+	if c.LoginMaxPause < 0 {
+		return errors.NotValidf("login-max-pause %d < 0", c.LoginMaxPause)
+	}
+	if c.LoginRetryPause < 0 {
+		return errors.NotValidf("login-retry-pause %d < 0", c.LoginRetryPause)
+	}
+	if c.ConnMinPause < 0 {
+		return errors.NotValidf("conn-min-pause %d < 0", c.ConnMinPause)
+	}
+	if c.ConnMaxPause < 0 {
+		return errors.NotValidf("conn-max-pause %d < 0", c.ConnMaxPause)
+	}
+	return nil
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -239,6 +248,9 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		stPool = state.NewStatePool(s)
 	}
 
+	limiter := utils.NewLimiterWithPause(
+		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
+		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
 	srv := &Server{
 		clock:                         cfg.Clock,
 		pingClock:                     cfg.pingClock(),
@@ -249,7 +261,8 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
-		limiter:                       utils.NewLimiterWithPause(loginRateLimit, loginMinPause, loginMaxPause, clock.WallClock),
+		limiter:                       limiter,
+		loginRetryPause:               cfg.RateLimitConfig.LoginRetryPause,
 		validator:                     cfg.Validator,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
@@ -260,7 +273,9 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
-	srv.lis = newThrottlingListener(tls.NewListener(lis, srv.tlsConfig), connMinPause, connMaxPause, clock.WallClock)
+	srv.lis = newThrottlingListener(
+		tls.NewListener(lis, srv.tlsConfig),
+		cfg.RateLimitConfig.ConnMinPause, cfg.RateLimitConfig.ConnMaxPause, clock.WallClock)
 
 	srv.authCtxt, err = newAuthContext(s)
 	if err != nil {

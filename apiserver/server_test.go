@@ -624,6 +624,14 @@ func defaultServerConfig(c *gc.C, st *state.State) apiserver.ServerConfig {
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
 		StatePool:   state.NewStatePool(st),
+		RateLimitConfig: apiserver.RateLimitConfig{
+			LoginRateLimit:  apiserver.DefaultLoginRateLimit,
+			LoginMinPause:   apiserver.DefaultLoginMinPause,
+			LoginMaxPause:   apiserver.DefaultLoginMaxPause,
+			LoginRetryPause: apiserver.DefaultLoginRetryPause,
+			ConnMinPause:    apiserver.DefaultConnMinPause,
+			ConnMaxPause:    apiserver.DefaultConnMaxPause,
+		},
 	}
 }
 

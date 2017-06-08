@@ -91,7 +91,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 			if !a.srv.limiter.Acquire() {
 				logger.Debugf("rate limiting for agent %s", req.AuthTag)
 				select {
-				case <-time.After(loginRetyPause):
+				case <-time.After(a.srv.loginRetryPause):
 				}
 				return fail, common.ErrTryAgain
 			}

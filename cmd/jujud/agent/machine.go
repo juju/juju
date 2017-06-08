@@ -1229,7 +1229,10 @@ func (a *MachineAgent) newAPIserverWorker(
 				PrometheusGatherer: a.prometheusRegistry,
 			}, f)
 	}
-
+	rateLimitConfig, err := getRateLimitConfig(agentConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting rate limit config")
+	}
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
@@ -1246,12 +1249,79 @@ func (a *MachineAgent) newAPIserverWorker(
 		NewObserver:                   newObserver,
 		StatePool:                     statePool,
 		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
+		RateLimitConfig:               rateLimitConfig,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}
 
 	return server, nil
+}
+
+func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
+	result := apiserver.RateLimitConfig{
+		LoginRateLimit:  apiserver.DefaultLoginRateLimit,
+		LoginMinPause:   apiserver.DefaultLoginMinPause,
+		LoginMaxPause:   apiserver.DefaultLoginMaxPause,
+		LoginRetryPause: apiserver.DefaultLoginRetryPause,
+		ConnMinPause:    apiserver.DefaultConnMinPause,
+		ConnMaxPause:    apiserver.DefaultConnMaxPause,
+	}
+	if v := cfg.Value(agent.AgentLoginRateLimit); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginRateLimit,
+			)
+		}
+		result.LoginRateLimit = val
+	}
+	if v := cfg.Value(agent.AgentLoginMinPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginMinPause,
+			)
+		}
+		result.LoginMinPause = val
+	}
+	if v := cfg.Value(agent.AgentLoginMaxPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginMaxPause,
+			)
+		}
+		result.LoginMaxPause = val
+	}
+	if v := cfg.Value(agent.AgentLoginRetryPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginRetryPause,
+			)
+		}
+		result.LoginRetryPause = val
+	}
+	if v := cfg.Value(agent.AgentConnMinPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnMinPause,
+			)
+		}
+		result.ConnMinPause = val
+	}
+	if v := cfg.Value(agent.AgentConnMaxPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnMaxPause,
+			)
+		}
+		result.ConnMaxPause = val
+	}
+	return result, nil
 }
 
 func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {

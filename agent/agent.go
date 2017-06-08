@@ -167,6 +167,13 @@ const (
 	AgentServiceName  = "AGENT_SERVICE_NAME"
 	MongoOplogSize    = "MONGO_OPLOG_SIZE"
 	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
+
+	AgentLoginRateLimit  = "AGENT_LOGIN_RATE_LIMIT"
+	AgentLoginMinPause   = "AGENT_LOGIN_MIN_PAUSE"
+	AgentLoginMaxPause   = "AGENT_LOGIN_MAX_PAUSE"
+	AgentLoginRetryPause = "AGENT_LOGIN_RETRY_PAUSE"
+	AgentConnMinPause    = "AGENT_CONN_MIN_PAUSE"
+	AgentConnMaxPause    = "AGENT_CONN_MAX_PAUSE"
 )
 
 // The Config interface is the sole way that the agent gets access to the
