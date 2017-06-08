@@ -217,16 +217,17 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	srv, err := apiserver.NewServer(s.State, lis, apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        testing.ServerCert,
-		Key:         testing.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		Hub:         pubsub.NewStructuredHub(nil),
-		DataDir:     c.MkDir(),
-		LogDir:      c.MkDir(),
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(s.State),
+		Clock:           clock.WallClock,
+		Cert:            testing.ServerCert,
+		Key:             testing.ServerKey,
+		Tag:             names.NewMachineTag("0"),
+		Hub:             pubsub.NewStructuredHub(nil),
+		DataDir:         c.MkDir(),
+		LogDir:          c.MkDir(),
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		StatePool:       state.NewStatePool(s.State),
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	})
 	c.Assert(err, gc.IsNil)
 

@@ -227,14 +227,15 @@ func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*api
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		LogDir:      c.MkDir(),
-		Hub:         hub,
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		StatePool:   state.NewStatePool(st),
+		Clock:           clock.WallClock,
+		Cert:            coretesting.ServerCert,
+		Key:             coretesting.ServerKey,
+		Tag:             names.NewMachineTag("0"),
+		LogDir:          c.MkDir(),
+		Hub:             hub,
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		StatePool:       state.NewStatePool(st),
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	port := listener.Addr().(*net.TCPAddr).Port
