@@ -42,18 +42,47 @@ def get_security_groups(grp, instgrp, region):
     all_groups = dict(grp)
     instance_groups = dict(instgrp)
     logging.info(
-        '{} instance groups found on {} \n{}'.format(
+        '{} instance groups found on {}\n{}'.format(
         str(len(instance_groups)),
         region,
         '\n'.join(instance_groups)))
     non_instance_groups = dict(
         (k, v) for k, v in all_groups.items() if k not in instance_groups)
     logging.info(
-        '{} non-instance groups found on {} \n{}'.format(
+        '{} non-instance groups found on {}\n{}'.format(
         str(len(non_instance_groups)),
         region,
         '\n'.join(non_instance_groups)))
     return (all_groups, instance_groups, non_instance_groups)
+
+
+def remove_detached_interfaces(non_instgrp, substrate, region):
+    """Remove detached interfaces from non-instance security groups"""
+    # TO DO: Would be better to loop non_instgrp.keys() to get detailed output
+    logging.info(
+        'Detached interfaces will be deleted in region {} ' \
+        'from {} non-instance security groups\n{}'.format(
+        region,
+        str(len(non_instgrp.keys())),
+        '\n'.join(non_instgrp.keys())))
+    try:
+        unclean = substrate.delete_detached_interfaces(
+            non_instgrp.keys())
+        logging.info(
+            'Detached interfaces have been deleted in region {} ' \
+            'from {} non-instance security groups\n{}'.format(
+            region,
+            str(len(non_instgrp.keys())),
+            '\n'.join(non_instgrp.keys())))
+        logging.info(
+            'Unable to clean {} groups from {}'.format(
+            str(len(unclean)), region))
+    except:
+        logging.info(
+            'Unable to clean non-instance groups in region {} from\n{}'.format(
+            region,
+            '\n'.join(non_instgrp.keys())))
+    return unclean
 
 
 def clean(args):
@@ -74,22 +103,11 @@ def clean(args):
                 grp=substrate.iter_security_groups(),
                 instgrp=substrate.iter_instance_security_groups(),
                 region=region)
+            unclean = remove_detached_interfaces(
+                non_instgrp=non_instance_groups,
+                substrate=substrate,
+                region=region)
 
-            try:
-                logging.info(
-                    '{} detached interfaces will be deleted from {} \n{}'.format(
-                    str(len(non_instance_groups.keys())),
-                    region,
-                    '\n'.join(non_instance_groups.keys())))
-                unclean = substrate.delete_detached_interfaces(
-                    non_instance_groups.keys())
-                logging.info(
-                    'Unable to delete {} groups from {}'.format(
-                        str(len(unclean)), region))
-            except:
-                logging.info(
-                    'Unable to delete non-instance groups {} from {}'.format(
-                    non_instance_groups.keys(), region))
             for group_id in unclean:
                 logging.debug(
                     'Cannot delete {} from {}'.format(
@@ -99,7 +117,7 @@ def clean(args):
             try:
                 substrate.destroy_security_groups(non_instance_groups.values())
                 logging.info(
-                    '{} non-instance groups have been deleted from {} \n{}'.format(
+                    '{} non-instance groups have been deleted from {}\n{}'.format(
                     len(non_instance_groups.values()),
                     region,
                     '\n'.join(non_instance_groups.values())))
