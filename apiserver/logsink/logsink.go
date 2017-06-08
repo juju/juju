@@ -11,6 +11,8 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/ratelimit"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 
@@ -34,21 +36,43 @@ type LogWriteCloser interface {
 // NewLogWriteCloserFunc returns a new LogWriteCloser for the given http.Request.
 type NewLogWriteCloserFunc func(*http.Request) (LogWriteCloser, error)
 
+// RateLimitConfig contains the rate-limit configuration for the logsink
+// handler.
+type RateLimitConfig struct {
+	// Burst is the number of log messages that will be let through before
+	// we start rate limiting.
+	Burst int64
+
+	// Refill is the rate at which log messages will be let through once
+	// the initial burst amount has been depleted.
+	Refill time.Duration
+
+	// Clock is the clock used to wait when rate-limiting log receives.
+	Clock clock.Clock
+}
+
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
-// websocket.
+// websocket, using the given NewLogWriteCloserFunc to obtain a writer to which
+// the log messages will be written.
+//
+// ratelimit defines an optional rate-limit configuration. If nil, no rate-
+// limiting will be applied.
 func NewHTTPHandler(
 	newLogWriteCloser NewLogWriteCloserFunc,
 	abort <-chan struct{},
+	ratelimit *RateLimitConfig,
 ) http.Handler {
 	return &logSinkHandler{
 		newLogWriteCloser: newLogWriteCloser,
 		abort:             abort,
+		ratelimit:         ratelimit,
 	}
 }
 
 type logSinkHandler struct {
 	newLogWriteCloser NewLogWriteCloserFunc
 	abort             <-chan struct{}
+	ratelimit         *RateLimitConfig
 }
 
 // Since the logsink only receives messages, it is possible for the other end
@@ -157,6 +181,15 @@ func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
 func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int) <-chan params.LogRecord {
 	logCh := make(chan params.LogRecord)
 
+	var tokenBucket *ratelimit.Bucket
+	if h.ratelimit != nil {
+		tokenBucket = ratelimit.NewBucketWithClock(
+			h.ratelimit.Refill,
+			h.ratelimit.Burst,
+			ratelimitClock{h.ratelimit.Clock},
+		)
+	}
+
 	go func() {
 		// Close the channel to signal ServeHTTP to finish. Otherwise
 		// we leak goroutines on client disconnect, because the server
@@ -178,6 +211,19 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 				// care that much.
 				socket.WriteMessage(gorillaws.CloseMessage, []byte{})
 				return
+			}
+
+			// Rate-limit receipt of log messages. We rate-limit
+			// each connection individually to prevent one noisy
+			// individual from drowning out the others.
+			if tokenBucket != nil {
+				if d := tokenBucket.Take(1); d > 0 {
+					select {
+					case <-h.ratelimit.Clock.After(d):
+					case <-h.abort:
+						return
+					}
+				}
 			}
 
 			// Send the log message.
@@ -222,4 +268,14 @@ func JujuClientVersionFromRequest(req *http.Request) (version.Number, error) {
 		return version.Zero, errors.Annotatef(err, "invalid jujuclientversion %q", verStr)
 	}
 	return ver, nil
+}
+
+// ratelimitClock adapts clock.Clock to ratelimit.Clock.
+type ratelimitClock struct {
+	clock.Clock
+}
+
+// Sleep is defined by the ratelimit.Clock interface.
+func (c ratelimitClock) Sleep(d time.Duration) {
+	<-c.Clock.After(d)
 }

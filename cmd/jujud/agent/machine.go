@@ -1393,27 +1393,6 @@ func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
 	return result, nil
 }
 
-func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
-	result := apiserver.DefaultLogSinkConfig()
-	var err error
-	if v := cfg.Value(agent.LogSinkDBLoggerBufferSize); v != "" {
-		result.DBLoggerBufferSize, err = strconv.Atoi(v)
-		if err != nil {
-			return result, errors.Annotatef(
-				err, "parsing %s", agent.LogSinkDBLoggerBufferSize,
-			)
-		}
-	}
-	if v := cfg.Value(agent.LogSinkDBLoggerFlushInterval); v != "" {
-		if result.DBLoggerFlushInterval, err = time.ParseDuration(v); err != nil {
-			return result, errors.Annotatef(
-				err, "parsing %s", agent.LogSinkDBLoggerFlushInterval,
-			)
-		}
-	}
-	return result, nil
-}
-
 func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {
 	persistFn := st.PutAuditEntryFn()
 	fileSinkFn := audit.NewLogFileSink(logDir)
@@ -1868,4 +1847,41 @@ func newStateMetricsWorker(st *state.State, registry *prometheus.Registry) worke
 		<-stop
 		return nil
 	})
+}
+
+func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
+	result := apiserver.DefaultLogSinkConfig()
+	var err error
+	if v := cfg.Value(agent.LogSinkDBLoggerBufferSize); v != "" {
+		result.DBLoggerBufferSize, err = strconv.Atoi(v)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerBufferSize,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkDBLoggerFlushInterval); v != "" {
+		if result.DBLoggerFlushInterval, err = time.ParseDuration(v); err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerFlushInterval,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkRateLimitBurst); v != "" {
+		result.RateLimitBurst, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkRateLimitBurst,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkRateLimitRefill); v != "" {
+		result.RateLimitRefill, err = time.ParseDuration(v)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkRateLimitRefill,
+			)
+		}
+	}
+	return result, nil
 }
