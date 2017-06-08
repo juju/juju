@@ -60,11 +60,11 @@ class TestMain(TestCase):
 
 EG_MONGO3_PROC = (
     "4709 ?        Ssl    0:11 /usr/lib/juju/mongo3/bin/mongod "
-    "--dbpath /var/lib/juju/db --sslOnNormalPorts "
+    "--dbpath /var/lib/juju/db --sslMode requireSSL "
     "--sslPEMKeyFile /var/lib/juju/server.pem --sslPEMKeyPassword xxxxxxx "
     "--port 37017 --syslog --journal --replSet juju --ipv6 --quiet "
     "--oplogSize 512 --auth --keyFile /var/lib/juju/shared-secret "
-    "--noprealloc --smallfiles"
+    "-storageEngine wiredTiger"
 )
 
 
