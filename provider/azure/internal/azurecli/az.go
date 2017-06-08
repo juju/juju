@@ -4,6 +4,7 @@
 package azurecli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -25,18 +26,44 @@ type AzureCLI struct {
 	Exec func(cmd string, args []string) (stdout []byte, err error)
 }
 
+// Error represents an error returned from the Azure CLI.
+type Error struct {
+	exec.ExitError
+}
+
+// Error implements the error interface.
+func (e *Error) Error() string {
+	if len(e.Stderr) == 0 {
+		return e.ExitError.Error()
+	}
+	n := bytes.IndexByte(e.Stderr, '\n')
+	if n < 0 {
+		return string(e.Stderr)
+	}
+	return string(e.Stderr[:n])
+}
+
 // exec runs the given command using Exec if specified, or
 // os.exec.Command.
 func (a AzureCLI) exec(cmd string, args []string) ([]byte, error) {
+	var out []byte
+	var err error
 	if a.Exec != nil {
-		return a.Exec(cmd, args)
+		out, err = a.Exec(cmd, args)
+	} else {
+		out, err = exec.Command(cmd, args...).Output()
 	}
-	return exec.Command(cmd, args...).Output()
+	if exitError, ok := errors.Cause(err).(*exec.ExitError); ok {
+		err = &Error{
+			ExitError: *exitError,
+		}
+	}
+	return out, err
 }
 
 // run attempts to execute "az" with the given arguments. Unmarshalling
 // the json output into v.
-func (a AzureCLI) run(v interface{}, args []string) error {
+func (a AzureCLI) run(v interface{}, args ...string) error {
 	args = append(args, "-o", "json")
 	logger.Debugf("running az %s", strings.Join(args, " "))
 	b, err := a.exec("az", args)
@@ -80,7 +107,7 @@ func (a AzureCLI) GetAccessToken(subscription, resource string) (*AccessToken, e
 		cmd = append(cmd, "--resource", resource)
 	}
 	var tok AccessToken
-	if err := a.run(&tok, cmd); err != nil {
+	if err := a.run(&tok, cmd...); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &tok, nil
@@ -112,7 +139,7 @@ func (a AzureCLI) ShowAccount(subscription string) (*Account, error) {
 		cmd = append(cmd, "--subscription", subscription)
 	}
 	var acc showAccount
-	if err := a.run(&acc, cmd); err != nil {
+	if err := a.run(&acc, cmd...); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if acc.Account.CloudName == "" {
@@ -125,7 +152,7 @@ func (a AzureCLI) ShowAccount(subscription string) (*Account, error) {
 // Azure CLI.
 func (a AzureCLI) ListAccounts() ([]Account, error) {
 	var accounts []Account
-	if err := a.run(&accounts, []string{"account", "list"}); err != nil {
+	if err := a.run(&accounts, "account", "list"); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return accounts, nil
@@ -140,7 +167,7 @@ func (a AzureCLI) FindAccountsWithCloudName(name string) ([]Account, error) {
 		"list",
 		"--query", fmt.Sprintf("[?cloudName=='%s']", name),
 	}
-	if err := a.run(&accounts, cmd); err != nil {
+	if err := a.run(&accounts, cmd...); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return accounts, nil
@@ -183,7 +210,7 @@ func (a AzureCLI) ShowCloud(name string) (*Cloud, error) {
 		cmd = append(cmd, "--name", name)
 	}
 	var cloud Cloud
-	if err := a.run(&cloud, cmd); err != nil {
+	if err := a.run(&cloud, cmd...); err != nil {
 		return nil, err
 	}
 	return &cloud, nil
@@ -199,8 +226,18 @@ func (a AzureCLI) FindCloudsWithResourceManagerEndpoint(url string) ([]Cloud, er
 		"--query",
 		fmt.Sprintf("[?endpoints.resourceManager=='%s']", url),
 	}
-	if err := a.run(&clouds, cmd); err != nil {
+	if err := a.run(&clouds, cmd...); err != nil {
 		return nil, err
+	}
+	return clouds, nil
+}
+
+// ListClouds returns the details for all clouds available in the Azure
+// CLI.
+func (a AzureCLI) ListClouds() ([]Cloud, error) {
+	var clouds []Cloud
+	if err := a.run(&clouds, "cloud", "list"); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return clouds, nil
 }
