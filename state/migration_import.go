@@ -208,7 +208,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	if model.MeterStatus().Code() != MeterNotAvailable.String() {
+	if MeterStatusFromString(model.MeterStatus().Code()).String() != MeterNotAvailable.String() {
 		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
