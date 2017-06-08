@@ -553,7 +553,10 @@ type machineAssignable interface {
 }
 
 // createStorageOps returns txn.Ops for creating storage instances
-// and attachments for the newly created unit or service.
+// and attachments for the newly created unit or service. A map
+// of storage names to number of storage instances created will
+// be returned, along with the total number of storage attachments
+// made. These should be used to initialise or update refcounts.
 //
 // The entity tag identifies the entity that owns the storage instance
 // either a unit or a service. Shared storage instances are owned by a
@@ -578,7 +581,11 @@ func createStorageOps(
 	cons map[string]StorageConstraints,
 	series string,
 	maybeMachineAssignable machineAssignable,
-) (ops []txn.Op, numStorageAttachments int, err error) {
+) (ops []txn.Op, instanceCounts map[string]int, numStorageAttachments int, err error) {
+
+	fail := func(err error) ([]txn.Op, map[string]int, int, error) {
+		return nil, nil, -1, err
+	}
 
 	type template struct {
 		storageName string
@@ -592,7 +599,7 @@ func createStorageOps(
 		createdShared = true
 	case names.UnitTag:
 	default:
-		return nil, -1, errors.Errorf("expected application or unit tag, got %T", entityTag)
+		return fail(errors.Errorf("expected application or unit tag, got %T", entityTag))
 	}
 
 	// Create storage instances in order of name, to simplify testing.
@@ -606,7 +613,7 @@ func createStorageOps(
 		cons := cons[store]
 		charmStorage, ok := charmMeta.Storage[store]
 		if !ok {
-			return nil, -1, errors.NotFoundf("charm storage %q", store)
+			return fail(errors.NotFoundf("charm storage %q", store))
 		}
 		if cons.Count == 0 {
 			continue
@@ -623,6 +630,7 @@ func createStorageOps(
 		})
 	}
 
+	instanceCounts = make(map[string]int)
 	ops = make([]txn.Op, 0, len(templates)*3)
 	for _, t := range templates {
 		owner := entityTag.String()
@@ -633,24 +641,15 @@ func createStorageOps(
 		case charm.StorageFilesystem:
 			kind = StorageKindFilesystem
 		default:
-			return nil, -1, errors.Errorf("unknown storage type %q", t.meta.Type)
+			return fail(errors.Errorf("unknown storage type %q", t.meta.Type))
 		}
 
-		// Increment reference counts for the named storage for each
-		// instance we create. We'll use the reference counts to ensure
-		// we don't exceed limits when adding storage, and for
-		// maintaining model integrity during charm upgrades.
-		incRefOp, err := increfEntityStorageOp(st, entityTag, t.storageName, int(t.cons.Count))
-		if err != nil {
-			return nil, -1, errors.Trace(err)
-		}
-		ops = append(ops, incRefOp)
-
+		instanceCounts[t.storageName] += int(t.cons.Count)
 		for i := uint64(0); i < t.cons.Count; i++ {
 			cons := cons[t.storageName]
 			id, err := newStorageInstanceId(st, t.storageName)
 			if err != nil {
-				return nil, -1, errors.Annotate(err, "cannot generate storage instance name")
+				return fail(errors.Annotate(err, "cannot generate storage instance name"))
 			}
 			doc := &storageInstanceDoc{
 				Id:          id,
@@ -677,9 +676,9 @@ func createStorageOps(
 						maybeMachineAssignable,
 					)
 					if err != nil {
-						return nil, -1, errors.Annotatef(
+						return fail(errors.Annotatef(
 							err, "creating machine storage for storage %s", id,
-						)
+						))
 					}
 				}
 			}
@@ -700,7 +699,7 @@ func createStorageOps(
 	// creation, because the only sane time to add storage attachments
 	// is when units are added to said service.
 
-	return ops, numStorageAttachments, nil
+	return ops, instanceCounts, numStorageAttachments, nil
 }
 
 // unitAssignedMachineStorageOps returns ops for creating volumes, filesystems
@@ -717,13 +716,6 @@ func unitAssignedMachineStorageOps(
 	storage *storageInstance,
 	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
-	storageParams, err := machineStorageParamsForStorageInstance(
-		st, charmMeta, unitTag, series, storage,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	m, err := machineAssignable.machine()
 	if err != nil {
 		if errors.IsNotAssigned(err) {
@@ -735,6 +727,12 @@ func unitAssignedMachineStorageOps(
 		return nil, errors.Trace(err)
 	}
 
+	storageParams, err := machineStorageParamsForStorageInstance(
+		st, charmMeta, unitTag, series, storage,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -827,6 +825,156 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 	return &s, nil
 }
 
+// AttachStorage attaches storage to a unit, creating and attaching machine
+// storage as necessary.
+func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
+	defer errors.DeferredAnnotatef(&err,
+		"cannot attach %s to %s",
+		names.ReadableString(storage),
+		names.ReadableString(unit),
+	)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		si, err := st.storageInstance(storage)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		u, err := st.Unit(unit.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if u.Life() != Alive {
+			return nil, errors.New("unit not alive")
+		}
+		ch, err := u.charm()
+		if err != nil {
+			return nil, errors.Annotate(err, "getting charm")
+		}
+		ops, err := st.attachStorageOps(si, u.UnitTag(), u.Series(), ch, u)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if si.doc.Owner == "" {
+			// The storage instance will be owned by the unit, so we
+			// must increment the unit's refcount for the storage name.
+			//
+			// Make sure that we *can* assign another storage instance
+			// to the unit.
+			_, currentCountOp, err := validateStorageCountChange(
+				st, u.UnitTag(), si.StorageName(), 1, ch.Meta(),
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			incRefOp, err := increfEntityStorageOp(st, u.UnitTag(), si.StorageName(), 1)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, currentCountOp, incRefOp)
+		}
+		ops = append(ops, txn.Op{
+			C:      unitsC,
+			Id:     u.doc.Name,
+			Assert: isAliveDoc,
+			Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", 1}}}},
+		})
+		ops = append(ops, u.assertCharmOps(ch)...)
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+// attachStorageOps returns txn.Ops to attach a storage instance to the
+// specified unit. The caller must ensure that the unit is in a state
+// to attach the storage (i.e. it is Alive, or is being created).
+//
+// The caller is responsible for incrementing the storage refcount for
+// the unit/storage name.
+func (st *State) attachStorageOps(
+	si *storageInstance,
+	unitTag names.UnitTag,
+	unitSeries string,
+	ch *Charm,
+	maybeMachineAssignable machineAssignable,
+) ([]txn.Op, error) {
+	if si.Life() != Alive {
+		return nil, errors.New("storage not alive")
+	}
+	unitApplicationName, err := names.UnitApplication(unitTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if owner, ok := si.Owner(); ok {
+		if owner == unitTag {
+			return nil, jujutxn.ErrNoOperations
+		} else {
+			if owner.Id() != unitApplicationName {
+				return nil, errors.Errorf(
+					"cannot attach storage owned by %s to %s",
+					names.ReadableString(owner),
+					names.ReadableString(unitTag),
+				)
+			}
+			if _, err := st.storageAttachment(
+				si.StorageTag(),
+				unitTag,
+			); err == nil {
+				return nil, jujutxn.ErrNoOperations
+			} else if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+		}
+	} else {
+		// TODO(axw) should we store the application name on the
+		// storage, and restrict attaching to only units of that
+		// application?
+	}
+
+	// Check that the unit's charm declares storage with the storage
+	// instance's storage name.
+	charmMeta := ch.Meta()
+	if _, ok := charmMeta.Storage[si.StorageName()]; !ok {
+		return nil, errors.Errorf(
+			"charm %s has no storage called %s",
+			charmMeta.Name, si.StorageName(),
+		)
+	}
+
+	// Create a storage attachment doc, ensuring that the storage instance
+	// owner does not change, and that both the storage instance and unit
+	// are alive. Increment the attachment count on both storage instance
+	// and unit, and update the owner of the storage instance if necessary.
+	siUpdate := bson.D{{"$inc", bson.D{{"attachmentcount", 1}}}}
+	siAssert := isAliveDoc
+	if si.doc.Owner != "" {
+		siAssert = append(siAssert, bson.DocElem{"owner", si.doc.Owner})
+	} else {
+		siAssert = append(siAssert, bson.DocElem{"owner", bson.D{{"$exists", false}}})
+		siUpdate = append(siUpdate, bson.DocElem{
+			"$set", bson.D{{"owner", unitTag.String()}},
+		})
+	}
+	ops := []txn.Op{{
+		C:      storageInstancesC,
+		Id:     si.doc.Id,
+		Assert: siAssert,
+		Update: siUpdate,
+	},
+		createStorageAttachmentOp(si.StorageTag(), unitTag),
+	}
+
+	if maybeMachineAssignable != nil {
+		machineStorageOps, err := unitAssignedMachineStorageOps(
+			st, unitTag, charmMeta, unitSeries, si,
+			maybeMachineAssignable,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, machineStorageOps...)
+	}
+	return ops, nil
+}
+
 // DetachStorage ensures that the existing storage attachments of
 // the specified unit are removed at some point.
 func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
@@ -859,7 +1007,8 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -891,8 +1040,78 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 			Id:     si.doc.Id,
 			Assert: bson.D{ownerAssert},
 		})
-		ops = append(ops, detachStorageOps(storage, unit)...)
-		return ops, nil
+
+		// Check if the unit is assigned to a machine, and if the
+		// associated machine storage has been attached yet. If not,
+		// we can short-circuit the removal of the storage attachment.
+		var assert interface{}
+		removeStorageAttachment := true
+		u, err := st.Unit(unit.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		machineId, err := u.AssignedMachineId()
+		if errors.IsNotAssigned(err) {
+			// The unit is not assigned to a machine, therefore
+			// there can be no associated machine storage. It
+			// is safe to remove.
+			ops = append(ops, u.noAssignedMachineOp())
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			machineTag := names.NewMachineTag(machineId)
+			volumeAttachment, filesystemAttachment, err := st.storageMachineAttachment(
+				si, unit, machineTag,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if volumeAttachment != nil {
+				var assert interface{}
+				if _, err := volumeAttachment.Info(); err == nil {
+					// The volume attachment has been provisioned,
+					// so we cannot short-circuit the removal of
+					// the storage attachment.
+					removeStorageAttachment = false
+					assert = txn.DocExists
+				} else {
+					assert = bson.D{{"info", bson.D{{"$exists", false}}}}
+				}
+				ops = append(ops, txn.Op{
+					C: volumeAttachmentsC,
+					Id: volumeAttachmentId(
+						volumeAttachment.Machine().Id(),
+						volumeAttachment.Volume().Id(),
+					),
+					Assert: assert,
+				})
+			}
+			if filesystemAttachment != nil {
+				var assert interface{}
+				if _, err := filesystemAttachment.Info(); err == nil {
+					// The filesystem attachment has been provisioned,
+					// so we cannot short-circuit the removal of
+					// the storage attachment.
+					removeStorageAttachment = false
+					assert = txn.DocExists
+				} else {
+					assert = bson.D{{"info", bson.D{{"$exists", false}}}}
+				}
+				ops = append(ops, txn.Op{
+					C: filesystemAttachmentsC,
+					Id: filesystemAttachmentId(
+						filesystemAttachment.Machine().Id(),
+						filesystemAttachment.Filesystem().Id(),
+					),
+					Assert: assert,
+				})
+			}
+		}
+		if removeStorageAttachment {
+			// Short-circuit the removal of the storage attachment.
+			return removeStorageAttachmentOps(st, s, si, assert, ops...)
+		}
+		return append(ops, detachStorageOps(storage, unit)...), nil
 	}
 	return st.run(buildTxn)
 }
@@ -907,6 +1126,39 @@ func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
 	return ops
 }
 
+func (st *State) storageMachineAttachment(
+	si *storageInstance,
+	unitTag names.UnitTag,
+	machineTag names.MachineTag,
+) (VolumeAttachment, FilesystemAttachment, error) {
+	switch si.Kind() {
+	case StorageKindBlock:
+		volume, err := st.storageInstanceVolume(si.StorageTag())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		att, err := st.VolumeAttachment(machineTag, volume.VolumeTag())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		return att, nil, nil
+
+	case StorageKindFilesystem:
+		filesystem, err := st.storageInstanceFilesystem(si.StorageTag())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		att, err := st.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		return nil, att, nil
+
+	default:
+		return nil, nil, errors.Errorf("unknown storage type %q", si.Kind())
+	}
+}
+
 // Remove removes the storage attachment from state, and may remove its storage
 // instance as well, if the storage instance is Dying and no other references to
 // it exist. It will fail if the storage attachment is not Dying.
@@ -914,10 +1166,14 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
+		}
+		if s.doc.Life != Dying {
+			return nil, errors.New("storage attachment is not dying")
 		}
 		inst, err := st.storageInstance(storage)
 		if errors.IsNotFound(err) {
@@ -927,7 +1183,7 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := removeStorageAttachmentOps(st, s, inst)
+		ops, err := removeStorageAttachmentOps(st, s, inst, bson.D{{"life", Dying}})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -940,29 +1196,32 @@ func removeStorageAttachmentOps(
 	st *State,
 	s *storageAttachment,
 	si *storageInstance,
+	assert interface{},
+	baseOps ...txn.Op,
 ) ([]txn.Op, error) {
-	if s.doc.Life != Dying {
-		return nil, errors.New("storage attachment is not dying")
-	}
-	ops := []txn.Op{{
+	ops := append(baseOps, txn.Op{
 		C:      storageAttachmentsC,
 		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
-		Assert: bson.D{{"life", Dying}},
+		Assert: assert,
 		Remove: true,
-	}, {
+	}, txn.Op{
 		C:      unitsC,
 		Id:     s.doc.Unit,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", -1}}}},
-	}}
+	})
 	var siAssert interface{}
 	siUpdate := bson.D{{"$inc", bson.D{{"attachmentcount", -1}}}}
 	if si.doc.AttachmentCount == 1 {
-		var hasLastRef bson.D
 		if si.doc.Life == Dying {
 			// The storage instance is dying: no more attachments
 			// can be added to the instance, so it can be removed.
-			hasLastRef = bson.D{{"life", Dying}, {"attachmentcount", 1}}
+			hasLastRef := bson.D{{"life", Dying}, {"attachmentcount", 1}}
+			siOps, err := removeStorageInstanceOps(si, hasLastRef)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return append(ops, siOps...), nil
 		} else if si.doc.Owner == names.NewUnitTag(s.doc.Unit).String() {
 			// Ensure that removing the storage will not violate the
 			// unit's charm storage requirements.
@@ -973,21 +1232,16 @@ func removeStorageAttachmentOps(
 			}
 			ops = append(ops, validateRemoveOps...)
 
-			// TODO(axw) if the storage instance is Alive, and is owned by
-			// the unit, disown the storage and decrement the refcount for
-			// the storage name on the unit. This will allow the user to
-			// attach the storage to another unit.
-			hasLastRef = bson.D{{"attachmentcount", 1}}
-		}
-		if len(hasLastRef) > 0 {
-			// TODO(axw) we should only remove the storage instance
-			// when the last attachment is removed if the instance
-			// is dying.
-			siOps, err := removeStorageInstanceOps(si, hasLastRef)
+			// Disown the storage instance, so it can be attached
+			// to another unit/application.
+			siUpdate = append(siUpdate, bson.DocElem{
+				"$unset", bson.D{{"owner", nil}},
+			})
+			decrefOp, err := decrefEntityStorageOp(st, s.Unit(), si.StorageName())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return append(ops, siOps...), nil
+			ops = append(ops, decrefOp)
 		}
 	}
 	decrefOp := txn.Op{
@@ -1051,7 +1305,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
-		} else if !volume.detachable() {
+		} else if !volume.Detachable() {
 			// Non-detachable volumes are left attached to the
 			// machine, since the only other option is to destroy
 			// them. The user can remove them explicitly, or else
@@ -1101,7 +1355,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
-		} else if !filesystem.detachable() {
+		} else if !filesystem.Detachable() {
 			// Non-detachable filesystems are left attached to the
 			// machine, since the only other option is to destroy
 			// them. The user can remove them explicitly, or else
@@ -1368,15 +1622,9 @@ func validateStoragePool(
 	kindSupported := provider.Supports(kind)
 	if !kindSupported && kind == storage.StorageKindFilesystem {
 		// Filesystems can be created if either filesystem
-		// or block storage are supported.
-		if provider.Supports(storage.StorageKindBlock) {
-			kindSupported = true
-			// The filesystem is to be backed by a volume,
-			// so the filesystem must be managed on the
-			// machine. Skip the scope-check below by
-			// setting the pointer to nil.
-			machineId = nil
-		}
+		// or block storage are supported. The scope of the
+		// filesystem is the same as the backing volume.
+		kindSupported = provider.Supports(storage.StorageKindBlock)
 	}
 	if !kindSupported {
 		return errors.Errorf("%q provider does not support %q storage", providerType, kind)
@@ -1662,7 +1910,7 @@ func (st *State) addUnitStorageOps(
 	}
 
 	// Create storage db operations
-	storageOps, _, err := createStorageOps(
+	storageOps, storageCounts, _, err := createStorageOps(
 		st,
 		u.Tag(),
 		charmMeta,
@@ -1672,6 +1920,17 @@ func (st *State) addUnitStorageOps(
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	// Increment reference counts for the named storage for each
+	// instance we create. We'll use the reference counts to ensure
+	// we don't exceed limits when adding storage, and for
+	// maintaining model integrity during charm upgrades.
+	for name, count := range storageCounts {
+		incRefOp, err := increfEntityStorageOp(st, u.Tag(), name, count)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		storageOps = append(storageOps, incRefOp)
 	}
 	ops = append(ops, txn.Op{
 		C:      unitsC,

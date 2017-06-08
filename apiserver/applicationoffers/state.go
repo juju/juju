@@ -9,8 +9,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 // StatePool provides the subset of a state pool.
@@ -39,6 +41,7 @@ func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 // Backend provides selected methods off the state.State struct.
 type Backend interface {
 	ControllerTag() names.ControllerTag
+	Charm(*charm.URL) (Charm, error)
 	Application(name string) (Application, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
@@ -46,6 +49,7 @@ type Backend interface {
 	ModelUUID() string
 	ModelTag() names.ModelTag
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
+	Space(string) (Space, error)
 
 	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
@@ -59,6 +63,15 @@ var GetStateAccess = func(st *state.State) Backend {
 
 type stateShim struct {
 	*state.State
+}
+
+func (s stateShim) NewStorage() storage.Storage {
+	return storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+}
+
+func (s *stateShim) Space(name string) (Space, error) {
+	sp, err := s.State.Space(name)
+	return &spaceShim{sp}, err
 }
 
 func (s *stateShim) Model() (Model, error) {
@@ -76,6 +89,18 @@ func (s *stateShim) AllModels() ([]Model, error) {
 		result = append(result, &modelShim{m})
 	}
 	return result, err
+}
+
+type stateCharmShim struct {
+	*state.Charm
+}
+
+func (s stateShim) Charm(curl *charm.URL) (Charm, error) {
+	ch, err := s.State.Charm(curl)
+	if err != nil {
+		return nil, err
+	}
+	return stateCharmShim{ch}, nil
 }
 
 func (s *stateShim) Application(name string) (Application, error) {
@@ -102,6 +127,8 @@ type Application interface {
 	Charm() (ch Charm, force bool, err error)
 	CharmURL() (curl *charm.URL, force bool)
 	Name() string
+	Endpoints() ([]state.Endpoint, error)
+	EndpointBindings() (map[string]string, error)
 }
 
 type applicationShim struct {
@@ -114,10 +141,50 @@ func (a *applicationShim) Charm() (ch Charm, force bool, err error) {
 
 type Charm interface {
 	Meta() *charm.Meta
+	StoragePath() string
+}
+
+type Subnet interface {
+	CIDR() string
+	VLANTag() int
+	ProviderId() network.Id
+	ProviderNetworkId() network.Id
+	AvailabilityZones() []string
+}
+
+type subnetShim struct {
+	*state.Subnet
+}
+
+func (s *subnetShim) AvailabilityZones() []string {
+	return []string{s.Subnet.AvailabilityZone()}
+}
+
+type Space interface {
+	Name() string
+	Subnets() ([]Subnet, error)
+	ProviderId() network.Id
+}
+
+type spaceShim struct {
+	*state.Space
+}
+
+func (s *spaceShim) Subnets() ([]Subnet, error) {
+	subnets, err := s.Space.Subnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]Subnet, len(subnets))
+	for i, subnet := range subnets {
+		result[i] = &subnetShim{subnet}
+	}
+	return result, nil
 }
 
 type Model interface {
 	UUID() string
+	ModelTag() names.ModelTag
 	Name() string
 	Owner() names.UserTag
 }

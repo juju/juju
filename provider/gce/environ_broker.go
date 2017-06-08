@@ -170,7 +170,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		// Network is omitted (left empty).
 	}
 
-	zones, err := env.parseAvailabilityZones(args)
+	zones, err := env.startInstanceAvailabilityZones(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

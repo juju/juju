@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package applicationoffers
 
 import (
 	"github.com/juju/errors"
@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 // paramsFromProviderSpaceInfo converts a ProviderSpaceInfo into the
@@ -62,7 +61,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 
 // spaceInfoFromState converts a state.Space into the equivalent
 // network.SpaceInfo.
-func spaceInfoFromState(space *state.Space) (*network.SpaceInfo, error) {
+func spaceInfoFromState(space Space) (*network.SpaceInfo, error) {
 	result := &network.SpaceInfo{
 		Name:       space.Name(),
 		ProviderId: space.ProviderId(),
@@ -77,7 +76,7 @@ func spaceInfoFromState(space *state.Space) (*network.SpaceInfo, error) {
 			ProviderId:        subnet.ProviderId(),
 			ProviderNetworkId: subnet.ProviderNetworkId(),
 			VLANTag:           subnet.VLANTag(),
-			AvailabilityZones: []string{subnet.AvailabilityZone()},
+			AvailabilityZones: subnet.AvailabilityZones(),
 		}
 		result.Subnets = append(result.Subnets, resultSubnet)
 	}

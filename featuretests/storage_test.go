@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -18,6 +19,8 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 )
@@ -28,7 +31,10 @@ const (
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
-	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
+	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -43,7 +49,7 @@ func createUnitWithStorage(c *gc.C, s *jujutesting.JujuConnSuite, poolName strin
 		"data": makeStorageCons(poolName, 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -409,9 +415,12 @@ func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
 	s.assertCreatePoolError(c, "", "cannot overwrite existing settings", pname, "loop", "smth=one")
 }
 
-func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
+func assertPoolExists(c *gc.C, st *state.State, pname, providerType, attr string) {
 	stsetts := state.NewStateSettings(st)
-	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
+	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 
 	found, err := poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)
@@ -421,7 +430,7 @@ func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
 	for _, one := range found {
 		if one.Name() == pname {
 			exists = true
-			c.Assert(string(one.Provider()), gc.Equals, provider)
+			c.Assert(string(one.Provider()), gc.Equals, providerType)
 			// At this stage, only 1 attr is expected and checked
 			expectedAttrs := strings.Split(attr, "=")
 			value, ok := one.Attrs()[expectedAttrs[0]]
@@ -459,6 +468,16 @@ Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Mess
 
 func runAddToUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmdArgs := append([]string{"add-storage"}, args...)
+	return runJujuCommand(c, cmdArgs...)
+}
+
+func runAttachStorage(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmdArgs := append([]string{"attach-storage"}, args...)
+	return runJujuCommand(c, cmdArgs...)
+}
+
+func runDetachStorage(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmdArgs := append([]string{"detach-storage"}, args...)
 	return runJujuCommand(c, cmdArgs...)
 }
 
@@ -592,10 +611,76 @@ func createUnitWithFileSystemStorage(c *gc.C, s *jujutesting.JujuConnSuite, pool
 		"data": makeStorageCons(poolName, 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return unit.Tag().Id()
+}
+
+func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
+	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
+	app, err := s.State.Application("storage-block")
+	c.Assert(err, jc.ErrorIsNil)
+	u2, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(u2, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add an instance of the "allecto" storage.
+	_, err = runAddToUnit(c, u, "allecto=modelscoped")
+	c.Assert(err, jc.ErrorIsNil)
+	vol, err := s.State.StorageInstanceVolume(names.NewStorageTag("allecto/2"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
+		Size:     1024,
+		VolumeId: "vol-ume",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Detach the allecto storage.
+	_, err = runDetachStorage(c, "allecto/2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeStatus(vol.VolumeTag(), status.Detaching, "", nil, &time.Time{})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := runJujuCommand(c, "list-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+[Storage]
+Unit             Id         Type   Pool         Provider id  Size    Status     Message
+                 allecto/2  block  modelscoped  vol-ume      1.0GiB  detaching  
+storage-block/0  data/0     block                                    pending    
+storage-block/1  data/1     block                                    pending    
+
+`[1:])
+
+	// Attempt to attach the allecto storage to the second unit.
+	// This will fail because the volume has not yet been detached
+	// from the first unit's machine.
+	ctx, err = runAttachStorage(c, u2.Name(), "allecto/2")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
+		"failed to attach allecto/2 to storage-block/1: cannot attach storage allecto/2 to unit storage-block/1: volume 2 is attached to machine 0\n")
+
+	// Remove the volume attachment, and then attach the allecto
+	// storage to the second unit.
+	err = s.State.DetachVolume(names.NewMachineTag("0"), vol.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), vol.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runAttachStorage(c, u2.Name(), "allecto/2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeStatus(vol.VolumeTag(), status.Attaching, "", nil, &time.Time{})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err = runJujuCommand(c, "list-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+[Storage]
+Unit             Id         Type   Pool         Provider id  Size    Status     Message
+storage-block/0  data/0     block                                    pending    
+storage-block/1  allecto/2  block  modelscoped  vol-ume      1.0GiB  attaching  
+storage-block/1  data/1     block                                    pending    
+
+`[1:])
 }

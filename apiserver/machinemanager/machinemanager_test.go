@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -132,8 +133,10 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 					{"unit-foo-1"},
 					{"unit-foo-2"},
 				},
-				DestroyedStorage: []params.Entity{
+				DetachedStorage: []params.Entity{
 					{"storage-disks-0"},
+				},
+				DestroyedStorage: []params.Entity{
 					{"storage-disks-1"},
 				},
 			},
@@ -142,6 +145,7 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 }
 
 type mockState struct {
+	storagecommon.StorageInterface
 	calls    int
 	machines []state.MachineTemplate
 	err      error
@@ -203,7 +207,16 @@ func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
 }
 
 func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
-	return &mockStorage{tag: tag}, nil
+	return &mockStorage{
+		tag:  tag,
+		kind: state.StorageKindBlock,
+	}, nil
+}
+
+func (st *mockState) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
+	return &mockVolume{
+		detachable: tag.Id() == "disks/0",
+	}, nil
 }
 
 func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
@@ -268,11 +281,16 @@ func (u *mockUnit) UnitTag() names.UnitTag {
 
 type mockStorage struct {
 	state.StorageInstance
-	tag names.StorageTag
+	tag  names.StorageTag
+	kind state.StorageKind
 }
 
 func (a *mockStorage) StorageTag() names.StorageTag {
 	return a.tag
+}
+
+func (a *mockStorage) Kind() state.StorageKind {
+	return a.kind
 }
 
 type mockStorageAttachment struct {
@@ -287,4 +305,13 @@ func (a *mockStorageAttachment) Unit() names.UnitTag {
 
 func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
 	return a.storage
+}
+
+type mockVolume struct {
+	state.Volume
+	detachable bool
+}
+
+func (v *mockVolume) Detachable() bool {
+	return v.detachable
 }

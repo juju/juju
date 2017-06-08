@@ -11,8 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
@@ -30,18 +32,17 @@ Application endpoints can be identified either by:
         where application name supplied without relation will be internally expanded to be well-formed
 or
     <model name>.<application name>[:<relation name>]
-        where the application is hosted in another model in the same controller
+        where the application is hosted in another model owned by the current user, in the same controller
 or
     <user name>/<model name>.<application name>[:<relation name>]
-        where model name is another model in the same controller and in this case has been disambiguated
-        by prefixing with the model owner
+        where user/model is another model in the same controller
 
 Examples:
     $ juju add-relation wordpress mysql
-        where "wordpress" and "mysql" will be internally expanded to "wordpress:mysql" and "mysql:server" respectively
+        where "wordpress" and "mysql" will be internally expanded to "wordpress:db" and "mysql:server" respectively
 
-    $ juju add-relation wordpress prod.db2
-        where "wordpress" will be internally expanded to "wordpress:db2"
+    $ juju add-relation wordpress someone/prod.mysql
+        where "wordpress" will be internally expanded to "wordpress:db"
 
 `
 
@@ -49,24 +50,16 @@ var localEndpointRegEx = regexp.MustCompile("^" + names.RelationSnippet + "$")
 
 // NewAddRelationCommand returns a command to add a relation between 2 services.
 func NewAddRelationCommand() cmd.Command {
-	cmd := &addRelationCommand{}
-	cmd.newAPIFunc = func() (ApplicationAddRelationAPI, error) {
-		root, err := cmd.NewAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return application.NewClient(root), nil
-
-	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(&addRelationCommand{})
 }
 
 // addRelationCommand adds a relation between two application endpoints.
 type addRelationCommand struct {
 	modelcmd.ModelCommandBase
-	Endpoints      []string
-	remoteEndpoint string
-	newAPIFunc     func() (ApplicationAddRelationAPI, error)
+	Endpoints         []string
+	remoteEndpoint    *crossmodel.ApplicationURL
+	addRelationAPI    applicationAddRelationAPI
+	consumeDetailsAPI applicationConsumeDetailsAPI
 }
 
 func (c *addRelationCommand) Info() *cmd.Info {
@@ -89,28 +82,61 @@ func (c *addRelationCommand) Init(args []string) error {
 	if err := c.validateEndpoints(args); err != nil {
 		return err
 	}
-	c.Endpoints = args
 	return nil
 }
 
-// ApplicationAddRelationAPI defines the API methods that application add relation command uses.
-type ApplicationAddRelationAPI interface {
+// applicationAddRelationAPI defines the API methods that application add relation command uses.
+type applicationAddRelationAPI interface {
 	Close() error
 	// CHECK
 	BestAPIVersion() int
 	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
+	Consume(params.ApplicationOffer, string, *macaroon.Macaroon) (string, error)
+}
+
+func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, error) {
+	if c.addRelationAPI != nil {
+		return c.addRelationAPI, nil
+	}
+
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return application.NewClient(root), nil
+}
+
+func (c *addRelationCommand) getOffersAPI() (applicationConsumeDetailsAPI, error) {
+	if c.consumeDetailsAPI != nil {
+		return c.consumeDetailsAPI, nil
+	}
+
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return applicationoffers.NewClient(root), nil
 }
 
 func (c *addRelationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newAPIFunc()
+	client, err := c.getAddRelationAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	if c.remoteEndpoint != "" && client.BestAPIVersion() < 3 {
-		// old client does not have cross-model capability.
-		return errors.NotSupportedf("cannot add relation between %s: remote endpoints", c.Endpoints)
+	if c.remoteEndpoint != nil {
+		if client.BestAPIVersion() < 3 {
+			// old client does not have cross-model capability.
+			return errors.NotSupportedf("cannot add relation to %s: remote endpoints", c.remoteEndpoint.String())
+		}
+		if err := c.maybeConsumeOffer(client); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	_, err = client.AddRelation(c.Endpoints...)
@@ -118,6 +144,26 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
+}
+
+func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelationAPI) error {
+	sourceClient, err := c.getOffersAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer sourceClient.Close()
+
+	// Get the details of the remote offer - this will fail with a permission
+	// error if the user isn't authorised to consume the offer.
+	consumeDetails, err := sourceClient.GetConsumeDetails(c.remoteEndpoint.String())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Consume is idempotent so even if the offer has been consumed previously,
+	// it's safe to do so again.
+	_, err = targetClient.Consume(*consumeDetails.Offer, c.remoteEndpoint.ApplicationName, consumeDetails.Macaroon)
+	return errors.Trace(err)
 }
 
 // validateEndpoints determines if all endpoints are valid.
@@ -129,11 +175,12 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 			// We can only determine if this is a remote endpoint with 100%.
 			// If we cannot parse it, it may still be a valid local endpoint...
 			// so ignoring parsing error,
-			if _, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
-				if c.remoteEndpoint != "" {
+			if url, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
+				if c.remoteEndpoint != nil {
 					return errors.NotSupportedf("providing more than one remote endpoints")
 				}
-				c.remoteEndpoint = endpoint
+				c.remoteEndpoint = url
+				c.Endpoints = append(c.Endpoints, url.ApplicationName)
 				continue
 			}
 		}
@@ -141,6 +188,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 		if err := validateLocalEndpoint(endpoint, ":"); err != nil {
 			return err
 		}
+		c.Endpoints = append(c.Endpoints, endpoint)
 	}
 	return nil
 }

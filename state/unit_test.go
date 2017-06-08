@@ -42,7 +42,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.service = s.AddTestingService(c, "wordpress", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unit, err = s.service.AddUnit()
+	s.unit, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 }
@@ -348,7 +348,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit()
+		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 		result = append(result, tc)
@@ -357,10 +357,10 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit()
+		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
-		colocated, err := s.service.AddUnit()
+		colocated, err := s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(colocated.AssignToMachine(tc.host), gc.IsNil)
 
@@ -375,7 +375,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		}, tc.host.Id(), instance.LXD)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit()
+		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 
@@ -386,7 +386,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
-		tc.target, err = s.service.AddUnit()
+		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 
@@ -396,7 +396,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit()
+		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 		result = append(result, tc)
@@ -445,7 +445,7 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit()
+	target, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	flip := jujutxn.TestHook{
@@ -468,7 +468,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit()
+	target, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
@@ -483,7 +483,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit()
+	target, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	c.Assert(host.SetHasVote(true), gc.IsNil)
@@ -499,7 +499,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit()
+	target, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
@@ -527,12 +527,12 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit()
+	target, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
 	// This unit will be colocated in the transaction hook to cause a retry.
-	colocated, err := s.service.AddUnit()
+	colocated, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(host.SetHasVote(true), gc.IsNil)
@@ -876,7 +876,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		status.Rebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
-		unit, err := s.service.AddUnit()
+		unit, err := s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1320,7 +1320,7 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	otherUnit, err := s.service.AddUnit()
+	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherUnit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1419,13 +1419,13 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 
 func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	// Check that units can become dead when they've never had subordinates.
-	u, err := s.service.AddUnit()
+	u, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new unit and add a subordinate.
-	u, err = s.service.AddUnit()
+	u, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1495,7 +1495,7 @@ func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 func (s *UnitSuite) TestRelations(c *gc.C) {
 	wordpress0 := s.unit
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysql0, err := mysql.AddUnit()
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1578,7 +1578,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// However, if a unit of the *other* service joins the relation, that
 	// will add an additional reference and prevent the relation -- and
 	// thus wordpress itself -- from being removed when its last unit is.
-	mysql0, err := mysql.AddUnit()
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1625,7 +1625,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// However, if a unit of the *other* service joins the relation, that
 	// will add an additional reference and prevent the relation -- and
 	// thus wordpress itself -- from being removed when its last unit is.
-	mysql0, err := mysql.AddUnit()
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1777,7 +1777,7 @@ snapshot:
 `[1:]
 
 	wordpress := s.AddTestingService(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
-	unit1, err := wordpress.AddUnit()
+	unit1, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	specs, err := unit1.ActionSpecs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1860,10 +1860,10 @@ action-b-b:
 	// Add simple service and two units
 	dummy := s.AddTestingService(c, "dummy", s.AddActionsCharm(c, "dummy", basicActions, 1))
 
-	unit1, err := dummy.AddUnit()
+	unit1, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := dummy.AddUnit()
+	unit2, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 3 actions to first unit, and 2 to the second unit
@@ -1901,7 +1901,7 @@ action-b-b:
 func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	ch := state.AddTestingCharm(c, s.State, "dummy")
 	app := state.AddTestingService(c, s.State, "alexandrite", ch)
-	unit, err := app.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	version, err := unit.WorkloadVersion()
@@ -1918,4 +1918,12 @@ func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	version, err = regotUnit.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "3.combined")
+}
+
+func unitMachine(c *gc.C, st *state.State, u *state.Unit) *state.Machine {
+	machineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := st.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	return machine
 }

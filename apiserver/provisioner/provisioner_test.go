@@ -28,7 +28,9 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -821,7 +823,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
 		svc := s.AddTestingService(c, name, s.AddTestingCharm(c, name))
 		for _, m := range machines {
-			unit, err := svc.AddUnit()
+			unit, err := svc.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -978,7 +980,10 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateModelConfig(map[string]interface{}{

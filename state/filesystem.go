@@ -60,6 +60,9 @@ type Filesystem interface {
 	// if it needs to be provisioned. Params returns true if the returned
 	// parameters are usable for provisioning, otherwise false.
 	Params() (FilesystemParams, bool)
+
+	// Detachable reports whether or not the filesystem is detachable.
+	Detachable() bool
 }
 
 // FilesystemAttachment describes an attachment of a filesystem to a machine.
@@ -110,8 +113,8 @@ type filesystemDoc struct {
 
 	// MachineId is the ID of the machine that a non-detachable
 	// volume is initially attached to. We use this to identify
-	// the volume as being non-detachable, and to determine
-	// which volumes must be removed along with said machine.
+	// the filesystem as being non-detachable, and to determine
+	// which filesystems must be removed along with said machine.
 	MachineId string `bson:"machineid,omitempty"`
 }
 
@@ -462,11 +465,11 @@ func isDetachableFilesystemTag(st *State, tag names.FilesystemTag) (bool, error)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return f.detachable(), nil
+	return f.Detachable(), nil
 }
 
-// detachable reports whether or not the filesystem is detachable.
-func (f *filesystem) detachable() bool {
+// Detachable reports whether or not the filesystem is detachable.
+func (f *filesystem) Detachable() bool {
 	return f.doc.MachineId == ""
 }
 
@@ -487,12 +490,6 @@ func isDetachableFilesystemPool(st *State, pool string) (bool, error) {
 		// The storage provider only accomodates provisioning storage
 		// statically along with the machine. Such storage is bound
 		// to the machine.
-		return false, nil
-	}
-	if !provider.Supports(storage.StorageKindFilesystem) {
-		// TODO(axw) remove this when volume-backed filesystems
-		// inherit the scope of the volume. For now, volume-backed
-		// filesystems are always machine-scoped.
 		return false, nil
 	}
 	return true, nil
@@ -568,7 +565,10 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := removeFilesystemAttachmentOps(machine, f)
+		ops, err := removeFilesystemAttachmentOps(st, machine, f)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		volumeAttachment, err := st.filesystemVolumeAttachment(machine, filesystem)
 		if err != nil {
 			if errors.Cause(err) != ErrNoBackingVolume && !errors.IsNotFound(err) {
@@ -595,22 +595,38 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 	return st.run(buildTxn)
 }
 
-func removeFilesystemAttachmentOps(m names.MachineTag, f *filesystem) []txn.Op {
-	decrefFilesystemOp := machineStorageDecrefOp(
-		filesystemsC, f.doc.FilesystemId,
-		f.doc.AttachmentCount, f.doc.Life, m,
-	)
-	return []txn.Op{{
+func removeFilesystemAttachmentOps(st *State, m names.MachineTag, f *filesystem) ([]txn.Op, error) {
+	var ops []txn.Op
+	if f.doc.VolumeId != "" && f.doc.Life == Dying && f.doc.AttachmentCount == 1 {
+		// Volume-backed filesystems are removed immediately, instead
+		// of transitioning to Dead.
+		assert := bson.D{
+			{"life", Dying},
+			{"attachmentcount", 1},
+		}
+		removeFilesystemOps, err := removeFilesystemOps(st, f, assert)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = removeFilesystemOps
+	} else {
+		decrefFilesystemOp := machineStorageDecrefOp(
+			filesystemsC, f.doc.FilesystemId,
+			f.doc.AttachmentCount, f.doc.Life, m,
+		)
+		ops = []txn.Op{decrefFilesystemOp}
+	}
+	return append(ops, txn.Op{
 		C:      filesystemAttachmentsC,
 		Id:     filesystemAttachmentId(m.Id(), f.doc.FilesystemId),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
-	}, decrefFilesystemOp, {
+	}, txn.Op{
 		C:      machinesC,
 		Id:     m.Id(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$pull", bson.D{{"filesystems", f.doc.FilesystemId}}}},
-	}}
+	}), nil
 }
 
 // DestroyFilesystem ensures that the filesystem and any attachments to it will
@@ -647,10 +663,21 @@ func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.O
 	baseAssert := append(isAliveDoc, extraAssert...)
 	if f.doc.AttachmentCount == 0 {
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
+		assert := append(hasNoAttachments, baseAssert...)
+		if f.doc.VolumeId != "" {
+			// Filesystem is volume-backed, and since it has no
+			// attachments, it has no provisioner responsible
+			// for it. Removing the filesystem will destroy the
+			// backing volume, which effectively destroys the
+			// filesystem contents anyway.
+			return removeFilesystemOps(st, f, assert)
+		}
+		// The filesystem is not volume-backed, so leave it to the
+		// storage provisioner to destroy it.
 		return []txn.Op{{
 			C:      filesystemsC,
 			Id:     f.doc.FilesystemId,
-			Assert: append(hasNoAttachments, baseAssert...),
+			Assert: assert,
 			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		}}, nil
 	}
@@ -661,7 +688,7 @@ func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.O
 		Assert: append(hasAttachments, baseAssert...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
-	if !f.detachable() {
+	if !f.Detachable() {
 		// This filesystem cannot be directly detached, so we do
 		// not issue a cleanup. Since there can (should!) be only
 		// one attachment for the lifetime of the filesystem, we
@@ -706,17 +733,17 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 		if filesystem.Life() != Dead {
 			return nil, errors.New("filesystem is not dead")
 		}
-		return removeFilesystemOps(st, filesystem)
+		return removeFilesystemOps(st, filesystem, isDeadDoc)
 	}
 	return st.run(buildTxn)
 }
 
-func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
+func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) ([]txn.Op, error) {
 	ops := []txn.Op{
 		{
 			C:      filesystemsC,
 			Id:     filesystem.Tag().Id(),
-			Assert: txn.DocExists,
+			Assert: assert,
 			Remove: true,
 		},
 		removeModelFilesystemRefOp(st, filesystem.Tag().Id()),
@@ -781,12 +808,6 @@ func newFilesystemId(st *State, machineId string) (string, error) {
 // directly, a volume will be created and Juju will manage a filesystem
 // on it.
 func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
-	// TODO(axw) the scope of a volume-backed filesystem should be the
-	// same as the volume. Machine storage provisioners would be
-	// responsible for managing filesystems backed by volumes attached
-	// to that machine. Making this change will enable persistent
-	// filesystems; until then, destroying a volume-backed filesystem
-	// always destroys the volume.
 	params, err := st.filesystemParamsWithDefaults(params, machineId)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
@@ -895,9 +916,10 @@ func (st *State) validateFilesystemParams(params FilesystemParams, machineId str
 }
 
 type filesystemAttachmentTemplate struct {
-	tag     names.FilesystemTag
-	storage names.StorageTag // may be zero-value
-	params  FilesystemAttachmentParams
+	tag      names.FilesystemTag
+	storage  names.StorageTag // may be zero-value
+	params   FilesystemAttachmentParams
+	existing bool
 }
 
 // createMachineFilesystemAttachmentInfo creates filesystem
@@ -917,6 +939,14 @@ func createMachineFilesystemAttachmentsOps(machineId string, attachments []files
 				Params:     &paramsCopy,
 			},
 		}
+		if attachment.existing {
+			ops = append(ops, txn.Op{
+				C:      filesystemsC,
+				Id:     attachment.tag.Id(),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$inc", bson.D{{"attachmentcount", 1}}}},
+			})
+		}
 	}
 	return ops
 }
@@ -932,18 +962,25 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 		return errors.Trace(err)
 	}
 	// If the filesystem is volume-backed, the volume must be provisioned
-	// and attachment first.
+	// and attached first.
 	if volumeTag, err := fs.Volume(); err == nil {
-		machineTag, ok := names.FilesystemMachine(tag)
-		if !ok {
-			return errors.Errorf("filesystem %s is not machine-scoped, but volume-backed", tag.Id())
-		}
-		volumeAttachment, err := st.VolumeAttachment(machineTag, volumeTag)
+		volumeAttachments, err := st.VolumeAttachments(volumeTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if _, err := volumeAttachment.Info(); err != nil {
-			return errors.Trace(err)
+		var anyAttached bool
+		for _, a := range volumeAttachments {
+			if _, err := a.Info(); err == nil {
+				anyAttached = true
+			} else if !errors.IsNotProvisioned(err) {
+				return err
+			}
+		}
+		if !anyAttached {
+			return errors.Errorf(
+				"backing volume %q is not attached",
+				volumeTag.Id(),
+			)
 		}
 	} else if errors.Cause(err) != ErrNoBackingVolume {
 		return errors.Trace(err)

@@ -31,7 +31,7 @@ func (s *MinUnitsSuite) assertRevno(c *gc.C, expectedRevno int, expectedErr erro
 
 func (s *MinUnitsSuite) addUnits(c *gc.C, count int) {
 	for i := 0; i < count; i++ {
-		_, err := s.service.AddUnit()
+		_, err := s.service.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -197,9 +197,9 @@ func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
 	s.assertRevno(c, 0, nil)
 
 	// Add two units to the service for later use.
-	unit1, err := s.service.AddUnit()
+	unit1, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit2, err := s.service.AddUnit()
+	unit2, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a unit and ensure the revno has been increased.
@@ -221,9 +221,9 @@ func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
 
 func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *gc.C) {
 	// Add two units to the service for later use.
-	unit1, err := s.service.AddUnit()
+	unit1, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit2, err := s.service.AddUnit()
+	unit2, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a unit and ensure the minUnits document has not been created.

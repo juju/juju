@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -31,11 +32,11 @@ type StorageInterface interface {
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 
 	// FilesystemAttachment returns the state.FilesystemAttachment
-	// corresponding to the identified machine and filesystem.
+	// corresponding to the specified machine and filesystem.
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 
 	// VolumeAttachment returns the state.VolumeAttachment corresponding
-	// to the identified machine and volume.
+	// to the specified machine and volume.
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 
 	// WatchStorageAttachment watches for changes to the storage attachment
@@ -57,6 +58,10 @@ type StorageInterface interface {
 	// BlockDevices returns information about block devices published
 	// for the specified machine.
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
+
+	// UnitStorageAttachments returns the storage attachments for the
+	// specified unit.
+	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 }
 
 // StorageAttachmentInfo returns the StorageAttachmentInfo for the specified
@@ -284,4 +289,62 @@ func storageTags(
 		}
 	}
 	return storageTags, nil
+}
+
+// UnitStorage returns the storage instances attached to the specified unit.
+func UnitStorage(st StorageInterface, unit names.UnitTag) ([]state.StorageInstance, error) {
+	attachments, err := st.UnitStorageAttachments(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	instances := make([]state.StorageInstance, 0, len(attachments))
+	for _, attachment := range attachments {
+		instance, err := st.StorageInstance(attachment.StorageInstance())
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		instances = append(instances, instance)
+	}
+	return instances, nil
+}
+
+// ClassifyDetachedStorage classifies storage instances into those that will
+// be destroyed, and those that will be detached, when their attachment is
+// removed. Any storage that is not found will be omitted.
+func ClassifyDetachedStorage(
+	st StorageInterface,
+	storage []state.StorageInstance,
+) (destroyed, detached []params.Entity, _ error) {
+	for _, storage := range storage {
+		var detachable bool
+		switch storage.Kind() {
+		case state.StorageKindFilesystem:
+			f, err := st.StorageInstanceFilesystem(storage.StorageTag())
+			if errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return nil, nil, err
+			}
+			detachable = f.Detachable()
+		case state.StorageKindBlock:
+			v, err := st.StorageInstanceVolume(storage.StorageTag())
+			if errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return nil, nil, err
+			}
+			detachable = v.Detachable()
+		default:
+			return nil, nil, errors.NotValidf("storage kind %s", storage.Kind())
+		}
+		entity := params.Entity{storage.StorageTag().String()}
+		if detachable {
+			detached = append(detached, entity)
+		} else {
+			destroyed = append(destroyed, entity)
+		}
+	}
+	return destroyed, detached, nil
 }

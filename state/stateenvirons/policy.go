@@ -33,8 +33,8 @@ func GetNewPolicyFunc(getEnviron func(*state.State) (environs.Environ, error)) s
 }
 
 // Prechecker implements state.Policy.
-func (p environStatePolicy) Prechecker() (state.Prechecker, error) {
-	// Environ implements state.Prechecker.
+func (p environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
+	// Environ implements environs.InstancePrechecker.
 	return p.getEnviron(p.st)
 }
 

@@ -414,7 +414,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, jc.ErrorIsNil)
 	svc := ctx.s.AddTestingServiceWithStorage(c, csau.serviceName, sch, csau.storage)
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
@@ -1167,7 +1167,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 type addRelationUnit struct{}
 
 func (s addRelationUnit) step(c *gc.C, ctx *context) {
-	u, err := ctx.relatedSvc.AddUnit()
+	u, err := ctx.relatedSvc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)

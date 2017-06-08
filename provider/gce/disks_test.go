@@ -274,7 +274,8 @@ func (s *volumeSourceSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(res, gc.HasLen, 1)
 	c.Assert(res[0].VolumeAttachment.Volume.String(), gc.Equals, "volume-0")
 	c.Assert(res[0].VolumeAttachment.Machine.String(), gc.Equals, "machine-0")
-	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceName, gc.Equals, "home-zone-1234567")
+	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceName, gc.Equals, "")
+	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceLink, gc.Equals, "/dev/disk/by-id/google-home-zone-1234567")
 
 	// Disk Was attached
 	attachCalled, call := s.FakeConn.WasCalled("AttachDisk")

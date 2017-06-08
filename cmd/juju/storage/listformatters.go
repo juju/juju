@@ -68,6 +68,7 @@ func formatStorageListTabular(
 			}
 			byStorage[storageId] = storageAttachmentInfo{
 				storageId: storageId,
+				kind:      storageInfo.Kind,
 				status:    storageInfo.Status,
 			}
 			continue

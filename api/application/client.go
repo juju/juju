@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -89,6 +90,11 @@ type DeployArgs struct {
 	// handled.
 	Storage map[string]storage.Constraints
 
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
+
 	// EndpointBindings
 	EndpointBindings map[string]string
 
@@ -102,6 +108,16 @@ type DeployArgs struct {
 // it. Placement directives, if provided, specify the machine on which the charm
 // is deployed.
 func (c *Client) Deploy(args DeployArgs) error {
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return errors.New("cannot attach existing storage when more than one unit is requested")
+	}
+	attachStorage := make([]string, len(args.AttachStorage))
+	for i, id := range args.AttachStorage {
+		if !names.IsValidStorage(id) {
+			return errors.NotValidf("storage ID %q", id)
+		}
+		attachStorage[i] = names.NewStorageTag(id).String()
+	}
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName:  args.ApplicationName,
@@ -113,6 +129,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
+			AttachStorage:    attachStorage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,
 		}},
@@ -408,12 +425,13 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 }
 
 // Consume adds a remote application to the model.
-func (c *Client) Consume(remoteApplication, alias string) (string, error) {
-	var consumeRes params.ConsumeApplicationResults
+func (c *Client) Consume(offer params.ApplicationOffer, alias string, macaroon *macaroon.Macaroon) (string, error) {
+	var consumeRes params.ErrorResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationURL:   remoteApplication,
 			ApplicationAlias: alias,
+			ApplicationOffer: offer,
+			Macaroon:         macaroon,
 		}},
 	}
 	err := c.facade.FacadeCall("Consume", args, &consumeRes)
@@ -426,5 +444,9 @@ func (c *Client) Consume(remoteApplication, alias string) (string, error) {
 	if err := consumeRes.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	return consumeRes.Results[0].LocalName, nil
+	localName := offer.OfferName
+	if alias != "" {
+		localName = alias
+	}
+	return localName, nil
 }

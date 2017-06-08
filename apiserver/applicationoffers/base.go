@@ -8,12 +8,14 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 )
 
@@ -23,6 +25,7 @@ type BaseAPI struct {
 	GetApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers
 	ControllerModel      Backend
 	StatePool            StatePool
+	getEnviron           environFromModelFunc
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.
@@ -57,9 +60,9 @@ func (api *BaseAPI) checkAdmin(backend Backend) error {
 
 // modelForName looks up the model details for the named model.
 func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, error) {
-	user := api.Authorizer.GetAuthTag().(names.UserTag)
+	user := api.Authorizer.GetAuthTag()
 	if ownerName == "" {
-		ownerName = user.Name()
+		ownerName = user.Id()
 	}
 	var model Model
 	models, err := api.ControllerModel.AllModels()
@@ -78,7 +81,7 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, erro
 // applicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
-	requireAdmin bool,
+	requiredAccess permission.Access,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
 ) ([]params.ApplicationOfferDetails, error) {
 	// Get the relevant backend for the specified model.
@@ -96,8 +99,8 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 	isAdmin = err == nil
-	if requireAdmin && !isAdmin {
-		return nil, common.ServerError(err)
+	if requiredAccess == permission.AdminAccess && !isAdmin {
+		return nil, common.ErrPerm
 	}
 
 	offers, err := api.GetApplicationOffers(backend).ListOffers(filters...)
@@ -106,59 +109,54 @@ func (api *BaseAPI) applicationOffersFromModel(
 	}
 
 	var results []params.ApplicationOfferDetails
-	for _, offer := range offers {
+	for _, appOffer := range offers {
 		userAccess := permission.AdminAccess
 		// If the user is not a model admin, they need at least read
 		// access on an offer to see it.
 		if !isAdmin {
-			apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
-			access, permErr := backend.GetOfferAccess(names.NewApplicationOfferTag(offer.OfferName), apiUser)
-			if err != nil && !errors.IsNotFound(permErr) {
+			if userAccess, err = api.checkOfferAccess(backend, appOffer.OfferName, requiredAccess); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
+			if userAccess == permission.NoAccess {
 				continue
 			}
-			userAccess = access
+			isAdmin = userAccess == permission.AdminAccess
 		}
-		app, err := backend.Application(offer.ApplicationName)
+		offerParams, app, err := api.makeOfferParams(backend, &appOffer, userAccess)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		curl, _ := app.CharmURL()
-		status, err := backend.RemoteConnectionStatus(offer.OfferName)
-		if err != nil {
-			return nil, errors.Trace(err)
+		offer := params.ApplicationOfferDetails{
+			ApplicationOffer: *offerParams,
 		}
-		offerDetails := params.ApplicationOfferDetails{
-			ApplicationOffer: makeOfferParamsFromOffer(offer, modelUUID, userAccess),
-			ApplicationName:  app.Name(),
-			CharmName:        curl.Name,
-			ConnectedCount:   status.ConnectionCount(),
+		// Only admins can see some sensitive details of the offer.
+		if isAdmin {
+			curl, _ := app.CharmURL()
+			status, err := backend.RemoteConnectionStatus(offer.OfferName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			offer.ApplicationName = app.Name()
+			offer.CharmName = curl.Name
+			offer.ConnectedCount = status.ConnectionCount()
 		}
-		results = append(results, offerDetails)
+		results = append(results, offer)
 	}
 	return results, nil
 }
 
-func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer, modelUUID string, access permission.Access) params.ApplicationOffer {
-	result := params.ApplicationOffer{
-		SourceModelTag:         names.NewModelTag(modelUUID).String(),
-		OfferName:              offer.OfferName,
-		ApplicationDescription: offer.ApplicationDescription,
-		Access:                 string(access),
+// checkOfferAccess returns the level of access the authenticated user has to the offer,
+// so long as it is greater than the requested perm.
+func (api *BaseAPI) checkOfferAccess(backend Backend, offerName string, perm permission.Access) (permission.Access, error) {
+	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
+	access, err := backend.GetOfferAccess(names.NewApplicationOfferTag(offerName), apiUser)
+	if err != nil && !errors.IsNotFound(err) {
+		return permission.NoAccess, errors.Trace(err)
 	}
-	for alias, ep := range offer.Endpoints {
-		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
-			Name:      alias,
-			Interface: ep.Interface,
-			Role:      ep.Role,
-			Scope:     ep.Scope,
-			Limit:     ep.Limit,
-		})
+	if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
+		return permission.NoAccess, nil
 	}
-
-	return result
+	return access, nil
 }
 
 type offerModel struct {
@@ -168,7 +166,7 @@ type offerModel struct {
 
 // getModelsFromOffers returns a slice of models corresponding to the
 // specified offer URLs. Each result item has either a model or an error.
-func (api *BaseAPI) getModelsFromOffers(offerURLs []string) ([]offerModel, error) {
+func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, error) {
 	// Cache the models found so far so we don't look them up more than once.
 	modelsCache := make(map[string]Model)
 	oneModel := func(offerURL string) (Model, error) {
@@ -248,20 +246,20 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 // getApplicationOffersDetails gets details about remote applications that match given filter.
 func (api *BaseAPI) getApplicationOffersDetails(
 	filters params.OfferFilters,
-	requireAdmin bool,
+	requiredPermission permission.Access,
 ) ([]params.ApplicationOfferDetails, error) {
 
 	// If there are no filters specified, that's an error since the
 	// caller is expected to specify at the least one or more models
 	// to avoid an unbounded query across all models.
 	if len(filters.Filters) == 0 {
-		return nil, common.ServerError(errors.New("at least one offer filter is required"))
+		return nil, errors.New("at least one offer filter is required")
 	}
 
 	// Gather all the filter details for doing a query for each model.
 	models, filtersPerModel, err := api.getModelFilters(filters)
 	if err != nil {
-		return nil, common.ServerError(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 
 	// Ensure the result is deterministic.
@@ -275,15 +273,15 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	var result []params.ApplicationOfferDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
-		offers, err := api.applicationOffersFromModel(modelUUID, requireAdmin, filters...)
+		offers, err := api.applicationOffersFromModel(modelUUID, requiredPermission, filters...)
 		if err != nil {
-			return nil, common.ServerError(errors.Trace(err))
+			return nil, errors.Trace(err)
 		}
 		model := models[modelUUID]
 
-		for _, offer := range offers {
-			offer.OfferURL = jujucrossmodel.MakeURL(model.Owner().Name(), model.Name(), offer.OfferName, "")
-			result = append(result, offer)
+		for _, offerDetails := range offers {
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Owner().Name(), model.Name(), offerDetails.OfferName, "")
+			result = append(result, offerDetails)
 		}
 	}
 	return result, nil
@@ -297,4 +295,114 @@ func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.Applica
 	}
 	// TODO(wallyworld) - add support for Endpoint filter attribute
 	return offerFilter
+}
+
+func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer, access permission.Access) (
+	*params.ApplicationOffer, Application, error,
+) {
+	app, err := backend.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	appBindings, err := app.EndpointBindings()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	result := params.ApplicationOffer{
+		SourceModelTag:         backend.ModelTag().String(),
+		OfferName:              offer.OfferName,
+		ApplicationDescription: offer.ApplicationDescription,
+		Access:                 string(access),
+	}
+
+	spaceNames := set.NewStrings()
+	for alias, ep := range offer.Endpoints {
+		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
+			Name:      alias,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+			Scope:     ep.Scope,
+			Limit:     ep.Limit,
+		})
+		spaceName, ok := appBindings[ep.Name]
+		if !ok {
+			// There should always be some binding (even if it's to
+			// the default space).
+			return nil, nil, errors.Errorf("no binding for %q endpoint", ep.Name)
+		}
+		spaceNames.Add(spaceName)
+	}
+
+	spaces, err := api.collectRemoteSpaces(backend, spaceNames.SortedValues())
+	if errors.IsNotSupported(err) {
+		// Provider doesn't support ProviderSpaceInfo; continue
+		// without any space information, we shouldn't short-circuit
+		// cross-model connections.
+		return &result, app, nil
+	}
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	// Ensure bindings only contains entries for which we have spaces.
+	for epName, spaceName := range appBindings {
+		space, ok := spaces[spaceName]
+		if !ok {
+			continue
+		}
+		if result.Bindings == nil {
+			result.Bindings = make(map[string]string)
+		}
+		result.Bindings[epName] = spaceName
+		result.Spaces = append(result.Spaces, space)
+	}
+	return &result, app, nil
+}
+
+// collectRemoteSpaces gets provider information about the spaces from
+// the state passed in. (This state will be for a different model than
+// this API instance, which is why the results are *remote* spaces.)
+// These can be used by the provider later on to decide whether a
+// connection can be made via cloud-local addresses. If the provider
+// doesn't support getting ProviderSpaceInfo the NotSupported error
+// will be returned.
+func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
+	env, err := api.getEnviron(backend.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		logger.Debugf("cloud provider doesn't support networking, not getting space info")
+		return nil, nil
+	}
+
+	results := make(map[string]params.RemoteSpace)
+	for _, name := range spaceNames {
+		space := environs.DefaultSpaceInfo
+		if name != environs.DefaultSpaceName {
+			dbSpace, err := backend.Space(name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			space, err = spaceInfoFromState(dbSpace)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		providerSpace, err := netEnv.ProviderSpaceInfo(space)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if providerSpace == nil {
+			logger.Warningf("no provider space info for %q", name)
+			continue
+		}
+		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)
+		// Use the name from state in case provider and state disagree.
+		remoteSpace.Name = name
+		results[name] = remoteSpace
+	}
+	return results, nil
 }

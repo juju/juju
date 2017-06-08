@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -301,14 +302,16 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		if _, err := e.parsePlacement(placement); err != nil {
-			return err
-		}
+// PrecheckInstance is defined on the environs.InstancePrechecker interface.
+func (e *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if !cons.HasInstanceType() {
+	if _, _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
+		return errors.Trace(err)
+	}
+	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
@@ -317,17 +320,17 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value, placem
 		return errors.Trace(err)
 	}
 	for _, itype := range instanceTypes {
-		if itype.Name != *cons.InstanceType {
+		if itype.Name != *args.Constraints.InstanceType {
 			continue
 		}
-		if archMatches(itype.Arches, cons.Arch) {
+		if archMatches(itype.Arches, args.Constraints.Arch) {
 			return nil
 		}
 	}
-	if cons.Arch == nil {
-		return fmt.Errorf("invalid AWS instance type %q specified", *cons.InstanceType)
+	if args.Constraints.Arch == nil {
+		return fmt.Errorf("invalid AWS instance type %q specified", *args.Constraints.InstanceType)
 	}
-	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *cons.InstanceType, *cons.Arch)
+	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *args.Constraints.InstanceType, *args.Constraints.Arch)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -401,30 +404,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}()
 
+	callback(status.Allocating, "Determining availability zones", nil)
+
+	// Determine the availability zones of existing volumes that are to be
+	// attached to the machine. They must all match, and must be the same
+	// as specified zone (if any).
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var availabilityZones []string
-	var placementSubnetID string
-	if args.Placement != "" {
-		placement, err := e.parsePlacement(args.Placement)
-		if err != nil {
-			return nil, err
-		}
-		if placement.availabilityZone.State != availableState {
-			return nil, errors.Errorf("availability zone %q is %q", placement.availabilityZone.Name, placement.availabilityZone.State)
-		}
-		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
-		if placement.subnet != nil {
-			if placement.subnet.State != availableState {
-				return nil, errors.Errorf("subnet %q is %q", placement.subnet.CIDRBlock, placement.subnet.State)
-			}
-			placementSubnetID = placement.subnet.Id
-		}
+	if placementZone != "" {
+		availabilityZones = []string{placementZone}
 	}
 
-	callback(status.Allocating, "Determining availability zones", nil)
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	var zoneInstances []common.AvailabilityZoneInstances
+	// If no availability zone is specified or required, then automatically
+	// spread across the known zones for optimal spread across the instance
+	// distribution group.
 	if len(availabilityZones) == 0 {
 		var err error
 		var group []instance.Id
@@ -434,7 +434,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 				return nil, err
 			}
 		}
-		zoneInstances, err = availabilityZoneAllocations(e, group)
+		zoneInstances, err := availabilityZoneAllocations(e, group)
 		if err != nil {
 			return nil, err
 		}
@@ -652,6 +652,69 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+func (e *environ) instancePlacementZone(placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {
+	if placement == "" {
+		return volumeAttachmentsZone, "", nil
+	}
+	var placementSubnetID string
+	instPlacement, err := e.parsePlacement(placement)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if instPlacement.availabilityZone.State != availableState {
+		return "", "", errors.Errorf(
+			"availability zone %q is %q",
+			instPlacement.availabilityZone.Name,
+			instPlacement.availabilityZone.State,
+		)
+	}
+	if volumeAttachmentsZone != "" && volumeAttachmentsZone != instPlacement.availabilityZone.Name {
+		return "", "", errors.Errorf(
+			"cannot create instance with placement %q, as this will prevent attaching the requested EBS volumes in zone %q",
+			placement, volumeAttachmentsZone,
+		)
+	}
+	if instPlacement.subnet != nil {
+		if instPlacement.subnet.State != availableState {
+			return "", "", errors.Errorf("subnet %q is %q", instPlacement.subnet.CIDRBlock, instPlacement.subnet.State)
+		}
+		placementSubnetID = instPlacement.subnet.Id
+	}
+	return instPlacement.availabilityZone.Name, placementSubnetID, nil
+}
+
+// volumeAttachmentsZone determines the availability zone for each volume
+// identified in the volume attachment parameters, checking that they are
+// all the same, and returns the availability zone name.
+func volumeAttachmentsZone(ec2 *ec2.EC2, attachments []storage.VolumeAttachmentParams) (string, error) {
+	volumeIds := make([]string, 0, len(attachments))
+	for _, a := range attachments {
+		if a.Provider != EBS_ProviderType {
+			continue
+		}
+		volumeIds = append(volumeIds, a.VolumeId)
+	}
+	if len(volumeIds) == 0 {
+		return "", nil
+	}
+	resp, err := ec2.Volumes(volumeIds, nil)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting volume details (%s)", volumeIds)
+	}
+	if len(resp.Volumes) == 0 {
+		return "", nil
+	}
+	for i, v := range resp.Volumes[1:] {
+		if v.AvailZone != resp.Volumes[i].AvailZone {
+			return "", errors.Errorf(
+				"cannot attach volumes from multiple availability zones: %s is in %s, %s is in %s",
+				resp.Volumes[i].Id, resp.Volumes[i].AvailZone, v.Id, v.AvailZone,
+			)
+		}
+	}
+	return resp.Volumes[0].AvailZone, nil
 }
 
 // tagResources calls ec2.CreateTags, tagging each of the specified resources

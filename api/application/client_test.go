@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -68,7 +69,7 @@ func (s *applicationSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
+func (s *applicationSuite) TestDeploy(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
@@ -76,16 +77,18 @@ func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
 		args, ok := a.(params.ApplicationsDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Applications, gc.HasLen, 1)
-		c.Assert(args.Applications[0].CharmURL, gc.Equals, "cs:trusty/a-charm-1")
-		c.Assert(args.Applications[0].ApplicationName, gc.Equals, "serviceA")
-		c.Assert(args.Applications[0].Series, gc.Equals, "series")
-		c.Assert(args.Applications[0].NumUnits, gc.Equals, 2)
-		c.Assert(args.Applications[0].ConfigYAML, gc.Equals, "configYAML")
-		c.Assert(args.Applications[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		c.Assert(args.Applications[0].Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
-		c.Assert(args.Applications[0].EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
-		c.Assert(args.Applications[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
-		c.Assert(args.Applications[0].Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+		app := args.Applications[0]
+		c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
+		c.Assert(app.ApplicationName, gc.Equals, "serviceA")
+		c.Assert(app.Series, gc.Equals, "series")
+		c.Assert(app.NumUnits, gc.Equals, 1)
+		c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
+		c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+		c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
+		c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+		c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
+		c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
@@ -98,17 +101,33 @@ func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
 		},
 		ApplicationName:  "serviceA",
 		Series:           "series",
-		NumUnits:         2,
+		NumUnits:         1,
 		ConfigYAML:       "configYAML",
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
 		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
 	}
 	err := client.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		return nil
+	})
+	args := application.DeployArgs{
+		NumUnits:      2,
+		AttachStorage: []string{"data/0"},
+	}
+	err := client.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
+	c.Assert(called, jc.IsFalse)
 }
 
 func (s *applicationSuite) TestServiceGetCharmURL(c *gc.C) {
@@ -177,26 +196,6 @@ func (s *applicationSuite) TestServiceSetCharm(c *gc.C) {
 	}
 	err := client.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *applicationSuite) TestConsume(c *gc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "Consume")
-		args, ok := a.(params.ConsumeApplicationArgs)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
-			{ApplicationURL: "remote app url", ApplicationAlias: "alias"},
-		})
-		result := response.(*params.ConsumeApplicationResults)
-		result.Results = []params.ConsumeApplicationResult{{LocalName: "result"}}
-		return nil
-	})
-	name, err := client.Consume("remote app url", "alias")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "result")
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -331,4 +330,45 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
 	results, err := client.DestroyUnits("!", "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestConsume(c *gc.C) {
+	offer := params.ApplicationOffer{
+		SourceModelTag:         "source model",
+		OfferName:              "an offer",
+		OfferURL:               "offer url",
+		ApplicationDescription: "description",
+		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
+	}
+	mac, err := macaroon.New(nil, "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Assert(request, gc.Equals, "Consume")
+			args, ok := a.(params.ConsumeApplicationArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
+				{
+					ApplicationAlias: "alias",
+					ApplicationOffer: offer,
+					Macaroon:         mac,
+				},
+			})
+			if results, ok := result.(*params.ErrorResults); ok {
+				result := params.ErrorResult{}
+				results.Results = []params.ErrorResult{result}
+			}
+			return nil
+		})
+	client := application.NewClient(apiCaller)
+	name, err := client.Consume(offer, "alias", mac)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "alias")
+	c.Assert(called, jc.IsTrue)
 }

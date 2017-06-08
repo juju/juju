@@ -11,6 +11,7 @@ import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -44,10 +45,24 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationRemoteApplications(c *gc.C
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
 	s.assertAddedRelation(c, "applicationname", "othermodel.applicationname2")
+	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
+	s.mockAPI.CheckCall(c, 2, "Consume",
+		params.ApplicationOffer{
+			OfferName: "hosted-mysql",
+		}, "applicationname2", s.mac,
+	)
+	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname", "applicationname2"})
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
 	s.assertAddedRelation(c, "othermodel.applicationname2", "applicationname")
+	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
+	s.mockAPI.CheckCall(c, 2, "Consume",
+		params.ApplicationOffer{
+			OfferName: "hosted-mysql",
+		}, "applicationname2", s.mac,
+	)
+	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname2", "applicationname"})
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
@@ -58,26 +73,13 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
 
 	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation", "Close")
-}
-
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationClientRetrievalFailure(c *gc.C) {
-	msg := "where is my client"
-
-	addRelationCmd := &addRelationCommand{}
-	addRelationCmd.newAPIFunc = func() (ApplicationAddRelationAPI, error) {
-		return nil, errors.New(msg)
-	}
-
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), "othermodel.applicationname2", "applicationname")
-	c.Assert(err, gc.ErrorMatches, msg)
+	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) assertAddedRelation(c *gc.C, args ...string) {
 	err := s.runAddRelation(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation", "Close")
-	s.mockAPI.CheckCall(c, 1, "AddRelation", args)
+	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
 // AddRemoteRelationSuiteOldAPI only needs to check that we have fallen through to the old api
@@ -95,12 +97,7 @@ func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationRemoteApplications(c *gc.C
 
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
 	err := s.runAddRelation(c, "applicationname", "othermodel.applicationname2")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [applicationname othermodel.applicationname2]: remote endpoints not supported"))
-}
-
-func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
-	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [othermodel.applicationname2 applicationname]: remote endpoints not supported"))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation to othermodel.applicationname2: remote endpoints not supported"))
 }
 
 // AddRelationValidationSuite has input validation tests.
@@ -145,15 +142,20 @@ type baseAddRemoteRelationSuite struct {
 	jujutesting.RepoSuite
 
 	mockAPI *mockAddRelationAPI
+	mac     *macaroon.Macaroon
 }
 
 func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.RepoSuite.SetUpTest(c)
+	var err error
+	s.mac, err = macaroon.New(nil, "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI = &mockAddRelationAPI{
 		addRelation: func(endpoints ...string) (*params.AddRelationResults, error) {
 			return nil, nil
 		},
+		mac: s.mac,
 	}
 }
 
@@ -163,9 +165,8 @@ func (s *baseAddRemoteRelationSuite) TearDownTest(c *gc.C) {
 
 func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) error {
 	addRelationCmd := &addRelationCommand{}
-	addRelationCmd.newAPIFunc = func() (ApplicationAddRelationAPI, error) {
-		return s.mockAPI, nil
-	}
+	addRelationCmd.addRelationAPI = s.mockAPI
+	addRelationCmd.consumeDetailsAPI = s.mockAPI
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), args...)
 	return err
 }
@@ -184,6 +185,8 @@ type mockAddRelationAPI struct {
 
 	// version can be overwritten by tests interested in different behaviour based on client version.
 	version int
+
+	mac *macaroon.Macaroon
 }
 
 func (m *mockAddRelationAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
@@ -199,4 +202,19 @@ func (m *mockAddRelationAPI) Close() error {
 func (m *mockAddRelationAPI) BestAPIVersion() int {
 	m.AddCall("BestAPIVersion")
 	return m.version
+}
+
+func (m *mockAddRelationAPI) Consume(offer params.ApplicationOffer, alias string, mac *macaroon.Macaroon) (string, error) {
+	m.AddCall("Consume", offer, alias, mac)
+	return alias, nil
+}
+
+func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {
+	m.AddCall("GetConsumeDetails", url)
+	return params.ConsumeOfferDetails{
+		Offer: &params.ApplicationOffer{
+			OfferName: "hosted-mysql",
+		},
+		Macaroon: m.mac,
+	}, nil
 }

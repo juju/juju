@@ -313,6 +313,7 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 	}
 	return volumes, nil
 }
+
 func (v *volumeSource) DescribeVolumes(volNames []string) ([]storage.DescribeVolumesResult, error) {
 	results := make([]storage.DescribeVolumesResult, len(volNames))
 	for i, vol := range volNames {
@@ -368,7 +369,10 @@ func (v *volumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentPara
 			attachment.Volume,
 			attachment.Machine,
 			storage.VolumeAttachmentInfo{
-				DeviceName: attached.DeviceName,
+				DeviceLink: fmt.Sprintf(
+					"/dev/disk/by-id/google-%s",
+					attached.DeviceName,
+				),
 			},
 		}
 	}

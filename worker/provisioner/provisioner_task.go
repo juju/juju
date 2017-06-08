@@ -591,6 +591,35 @@ func constructStartInstanceParams(
 			},
 		}
 	}
+	volumeAttachments := make([]storage.VolumeAttachmentParams, len(provisioningInfo.VolumeAttachments))
+	for i, v := range provisioningInfo.VolumeAttachments {
+		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
+		if err != nil {
+			return environs.StartInstanceParams{}, errors.Trace(err)
+		}
+		machineTag, err := names.ParseMachineTag(v.MachineTag)
+		if err != nil {
+			return environs.StartInstanceParams{}, errors.Trace(err)
+		}
+		if machineTag != machine.Tag() {
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params has invalid machine tag")
+		}
+		if v.InstanceId != "" {
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies instance ID")
+		}
+		if v.VolumeId == "" {
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params does not specify volume ID")
+		}
+		volumeAttachments[i] = storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: storage.ProviderType(v.Provider),
+				Machine:  machineTag,
+				ReadOnly: v.ReadOnly,
+			},
+			Volume:   volumeTag,
+			VolumeId: v.VolumeId,
+		}
+	}
 
 	var subnetsToZones map[network.Id][]string
 	if provisioningInfo.SubnetsToZones != nil {
@@ -630,6 +659,7 @@ func constructStartInstanceParams(
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
 		SubnetsToZones:    subnetsToZones,
 		EndpointBindings:  endpointBindings,
 		ImageMetadata:     possibleImageMetadata,

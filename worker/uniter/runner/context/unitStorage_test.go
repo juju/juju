@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -135,7 +136,10 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
-	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
+	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = poolManager.Create(testPersistentPool, "modelscoped", map[string]interface{}{"persistent": true})

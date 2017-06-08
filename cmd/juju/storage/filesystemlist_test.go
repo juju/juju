@@ -296,6 +296,29 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 					},
 				},
 			},
+		}, {
+			// filesystem 5 is assigned to db-dir/1100, but is not yet
+			// attached to any machines.
+			FilesystemTag: "filesystem-5",
+			Info: params.FilesystemInfo{
+				FilesystemId: "provider-supplied-filesystem-5",
+				Size:         3,
+			},
+			Status: createTestStatus(status.Attached, ""),
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-db-dir-1100",
+				OwnerTag:   "unit-abc-0",
+				Kind:       params.StorageKindBlock,
+				Life:       "alive",
+				Status:     createTestStatus(status.Attached, ""),
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-abc-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-db-dir-1100",
+						UnitTag:    "unit-abc-0",
+						Location:   "/mnt/fuji",
+					},
+				},
+			},
 		},
 	}}}
 	if s.omitPool {

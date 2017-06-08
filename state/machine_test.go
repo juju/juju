@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -296,7 +297,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	// A machine with an assigned unit must not advance lifecycle.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -330,7 +331,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,7 +386,7 @@ func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -397,7 +398,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	perturb := jujutxn.TestHook{
@@ -412,7 +413,7 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyWithServiceDestroyPending(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -428,7 +429,7 @@ func (s *MachineSuite) TestDestroyWithServiceDestroyPending(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -438,7 +439,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		anotherSvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-		anotherUnit, err := anotherSvc.AddUnit()
+		anotherUnit, err := anotherSvc.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = anotherUnit.AssignToMachine(s.machine)
 		c.Assert(err, jc.ErrorIsNil)
@@ -452,7 +453,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyWithUnitDestroyPending(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -468,7 +469,7 @@ func (s *MachineSuite) TestDestroyWithUnitDestroyPending(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -774,7 +775,7 @@ func (s *MachineSuite) TestDesiredSpacesEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc := s.AddTestingServiceWithBindings(c, "mysql",
 		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -796,7 +797,7 @@ func (s *MachineSuite) TestDesiredSpacesEndpointsAndConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc := s.AddTestingServiceWithBindings(c, "mysql",
 		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -832,7 +833,7 @@ func (s *MachineSuite) TestDesiredSpacesNothingRequested(c *gc.C) {
 	// And empty bindings
 	svc := s.AddTestingServiceWithBindings(c, "mysql",
 		s.AddTestingCharm(c, "mysql"), map[string]string{})
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -969,7 +970,10 @@ func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId s
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1083,7 +1087,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	for i, svc := range []*state.Application{s0, s1, s2} {
 		units[i] = make([]*state.Unit, 3)
 		for j := range units[i] {
-			units[i][j], err = svc.AddUnit()
+			units[i][j], err = svc.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
@@ -1150,7 +1154,7 @@ func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machin
 	c.Assert(m.Clean(), jc.IsTrue)
 
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1249,7 +1253,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysql0, err := mysql.AddUnit()
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1273,7 +1277,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
-	mysql1, err := mysql.AddUnit()
+	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1367,7 +1371,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 
 	// Assign a unit (to a separate instance); change detected.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysql0, err := mysql.AddUnit()
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1388,7 +1392,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
-	mysql1, err := mysql.AddUnit()
+	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)

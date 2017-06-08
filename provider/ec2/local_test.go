@@ -5,6 +5,9 @@ package ec2_test
 
 import (
 	"fmt"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -101,7 +104,7 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 
-	region := t.srv.region()
+	region := t.srv.region
 	t.CloudRegion = region.Name
 	t.CloudEndpoint = region.EC2Endpoint
 	restoreEC2Patching := patchEC2ForTesting(c, region)
@@ -121,7 +124,11 @@ type localServer struct {
 	// instances.
 	createRootDisks bool
 
-	ec2srv *ec2test.Server
+	ec2srv      *ec2test.Server
+	proxy       *httputil.ReverseProxy
+	proxyServer *httptest.Server
+	client      *amzec2.EC2
+	region      aws.Region
 
 	defaultVPC *amzec2.VPC
 	zones      []amzec2.AvailabilityZoneInfo
@@ -137,17 +144,32 @@ func (srv *localServer) startServer(c *gc.C) {
 	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
 	srv.addSpice(c)
 
-	region := srv.region()
+	// Create a reverse proxy, so we can override responses.
+	endpointURL, err := url.Parse(srv.ec2srv.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	backendURL := &url.URL{
+		Scheme: endpointURL.Scheme,
+		Host:   endpointURL.Host,
+	}
+	srv.proxy = httputil.NewSingleHostReverseProxy(backendURL)
+	srv.proxyServer = httptest.NewServer(srv.proxy)
+	endpointURL, err = url.Parse(srv.proxyServer.URL)
+	c.Assert(err, jc.ErrorIsNil)
+	srv.region = aws.Region{
+		Name:        "test",
+		EC2Endpoint: endpointURL.String(),
+	}
+	srv.client = amzec2.New(aws.Auth{}, srv.region, aws.SignV4Factory(srv.region.Name, "ec2"))
 
 	zones := make([]amzec2.AvailabilityZoneInfo, 3)
-	zones[0].Region = region.Name
-	zones[0].Name = region.Name + "-available"
+	zones[0].Region = srv.region.Name
+	zones[0].Name = srv.region.Name + "-available"
 	zones[0].State = "available"
-	zones[1].Region = region.Name
-	zones[1].Name = region.Name + "-impaired"
+	zones[1].Region = srv.region.Name
+	zones[1].Name = srv.region.Name + "-impaired"
 	zones[1].State = "impaired"
-	zones[2].Region = region.Name
-	zones[2].Name = region.Name + "-unavailable"
+	zones[2].Region = srv.region.Name
+	zones[2].Name = srv.region.Name + "-unavailable"
 	zones[2].State = "unavailable"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
@@ -156,18 +178,6 @@ func (srv *localServer) startServer(c *gc.C) {
 	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	srv.defaultVPC = &defaultVPC
-}
-
-func (srv *localServer) client() *amzec2.EC2 {
-	region := srv.region()
-	return amzec2.New(aws.Auth{}, region, aws.SignV4Factory(region.Name, "ec2"))
-}
-
-func (srv *localServer) region() aws.Region {
-	return aws.Region{
-		Name:        "test",
-		EC2Endpoint: srv.ec2srv.URL(),
-	}
 }
 
 // addSpice adds some "spice" to the local server
@@ -184,6 +194,7 @@ func (srv *localServer) addSpice(c *gc.C) {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
+	srv.proxyServer.Close()
 	srv.ec2srv.Reset(false)
 	srv.ec2srv.Quit()
 	srv.defaultVPC = nil
@@ -240,10 +251,10 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
-	region := t.srv.region()
+	region := t.srv.region
 	t.CloudRegion = region.Name
 	t.CloudEndpoint = region.EC2Endpoint
-	t.client = t.srv.client()
+	t.client = t.srv.client
 	restoreEC2Patching := patchEC2ForTesting(c, region)
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
@@ -756,6 +767,58 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	return result.Instance, nil
 }
 
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	result, err := testing.StartInstanceWithParams(env, "1", args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2.InstanceEC2(result.Instance).AvailZone, gc.Equals, "volume-zone")
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementConflicts(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		Placement:      "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	_, err = testing.StartInstanceWithParams(env, "1", args)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
+}
+
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
 	inst, err := t.testStartInstanceSubnet(c, "0.1.2.0/24")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1253,51 +1316,120 @@ func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      series.LatestLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      series.LatestLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      series.LatestLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.ErrorIsNil)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+	})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZone(c, "")
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZone(c, "zone=test-available")
+}
+
+func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placement string) {
+	env := t.Prepare(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "test-available",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: placement,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) {
+	env := t.Prepare(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    series.LatestLts(),
+		Placement: "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
+}
+
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	region := t.srv.region()
-	aws.Regions[region.Name] = t.srv.region()
+	region := t.srv.region
+	aws.Regions[region.Name] = t.srv.region
 	defer delete(aws.Regions, region.Name)
 
 	env := t.Prepare(c)
@@ -1697,7 +1829,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
 
-	region := t.srv.region()
+	region := t.srv.region
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{

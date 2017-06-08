@@ -81,7 +81,7 @@ func (s *StatusUnitAgentSuite) TestSetAllocatingStatusAlreadyAssigned(c *gc.C) {
 
 func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
-	u, err := app.AddUnit()
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	agent := u.Agent()
 	for _, value := range []status.Status{status.Idle, status.Executing, status.Rebooting, status.Failed} {

@@ -416,7 +416,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 2; i++ {
-		wu, err := wordpress.AddUnit()
+		wu, err := wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag(), gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, wu)

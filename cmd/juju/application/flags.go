@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/storage"
 )
@@ -75,6 +76,29 @@ func (f storageFlag) String() string {
 		}
 	}
 	return strings.Join(strs, " ")
+}
+
+type attachStorageFlag struct {
+	storageIDs *[]string
+}
+
+// Set implements gnuflag.Value.Set.
+func (f attachStorageFlag) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+	for _, id := range strings.Split(s, ",") {
+		if !names.IsValidStorage(id) {
+			return errors.NotValidf("storage ID %q", id)
+		}
+		*f.storageIDs = append(*f.storageIDs, id)
+	}
+	return nil
+}
+
+// String implements gnuflag.Value.String.
+func (f attachStorageFlag) String() string {
+	return strings.Join(*f.storageIDs, ",")
 }
 
 // stringMap is a type that deserializes a CLI string using gnuflag's Value

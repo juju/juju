@@ -223,6 +223,7 @@ type ApplicationDeploy struct {
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`
 }

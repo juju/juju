@@ -88,6 +88,7 @@ const (
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
+	attachStorageCall                       = "attachStorage"
 	detachStorageCall                       = "detachStorage"
 	destroyStorageInstanceCall              = "destroyStorageInstance"
 )
@@ -247,6 +248,17 @@ func (s *baseStorageSuite) constructState() *mockState {
 			}
 			return errors.NotFoundf(
 				"attachment of %s to %s",
+				names.ReadableString(storage),
+				names.ReadableString(unit),
+			)
+		},
+		attachStorage: func(storage names.StorageTag, unit names.UnitTag) error {
+			s.stub.AddCall(attachStorageCall, storage, unit)
+			if storage == s.storageTag && unit == s.unitTag {
+				return nil
+			}
+			return errors.Errorf(
+				"cannot attach %s to %s",
 				names.ReadableString(storage),
 				names.ReadableString(unit),
 			)

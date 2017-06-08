@@ -94,6 +94,9 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"charm", "application", "--force"},
 		err:  `--force is only used with --series`,
+	}, {
+		args: []string{"--attach-storage", "foo/0", "-n", "2"},
+		err:  `--attach-storage cannot be used with -n`,
 	},
 }
 
@@ -913,7 +916,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	}
 	meteredURL := charm.MustParseURL("cs:quantal/metered-1")
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
-	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil)
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -963,7 +966,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	}
 	meteredURL := charm.MustParseURL("cs:quantal/metered-1")
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
-	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil)
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1010,7 +1013,7 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, charmURL, cfg)
-	withCharmDeployable(fakeAPI, charmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), false, 1)
+	withCharmDeployable(fakeAPI, charmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), false, 1, nil)
 
 	deploy := &DeployCommand{
 		Steps: []DeployStep{&RegisterMeteredCharm{}},
@@ -1055,7 +1058,7 @@ summary: summary
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, url, cfg)
-	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1, nil)
 
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
@@ -1099,7 +1102,7 @@ summary: summary
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, url, cfg)
-	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1, nil)
 
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
@@ -1175,7 +1178,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, meteredCharmURL, cfg)
-	withCharmDeployable(fakeAPI, meteredCharmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, meteredCharmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil)
 
 	// `"hello registration"\n` (quotes and newline from json
 	// encoding) is returned by the fake http server. This is binary64
@@ -1281,7 +1284,7 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.
 
 	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
-	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil)
 
 	cmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
@@ -1305,7 +1308,7 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
-	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), true, 1, nil)
 
 	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
@@ -1333,7 +1336,7 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C
 	})
 	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
-	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1)
+	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil)
 
 	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
@@ -1375,6 +1378,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		&charm.Metrics{},
 		false,
 		0,
+		nil,
 	)
 	fakeAPI.Call("AddUnits", "mysql", 1, []*instance.Placement(nil)).Returns([]string{"mysql/0"}, error(nil))
 
@@ -1388,6 +1392,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		&charm.Metrics{},
 		false,
 		0,
+		nil,
 	)
 	fakeAPI.Call("AddUnits", "wordpress", 1, []*instance.Placement(nil)).Returns([]string{"wordpress/0"}, error(nil))
 
@@ -1411,6 +1416,30 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		`Deploy of bundle completed.`+
 		"\n",
 	)
+}
+
+func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	})
+	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
+	withCharmDeployable(
+		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, []string{"foo/0", "bar/1", "baz/2"},
+	)
+
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
+		"--attach-storage", "foo/0",
+		"--attach-storage", "bar/1,baz/2",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // fakeDeployAPI is a mock of the API used by the deploy command. It's
@@ -1609,6 +1638,7 @@ func withCharmDeployable(
 	metrics *charm.Metrics,
 	metered bool,
 	numUnits int,
+	attachStorage []string,
 ) {
 	fakeAPI.Call("AddCharm", url, csclientparams.Channel("")).Returns(error(nil))
 	fakeAPI.Call("CharmInfo", url.String()).Returns(
@@ -1624,6 +1654,7 @@ func withCharmDeployable(
 		ApplicationName: url.Name,
 		Series:          series,
 		NumUnits:        numUnits,
+		AttachStorage:   attachStorage,
 	}).Returns(error(nil))
 	fakeAPI.Call("IsMetered", url.String()).Returns(metered, error(nil))
 

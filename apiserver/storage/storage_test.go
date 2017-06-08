@@ -460,7 +460,7 @@ func (s *storageSuite) TestAttach(c *gc.C) {
 		{StorageTag: "storage-data-0", UnitTag: "machine-0"},
 		{StorageTag: "volume-0", UnitTag: "unit-mysql-0"},
 	}})
-	c.Assert(err, gc.ErrorMatches, "attaching storage not implemented")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -469,5 +469,6 @@ func (s *storageSuite) TestAttach(c *gc.C) {
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{attachStorageCall, []interface{}{s.storageTag, s.unitTag}},
 	})
 }

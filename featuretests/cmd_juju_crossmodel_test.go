@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/model"
@@ -190,17 +191,15 @@ otheruser/othermodel.hosted-mysql:
 }
 
 func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
-	c.Skip("add relation from URL not currently supported")
-
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 	ch = s.AddTestingCharm(c, "mysql")
 	s.AddTestingService(c, "mysql", ch)
 
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
-		"mysql:server", "me/model.hosted-mysql")
+		"mysql:server", "hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runJujuCommand(c, "add-relation", "wordpress", "me/model.hosted-mysql")
+	_, err = runJujuCommand(c, "add-relation", "wordpress", "admin/controller.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -247,7 +246,7 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 			},
 		}, {
 			ApplicationName: "hosted-mysql",
-			Relation: charm.Relation{Name: "server",
+			Relation: charm.Relation{Name: "database",
 				Role:      "provider",
 				Interface: "mysql",
 				Scope:     "global"},
@@ -363,19 +362,19 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 	s.loginTestUser(c)
 	context, err := runJujuCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.NotNil)
-	c.Assert(cmdtesting.Stderr(context), jc.Contains, "You do not have permission to add a relation")
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, `application offer "otheruser/othermodel.hosted-mysql" not found`)
 }
 
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
-	//otherModel := s.addOtherModelApplication(c)
 	s.addOtherModelApplication(c)
 
 	s.createTestUser(c)
 
 	// Users with consume permission to the offer can add relations.
 	runJujuCommand(c, "grant", "test", "consume", "otheruser/othermodel.hosted-mysql")
+	runJujuCommand(c, "grant", "test", "write", "admin/controller")
 
 	s.loginTestUser(c)
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
@@ -448,4 +447,27 @@ func (s *crossmodelSuite) TestOfferRevoke(c *gc.C) {
 	access, err := s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
+}
+
+func (s *crossmodelSuite) TestConsumeWithPermission(c *gc.C) {
+	s.addOtherModelApplication(c)
+	s.createTestUser(c)
+	s.loginTestUser(c)
+	ctx, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+		"otheruser/othermodel.hosted-mysql")
+	c.Assert(err, gc.ErrorMatches, `application offer "otheruser/othermodel.hosted-mysql" not found`)
+
+	s.loginAdminUser(c)
+	_, err = cmdtesting.RunCommand(c, model.NewGrantCommand(), "test", "consume", "otheruser/othermodel.hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cmdtesting.RunCommand(c, model.NewGrantCommand(), "test", "write", "admin/controller")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.loginTestUser(c)
+	ctx, err = cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+		"-m", "admin/controller", "otheruser/othermodel.hosted-mysql", "othermysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
+Added otheruser/othermodel.hosted-mysql as othermysql
+`[1:])
 }

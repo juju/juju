@@ -10,7 +10,9 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
 )
@@ -46,12 +48,12 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConsumeSuite) runConsume(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, application.NewConsumeCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, application.NewConsumeCommandForTest(s.store, s.mockAPI, s.mockAPI), args...)
 }
 
 func (s *ConsumeSuite) TestNoArguments(c *gc.C) {
 	_, err := s.runConsume(c)
-	c.Assert(err, gc.ErrorMatches, "no remote application specified")
+	c.Assert(err, gc.ErrorMatches, "no remote offer specified")
 }
 
 func (s *ConsumeSuite) TestTooManyArguments(c *gc.C) {
@@ -79,26 +81,35 @@ func (s *ConsumeSuite) TestErrorFromAPI(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "infirmary")
 }
 
-func (s *ConsumeSuite) TestSuccessModelDotApplication(c *gc.C) {
+func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 	s.mockAPI.localName = "mary-weep"
-	ctx, err := s.runConsume(c, "booster.uke")
+	var (
+		ctx *cmd.Context
+		err error
+	)
+	if alias != "" {
+		ctx, err = s.runConsume(c, "booster.uke", alias)
+	} else {
+		ctx, err = s.runConsume(c, "booster.uke")
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := macaroon.New(nil, "id", "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
-		{"Consume", []interface{}{"bob/booster.uke", ""}},
+		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
+		{"Consume", []interface{}{params.ApplicationOffer{OfferName: "an offer"}, alias, mac}},
+		{"Close", nil},
 		{"Close", nil},
 	})
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
 }
 
+func (s *ConsumeSuite) TestSuccessModelDotApplication(c *gc.C) {
+	s.assertSuccessModelDotApplication(c, "")
+}
+
 func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *gc.C) {
-	s.mockAPI.localName = "mary-weep"
-	ctx, err := s.runConsume(c, "booster.uke", "alias")
-	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCalls(c, []testing.StubCall{
-		{"Consume", []interface{}{"bob/booster.uke", "alias"}},
-		{"Close", nil},
-	})
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
+	s.assertSuccessModelDotApplication(c, "alias")
 }
 
 type mockConsumeAPI struct {
@@ -112,7 +123,19 @@ func (a *mockConsumeAPI) Close() error {
 	return a.NextErr()
 }
 
-func (a *mockConsumeAPI) Consume(remoteApplication, alias string) (string, error) {
-	a.MethodCall(a, "Consume", remoteApplication, alias)
+func (a *mockConsumeAPI) Consume(offer params.ApplicationOffer, alias string, mac *macaroon.Macaroon) (string, error) {
+	a.MethodCall(a, "Consume", offer, alias, mac)
 	return a.localName, a.NextErr()
+}
+
+func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {
+	a.MethodCall(a, "GetConsumeDetails", url)
+	mac, err := macaroon.New(nil, "id", "loc")
+	if err != nil {
+		return params.ConsumeOfferDetails{}, err
+	}
+	return params.ConsumeOfferDetails{
+		Offer:    &params.ApplicationOffer{OfferName: "an offer"},
+		Macaroon: mac,
+	}, a.NextErr()
 }

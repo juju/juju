@@ -851,10 +851,9 @@ func (a *API) Attach(args params.StorageAttachmentIds) (params.ErrorResults, err
 	for i, arg := range args.Ids {
 		result[i].Error = common.ServerError(attachOne(arg))
 	}
-	return params.ErrorResults{Results: result}, errors.NotImplementedf("attaching storage")
+	return params.ErrorResults{Results: result}, nil
 }
 
 func (a *API) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
-	// TODO(axw)
-	return nil
+	return a.storage.AttachStorage(storageTag, unitTag)
 }

@@ -156,7 +156,7 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 
 	for i, unit := range testUnits {
-		u, err := service.AddUnit()
+		u, err := service.AddUnit(state.AddUnitParams{})
 		testUnits[i].unitName = u.Name()
 		c.Assert(err, jc.ErrorIsNil)
 		if unit.setStatus != nil {
@@ -193,7 +193,7 @@ func (s *statusUnitTestSuite) TestNoMeterStatusWhenNotRequired(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 
 	for i, unit := range testUnits {
-		u, err := service.AddUnit()
+		u, err := service.AddUnit(state.AddUnitParams{})
 		testUnits[i].unitName = u.Name()
 		c.Assert(err, jc.ErrorIsNil)
 		if unit.setStatus != nil {
@@ -221,7 +221,7 @@ func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 
 	for i, unit := range testUnits {
-		u, err := service.AddUnit()
+		u, err := service.AddUnit(state.AddUnitParams{})
 		testUnits[i].unitName = u.Name()
 		c.Assert(err, jc.ErrorIsNil)
 		if unit.setStatus != nil {
@@ -251,7 +251,7 @@ func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
 }
 
 func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
-	unit, err := application.AddUnit()
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that the timestamp on this version record is different
 	// from the previous one.
@@ -316,7 +316,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionNoUnits(c *gc.C) {
 
 func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 	application := s.Factory.MakeApplication(c, nil)
-	unit, err := application.AddUnit()
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus := s.checkAppVersion(c, application, "")
 	checkUnitVersion(c, appStatus, unit, "")

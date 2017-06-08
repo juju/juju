@@ -4,26 +4,29 @@
 package application
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 )
 
 // Backend defines the state functionality required by the application
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
+	storagecommon.StorageInterface
+
 	AllModels() ([]Model, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
-	RemoteApplication(name string) (*state.RemoteApplication, error)
-	AddRemoteApplication(args state.AddRemoteApplicationParams) (*state.RemoteApplication, error)
+	RemoteApplication(string) (RemoteApplication, error)
+	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
 	AssignUnit(*state.Unit, state.AssignmentPolicy) error
 	AssignUnitWithPlacement(*state.Unit, *instance.Placement) error
@@ -33,10 +36,6 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
-	NewStorage() storage.Storage
-	StorageInstance(names.StorageTag) (state.StorageInstance, error)
-	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
-	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -52,7 +51,7 @@ type BlockChecker interface {
 // details on the methods, see the methods on state.Application with
 // the same names.
 type Application interface {
-	AddUnit() (*state.Unit, error)
+	AddUnit(state.AddUnitParams) (*state.Unit, error)
 	AllUnits() ([]Unit, error)
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
@@ -78,7 +77,6 @@ type Application interface {
 // the same names.
 type Charm interface {
 	charm.Charm
-	StoragePath() string
 }
 
 // Machine defines a subset of the functionality provided by the
@@ -135,16 +133,36 @@ func CharmToStateCharm(ch Charm) *state.Charm {
 	return ch.(stateCharmShim).Charm
 }
 
-func (s stateShim) NewStorage() storage.Storage {
-	return storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
-}
-
 func (s stateShim) Application(name string) (Application, error) {
 	a, err := s.State.Application(name)
 	if err != nil {
 		return nil, err
 	}
 	return stateApplicationShim{a}, nil
+}
+
+type remoteApplicationShim struct {
+	*state.RemoteApplication
+}
+
+type RemoteApplication interface {
+	Name() string
+	SourceModel() names.ModelTag
+	Endpoints() ([]state.Endpoint, error)
+	AddEndpoints(eps []charm.Relation) error
+	Bindings() map[string]string
+	Spaces() []state.RemoteSpace
+	Destroy() error
+}
+
+func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {
+	app, err := s.State.RemoteApplication(name)
+	return &remoteApplicationShim{app}, err
+}
+
+func (s stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (RemoteApplication, error) {
+	app, err := s.State.AddRemoteApplication(args)
+	return &remoteApplicationShim{app}, err
 }
 
 func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
@@ -241,4 +259,42 @@ type stateUnitShim struct {
 
 type stateModelShim struct {
 	*state.Model
+}
+
+type Subnet interface {
+	CIDR() string
+	VLANTag() int
+	ProviderId() network.Id
+	ProviderNetworkId() network.Id
+	AvailabilityZones() []string
+}
+
+type subnetShim struct {
+	*state.Subnet
+}
+
+func (s *subnetShim) AvailabilityZones() []string {
+	return []string{s.Subnet.AvailabilityZone()}
+}
+
+type Space interface {
+	Name() string
+	Subnets() ([]Subnet, error)
+	ProviderId() network.Id
+}
+
+type spaceShim struct {
+	*state.Space
+}
+
+func (s *spaceShim) Subnets() ([]Subnet, error) {
+	subnets, err := s.Space.Subnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]Subnet, len(subnets))
+	for i, subnet := range subnets {
+		result[i] = &subnetShim{subnet}
+	}
+	return result, nil
 }

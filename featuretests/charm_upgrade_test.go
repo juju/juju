@@ -34,7 +34,7 @@ func (s *CharmUpgradeSuite) SetUpTest(c *gc.C) {
 		Charm: charmOne,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	unitOne, err := s.appOne.AddUnit()
+	unitOne, err := s.appOne.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	unitOne.SetCharmURL(charmOne.URL())
 
@@ -45,7 +45,7 @@ func (s *CharmUpgradeSuite) SetUpTest(c *gc.C) {
 		Charm: charmTwo,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	unitTwo, err := appTwo.AddUnit()
+	unitTwo, err := appTwo.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	unitTwo.SetCharmURL(charmTwo.URL())
 
