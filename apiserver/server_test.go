@@ -615,23 +615,16 @@ func defaultServerConfig(c *gc.C, st *state.State) apiserver.ServerConfig {
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		LogDir:      c.MkDir(),
-		Hub:         hub,
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(st),
-		RateLimitConfig: apiserver.RateLimitConfig{
-			LoginRateLimit:  apiserver.DefaultLoginRateLimit,
-			LoginMinPause:   apiserver.DefaultLoginMinPause,
-			LoginMaxPause:   apiserver.DefaultLoginMaxPause,
-			LoginRetryPause: apiserver.DefaultLoginRetryPause,
-			ConnMinPause:    apiserver.DefaultConnMinPause,
-			ConnMaxPause:    apiserver.DefaultConnMaxPause,
-		},
+		Clock:           clock.WallClock,
+		Cert:            coretesting.ServerCert,
+		Key:             coretesting.ServerKey,
+		Tag:             names.NewMachineTag("0"),
+		LogDir:          c.MkDir(),
+		Hub:             hub,
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		StatePool:       state.NewStatePool(st),
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	}
 }
 

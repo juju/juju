@@ -1259,14 +1259,7 @@ func (a *MachineAgent) newAPIserverWorker(
 }
 
 func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
-	result := apiserver.RateLimitConfig{
-		LoginRateLimit:  apiserver.DefaultLoginRateLimit,
-		LoginMinPause:   apiserver.DefaultLoginMinPause,
-		LoginMaxPause:   apiserver.DefaultLoginMaxPause,
-		LoginRetryPause: apiserver.DefaultLoginRetryPause,
-		ConnMinPause:    apiserver.DefaultConnMinPause,
-		ConnMaxPause:    apiserver.DefaultConnMaxPause,
-	}
+	result := apiserver.DefaultRateLimitConfig()
 	if v := cfg.Value(agent.AgentLoginRateLimit); v != "" {
 		val, err := strconv.Atoi(v)
 		if err != nil {
@@ -1320,6 +1313,33 @@ func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
 			)
 		}
 		result.ConnMaxPause = val
+	}
+	if v := cfg.Value(agent.AgentConnLookbackWindow); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnLookbackWindow,
+			)
+		}
+		result.ConnLookbackWindow = val
+	}
+	if v := cfg.Value(agent.AgentConnLowerThreshold); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnLowerThreshold,
+			)
+		}
+		result.ConnLowerThreshold = val
+	}
+	if v := cfg.Value(agent.AgentConnUpperThreshold); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnUpperThreshold,
+			)
+		}
+		result.ConnUpperThreshold = val
 	}
 	return result, nil
 }

@@ -58,9 +58,9 @@ func APIHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
 }
 
-var (
-	LoginRateLimit = loginRateLimit
-	LoginRetyPause = loginRetyPause
+const (
+	LoginRateLimit = defaultLoginRateLimit
+	LoginRetyPause = defaultLoginRetryPause
 )
 
 // DelayLogins changes how the Login code works so that logins won't proceed

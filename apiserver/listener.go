@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -12,29 +11,37 @@ import (
 	"github.com/juju/utils/clock"
 )
 
-func newThrottlingListener(inner net.Listener, minPause, maxPause time.Duration, clk clock.Clock) net.Listener {
-	rand.Seed(time.Now().UTC().UnixNano())
+func newThrottlingListener(inner net.Listener, cfg RateLimitConfig, clk clock.Clock) net.Listener {
 	if clk == nil {
 		clk = clock.WallClock
 	}
 	return &throttlingListener{
 		Listener:        inner,
-		maxPause:        maxPause,
-		minPause:        minPause,
+		maxPause:        cfg.ConnMaxPause,
+		minPause:        cfg.ConnMinPause,
+		lookbackWindow:  cfg.ConnLookbackWindow,
+		lowerThreshold:  cfg.ConnLowerThreshold,
+		upperThreshold:  cfg.ConnUpperThreshold,
 		clk:             clk,
-		connAcceptTimes: make([]*time.Time, 500),
+		connAcceptTimes: make([]*time.Time, 200),
 	}
 }
 
+// throttlingListener wraps a net.Listener and throttles connection accepts
+// based on the rate of incoming connections.
 type throttlingListener struct {
 	sync.Mutex
 	net.Listener
+
 	connAcceptTimes []*time.Time
 	nextSlot        int
+	clk             clock.Clock
 
-	minPause time.Duration
-	maxPause time.Duration
-	clk      clock.Clock
+	minPause       time.Duration
+	maxPause       time.Duration
+	lookbackWindow time.Duration
+	lowerThreshold int
+	upperThreshold int
 }
 
 // connRateMetric returns an int value based on the rate of new connections.
@@ -63,6 +70,11 @@ func (l *throttlingListener) connRateMetric() int {
 			earliestConnTime = connTime
 		}
 		connCount++
+		// Stop if we have reached the maximum window in terms how long
+		// ago the earliest connection was, to avoid stale data skewing results.
+		if latestConnTime.Sub(*earliestConnTime) > l.lookbackWindow {
+			break
+		}
 		index--
 		if index < 0 {
 			index = len(l.connAcceptTimes) - 1
@@ -72,8 +84,8 @@ func (l *throttlingListener) connRateMetric() int {
 		return 0
 	}
 	// We use as a metric how many connections per 10ms
-	connRate := connCount * float64(10*time.Millisecond) / (1.0 + float64(latestConnTime.Sub(*earliestConnTime)))
-	logger.Tracef("server listener has received %d connections per 10ms", connRate)
+	connRate := connCount * float64(time.Second) / (1.0 + float64(latestConnTime.Sub(*earliestConnTime)))
+	logger.Tracef("server listener has received %d connections per second", int(connRate))
 	return int(connRate)
 }
 
@@ -94,20 +106,21 @@ func (l *throttlingListener) Accept() (net.Conn, error) {
 	return conn, err
 }
 
-// pauseTime returns a random time based on rate of connections.
+// pauseTime returns a time based on rate of connections.
+// - up to lowerThreshold, return minPause
+// - above to upperThreshold, return maxPause
+// - in between, return an interpolated value
 func (l *throttlingListener) pauseTime() time.Duration {
-	// The pause time is minPause plus 5ms for each unit increase
-	// in connection rate, up to a maximum of maxPause,
-	wantedMaxPause := l.minPause + time.Duration(l.connRateMetric()*5)*time.Millisecond
-	if wantedMaxPause > l.maxPause {
-		return l.maxPause
-	}
-	if wantedMaxPause == l.minPause {
+	rate := l.connRateMetric()
+	if rate <= l.lowerThreshold {
 		return l.minPause
 	}
-	pauseTime := time.Duration(rand.Intn(int((wantedMaxPause-l.minPause)/time.Millisecond))) * time.Millisecond
-	pauseTime += l.minPause
-	return pauseTime
+	if rate >= l.upperThreshold {
+		return l.maxPause
+	}
+	// rate is between min and max so interpolate.
+	pauseFactor := float64(rate-l.lowerThreshold) / float64(l.upperThreshold-l.lowerThreshold)
+	return l.minPause + time.Duration(float64(l.maxPause-l.minPause)*pauseFactor)
 }
 
 func (l *throttlingListener) pause() {

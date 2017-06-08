@@ -172,8 +172,12 @@ const (
 	AgentLoginMinPause   = "AGENT_LOGIN_MIN_PAUSE"
 	AgentLoginMaxPause   = "AGENT_LOGIN_MAX_PAUSE"
 	AgentLoginRetryPause = "AGENT_LOGIN_RETRY_PAUSE"
-	AgentConnMinPause    = "AGENT_CONN_MIN_PAUSE"
-	AgentConnMaxPause    = "AGENT_CONN_MAX_PAUSE"
+
+	AgentConnMinPause       = "AGENT_CONN_MIN_PAUSE"
+	AgentConnMaxPause       = "AGENT_CONN_MAX_PAUSE"
+	AgentConnLowerThreshold = "AGENT_CONN_LOWER_THRESHOLD"
+	AgentConnUpperThreshold = "AGENT_CONN_UPPER_THRESHOLD"
+	AgentConnLookbackWindow = "AGENT_CONN_LOOKBACK_WINDOW"
 )
 
 // The Config interface is the sole way that the agent gets access to the

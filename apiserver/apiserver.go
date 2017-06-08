@@ -50,12 +50,15 @@ var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIO
 
 // These vars define how we rate limit incoming connections.
 const (
-	DefaultLoginRateLimit  = 10
-	DefaultLoginMinPause   = 100 * time.Millisecond
-	DefaultLoginMaxPause   = 1 * time.Second
-	DefaultLoginRetryPause = 5 * time.Second
-	DefaultConnMinPause    = 10 * time.Millisecond
-	DefaultConnMaxPause    = 5 * time.Second
+	defaultLoginRateLimit     = 10 // concurrent login operations
+	defaultLoginMinPause      = 100 * time.Millisecond
+	defaultLoginMaxPause      = 1 * time.Second
+	defaultLoginRetryPause    = 5 * time.Second
+	defaultConnMinPause       = 10 * time.Millisecond
+	defaultConnMaxPause       = 5 * time.Second
+	defaultConnLookbackWindow = 1 * time.Second
+	defaultConnLowerThreshold = 1000   // connections per second
+	defaultConnUpperThreshold = 100000 // connections per second
 )
 
 // Server holds the server side of the API.
@@ -187,33 +190,57 @@ func (c *ServerConfig) pingClock() clock.Clock {
 // RateLimitConfig holds holds parameters to control
 // aspects of rate limiting connections and logins.
 type RateLimitConfig struct {
-	LoginRateLimit  int
-	LoginMinPause   time.Duration
-	LoginMaxPause   time.Duration
-	LoginRetryPause time.Duration
-	ConnMinPause    time.Duration
-	ConnMaxPause    time.Duration
+	LoginRateLimit     int
+	LoginMinPause      time.Duration
+	LoginMaxPause      time.Duration
+	LoginRetryPause    time.Duration
+	ConnMinPause       time.Duration
+	ConnMaxPause       time.Duration
+	ConnLookbackWindow time.Duration
+	ConnLowerThreshold int
+	ConnUpperThreshold int
+}
+
+// DefaultRateLimitConfig returns a RateLimtConfig struct with
+// all attributes set to their default values.
+func DefaultRateLimitConfig() RateLimitConfig {
+	return RateLimitConfig{
+		LoginRateLimit:     defaultLoginRateLimit,
+		LoginMinPause:      defaultLoginMinPause,
+		LoginMaxPause:      defaultLoginMaxPause,
+		LoginRetryPause:    defaultLoginRetryPause,
+		ConnMinPause:       defaultConnMinPause,
+		ConnMaxPause:       defaultConnMaxPause,
+		ConnLookbackWindow: defaultConnLookbackWindow,
+		ConnLowerThreshold: defaultConnLowerThreshold,
+		ConnUpperThreshold: defaultConnUpperThreshold,
+	}
 }
 
 // Validate validates the rate limit configuration.
+// We apply arbitrary but sensible upper limits to prevent
+// typos from introducing obviously bad config.
 func (c RateLimitConfig) Validate() error {
-	if c.LoginRateLimit <= 0 {
-		return errors.NotValidf("login-rate-limit %d <= 0", c.LoginRateLimit)
+	if c.LoginRateLimit <= 0 || c.LoginRateLimit > 100 {
+		return errors.NotValidf("login-rate-limit %d <= 0 or > 100", c.LoginRateLimit)
 	}
-	if c.LoginMinPause < 0 {
-		return errors.NotValidf("login-min-pause %d < 0", c.LoginMinPause)
+	if c.LoginMinPause < 0 || c.LoginMinPause > 100*time.Millisecond {
+		return errors.NotValidf("login-min-pause %d < 0 or > 100ms", c.LoginMinPause)
 	}
-	if c.LoginMaxPause < 0 {
-		return errors.NotValidf("login-max-pause %d < 0", c.LoginMaxPause)
+	if c.LoginMaxPause < 0 || c.LoginMaxPause > 5*time.Second {
+		return errors.NotValidf("login-max-pause %d < 0 or > 5s", c.LoginMaxPause)
 	}
-	if c.LoginRetryPause < 0 {
-		return errors.NotValidf("login-retry-pause %d < 0", c.LoginRetryPause)
+	if c.LoginRetryPause < 0 || c.LoginRetryPause > 10*time.Second {
+		return errors.NotValidf("login-retry-pause %d < 0 or > 10s", c.LoginRetryPause)
 	}
-	if c.ConnMinPause < 0 {
-		return errors.NotValidf("conn-min-pause %d < 0", c.ConnMinPause)
+	if c.ConnMinPause < 0 || c.ConnMinPause > 100*time.Millisecond {
+		return errors.NotValidf("conn-min-pause %d < 0 or > 100ms", c.ConnMinPause)
 	}
-	if c.ConnMaxPause < 0 {
-		return errors.NotValidf("conn-max-pause %d < 0", c.ConnMaxPause)
+	if c.ConnMaxPause < 0 || c.ConnMaxPause > 10*time.Second {
+		return errors.NotValidf("conn-max-pause %d < 0 or > 10s", c.ConnMaxPause)
+	}
+	if c.ConnLookbackWindow < 0 || c.ConnLookbackWindow > 5*time.Second {
+		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
 	}
 	return nil
 }
@@ -274,8 +301,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
 	srv.lis = newThrottlingListener(
-		tls.NewListener(lis, srv.tlsConfig),
-		cfg.RateLimitConfig.ConnMinPause, cfg.RateLimitConfig.ConnMaxPause, clock.WallClock)
+		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
 	srv.authCtxt, err = newAuthContext(s)
 	if err != nil {

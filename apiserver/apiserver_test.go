@@ -45,23 +45,16 @@ func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	machineTag := names.NewMachineTag("0")
 	return apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         machineTag,
-		LogDir:      c.MkDir(),
-		Hub:         centralhub.New(machineTag),
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(s.State),
-		RateLimitConfig: apiserver.RateLimitConfig{
-			LoginRateLimit:  apiserver.DefaultLoginRateLimit,
-			LoginMinPause:   apiserver.DefaultLoginMinPause,
-			LoginMaxPause:   apiserver.DefaultLoginMaxPause,
-			LoginRetryPause: apiserver.DefaultLoginRetryPause,
-			ConnMinPause:    apiserver.DefaultConnMinPause,
-			ConnMaxPause:    apiserver.DefaultConnMaxPause,
-		},
+		Clock:           clock.WallClock,
+		Cert:            coretesting.ServerCert,
+		Key:             coretesting.ServerKey,
+		Tag:             machineTag,
+		LogDir:          c.MkDir(),
+		Hub:             centralhub.New(machineTag),
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		StatePool:       state.NewStatePool(s.State),
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	}
 }
 
