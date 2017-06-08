@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -42,7 +43,7 @@ type AzureCLI interface {
 	ShowAccount(subscription string) (*azurecli.Account, error)
 	GetAccessToken(subscription, resource string) (*azurecli.AccessToken, error)
 	FindCloudsWithResourceManagerEndpoint(url string) ([]azurecli.Cloud, error)
-	ShowCloud(name string) (*azurecli.Cloud, error)
+	ListClouds() ([]azurecli.Cloud, error)
 }
 
 // environPoviderCredentials is an implementation of
@@ -90,9 +91,59 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials
-// interface.
+// interface. It attempts to detect subscription IDs from accounts
+// configured in the Azure CLI.
 func (c environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	return nil, errors.NotFoundf("credentials")
+	// Attempt to get accounts from az.
+	accounts, err := c.azureCLI.ListAccounts()
+	if err != nil {
+		logger.Debugf("error getting accounts from az: %s", err)
+		return nil, errors.NotFoundf("credentials")
+	}
+	if len(accounts) < 1 {
+		return nil, errors.NotFoundf("credentials")
+	}
+	clouds, err := c.azureCLI.ListClouds()
+	if err != nil {
+		logger.Debugf("error getting clouds from az: %s", err)
+		return nil, errors.NotFoundf("credentials")
+	}
+	cloudMap := make(map[string]azurecli.Cloud, len(clouds))
+	for _, cloud := range clouds {
+		cloudMap[cloud.Name] = cloud
+	}
+	var defaultCredential string
+	authCredentials := make(map[string]cloud.Credential)
+	for i, acc := range accounts {
+		cloudInfo, ok := cloudMap[acc.CloudName]
+		if !ok {
+			continue
+		}
+		cred, err := c.accountCredential(acc, cloudInfo)
+		if err != nil {
+			logger.Debugf("cannot get credential for %s: %s", acc.Name, err)
+			if i == 0 {
+				// Assume that if this fails the first
+				// time then it will always fail and
+				// don't attempt to create any further
+				// credentials.
+				return nil, errors.NotFoundf("credentials")
+			}
+			continue
+		}
+		cred.Label = fmt.Sprintf("%s subscription %s", cloudInfo.Name, acc.Name)
+		authCredentials[acc.Name] = cred
+		if acc.IsDefault {
+			defaultCredential = acc.Name
+		}
+	}
+	if len(authCredentials) < 1 {
+		return nil, errors.NotFoundf("credentials")
+	}
+	return &cloud.CloudCredential{
+		DefaultCredential: defaultCredential,
+		AuthCredentials:   authCredentials,
+	}, nil
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
@@ -182,6 +233,39 @@ func (c environProviderCredentials) azureCLICredential(
 	})
 	out.Label = args.Credential.Label
 	return &out, nil
+}
+
+func (c environProviderCredentials) accountCredential(
+	acc azurecli.Account,
+	cloudInfo azurecli.Cloud,
+) (cloud.Credential, error) {
+	graphToken, err := c.azureCLI.GetAccessToken(acc.ID, cloudInfo.Endpoints.ActiveDirectoryGraphResourceID)
+	if err != nil {
+		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
+	}
+	armToken, err := c.azureCLI.GetAccessToken(acc.ID, cloudInfo.Endpoints.ResourceManager)
+	if err != nil {
+		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
+	}
+	applicationId, password, err := c.servicePrincipalCreator.Create(azureauth.ServicePrincipalParams{
+		GraphEndpoint:             cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
+		GraphResourceId:           cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
+		GraphAuthorizer:           graphToken.Token(),
+		ResourceManagerEndpoint:   cloudInfo.Endpoints.ResourceManager,
+		ResourceManagerResourceId: cloudInfo.Endpoints.ResourceManager,
+		ResourceManagerAuthorizer: armToken.Token(),
+		SubscriptionId:            acc.ID,
+		TenantId:                  graphToken.Tenant,
+	})
+	if err != nil {
+		return cloud.Credential{}, errors.Annotate(err, "cannot get service principal")
+	}
+
+	return cloud.NewCredential(clientCredentialsAuthType, map[string]string{
+		credAttrSubscriptionId: acc.ID,
+		credAttrAppId:          applicationId,
+		credAttrAppPassword:    password,
+	}), nil
 }
 
 func (c environProviderCredentials) getServicePrincipalParams(cloudEndpoint string) (azureauth.ServicePrincipalParams, error) {
