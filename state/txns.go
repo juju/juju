@@ -39,10 +39,6 @@ func (st *State) run(transactions jujutxn.TransactionSource) error {
 	return st.database.Run(transactions)
 }
 
-func (st *State) runForModel(modelUUID string, transactions jujutxn.TransactionSource) error {
-	return st.database.RunFor(modelUUID, transactions)
-}
-
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
 	runner, closer := st.database.TransactionRunner()

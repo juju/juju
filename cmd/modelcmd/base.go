@@ -431,18 +431,6 @@ type bootstrapConfigGetter struct {
 	registry environs.ProviderRegistry
 }
 
-func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
-	bootstrapConfig, params, err := g.getBootstrapConfigParams(controllerName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	provider, err := g.registry.Provider(bootstrapConfig.CloudType)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return provider.PrepareConfig(*params)
-}
-
 func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	controllerDetails, err := g.store.ControllerByName(controllerName)
 	if err != nil {

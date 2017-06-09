@@ -26,27 +26,6 @@ func NewCloudSpec(
 	return CloudSpecAPI{getCloudSpec, getAuthFunc}
 }
 
-// NewCloudSpecForModel returns a new CloudSpecAPI that permits access to only
-// one model.
-func NewCloudSpecForModel(
-	modelTag names.ModelTag,
-	getCloudSpec func() (environs.CloudSpec, error),
-) CloudSpecAPI {
-	return CloudSpecAPI{
-		func(names.ModelTag) (environs.CloudSpec, error) {
-			// The tag passed in is guaranteed to be the
-			// same as "modelTag", as the authorizer below
-			// would have failed otherwise.
-			return getCloudSpec()
-		},
-		func() (common.AuthFunc, error) {
-			return func(tag names.Tag) bool {
-				return tag == modelTag
-			}, nil
-		},
-	}
-}
-
 // CloudSpec returns the model's cloud spec.
 func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
 	authFunc, err := s.getAuthFunc()

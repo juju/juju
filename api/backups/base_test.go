@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	stbackups "github.com/juju/juju/state/backups"
@@ -28,11 +27,6 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	client, err := backups.NewClient(s.APIState)
 	c.Assert(err, gc.IsNil)
 	s.client = client
-}
-
-func (s *baseSuite) metadataResult() *params.BackupsMetadataResult {
-	result := apiserverbackups.ResultFromMetadata(s.Meta)
-	return &result
 }
 
 func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata) {

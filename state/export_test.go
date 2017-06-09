@@ -231,36 +231,6 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	return sch
 }
 
-// SetCharmBundleURL sets the deprecated bundleurl field in the
-// charm document for the charm with the specified URL.
-func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
-	ops := []txn.Op{{
-		C:      charmsC,
-		Id:     st.docID(curl.String()),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
-	}}
-	err := st.runTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func SetPasswordHash(e Authenticator, passwordHash string) error {
-	type hasSetPasswordHash interface {
-		setPasswordHash(string) error
-	}
-	return e.(hasSetPasswordHash).setPasswordHash(passwordHash)
-}
-
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func GetPasswordHash(e Authenticator) string {
-	type hasGetPasswordHash interface {
-		getPasswordHash() string
-	}
-	return e.(hasGetPasswordHash).getPasswordHash()
-}
-
 func init() {
 	txnLogSize = txnLogSizeTests
 }

@@ -97,15 +97,6 @@ func (s *debugLogDBSuite) openWebsocket(c *gc.C, values url.Values) *websocket.C
 	return conn
 }
 
-func (s *debugLogDBSuite) openWebsocketCustomPath(c *gc.C, path string) *websocket.Conn {
-	server := s.logURL(c, "wss", nil)
-	server.Path = path
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	conn := dialWebsocketFromURL(c, server.String(), header)
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return conn
-}
-
 func (s *debugLogDBSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
 	return s.makeURL(c, scheme, "/log", queryParams)
 }

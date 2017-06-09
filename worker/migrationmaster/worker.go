@@ -643,40 +643,6 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 	}
 }
 
-func (w *Worker) waitForMigrationEnd() error {
-	w.logger.Infof("migration is externally managed. waiting for completion")
-	watcher, err := w.config.Facade.Watch()
-	if err != nil {
-		return errors.Annotate(err, "watching for migration")
-	}
-	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Trace(err)
-	}
-	defer watcher.Kill()
-
-	for {
-		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-		case <-watcher.Changes():
-		}
-
-		status, err := w.config.Facade.MigrationStatus()
-		if err != nil {
-			return errors.Annotate(err, "retrieving migration status")
-		}
-		w.logger.Infof("migration phase is now %v", status.Phase)
-		if status.Phase.IsTerminal() {
-			if modelHasMigrated(status.Phase) {
-				w.logger.Infof("migration is complete")
-				return ErrMigrated
-			}
-			w.logger.Infof("migration has aborted")
-			return ErrInactive
-		}
-	}
-}
-
 // Possible values for waitForMinion's waitPolicy argument.
 const failFast = false  // Stop waiting at first minion failure report
 const waitForAll = true // Wait for all minion reports to arrive (or timeout)

@@ -340,9 +340,6 @@ type AdvancedPackagingConfig interface {
 		addUpgradeScripts bool,
 	)
 
-	// getPackageCommander returns the PackageCommander of the CloudConfig.
-	getPackageCommander() commands.PackageCommander
-
 	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig.
 	getPackagingConfigurer() config.PackagingConfigurer
 

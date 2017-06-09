@@ -6,7 +6,6 @@
 package lxdclient
 
 import (
-	"bytes"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,15 +15,6 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
-
-type closingBuffer struct {
-	bytes.Buffer
-}
-
-// Close implements io.Closer.
-func (closingBuffer) Close() error {
-	return nil
-}
 
 // IsInstalledLocally returns true if LXD is installed locally.
 func IsInstalledLocally() (bool, error) {

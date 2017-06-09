@@ -240,13 +240,6 @@ func (s *oplogSuite) startMongo(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session
 	return &inst, s.dialMongo(c, &inst)
 }
 
-func (s *oplogSuite) emptyCapped(c *gc.C, coll *mgo.Collection) {
-	// Call the emptycapped (test) command on a capped
-	// collection. This invalidates any cursors on the collection.
-	err := coll.Database.Run(bson.D{{"emptycapped", coll.Name}}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *oplogSuite) dialMongo(c *gc.C, inst *jujutesting.MgoInstance) *mgo.Session {
 	session, err := inst.Dial()
 	c.Assert(err, jc.ErrorIsNil)

@@ -49,39 +49,6 @@ func (r *RestoreSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
 }
 
-func (r *RestoreSuite) createTestFiles(c *gc.C) {
-	tarDirE := path.Join(r.cwd, "TarDirectoryEmpty")
-	err := os.Mkdir(tarDirE, os.FileMode(0755))
-	c.Check(err, jc.ErrorIsNil)
-
-	tarDirP := path.Join(r.cwd, "TarDirectoryPopulated")
-	err = os.Mkdir(tarDirP, os.FileMode(0755))
-	c.Check(err, jc.ErrorIsNil)
-
-	tarSubFile1 := path.Join(tarDirP, "TarSubFile1")
-	tarSubFile1Handle, err := os.Create(tarSubFile1)
-	c.Check(err, jc.ErrorIsNil)
-	tarSubFile1Handle.WriteString("TarSubFile1")
-	tarSubFile1Handle.Close()
-
-	tarSubDir := path.Join(tarDirP, "TarDirectoryPopulatedSubDirectory")
-	err = os.Mkdir(tarSubDir, os.FileMode(0755))
-	c.Check(err, jc.ErrorIsNil)
-
-	tarFile1 := path.Join(r.cwd, "TarFile1")
-	tarFile1Handle, err := os.Create(tarFile1)
-	c.Check(err, jc.ErrorIsNil)
-	tarFile1Handle.WriteString("TarFile1")
-	tarFile1Handle.Close()
-
-	tarFile2 := path.Join(r.cwd, "TarFile2")
-	tarFile2Handle, err := os.Create(tarFile2)
-	c.Check(err, jc.ErrorIsNil)
-	tarFile2Handle.WriteString("TarFile2")
-	tarFile2Handle.Close()
-	r.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
-}
-
 func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	server := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
 	err := server.Start(coretesting.Certs)

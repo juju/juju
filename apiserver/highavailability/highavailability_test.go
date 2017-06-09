@@ -44,10 +44,6 @@ type KillerForTesting interface {
 
 var _ = gc.Suite(&clientSuite{})
 
-func assertKill(c *gc.C, killer KillerForTesting) {
-	c.Assert(killer.KillForTesting(), gc.IsNil)
-}
-
 var (
 	emptyCons      = constraints.Value{}
 	controllerCons = constraints.MustParse("mem=16G cores=16")

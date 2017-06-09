@@ -139,13 +139,6 @@ type SpaceInfo struct {
 	ProviderId Id
 	Subnets    []SubnetInfo
 }
-type BySpaceName []SpaceInfo
-
-func (s BySpaceName) Len() int      { return len(s) }
-func (s BySpaceName) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s BySpaceName) Less(i, j int) bool {
-	return s[i].Name < s[j].Name
-}
 
 // InterfaceConfigType defines valid network interface configuration
 // types. See interfaces(5) for details

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -561,8 +560,3 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		DefaultSeries: "precise",
 		Expect:        []version.Binary{V1001p64},
 	}}
-
-func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}

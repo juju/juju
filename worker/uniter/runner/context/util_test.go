@@ -352,28 +352,6 @@ func (s *BlockHelper) Close() {
 	s.blockClient.Close()
 }
 
-// StubMetricsRecorder implements the MetricsRecorder interface.
-type StubMetricsRecorder struct {
-	*jujutesting.Stub
-}
-
-// AddMetric implements the MetricsRecorder interface.
-func (s StubMetricsRecorder) AddMetric(key, value string, created time.Time) error {
-	s.AddCall("AddMetric", key, value, created)
-	return nil
-}
-
-func (mr *StubMetricsRecorder) IsDeclaredMetric(key string) bool {
-	mr.MethodCall(mr, "IsDeclaredMetric", key)
-	return true
-}
-
-// Close implements the MetricsRecorder interface.
-func (s StubMetricsRecorder) Close() error {
-	s.AddCall("Close")
-	return nil
-}
-
 // MockEnvPaths implements Paths for tests that don't need to actually touch
 // the filesystem.
 type MockEnvPaths struct{}

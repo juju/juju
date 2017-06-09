@@ -219,12 +219,6 @@ func (s *StorageStateSuiteBase) assertVolumeInfo(c *gc.C, tag names.VolumeTag, e
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *StorageStateSuiteBase) machine(c *gc.C, id string) *state.Machine {
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	return machine
-}
-
 func (s *StorageStateSuiteBase) filesystem(c *gc.C, tag names.FilesystemTag) state.Filesystem {
 	filesystem, err := s.State.Filesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)

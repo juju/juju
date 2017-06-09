@@ -740,12 +740,6 @@ func (s *linkLayerDevicesStateSuite) createNICAndBridgeWithIP(c *gc.C, machine *
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *linkLayerDevicesStateSuite) setupMachineInTwoSpaces(c *gc.C) {
-	s.setupTwoSpaces(c)
-	s.createNICAndBridgeWithIP(c, s.machine, "ens33", "br-ens33", "10.0.0.20/24")
-	s.createNICAndBridgeWithIP(c, s.machine, "ens0p10", "br-ens0p10", "10.10.0.20/24")
-}
-
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	s.setupTwoSpaces(c)
 	// Is put into the 'default' space

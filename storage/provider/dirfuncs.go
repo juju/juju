@@ -19,7 +19,6 @@ type dirFuncs interface {
 	lstat(path string) (fi os.FileInfo, err error)
 	fileCount(path string) (int, error)
 	calculateSize(path string) (sizeInMib uint64, _ error)
-	symlink(oldpath, newpath string) error
 
 	// bindMount remounts the directory "source" at "target",
 	// so that the source tree is available in both locations.
@@ -56,10 +55,6 @@ func (*osDirFuncs) fileCount(path string) (int, error) {
 		return 0, errors.Annotate(err, "could not read directory")
 	}
 	return len(files), nil
-}
-
-func (*osDirFuncs) symlink(oldpath, newpath string) error {
-	return os.Symlink(oldpath, newpath)
 }
 
 func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {

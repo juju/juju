@@ -12,7 +12,3 @@ func Without(cons Value, attrTags ...string) Value {
 func HasAny(cons Value, attrTags ...string) []string {
 	return cons.hasAny(attrTags...)
 }
-
-func AttributesWithValues(cons Value) map[string]interface{} {
-	return cons.attributesWithValues()
-}

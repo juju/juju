@@ -45,7 +45,7 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true, AdminTag: names.NewUserTag("testuser")}
 
-	s.state = s.constructState(testConfig(c), &mockModel{"meep"})
+	s.state = s.constructState(testConfig(c))
 
 	var err error
 	s.api, err = imagemetadata.CreateAPI(s.state, func() (environs.Environ, error) {
@@ -65,7 +65,7 @@ const (
 	environConfig  = "environConfig"
 )
 
-func (s *baseImageMetadataSuite) constructState(cfg *config.Config, model imagemetadata.Model) *mockState {
+func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 	return &mockState{
 		Stub: &gitjujutesting.Stub{},
 		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -80,9 +80,6 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config, model imagem
 		environConfig: func() (*config.Config, error) {
 			return cfg, nil
 		},
-		model: func() (imagemetadata.Model, error) {
-			return model, nil
-		},
 		controllerTag: func() names.ControllerTag {
 			return names.NewControllerTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 		},
@@ -96,7 +93,6 @@ type mockState struct {
 	saveMetadata   func(m []cloudimagemetadata.Metadata) error
 	deleteMetadata func(imageId string) error
 	environConfig  func() (*config.Config, error)
-	model          func() (imagemetadata.Model, error)
 	controllerTag  func() names.ControllerTag
 }
 
@@ -120,22 +116,9 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 	return st.environConfig()
 }
 
-func (st *mockState) Model() (imagemetadata.Model, error) {
-	st.Stub.MethodCall(st, "Model")
-	return st.model()
-}
-
 func (st *mockState) ControllerTag() names.ControllerTag {
 	st.Stub.MethodCall(st, "ControllerTag")
 	return st.controllerTag()
-}
-
-type mockModel struct {
-	cloudRegion string
-}
-
-func (m *mockModel) CloudRegion() string {
-	return m.cloudRegion
 }
 
 func testConfig(c *gc.C) *config.Config {

@@ -18,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/client"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -78,20 +76,6 @@ func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
 	})
-}
-
-func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
-	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	})
-	s.State.StartSync()
-	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-	return pinger
 }
 
 func (s *serverSuite) TestModelInfo(c *gc.C) {
@@ -1042,13 +1026,6 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Machine, gc.Equals, "0/lxd/0")
-}
-
-// updateConfig sets config variable with given key to a given value
-// Asserts that no errors were encountered.
-func (s *baseSuite) updateConfig(c *gc.C, key string, block bool) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{key: block}, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {

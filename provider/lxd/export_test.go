@@ -20,10 +20,6 @@ func ExposeInstEnv(inst *environInstance) *environ {
 	return inst.env
 }
 
-func UnsetEnvConfig(env *environ) {
-	env.ecfg = nil
-}
-
 func ExposeEnvConfig(env *environ) *environConfig {
 	return env.ecfg
 }

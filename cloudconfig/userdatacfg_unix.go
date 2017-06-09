@@ -6,7 +6,6 @@ package cloudconfig
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -503,13 +501,4 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 		panic(errors.Annotate(err, "tools download template error"))
 	}
 	return buf.String()
-}
-
-func base64yaml(attrs map[string]interface{}) string {
-	data, err := goyaml.Marshal(attrs)
-	if err != nil {
-		// can't happen, these values have been validated a number of times
-		panic(err)
-	}
-	return base64.StdEncoding.EncodeToString(data)
 }

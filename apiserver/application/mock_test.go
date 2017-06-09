@@ -44,10 +44,6 @@ type mockModel struct {
 	owner string
 }
 
-func (m *mockModel) UUID() string {
-	return m.uuid
-}
-
 func (m *mockModel) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.uuid)
 }
@@ -190,10 +186,6 @@ func (m *mockSpace) Name() string {
 	return m.name
 }
 
-func (m *mockSpace) Subnets() ([]application.Subnet, error) {
-	return m.subnets, nil
-}
-
 func (m *mockSpace) ProviderId() network.Id {
 	return m.providerId
 }
@@ -220,18 +212,6 @@ func (m *mockSubnet) ProviderId() network.Id {
 
 func (m *mockSubnet) ProviderNetworkId() network.Id {
 	return m.providerNetworkId
-}
-
-func (m *mockSubnet) AvailabilityZones() []string {
-	return m.zones
-}
-
-type mockConnectionStatus struct {
-	count int
-}
-
-func (m *mockConnectionStatus) ConnectionCount() int {
-	return m.count
 }
 
 type mockBackend struct {
@@ -443,18 +423,6 @@ func (m *mockBackend) AllModels() ([]application.Model, error) {
 		return m.allmodels, nil
 	}
 	return []application.Model{m.model}, nil
-}
-
-type mockStatePool struct {
-	st map[string]application.Backend
-}
-
-func (st *mockStatePool) Get(modelUUID string) (application.Backend, func(), error) {
-	backend, ok := st.st[modelUUID]
-	if !ok {
-		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
-	}
-	return backend, func() {}, nil
 }
 
 type mockBlockChecker struct {

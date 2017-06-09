@@ -15,7 +15,6 @@ type metadataAcess interface {
 	FindMetadata(cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 	SaveMetadata([]cloudimagemetadata.Metadata) error
 	DeleteMetadata(imageId string) error
-	Model() (Model, error)
 	ModelConfig() (*config.Config, error)
 	ControllerTag() names.ControllerTag
 }
@@ -42,16 +41,4 @@ func (s stateShim) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 
 func (s stateShim) DeleteMetadata(imageId string) error {
 	return s.State.CloudImageMetadataStorage.DeleteMetadata(imageId)
-}
-
-func (s stateShim) Model() (Model, error) {
-	m, err := s.State.Model()
-	if err != nil {
-		return nil, err
-	}
-	return modelShim{m}, nil
-}
-
-type modelShim struct {
-	*state.Model
 }

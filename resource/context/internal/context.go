@@ -108,25 +108,3 @@ type ContextOpenedResource interface {
 	ContentSource
 	io.Closer
 }
-
-// NewContextContentChecker returns a content checker for the hook context.
-func NewContextContentChecker(content Content, deps NewContextContentCheckerDeps) ContentChecker {
-	if content.Fingerprint.IsZero() {
-		return &NopChecker{}
-	}
-
-	sizer := deps.NewSizeTracker()
-	checksumWriter := deps.NewChecksumWriter()
-	//checker.checksumWriter = charmresource.NewFingerprintHash()
-	return NewContentChecker(content, sizer, checksumWriter)
-}
-
-// NewContextContentCheckerDeps exposes the functionality needed
-// by NewContextContentChecker().
-type NewContextContentCheckerDeps interface {
-	// NewSizeTracker returns a new size tracker.
-	NewSizeTracker() SizeTracker
-
-	// NewChecksumWriter returns a new checksum writer.
-	NewChecksumWriter() ChecksumWriter
-}

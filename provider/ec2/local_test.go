@@ -20,7 +20,6 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
-	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
@@ -702,20 +701,6 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	assertInstances()
 	assertVolumes()
 	assertGroups("default")
-}
-
-// splitAuthKeys splits the given authorized keys
-// into the form expected to be found in the
-// user data.
-func splitAuthKeys(keys string) []interface{} {
-	slines := strings.FieldsFunc(keys, func(r rune) bool {
-		return r == '\n'
-	})
-	var lines []interface{}
-	for _, line := range slines {
-		lines = append(lines, ssh.EnsureJujuComment(strings.TrimSpace(line)))
-	}
-	return lines
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
@@ -1671,15 +1656,6 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
 	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
-}
-
-func controllerTag(allTags []amzec2.Tag) string {
-	for _, tag := range allTags {
-		if tag.Key == tags.JujuController {
-			return tag.Value
-		}
-	}
-	return ""
 }
 
 func makeFilter(key string, values ...string) *amzec2.Filter {

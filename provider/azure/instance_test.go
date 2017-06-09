@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/go-autorest/autorest/mocks"
@@ -72,15 +71,6 @@ func makeDeployment(name string) resources.DeploymentExtended {
 		Properties: &resources.DeploymentPropertiesExtended{
 			ProvisioningState: to.StringPtr("Succeeded"),
 			Dependencies:      &dependencies,
-		},
-	}
-}
-
-func makeVirtualMachine(name string) compute.VirtualMachine {
-	return compute.VirtualMachine{
-		Name: to.StringPtr(name),
-		Properties: &compute.VirtualMachineProperties{
-			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}
 }

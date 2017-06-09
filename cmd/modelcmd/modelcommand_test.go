@@ -198,12 +198,6 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-type closer struct{}
-
-func (*closer) Close() error {
-	return nil
-}
-
 var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {

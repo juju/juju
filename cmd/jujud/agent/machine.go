@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/metricsmanager"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
@@ -1681,14 +1680,6 @@ func (c singularStateConn) IsMaster() (bool, error) {
 
 func (c singularStateConn) Ping() error {
 	return c.session.Ping()
-}
-
-func metricAPI(st api.Connection) (metricsmanager.MetricsManagerClient, error) {
-	client, err := metricsmanager.NewClient(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return client, nil
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context

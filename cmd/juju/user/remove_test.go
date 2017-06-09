@@ -3,7 +3,6 @@
 package user_test
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -32,11 +31,6 @@ func (*mockRemoveUserAPI) Close() error { return nil }
 func (m *mockRemoveUserAPI) RemoveUser(username string) error {
 	m.username = username
 	return nil
-}
-
-func (s *RemoveUserCommandSuite) run(c *gc.C, name string) (*cmd.Context, error) {
-	removeCommand, _ := user.NewRemoveCommandForTest(s.mockAPI, s.store)
-	return cmdtesting.RunCommand(c, removeCommand, name)
 }
 
 func (s *RemoveUserCommandSuite) TestInit(c *gc.C) {

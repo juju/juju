@@ -351,43 +351,6 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 	}
 }
 
-// retrieve all IP address sets from the provider
-func (f Firewall) getAllIPAddressSets() ([]response.IpAddressPrefixSet, error) {
-	sets, err := f.client.AllIpAddressPrefixSets(nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return sets.Result, nil
-}
-
-func (f Firewall) ensureIPAddressSet(ipSet []string) (response.IpAddressPrefixSet, error) {
-	sets, err := f.getAllIPAddressSets()
-	if err != nil {
-		return response.IpAddressPrefixSet{}, err
-	}
-	for _, val := range sets {
-		sort.Strings(ipSet)
-		sort.Strings(val.IpAddressPrefixes)
-		if reflect.DeepEqual(ipSet, val.IpAddressPrefixes) {
-			return val, nil
-		}
-	}
-	name, err := utils.NewUUID()
-	if err != nil {
-		return response.IpAddressPrefixSet{}, err
-	}
-	p := api.IpAddressPrefixSetParams{
-		Description:       "Juju created prefix set",
-		IpAddressPrefixes: ipSet,
-		Name:              f.client.ComposeName(name.String()),
-	}
-	details, err := f.client.CreateIpAddressPrefixSet(p)
-	if err != nil {
-		return response.IpAddressPrefixSet{}, err
-	}
-	return details, nil
-}
-
 type stubSecurityRule struct {
 	Acl                    string
 	FlowDirection          common.FlowDirection

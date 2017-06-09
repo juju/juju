@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api/client"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/context"
@@ -47,17 +46,6 @@ func (r resources) registerForClient() error {
 	// needed for help-tool
 	r.registerHookContextCommands()
 	return nil
-}
-
-// resourcesAPIClient adds a Close() method to the resources public API client.
-type resourcesAPIClient struct {
-	*client.Client
-	closeConnFunc func() error
-}
-
-// Close implements io.Closer.
-func (client resourcesAPIClient) Close() error {
-	return client.closeConnFunc()
 }
 
 // registerAgentWorkers adds the resources workers to the agents.

@@ -206,25 +206,6 @@ func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 	return cb.MockCommitHook.Call(hookInfo)
 }
 
-type MockUpdateRelations struct {
-	gotIds *[]int
-	err    error
-}
-
-func (mock *MockUpdateRelations) Call(ids []int) error {
-	mock.gotIds = &ids
-	return mock.err
-}
-
-type UpdateRelationsCallbacks struct {
-	operation.Callbacks
-	*MockUpdateRelations
-}
-
-func (cb *UpdateRelationsCallbacks) UpdateRelations(ids []int) error {
-	return cb.MockUpdateRelations.Call(ids)
-}
-
 type MockNewActionRunner struct {
 	gotActionId *string
 	runner      *MockRunner

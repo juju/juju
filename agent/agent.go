@@ -81,20 +81,6 @@ func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error 
 	})
 }
 
-// StateServingInfoSetter trivially wraps an Agent to implement
-// worker/certupdater/SetStateServingInfo.
-type StateServingInfoSetter struct {
-	Agent
-}
-
-// SetStateServingInfo is the SetStateServingInfo interface.
-func (s StateServingInfoSetter) SetStateServingInfo(info params.StateServingInfo) error {
-	return s.ChangeConfig(func(c ConfigSetter) error {
-		c.SetStateServingInfo(info)
-		return nil
-	})
-}
-
 // Paths holds the directory paths used by the agent.
 type Paths struct {
 	// DataDir is the data directory where each agent has a subdirectory

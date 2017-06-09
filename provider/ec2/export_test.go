@@ -84,10 +84,6 @@ var (
 	TerminateInstancesById         = &terminateInstancesById
 )
 
-func EC2ErrCode(err error) string {
-	return ec2ErrCode(err)
-}
-
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
 func FabricateInstance(inst instance.Instance, newId string) instance.Instance {

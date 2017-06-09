@@ -298,18 +298,6 @@ func (s *NotifyWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	s.worker = nil
 }
 
-func noopHandler(watcher.Errer) error {
-	return nil
-}
-
-type CannedErrer struct {
-	err error
-}
-
-func (c CannedErrer) Err() error {
-	return c.err
-}
-
 func (s *NotifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
 	// Roundabout check for function equality.
 	// Is this test really worth it?
