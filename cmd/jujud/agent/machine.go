@@ -66,6 +66,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mgometrics"
 	"github.com/juju/juju/mongo/txnmetrics"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
@@ -315,15 +316,31 @@ func NewMachineAgent(
 		preUpgradeSteps:             preUpgradeSteps,
 		statePool:                   &statePoolHolder{},
 	}
-	if err := a.prometheusRegistry.Register(
-		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
+	if err := a.registerPrometheusCollectors(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return a, nil
+}
+
+func (a *MachineAgent) registerPrometheusCollectors() error {
+	agentConfig := a.CurrentConfig()
+	if v := agentConfig.Value(agent.MgoStatsEnabled); v == "true" {
+		// Enable mgo stats collection only if requested,
+		// as it may affect performance.
+		mgo.SetStats(true)
+		if err := a.prometheusRegistry.Register(mgometrics.New()); err != nil {
+			return errors.Annotate(err, "registering mgo collector")
+		}
+	}
+	if err := a.prometheusRegistry.Register(
+		logsendermetrics.BufferedLogWriterMetrics{a.bufferedLogger},
+	); err != nil {
+		return errors.Annotate(err, "registering logsender collector")
+	}
+	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
+		return errors.Annotate(err, "registering mgo/txn collector")
+	}
+	return nil
 }
 
 // MachineAgent is responsible for tying together all functionality
