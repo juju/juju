@@ -12,7 +12,6 @@ from substrate import AWSAccount
 def parse_args(argv=None):
     parser = ArgumentParser('Clean up leftover security groups.')
     parser.add_argument('env', help='The juju environment to use.')
-    parser.add_argument('--verbose', '-v', action='count', default=0)
     return parser.parse_args(argv)
 
 
@@ -53,7 +52,7 @@ def get_security_groups(grp, instgrp, region):
         str(len(non_instance_groups)),
         region,
         '\n'.join(non_instance_groups)))
-    return (all_groups, instance_groups, non_instance_groups)
+    return (all_groups, non_instance_groups)
 
 
 def remove_detached_interfaces(non_instgrp, substrate, region):
@@ -85,6 +84,26 @@ def remove_detached_interfaces(non_instgrp, substrate, region):
     return unclean
 
 
+def remove_security_groups(unclean, grp, non_instgrp, substrate, region):
+    """Remove non-instance security groups by group name"""
+    for group_id in unclean:
+        logging.info(
+            'Cannot delete {} from {}'.format(
+            grp[group_id], region))
+        non_instgrp.pop(group_id, None)
+    try:
+        substrate.destroy_security_groups(non_instgrp.values())
+        logging.info(
+            '{} non-instance groups have been deleted from {}\n{}'.format(
+            len(non_instgrp.values()),
+            region,
+            '\n'.join(non_instgrp.values())))
+    except:
+        logging.info(
+            'Failed to delete groups {} from {}'.format(
+            non_instgrp.values(), region))
+
+
 def clean(args):
     env = SimpleEnvironment.from_config(args.env)
     selected_regions = get_regions()
@@ -99,7 +118,7 @@ def clean(args):
                 continue
             logging.info(
                 'Cleaning resources in {}.'.format(substrate.region))
-            all_groups, instance_groups, non_instance_groups = get_security_groups(
+            all_groups, non_instance_groups = get_security_groups(
                 grp=substrate.iter_security_groups(),
                 instgrp=substrate.iter_instance_security_groups(),
                 region=region)
@@ -107,31 +126,18 @@ def clean(args):
                 non_instgrp=non_instance_groups,
                 substrate=substrate,
                 region=region)
-
-            for group_id in unclean:
-                logging.debug(
-                    'Cannot delete {} from {}'.format(
-                    all_groups[group_id], region))
-            for group_id in unclean:
-                non_instance_groups.pop(group_id, None)
-            try:
-                substrate.destroy_security_groups(non_instance_groups.values())
-                logging.info(
-                    '{} non-instance groups have been deleted from {}\n{}'.format(
-                    len(non_instance_groups.values()),
-                    region,
-                    '\n'.join(non_instance_groups.values())))
-            except:
-                logging.debug(
-                    'Failed to delete groups {} from {}'.format(
-                    non_instance_groups.values(), region))
+            remove_security_groups(
+                unclean=unclean,
+                grp=all_groups,
+                non_instgrp=non_instance_groups,
+                substrate=substrate,
+                region=region)
 
 
 def main():
     args = parse_args()
-    log_level = max(logging.WARN - args.verbose * 10, logging.DEBUG)
-    logging.basicConfig(level=log_level)
-    logging.getLogger('boto').setLevel(logging.CRITICAL)
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger('clean_resources').setLevel(logging.INFO)
     clean(args)
 
 
