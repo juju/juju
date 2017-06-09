@@ -845,12 +845,16 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
+	dialOpts, err := mongoDialOptions(mongo.DefaultDialOpts(), agentConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoInfo:          info,
-		MongoDialOpts:      mongo.DefaultDialOpts(),
+		MongoDialOpts:      dialOpts,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -951,15 +955,33 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+func mongoDialOptions(baseOpts mongo.DialOpts, agentConfig agent.Config) (mongo.DialOpts, error) {
+	dialOpts := baseOpts
+	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			return mongo.DialOpts{}, errors.Errorf("invalid mongo socket pool limit %q", limitStr)
+		} else {
+			logger.Infof("using mongo socker pool limit = %d", limit)
+			dialOpts.PoolLimit = limit
+		}
+	}
+	return dialOpts, nil
+}
+
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}
 
+	dialOpts, err := mongoDialOptions(stateWorkerDialOpts, agentConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	st, _, err := openState(
 		agentConfig,
-		stateWorkerDialOpts,
+		dialOpts,
 		a.txnmetricsCollector.AfterRunTransaction,
 	)
 	if err != nil {
@@ -1055,11 +1077,15 @@ func (a *MachineAgent) startStateWorkers(
 			certChangedChan := make(chan params.StateServingInfo, 10)
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
+			dialOpts, err := mongoDialOptions(stateWorkerDialOpts, agentConfig)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			stateOpener := func() (*state.State, error) {
 				logger.Debugf("opening state for apiserver worker")
 				st, _, err := openState(
 					agentConfig,
-					stateWorkerDialOpts,
+					dialOpts,
 					a.txnmetricsCollector.AfterRunTransaction,
 				)
 				return st, err
