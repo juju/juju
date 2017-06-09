@@ -55,6 +55,9 @@ type DialOpts struct {
 	// mgo.Session after a successful dial but before DialWithInfo
 	// returns to its caller.
 	PostDial func(*mgo.Session) error
+
+	// PoolLimit defines the per-server socket pool limit
+	PoolLimit int
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -162,6 +165,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		Timeout:    opts.Timeout,
 		DialServer: dial,
 		Direct:     opts.Direct,
+		PoolLimit:  opts.PoolLimit,
 	}, nil
 }
 
