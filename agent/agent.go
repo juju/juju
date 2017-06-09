@@ -178,6 +178,8 @@ const (
 	AgentConnLowerThreshold = "AGENT_CONN_LOWER_THRESHOLD"
 	AgentConnUpperThreshold = "AGENT_CONN_UPPER_THRESHOLD"
 	AgentConnLookbackWindow = "AGENT_CONN_LOOKBACK_WINDOW"
+
+	MgoStatsEnabled = "MGO_STATS_ENABLED"
 )
 
 // The Config interface is the sole way that the agent gets access to the
