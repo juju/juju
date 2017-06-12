@@ -4,6 +4,7 @@
 package apicaller
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/juju/errors"
@@ -58,6 +59,15 @@ func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc) (api.Connection, error) {
 	return conn, nil
 }
 
+func shuffleAddresses(addr []string, r *rand.Rand) []string {
+	result := make([]string, len(addr))
+	perm := r.Perm(len(addr))
+	for i, v := range perm {
+		result[v] = addr[i]
+	}
+	return result
+}
+
 // connectFallback opens an API connection using the supplied info,
 // or a copy using the fallbackPassword; blocks for up to 5 minutes
 // if it encounters a CodeNotProvisioned error, periodically retrying;
@@ -83,12 +93,18 @@ func connectFallback(
 	conn api.Connection, didFallback bool, err error,
 ) {
 
+	infoCopy := *info
+	if len(infoCopy.Addrs) > 1 {
+		src := rand.NewSource(time.Now().UnixNano())
+		infoCopy.Addrs = shuffleAddresses(info.Addrs, rand.New(src))
+	}
+
 	// We expect to assign to `conn`, `err`, *and* `info` in
 	// the course of this operation: wrapping this repeated
 	// atom in a func currently seems to be less treacherous
 	// than the alternatives.
 	var tryConnect = func() {
-		conn, err = apiOpen(info, api.DialOpts{
+		conn, err = apiOpen(&infoCopy, api.DialOpts{
 			Timeout:    time.Second,
 			RetryDelay: 200 * time.Millisecond,
 		})
@@ -109,9 +125,7 @@ func connectFallback(
 	if didFallback {
 		// We've perhaps used the wrong password, so
 		// try again with the fallback password.
-		infoCopy := *info
-		info = &infoCopy
-		info.Password = fallbackPassword
+		infoCopy.Password = fallbackPassword
 		logger.Debugf("connecting with old password")
 		tryConnect()
 	}

@@ -658,6 +658,26 @@ func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
 	c.Assert(device.Type(), gc.Equals, string(state.EthernetDevice))
 }
 
+func (s *MigrationExportSuite) TestLinkLayerDevicesSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipLinkLayerDevices: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices := model.LinkLayerDevices()
+	c.Assert(devices, gc.HasLen, 0)
+}
+
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
@@ -726,6 +746,39 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
 }
 
+func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err = machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	args := state.LinkLayerDeviceAddress{
+		DeviceName:       "foo",
+		ConfigMethod:     state.StaticAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "bar",
+		DNSServers:       []string{"bam", "mam"},
+		DNSSearchDomains: []string{"weeee"},
+		GatewayAddress:   "0.1.2.1",
+	}
+	err = machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipIPAddresses: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses := model.IPAddresses()
+	c.Assert(addresses, gc.HasLen, 0)
+}
+
 func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
@@ -743,7 +796,23 @@ func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 	c.Assert(key.Keys(), jc.DeepEquals, []string{"bam", "mam"})
 }
 
-func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
+func (s *MigrationExportSuite) TestSSHHostKeysSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	err := s.State.SetSSHHostKeys(machine.MachineTag(), []string{"bam", "mam"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipSSHHostKeys: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	keys := model.SSHHostKeys()
+	c.Assert(keys, gc.HasLen, 0)
+}
+
+func (s *MigrationExportSuite) TestCloudImageMetadata(c *gc.C) {
 	storageSize := uint64(3)
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
@@ -782,6 +851,33 @@ func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
 	c.Check(image.DateCreated(), gc.Equals, int64(2))
 }
 
+func (s *MigrationExportSuite) TestCloudImageMetadataSkipped(c *gc.C) {
+	storageSize := uint64(3)
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
+		Source:          "test",
+	}
+	metadata := []cloudimagemetadata.Metadata{{attrs, 2, "1", 2}}
+
+	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipCloudImageMetadata: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	images := model.CloudImageMetadata()
+	c.Assert(images, gc.HasLen, 0)
+}
+
 func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
@@ -799,6 +895,22 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	c.Check(action.Name(), gc.Equals, "foo")
 	c.Check(action.Status(), gc.Equals, "pending")
 	c.Check(action.Message(), gc.Equals, "")
+}
+
+func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipActions: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions := model.Actions()
+	c.Assert(actions, gc.HasLen, 0)
 }
 
 type goodToken struct{}

@@ -835,6 +835,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 						io.WriteString(w, "gazing")
 					}))
 				},
+				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 			})
 			if err != nil {
 				panic(err)
