@@ -1293,6 +1293,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		StatePool:                     statePool,
 		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
 		RateLimitConfig:               rateLimitConfig,
+		PrometheusRegisterer:          a.prometheusRegistry,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
