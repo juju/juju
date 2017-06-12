@@ -277,7 +277,7 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	return results, nil
 }
 
-const historyPruneBatchSize = 1000
+const historyPruneBatchSize = 10000
 
 // PruneStatusHistory removes status history entries until
 // only logs newer than <maxLogTime> remain and also ensures
@@ -347,13 +347,17 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	if sizePerStatus == 0 {
 		return errors.New("unexpected result calculating status history entry size")
 	}
-	deleteStatuses := int(float64(collMB-maxHistoryMB) / sizePerStatus)
+	toDelete := int(float64(collMB-maxHistoryMB) / sizePerStatus)
 
-	iter := history.Find(nil).Sort("updated").Limit(deleteStatuses).Select(bson.M{"_id": 1}).Iter()
+	iter := history.Find(nil).Sort("updated").Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
 	var (
 		doc bson.M
 		ids []interface{}
 	)
+
+	logger.Infof("status history pruning: 0 of %d rows deleted", toDelete)
+	lastUpdate := st.clock.Now()
+	deleted := 0
 	for iter.Next(&doc) {
 		ids = append(ids, doc["_id"])
 		if len(ids) == historyPruneBatchSize {
@@ -361,7 +365,22 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 			if err != nil {
 				return errors.Annotate(err, "removing status history batch")
 			}
+			deleted += len(ids)
 			ids = nil
+			// Check that we still need to delete more
+			collMB, err := getCollectionMB(history)
+			if err != nil {
+				return errors.Annotate(err, "retrieving status history collection size")
+			}
+			if collMB <= maxHistoryMB {
+				return nil
+			}
+
+			now := st.clock.Now()
+			if now.Sub(lastUpdate) >= 15*time.Second {
+				logger.Infof("status history pruning: %d of %d rows deleted", deleted, toDelete)
+				lastUpdate = now
+			}
 		}
 	}
 
@@ -371,6 +390,8 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 			return errors.Annotate(err, "removing status history remainder")
 		}
 	}
+
+	logger.Infof("status history pruning finished: %d rows deleted", deleted+len(ids))
 
 	return nil
 }
