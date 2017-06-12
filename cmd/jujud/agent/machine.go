@@ -66,6 +66,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mgometrics"
 	"github.com/juju/juju/mongo/txnmetrics"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
@@ -102,9 +103,11 @@ import (
 )
 
 var (
-	logger       = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun      = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	logger         = loggo.GetLogger("juju.cmd.jujud")
+	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+	jujudSymlinks  = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -314,15 +317,31 @@ func NewMachineAgent(
 		preUpgradeSteps:             preUpgradeSteps,
 		statePool:                   &statePoolHolder{},
 	}
-	if err := a.prometheusRegistry.Register(
-		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
+	if err := a.registerPrometheusCollectors(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return a, nil
+}
+
+func (a *MachineAgent) registerPrometheusCollectors() error {
+	agentConfig := a.CurrentConfig()
+	if v := agentConfig.Value(agent.MgoStatsEnabled); v == "true" {
+		// Enable mgo stats collection only if requested,
+		// as it may affect performance.
+		mgo.SetStats(true)
+		if err := a.prometheusRegistry.Register(mgometrics.New()); err != nil {
+			return errors.Annotate(err, "registering mgo collector")
+		}
+	}
+	if err := a.prometheusRegistry.Register(
+		logsendermetrics.BufferedLogWriterMetrics{a.bufferedLogger},
+	); err != nil {
+		return errors.Annotate(err, "registering logsender collector")
+	}
+	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
+		return errors.Annotate(err, "registering mgo/txn collector")
+	}
+	return nil
 }
 
 // MachineAgent is responsible for tying together all functionality
@@ -847,12 +866,16 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
+	dialOpts, err := mongoDialOptions(mongo.DefaultDialOpts(), agentConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoInfo:          info,
-		MongoDialOpts:      mongo.DefaultDialOpts(),
+		MongoDialOpts:      dialOpts,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -953,15 +976,33 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+func mongoDialOptions(baseOpts mongo.DialOpts, agentConfig agent.Config) (mongo.DialOpts, error) {
+	dialOpts := baseOpts
+	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			return mongo.DialOpts{}, errors.Errorf("invalid mongo socket pool limit %q", limitStr)
+		} else {
+			logger.Infof("using mongo socker pool limit = %d", limit)
+			dialOpts.PoolLimit = limit
+		}
+	}
+	return dialOpts, nil
+}
+
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}
 
+	dialOpts, err := mongoDialOptions(stateWorkerDialOpts, agentConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	st, _, err := openState(
 		agentConfig,
-		stateWorkerDialOpts,
+		dialOpts,
 		a.txnmetricsCollector.AfterRunTransaction,
 	)
 	if err != nil {
@@ -1057,11 +1098,15 @@ func (a *MachineAgent) startStateWorkers(
 			certChangedChan := make(chan params.StateServingInfo, 10)
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
+			dialOpts, err := mongoDialOptions(stateWorkerDialOpts, agentConfig)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			stateOpener := func() (*state.State, error) {
 				logger.Debugf("opening state for apiserver worker")
 				st, _, err := openState(
 					agentConfig,
-					stateWorkerDialOpts,
+					dialOpts,
 					a.txnmetricsCollector.AfterRunTransaction,
 				)
 				return st, err
@@ -1231,7 +1276,10 @@ func (a *MachineAgent) newAPIserverWorker(
 				PrometheusGatherer: a.prometheusRegistry,
 			}, f)
 	}
-
+	rateLimitConfig, err := getRateLimitConfig(agentConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting rate limit config")
+	}
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
@@ -1248,12 +1296,100 @@ func (a *MachineAgent) newAPIserverWorker(
 		NewObserver:                   newObserver,
 		StatePool:                     statePool,
 		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
+		RateLimitConfig:               rateLimitConfig,
+		PrometheusRegisterer:          a.prometheusRegistry,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}
 
 	return server, nil
+}
+
+func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
+	result := apiserver.DefaultRateLimitConfig()
+	if v := cfg.Value(agent.AgentLoginRateLimit); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginRateLimit,
+			)
+		}
+		result.LoginRateLimit = val
+	}
+	if v := cfg.Value(agent.AgentLoginMinPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginMinPause,
+			)
+		}
+		result.LoginMinPause = val
+	}
+	if v := cfg.Value(agent.AgentLoginMaxPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginMaxPause,
+			)
+		}
+		result.LoginMaxPause = val
+	}
+	if v := cfg.Value(agent.AgentLoginRetryPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginRetryPause,
+			)
+		}
+		result.LoginRetryPause = val
+	}
+	if v := cfg.Value(agent.AgentConnMinPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnMinPause,
+			)
+		}
+		result.ConnMinPause = val
+	}
+	if v := cfg.Value(agent.AgentConnMaxPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnMaxPause,
+			)
+		}
+		result.ConnMaxPause = val
+	}
+	if v := cfg.Value(agent.AgentConnLookbackWindow); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnLookbackWindow,
+			)
+		}
+		result.ConnLookbackWindow = val
+	}
+	if v := cfg.Value(agent.AgentConnLowerThreshold); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnLowerThreshold,
+			)
+		}
+		result.ConnLowerThreshold = val
+	}
+	if v := cfg.Value(agent.AgentConnUpperThreshold); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnUpperThreshold,
+			)
+		}
+		result.ConnUpperThreshold = val
+	}
+	return result, nil
 }
 
 func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {
@@ -1560,7 +1696,7 @@ func (a *MachineAgent) Tag() names.Tag {
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range jujudSymlinks {
 		err := a.createSymlink(jujud, link)
 		if err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", link)
@@ -1594,7 +1730,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 }
 
 func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range jujudSymlinks {
 		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
 		if err != nil && !os.IsNotExist(err) {
 			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))

@@ -43,7 +43,7 @@ jujuAgentCall () {
   for i in "$@"; do
     path="$path/$i"
   done
-  echo -e "GET $path HTTP/1.0\r\n" | socat abstract-connect:jujud-$agent STDIO
+  juju-introspect --agent=$agent $path
 }
 
 jujuMachineAgentName () {
@@ -67,6 +67,16 @@ jujuMachineOrUnit () {
 
 juju-goroutines () {
   jujuMachineOrUnit debug/pprof/goroutine?debug=1 $@
+}
+
+juju-cpu-profile () {
+  N=30
+  if test -n "$1"; then
+    N=$1
+    shift
+  fi
+  echo "Sampling CPU for $N seconds." >&2
+  jujuMachineOrUnit "debug/pprof/profile?debug=1&seconds=$N" $@
 }
 
 juju-heap-profile () {
@@ -93,6 +103,7 @@ export -f jujuAgentCall
 export -f jujuMachineAgentName
 export -f jujuMachineOrUnit
 export -f juju-goroutines
+export -f juju-cpu-profile
 export -f juju-heap-profile
 export -f juju-engine-report
 export -f juju-statepool-report

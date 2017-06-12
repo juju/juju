@@ -5,12 +5,11 @@ package featuretests
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
 	"runtime"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	names "gopkg.in/juju/names.v2"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -96,23 +96,12 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 		c.Fatal("timed out waiting for introspection socket")
 	}
 	conn.Close()
-	return a, "@" + rootDir
-}
-
-func unixSocketHTTPClient(socketPath string) *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{
-			Dial: func(proto, addr string) (net.Conn, error) {
-				return net.Dial("unix", socketPath)
-			},
-		},
-	}
+	return a, rootDir
 }
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 	a, socketPath := s.startMachineAgent(c)
 	defer a.Stop()
-	client := unixSocketHTTPClient(socketPath)
 
 	expected := []string{
 		"juju_logsender_capacity 1000",
@@ -123,17 +112,19 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 	}
 
 	check := func(last bool) bool {
-		resp, err := client.Get("http://unix.socket/metrics")
+		cmd := introspect.IntrospectCommand{
+			IntrospectionSocketName: func(names.Tag) string {
+				return socketPath
+			},
+		}
+		ctx, err := cmdtesting.RunCommand(c, &cmd, "--data-dir="+s.DataDir(), "metrics")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		c.Assert(err, jc.ErrorIsNil)
+		stdout := cmdtesting.Stdout(ctx)
 
 		for _, expect := range expected {
 			if last {
-				c.Assert(string(body), jc.Contains, expect)
-			} else if !strings.Contains(string(body), expect) {
+				c.Assert(stdout, jc.Contains, expect)
+			} else if !strings.Contains(stdout, expect) {
 				return false
 			}
 		}

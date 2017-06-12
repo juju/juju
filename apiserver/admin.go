@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -86,10 +87,19 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		var err error
 		kind, err = names.TagKind(req.AuthTag)
 		if err != nil || kind != names.UserTagKind {
+			addCount := func(delta int64) {
+				atomic.AddInt64(&a.srv.loginAttempts, delta)
+			}
+			addCount(1)
+			defer addCount(-1)
+
 			isUser = false
 			// Users are not rate limited, all other entities are.
 			if !a.srv.limiter.Acquire() {
 				logger.Debugf("rate limiting for agent %s", req.AuthTag)
+				select {
+				case <-time.After(a.srv.loginRetryPause):
+				}
 				return fail, common.ErrTryAgain
 			}
 			defer a.srv.limiter.Release()

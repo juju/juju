@@ -332,7 +332,7 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	select {
 	case err := <-errResults:
 		c.Check(err, jc.Satisfies, params.IsCodeTryAgain)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(apiserver.LoginRetyPause + coretesting.LongWait):
 		c.Fatalf("timed out waiting for login to get rejected.")
 	}
 

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/websocket"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/juju/names.v2"
@@ -47,9 +49,18 @@ var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
-// loginRateLimit defines how many concurrent Login requests we will
-// accept
-const loginRateLimit = 10
+// These vars define how we rate limit incoming connections.
+const (
+	defaultLoginRateLimit     = 10 // concurrent login operations
+	defaultLoginMinPause      = 100 * time.Millisecond
+	defaultLoginMaxPause      = 1 * time.Second
+	defaultLoginRetryPause    = 5 * time.Second
+	defaultConnMinPause       = 0 * time.Millisecond
+	defaultConnMaxPause       = 5 * time.Second
+	defaultConnLookbackWindow = 1 * time.Second
+	defaultConnLowerThreshold = 1000   // connections per second
+	defaultConnUpperThreshold = 100000 // connections per second
+)
 
 // Server holds the server side of the API.
 type Server struct {
@@ -64,6 +75,7 @@ type Server struct {
 	dataDir          string
 	logDir           string
 	limiter          utils.Limiter
+	loginRetryPause  time.Duration
 	validator        LoginValidator
 	facades          *facade.Registry
 	modelUUID        string
@@ -72,6 +84,8 @@ type Server struct {
 	centralHub       *pubsub.StructuredHub
 	newObserver      observer.ObserverFactory
 	connCount        int64
+	totalConn        int64
+	loginAttempts    int64
 	certChanged      <-chan params.StateServingInfo
 	tlsConfig        *tls.Config
 	allowModelAccess bool
@@ -146,6 +160,13 @@ type ServerConfig struct {
 	// is to support registering the handlers underneath the
 	// "/introspection" prefix.
 	RegisterIntrospectionHandlers func(func(string, http.Handler))
+
+	// RateLimitConfig holds paramaters to control
+	// aspects of rate limiting connections and logins.
+	RateLimitConfig RateLimitConfig
+
+	// PrometheusRegisterer registers Prometheus collectors.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 func (c *ServerConfig) Validate() error {
@@ -162,7 +183,7 @@ func (c *ServerConfig) Validate() error {
 		return errors.NotValidf("missing StatePool")
 	}
 
-	return nil
+	return errors.Annotate(c.RateLimitConfig.Validate(), "validating rate limit configuration")
 }
 
 func (c *ServerConfig) pingClock() clock.Clock {
@@ -170,6 +191,64 @@ func (c *ServerConfig) pingClock() clock.Clock {
 		return c.Clock
 	}
 	return c.PingClock
+}
+
+// RateLimitConfig holds holds parameters to control
+// aspects of rate limiting connections and logins.
+type RateLimitConfig struct {
+	LoginRateLimit     int
+	LoginMinPause      time.Duration
+	LoginMaxPause      time.Duration
+	LoginRetryPause    time.Duration
+	ConnMinPause       time.Duration
+	ConnMaxPause       time.Duration
+	ConnLookbackWindow time.Duration
+	ConnLowerThreshold int
+	ConnUpperThreshold int
+}
+
+// DefaultRateLimitConfig returns a RateLimtConfig struct with
+// all attributes set to their default values.
+func DefaultRateLimitConfig() RateLimitConfig {
+	return RateLimitConfig{
+		LoginRateLimit:     defaultLoginRateLimit,
+		LoginMinPause:      defaultLoginMinPause,
+		LoginMaxPause:      defaultLoginMaxPause,
+		LoginRetryPause:    defaultLoginRetryPause,
+		ConnMinPause:       defaultConnMinPause,
+		ConnMaxPause:       defaultConnMaxPause,
+		ConnLookbackWindow: defaultConnLookbackWindow,
+		ConnLowerThreshold: defaultConnLowerThreshold,
+		ConnUpperThreshold: defaultConnUpperThreshold,
+	}
+}
+
+// Validate validates the rate limit configuration.
+// We apply arbitrary but sensible upper limits to prevent
+// typos from introducing obviously bad config.
+func (c RateLimitConfig) Validate() error {
+	if c.LoginRateLimit <= 0 || c.LoginRateLimit > 100 {
+		return errors.NotValidf("login-rate-limit %d <= 0 or > 100", c.LoginRateLimit)
+	}
+	if c.LoginMinPause < 0 || c.LoginMinPause > 100*time.Millisecond {
+		return errors.NotValidf("login-min-pause %d < 0 or > 100ms", c.LoginMinPause)
+	}
+	if c.LoginMaxPause < 0 || c.LoginMaxPause > 5*time.Second {
+		return errors.NotValidf("login-max-pause %d < 0 or > 5s", c.LoginMaxPause)
+	}
+	if c.LoginRetryPause < 0 || c.LoginRetryPause > 10*time.Second {
+		return errors.NotValidf("login-retry-pause %d < 0 or > 10s", c.LoginRetryPause)
+	}
+	if c.ConnMinPause < 0 || c.ConnMinPause > 100*time.Millisecond {
+		return errors.NotValidf("conn-min-pause %d < 0 or > 100ms", c.ConnMinPause)
+	}
+	if c.ConnMaxPause < 0 || c.ConnMaxPause > 10*time.Second {
+		return errors.NotValidf("conn-max-pause %d < 0 or > 10s", c.ConnMaxPause)
+	}
+	if c.ConnLookbackWindow < 0 || c.ConnLookbackWindow > 5*time.Second {
+		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
+	}
+	return nil
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -202,6 +281,9 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		stPool = state.NewStatePool(s)
 	}
 
+	limiter := utils.NewLimiterWithPause(
+		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
+		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
 	srv := &Server{
 		clock:                         cfg.Clock,
 		pingClock:                     cfg.pingClock(),
@@ -212,7 +294,8 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
-		limiter:                       utils.NewLimiter(loginRateLimit),
+		limiter:                       limiter,
+		loginRetryPause:               cfg.RateLimitConfig.LoginRetryPause,
 		validator:                     cfg.Validator,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
@@ -223,7 +306,8 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
-	srv.lis = tls.NewListener(lis, srv.tlsConfig)
+	srv.lis = newThrottlingListener(
+		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
 	srv.authCtxt, err = newAuthContext(s)
 	if err != nil {
@@ -239,8 +323,35 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	}
 	srv.logSinkWriter = logSinkWriter
 
+	if cfg.PrometheusRegisterer != nil {
+		apiserverCollectior := NewMetricsCollector(&metricAdaptor{srv})
+		if err := cfg.PrometheusRegisterer.Register(apiserverCollectior); err != nil {
+			return nil, errors.Annotate(err, "registering apiserver metrics collector")
+		}
+	}
+
 	go srv.run()
 	return srv, nil
+}
+
+type metricAdaptor struct {
+	srv *Server
+}
+
+func (a *metricAdaptor) TotalConnections() int64 {
+	return a.srv.TotalConnections()
+}
+
+func (a *metricAdaptor) ConnectionCount() int64 {
+	return a.srv.ConnectionCount()
+}
+
+func (a *metricAdaptor) ConcurrentLoginAttempts() int64 {
+	return a.srv.LoginAttempts()
+}
+
+func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
+	return a.srv.lis.(*throttlingListener).pauseTime()
 }
 
 func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
@@ -282,8 +393,19 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 	return tlsConfig
 }
 
+// TotalConnections returns the total number of connections ever made.
+func (srv *Server) TotalConnections() int64 {
+	return atomic.LoadInt64(&srv.totalConn)
+}
+
+// ConnectionCount returns the number of current connections.
 func (srv *Server) ConnectionCount() int64 {
 	return atomic.LoadInt64(&srv.connCount)
+}
+
+// LoginAttempts returns the number of current login attempts.
+func (srv *Server) LoginAttempts() int64 {
+	return atomic.LoadInt64(&srv.loginAttempts)
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -661,6 +783,7 @@ func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
+	atomic.AddInt64(&srv.totalConn, 1)
 	addCount := func(delta int64) {
 		atomic.AddInt64(&srv.connCount, delta)
 	}

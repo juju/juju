@@ -1775,8 +1775,8 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get devices addresses")
 	}
-	logger.Infof(
-		"geting network config for machine %q with addresses %+v, hosting unit %q of application %q, with bindings %+v",
+	logger.Debugf(
+		"getting network config for machine %q with addresses %+v, hosting unit %q of application %q, with bindings %+v",
 		machineID, addresses, unit.Name(), application.Name(), bindings,
 	)
 

@@ -164,7 +164,8 @@ func AllFacades() *facade.Registry {
 	reg("MigrationTarget", 1, migrationtarget.NewFacade)
 
 	reg("ModelConfig", 1, modelconfig.NewFacade)
-	reg("ModelManager", 2, modelmanager.NewFacade)
+	reg("ModelManager", 2, modelmanager.NewFacadeV2)
+	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 
 	reg("Payloads", 1, payloads.NewFacade)
 	regHookContext(
