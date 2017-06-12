@@ -567,7 +567,7 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
-	logger.Debugf("API server address details %q written to agent config as %q", servers, addrs)
+	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
 }
 
 func (c *configInternal) SetCACert(cert string) {

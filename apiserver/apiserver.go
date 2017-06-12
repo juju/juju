@@ -25,7 +25,6 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/juju/names.v2"
@@ -55,7 +54,7 @@ const (
 	defaultLoginMinPause      = 100 * time.Millisecond
 	defaultLoginMaxPause      = 1 * time.Second
 	defaultLoginRetryPause    = 5 * time.Second
-	defaultConnMinPause       = 0 * time.Millisecond
+	defaultConnMinPause       = 10 * time.Millisecond
 	defaultConnMaxPause       = 5 * time.Second
 	defaultConnLookbackWindow = 1 * time.Second
 	defaultConnLowerThreshold = 1000   // connections per second
@@ -84,8 +83,6 @@ type Server struct {
 	centralHub       *pubsub.StructuredHub
 	newObserver      observer.ObserverFactory
 	connCount        int64
-	totalConn        int64
-	loginAttempts    int64
 	certChanged      <-chan params.StateServingInfo
 	tlsConfig        *tls.Config
 	allowModelAccess bool
@@ -164,9 +161,6 @@ type ServerConfig struct {
 	// RateLimitConfig holds paramaters to control
 	// aspects of rate limiting connections and logins.
 	RateLimitConfig RateLimitConfig
-
-	// PrometheusRegisterer registers Prometheus collectors.
-	PrometheusRegisterer prometheus.Registerer
 }
 
 func (c *ServerConfig) Validate() error {
@@ -323,35 +317,8 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	}
 	srv.logSinkWriter = logSinkWriter
 
-	if cfg.PrometheusRegisterer != nil {
-		apiserverCollectior := NewMetricsCollector(&metricAdaptor{srv})
-		if err := cfg.PrometheusRegisterer.Register(apiserverCollectior); err != nil {
-			return nil, errors.Annotate(err, "registering apiserver metrics collector")
-		}
-	}
-
 	go srv.run()
 	return srv, nil
-}
-
-type metricAdaptor struct {
-	srv *Server
-}
-
-func (a *metricAdaptor) TotalConnections() int64 {
-	return a.srv.TotalConnections()
-}
-
-func (a *metricAdaptor) ConnectionCount() int64 {
-	return a.srv.ConnectionCount()
-}
-
-func (a *metricAdaptor) ConcurrentLoginAttempts() int64 {
-	return a.srv.LoginAttempts()
-}
-
-func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
-	return a.srv.lis.(*throttlingListener).pauseTime()
 }
 
 func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
@@ -393,19 +360,8 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 	return tlsConfig
 }
 
-// TotalConnections returns the total number of connections ever made.
-func (srv *Server) TotalConnections() int64 {
-	return atomic.LoadInt64(&srv.totalConn)
-}
-
-// ConnectionCount returns the number of current connections.
 func (srv *Server) ConnectionCount() int64 {
 	return atomic.LoadInt64(&srv.connCount)
-}
-
-// LoginAttempts returns the number of current login attempts.
-func (srv *Server) LoginAttempts() int64 {
-	return atomic.LoadInt64(&srv.loginAttempts)
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -783,7 +739,6 @@ func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	atomic.AddInt64(&srv.totalConn, 1)
 	addCount := func(delta int64) {
 		atomic.AddInt64(&srv.connCount, delta)
 	}
