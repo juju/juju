@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -124,6 +125,29 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
+}
+
+func (s *MachineSuite) TestLoggingOverride(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	agentConf := FakeAgentConfig{
+		values: map[string]string{agent.LoggingOverride: "test=trace"},
+	}
+	logger := s.newBufferedLogWriter()
+
+	a := NewMachineAgentCmd(
+		ctx,
+		NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
+		agentConf,
+		agentConf,
+	)
+	// little hack to set the data that Init expects to already be set
+	a.(*machineAgentCmd).machineId = "42"
+
+	err := a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	test := loggo.GetLogger("test")
+	c.Assert(test.LogLevel(), gc.Equals, loggo.TRACE)
 }
 
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {

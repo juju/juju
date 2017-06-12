@@ -107,11 +107,12 @@ func (a *UnitAgent) Init(args []string) error {
 		RestartDelay:  jworker.RestartDelay,
 	})
 
+	if err := a.ReadConfig(a.Tag().String()); err != nil {
+		return err
+	}
+	agentConfig := a.CurrentConfig()
+
 	if !a.logToStdErr {
-		if err := a.ReadConfig(a.Tag().String()); err != nil {
-			return err
-		}
-		agentConfig := a.CurrentConfig()
 
 		// the writer in ctx.stderr gets set as the loggo writer in github.com/juju/cmd/logging.go
 		a.ctx.Stderr = &lumberjack.Logger{
@@ -121,6 +122,15 @@ func (a *UnitAgent) Init(args []string) error {
 			Compress:   true,
 		}
 
+	}
+
+	if loggingOverride := agentConfig.Value(agent.LoggingOverride); loggingOverride != "" {
+		logger.Infof("setting logging override to %q", loggingOverride)
+		loggo.DefaultContext().ResetLoggerLevels()
+		err := loggo.ConfigureLoggers(loggingOverride)
+		if err != nil {
+			logger.Errorf("setting override %v", err)
+		}
 	}
 
 	return nil

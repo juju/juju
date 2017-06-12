@@ -180,6 +180,11 @@ const (
 	AgentConnLookbackWindow = "AGENT_CONN_LOOKBACK_WINDOW"
 
 	MgoStatsEnabled = "MGO_STATS_ENABLED"
+
+	// LoggingOverride will set the logging for this agent to the value
+	// specified. Model configuration will be ignored and this value takes
+	// precidence for the agent.
+	LoggingOverride = "LOGGING_OVERRIDE"
 )
 
 // The Config interface is the sole way that the agent gets access to the

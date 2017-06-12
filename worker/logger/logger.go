@@ -18,20 +18,23 @@ var log = loggo.GetLogger("juju.worker.logger")
 // Logger is responsible for updating the loggo configuration when the
 // environment watcher tells the agent that the value has changed.
 type Logger struct {
-	api         *logger.State
-	agentConfig agent.Config
-	lastConfig  string
+	api            *logger.State
+	agentConfig    agent.Config
+	lastConfig     string
+	configOverride string
 }
 
 // NewLogger returns a worker.Worker that uses the notify watcher returned
 // from the setup.
 func NewLogger(api *logger.State, agentConfig agent.Config) (worker.Worker, error) {
 	logger := &Logger{
-		api:         api,
-		agentConfig: agentConfig,
-		lastConfig:  loggo.LoggerInfo(),
+		api:            api,
+		agentConfig:    agentConfig,
+		lastConfig:     loggo.LoggerInfo(),
+		configOverride: agentConfig.Value(agent.LoggingOverride),
 	}
 	log.Debugf("initial log config: %q", logger.lastConfig)
+
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: logger,
 	})
@@ -43,6 +46,12 @@ func NewLogger(api *logger.State, agentConfig agent.Config) (worker.Worker, erro
 
 func (logger *Logger) setLogging() {
 	loggingConfig, err := logger.api.LoggingConfig(logger.agentConfig.Tag())
+	if logger.configOverride != "" {
+		log.Debugf("overriding model config %q with override from agent.conf %q", loggingConfig, logger.configOverride)
+		loggingConfig = logger.configOverride
+		// If we are overriding the logging config value, there is no error.
+		err = nil
+	}
 	if err != nil {
 		log.Errorf("%v", err)
 	} else {
