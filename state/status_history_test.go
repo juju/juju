@@ -30,8 +30,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	clock := testing.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
 
 	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
@@ -52,6 +52,34 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	c.Assert(historyLen, jc.LessThan, 10000)
 }
 
+func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
+	clock := testing.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{})
+	defer st.Close()
+
+	localFactory := factory.NewFactory(st)
+	application := localFactory.MakeApplication(c, nil)
+	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application})
+	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
+
+	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%d\n", len(history))
+	c.Assert(history, gc.HasLen, 20001)
+
+	err = state.PruneStatusHistory(st, 0, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
+	c.Assert(err, jc.ErrorIsNil)
+	historyLen := len(history)
+
+	// Pruning by size should only be done for the controller state.
+	c.Assert(historyLen, gc.Equals, 20001)
+}
+
 func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 
 	// NOTE: the behaviour is bad, and the test is ugly. I'm just verifying
@@ -66,9 +94,9 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	const count = 3
 	units := make([]*state.Unit, count)
 	agents := make([]*state.UnitAgent, count)
-	service := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	for i := 0; i < count; i++ {
-		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 		agents[i] = units[i].Agent()
 	}
 
@@ -146,8 +174,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *gc.C) {
 
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
 	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
@@ -166,8 +194,8 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *g
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFiltered(c *gc.C) {
 
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
 	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
@@ -183,8 +211,8 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFilte
 func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	// TODO(perrito666) setup should be extracted into a fixture and the
 	// 6 or 7 test cases each get their own method.
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	twoDaysBack := time.Hour * 48
 	threeDaysBack := time.Hour * 72

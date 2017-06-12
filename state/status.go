@@ -277,6 +277,8 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	return results, nil
 }
 
+const historyPruneBatchSize = 1000
+
 // PruneStatusHistory removes status history entries until
 // only logs newer than <maxLogTime> remain and also ensures
 // that the collection is smaller than <maxLogsMB> after the
@@ -309,6 +311,13 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 			return errors.Trace(err)
 		}
 	}
+	if !st.IsController() {
+		// Only prune by size in the controller. Otherwise we might
+		// find that multiple calls might be trying to delete the
+		// latest 1000 rows, and end up with more deleted than we
+		// expect.
+		return nil
+	}
 	if maxHistoryMB == 0 {
 		return nil
 	}
@@ -338,17 +347,30 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	if sizePerStatus == 0 {
 		return errors.New("unexpected result calculating status history entry size")
 	}
-	deleteStatuses := count - int(float64(collMB-maxHistoryMB)/sizePerStatus)
-	result := historicalStatusDoc{}
-	err = history.Find(nil).Sort("-updated").Skip(deleteStatuses).One(&result)
-	if err != nil {
-		return errors.Trace(err)
+	deleteStatuses := int(float64(collMB-maxHistoryMB) / sizePerStatus)
+
+	iter := history.Find(nil).Sort("updated").Limit(deleteStatuses).Select(bson.M{"_id": 1}).Iter()
+	var (
+		doc bson.M
+		ids []interface{}
+	)
+	for iter.Next(&doc) {
+		ids = append(ids, doc["_id"])
+		if len(ids) == historyPruneBatchSize {
+			_, err := history.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
+			if err != nil {
+				return errors.Annotate(err, "removing status history batch")
+			}
+			ids = nil
+		}
 	}
-	_, err = history.RemoveAll(bson.D{
-		{"updated", bson.M{"$lt": result.Updated}},
-	})
-	if err != nil {
-		return errors.Trace(err)
+
+	if len(ids) > 0 {
+		_, err := history.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
+		if err != nil {
+			return errors.Annotate(err, "removing status history remainder")
+		}
 	}
+
 	return nil
 }
