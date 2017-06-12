@@ -38,10 +38,10 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 		descs = append(descs, desc)
 	}
 	c.Assert(descs, gc.HasLen, 4)
-	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
-	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_rate".*`)
-	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_pause_time".*`)
-	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_concurrent_login_attempts".*`)
+	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
+	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
+	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_pause_seconds".*`)
+	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
 }
 
 func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
@@ -67,14 +67,18 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 		return &v
 	}
 	c.Assert(dtoMetrics, jc.DeepEquals, [4]dto.Metric{
+		{Counter: &dto.Counter{Value: float64ptr(200)}},
 		{Gauge: &dto.Gauge{Value: float64ptr(2)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(100)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(20)}},
+		{Gauge: &dto.Gauge{Value: float64ptr(0.02)}},
 		{Gauge: &dto.Gauge{Value: float64ptr(3)}},
 	})
 }
 
 type stubCollector struct{}
+
+func (a *stubCollector) TotalConnections() int64 {
+	return 200
+}
 
 func (a *stubCollector) ConnectionCount() int64 {
 	return 2
@@ -86,8 +90,4 @@ func (a *stubCollector) ConcurrentLoginAttempts() int64 {
 
 func (a *stubCollector) ConnectionPauseTime() time.Duration {
 	return 20 * time.Millisecond
-}
-
-func (a *stubCollector) ConnectionRate() int64 {
-	return 100
 }

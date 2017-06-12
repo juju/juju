@@ -15,10 +15,10 @@ const (
 
 // ServerMetricsSource implementations provide apiserver metrics.
 type ServerMetricsSource interface {
+	TotalConnections() int64
 	ConnectionCount() int64
 	ConcurrentLoginAttempts() int64
 	ConnectionPauseTime() time.Duration
-	ConnectionRate() int64
 }
 
 // Collector is a prometheus.Collector that collects metrics based
@@ -26,8 +26,8 @@ type ServerMetricsSource interface {
 type Collector struct {
 	src ServerMetricsSource
 
+	connectionCounter        prometheus.Counter
 	connectionCountGauge     prometheus.Gauge
-	connectionRateGauge      prometheus.Gauge
 	connectionPauseTimeGauge prometheus.Gauge
 	concurrentLoginsGauge    prometheus.Gauge
 }
@@ -36,33 +36,33 @@ type Collector struct {
 func NewMetricsCollector(src ServerMetricsSource) *Collector {
 	return &Collector{
 		src: src,
+		connectionCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Name:      "connections_total",
+			Help:      "Total number of apiserver connections ever made",
+		}),
 		connectionCountGauge: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
 			Name:      "connection_count",
-			Help:      "Current number of apiserver connections",
-		}),
-		connectionRateGauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: apiserverMetricsNamespace,
-			Name:      "connection_rate",
-			Help:      "Rate per second of web socket connections",
+			Help:      "Current number of active apiserver connections",
 		}),
 		connectionPauseTimeGauge: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
-			Name:      "connection_pause_time",
-			Help:      "Current wait time in milliseconds before accepting incoming connections",
+			Name:      "connection_pause_seconds",
+			Help:      "Current wait time in before accepting incoming connections",
 		}),
 		concurrentLoginsGauge: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
-			Name:      "concurrent_login_attempts",
-			Help:      "Current number of concurrent agent login attempts",
+			Name:      "active_login_attempts",
+			Help:      "Current number of active agent login attempts",
 		}),
 	}
 }
 
 // Describe is part of the prometheus.Collector interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
+	c.connectionCounter.Describe(ch)
 	c.connectionCountGauge.Describe(ch)
-	c.connectionRateGauge.Describe(ch)
 	c.connectionPauseTimeGauge.Describe(ch)
 	c.concurrentLoginsGauge.Describe(ch)
 }
@@ -70,12 +70,15 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 // Collect is part of the prometheus.Collector interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.connectionCountGauge.Set(float64(c.src.ConnectionCount()))
-	c.connectionRateGauge.Set(float64(c.src.ConnectionRate()))
-	c.connectionPauseTimeGauge.Set(float64(c.src.ConnectionPauseTime() / time.Millisecond))
+	c.connectionPauseTimeGauge.Set(float64(c.src.ConnectionPauseTime()) / float64(time.Second))
 	c.concurrentLoginsGauge.Set(float64(c.src.ConcurrentLoginAttempts()))
 
+	ch <- prometheus.MustNewConstMetric(
+		c.connectionCounter.Desc(),
+		prometheus.CounterValue,
+		float64(c.src.TotalConnections()),
+	)
 	c.connectionCountGauge.Collect(ch)
-	c.connectionRateGauge.Collect(ch)
 	c.connectionPauseTimeGauge.Collect(ch)
 	c.concurrentLoginsGauge.Collect(ch)
 }
