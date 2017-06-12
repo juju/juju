@@ -54,7 +54,7 @@ const (
 	defaultLoginMinPause      = 100 * time.Millisecond
 	defaultLoginMaxPause      = 1 * time.Second
 	defaultLoginRetryPause    = 5 * time.Second
-	defaultConnMinPause       = 10 * time.Millisecond
+	defaultConnMinPause       = 0 * time.Millisecond
 	defaultConnMaxPause       = 5 * time.Second
 	defaultConnLookbackWindow = 1 * time.Second
 	defaultConnLowerThreshold = 1000   // connections per second

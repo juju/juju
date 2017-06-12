@@ -598,7 +598,7 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag 
 		// It is common to receive a port change notification before
 		// registering the machine, so if a machine is not found in
 		// firewaller's list, just skip the change.
-		logger.Errorf("failed to lookup %q, skipping port change", machineTag)
+		logger.Debugf("failed to lookup %q, skipping port change", machineTag)
 		return nil
 	}
 
@@ -619,7 +619,7 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag 
 			// It is common to receive port change notification before
 			// registering a unit. Skip handling the port change - it will
 			// be handled when the unit is registered.
-			logger.Errorf("failed to lookup %q, skipping port change", unitTag)
+			logger.Debugf("failed to lookup %q, skipping port change", unitTag)
 			return nil
 		}
 		ranges, ok := newPortRanges[unitd.tag]
