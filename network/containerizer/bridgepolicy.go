@@ -221,6 +221,7 @@ func BridgeNameForDevice(device string) string {
 func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachine Container) ([]network.DeviceToBridge, int, error) {
 	reconfigureDelay := 0
 	containerSpaces, devicesPerSpace, err := b.findSpacesAndDevicesForContainer(m, containerMachine)
+	hostDeviceByName := make(map[string]*state.LinkLayerDevice, 0)
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
@@ -246,7 +247,6 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 	hostDeviceNamesToBridge := make([]string, 0)
 	for _, spaceName := range notFound.Values() {
 		hostDeviceNames := make([]string, 0)
-		hostDeviceByName := make(map[string]*state.LinkLayerDevice, 0)
 		for _, hostDevice := range devicesPerSpace[spaceName] {
 			possible, err := possibleBridgeTarget(hostDevice)
 			if err != nil {
@@ -305,6 +305,7 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 		hostToBridge = append(hostToBridge, network.DeviceToBridge{
 			DeviceName: hostName,
 			BridgeName: BridgeNameForDevice(hostName),
+			MACAddress: hostDeviceByName[hostName].MACAddress(),
 		})
 	}
 	return hostToBridge, reconfigureDelay, nil

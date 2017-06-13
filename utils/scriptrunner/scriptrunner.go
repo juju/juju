@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package debinterfaces
+package scriptrunner
 
 import (
 	"time"
@@ -11,13 +11,13 @@ import (
 	"github.com/juju/utils/exec"
 )
 
-type scriptResult struct {
+type ScriptResult struct {
 	Stdout []byte
 	Stderr []byte
 	Code   int
 }
 
-func runCommand(command string, environ []string, clock clock.Clock, timeout time.Duration) (*scriptResult, error) {
+func RunCommand(command string, environ []string, clock clock.Clock, timeout time.Duration) (*ScriptResult, error) {
 	cmd := exec.RunParams{
 		Commands:    command,
 		Environment: environ,
@@ -45,7 +45,7 @@ func runCommand(command string, environ []string, clock clock.Clock, timeout tim
 		err = errors.Trace(err)
 	}
 
-	return &scriptResult{
+	return &ScriptResult{
 		Stdout: result.Stdout,
 		Stderr: result.Stderr,
 		Code:   result.Code,

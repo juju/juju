@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/network/debinterfaces"
 	"github.com/juju/utils/clock"
+
+	"github.com/juju/juju/network/debinterfaces"
+	"github.com/juju/juju/network/netplan"
 )
 
 // Bridger creates network bridges to support addressable containers.
@@ -66,7 +68,7 @@ func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge, reconfigu
 		logger.Tracef("bridgescript stdout\n%s\n", result.Stdout)
 		logger.Tracef("bridgescript stderr\n%s\n", result.Stderr)
 	} else {
-		logger.Infof("bridgecript returned nothing")
+		logger.Infof("bridgescript returned nothing")
 	}
 
 	return nil
@@ -86,4 +88,59 @@ func newEtcNetworkInterfacesBridger(clock clock.Clock, timeout time.Duration, fi
 // bridged devices.
 func DefaultEtcNetworkInterfacesBridger(timeout time.Duration, filename string) (Bridger, error) {
 	return newEtcNetworkInterfacesBridger(clock.WallClock, timeout, filename, false), nil
+}
+
+type netplanBridger struct {
+	Clock     clock.Clock
+	Directory string
+	Timeout   time.Duration
+}
+
+var _ Bridger = (*netplanBridger)(nil)
+
+func (b *netplanBridger) Bridge(devices []DeviceToBridge, reconfigureDelay int) error {
+	npDevices := make([]netplan.DeviceToBridge, len(devices))
+	for i, device := range devices {
+		npDevices[i] = netplan.DeviceToBridge(device)
+	}
+	params := netplan.ActivationParams{
+		Clock:     clock.WallClock,
+		Directory: b.Directory,
+		Devices:   npDevices,
+		Timeout:   b.Timeout,
+	}
+
+	result, err := netplan.BridgeAndActivate(params)
+	if err != nil {
+		return errors.Errorf("bridge activaction error: %s", err)
+	}
+	if result != nil {
+		logger.Infof("bridger result=%v", result.Code)
+		if result.Code != 0 {
+			logger.Errorf("bridger stdout\n%s\n", result.Stdout)
+			logger.Errorf("bridger stderr\n%s\n", result.Stderr)
+			return errors.Errorf("bridger failed: %s", string(result.Stderr))
+		}
+		logger.Tracef("bridger stdout\n%s\n", result.Stdout)
+		logger.Tracef("bridger stderr\n%s\n", result.Stderr)
+	} else {
+		logger.Infof("bridger returned nothing")
+	}
+
+	return nil
+}
+
+func newNetplanBridger(clock clock.Clock, timeout time.Duration, directory string) Bridger {
+	return &netplanBridger{
+		Clock:     clock,
+		Directory: directory,
+		Timeout:   timeout,
+	}
+}
+
+// DefaultNetplanBridger returns a Bridger instance that can parse
+// can parse an interfaces(5) to transform existing devices into
+// bridged devices.
+func DefaultNetplanBridger(timeout time.Duration, directory string) (Bridger, error) {
+	return newNetplanBridger(clock.WallClock, timeout, directory), nil
 }

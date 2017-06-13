@@ -410,6 +410,9 @@ type DeviceToBridge struct {
 
 	// BridgeName is the name of the bridge that we want created.
 	BridgeName string
+
+	// MACAddress is the MAC address of the device to be bridged
+	MACAddress string
 }
 
 // LXCNetDefaultConfig is the location of the default network config

@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 
 var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"
+	systemNetplanDirectory      = "/etc/netplan"
 	activateBridgesTimeout      = 5 * time.Minute
 )
 
@@ -216,7 +218,11 @@ func observeNetwork() ([]params.NetworkConfig, error) {
 }
 
 func defaultBridger() (network.Bridger, error) {
-	return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
+	if _, err := os.Stat(systemNetworkInterfacesFile); err == nil {
+		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
+	} else {
+		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
+	}
 }
 
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {

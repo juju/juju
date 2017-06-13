@@ -280,6 +280,7 @@ func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]netwo
 	for i, bridgeInfo := range newBridges {
 		res[i].BridgeName = bridgeInfo.BridgeName
 		res[i].DeviceName = bridgeInfo.HostDeviceName
+		res[i].MACAddress = bridgeInfo.MACAddress
 	}
 	return res, result.Results[0].ReconfigureDelay, nil
 }

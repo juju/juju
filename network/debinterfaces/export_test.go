@@ -6,5 +6,4 @@ package debinterfaces
 var (
 	NewWordExpander = newWordExpander
 	ParseSource     = parseSource
-	RunCommand      = runCommand
 )
