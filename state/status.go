@@ -304,7 +304,7 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	return errors.Trace(p.pruneBySize())
 }
 
-const historyPruneBatchSize = 10000
+const historyPruneBatchSize = 1000
 const historyPruneProgressSeconds = 15
 
 type doneCheck func() (bool, error)
@@ -411,23 +411,27 @@ func (p *statusHistoryPruner) pruneBySize() error {
 }
 
 func (p *statusHistoryPruner) deleteInBatches(iter *mgo.Iter, logTemplate string, shouldStop doneCheck) (int, error) {
-	var (
-		doc bson.M
-		ids []interface{}
-	)
+	var doc bson.M
+	chunk := p.coll.Bulk()
+	chunkSize := 0
 
 	logger.Infof(logTemplate, 0)
-	lastUpdate := p.st.clock.Now()
+	lastUpdate := time.Now()
 	deleted := 0
 	for iter.Next(&doc) {
-		ids = append(ids, doc["_id"])
-		if len(ids) == historyPruneBatchSize {
-			_, err := p.coll.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
-			if err != nil {
+		chunk.Remove(bson.D{{"_id", doc["_id"]}})
+		chunkSize++
+		if chunkSize == historyPruneBatchSize {
+			_, err := chunk.Run()
+			// NotFound indicates that records were already deleted.
+			if err != nil && err != mgo.ErrNotFound {
 				return 0, errors.Annotate(err, "removing status history batch")
 			}
-			deleted += len(ids)
-			ids = nil
+
+			deleted += chunkSize
+			chunk = p.coll.Bulk()
+			chunkSize = 0
+
 			// Check that we still need to delete more
 			done, err := shouldStop()
 			if err != nil {
@@ -437,7 +441,7 @@ func (p *statusHistoryPruner) deleteInBatches(iter *mgo.Iter, logTemplate string
 				return deleted, nil
 			}
 
-			now := p.st.clock.Now()
+			now := time.Now()
 			if now.Sub(lastUpdate) >= historyPruneProgressSeconds*time.Second {
 				logger.Infof(logTemplate, deleted)
 				lastUpdate = now
@@ -445,14 +449,14 @@ func (p *statusHistoryPruner) deleteInBatches(iter *mgo.Iter, logTemplate string
 		}
 	}
 
-	if len(ids) > 0 {
-		_, err := p.coll.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
-		if err != nil {
+	if chunkSize > 0 {
+		_, err := chunk.Run()
+		if err != nil && err != mgo.ErrNotFound {
 			return 0, errors.Annotate(err, "removing status history remainder")
 		}
 	}
 
-	return deleted + len(ids), nil
+	return deleted + chunkSize, nil
 }
 
 func noEarlyFinish() (bool, error) {
