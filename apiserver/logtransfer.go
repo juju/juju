@@ -4,37 +4,42 @@
 package apiserver
 
 import (
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
 type migrationLoggingStrategy struct {
-	ctxt       httpContext
 	st         *state.State
 	releaser   func()
 	filePrefix string
 	dbLogger   *state.DbLogger
 	tracker    *logTracker
-	fileLogger io.Writer
 }
 
-func newMigrationLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStrategy {
-	return &migrationLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
+// newMigrationLogWriteCloserFunc returns a function that will create a
+// logsink.LoggingStrategy given an *http.Request, that writes log
+// messages to the state database and tracks their migration.
+func newMigrationLogWriteCloserFunc(ctxt httpContext) logsink.NewLogWriteCloserFunc {
+	return func(req *http.Request) (logsink.LogWriteCloser, error) {
+		strategy := &migrationLoggingStrategy{}
+		if err := strategy.init(ctxt, req); err != nil {
+			return nil, errors.Annotate(err, "initialising migration logsink session")
+		}
+		return strategy, nil
+	}
 }
 
-// Authenticate checks that the user is a controller superuser and
-// that the requested model is migrating. Part of LoggingStrategy.
-func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
+func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// Require MigrationModeNone because logtransfer happens after the
 	// model proper is completely imported.
-	st, releaser, err := s.ctxt.stateForMigration(req, state.MigrationModeNone)
+	st, releaser, err := ctxt.stateForMigration(req, state.MigrationModeNone)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -45,50 +50,35 @@ func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
 	// passed, even though we don't use it anywhere at the moment - it
 	// provides future-proofing if we need to do some kind of
 	// conversion of log messages from an old client.
-	_, err = jujuClientVersionFromReq(req)
+	_, err = logsink.JujuClientVersionFromRequest(req)
 	if err != nil {
 		releaser()
 		return errors.Trace(err)
 	}
-	s.st = st
+
 	s.releaser = releaser
+	s.filePrefix = st.ModelUUID() + ":"
+	s.dbLogger = state.NewDbLogger(st)
+	s.tracker = newLogTracker(st)
 	return nil
 }
 
-// Start creates the destination DB logger. Part of LoggingStrategy.
-func (s *migrationLoggingStrategy) Start() {
-	s.filePrefix = s.st.ModelUUID() + ":"
-	s.dbLogger = state.NewDbLogger(s.st)
-	s.tracker = newLogTracker(s.st)
-}
-
-// Log writes the given record to the DB and to the backup file
-// logger. Part of LoggingStrategy.
-func (s *migrationLoggingStrategy) Log(m params.LogRecord) bool {
+// WriteLog is part of the logsink.LogWriteCloser interface.
+func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	dbErr := s.dbLogger.Log(m.Time, m.Entity, m.Module, m.Location, level, m.Message)
-	if dbErr == nil {
-		dbErr = s.tracker.Track(m.Time)
+	err := s.dbLogger.Log(m.Time, m.Entity, m.Module, m.Location, level, m.Message)
+	if err == nil {
+		err = s.tracker.Track(m.Time)
 	}
-	if dbErr != nil {
-		logger.Errorf("logging to DB failed: %v", dbErr)
-	}
-
-	fileErr := logToFile(s.fileLogger, s.filePrefix, m)
-	if fileErr != nil {
-		logger.Errorf("logging to file logger failed: %v", fileErr)
-	}
-
-	return dbErr == nil && fileErr == nil
+	return errors.Annotate(err, "logging to DB failed")
 }
 
-// Stop imdicates that there are no more log records coming, so we can
-// release resources and close loggers. Part of LoggingStrategy.
-func (s *migrationLoggingStrategy) Stop() {
+// Close is part of the logsink.LogWriteCloser interface.
+func (s *migrationLoggingStrategy) Close() error {
 	s.dbLogger.Close()
 	s.tracker.Close()
 	s.releaser()
-	// Perhaps clear s.st and s.releaser?
+	return nil
 }
 
 const trackingPeriod = 2 * time.Minute

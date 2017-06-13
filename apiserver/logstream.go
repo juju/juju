@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
@@ -71,7 +71,7 @@ func (h *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Re
 		h.sendError(conn, req, nil)
 		reqHandler.serveWebsocket(h.stopCh)
 	}
-	websocketServer(w, req, handler)
+	websocket.Serve(w, req, handler)
 }
 
 func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter, req *http.Request, clock clock.Clock) (rh *logStreamRequestHandler, err error) {
@@ -143,7 +143,7 @@ func (h *logStreamEndpointHandler) sendError(ws *websocket.Conn, req *http.Reque
 	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
-	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
+	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		ws.Close()
 	}

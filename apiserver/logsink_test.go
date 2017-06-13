@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -60,30 +61,30 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 
 func (s *logsinkSuite) TestRejectsBadModelUUID(c *gc.C) {
 	ws := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
-	assertJSONError(c, ws, `unknown model: "does-not-exist"`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising agent logsink session: unknown model: "does-not-exist"`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
-	s.checkAuthFails(c, nil, "no credentials provided")
+	s.checkAuthFails(c, nil, "initialising agent logsink session: no credentials provided")
 }
 
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFailsWithEntityError(c, header, "tag kind user not valid")
+	s.checkAuthFailsWithEntityError(c, header, "initialising agent logsink session: tag kind user not valid")
 }
 
 func (s *logsinkSuite) TestRejectsBadPassword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
 	header.Add(params.MachineNonceHeader, s.nonce)
-	s.checkAuthFailsWithEntityError(c, header, "invalid entity name or password")
+	s.checkAuthFailsWithEntityError(c, header, "initialising agent logsink session: invalid entity name or password")
 }
 
 func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, "wrong")
-	s.checkAuthFails(c, header, "machine 0 not provisioned")
+	s.checkAuthFails(c, header, "initialising agent logsink session: machine 0 not provisioned")
 }
 
 func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header, msg string) {
@@ -93,8 +94,8 @@ func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header
 func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
 	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
-	assertJSONError(c, conn, message)
-	assertWebsocketClosed(c, conn)
+	websockettest.AssertJSONError(c, conn, message)
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
@@ -102,7 +103,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	defer conn.Close()
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
 	err := conn.WriteJSON(&params.LogRecord{
@@ -196,14 +197,14 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 	defer conn.Close()
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	// The logsink handler expects JSON messages. Send some
 	// junk to verify that the server closes the connection.
 	err := conn.WriteMessage(websocket.TextMessage, []byte("junk!"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertWebsocketClosed(c, conn)
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {

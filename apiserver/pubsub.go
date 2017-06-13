@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/websocket"
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
@@ -78,12 +79,12 @@ func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// Here we configure the ping/pong handling for the websocket so
 		// the server can notice when the client goes away.
 		// See the long note in logsink.go for the rationale.
-		socket.SetReadDeadline(time.Now().Add(pongDelay))
+		socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 		socket.SetPongHandler(func(string) error {
-			socket.SetReadDeadline(time.Now().Add(pongDelay))
+			socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 			return nil
 		})
-		ticker := time.NewTicker(pingPeriod)
+		ticker := time.NewTicker(websocket.PingPeriod)
 		defer ticker.Stop()
 
 		messageCh := h.receiveMessages(socket)
@@ -92,8 +93,8 @@ func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			case <-h.ctxt.stop():
 				return
 			case <-ticker.C:
-				deadline := time.Now().Add(writeWait)
-				if err := socket.WriteControl(websocket.PingMessage, []byte{}, deadline); err != nil {
+				deadline := time.Now().Add(websocket.WriteWait)
+				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
 					// This error is expected if the other end goes away. By
 					// returning we close the socket through the defer call.
 					logger.Debugf("failed to write ping: %s", err)
@@ -108,7 +109,7 @@ func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	websocketServer(w, req, handler)
+	websocket.Serve(w, req, handler)
 }
 
 func (h *pubsubHandler) receiveMessages(socket *websocket.Conn) <-chan params.PubSubMessage {
@@ -146,7 +147,7 @@ func (h *pubsubHandler) sendError(ws *websocket.Conn, req *http.Request, err err
 	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
-	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
+	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		ws.Close()
 		return

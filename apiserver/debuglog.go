@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/state"
 )
 
@@ -93,7 +93,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	websocketServer(w, req, handler)
+	websocket.Serve(w, req, handler)
 }
 
 func isBrokenPipe(err error) bool {
@@ -131,7 +131,7 @@ func (s *debugLogSocketImpl) sendOk() {
 
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
-	if sendErr := sendInitialErrorV0(s.conn, err); sendErr != nil {
+	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		s.conn.Close()
 		return
