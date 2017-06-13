@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -49,7 +48,7 @@ type CharmAdder interface {
 type ApplicationAPI interface {
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
 	AddRelation(endpoints ...string) (*apiparams.AddRelationResults, error)
-	AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error)
+	AddUnits(application.AddUnitsParams) ([]string, error)
 	Expose(application string) error
 	GetCharmURL(serviceName string) (*charm.URL, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
@@ -285,13 +284,6 @@ type DeployCommand struct {
 	// the storage name defined in that application's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
-	// TODO(axw) move this to UnitCommandBase once we support --attach-storage
-	// on add-unit too.
-	//
-	// AttachStorage is a list of storage IDs, identifying storage to
-	// attach to the unit created by deploy.
-	AttachStorage []string
-
 	// Resources is a map of resource name to filename to be uploaded on deploy.
 	Resources map[string]string
 
@@ -467,7 +459,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 
@@ -480,9 +471,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DeployCommand) Init(args []string) error {
 	if c.Force && c.Series == "" && c.PlacementSpec == "" {
 		return errors.New("--force is only used with --series")
-	}
-	if len(c.AttachStorage) > 0 && c.NumUnits != 1 {
-		return errors.New("--attach-storage cannot be used with -n")
 	}
 	switch len(args) {
 	case 2:

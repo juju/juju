@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
@@ -126,6 +127,15 @@ func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 func (a *mockApplication) Destroy() error {
 	a.MethodCall(a, "Destroy")
 	return a.NextErr()
+}
+
+func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, error) {
+	a.MethodCall(a, "AddUnit", args)
+	if err := a.NextErr(); err != nil {
+		return nil, err
+	}
+	unitTag := names.NewUnitTag(a.name + "/99")
+	return &mockUnit{tag: unitTag}, nil
 }
 
 type mockRemoteApplication struct {
@@ -467,6 +477,16 @@ func (u *mockUnit) IsPrincipal() bool {
 
 func (u *mockUnit) Destroy() error {
 	u.MethodCall(u, "Destroy")
+	return u.NextErr()
+}
+
+func (u *mockUnit) AssignWithPolicy(policy state.AssignmentPolicy) error {
+	u.MethodCall(u, "AssignWithPolicy", policy)
+	return u.NextErr()
+}
+
+func (u *mockUnit) AssignWithPlacement(placement *instance.Placement) error {
+	u.MethodCall(u, "AssignWithPlacement", placement)
 	return u.NextErr()
 }
 

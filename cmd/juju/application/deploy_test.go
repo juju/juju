@@ -95,7 +95,7 @@ var initErrorTests = []struct {
 		args: []string{"charm", "application", "--force"},
 		err:  `--force is only used with --series`,
 	}, {
-		args: []string{"--attach-storage", "foo/0", "-n", "2"},
+		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
 	},
 }
@@ -1380,7 +1380,10 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		0,
 		nil,
 	)
-	fakeAPI.Call("AddUnits", "mysql", 1, []*instance.Placement(nil)).Returns([]string{"mysql/0"}, error(nil))
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "mysql",
+		NumUnits:        1,
+	}).Returns([]string{"mysql/0"}, error(nil))
 
 	wordpressURL := charm.MustParseURL("cs:wordpress")
 	withCharmRepoResolvable(fakeAPI, wordpressURL, cfg)
@@ -1394,7 +1397,10 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		0,
 		nil,
 	)
-	fakeAPI.Call("AddUnits", "wordpress", 1, []*instance.Placement(nil)).Returns([]string{"wordpress/0"}, error(nil))
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "wordpress",
+		NumUnits:        1,
+	}).Returns([]string{"wordpress/0"}, error(nil))
 
 	fakeAPI.Call("AddRelation", "wordpress:db", "mysql:server").Returns(
 		&params.AddRelationResults{},
@@ -1553,8 +1559,8 @@ func (f *fakeDeployAPI) AddRelation(endpoints ...string) (*params.AddRelationRes
 	return results[0].(*params.AddRelationResults), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	results := f.MethodCall(f, "AddUnits", application, numUnits, placement)
+func (f *fakeDeployAPI) AddUnits(args application.AddUnitsParams) ([]string, error) {
+	results := f.MethodCall(f, "AddUnits", args)
 	return results[0].([]string), jujutesting.TypeAssertError(results[1])
 }
 

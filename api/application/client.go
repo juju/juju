@@ -236,16 +236,45 @@ func (c *Client) Update(args params.ApplicationUpdate) error {
 	return c.facade.FacadeCall("Update", args, nil)
 }
 
+// AddUnitsParams contains parameters for the AddUnits API method.
+type AddUnitsParams struct {
+	// ApplicationName is the name of the application to which units
+	// will be added.
+	ApplicationName string
+
+	// NumUnits is the number of units to deploy.
+	NumUnits int
+
+	// Placement directives on where the machines for the unit must be
+	// created.
+	Placement []*instance.Placement
+
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
+}
+
 // AddUnits adds a given number of units to an application using the specified
 // placement directives to assign units to machines.
-func (c *Client) AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	args := params.AddApplicationUnits{
-		ApplicationName: application,
-		NumUnits:        numUnits,
-		Placement:       placement,
+func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return nil, errors.New("cannot attach existing storage when more than one unit is requested")
+	}
+	attachStorage := make([]string, len(args.AttachStorage))
+	for i, id := range args.AttachStorage {
+		if !names.IsValidStorage(id) {
+			return nil, errors.NotValidf("storage ID %q", id)
+		}
+		attachStorage[i] = names.NewStorageTag(id).String()
 	}
 	results := new(params.AddApplicationUnitsResults)
-	err := c.facade.FacadeCall("AddUnits", args, results)
+	err := c.facade.FacadeCall("AddUnits", params.AddApplicationUnits{
+		ApplicationName: args.ApplicationName,
+		NumUnits:        args.NumUnits,
+		Placement:       args.Placement,
+		AttachStorage:   attachStorage,
+	}, results)
 	return results.Units, err
 }
 

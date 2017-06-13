@@ -384,6 +384,7 @@ type AddApplicationUnits struct {
 	ApplicationName string                `json:"application"`
 	NumUnits        int                   `json:"num-units"`
 	Placement       []*instance.Placement `json:"placement"`
+	AttachStorage   []string              `json:"attach-storage,omitempty"`
 }
 
 // DestroyApplicationUnits holds parameters for the DestroyUnits call.

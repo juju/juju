@@ -23,12 +23,10 @@ type Backend interface {
 
 	AllModels() ([]Model, error)
 	Application(string) (Application, error)
-	AddApplication(state.AddApplicationArgs) (*state.Application, error)
+	AddApplication(state.AddApplicationArgs) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
-	AssignUnit(*state.Unit, state.AssignmentPolicy) error
-	AssignUnitWithPlacement(*state.Unit, *instance.Placement) error
 	Charm(*charm.URL) (Charm, error)
 	EndpointsRelation(...state.Endpoint) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
@@ -50,7 +48,7 @@ type BlockChecker interface {
 // details on the methods, see the methods on state.Application with
 // the same names.
 type Application interface {
-	AddUnit(state.AddUnitParams) (*state.Unit, error)
+	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
@@ -103,6 +101,9 @@ type Unit interface {
 	Destroy() error
 	IsPrincipal() bool
 	Life() state.Life
+
+	AssignWithPolicy(state.AssignmentPolicy) error
+	AssignWithPlacement(*instance.Placement) error
 }
 
 // Model defines a subset of the functionality provided by the
@@ -124,6 +125,11 @@ func NewStateBackend(st *state.State) Backend {
 	return stateShim{st}
 }
 
+// NewStateApplication converts a state.Application into an Application.
+func NewStateApplication(st *state.State, app *state.Application) Application {
+	return stateApplicationShim{app, st}
+}
+
 // CharmToStateCharm converts a Charm into a state.Charm. This is
 // a hack that is required until the State interface methods we
 // deal with stop accepting state.Charms, and start accepting
@@ -137,7 +143,15 @@ func (s stateShim) Application(name string) (Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateApplicationShim{a}, nil
+	return stateApplicationShim{a, s.State}, nil
+}
+
+func (s stateShim) AddApplication(args state.AddApplicationArgs) (Application, error) {
+	a, err := s.State.AddApplication(args)
+	if err != nil {
+		return nil, err
+	}
+	return stateApplicationShim{a, s.State}, nil
 }
 
 type remoteApplicationShim struct {
@@ -201,7 +215,7 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateUnitShim{u}, nil
+	return stateUnitShim{u, s.State}, nil
 }
 
 func (s stateShim) AllModels() ([]Model, error) {
@@ -218,6 +232,15 @@ func (s stateShim) AllModels() ([]Model, error) {
 
 type stateApplicationShim struct {
 	*state.Application
+	st *state.State
+}
+
+func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
+	u, err := a.Application.AddUnit(args)
+	if err != nil {
+		return nil, err
+	}
+	return stateUnitShim{u, a.st}, nil
 }
 
 func (a stateApplicationShim) Charm() (Charm, bool, error) {
@@ -235,7 +258,7 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 	}
 	out := make([]Unit, len(units))
 	for i, u := range units {
-		out[i] = stateUnitShim{u}
+		out[i] = stateUnitShim{u, a.st}
 	}
 	return out, nil
 }
@@ -254,6 +277,15 @@ type stateRelationShim struct {
 
 type stateUnitShim struct {
 	*state.Unit
+	st *state.State
+}
+
+func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
+	return u.st.AssignUnit(u.Unit, policy)
+}
+
+func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement) error {
+	return u.st.AssignUnitWithPlacement(u.Unit, placement)
 }
 
 type stateModelShim struct {

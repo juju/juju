@@ -342,7 +342,10 @@ func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := application.NewClient(st).AddUnits("nosuch", 1, nil)
+	_, err := application.NewClient(st).AddUnits(application.AddUnitsParams{
+		ApplicationName: "nosuch",
+		NumUnits:        1,
+	})
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

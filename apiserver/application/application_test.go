@@ -1615,12 +1615,14 @@ func (s *applicationSuite) TestBlockChangesServerUnset(c *gc.C) {
 var clientAddApplicationUnitsTests = []struct {
 	about       string
 	application string // if not set, defaults to 'dummy'
+	numUnits    int
 	expected    []string
 	to          string
 	err         string
 }{
 	{
 		about:    "returns unit names",
+		numUnits: 3,
 		expected: []string{"dummy/0", "dummy/1", "dummy/2"},
 	},
 	{
@@ -1631,12 +1633,14 @@ var clientAddApplicationUnitsTests = []struct {
 		// Note: chained-state, we add 1 unit here, but the 3 units
 		// from the first condition still exist
 		about:    "force the unit onto bootstrap machine",
+		numUnits: 1,
 		expected: []string{"dummy/3"},
 		to:       "0",
 	},
 	{
 		about:       "unknown application name",
 		application: "unknown-application",
+		numUnits:    1,
 		err:         `application "unknown-application" not found`,
 	},
 }
@@ -1651,7 +1655,7 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 		}
 		args := params.AddApplicationUnits{
 			ApplicationName: applicationName,
-			NumUnits:        len(t.expected),
+			NumUnits:        t.numUnits,
 		}
 		if t.to != "" {
 			args.Placement = []*instance.Placement{instance.MustParsePlacement(t.to)}

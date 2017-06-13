@@ -1044,7 +1044,11 @@ func (a *Application) newUnitName() (string, error) {
 // application will be assigned to a given principal. The asserts param can be used
 // to include additional assertions for the application document.  This method
 // assumes that the application already exists in the db.
-func (a *Application) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
+func (a *Application) addUnitOps(
+	principalName string,
+	args AddUnitParams,
+	asserts bson.D,
+) (string, []txn.Op, error) {
 	var cons constraints.Value
 	if !a.doc.Subordinate {
 		scons, err := a.Constraints()
@@ -1063,12 +1067,12 @@ func (a *Application) addUnitOps(principalName string, asserts bson.D) (string, 
 	if err != nil {
 		return "", nil, err
 	}
-	args := applicationAddUnitOpsArgs{
+	names, ops, err := a.addUnitOpsWithCons(applicationAddUnitOpsArgs{
 		cons:          cons,
 		principalName: principalName,
 		storageCons:   storageCons,
-	}
-	names, ops, err := a.addUnitOpsWithCons(args)
+		attachStorage: args.AttachStorage,
+	})
 	if err != nil {
 		return names, ops, err
 	}
@@ -1272,12 +1276,15 @@ func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 }
 
 // AddUnitParams contains parameters for the Application.AddUnit method.
-type AddUnitParams struct{}
+type AddUnitParams struct {
+	// AttachStorage identifies storage instances to attach to the unit.
+	AttachStorage []names.StorageTag
+}
 
 // AddUnit adds a new principal unit to the application.
 func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", a)
-	name, ops, err := a.addUnitOps("", nil)
+	name, ops, err := a.addUnitOps("", args, nil)
 	if err != nil {
 		return nil, err
 	}
