@@ -325,6 +325,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 
 	if cfg.PrometheusRegisterer != nil {
 		apiserverCollectior := NewMetricsCollector(&metricAdaptor{srv})
+		cfg.PrometheusRegisterer.Unregister(apiserverCollectior)
 		if err := cfg.PrometheusRegisterer.Register(apiserverCollectior); err != nil {
 			return nil, errors.Annotate(err, "registering apiserver metrics collector")
 		}
