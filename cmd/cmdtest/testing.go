@@ -4,41 +4,11 @@
 package cmdtest
 
 import (
-	"fmt"
-	"io"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/dummy"
 )
-
-type gcWriter struct {
-	c      *gc.C
-	source string
-}
-
-func (w *gcWriter) Write(p []byte) (n int, err error) {
-	message := fmt.Sprintf("%s: %s", w.source, p)
-	// Magic calldepth value...
-	// The value says "how far up the call stack do we go to find the location".
-	// It is used to match the standard library log function, and isn't actually
-	// used by gocheck.
-	w.c.Output(3, message)
-	return len(p), nil
-}
-
-// NullContext returns a no-op command context.
-func NullContext(c *gc.C) *cmd.Context {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx.Stdin = io.LimitReader(nil, 0)
-	ctx.Stdout = &gcWriter{c: c, source: "stdout"}
-	ctx.Stderr = &gcWriter{c: c, source: "stderr"}
-	return ctx
-}
 
 // RunCommandWithDummyProvider runs the command and returns channels holding the
 // command's operations and errors.

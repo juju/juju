@@ -53,12 +53,6 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 	return p, nil
 }
 
-// PortRangeFromNetworkPortRange constructs a state.PortRange from the
-// given unitName and network.PortRange.
-func PortRangeFromNetworkPortRange(unitName string, portRange network.PortRange) (PortRange, error) {
-	return NewPortRange(unitName, portRange.FromPort, portRange.ToPort, portRange.Protocol)
-}
-
 // Validate checks if the port range is valid.
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
@@ -157,11 +151,6 @@ type Ports struct {
 // String returns p as a user-readable string.
 func (p *Ports) String() string {
 	return fmt.Sprintf("ports for machine %q, subnet %q", p.doc.MachineID, p.doc.SubnetID)
-}
-
-// globalKey returns the id of the ports document.
-func (p *Ports) globalKey() string {
-	return portsGlobalKey(p.doc.MachineID, p.doc.SubnetID)
 }
 
 // portsGlobalKey returns the global database key for the opened ports

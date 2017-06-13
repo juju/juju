@@ -360,10 +360,6 @@ func (s *environSuite) publicIPAddressesSender(pips ...network.PublicIPAddress) 
 	return s.makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{Value: &pips})
 }
 
-func (s *environSuite) virtualMachinesSender(vms ...compute.VirtualMachine) *azuretesting.MockSender {
-	return s.makeSender(".*/virtualMachines", compute.VirtualMachineListResult{Value: &vms})
-}
-
 func (s *environSuite) vmSizesSender() *azuretesting.MockSender {
 	return s.makeSender(".*/vmSizes", s.vmSizes)
 }

@@ -6,7 +6,6 @@ package kvm
 import (
 	"errors"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/juju/testing"
@@ -159,11 +158,4 @@ func (libvirtInternalSuite) TestPoolInfoNoPool(c *gc.C) {
 	got, err := poolInfo(stub.Run)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.IsNil)
-}
-
-func removeAll(d string, c *gc.C) {
-	err := os.RemoveAll(d)
-	if err != nil {
-		c.Logf("failed to remove test directory %s", err)
-	}
 }

@@ -35,26 +35,6 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.bob = bob
 }
 
-func (s *registrationSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode, params.ContentTypeJSON)
-	var result params.ErrorResult
-	s.unmarshal(c, body, &result)
-	c.Assert(result.Error, gc.NotNil)
-	c.Assert(result.Error, gc.Matches, expError)
-}
-
-func (s *registrationSuite) assertResponse(c *gc.C, resp *http.Response) params.SecretKeyLoginResponse {
-	body := assertResponse(c, resp, http.StatusOK, params.ContentTypeJSON)
-	var response params.SecretKeyLoginResponse
-	s.unmarshal(c, body, &response)
-	return response
-}
-
-func (*registrationSuite) unmarshal(c *gc.C, body []byte, out interface{}) {
-	err := json.Unmarshal(body, out)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
-}
-
 func (s *registrationSuite) registrationURL(c *gc.C) string {
 	url := s.baseURL(c)
 	url.Path = "/register"

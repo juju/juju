@@ -4,8 +4,6 @@
 package metricsender_test
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	jujucert "github.com/juju/juju/cert"
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -33,18 +30,6 @@ type SenderSuite struct {
 }
 
 var _ = gc.Suite(&SenderSuite{})
-
-func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
-	certCaPem, keyCaPem, err := jujucert.NewCA("sender-test", "1", time.Now().Add(time.Minute))
-	c.Assert(err, jc.ErrorIsNil)
-	certPem, keyPem, err := jujucert.NewServer(certCaPem, keyCaPem, time.Now().Add(time.Minute), []string{serverName})
-	c.Assert(err, jc.ErrorIsNil)
-	cert, err := tls.X509KeyPair([]byte(certPem), []byte(keyPem))
-	c.Assert(err, jc.ErrorIsNil)
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM([]byte(certCaPem))
-	return certPool, cert
-}
 
 func (s *SenderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

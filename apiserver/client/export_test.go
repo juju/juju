@@ -22,5 +22,3 @@ var (
 func SetNewEnviron(c *Client, newEnviron func() (environs.Environ, error)) {
 	c.newEnviron = newEnviron
 }
-
-type MachineAndContainers machineAndContainers

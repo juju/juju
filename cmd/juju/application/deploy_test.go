@@ -1593,16 +1593,6 @@ func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]
 	return results[0].([]params.AddMachinesResult), jujutesting.TypeAssertError(results[0])
 }
 
-type fakeBundle struct {
-	charm.Bundle
-	*jujutesting.CallMocker
-}
-
-func (f *fakeBundle) Data() *charm.BundleData {
-	results := f.MethodCall(f, "Data")
-	return results[0].(*charm.BundleData)
-}
-
 func variadicStringToInterface(args ...string) []interface{} {
 	interfaceArgs := make([]interface{}, len(args))
 	for i, a := range args {

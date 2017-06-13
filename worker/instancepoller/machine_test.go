@@ -484,12 +484,6 @@ func (m *testMachine) Life() params.Life {
 	return m.life
 }
 
-func (m *testMachine) setLife(life params.Life) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.life = life
-}
-
 type testClock struct {
 	gitjujutesting.Stub
 	*gitjujutesting.Clock

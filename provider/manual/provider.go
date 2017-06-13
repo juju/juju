@@ -4,7 +4,6 @@
 package manual
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -137,13 +136,6 @@ func (p ManualProvider) open(host, user string, cfg *environConfig) (environs.En
 		return nil, err
 	}
 	return env, nil
-}
-
-func checkImmutableString(cfg, old *environConfig, key string) error {
-	if old.attrs[key] != cfg.attrs[key] {
-		return fmt.Errorf("cannot change %s from %q to %q", key, old.attrs[key], cfg.attrs[key])
-	}
-	return nil
 }
 
 func (p ManualProvider) validate(cfg, old *config.Config) (*environConfig, error) {

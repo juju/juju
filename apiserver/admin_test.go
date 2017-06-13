@@ -161,26 +161,6 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	})
 }
 
-func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
-	info, srv := newServer(c, s.State)
-	defer assertStop(c, srv)
-
-	machine, password := s.Factory.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	info.Tag = machine.Tag()
-	info.Password = password
-	info.Nonce = "fake_nonce"
-
-	apiConn, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiConn.Close()
-
-	apiMachine, err := apimachiner.NewState(apiConn).Machine(machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiMachine.Tag(), gc.Equals, machine.Tag())
-}
-
 func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	info, srv := s.newMachineAndServer(c)
 	defer assertStop(c, srv)

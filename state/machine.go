@@ -56,14 +56,6 @@ var (
 	}
 )
 
-// AllJobs returns all supported machine jobs.
-func AllJobs() []MachineJob {
-	return []MachineJob{
-		JobHostUnits,
-		JobManageModel,
-	}
-}
-
 // ToParams returns the job as multiwatcher.MachineJob.
 func (job MachineJob) ToParams() multiwatcher.MachineJob {
 	if jujuJob, ok := jobNames[job]; ok {
@@ -436,13 +428,6 @@ func (m *Machine) setPasswordHash(passwordHash string) error {
 	}
 	m.doc.PasswordHash = passwordHash
 	return nil
-}
-
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func (m *Machine) getPasswordHash() string {
-	return m.doc.PasswordHash
 }
 
 // PasswordValid returns whether the given password is valid

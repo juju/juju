@@ -832,27 +832,6 @@ func makeDescribeVolumesResponseModifier(modify func(*awsec2.VolumesResp) error)
 	}
 }
 
-func makeDetachVolumeResponseModifier(modify func(*awsec2.VolumeAttachmentResp) error) func(*http.Response) error {
-	return func(resp *http.Response) error {
-		if resp.Request.URL.Query().Get("Action") != "DetachVolume" {
-			return nil
-		}
-		var respDecoded struct {
-			XMLName xml.Name
-			awsec2.VolumeAttachmentResp
-		}
-		if err := xml.NewDecoder(resp.Body).Decode(&respDecoded); err != nil {
-			return err
-		}
-		resp.Body.Close()
-
-		if err := modify(&respDecoded.VolumeAttachmentResp); err != nil {
-			return err
-		}
-		return replaceResponseBody(resp, &respDecoded)
-	}
-}
-
 func replaceResponseBody(resp *http.Response, value interface{}) error {
 	var buf bytes.Buffer
 	if err := xml.NewEncoder(&buf).Encode(value); err != nil {

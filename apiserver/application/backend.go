@@ -4,7 +4,6 @@
 package application
 
 import (
-	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
@@ -266,35 +265,17 @@ type Subnet interface {
 	VLANTag() int
 	ProviderId() network.Id
 	ProviderNetworkId() network.Id
-	AvailabilityZones() []string
 }
 
 type subnetShim struct {
 	*state.Subnet
 }
 
-func (s *subnetShim) AvailabilityZones() []string {
-	return []string{s.Subnet.AvailabilityZone()}
-}
-
 type Space interface {
 	Name() string
-	Subnets() ([]Subnet, error)
 	ProviderId() network.Id
 }
 
 type spaceShim struct {
 	*state.Space
-}
-
-func (s *spaceShim) Subnets() ([]Subnet, error) {
-	subnets, err := s.Space.Subnets()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]Subnet, len(subnets))
-	for i, subnet := range subnets {
-		result[i] = &subnetShim{subnet}
-	}
-	return result, nil
 }

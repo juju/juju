@@ -563,17 +563,6 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, error) {
 	return out, nil
 }
 
-type machineAndContainers map[string][]*state.Machine
-
-func (m machineAndContainers) HostForMachineId(id string) *state.Machine {
-	// Element 0 is assumed to be the top-level machine.
-	return m[id][0]
-}
-
-func (m machineAndContainers) Containers(id string) []*state.Machine {
-	return m[id][1:]
-}
-
 func processMachines(
 	idToMachines map[string][]*state.Machine,
 	idToIpAddresses map[string][]*state.Address,

@@ -11,9 +11,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/statushistorypruner"
 )
 
@@ -22,27 +19,6 @@ type ManifoldSuite struct {
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
-
-type mockDependencyContext struct {
-	dependency.Context
-	env *mockEnviron
-}
-
-func (m *mockDependencyContext) Get(name string, out interface{}) error {
-	if name == "environ" {
-		*(out.(*environs.Environ)) = m.env
-	}
-	return nil
-}
-
-type mockEnviron struct {
-	environs.Environ
-	config *config.Config
-}
-
-func (e *mockEnviron) Config() *config.Config {
-	return e.config
-}
 
 type ManifoldConfigSuite struct {
 	testing.IsolationSuite

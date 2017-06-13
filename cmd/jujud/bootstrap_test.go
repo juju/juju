@@ -4,7 +4,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -947,14 +945,4 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
 	return modelcmd.BootstrapContext(ctx)
-}
-
-type b64yaml map[string]interface{}
-
-func (m b64yaml) encode() string {
-	data, err := goyaml.Marshal(m)
-	if err != nil {
-		panic(err)
-	}
-	return base64.StdEncoding.EncodeToString(data)
 }

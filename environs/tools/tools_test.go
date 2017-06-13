@@ -40,6 +40,7 @@ type SimpleStreamsToolsSuite struct {
 
 func setupToolsTests() {
 	gc.Suite(&SimpleStreamsToolsSuite{})
+	gc.Suite(&ToolsListSuite{})
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {

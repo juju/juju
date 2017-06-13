@@ -6,7 +6,6 @@ package dependency_test
 import (
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
@@ -149,47 +148,6 @@ func (mh *manifoldHarness) InjectError(c *gc.C, err error) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("never sent")
 	}
-}
-
-func newTracedManifoldHarness(inputs ...string) *tracedManifoldHarness {
-	return &tracedManifoldHarness{
-		&manifoldHarness{
-			inputs:             inputs,
-			errors:             make(chan error, 1000),
-			starts:             make(chan struct{}, 1000),
-			ignoreExternalKill: false,
-		},
-	}
-}
-
-type tracedManifoldHarness struct {
-	*manifoldHarness
-}
-
-func (mh *tracedManifoldHarness) Manifold() dependency.Manifold {
-	return dependency.Manifold{
-		Inputs: mh.inputs,
-		Start:  mh.start,
-	}
-}
-
-func (mh *tracedManifoldHarness) start(context dependency.Context) (worker.Worker, error) {
-	for _, resourceName := range mh.inputs {
-		if err := context.Get(resourceName, nil); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	w := &minimalWorker{tomb.Tomb{}, mh.ignoreExternalKill}
-	go func() {
-		defer w.tomb.Done()
-		mh.starts <- struct{}{}
-		select {
-		case <-w.tombDying():
-		case err := <-mh.errors:
-			w.tomb.Kill(err)
-		}
-	}()
-	return w, nil
 }
 
 type minimalWorker struct {

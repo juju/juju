@@ -8,7 +8,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -75,26 +73,6 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 	}
 	err := entity.SetStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) error {
-	stateInfo := s.MongoInfo(c)
-	stateInfo.Tag = e.Tag()
-	stateInfo.Password = password
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.State.ModelTag(),
-		MongoInfo:          stateInfo,
-		MongoDialOpts: mongo.DialOpts{
-			Timeout: 25 * time.Millisecond,
-		},
-	})
-
-	if err == nil {
-		st.Close()
-	}
-	return err
 }
 
 // openAs connects to the API state as the given entity

@@ -4,7 +4,6 @@
 package network_test
 
 import (
-	"os"
 	"runtime"
 	"time"
 
@@ -38,14 +37,6 @@ func (s *BridgeSuite) SetUpSuite(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("skipping BridgeSuite tests on windows")
 	}
-}
-
-func assertCmdResult(c *gc.C, cmd, expected string) {
-	result, err := network.RunCommand(cmd, os.Environ(), clock.WallClock, 0)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Code, gc.Equals, 0)
-	c.Assert(string(result.Stdout), gc.Equals, expected)
-	c.Assert(string(result.Stderr), gc.Equals, "")
 }
 
 func assertENIBridgerError(c *gc.C, devices []network.DeviceToBridge, timeout time.Duration, clock clock.Clock, filename string, dryRun bool, reconfigureDelay int, expected string) {

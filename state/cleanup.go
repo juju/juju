@@ -227,25 +227,6 @@ func (st *State) cleanupStorageForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupFilesystemsForDyingModel sets all persistent filesystems to
-// Dying, if they are not already Dying or Dead. It's expected to be used
-// when a model is destroyed.
-func (st *State) cleanupFilesystemsForDyingModel() (err error) {
-	filesystems, err := st.AllFilesystems()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, fs := range filesystems {
-		err := st.DestroyFilesystem(fs.FilesystemTag())
-		if errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.

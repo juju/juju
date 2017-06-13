@@ -408,21 +408,7 @@ func NewBaseConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
-func NewCustomBaseConfig(c *gc.C, updates map[string]interface{}) *config.Config {
-	if updates == nil {
-		updates = make(testing.Attrs)
-	}
-
-	cfg := NewBaseConfig(c)
-
-	cfg, err := cfg.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return cfg
-}
-
-type ConfigValues struct {
-}
+type ConfigValues struct{}
 
 type Config struct {
 	*environConfig

@@ -78,11 +78,6 @@ type cloudConfig struct {
 	attrs map[string]interface{}
 }
 
-// getPackageCommander is defined on the AdvancedPackagingConfig interface.
-func (cfg *cloudConfig) getPackageCommander() commands.PackageCommander {
-	return cfg.paccmder
-}
-
 // getPackagingConfigurer is defined on the AdvancedPackagingConfig interface.
 func (cfg *cloudConfig) getPackagingConfigurer() config.PackagingConfigurer {
 	return cfg.pacconfer

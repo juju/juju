@@ -68,24 +68,6 @@ func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey stri
 	return result, nil
 }
 
-// isReadOnly returns whether or not the user has write access or only
-// read access to the model.
-func (p *userPermission) isReadOnly() bool {
-	return stringToAccess(p.doc.Access) == permission.NoAccess || stringToAccess(p.doc.Access) == permission.ReadAccess
-}
-
-// isAdmin is a convenience method that
-// returns whether or not the user has permission.AdminAccess.
-func (p *userPermission) isAdmin() bool {
-	return stringToAccess(p.doc.Access) == permission.AdminAccess
-}
-
-// isReadWrite is a convenience method that
-// returns whether or not the user has permission.WriteAccess.
-func (p *userPermission) isReadWrite() bool {
-	return stringToAccess(p.doc.Access) == permission.WriteAccess
-}
-
 func (p *userPermission) access() permission.Access {
 	return stringToAccess(p.doc.Access)
 }

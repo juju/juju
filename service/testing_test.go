@@ -4,9 +4,6 @@
 package service
 
 import (
-	"os"
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
@@ -41,23 +38,6 @@ func (s *Stub) DiscoverService(name string) (Service, error) {
 
 	return s.Service, s.NextErr()
 }
-
-// TODO(ericsnow) StubFileInfo belongs in utils/fs.
-
-// StubFileInfo implements os.FileInfo.
-type StubFileInfo struct{}
-
-func (StubFileInfo) Name() string       { return "" }
-func (StubFileInfo) Size() int64        { return 0 }
-func (StubFileInfo) Mode() os.FileMode  { return 0 }
-func (StubFileInfo) ModTime() time.Time { return time.Time{} }
-func (StubFileInfo) IsDir() bool        { return false }
-func (StubFileInfo) Sys() interface{}   { return nil }
-
-// StubFileInfo implements os.FileInfo for symlinks.
-type StubSymlinkInfo struct{ StubFileInfo }
-
-func (StubSymlinkInfo) Mode() os.FileMode { return os.ModeSymlink }
 
 // BaseSuite is the base test suite for the application package.
 type BaseSuite struct {

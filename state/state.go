@@ -2083,22 +2083,6 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	return nil
 }
 
-// SetSystemIdentity sets the system identity value in the database
-// if and only iff it is empty.
-func SetSystemIdentity(st *State, identity string) error {
-	ops := []txn.Op{{
-		C:      controllersC,
-		Id:     stateServingInfoKey,
-		Assert: bson.D{{"systemidentity", ""}},
-		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
-	}}
-
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // SetOrGetMongoSpaceName attempts to set the Mongo space or, if that fails, look
 // up the current Mongo space. Either way, it always returns what is in the
 // database by the end of the call.

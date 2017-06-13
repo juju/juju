@@ -6,8 +6,6 @@
 package lxdclient_test
 
 import (
-	"net"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -403,12 +401,4 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	id := remote.ID()
 
 	c.Check(id, gc.Equals, "local")
-}
-
-func isValidAddr(value interface{}) bool {
-	addr, ok := value.(string)
-	if !ok {
-		return false
-	}
-	return net.ParseIP(addr) != nil
 }

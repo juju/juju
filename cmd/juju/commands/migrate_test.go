@@ -226,10 +226,6 @@ func (s *MigrateSuite) makeCommand() modelcmd.ModelCommand {
 	return cmd
 }
 
-func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, cmd, args...)
-}
-
 type fakeMigrateAPI struct {
 	specSeen *controller.MigrationSpec
 }

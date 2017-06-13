@@ -186,15 +186,6 @@ func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageA
 	panic("should not be called")
 }
 
-type mockNotifyWatcher struct {
-	state.NotifyWatcher
-	changes chan struct{}
-}
-
-func (m *mockNotifyWatcher) Changes() <-chan struct{} {
-	return m.changes
-}
-
 type mockVolume struct {
 	state.Volume
 	tag     names.VolumeTag

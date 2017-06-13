@@ -4,7 +4,6 @@
 package network
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,14 +28,6 @@ type etcNetworkInterfacesBridger struct {
 }
 
 var _ Bridger = (*etcNetworkInterfacesBridger)(nil)
-
-func printParseError(err error) {
-	if pe, ok := err.(*debinterfaces.ParseError); ok {
-		fmt.Printf("error: %q:%d: %s: %s\n", pe.Filename, pe.LineNum, pe.Line, pe.Message)
-	} else {
-		fmt.Printf("error: %v\n", err)
-	}
-}
 
 func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge, reconfigureDelay int) error {
 	devicesMap := make(map[string]string)

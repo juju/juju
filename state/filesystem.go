@@ -879,6 +879,7 @@ func (st *State) newFilesystemOps(doc filesystemDoc, status statusDoc) []txn.Op 
 			Assert: txn.DocMissing,
 			Insert: &doc,
 		},
+		addModelFilesystemRefOp(st, doc.FilesystemId),
 	}
 }
 

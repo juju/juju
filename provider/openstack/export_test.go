@@ -449,15 +449,6 @@ func FindInstanceSpec(
 	}, imageMetadata)
 }
 
-func GetSwiftURL(e environs.Environ) (string, error) {
-	return e.(*Environ).clientUnlocked.MakeServiceURL("object-store", "", nil)
-}
-
-func SetUseFloatingIP(e environs.Environ, val bool) {
-	env := e.(*Environ)
-	env.ecfg().attrs["use-floating-ip"] = val
-}
-
 func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (neutron.SecurityGroupV2, error) {
 	switching := e.(*Environ).firewaller.(*switchingFirewaller)
 	if err := switching.initFirewaller(); err != nil {

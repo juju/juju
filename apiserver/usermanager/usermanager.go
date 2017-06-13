@@ -58,15 +58,6 @@ func NewUserManagerAPI(
 	}, nil
 }
 
-func (api *UserManagerAPI) hasReadAccess() (bool, error) {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canRead, err
-
-}
-
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
 	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
 	if errors.IsNotFound(err) {

@@ -285,13 +285,6 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 	return nil
 }
 
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func (u *Unit) getPasswordHash() string {
-	return u.doc.PasswordHash
-}
-
 // PasswordValid returns whether the given password is valid
 // for the given unit.
 func (u *Unit) PasswordValid(password string) bool {

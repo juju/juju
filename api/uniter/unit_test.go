@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -823,16 +822,6 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
 	wc.AssertOneChange()
-}
-
-func (s *unitSuite) patchNewState(
-	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
-) {
-	s.uniterSuite.patchNewState(c, patchFunc)
-	var err error
-	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 type unitMetricBatchesSuite struct {

@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -486,19 +485,6 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 		// uuid1:local:xenial/bbb-5 is gone
 		uuid1 + ":cs:xenial/boo-2",
 	})
-}
-
-func hasIndex(coll *mgo.Collection, key []string) (bool, error) {
-	indexes, err := coll.Indexes()
-	if err != nil {
-		return false, err
-	}
-	for _, index := range indexes {
-		if reflect.DeepEqual(index.Key, key) {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {

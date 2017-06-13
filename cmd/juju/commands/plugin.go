@@ -4,7 +4,6 @@
 package commands
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -119,36 +118,6 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 type PluginDescription struct {
 	name        string
 	description string
-}
-
-const PluginTopicText = `Juju Plugins
-
-Plugins are implemented as stand-alone executable files somewhere in the user's PATH.
-The executable command must be of the format juju-<plugin name>.
-
-`
-
-func PluginHelpTopic() string {
-	output := &bytes.Buffer{}
-	fmt.Fprintf(output, PluginTopicText)
-
-	existingPlugins := GetPluginDescriptions()
-
-	if len(existingPlugins) == 0 {
-		fmt.Fprintf(output, "No plugins found.\n")
-	} else {
-		longest := 0
-		for _, plugin := range existingPlugins {
-			if len(plugin.name) > longest {
-				longest = len(plugin.name)
-			}
-		}
-		for _, plugin := range existingPlugins {
-			fmt.Fprintf(output, "%-*s  %s\n", longest, plugin.name, plugin.description)
-		}
-	}
-
-	return output.String()
 }
 
 // GetPluginDescriptions runs each plugin with "--description".  The calls to
