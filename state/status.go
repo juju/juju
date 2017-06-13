@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -277,61 +278,97 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	return results, nil
 }
 
-const historyPruneBatchSize = 10000
-
 // PruneStatusHistory removes status history entries until
 // only logs newer than <maxLogTime> remain and also ensures
 // that the collection is smaller than <maxLogsMB> after the
 // deletion.
 func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	if maxHistoryMB < 0 {
-		return errors.NotValidf("non-positive maxHistoryMB")
-	}
-	if maxHistoryTime < 0 {
-		return errors.NotValidf("non-positive maxHistoryTime")
-	}
-	if maxHistoryMB == 0 && maxHistoryTime == 0 {
-		return errors.NotValidf("backlog size and time constraints are both 0")
-	}
-
 	// NOTE(axw) we require a raw collection to obtain the size of the
 	// collection. Take care to include model-uuid in queries where
 	// appropriate.
 	history, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
-	// Status Record Age
-	if maxHistoryTime > 0 {
-		t := st.clock.Now().Add(-maxHistoryTime)
-		_, err := history.RemoveAll(bson.D{
-			{"model-uuid", st.ModelUUID()},
-			{"updated", bson.M{"$lt": t.UnixNano()}},
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+	p := statusHistoryPruner{
+		st:      st,
+		coll:    history,
+		maxAge:  maxHistoryTime,
+		maxSize: maxHistoryMB,
 	}
-	if !st.IsController() {
-		// Only prune by size in the controller. Otherwise we might
-		// find that multiple calls might be trying to delete the
-		// latest 1000 rows, and end up with more deleted than we
-		// expect.
+	if err := p.validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.pruneByAge(); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(p.pruneBySize())
+}
+
+const historyPruneBatchSize = 10000
+const historyPruneProgressSeconds = 15
+
+type doneCheck func() (bool, error)
+
+type statusHistoryPruner struct {
+	st   *State
+	coll *mgo.Collection
+
+	maxAge  time.Duration
+	maxSize int
+}
+
+func (p *statusHistoryPruner) validate() error {
+	if p.maxSize < 0 {
+		return errors.NotValidf("non-positive maxHistoryMB")
+	}
+	if p.maxAge < 0 {
+		return errors.NotValidf("non-positive maxHistoryTime")
+	}
+	if p.maxSize == 0 && p.maxAge == 0 {
+		return errors.NotValidf("backlog size and time constraints are both 0")
+	}
+	return nil
+}
+
+func (p *statusHistoryPruner) pruneByAge() error {
+	if p.maxAge == 0 {
 		return nil
 	}
-	if maxHistoryMB == 0 {
+	t := p.st.clock.Now().Add(-p.maxAge)
+	iter := p.coll.Find(bson.D{
+		{"model-uuid", p.st.ModelUUID()},
+		{"updated", bson.M{"$lt": t.UnixNano()}},
+	}).Select(bson.M{"_id": 1}).Iter()
+
+	deleted, err := p.deleteInBatches(iter, "status history age pruning: %d rows deleted", noEarlyFinish)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("status history age pruning: %d rows deleted", deleted)
+	return nil
+}
+
+func (p *statusHistoryPruner) pruneBySize() error {
+	if !p.st.IsController() {
+		// Only prune by size in the controller. Otherwise we might
+		// find that multiple pruners are trying to delete the latest
+		// 1000 rows and end up with more deleted than we expect.
+		return nil
+	}
+	if p.maxSize == 0 {
 		return nil
 	}
 	// Collection Size
-	collMB, err := getCollectionMB(history)
+	collMB, err := getCollectionMB(p.coll)
 	if err != nil {
 		return errors.Annotate(err, "retrieving status history collection size")
 	}
-	if collMB <= maxHistoryMB {
+	if collMB <= p.maxSize {
 		return nil
 	}
 	// TODO(perrito666) explore if there would be any beneffit from having the
 	// size limit be per model
-	count, err := history.Count()
+	count, err := p.coll.Count()
 	if err == mgo.ErrNotFound || count <= 0 {
 		return nil
 	}
@@ -347,51 +384,77 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	if sizePerStatus == 0 {
 		return errors.New("unexpected result calculating status history entry size")
 	}
-	toDelete := int(float64(collMB-maxHistoryMB) / sizePerStatus)
+	toDelete := int(float64(collMB-p.maxSize) / sizePerStatus)
 
-	iter := history.Find(nil).Sort("updated").Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
+	iter := p.coll.Find(nil).Sort("updated").Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
+
+	template := fmt.Sprintf("status history size pruning: %%d of %d deleted", toDelete)
+	deleted, err := p.deleteInBatches(iter, template, func() (bool, error) {
+		// Check that we still need to delete more
+		collMB, err := getCollectionMB(p.coll)
+		if err != nil {
+			return false, errors.Annotate(err, "retrieving status history collection size")
+		}
+		if collMB <= p.maxSize {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("status history size pruning finished: %d rows deleted", deleted)
+
+	return nil
+}
+
+func (p *statusHistoryPruner) deleteInBatches(iter *mgo.Iter, logTemplate string, shouldStop doneCheck) (int, error) {
 	var (
 		doc bson.M
 		ids []interface{}
 	)
 
-	logger.Infof("status history pruning: 0 of %d rows deleted", toDelete)
-	lastUpdate := st.clock.Now()
+	logger.Infof(logTemplate, 0)
+	lastUpdate := p.st.clock.Now()
 	deleted := 0
 	for iter.Next(&doc) {
 		ids = append(ids, doc["_id"])
 		if len(ids) == historyPruneBatchSize {
-			_, err := history.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
+			_, err := p.coll.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
 			if err != nil {
-				return errors.Annotate(err, "removing status history batch")
+				return 0, errors.Annotate(err, "removing status history batch")
 			}
 			deleted += len(ids)
 			ids = nil
 			// Check that we still need to delete more
-			collMB, err := getCollectionMB(history)
+			done, err := shouldStop()
 			if err != nil {
-				return errors.Annotate(err, "retrieving status history collection size")
+				return 0, errors.Annotate(err, "checking whether to stop")
 			}
-			if collMB <= maxHistoryMB {
-				return nil
+			if done {
+				return deleted, nil
 			}
 
-			now := st.clock.Now()
-			if now.Sub(lastUpdate) >= 15*time.Second {
-				logger.Infof("status history pruning: %d of %d rows deleted", deleted, toDelete)
+			now := p.st.clock.Now()
+			if now.Sub(lastUpdate) >= historyPruneProgressSeconds*time.Second {
+				logger.Infof(logTemplate, deleted)
 				lastUpdate = now
 			}
 		}
 	}
 
 	if len(ids) > 0 {
-		_, err := history.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
+		_, err := p.coll.RemoveAll(bson.D{{"_id", bson.D{{"$in", ids}}}})
 		if err != nil {
-			return errors.Annotate(err, "removing status history remainder")
+			return 0, errors.Annotate(err, "removing status history remainder")
 		}
 	}
 
-	logger.Infof("status history pruning finished: %d rows deleted", deleted+len(ids))
+	return deleted + len(ids), nil
+}
 
-	return nil
+func noEarlyFinish() (bool, error) {
+	return false, nil
 }
