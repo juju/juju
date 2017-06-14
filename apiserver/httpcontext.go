@@ -32,7 +32,7 @@ type httpContext struct {
 // stateForRequestUnauthenticated returns a state instance appropriate for
 // using for the model implicit in the given request
 // without checking any authentication information.
-func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.State, func(), error) {
+func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.State, state.StatePoolReleaser, error) {
 	modelUUID, err := validateModelUUID(validateArgs{
 		statePool:           ctxt.srv.statePool,
 		modelUUID:           r.URL.Query().Get(":modeluuid"),
@@ -53,7 +53,11 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 // using for the model implicit in the given request.
 // It also returns the authenticated entity.
 func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
-	resultSt *state.State, resultReleaser func(), resultEntity state.Entity, err error) {
+	resultSt *state.State,
+	resultReleaser state.StatePoolReleaser,
+	resultEntity state.Entity,
+	err error,
+) {
 	st, releaser, err := ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
@@ -116,7 +120,10 @@ func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error
 // has admin permissions on the controller model. The method also gets the
 // model uuid for the model being migrated from a request header, and returns
 // the state instance for that model.
-func (ctxt *httpContext) stateForMigration(r *http.Request, requiredMode state.MigrationMode) (st *state.State, returnReleaser func(), err error) {
+func (ctxt *httpContext) stateForMigration(
+	r *http.Request,
+	requiredMode state.MigrationMode,
+) (st *state.State, returnReleaser state.StatePoolReleaser, err error) {
 	var user state.Entity
 	st, releaser, user, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
 	if err != nil {
@@ -165,33 +172,33 @@ func (ctxt *httpContext) stateForMigration(r *http.Request, requiredMode state.M
 	return migrationSt, migrationReleaser, nil
 }
 
-func (ctxt *httpContext) stateForMigrationImporting(r *http.Request) (*state.State, func(), error) {
+func (ctxt *httpContext) stateForMigrationImporting(r *http.Request) (*state.State, state.StatePoolReleaser, error) {
 	return ctxt.stateForMigration(r, state.MigrationModeImporting)
 }
 
 // stateForRequestAuthenticatedUser is like stateAndEntityForRequestAuthenticatedUser
 // but doesn't return the entity.
-func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.State, func(), error) {
+func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.State, state.StatePoolReleaser, error) {
 	st, releaser, _, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
 	return st, releaser, err
 }
 
 // stateAndEntityForRequestAuthenticatedUser is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is a user.
-func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Request) (*state.State, func(), state.Entity, error) {
+func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Request) (*state.State, state.StatePoolReleaser, state.Entity, error) {
 	return ctxt.stateForRequestAuthenticatedTag(r, names.UserTagKind)
 }
 
 // stateForRequestAuthenticatedAgent is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is an agent.
-func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, func(), state.Entity, error) {
+func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.StatePoolReleaser, state.Entity, error) {
 	return ctxt.stateForRequestAuthenticatedTag(r, names.MachineTagKind, names.UnitTagKind)
 }
 
 // stateForRequestAuthenticatedTag checks that the request is
 // correctly authenticated, and that the authenticated entity making
 // the request is of one of the specified kinds.
-func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds ...string) (*state.State, func(), state.Entity, error) {
+func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds ...string) (*state.State, state.StatePoolReleaser, state.Entity, error) {
 	funcs := make([]common.GetAuthFunc, len(kinds))
 	for i, kind := range kinds {
 		funcs[i] = common.AuthFuncForTagKind(kind)

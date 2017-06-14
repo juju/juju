@@ -254,14 +254,15 @@ type stubSource struct {
 	ReturnNewTailer state.LogTailer
 }
 
-func (s *stubSource) newSource(req *http.Request) (logStreamSource, closerFunc, error) {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
 	s.stub.AddCall("newSource", req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	closer := func() {
+	closer := func() bool {
 		s.stub.AddCall("close")
+		return false
 	}
 	return s, closer, nil
 }

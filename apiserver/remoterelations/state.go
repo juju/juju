@@ -194,9 +194,12 @@ type statePoolShim struct {
 }
 
 func (pool statePoolShim) Get(modelUUID string) (RemoteRelationsState, func(), error) {
-	st, closer, err := pool.StatePool.Get(modelUUID)
+	st, releaser, err := pool.StatePool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
+	}
+	closer := func() {
+		releaser()
 	}
 	return stateShim{st}, closer, nil
 }

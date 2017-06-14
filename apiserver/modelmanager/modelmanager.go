@@ -114,7 +114,10 @@ type statePool struct {
 // Get implements StatePool.
 func (p *statePool) Get(modelUUID string) (common.ModelManagerBackend, func(), error) {
 	st, releaser, err := p.pool.Get(modelUUID)
-	return common.NewModelManagerBackend(st), releaser, err
+	closer := func() {
+		releaser()
+	}
+	return common.NewModelManagerBackend(st), closer, err
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing

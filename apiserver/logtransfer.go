@@ -18,7 +18,7 @@ import (
 
 type migrationLoggingStrategy struct {
 	st         *state.State
-	releaser   func()
+	releaser   state.StatePoolReleaser
 	filePrefix string
 	dbLogger   *state.DbLogger
 	tracker    *logTracker

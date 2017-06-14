@@ -596,7 +596,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 
 	add("/model/:modeluuid/applications/:application/resources/:resource", &ResourcesHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, func(), names.Tag, error) {
+		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.StatePoolReleaser, names.Tag, error) {
 			st, closer, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
@@ -609,7 +609,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	})
 	add("/model/:modeluuid/units/:unit/resources/:resource", &UnitResourcesHandler{
-		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, func(), error) {
+		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
 			st, closer, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
@@ -827,7 +827,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	var (
 		st       *state.State
 		h        *apiHandler
-		releaser func()
+		releaser state.StatePoolReleaser
 	)
 	if err == nil {
 		st, releaser, err = srv.statePool.Get(resolvedModelUUID)
@@ -976,8 +976,7 @@ func (srv *Server) processModelRemovals() error {
 				// Model's gone away - ensure that it gets removed
 				// from from the state pool once people are finished
 				// with it.
-				err = srv.statePool.Remove(modelUUID)
-				if err != nil {
+				if _, err := srv.statePool.Remove(modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}

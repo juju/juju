@@ -1399,7 +1399,7 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func(), error) {
+func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, StatePoolReleaser, error) {
 	st, releaser, err := b.stPool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

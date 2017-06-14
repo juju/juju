@@ -131,26 +131,30 @@ func (s *statePoolSuite) TestTooManyReleases(c *gc.C) {
 	firstRelease()
 	firstRelease()
 
-	err = s.Pool.Remove(s.ModelUUID1)
+	removed, err := s.Pool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
 
 	// Not closed because r2 has not been called.
 	assertNotClosed(c, st)
 
-	secondRelease()
+	removed = secondRelease()
+	c.Assert(removed, jc.IsTrue)
 	assertClosed(c, st)
 }
 
 func (s *statePoolSuite) TestReleaseOnSystemStateUUID(c *gc.C) {
 	st, releaser, err := s.Pool.Get(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	releaser()
+	removed := releaser()
+	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 }
 
 func (s *statePoolSuite) TestRemoveSystemStateUUID(c *gc.C) {
-	err := s.Pool.Remove(s.ModelUUID)
+	removed, err := s.Pool.Remove(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, s.State)
 }
 
@@ -167,13 +171,15 @@ func assertClosed(c *gc.C, st *state.State) {
 func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
 	st, releaser, err := s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	releaser()
 
 	// Confirm the state isn't closed.
+	removed := releaser()
+	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 
-	err = s.Pool.Remove(s.ModelUUID1)
+	removed, err = s.Pool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsTrue)
 
 	assertClosed(c, st)
 }
@@ -188,23 +194,26 @@ func (s *statePoolSuite) TestRemoveWithRefsClosesOnLastRelease(c *gc.C) {
 	assertNotClosed(c, st)
 
 	// Doesn't close while there are refs still held.
-	err = s.Pool.Remove(s.ModelUUID1)
+	removed, err := s.Pool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 
-	firstRelease()
+	removed = firstRelease()
 	// Hasn't been closed - still one outstanding reference.
+	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 
 	// Should be closed when it's released back into the pool.
-	secondRelease()
+	removed = secondRelease()
+	c.Assert(removed, jc.IsTrue)
 	assertClosed(c, st)
 }
 
 func (s *statePoolSuite) TestGetRemovedNotAllowed(c *gc.C) {
 	_, _, err := s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Pool.Remove(s.ModelUUID1)
+	_, err = s.Pool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, err = s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %v has been removed", s.ModelUUID1))

@@ -27,16 +27,14 @@ type messageWriter interface {
 	WriteJSON(v interface{}) error
 }
 
-type closerFunc func()
-
 // logStreamEndpointHandler takes requests to stream logs from the DB.
 type logStreamEndpointHandler struct {
 	stopCh    <-chan struct{}
-	newSource func(*http.Request) (logStreamSource, closerFunc, error)
+	newSource func(*http.Request) (logStreamSource, state.StatePoolReleaser, error)
 }
 
 func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
-	newSource := func(req *http.Request) (logStreamSource, closerFunc, error) {
+	newSource := func(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
 		st, releaser, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -78,13 +76,13 @@ func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
-	source, closer, err := h.newSource(req)
+	source, releaser, err := h.newSource(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
-			closer()
+			releaser()
 		}
 	}()
 
@@ -101,10 +99,10 @@ func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter
 	}
 
 	reqHandler := &logStreamRequestHandler{
-		conn:   conn,
-		req:    req,
-		tailer: tailer,
-		closer: closer,
+		conn:     conn,
+		req:      req,
+		tailer:   tailer,
+		releaser: releaser,
 	}
 	return reqHandler, nil
 }
@@ -184,10 +182,10 @@ func (st logStreamState) newTailer(args state.LogTailerParams) (state.LogTailer,
 }
 
 type logStreamRequestHandler struct {
-	conn   messageWriter
-	req    *http.Request
-	tailer state.LogTailer
-	closer closerFunc
+	conn     messageWriter
+	req      *http.Request
+	tailer   state.LogTailer
+	releaser state.StatePoolReleaser
 }
 
 func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
@@ -217,7 +215,7 @@ func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 
 func (h *logStreamRequestHandler) close() {
 	h.tailer.Stop()
-	h.closer()
+	h.releaser()
 }
 
 func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord) error {

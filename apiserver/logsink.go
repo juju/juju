@@ -23,7 +23,7 @@ type agentLoggingStrategy struct {
 	fileLogger io.Writer
 
 	st         *state.State
-	releaser   func()
+	releaser   state.StatePoolReleaser
 	version    version.Number
 	entity     names.Tag
 	filePrefix string

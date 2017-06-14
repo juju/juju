@@ -44,7 +44,7 @@ func (h *RestHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type modelRestHandler struct {
 	ctxt          httpContext
 	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.State, func(), error)
+	stateAuthFunc func(*http.Request) (*state.State, state.StatePoolReleaser, error)
 }
 
 // ServeGet handles http GET requests.
