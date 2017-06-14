@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -19,7 +18,6 @@ import (
 	"time"
 
 	"github.com/bmizerany/pat"
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -36,8 +34,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -317,7 +317,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
 
-	logSinkWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "logsink.log"))
+	logSinkWriter, err := logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
 	if err != nil {
 		return nil, errors.Annotate(err, "creating logsink writer")
 	}
@@ -555,11 +555,17 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 
-	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
+	logSinkHandler := logsink.NewHTTPHandler(
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter),
+		httpCtxt.stop(),
+	)
 	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 
 	// We don't need to save the migrated logs to a logfile as well as to the DB.
-	logTransferHandler := newLogSinkHandler(httpCtxt, ioutil.Discard, newMigrationLoggingStrategy)
+	logTransferHandler := logsink.NewHTTPHandler(
+		newMigrationLogWriteCloserFunc(httpCtxt),
+		httpCtxt.stop(),
+	)
 	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
 
 	modelRestHandler := &modelRestHandler{
@@ -798,18 +804,17 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	apiObserver.Join(req, connectionID)
 	defer apiObserver.Leave()
 
-	handler := func(conn *websocket.Conn) {
+	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := req.URL.Query().Get(":modeluuid")
 		logger.Tracef("got a request for model %q", modelUUID)
 		if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
-	}
-	websocketServer(w, req, handler)
+	})
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
-	codec := jsoncodec.NewWebsocket(wsConn)
+	codec := jsoncodec.NewWebsocket(wsConn.Conn)
 	conn := rpc.NewConn(codec, apiObserver)
 
 	// Note that we don't overwrite modelUUID here because

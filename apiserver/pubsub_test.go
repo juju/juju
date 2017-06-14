@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -96,8 +97,8 @@ func (s *pubsubSuite) TestRejectsIncorrectNonce(c *gc.C) {
 func (s *pubsubSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
 	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
-	assertJSONError(c, conn, message)
-	assertWebsocketClosed(c, conn)
+	websockettest.AssertJSONError(c, conn, message)
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *pubsubSuite) TestMessage(c *gc.C) {
@@ -119,7 +120,7 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 	defer conn.Close()
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	message1 := params.PubSubMessage{
 		Topic: "first",
