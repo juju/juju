@@ -1,60 +1,143 @@
 #!/usr/bin/env python
 
-from argparse import ArgumentParser
 import logging
+import os
+import yaml
 
-from boto.ec2 import regions
-
+from argparse import ArgumentParser
 from jujupy import SimpleEnvironment
 from substrate import AWSAccount
 
 
 def parse_args(argv=None):
-    parser = ArgumentParser('Clean up leftover resources.')
+    parser = ArgumentParser('Clean up leftover security groups.')
     parser.add_argument('env', help='The juju environment to use.')
-    parser.add_argument('--verbose', '-v', action='count', default=0)
-    parser.add_argument('-a', '--all-regions', action='store_true',
-                        help='Take action on all regions.')
     return parser.parse_args(argv)
 
 
-def get_regions(args, env):
-    if args.all_regions:
-        return [region.name for region in filter(
-                lambda x: '-gov-' not in x.name, regions())]
-    return [env.get_region()]
+def get_regions():
+    juju_home = os.getenv('JUJU_HOME', default='cloud-city')
+    cloud_list = '{}/public-clouds.yaml'.format(juju_home)
+    try:
+        with open(cloud_list, 'r') as stream:
+            try:
+                data = yaml.load(stream) 
+            except yaml.YAMLError as yaml_err:
+                raise yaml_err
+            # extract all AWS regions, align with juju regions <cloud>
+            selected_regions = data['clouds']['aws']['regions'].keys()
+        return selected_regions
+    except IOError as io_err:
+        logging.info('Cloud list file {} does not exist.'.format(cloud_list))
+        raise io_err
+
+
+def get_security_groups(grp, instgrp, region):
+    """Fetch security groups information in a certain region from AWS:
+       ID of All security groups
+       Security groups attached to existing instances
+       Security groups does not attach to any instances
+       """
+    all_groups = dict(grp)
+    instance_groups = dict(instgrp)
+    logging.info(
+        '{} instance groups found on {}\n{}'.format(
+        str(len(instance_groups)),
+        region,
+        '\n'.join(instance_groups)))
+    non_instance_groups = dict(
+        (k, v) for k, v in all_groups.items() if k not in instance_groups)
+    logging.info(
+        '{} non-instance groups found on {}\n{}'.format(
+        str(len(non_instance_groups)),
+        region,
+        '\n'.join(non_instance_groups)))
+    return (all_groups, non_instance_groups)
+
+
+def remove_detached_interfaces(non_instgrp, substrate, region):
+    """Remove detached interfaces from non-instance security groups"""
+    # TO DO: Would be better to loop non_instgrp.keys() to get detailed output
+    logging.info(
+        'Detached interfaces will be deleted in region {} ' \
+        'from {} non-instance security groups\n{}'.format(
+        region,
+        str(len(non_instgrp.keys())),
+        '\n'.join(non_instgrp.keys())))
+    try:
+        unclean = substrate.delete_detached_interfaces(
+            non_instgrp.keys())
+        logging.info(
+            'Detached interfaces have been deleted in region {} ' \
+            'from {} non-instance security groups\n{}'.format(
+            region,
+            str(len(non_instgrp.keys())),
+            '\n'.join(non_instgrp.keys())))
+        logging.info(
+            'Unable to clean {} groups from {}'.format(
+            str(len(unclean)), region))
+    except:
+        logging.info(
+            'Unable to clean non-instance groups in region {} from\n{}'.format(
+            region,
+            '\n'.join(non_instgrp.keys())))
+    return unclean
+
+
+def remove_security_groups(unclean, grp, non_instgrp, substrate, region):
+    """Remove non-instance security groups by group name"""
+    for group_id in unclean:
+        logging.info(
+            'Cannot delete {} from {}'.format(
+            grp[group_id], region))
+        non_instgrp.pop(group_id, None)
+    try:
+        substrate.destroy_security_groups(non_instgrp.values())
+        logging.info(
+            '{} non-instance groups have been deleted from {}\n{}'.format(
+            len(non_instgrp.values()),
+            region,
+            '\n'.join(non_instgrp.values())))
+    except:
+        logging.info(
+            'Failed to delete groups {} from {}'.format(
+            non_instgrp.values(), region))
 
 
 def clean(args):
     env = SimpleEnvironment.from_config(args.env)
-    selected_regions = get_regions(args, env)
+    selected_regions = get_regions()
+    logging.info(
+        'The target regions for cleaning job are \n{}'.format(
+        '\n'.join(selected_regions)))
     for region in selected_regions:
         with AWSAccount.from_boot_config(env, region=region) as substrate:
-            logging.info('Cleaning resources in {}.'.format(substrate.region))
-            all_groups = dict(substrate.iter_security_groups())
-            instance_groups = dict(substrate.iter_instance_security_groups())
-            non_instance_groups = dict((k, v) for k, v in all_groups.items()
-                                       if k not in instance_groups)
-            try:
-                unclean = substrate.delete_detached_interfaces(
-                    non_instance_groups.keys())
-                logging.info('Unable to delete {} groups'.format(len(unclean)))
-            except:
-                logging.info('Unable to delete non-instance groups {}'.format(non_instance_groups.keys()))
-            for group_id in unclean:
-                logging.debug('Cannot delete {}'.format(all_groups[group_id]))
-            for group_id in unclean:
-                non_instance_groups.pop(group_id, None)
-            try:
-                substrate.destroy_security_groups(non_instance_groups.values())
-            except:
-                logging.debug('Failed to delete groups {}'.format(non_instance_groups.values()))
+            if substrate is None:
+                logging.info(
+                    'Skipping {}, substrate object returns NoneType'.format(region))
+                continue
+            logging.info(
+                'Cleaning resources in {}.'.format(substrate.region))
+            all_groups, non_instance_groups = get_security_groups(
+                grp=substrate.iter_security_groups(),
+                instgrp=substrate.iter_instance_security_groups(),
+                region=region)
+            unclean = remove_detached_interfaces(
+                non_instgrp=non_instance_groups,
+                substrate=substrate,
+                region=region)
+            remove_security_groups(
+                unclean=unclean,
+                grp=all_groups,
+                non_instgrp=non_instance_groups,
+                substrate=substrate,
+                region=region)
+
 
 def main():
     args = parse_args()
-    log_level = max(logging.WARN - args.verbose * 10, logging.DEBUG)
-    logging.basicConfig(level=log_level)
-    logging.getLogger('boto').setLevel(logging.CRITICAL)
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger('clean_resources').setLevel(logging.INFO)
     clean(args)
 
 
