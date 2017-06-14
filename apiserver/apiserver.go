@@ -90,6 +90,7 @@ type Server struct {
 	tlsConfig        *tls.Config
 	allowModelAccess bool
 	logSinkWriter    io.WriteCloser
+	dbloggers        dbloggers
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -303,6 +304,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
+		dbloggers:                     dbloggers{clock: cfg.Clock},
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
@@ -460,6 +462,7 @@ func (srv *Server) run() {
 
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.tomb.Done()
+		srv.dbloggers.dispose()
 		srv.statePool.Close()
 		srv.state.Close()
 		srv.logSinkWriter.Close()
@@ -556,14 +559,14 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/model/:modeluuid/log", debugLogHandler)
 
 	logSinkHandler := logsink.NewHTTPHandler(
-		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter),
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
 	)
 	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 
 	// We don't need to save the migrated logs to a logfile as well as to the DB.
 	logTransferHandler := logsink.NewHTTPHandler(
-		newMigrationLogWriteCloserFunc(httpCtxt),
+		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
 		httpCtxt.stop(),
 	)
 	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))

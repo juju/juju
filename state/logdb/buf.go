@@ -64,7 +64,7 @@ func (b *BufferedLogger) Log(in []state.LogRecord) error {
 		}
 		b.buf = append(b.buf, in[:n]...)
 		in = in[n:]
-		if len(b.buf) == cap(b.buf) {
+		if len(b.buf) >= cap(b.buf) {
 			if err := b.flush(); err != nil {
 				return errors.Trace(err)
 			}
@@ -92,6 +92,8 @@ func (b *BufferedLogger) flushOnTimer() {
 	b.flush()
 }
 
+// flush flushes any buffered log records to the underlying Logger, and stops
+// the flush timer if there is one. The caller must be holding b.mu.
 func (b *BufferedLogger) flush() error {
 	if b.flushTimer != nil {
 		b.flushTimer.Stop()

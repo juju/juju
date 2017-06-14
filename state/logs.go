@@ -230,7 +230,6 @@ func (logger *DbLogger) Log(records []LogRecord) error {
 			return errors.Annotate(err, "validating input log record")
 		}
 	}
-	// TODO(axw) copy session here and close after?
 	bulk := logger.logsColl.Bulk()
 	for _, r := range records {
 		var versionString string

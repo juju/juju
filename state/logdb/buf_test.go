@@ -29,6 +29,26 @@ func (s *BufferedLoggerSuite) SetUpTest(c *gc.C) {
 	s.clock = testing.NewClock(time.Time{})
 }
 
+func (s *BufferedLoggerSuite) waitFlush(c *gc.C) []state.LogRecord {
+	select {
+	case records := <-s.mock.called:
+		return records
+	case <-time.After(coretesting.LongWait):
+	}
+	c.Fatal("timed out waiting for logs to be flushed")
+	panic("unreachable")
+}
+
+func (s *BufferedLoggerSuite) assertNoFlush(c *gc.C) {
+	err := s.clock.WaitAdvance(0, 0, 0) // There should be no active timers
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case records := <-s.mock.called:
+		c.Fatal("unexpected log records: %v", records)
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
 func (s *BufferedLoggerSuite) TestLogFlushes(c *gc.C) {
 	const bufsz = 3
 	b := logdb.NewBufferedLogger(&s.mock, bufsz, time.Minute, s.clock)
@@ -52,6 +72,10 @@ func (s *BufferedLoggerSuite) TestLogFlushes(c *gc.C) {
 	s.mock.CheckCalls(c, []testing.StubCall{
 		{"Log", []interface{}{in}},
 	})
+
+	err = s.clock.WaitAdvance(0, coretesting.LongWait, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNoFlush(c)
 }
 
 func (s *BufferedLoggerSuite) TestLogFlushesMultiple(c *gc.C) {
@@ -105,15 +129,58 @@ func (s *BufferedLoggerSuite) TestTimerFlushes(c *gc.C) {
 
 	// Advance to to the flush interval.
 	s.clock.Advance(30 * time.Second)
-	select {
-	case records := <-s.mock.called:
-		c.Assert(records, jc.DeepEquals, in)
-		s.mock.CheckCalls(c, []testing.StubCall{
-			{"Log", []interface{}{in}},
-		})
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for logs to be flushed")
-	}
+	c.Assert(s.waitFlush(c), jc.DeepEquals, in)
+	s.mock.CheckCalls(c, []testing.StubCall{
+		{"Log", []interface{}{in}},
+	})
+	s.assertNoFlush(c)
+	s.mock.ResetCalls()
+
+	// Logging again, the timer resets to the time at which
+	// the new log records are inserted.
+	err = b.Log(in)
+	c.Assert(err, jc.ErrorIsNil)
+	s.clock.WaitAdvance(59*time.Second, coretesting.LongWait, 1)
+	s.mock.CheckNoCalls(c)
+	s.clock.Advance(1 * time.Second)
+	c.Assert(s.waitFlush(c), jc.DeepEquals, in)
+	s.mock.CheckCalls(c, []testing.StubCall{
+		{"Log", []interface{}{in}},
+	})
+	s.assertNoFlush(c)
+}
+
+func (s *BufferedLoggerSuite) TestLogOverCapacity(c *gc.C) {
+	const bufsz = 2
+	const flushInterval = time.Minute
+	s.mock.called = make(chan []state.LogRecord, 1)
+
+	// The buffer has a capacity of 2, so writing 3 logs will
+	// cause 2 to be flushed, with 1 remaining in the buffer
+	// until the timer triggers.
+	b := logdb.NewBufferedLogger(&s.mock, bufsz, flushInterval, s.clock)
+	in := []state.LogRecord{{
+		Entity:  names.NewMachineTag("0"),
+		Message: "foo",
+	}, {
+		Entity:  names.NewMachineTag("0"),
+		Message: "bar",
+	}, {
+		Entity:  names.NewMachineTag("0"),
+		Message: "baz",
+	}}
+
+	err := b.Log(in)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.waitFlush(c), jc.DeepEquals, in[:bufsz])
+
+	s.clock.WaitAdvance(time.Minute, coretesting.LongWait, 1)
+	c.Assert(s.waitFlush(c), jc.DeepEquals, in[bufsz:])
+
+	s.mock.CheckCalls(c, []testing.StubCall{
+		{"Log", []interface{}{in[:bufsz]}},
+		{"Log", []interface{}{in[bufsz:]}},
+	})
 }
 
 func (s *BufferedLoggerSuite) TestFlushNothing(c *gc.C) {

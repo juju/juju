@@ -110,7 +110,9 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 
 // release indicates that the client has finished using the State. If the
 // state has been marked for removal, it will be closed and removed
-// when the final Release is done.
+// when the final Release is done; if there are no references, it will be
+// closed and removed immediately. The boolean result reports whether or
+// not the state was closed and removed.
 func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
 	if modelUUID == p.systemState.ModelUUID() {
 		// We don't maintain a refcount for the controller.
