@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
@@ -66,7 +67,22 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	err := s.dbLogger.Log(m.Time, m.Entity, m.Module, m.Location, level, m.Message)
+	var entity names.Tag
+	if m.Entity != "" {
+		var err error
+		entity, err = names.ParseTag(m.Entity)
+		if err != nil {
+			return errors.Annotate(err, "parsing entity from log record")
+		}
+	}
+	err := s.dbLogger.Log(state.LogRecord{
+		Time:     m.Time,
+		Entity:   entity,
+		Module:   m.Module,
+		Location: m.Location,
+		Level:    level,
+		Message:  m.Message,
+	})
 	if err == nil {
 		err = s.tracker.Track(m.Time)
 	}

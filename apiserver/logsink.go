@@ -27,7 +27,7 @@ type agentLoggingStrategy struct {
 	version    version.Number
 	entity     names.Tag
 	filePrefix string
-	dbLogger   *state.EntityDbLogger
+	dbLogger   *state.DbLogger
 }
 
 // newAgentLogWriteCloserFunc returns a function that will create a
@@ -68,17 +68,23 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	s.version = ver
 	s.entity = entity.Tag()
 	s.filePrefix = st.ModelUUID() + ":"
-	s.dbLogger = state.NewEntityDbLogger(st, s.entity, s.version)
+	s.dbLogger = state.NewDbLogger(st)
 	return nil
 }
 
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	dbErr := errors.Annotate(
-		s.dbLogger.Log(m.Time, m.Module, m.Location, level, m.Message),
-		"logging to DB failed",
-	)
+	dbErr := errors.Annotate(s.dbLogger.Log(state.LogRecord{
+		Time:     m.Time,
+		Entity:   s.entity,
+		Version:  s.version,
+		Module:   m.Module,
+		Location: m.Location,
+		Level:    level,
+		Message:  m.Message,
+	}), "logging to DB failed")
+
 	m.Entity = s.entity.String()
 	fileErr := errors.Annotate(
 		logToFile(s.fileLogger, s.filePrefix, m),

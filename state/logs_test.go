@@ -138,44 +138,34 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	})
 }
 
-func (s *LogsSuite) TestEntityDbLogger(c *gc.C) {
-	logger := state.NewEntityDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
-	defer logger.Close()
-	t0 := truncateDBTime(coretesting.ZeroTime())
-	logger.Log(t0, "some.where", "foo.go:99", loggo.INFO, "all is well")
-	t1 := t0.Add(time.Second)
-	logger.Log(t1, "else.where", "bar.go:42", loggo.ERROR, "oh noes")
-
-	var docs []bson.M
-	err := s.logsColl.Find(nil).Sort("t").All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(docs, gc.HasLen, 2)
-
-	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
-	c.Assert(docs[0]["n"], gc.Equals, "machine-22")
-	c.Assert(docs[0]["m"], gc.Equals, "some.where")
-	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
-	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
-	c.Assert(docs[0]["x"], gc.Equals, "all is well")
-
-	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
-	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
-	c.Assert(docs[1]["m"], gc.Equals, "else.where")
-	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
-	c.Assert(docs[1]["v"], gc.Equals, int(loggo.ERROR))
-	c.Assert(docs[1]["x"], gc.Equals, "oh noes")
-}
-
 func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	logger := state.NewDbLogger(s.State)
 	defer logger.Close()
+
 	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
-	logger.Log(t0, names.NewMachineTag("45").String(), "some.where", "foo.go:99", loggo.INFO, "all is well")
+	err := logger.Log(state.LogRecord{
+		Time:     t0,
+		Entity:   names.NewMachineTag("45"),
+		Module:   "some.where",
+		Location: "foo.go:99",
+		Level:    loggo.INFO,
+		Message:  "all is well",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	t1 := t0.Add(time.Second)
-	logger.Log(t1, names.NewMachineTag("47").String(), "else.where", "bar.go:42", loggo.ERROR, "oh noes")
+	err = logger.Log(state.LogRecord{
+		Time:     t1,
+		Entity:   names.NewMachineTag("47"),
+		Module:   "else.where",
+		Location: "bar.go:42",
+		Level:    loggo.ERROR,
+		Message:  "oh noes",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	var docs []bson.M
-	err := s.logsColl.Find(nil).Sort("t").All(&docs)
+	err = s.logsColl.Find(nil).Sort("t").All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 2)
 
@@ -195,10 +185,18 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 }
 
 func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
-	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
+	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 	log := func(t time.Time, msg string) {
-		err := dbLogger.Log(t, "module", "loc", loggo.INFO, msg)
+		err := dbLogger.Log(state.LogRecord{
+			Time:     t,
+			Entity:   names.NewMachineTag("22"),
+			Version:  jujuversion.Current,
+			Module:   "module",
+			Location: "loc",
+			Level:    loggo.INFO,
+			Message:  msg,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -278,11 +276,19 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 }
 
 func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, count int) {
-	dbLogger := state.NewEntityDbLogger(st, names.NewMachineTag("0"), jujuversion.Current)
+	dbLogger := state.NewDbLogger(st)
 	defer dbLogger.Close()
 	for i := 0; i < count; i++ {
 		ts := endTime.Add(-time.Duration(i) * time.Second)
-		err := dbLogger.Log(ts, "module", "loc", loggo.INFO, "message")
+		err := dbLogger.Log(state.LogRecord{
+			Time:     ts,
+			Entity:   names.NewMachineTag("0"),
+			Version:  jujuversion.Current,
+			Module:   "module",
+			Location: "loc",
+			Level:    loggo.INFO,
+			Message:  "message",
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

@@ -217,18 +217,28 @@ func NewDbLogger(st ModelSessioner) *DbLogger {
 }
 
 // Log writes a log message to the database.
-func (logger *DbLogger) Log(t time.Time, entity string, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
-
-	unixEpochNanoUTC := t.UnixNano()
+// The ModelUUID and ID fields of r are ignored.
+func (logger *DbLogger) Log(r LogRecord) error {
+	if r.Entity == nil {
+		return errors.NotValidf("missing Entity")
+	}
+	var versionString string
+	if r.Version != version.Zero {
+		versionString = r.Version.String()
+	}
+	// TODO(axw) bulk insertion of logs.
 	return logger.logsColl.Insert(&logDoc{
+		// TODO(axw) Use a controller-global int
+		// sequence for Id, so we can order by
+		// insertion.
 		Id:       bson.NewObjectId(),
-		Time:     unixEpochNanoUTC,
-		Entity:   entity,
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
+		Time:     r.Time.UnixNano(),
+		Entity:   r.Entity.String(),
+		Version:  versionString,
+		Module:   r.Module,
+		Location: r.Location,
+		Level:    int(r.Level),
+		Message:  r.Message,
 	})
 }
 
@@ -237,41 +247,6 @@ func (logger *DbLogger) Close() {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
-}
-
-// EntityDbLogger writes log records about one entity.
-type EntityDbLogger struct {
-	DbLogger
-	entity  string
-	version string
-}
-
-// NewEntityDbLogger returns an EntityDbLogger instance which is used
-// to write logs to the database.
-func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
-	dbLogger := NewDbLogger(st)
-	return &EntityDbLogger{
-		DbLogger: *dbLogger,
-		entity:   entity.String(),
-		version:  ver.String(),
-	}
-}
-
-// Log writes a log message to the database.
-func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
-
-	unixEpochNanoUTC := t.UnixNano()
-	return logger.logsColl.Insert(&logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     unixEpochNanoUTC,
-		Entity:   logger.entity,
-		Version:  logger.version,
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
-	})
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
