@@ -20,7 +20,7 @@ import (
 
 type logStreamSource interface {
 	getStart(sink string) (time.Time, error)
-	newTailer(*state.LogTailerParams) (state.LogTailer, error)
+	newTailer(state.LogTailerParams) (state.LogTailer, error)
 }
 
 type messageWriter interface {
@@ -125,7 +125,7 @@ func (h *logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.
 		}
 	}
 
-	tailerArgs := &state.LogTailerParams{
+	tailerArgs := state.LogTailerParams{
 		StartTime:    start,
 		InitialLines: cfg.MaxLookbackRecords,
 	}
@@ -175,7 +175,7 @@ func (st logStreamState) getStart(sink string) (time.Time, error) {
 	return time.Unix(0, lastSentTimestamp), nil
 }
 
-func (st logStreamState) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
+func (st logStreamState) newTailer(args state.LogTailerParams) (state.LogTailer, error) {
 	tailer, err := state.NewLogTailer(st, args)
 	if err != nil {
 		return nil, errors.Trace(err)

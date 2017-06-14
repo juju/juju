@@ -362,7 +362,7 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error) {
+func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
@@ -388,7 +388,7 @@ type logTailer struct {
 	modelUUID       string
 	session         *mgo.Session
 	logsColl        *mgo.Collection
-	params          *LogTailerParams
+	params          LogTailerParams
 	logCh           chan *LogRecord
 	lastID          int64
 	lastTime        time.Time
@@ -581,7 +581,7 @@ func (t *logTailer) tailOplog() error {
 	}
 }
 
-func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
