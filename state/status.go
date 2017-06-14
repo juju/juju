@@ -319,13 +319,13 @@ type statusHistoryPruner struct {
 
 func (p *statusHistoryPruner) validate() error {
 	if p.maxSize < 0 {
-		return errors.NotValidf("non-positive maxHistoryMB")
+		return errors.NotValidf("non-positive max size")
 	}
 	if p.maxAge < 0 {
-		return errors.NotValidf("non-positive maxHistoryTime")
+		return errors.NotValidf("non-positive max age")
 	}
 	if p.maxSize == 0 && p.maxAge == 0 {
-		return errors.NotValidf("backlog size and time constraints are both 0")
+		return errors.NotValidf("backlog size and age constraints are both 0")
 	}
 	return nil
 }
@@ -340,11 +340,18 @@ func (p *statusHistoryPruner) pruneByAge() error {
 		{"updated", bson.M{"$lt": t.UnixNano()}},
 	}).Select(bson.M{"_id": 1}).Iter()
 
-	deleted, err := p.deleteInBatches(iter, "status history age pruning: %d rows deleted", noEarlyFinish)
+	model, err := p.st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("status history age pruning: %d rows deleted", deleted)
+	logTemplate := fmt.Sprintf("status history age pruning (%s): %%d rows deleted", model.Name())
+	deleted, err := p.deleteInBatches(iter, logTemplate, noEarlyFinish)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if deleted > 0 {
+		logger.Infof("status history age pruning (%s): %d rows deleted", model.Name(), deleted)
+	}
 	return nil
 }
 
@@ -388,7 +395,7 @@ func (p *statusHistoryPruner) pruneBySize() error {
 
 	iter := p.coll.Find(nil).Sort("updated").Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
 
-	template := fmt.Sprintf("status history size pruning: %%d of %d deleted", toDelete)
+	template := fmt.Sprintf("status history size pruning: deleted %%d of %d (estimated)", toDelete)
 	deleted, err := p.deleteInBatches(iter, template, func() (bool, error) {
 		// Check that we still need to delete more
 		collMB, err := getCollectionMB(p.coll)
@@ -415,7 +422,6 @@ func (p *statusHistoryPruner) deleteInBatches(iter *mgo.Iter, logTemplate string
 	chunk := p.coll.Bulk()
 	chunkSize := 0
 
-	logger.Infof(logTemplate, 0)
 	lastUpdate := time.Now()
 	deleted := 0
 	for iter.Next(&doc) {
