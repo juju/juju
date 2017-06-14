@@ -133,8 +133,8 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	}
 	c.Assert(keys, jc.SameContents, []string{
 		"_id",   // default index
-		"t-_id", // model-uuid and timestamp
-		"n",     // model-uuid and entity
+		"t-_id", // timestamp and ID
+		"n",     // entity
 	})
 }
 
@@ -143,25 +143,22 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	defer logger.Close()
 
 	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
-	err := logger.Log(state.LogRecord{
+	t1 := t0.Add(time.Second)
+	err := logger.Log([]state.LogRecord{{
 		Time:     t0,
 		Entity:   names.NewMachineTag("45"),
 		Module:   "some.where",
 		Location: "foo.go:99",
 		Level:    loggo.INFO,
 		Message:  "all is well",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	t1 := t0.Add(time.Second)
-	err = logger.Log(state.LogRecord{
+	}, {
 		Time:     t1,
 		Entity:   names.NewMachineTag("47"),
 		Module:   "else.where",
 		Location: "bar.go:42",
 		Level:    loggo.ERROR,
 		Message:  "oh noes",
-	})
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var docs []bson.M
@@ -188,7 +185,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 	log := func(t time.Time, msg string) {
-		err := dbLogger.Log(state.LogRecord{
+		err := dbLogger.Log([]state.LogRecord{{
 			Time:     t,
 			Entity:   names.NewMachineTag("22"),
 			Version:  jujuversion.Current,
@@ -196,7 +193,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 			Location: "loc",
 			Level:    loggo.INFO,
 			Message:  msg,
-		})
+		}})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -280,7 +277,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 	defer dbLogger.Close()
 	for i := 0; i < count; i++ {
 		ts := endTime.Add(-time.Duration(i) * time.Second)
-		err := dbLogger.Log(state.LogRecord{
+		err := dbLogger.Log([]state.LogRecord{{
 			Time:     ts,
 			Entity:   names.NewMachineTag("0"),
 			Version:  jujuversion.Current,
@@ -288,7 +285,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 			Location: "loc",
 			Level:    loggo.INFO,
 			Message:  "message",
-		})
+		}})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

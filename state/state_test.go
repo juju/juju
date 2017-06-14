@@ -2785,14 +2785,14 @@ func writeLogs(c *gc.C, st *state.State, n int) {
 	dbLogger := state.NewDbLogger(st)
 	defer dbLogger.Close()
 	for i := 0; i < n; i++ {
-		err := dbLogger.Log(state.LogRecord{
+		err := dbLogger.Log([]state.LogRecord{{
 			Time:     time.Now(),
 			Entity:   names.NewApplicationTag("van-occupanther"),
 			Module:   "chasing after deer",
 			Location: "in a log house",
 			Level:    loggo.INFO,
 			Message:  "why are your fingers like that of a hedge in winter?",
-		})
+		}})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

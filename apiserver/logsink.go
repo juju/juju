@@ -75,7 +75,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	dbErr := errors.Annotate(s.dbLogger.Log(state.LogRecord{
+	dbErr := errors.Annotate(s.dbLogger.Log([]state.LogRecord{{
 		Time:     m.Time,
 		Entity:   s.entity,
 		Version:  s.version,
@@ -83,7 +83,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Location: m.Location,
 		Level:    level,
 		Message:  m.Message,
-	}), "logging to DB failed")
+	}}), "logging to DB failed")
 
 	m.Entity = s.entity.String()
 	fileErr := errors.Annotate(

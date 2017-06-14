@@ -216,30 +216,50 @@ func NewDbLogger(st ModelSessioner) *DbLogger {
 	}
 }
 
-// Log writes a log message to the database.
-// The ModelUUID and ID fields of r are ignored.
-func (logger *DbLogger) Log(r LogRecord) error {
+// Log writes log messages to the database. Log records
+// are written to the database in bulk; callers should
+// buffer log records to and call Log with a batch to
+// minimise database writes.
+//
+// The ModelUUID and ID fields of records are ignored;
+// DbLogger is scoped to a single model, and ID is
+// controlled by the DbLogger code.
+func (logger *DbLogger) Log(records []LogRecord) error {
+	for _, r := range records {
+		if err := validateInputLogRecord(r); err != nil {
+			return errors.Annotate(err, "validating input log record")
+		}
+	}
+	// TODO(axw) copy session here and close after?
+	bulk := logger.logsColl.Bulk()
+	for _, r := range records {
+		var versionString string
+		if r.Version != version.Zero {
+			versionString = r.Version.String()
+		}
+		bulk.Insert(&logDoc{
+			// TODO(axw) Use a controller-global int
+			// sequence for Id, so we can order by
+			// insertion.
+			Id:       bson.NewObjectId(),
+			Time:     r.Time.UnixNano(),
+			Entity:   r.Entity.String(),
+			Version:  versionString,
+			Module:   r.Module,
+			Location: r.Location,
+			Level:    int(r.Level),
+			Message:  r.Message,
+		})
+	}
+	_, err := bulk.Run()
+	return errors.Annotatef(err, "inserting %d log record(s)", len(records))
+}
+
+func validateInputLogRecord(r LogRecord) error {
 	if r.Entity == nil {
 		return errors.NotValidf("missing Entity")
 	}
-	var versionString string
-	if r.Version != version.Zero {
-		versionString = r.Version.String()
-	}
-	// TODO(axw) bulk insertion of logs.
-	return logger.logsColl.Insert(&logDoc{
-		// TODO(axw) Use a controller-global int
-		// sequence for Id, so we can order by
-		// insertion.
-		Id:       bson.NewObjectId(),
-		Time:     r.Time.UnixNano(),
-		Entity:   r.Entity.String(),
-		Version:  versionString,
-		Module:   r.Module,
-		Location: r.Location,
-		Level:    int(r.Level),
-		Message:  r.Message,
-	})
+	return nil
 }
 
 // Close cleans up resources used by the DbLogger instance.

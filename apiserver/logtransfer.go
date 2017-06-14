@@ -75,14 +75,14 @@ func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 			return errors.Annotate(err, "parsing entity from log record")
 		}
 	}
-	err := s.dbLogger.Log(state.LogRecord{
+	err := s.dbLogger.Log([]state.LogRecord{{
 		Time:     m.Time,
 		Entity:   entity,
 		Module:   m.Module,
 		Location: m.Location,
 		Level:    level,
 		Message:  m.Message,
-	})
+	}})
 	if err == nil {
 		err = s.tracker.Track(m.Time)
 	}
