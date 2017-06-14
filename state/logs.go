@@ -420,7 +420,7 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 		return errors.Errorf("too many lines requested (%d) maximum is %d",
 			t.params.InitialLines, maxInitialLines)
 	}
-	query.Sort("-e", "-t", "-_id")
+	query.Sort("-t", "-_id")
 	query.Limit(t.params.InitialLines)
 	iter := query.Iter()
 	queue := make([]logDoc, t.params.InitialLines)
