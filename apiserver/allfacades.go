@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/cloud"  // ModelUser Read
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/crossmodelrelations"
 	"github.com/juju/juju/apiserver/deployer"
 	"github.com/juju/juju/apiserver/diskmanager"
 	"github.com/juju/juju/apiserver/facade"
@@ -214,6 +215,7 @@ func AllFacades() *facade.Registry {
 		reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 		reg("RemoteFirewaller", 1, remotefirewaller.NewStateRemoteFirewallerAPI)
 		reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
+		reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	}
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))

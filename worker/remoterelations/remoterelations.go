@@ -42,8 +42,6 @@ type RemoteRelationChangePublisher interface {
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.
 type RemoteRelationsFacade interface {
-	RemoteRelationChangePublisher
-
 	// ImportRemoteEntity adds an entity to the remote entities collection
 	// with the specified opaque token.
 	ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error
