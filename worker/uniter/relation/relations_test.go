@@ -124,12 +124,13 @@ func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 2)
+	assertNumCalls(c, &numCalls, 3)
 	return r
 }
 
@@ -163,6 +164,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{"relation-wordpress:db mysql:db"}}}}, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
@@ -172,7 +174,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 6)
+	assertNumCalls(c, &numCalls, 7)
 
 	info := r.GetInfo()
 	c.Assert(info, gc.HasLen, 1)
@@ -192,13 +194,13 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
-		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
+		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 2)
+	assertNumCalls(c, &numCalls, 3)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -230,13 +232,13 @@ func relationJoinedAPICalls() []apiCall {
 	}}
 	apiCalls := []apiCall{
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 	}
 	return apiCalls
 }
@@ -249,7 +251,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 2)
+	assertNumCalls(c, numCalls, 3)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -304,7 +306,7 @@ func (s *relationsSuite) assertHookRelationChanged(
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, numCallsBefore+1)
+	assertNumCalls(c, numCalls, numCallsBefore)
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -314,19 +316,9 @@ func (s *relationsSuite) assertHookRelationChanged(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func getPrincipalAPICalls(numCalls int32) []apiCall {
-	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
-	result := make([]apiCall, numCalls)
-	for i := int32(0); i < numCalls; i++ {
-		result[i] = uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil)
-	}
-	return result
-}
-
 func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
-	apiCalls = append(apiCalls, getPrincipalAPICalls(3)...)
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
 
 	// There will be an initial relation-changed regardless of
@@ -384,7 +376,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, numCallsBefore+1)
+	assertNumCalls(c, numCalls, numCallsBefore)
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -399,7 +391,6 @@ func (s *relationsSuite) TestHookRelationDeparted(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 
-	apiCalls = append(apiCalls, getPrincipalAPICalls(2)...)
 	s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 }
 
@@ -407,7 +398,6 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 
-	apiCalls = append(apiCalls, getPrincipalAPICalls(3)...)
 	r := s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 
 	localState := resolver.LocalState{
@@ -425,7 +415,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 11)
+	assertNumCalls(c, &numCalls, 8)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
 }
 
@@ -488,13 +478,13 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	}}
 	apiCalls := []apiCall{
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 	}
 
 	var numCalls int32
