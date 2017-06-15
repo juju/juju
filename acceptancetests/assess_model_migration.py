@@ -5,7 +5,10 @@ from __future__ import print_function
 
 import argparse
 from contextlib import contextmanager
-from distutils.version import LooseVersion
+from distutils.version import (
+    LooseVersion,
+    StrictVersion
+    )
 import logging
 import os
 from subprocess import CalledProcessError
@@ -93,6 +96,12 @@ def client_is_at_least_2_1(client):
 
 
 def after_22beta4(client_version):
+    # LooseVersion considers 2.2-somealpha to be newer than 2.2.0.
+    # Attempt strict versioning first.
+    try:
+        return StrictVersion(client_version) >= StrictVersion('2.2.0')
+    except ValueError:
+        pass
     return LooseVersion(client_version) >= LooseVersion('2.2-beta4')
 
 
