@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	coretesting "github.com/juju/juju/testing"
+	"gopkg.in/macaroon.v1"
 )
 
 type mockEnviron struct {
