@@ -434,6 +434,11 @@ func allCollections() collectionSchema {
 			},
 			// tokensC holds unique tokens for the model.
 			tokensC: {},
+			// externalControllersC holds connection information for other
+			// controllers hosting models involved in cross-model relations.
+			externalControllersC: {
+				global: true,
+			},
 		} {
 			result[name] = details
 		}
@@ -523,8 +528,9 @@ const (
 	// "resources" (see resource/persistence/mongo.go)
 
 	// Cross model relations
-	applicationOffersC  = "applicationOffers"
-	remoteApplicationsC = "remoteApplications"
-	remoteEntitiesC     = "remoteEntities"
-	tokensC             = "tokens"
+	applicationOffersC   = "applicationOffers"
+	remoteApplicationsC  = "remoteApplications"
+	remoteEntitiesC      = "remoteEntities"
+	tokensC              = "tokens"
+	externalControllersC = "externalControllers"
 )

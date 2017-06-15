@@ -11,10 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
@@ -55,6 +57,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.relation = mockRelation{}
 	s.backend = mockBackend{
+		controllers: make(map[string]crossmodel.ControllerInfo),
 		applications: map[string]application.Application{
 			"postgresql": &mockApplication{
 				name: "postgresql",
@@ -384,6 +387,74 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 		endpoints: []state.Endpoint{
 			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
 	})
+}
+
+func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	controllerUUID := utils.MustNewUUID().String()
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag:         coretesting.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "a database",
+				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+				OfferURL:               "othermodel.hosted-mysql",
+			},
+			Macaroon: mac,
+			ControllerInfo: &params.ExternalControllerInfo{
+				ControllerTag: names.NewControllerTag(controllerUUID).String(),
+				CACert:        coretesting.CACert,
+				Addrs:         []string{"192.168.1.1:1234"},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+	obtained, ok := s.backend.remoteApplications["hosted-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
+		name:           "hosted-mysql",
+		sourceModelTag: coretesting.ModelTag,
+		offerName:      "hosted-mysql",
+		offerURL:       "othermodel.hosted-mysql",
+		endpoints: []state.Endpoint{
+			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
+		mac: mac,
+	})
+	c.Assert(s.backend.controllers[controllerUUID], jc.DeepEquals, crossmodel.ControllerInfo{
+		ControllerTag: names.NewControllerTag(controllerUUID),
+		CACert:        coretesting.CACert,
+		Addrs:         []string{"192.168.1.1:1234"},
+	})
+}
+
+func (s *ApplicationSuite) TestConsumeFromSameController(c *gc.C) {
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			ApplicationOffer: params.ApplicationOffer{
+				SourceModelTag:         coretesting.ModelTag.String(),
+				OfferName:              "hosted-mysql",
+				ApplicationDescription: "a database",
+				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
+				OfferURL:               "othermodel.hosted-mysql",
+			},
+			Macaroon: mac,
+			ControllerInfo: &params.ExternalControllerInfo{
+				ControllerTag: coretesting.ControllerTag.String(),
+				CACert:        coretesting.CACert,
+				Addrs:         []string{"192.168.1.1:1234"},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+	_, ok := s.backend.remoteApplications["hosted-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(s.backend.controllers, gc.HasLen, 0)
 }
 
 func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {

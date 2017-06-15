@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
@@ -91,7 +90,7 @@ type applicationAddRelationAPI interface {
 	// CHECK
 	BestAPIVersion() int
 	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
-	Consume(params.ApplicationOffer, string, *macaroon.Macaroon) (string, error)
+	Consume(crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
 func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, error) {
@@ -162,7 +161,23 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 
 	// Consume is idempotent so even if the offer has been consumed previously,
 	// it's safe to do so again.
-	_, err = targetClient.Consume(*consumeDetails.Offer, c.remoteEndpoint.ApplicationName, consumeDetails.Macaroon)
+	arg := crossmodel.ConsumeApplicationArgs{
+		ApplicationOffer: *consumeDetails.Offer,
+		ApplicationAlias: c.remoteEndpoint.ApplicationName,
+		Macaroon:         consumeDetails.Macaroon,
+	}
+	if consumeDetails.ControllerInfo != nil {
+		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		arg.ControllerInfo = &crossmodel.ControllerInfo{
+			ControllerTag: controllerTag,
+			Addrs:         consumeDetails.ControllerInfo.Addrs,
+			CACert:        consumeDetails.ControllerInfo.CACert,
+		}
+	}
+	_, err = targetClient.Consume(arg)
 	return errors.Trace(err)
 }
 

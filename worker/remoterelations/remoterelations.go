@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
@@ -249,6 +250,10 @@ type remoteApplicationWorker struct {
 	registered       bool
 	relationChanges  chan params.RemoteRelationChangeEvent
 
+	// macaroon is used to confirm that permission has been granted to consume
+	// the remote application to which this worker pertains.
+	macaroon *macaroon.Macaroon
+
 	facade                   RemoteRelationsFacade
 	newPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error)
 }
@@ -283,6 +288,7 @@ func newRemoteApplicationWorker(
 		localModelUUID:  localModelUUID,
 		remoteModelUUID: remoteApplication.ModelUUID,
 		registered:      remoteApplication.Registered,
+		macaroon:        remoteApplication.Macaroon,
 		relationChanges: make(chan params.RemoteRelationChangeEvent),
 		facade:          facade,
 		newPublisherForModelFunc: newPublisherForModelFunc,
@@ -377,6 +383,7 @@ func (w *remoteApplicationWorker) processRelationGone(
 		RelationId:    remoteId,
 		Life:          params.Dead,
 		ApplicationId: w.relationInfo.applicationId,
+		Macaroon:      w.macaroon,
 	}
 	if err := publisher.PublishLocalRelationChange(change); err != nil {
 		return errors.Annotatef(err, "publishing relation departed %+v to remote model %v", change, w.remoteModelUUID)
@@ -454,6 +461,7 @@ func (w *remoteApplicationWorker) relationChanged(
 	relationUnitsWatcher, err := newRelationUnitsWatcher(
 		relationTag,
 		w.relationInfo.applicationId,
+		w.macaroon,
 		remoteRelationId,
 		localRelationUnitsWatcher,
 		w.relationChanges,
@@ -500,6 +508,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		RemoteEndpoint:    w.relationInfo.localEndpoint,
 		OfferName:         w.relationInfo.remoteApplicationOfferName,
 		LocalEndpointName: w.relationInfo.remoteEndpointName,
+		Macaroon:          w.macaroon,
 	}
 	remoteAppIds, err := publisher.RegisterRemoteRelations(arg)
 	if err != nil {
@@ -538,6 +547,7 @@ type relationUnitsWatcher struct {
 	changes     chan<- params.RemoteRelationChangeEvent
 
 	applicationId    params.RemoteEntityId
+	macaroon         *macaroon.Macaroon
 	remoteRelationId params.RemoteEntityId
 	remoteUnitIds    map[string]params.RemoteEntityId
 
@@ -547,6 +557,7 @@ type relationUnitsWatcher struct {
 func newRelationUnitsWatcher(
 	relationTag names.RelationTag,
 	applicationId params.RemoteEntityId,
+	macaroon *macaroon.Macaroon,
 	remoteRelationId params.RemoteEntityId,
 	ruw watcher.RelationUnitsWatcher,
 	changes chan<- params.RemoteRelationChangeEvent,
@@ -556,6 +567,7 @@ func newRelationUnitsWatcher(
 	w := &relationUnitsWatcher{
 		relationTag:      relationTag,
 		applicationId:    applicationId,
+		macaroon:         macaroon,
 		remoteRelationId: remoteRelationId,
 		ruw:              ruw,
 		changes:          changes,
@@ -635,6 +647,7 @@ func (w *relationUnitsWatcher) relationUnitsChangeEvent(
 		RelationId:    w.remoteRelationId,
 		Life:          params.Alive,
 		ApplicationId: w.applicationId,
+		Macaroon:      w.macaroon,
 		DepartedUnits: make([]int, len(change.Departed)),
 	}
 	for i, u := range change.Departed {

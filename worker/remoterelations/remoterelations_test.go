@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -146,6 +147,8 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"ExportEntities", []interface{}{
@@ -162,6 +165,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 			},
 			OfferName:         "offer-db2",
 			LocalEndpointName: "data",
+			Macaroon:          mac,
 		}}}},
 		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-offer-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
@@ -203,6 +207,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 		}
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
@@ -216,6 +222,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-db2:db django:db"},
+				Macaroon: mac,
 			},
 		}},
 	}
@@ -239,6 +246,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 		}
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
@@ -252,6 +261,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-db2:db django:db"},
+				Macaroon: mac,
 			},
 		}},
 	}
@@ -269,6 +279,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
 		Departed: []string{"unit/2"},
 	}
 
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"RelationUnitSettings", []interface{}{
 			[]params.RelationUnit{{
@@ -288,6 +300,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
 					Settings: map[string]interface{}{"foo": "bar"},
 				}},
 				DepartedUnits: []int{2},
+				Macaroon:      mac,
 			},
 		}},
 	}

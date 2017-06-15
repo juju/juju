@@ -13,8 +13,10 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/application"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -146,6 +148,7 @@ type mockRemoteApplication struct {
 	spaces         []state.RemoteSpace
 	offerName      string
 	offerURL       string
+	mac            *macaroon.Macaroon
 }
 
 func (m *mockRemoteApplication) Name() string {
@@ -241,6 +244,7 @@ type mockBackend struct {
 	unitStorageAttachments     map[string][]state.StorageAttachment
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
+	controllers                map[string]crossmodel.ControllerInfo
 }
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {
@@ -349,6 +353,7 @@ func (m *mockBackend) AddRemoteApplication(args state.AddRemoteApplicationParams
 		offerName:      args.OfferName,
 		offerURL:       args.URL,
 		bindings:       args.Bindings,
+		mac:            args.Macaroon,
 	}
 	for _, ep := range args.Endpoints {
 		app.endpoints = append(app.endpoints, state.Endpoint{
@@ -404,6 +409,24 @@ func (m *mockBackend) Application(name string) (application.Application, error) 
 		return nil, errors.NotFoundf("application %q", name)
 	}
 	return app, nil
+}
+
+type mockExternalController struct {
+	uuid string
+	info crossmodel.ControllerInfo
+}
+
+func (m *mockExternalController) Id() string {
+	return m.uuid
+}
+
+func (m *mockExternalController) ControllerInfo() crossmodel.ControllerInfo {
+	return m.info
+}
+
+func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo) (application.ExternalController, error) {
+	m.controllers[controllerInfo.ControllerTag.Id()] = controllerInfo
+	return &mockExternalController{controllerInfo.ControllerTag.Id(), controllerInfo}, nil
 }
 
 func (m *mockBackend) Space(name string) (application.Space, error) {

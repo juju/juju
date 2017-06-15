@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
+	"gopkg.in/macaroon.v1"
 )
 
 type mockRelationsFacade struct {
@@ -190,6 +191,10 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
+	mac, err := macaroon.New(nil, "test", "")
+	if err != nil {
+		return nil, err
+	}
 	result := make([]params.RemoteApplicationResult, len(names))
 	for i, name := range names {
 		if app, ok := m.remoteApplications[name]; ok {
@@ -201,6 +206,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 					Status:     app.status,
 					ModelUUID:  app.modelUUID,
 					Registered: app.registered,
+					Macaroon:   mac,
 				},
 			}
 		} else {

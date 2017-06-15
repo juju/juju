@@ -6,6 +6,7 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
@@ -157,6 +158,9 @@ type RemoteApplication interface {
 
 	// SourceModel returns the tag of the model hosting the remote application.
 	SourceModel() names.ModelTag
+
+	// Macaroon returns the macaroon used for authentication.
+	Macaroon() (*macaroon.Macaroon, error)
 
 	// IsConsumerProxy returns whether application is created
 	// from a registration operation by a consuming model.

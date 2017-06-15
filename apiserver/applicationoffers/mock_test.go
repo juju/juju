@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/applicationoffers"
+	"github.com/juju/juju/apiserver/common"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -262,6 +263,7 @@ type offerAccess struct {
 }
 
 type mockState struct {
+	common.AddressAndCertGetter
 	modelUUID         string
 	model             applicationoffers.Model
 	allmodels         []applicationoffers.Model
@@ -364,6 +366,19 @@ func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user name
 	}
 	delete(m.accessPerms, offerAccess{user: user, offer: offer})
 	return nil
+}
+
+func (m *mockState) APIHostPorts() ([][]network.HostPort, error) {
+	return [][]network.HostPort{
+		{
+			{Address: network.Address{Value: "192.168.1.1", Scope: network.ScopeCloudLocal}, Port: 17070},
+			{Address: network.Address{Value: "10.1.1.1", Scope: network.ScopeMachineLocal}, Port: 17070},
+		},
+	}, nil
+}
+
+func (m *mockState) CACert() string {
+	return testing.CACert
 }
 
 type mockStatePool struct {

@@ -28,6 +28,7 @@ type environFromModelFunc func(string) (environs.Environ, error)
 // implementation of the api end point.
 type OffersAPI struct {
 	BaseAPI
+	*common.APIAddresser
 	dataDir string
 }
 
@@ -46,7 +47,8 @@ func createOffersAPI(
 
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
-		dataDir: dataDir.String(),
+		dataDir:      dataDir.String(),
+		APIAddresser: common.NewAPIAddresser(backend, resources),
 		BaseAPI: BaseAPI{
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
@@ -401,10 +403,26 @@ func (api *OffersAPI) GetConsumeDetails(args params.ApplicationURLs) (params.Con
 		return consumeResults, common.ServerError(err)
 	}
 
+	addr, err := api.APIAddresser.APIAddresses()
+	if err != nil {
+		return consumeResults, common.ServerError(err)
+	}
+	if addr.Error != nil {
+		return consumeResults, common.ServerError(err)
+	}
+	controllerInfo := &params.ExternalControllerInfo{
+		ControllerTag: api.ControllerModel.ControllerTag().String(),
+		Addrs:         addr.Result,
+		CACert:        string(api.APIAddresser.CACert().Result),
+	}
+
 	for i, result := range offers.Results {
 		results[i].Offer = result.Result
 		results[i].Error = result.Error
-		// TODO(Wallyworld) - add macaroon
+		if result.Error == nil {
+			results[i].ControllerInfo = controllerInfo
+			// TODO(Wallyworld) - add macaroon
+		}
 	}
 	consumeResults.Results = results
 	return consumeResults, nil

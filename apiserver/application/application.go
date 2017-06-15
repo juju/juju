@@ -14,12 +14,14 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -953,11 +955,30 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 		return errors.Trace(err)
 	}
 
+	// Maybe save the details of the controller hosting the offer.
+	if arg.ControllerInfo != nil {
+		controllerTag, err := names.ParseControllerTag(arg.ControllerInfo.ControllerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Only save controller details if the offer comes from
+		// a different controller.
+		if controllerTag.Id() != api.backend.ControllerTag().Id() {
+			if _, err = api.backend.SaveController(crossmodel.ControllerInfo{
+				ControllerTag: controllerTag,
+				Addrs:         arg.ControllerInfo.Addrs,
+				CACert:        arg.ControllerInfo.CACert,
+			}); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
 	appName := arg.ApplicationAlias
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOffer)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOffer, arg.Macaroon)
 	return err
 }
 
@@ -967,6 +988,7 @@ func (api *API) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
 	offer params.ApplicationOffer,
+	mac *macaroon.Macaroon,
 ) (RemoteApplication, error) {
 	remoteEps := make([]charm.Relation, len(offer.Endpoints))
 	for j, ep := range offer.Endpoints {
@@ -1001,6 +1023,7 @@ func (api *API) saveRemoteApplication(
 		Endpoints:   remoteEps,
 		Spaces:      remoteSpaces,
 		Bindings:    offer.Bindings,
+		Macaroon:    mac,
 	})
 }
 

@@ -189,6 +189,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		applicationOffersC,
 		tokensC,
 		remoteEntitiesC,
+		externalControllersC,
 	)
 
 	envCollections := set.NewStrings()

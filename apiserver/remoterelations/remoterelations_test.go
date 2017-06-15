@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -318,8 +319,16 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	s.st.remoteApplications["django"] = newMockRemoteApplication("django", "me/model.riak")
 	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
-		Result: &params.RemoteApplication{Name: "django", OfferName: "django-alias", Life: "alive", ModelUUID: "model-uuid"}}})
+		Result: &params.RemoteApplication{
+			Name:      "django",
+			OfferName: "django-alias",
+			Life:      "alive",
+			ModelUUID: "model-uuid",
+			Macaroon:  mac,
+		}}})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"RemoteApplication", []interface{}{"django"}},
 	})

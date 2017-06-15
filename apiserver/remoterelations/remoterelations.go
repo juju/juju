@@ -281,6 +281,10 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		mac, err := remoteApp.Macaroon()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return &params.RemoteApplication{
 			Name:       remoteApp.Name(),
 			OfferName:  remoteApp.OfferName(),
@@ -288,6 +292,7 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 			Status:     status.Status.String(),
 			ModelUUID:  remoteApp.SourceModel().Id(),
 			Registered: remoteApp.IsConsumerProxy(),
+			Macaroon:   mac,
 		}, nil
 	}
 	for i, entity := range entities.Entities {
@@ -435,6 +440,7 @@ func (api *RemoteRelationsAPI) RegisterRemoteRelations(
 		Results: make([]params.RemoteEntityIdResult, len(relations.Relations)),
 	}
 	for i, relation := range relations.Relations {
+		// TODO(wallyworld) - check macaroon
 		if id, err := api.registerRemoteRelation(relation); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -341,6 +342,11 @@ func (r *mockRemoteApplication) URL() (string, bool) {
 func (r *mockRemoteApplication) SourceModel() names.ModelTag {
 	r.MethodCall(r, "SourceModel")
 	return names.NewModelTag("model-uuid")
+}
+
+func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
+	r.MethodCall(r, "Macaroon")
+	return macaroon.New(nil, "test", "")
 }
 
 func (r *mockRemoteApplication) Destroy() error {
