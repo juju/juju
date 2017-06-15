@@ -397,10 +397,8 @@ Examples:
 
 See also:
     spaces
-    constraints
+    config
     add-unit
-    set-config
-    get-config
     set-constraints
     get-constraints
 `
