@@ -472,7 +472,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		if u.Life() != Alive {
 			return nil, nil
 		}
-		ch, err := u.charm()
+		ch, err := u.Charm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -845,7 +845,7 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		if u.Life() != Alive {
 			return nil, errors.New("unit not alive")
 		}
-		ch, err := u.charm()
+		ch, err := u.Charm()
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
@@ -1824,7 +1824,7 @@ func (st *State) addStorageForUnitOps(
 	// Storage addition is based on the charm metadata; u.charm()
 	// returns txn.Ops that ensure the charm URL does not change
 	// during the transaction.
-	ch, err := u.charm()
+	ch, err := u.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -1142,9 +1142,9 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
-// charm returns the charm for the unit, or the application if the unit's charm
+// Charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
-func (u *Unit) charm() (*Charm, error) {
+func (u *Unit) Charm() (*Charm, error) {
 	curl, ok := u.CharmURL()
 	if !ok {
 		app, err := u.Application()
@@ -1812,7 +1812,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
-	ch, err := u.charm()
+	ch, err := u.Charm()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting charm")
 	}
@@ -2325,7 +2325,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, e
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
 func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 	none := ActionSpecsByName{}
-	ch, err := u.charm()
+	ch, err := u.Charm()
 	if err != nil {
 		return none, errors.Trace(err)
 	}
