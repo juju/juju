@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	coretesting "github.com/juju/juju/testing"
@@ -205,6 +207,29 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	websockettest.AssertWebsocketClosed(c, conn)
+}
+
+func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
+	type dummyListener struct {
+		net.Listener
+	}
+	cfg := defaultServerConfig(c, s.State)
+	cfg.LogSinkConfig = &apiserver.LogSinkConfig{}
+
+	_, err := apiserver.NewServer(s.State, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 0 <= 0 or > 1000 not valid")
+
+	cfg.LogSinkConfig.DBLoggerBufferSize = 1001
+	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 1001 <= 0 or > 1000 not valid")
+
+	cfg.LogSinkConfig.DBLoggerBufferSize = 1
+	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 0s <= 0 or > 10 seconds not valid")
+
+	cfg.LogSinkConfig.DBLoggerFlushInterval = 30 * time.Second
+	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 30s <= 0 or > 10 seconds not valid")
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
