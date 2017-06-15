@@ -47,12 +47,18 @@ type StatePool struct {
 	sourceKey uint64
 }
 
+// StatePoolReleaser is the type of a function returned by StatePool.Get,
+// for releasing the State back into the pool. The boolean result indicates
+// whether or not releasing the State also caused it to be removed from
+// the pool (because its Remove method was previously called).
+type StatePoolReleaser func() bool
+
 // Get returns a State for a given model from the pool, creating one
 // if required. If the State has been marked for removal because there
 // are outstanding uses, an error will be returned.
-func (p *StatePool) Get(modelUUID string) (*State, func(), error) {
+func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 	if modelUUID == p.systemState.ModelUUID() {
-		return p.systemState, func() {}, nil
+		return p.systemState, func() bool { return false }, nil
 	}
 
 	p.mu.Lock()
@@ -71,15 +77,16 @@ func (p *StatePool) Get(modelUUID string) (*State, func(), error) {
 	// This is to ensure that the releaser function can only be called once.
 	released := false
 
-	releaser := func() {
+	releaser := func() bool {
 		if released {
-			return
+			return false
 		}
-		err := p.release(modelUUID, key)
+		removed, err := p.release(modelUUID, key)
 		if err != nil {
 			logger.Errorf("releasing state back to pool: %s", err.Error())
 		}
 		released = true
+		return removed
 	}
 	source := string(debug.Stack())
 
@@ -103,11 +110,13 @@ func (p *StatePool) Get(modelUUID string) (*State, func(), error) {
 
 // release indicates that the client has finished using the State. If the
 // state has been marked for removal, it will be closed and removed
-// when the final Release is done.
-func (p *StatePool) release(modelUUID string, key uint64) error {
+// when the final Release is done; if there are no references, it will be
+// closed and removed immediately. The boolean result reports whether or
+// not the state was closed and removed.
+func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
 	if modelUUID == p.systemState.ModelUUID() {
 		// We don't maintain a refcount for the controller.
-		return nil
+		return false, nil
 	}
 
 	p.mu.Lock()
@@ -115,10 +124,10 @@ func (p *StatePool) release(modelUUID string, key uint64) error {
 
 	item, ok := p.pool[modelUUID]
 	if !ok {
-		return errors.Errorf("unable to return unknown model %v to the pool", modelUUID)
+		return false, errors.Errorf("unable to return unknown model %v to the pool", modelUUID)
 	}
 	if item.refCount() == 0 {
-		return errors.Errorf("state pool refcount for model %v is already 0", modelUUID)
+		return false, errors.Errorf("state pool refcount for model %v is already 0", modelUUID)
 	}
 	delete(item.referenceSources, key)
 	return p.maybeRemoveItem(modelUUID, item)
@@ -126,11 +135,12 @@ func (p *StatePool) release(modelUUID string, key uint64) error {
 
 // Remove takes the state out of the pool and closes it, or marks it
 // for removal if it's currently being used (indicated by Gets without
-// corresponding Releases).
-func (p *StatePool) Remove(modelUUID string) error {
+// corresponding Releases). The boolean result indicates whether or
+// not the state was removed.
+func (p *StatePool) Remove(modelUUID string) (bool, error) {
 	if modelUUID == p.systemState.ModelUUID() {
 		// We don't manage the controller state.
-		return nil
+		return false, nil
 	}
 
 	p.mu.Lock()
@@ -140,18 +150,18 @@ func (p *StatePool) Remove(modelUUID string) error {
 	if !ok {
 		// Don't require the client to keep track of what we've seen -
 		// ignore unknown model uuids.
-		return nil
+		return false, nil
 	}
 	item.remove = true
 	return p.maybeRemoveItem(modelUUID, item)
 }
 
-func (p *StatePool) maybeRemoveItem(modelUUID string, item *PoolItem) error {
+func (p *StatePool) maybeRemoveItem(modelUUID string, item *PoolItem) (bool, error) {
 	if item.remove && item.refCount() == 0 {
 		delete(p.pool, modelUUID)
-		return item.state.Close()
+		return true, item.state.Close()
 	}
-	return nil
+	return false, nil
 }
 
 // SystemState returns the State passed in to NewStatePool.

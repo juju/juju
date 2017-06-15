@@ -53,7 +53,7 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
 	stub.CheckCall(c, 1, "getStart", "spam")
-	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
+	stub.CheckCall(c, 2, "newTailer", state.LogTailerParams{
 		StartTime:    time.Unix(10, 0),
 		InitialLines: 100,
 	})
@@ -91,7 +91,7 @@ func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
 
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
 	stub.CheckCall(c, 1, "getStart", "spam")
-	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
+	stub.CheckCall(c, 2, "newTailer", state.LogTailerParams{
 		StartTime: now.Add(-2 * time.Hour),
 	})
 }
@@ -254,14 +254,15 @@ type stubSource struct {
 	ReturnNewTailer state.LogTailer
 }
 
-func (s *stubSource) newSource(req *http.Request) (logStreamSource, closerFunc, error) {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
 	s.stub.AddCall("newSource", req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	closer := func() {
+	closer := func() bool {
 		s.stub.AddCall("close")
+		return false
 	}
 	return s, closer, nil
 }
@@ -275,7 +276,7 @@ func (s *stubSource) getStart(sink string) (time.Time, error) {
 	return time.Unix(s.ReturnGetStart, 0), nil
 }
 
-func (s *stubSource) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
+func (s *stubSource) newTailer(args state.LogTailerParams) (state.LogTailer, error) {
 	s.stub.AddCall("newTailer", args)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

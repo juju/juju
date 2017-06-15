@@ -7,27 +7,105 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/logdb"
+)
+
+const (
+	// dbLoggerBufferSize is the capacity of the log buffer.
+	// When the buffer fills up, it will be flushed to the
+	// database.
+	dbLoggerBufferSize = 1024
+
+	// dbLoggerFlushInterval is the amount of time to allow
+	// a log record to sit in the buffer before being flushed
+	// to the database.
+	dbLoggerFlushInterval = 2 * time.Second
 )
 
 type agentLoggingStrategy struct {
+	dbloggers  *dbloggers
 	fileLogger io.Writer
 
-	st         *state.State
+	dblogger   recordLogger
 	releaser   func()
 	version    version.Number
 	entity     names.Tag
 	filePrefix string
-	dbLogger   *state.EntityDbLogger
+}
+
+type recordLogger interface {
+	Log([]state.LogRecord) error
+}
+
+// dbloggers contains a map of buffered DB loggers. When one of the
+// logging strategies requires a DB logger, it uses this to get it.
+// When the State corresponding to the DB logger is removed from the
+// state pool, the strategies must call the dbloggers.remove method.
+type dbloggers struct {
+	clock   clock.Clock
+	mu      sync.Mutex
+	loggers map[*state.State]*bufferedDbLogger
+}
+
+func (d *dbloggers) get(st *state.State) recordLogger {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if l, ok := d.loggers[st]; ok {
+		return l
+	}
+	if d.loggers == nil {
+		d.loggers = make(map[*state.State]*bufferedDbLogger)
+	}
+	dbl := state.NewDbLogger(st)
+	l := &bufferedDbLogger{dbl, logdb.NewBufferedLogger(
+		dbl,
+		dbLoggerBufferSize,
+		dbLoggerFlushInterval,
+		d.clock,
+	)}
+	d.loggers[st] = l
+	return l
+}
+
+func (d *dbloggers) remove(st *state.State) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if l, ok := d.loggers[st]; ok {
+		l.Close()
+		delete(d.loggers, st)
+	}
+}
+
+// dispose closes all dbloggers in the map, and clears the memory. This
+// must not be called concurrently with any other dbloggers methods.
+func (d *dbloggers) dispose() {
+	for _, l := range d.loggers {
+		l.Close()
+	}
+	d.loggers = nil
+}
+
+type bufferedDbLogger struct {
+	dbl *state.DbLogger
+	*logdb.BufferedLogger
+}
+
+func (b *bufferedDbLogger) Close() error {
+	err := errors.Trace(b.Flush())
+	b.dbl.Close()
+	return err
 }
 
 // newAgentLogWriteCloserFunc returns a function that will create a
@@ -36,9 +114,13 @@ type agentLoggingStrategy struct {
 func newAgentLogWriteCloserFunc(
 	ctxt httpContext,
 	fileLogger io.Writer,
+	dbloggers *dbloggers,
 ) logsink.NewLogWriteCloserFunc {
 	return func(req *http.Request) (logsink.LogWriteCloser, error) {
-		strategy := &agentLoggingStrategy{fileLogger: fileLogger}
+		strategy := &agentLoggingStrategy{
+			dbloggers:  dbloggers,
+			fileLogger: fileLogger,
+		}
 		if err := strategy.init(ctxt, req); err != nil {
 			return nil, errors.Annotate(err, "initialising agent logsink session")
 		}
@@ -47,7 +129,7 @@ func newAgentLogWriteCloserFunc(
 }
 
 func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
-	st, releaser, entity, err := ctxt.stateForRequestAuthenticatedAgent(req)
+	st, releaseState, entity, err := ctxt.stateForRequestAuthenticatedAgent(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -61,24 +143,44 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// address this caveat appropriately.
 	ver, err := logsink.JujuClientVersionFromRequest(req)
 	if err != nil {
-		releaser()
+		releaseState()
 		return errors.Trace(err)
 	}
-	s.releaser = releaser
 	s.version = ver
 	s.entity = entity.Tag()
 	s.filePrefix = st.ModelUUID() + ":"
-	s.dbLogger = state.NewEntityDbLogger(st, s.entity, s.version)
+	s.dblogger = s.dbloggers.get(st)
+	s.releaser = func() {
+		if removed := releaseState(); removed {
+			s.dbloggers.remove(st)
+		}
+	}
+	return nil
+}
+
+// Close is part of the logsink.LogWriteCloser interface.
+//
+// Close releases the StatePool entry, closing the DB logger
+// if the State is closed/removed. The file logger is owned
+// by the apiserver, so it is not closed.
+func (s *agentLoggingStrategy) Close() error {
+	s.releaser()
 	return nil
 }
 
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	dbErr := errors.Annotate(
-		s.dbLogger.Log(m.Time, m.Module, m.Location, level, m.Message),
-		"logging to DB failed",
-	)
+	dbErr := errors.Annotate(s.dblogger.Log([]state.LogRecord{{
+		Time:     m.Time,
+		Entity:   s.entity,
+		Version:  s.version,
+		Module:   m.Module,
+		Location: m.Location,
+		Level:    level,
+		Message:  m.Message,
+	}}), "logging to DB failed")
+
 	m.Entity = s.entity.String()
 	fileErr := errors.Annotate(
 		logToFile(s.fileLogger, s.filePrefix, m),
@@ -105,13 +207,4 @@ func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
 		m.Message,
 	}, " ") + "\n"))
 	return err
-}
-
-// Close is part of the logsink.LogWriteCloser interface. Close closes
-// the DB logger and releases the state. It doesn't close the file logger
-// because that lives longer than one request.
-func (s *agentLoggingStrategy) Close() error {
-	s.dbLogger.Close()
-	s.releaser()
-	return nil
 }

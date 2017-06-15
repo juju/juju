@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
@@ -16,19 +17,19 @@ import (
 )
 
 type migrationLoggingStrategy struct {
-	st         *state.State
-	releaser   func()
-	filePrefix string
-	dbLogger   *state.DbLogger
-	tracker    *logTracker
+	dbloggers *dbloggers
+
+	dblogger recordLogger
+	releaser func()
+	tracker  *logTracker
 }
 
 // newMigrationLogWriteCloserFunc returns a function that will create a
 // logsink.LoggingStrategy given an *http.Request, that writes log
 // messages to the state database and tracks their migration.
-func newMigrationLogWriteCloserFunc(ctxt httpContext) logsink.NewLogWriteCloserFunc {
+func newMigrationLogWriteCloserFunc(ctxt httpContext, dbloggers *dbloggers) logsink.NewLogWriteCloserFunc {
 	return func(req *http.Request) (logsink.LogWriteCloser, error) {
-		strategy := &migrationLoggingStrategy{}
+		strategy := &migrationLoggingStrategy{dbloggers: dbloggers}
 		if err := strategy.init(ctxt, req); err != nil {
 			return nil, errors.Annotate(err, "initialising migration logsink session")
 		}
@@ -39,7 +40,7 @@ func newMigrationLogWriteCloserFunc(ctxt httpContext) logsink.NewLogWriteCloserF
 func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// Require MigrationModeNone because logtransfer happens after the
 	// model proper is completely imported.
-	st, releaser, err := ctxt.stateForMigration(req, state.MigrationModeNone)
+	st, releaseState, err := ctxt.stateForMigration(req, state.MigrationModeNone)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -52,39 +53,65 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	// conversion of log messages from an old client.
 	_, err = logsink.JujuClientVersionFromRequest(req)
 	if err != nil {
-		releaser()
+		releaseState()
 		return errors.Trace(err)
 	}
 
-	s.releaser = releaser
-	s.filePrefix = st.ModelUUID() + ":"
-	s.dbLogger = state.NewDbLogger(st)
+	s.dblogger = s.dbloggers.get(st)
 	s.tracker = newLogTracker(st)
+	s.releaser = func() {
+		if removed := releaseState(); removed {
+			s.dbloggers.remove(st)
+		}
+	}
 	return nil
+}
+
+// Close is part of the logsink.LogWriteCloser interface.
+func (s *migrationLoggingStrategy) Close() error {
+	err := errors.Annotate(
+		s.tracker.Close(),
+		"closing last-sent tracker",
+	)
+	s.releaser()
+	return err
 }
 
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := loggo.ParseLevel(m.Level)
-	err := s.dbLogger.Log(m.Time, m.Entity, m.Module, m.Location, level, m.Message)
+	var entity names.Tag
+	if m.Entity != "" {
+		var err error
+		entity, err = names.ParseTag(m.Entity)
+		if err != nil {
+			return errors.Annotate(err, "parsing entity from log record")
+		}
+	}
+	err := s.dblogger.Log([]state.LogRecord{{
+		Time:     m.Time,
+		Entity:   entity,
+		Module:   m.Module,
+		Location: m.Location,
+		Level:    level,
+		Message:  m.Message,
+	}})
 	if err == nil {
 		err = s.tracker.Track(m.Time)
 	}
 	return errors.Annotate(err, "logging to DB failed")
 }
 
-// Close is part of the logsink.LogWriteCloser interface.
-func (s *migrationLoggingStrategy) Close() error {
-	s.dbLogger.Close()
-	s.tracker.Close()
-	s.releaser()
-	return nil
-}
-
+// trackingPeriod is used to limit the number of database writes
+// made in order to record the ID of the log record last persisted.
 const trackingPeriod = 2 * time.Minute
 
 func newLogTracker(st *state.State) *logTracker {
-	return &logTracker{tracker: state.NewLastSentLogTracker(st, st.ModelUUID(), "migration-logtransfer")}
+	return &logTracker{
+		tracker: state.NewLastSentLogTracker(
+			st, st.ModelUUID(), "migration-logtransfer",
+		),
+	}
 }
 
 // logTracker assumes that log messages are sent in time order (which
