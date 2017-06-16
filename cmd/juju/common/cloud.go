@@ -6,9 +6,11 @@ package common
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/environschema.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.common")
@@ -116,4 +118,36 @@ func CloudByName(cloudName string) (*jujucloud.Cloud, error) {
 		return nil, errors.Trace(err)
 	}
 	return cloud, nil
+}
+
+// CloudSchemaByType returns the Schema for a given cloud type.
+// If the ProviderSchema is not implemented for the given cloud
+// type, a NotFound error is returned.
+func CloudSchemaByType(cloudType string) (environschema.Fields, error) {
+	provider, err := environs.Provider(cloudType)
+	if err != nil {
+		return nil, err
+	}
+	ps, ok := provider.(environs.ProviderSchema)
+	if !ok {
+		return nil, errors.NotImplementedf("environs.ProviderSchema")
+	}
+	providerSchema := ps.Schema()
+	if providerSchema == nil {
+		return nil, errors.New("Failed to retrieve Provider Schema")
+	}
+	return providerSchema, nil
+}
+
+// ProviderConfigSchemaSourceByType returns a config.ConfigSchemaSource
+// for the environ provider, found for the given cloud type, or an error.
+func ProviderConfigSchemaSourceByType(cloudType string) (config.ConfigSchemaSource, error) {
+	provider, err := environs.Provider(cloudType)
+	if err != nil {
+		return nil, err
+	}
+	if cs, ok := provider.(config.ConfigSchemaSource); ok {
+		return cs, nil
+	}
+	return nil, errors.NotImplementedf("config.ConfigSource")
 }
