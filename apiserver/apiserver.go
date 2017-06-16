@@ -70,7 +70,6 @@ type Server struct {
 	clock                  clock.Clock
 	pingClock              clock.Clock
 	wg                     sync.WaitGroup
-	state                  *state.State
 	statePool              *state.StatePool
 	lis                    net.Listener
 	tag                    names.Tag
@@ -156,9 +155,6 @@ type ServerConfig struct {
 	// notified of key events during API requests.
 	NewObserver observer.ObserverFactory
 
-	// StatePool is created by the machine agent and passed in.
-	StatePool *state.StatePool
-
 	// RegisterIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
 	// is to support registering the handlers underneath the
@@ -188,9 +184,6 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
-	}
-	if c.StatePool == nil {
-		return errors.NotValidf("missing StatePool")
 	}
 	if err := c.RateLimitConfig.Validate(); err != nil {
 		return errors.Annotate(err, "validating rate limit configuration")
@@ -318,8 +311,12 @@ func DefaultLogSinkConfig() LogSinkConfig {
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 //
-// The Server will close the listener when it exits, even if returns an error.
-func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+// The Server will not close the StatePool; the caller is responsible
+// for closing it after the Server has been stopped.
+//
+// The Server will close the listener when it exits, even if returns
+// an error.
+func NewServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (*Server, error) {
 	if cfg.LogSinkConfig == nil {
 		logSinkConfig := DefaultLogSinkConfig()
 		cfg.LogSinkConfig = &logSinkConfig
@@ -333,7 +330,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	// server needs to run before mongo upgrades have happened and
 	// any state manipulation may be be relying on features of the
 	// database added by upgrades. Here be dragons.
-	srv, err := newServer(s, lis, cfg)
+	srv, err := newServer(stPool, lis, cfg)
 	if err != nil {
 		// There is no running server around to close the listener.
 		lis.Close()
@@ -342,12 +339,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	return srv, nil
 }
 
-func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, err error) {
-	stPool := cfg.StatePool
-	if stPool == nil {
-		stPool = state.NewStatePool(s)
-	}
-
+func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *Server, err error) {
 	limiter := utils.NewLimiterWithPause(
 		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
 		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
@@ -356,7 +348,6 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		pingClock:                     cfg.pingClock(),
 		lis:                           lis,
 		newObserver:                   cfg.NewObserver,
-		state:                         s,
 		statePool:                     stPool,
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
@@ -386,7 +377,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	srv.lis = newThrottlingListener(
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
-	srv.authCtxt, err = newAuthContext(s)
+	srv.authCtxt, err = newAuthContext(stPool.SystemState())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -444,7 +435,7 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 	}
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		Cache:      srv.state.AutocertCache(),
+		Cache:      srv.statePool.SystemState().AutocertCache(),
 		HostPolicy: autocert.HostWhitelist(cfg.AutocertDNSName),
 	}
 	if cfg.AutocertURL != "" {
@@ -533,13 +524,11 @@ func (srv *Server) run() {
 
 		// Break deadlocks caused by leadership BlockUntil... calls.
 		srv.statePool.KillWorkers()
-		srv.state.KillWorkers()
+		srv.statePool.SystemState().KillWorkers()
 
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.tomb.Done()
 		srv.dbloggers.dispose()
-		srv.statePool.Close()
-		srv.state.Close()
 		srv.logSinkWriter.Close()
 	}()
 
@@ -791,7 +780,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 
 	// Add HTTP handlers for local-user macaroon authentication.
-	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}
+	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.statePool.SystemState()}
 	dischargeMux := http.NewServeMux()
 	httpbakery.AddDischargeHandler(
 		dischargeMux,
@@ -936,7 +925,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 }
 
 func (srv *Server) mongoPinger() error {
-	session := srv.state.MongoSession().Copy()
+	session := srv.statePool.SystemState().MongoSession().Copy()
 	defer session.Close()
 	for {
 		if err := session.Ping(); err != nil {
@@ -1034,7 +1023,8 @@ func serverError(err error) error {
 }
 
 func (srv *Server) processModelRemovals() error {
-	w := srv.state.WatchModelLives()
+	st := srv.statePool.SystemState()
+	w := st.WatchModelLives()
 	defer w.Stop()
 	for {
 		select {
@@ -1042,7 +1032,7 @@ func (srv *Server) processModelRemovals() error {
 			return tomb.ErrDying
 		case modelUUIDs := <-w.Changes():
 			for _, modelUUID := range modelUUIDs {
-				model, err := srv.state.GetModel(names.NewModelTag(modelUUID))
+				model, err := st.GetModel(names.NewModelTag(modelUUID))
 				gone := errors.IsNotFound(err)
 				dead := err == nil && model.Life() == state.Dead
 				if err != nil && !gone {

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -213,30 +214,33 @@ func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
 	type dummyListener struct {
 		net.Listener
 	}
-	cfg := defaultServerConfig(c, s.State)
+	pool := state.NewStatePool(s.State)
+	defer pool.Close()
+
+	cfg := defaultServerConfig(c)
 	cfg.LogSinkConfig = &apiserver.LogSinkConfig{}
 
-	_, err := apiserver.NewServer(s.State, dummyListener{}, cfg)
+	_, err := apiserver.NewServer(pool, dummyListener{}, cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 0 <= 0 or > 1000 not valid")
 
 	cfg.LogSinkConfig.DBLoggerBufferSize = 1001
-	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 1001 <= 0 or > 1000 not valid")
 
 	cfg.LogSinkConfig.DBLoggerBufferSize = 1
-	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 0s <= 0 or > 10 seconds not valid")
 
 	cfg.LogSinkConfig.DBLoggerFlushInterval = 30 * time.Second
-	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 30s <= 0 or > 10 seconds not valid")
 
 	cfg.LogSinkConfig.DBLoggerFlushInterval = 10 * time.Second
-	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: RateLimitBurst 0 <= 0 not valid")
 
 	cfg.LogSinkConfig.RateLimitBurst = 1000
-	_, err = apiserver.NewServer(s.State, dummyListener{}, cfg)
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: RateLimitRefill 0s <= 0 not valid")
 }
 

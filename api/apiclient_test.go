@@ -524,7 +524,9 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, gc.IsNil)
 	machineTag := names.NewMachineTag("0")
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+	statePool := state.NewStatePool(s.State)
+	defer statePool.Close()
+	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		Cert:            jtesting.ServerCert,
 		Key:             jtesting.ServerKey,
@@ -532,7 +534,6 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 		Hub:             centralhub.New(machineTag),
 		DataDir:         c.MkDir(),
 		LogDir:          c.MkDir(),
-		StatePool:       state.NewStatePool(s.State),
 		AutocertDNSName: "somewhere.example.com",
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
