@@ -235,6 +235,8 @@ func AllFacades() *facade.Registry {
 	return registry
 }
 
+// adminAPIFactories holds methods used to create
+// admin APIs with specific versions.
 var adminAPIFactories = map[int]adminAPIFactory{
 	3: newAdminAPIV3,
 }

@@ -153,6 +153,35 @@ func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry
 	return r
 }
 
+func rpcRoot(srv *Server, root *apiHandler, authTag names.Tag) (rpc.Root, error) {
+	// apiRoot is the API root exposed to the client.
+	var apiRoot rpc.Root = newAPIRoot(
+		root.state,
+		srv.statePool,
+		srv.facades,
+		root.resources,
+		root,
+	)
+
+	// Use the login validation function, if one was specified.
+	if srv.validator != nil {
+		err := srv.validator(authTag)
+		switch err {
+		case params.UpgradeInProgressError:
+			apiRoot = restrictRoot(apiRoot, upgradeMethodsOnly)
+		case AboutToRestoreError:
+			apiRoot = restrictRoot(apiRoot, aboutToRestoreMethodsOnly)
+		case RestoreInProgressError:
+			apiRoot = restrictAll(apiRoot, restoreInProgressError)
+		case nil:
+			// in this case no need to wrap authed api so we do nothing
+		default:
+			return nil, errors.Trace(err)
+		}
+	}
+	return apiRoot, nil
+}
+
 // Kill implements rpc.Killer, stopping the root's resources.
 func (r *apiRoot) Kill() {
 	r.resources.StopAll()
@@ -302,23 +331,23 @@ func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
 }
 
-// AnonRoot dispatches API calls to those available to an anonymous connection
-// which has not logged in.
-type anonRoot struct {
+// adminRoot dispatches API calls to those available to an anonymous connection
+// which has not logged in, which here is the admin facade.
+type adminRoot struct {
 	*apiHandler
 	adminAPIs map[int]interface{}
 }
 
-// NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func newAnonRoot(h *apiHandler, adminAPIs map[int]interface{}) *anonRoot {
-	r := &anonRoot{
+// newAdminRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
+func newAdminRoot(h *apiHandler, adminAPIs map[int]interface{}) *adminRoot {
+	r := &adminRoot{
 		apiHandler: h,
 		adminAPIs:  adminAPIs,
 	}
 	return r
 }
 
-func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	if rootName != "Admin" {
 		return nil, &rpcreflect.CallNotImplementedError{
 			RootMethod: rootName,

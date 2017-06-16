@@ -15,6 +15,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
@@ -115,6 +116,11 @@ func (s *MacaroonSuite) APIInfo(c *gc.C) *api.Info {
 	info := s.JujuConnSuite.APIInfo(c)
 	info.Tag = nil
 	info.Password = ""
+	// Fill in any old macaroon to ensure we don't attempt
+	// an anonymous login.
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	info.Macaroons = []macaroon.Slice{{mac}}
 	return info
 }
 

@@ -25,6 +25,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
@@ -655,9 +656,14 @@ func newServerWithConfig(c *gc.C, st *state.State, cfg apiserver.ServerConfig) (
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	// Use any old macaroon to ensure we don't attempt
+	// an anonymous login.
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	return &api.Info{
-		Addrs:  []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},
-		CACert: coretesting.CACert,
+		Addrs:     []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},
+		CACert:    coretesting.CACert,
+		Macaroons: []macaroon.Slice{{mac}},
 	}, srv
 }
 

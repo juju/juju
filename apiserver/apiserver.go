@@ -117,7 +117,7 @@ type Server struct {
 // LoginValidator functions are used to decide whether login requests
 // are to be allowed. The validator is called before credentials are
 // checked.
-type LoginValidator func(params.LoginRequest) error
+type LoginValidator func(authUser names.Tag) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
@@ -836,11 +836,15 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
 	} else {
+		// Set up the admin apis used to accept logins and direct
+		// requests to the relevant business facade.
+		// There may be more than one since we need a new API each
+		// time login changes in a non-backwards compatible way.
 		adminAPIs := make(map[int]interface{})
 		for apiVersion, factory := range adminAPIFactories {
 			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
+		conn.ServeRoot(newAdminRoot(h, adminAPIs), serverError)
 	}
 	conn.Start()
 	select {

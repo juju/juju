@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	statepresence "github.com/juju/juju/state/presence"
@@ -39,6 +39,37 @@ type admin struct {
 	loggedIn bool
 }
 
+func newAdminAPIV3(srv *Server, root *apiHandler, apiObserver observer.Observer) interface{} {
+	return &admin{
+		srv:         srv,
+		root:        root,
+		apiObserver: apiObserver,
+	}
+}
+
+// Admin returns an object that provides API access to methods that can be
+// called even when not authenticated.
+func (r *admin) Admin(id string) (*admin, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return r, nil
+}
+
+// Login logs in with the provided credentials.  All subsequent requests on the
+// connection will act as the authenticated user.
+func (a *admin) Login(req params.LoginRequest) (params.LoginResult, error) {
+	return a.login(req, 3)
+}
+
+// RedirectInfo returns redirected host information for the model.
+// In Juju it always returns an error because the Juju controller
+// does not multiplex controllers.
+func (a *admin) RedirectInfo() (params.RedirectInfoResult, error) {
+	return params.RedirectInfoResult{}, fmt.Errorf("not redirected")
+}
+
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
@@ -55,131 +86,31 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errAlreadyLoggedIn
 	}
 
-	// apiRoot is the API root exposed to the client after authentication.
-	var apiRoot rpc.Root = newAPIRoot(
-		a.root.state,
-		a.srv.statePool,
-		a.srv.facades,
-		a.root.resources,
-		a.root,
-	)
-
-	// Use the login validation function, if one was specified.
-	if a.srv.validator != nil {
-		err := a.srv.validator(req)
-		switch err {
-		case params.UpgradeInProgressError:
-			apiRoot = restrictRoot(apiRoot, upgradeMethodsOnly)
-		case AboutToRestoreError:
-			apiRoot = restrictRoot(apiRoot, aboutToRestoreMethodsOnly)
-		case RestoreInProgressError:
-			apiRoot = restrictAll(apiRoot, restoreInProgressError)
-		case nil:
-			// in this case no need to wrap authed api so we do nothing
-		default:
-			return fail, errors.Trace(err)
-		}
-	}
-
-	isUser := true
-	kind := names.UserTagKind
+	var authTag names.Tag
 	if req.AuthTag != "" {
 		var err error
-		kind, err = names.TagKind(req.AuthTag)
-		if err != nil || kind != names.UserTagKind {
-			addCount := func(delta int64) {
-				atomic.AddInt64(&a.srv.loginAttempts, delta)
-			}
-			addCount(1)
-			defer addCount(-1)
-
-			isUser = false
-			// Users are not rate limited, all other entities are.
-			if !a.srv.limiter.Acquire() {
-				logger.Debugf("rate limiting for agent %s", req.AuthTag)
-				select {
-				case <-time.After(a.srv.loginRetryPause):
-				}
-				return fail, common.ErrTryAgain
-			}
-			defer a.srv.limiter.Release()
+		authTag, err = names.ParseTag(req.AuthTag)
+		if err != nil {
+			return fail, errors.Annotate(err, "could not parse auth tag")
 		}
 	}
-
-	controllerOnlyLogin := a.root.modelUUID == ""
-	controllerMachineLogin := false
-
-	entity, lastConnection, err := a.checkCreds(req, isUser)
+	// apiRoot is the API root exposed to the client after login.
+	apiRoot, err := rpcRoot(a.srv, a.root, authTag)
 	if err != nil {
-		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
-			loginResult := params.LoginResult{
-				DischargeRequired:       err.Macaroon,
-				DischargeRequiredReason: err.Error(),
-			}
-			logger.Infof("login failed with discharge-required error: %v", err)
-			return loginResult, nil
-		}
-		if a.maintenanceInProgress() {
-			// An upgrade, restore or similar operation is in
-			// progress. It is possible for logins to fail until this
-			// is complete due to incomplete or updating data. Mask
-			// transitory and potentially confusing errors from failed
-			// logins with a more helpful one.
-			return fail, MaintenanceNoLoginError
-		}
-		// Here we have a special case.  The machine agents that manage
-		// models in the controller model need to be able to
-		// open API connections to other models.  In those cases, we
-		// need to look in the controller database to check the creds
-		// against the machine if and only if the entity tag is a machine tag,
-		// and the machine exists in the controller model, and the
-		// machine has the manage state job.  If all those parts are valid, we
-		// can then check the credentials against the controller model
-		// machine.
-		if kind != names.MachineTagKind {
-			return fail, errors.Trace(err)
-		}
-		if errors.Cause(err) != common.ErrBadCreds {
-			return fail, err
-		}
-		entity, err = a.checkControllerMachineCreds(req)
-		if err != nil {
-			return fail, errors.Trace(err)
-		}
-		// If we are here, then the entity will refer to a controller
-		// machine in the controller model, and we don't need a pinger
-		// for it as we already have one running in the machine agent api
-		// worker for the controller model.
-		controllerMachineLogin = true
-	}
-	a.root.entity = entity
-	a.apiObserver.Login(entity.Tag(), a.root.state.ModelTag(), controllerMachineLogin, req.UserData)
-
-	// We have authenticated the user; enable the appropriate API
-	// to serve to them.
-	a.loggedIn = true
-
-	if !controllerMachineLogin {
-		if err := startPingerIfAgent(a.srv.pingClock, a.root, entity); err != nil {
-			return fail, errors.Trace(err)
-		}
+		return fail, errors.Trace(err)
 	}
 
-	var maybeUserInfo *params.AuthUserInfo
-	// Send back user info if user
-	if isUser {
-		userTag := entity.Tag().(names.UserTag)
-		maybeUserInfo, err = a.checkUserPermissions(userTag, controllerOnlyLogin)
-		if err != nil {
-			return fail, errors.Trace(err)
+	authResult, err := a.authenticate(req)
+	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
+		loginResult := params.LoginResult{
+			DischargeRequired:       err.Macaroon,
+			DischargeRequiredReason: err.Error(),
 		}
-		maybeUserInfo.LastConnection = lastConnection
-	} else {
-		if controllerOnlyLogin {
-			logger.Debugf("controller login: %s", entity.Tag())
-		} else {
-			logger.Debugf("model login: %s for %s", entity.Tag(), a.root.state.ModelTag().Id())
-		}
+		logger.Infof("login failed with discharge-required error: %v", err)
+		return loginResult, nil
+	}
+	if err != nil {
+		return fail, errors.Trace(err)
 	}
 
 	// Fetch the API server addresses from state.
@@ -193,7 +124,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errors.Trace(err)
 	}
 
-	if isUser {
+	if authResult.userLogin || authResult.anonymousLogin {
 		switch model.MigrationMode() {
 		case state.MigrationModeImporting:
 			// The user is not able to access a model that is currently being
@@ -209,23 +140,169 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	loginResult := params.LoginResult{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
 		ControllerTag: model.ControllerTag().String(),
-		UserInfo:      maybeUserInfo,
+		UserInfo:      authResult.userInfo,
 		ServerVersion: jujuversion.Current.String(),
 		PublicDNSName: a.srv.publicDNSName(),
 	}
 
-	if controllerOnlyLogin {
-		loginResult.Facades = filterFacades(a.srv.facades, IsControllerFacade)
+	var filters []facadeFilterFunc
+	if authResult.anonymousLogin {
+		filters = append(filters, IsAnonymousFacade)
+	}
+	if authResult.controllerOnlyLogin {
+		loginResult.Facades = filterFacades(a.srv.facades, append(filters, IsControllerFacade)...)
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
 	} else {
 		loginResult.ModelTag = model.Tag().String()
-		loginResult.Facades = filterFacades(a.srv.facades, IsModelFacade)
+		loginResult.Facades = filterFacades(a.srv.facades, append(filters, IsModelFacade)...)
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
 	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, serverError)
 
 	return loginResult, nil
+}
+
+type authResult struct {
+	anonymousLogin      bool
+	userLogin           bool
+	controllerOnlyLogin bool
+	userInfo            *params.AuthUserInfo
+}
+
+func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
+	result := &authResult{
+		anonymousLogin:      req.AuthTag == "" && len(req.Macaroons) == 0,
+		controllerOnlyLogin: a.root.modelUUID == "",
+	}
+	result.userLogin = !result.anonymousLogin
+
+	// Maybe rate limit non-user auth attempts.
+	machineAgent := false
+	if req.AuthTag != "" {
+		var err error
+		kind, err := names.TagKind(req.AuthTag)
+		if err != nil || kind != names.UserTagKind {
+			addCount := func(delta int64) {
+				atomic.AddInt64(&a.srv.loginAttempts, delta)
+			}
+			addCount(1)
+			defer addCount(-1)
+
+			result.userLogin = false
+			machineAgent = kind == names.MachineTagKind
+			// Users are not rate limited, all other entities are.
+			if !a.srv.limiter.Acquire() {
+				logger.Debugf("rate limiting for agent %s", req.AuthTag)
+				select {
+				case <-time.After(a.srv.loginRetryPause):
+				}
+				return nil, common.ErrTryAgain
+			}
+			defer a.srv.limiter.Release()
+		}
+	}
+
+	// Only attempt to login with credentials if we are not doing an anonymous login.
+	var (
+		lastConnection *time.Time
+		err            error
+	)
+	if !result.anonymousLogin {
+		a.root.entity, lastConnection, err = a.checkCreds(req, result.userLogin)
+	}
+
+	// If above login fails, we may still be a login to a controller
+	// machine in the controller model.
+	controllerMachineLogin, err := a.handleAuthError(req, machineAgent, err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	a.loggedIn = true
+
+	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
+	if a.root.entity != nil {
+		a.apiObserver.Login(a.root.entity.Tag(), a.root.state.ModelTag(), controllerMachineLogin, req.UserData)
+	}
+
+	// For controller machine logins, we don't need a pinger
+	// for it as we already have one running in the machine agent api
+	// worker for the controller model.
+	if !controllerMachineLogin {
+		if err := startPingerIfAgent(a.srv.pingClock, a.root, a.root.entity); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	if err := a.fillLoginDetails(result, lastConnection); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result, nil
+}
+
+func (a *admin) handleAuthError(req params.LoginRequest, machineAgent bool, err error) (controllerLogin bool, _ error) {
+	if err == nil {
+		return false, nil
+	}
+	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
+		return false, err
+	}
+	if a.maintenanceInProgress() {
+		// An upgrade, restore or similar operation is in
+		// progress. It is possible for logins to fail until this
+		// is complete due to incomplete or updating data. Mask
+		// transitory and potentially confusing errors from failed
+		// logins with a more helpful one.
+		return false, MaintenanceNoLoginError
+	}
+	// Here we have a special case.  The machine agents that manage
+	// models in the controller model need to be able to
+	// open API connections to other models.  In those cases, we
+	// need to look in the controller database to check the creds
+	// against the machine if and only if the entity tag is a machine tag,
+	// and the machine exists in the controller model, and the
+	// machine has the manage state job.  If all those parts are valid, we
+	// can then check the credentials against the controller model
+	// machine.
+	if !machineAgent {
+		return false, errors.Trace(err)
+	}
+	if errors.Cause(err) != common.ErrBadCreds {
+		return false, err
+	}
+	// If we are here, we may be logging into a controller machine
+	// in the controller model.
+	a.root.entity, err = a.checkControllerMachineCreds(req)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
+}
+
+func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) error {
+	// Send back user info if user
+	if result.userLogin {
+		userTag := a.root.entity.Tag().(names.UserTag)
+		var err error
+		result.userInfo, err = a.checkUserPermissions(userTag, result.controllerOnlyLogin)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		result.userInfo.LastConnection = lastConnection
+	}
+	if result.controllerOnlyLogin {
+		if result.anonymousLogin {
+			logger.Debugf(" anonymous controller login")
+		} else {
+			logger.Debugf("controller login: %s", a.root.entity.Tag())
+		}
+	} else {
+		if result.anonymousLogin {
+			logger.Debugf("anonymous model login")
+		} else {
+			logger.Debugf("model login: %s for %s", a.root.entity.Tag(), a.root.state.ModelTag().Id())
+		}
+	}
+	return nil
 }
 
 func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin bool) (*params.AuthUserInfo, error) {
@@ -297,12 +374,20 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 	}, nil
 }
 
-func filterFacades(registry *facade.Registry, allowFacade func(name string) bool) []params.FacadeVersions {
+type facadeFilterFunc func(name string) bool
+
+func filterFacades(registry *facade.Registry, allowFacadeAllMustMatch ...facadeFilterFunc) []params.FacadeVersions {
 	allFacades := DescribeFacades(registry)
 	out := make([]params.FacadeVersions, 0, len(allFacades))
-	for _, facade := range allFacades {
-		if allowFacade(facade.Name) {
-			out = append(out, facade)
+	for _, f := range allFacades {
+		allowed := false
+		for _, allowFacade := range allowFacadeAllMustMatch {
+			if allowed = allowFacade(f.Name); !allowed {
+				break
+			}
+		}
+		if allowed {
+			out = append(out, f)
 		}
 	}
 	return out
@@ -333,10 +418,7 @@ func (a *admin) maintenanceInProgress() bool {
 	//
 	// TODO(mjs): 2014-09-29 bug 1375110
 	// This needs improving but I don't have the cycles right now.
-	req := params.LoginRequest{
-		AuthTag: names.NewUserTag("arbitrary").String(),
-	}
-	return a.srv.validator(req) != nil
+	return a.srv.validator(names.NewUserTag("arbitrary")) != nil
 }
 
 var doCheckCreds = checkCreds
