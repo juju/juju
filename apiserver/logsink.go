@@ -23,15 +23,8 @@ import (
 )
 
 const (
-	// dbLoggerBufferSize is the capacity of the log buffer.
-	// When the buffer fills up, it will be flushed to the
-	// database.
-	dbLoggerBufferSize = 1024
-
-	// dbLoggerFlushInterval is the amount of time to allow
-	// a log record to sit in the buffer before being flushed
-	// to the database.
-	dbLoggerFlushInterval = 2 * time.Second
+	defaultDBLoggerBufferSize    = 1000
+	defaultDBLoggerFlushInterval = 2 * time.Second
 )
 
 type agentLoggingStrategy struct {
@@ -54,9 +47,11 @@ type recordLogger interface {
 // When the State corresponding to the DB logger is removed from the
 // state pool, the strategies must call the dbloggers.remove method.
 type dbloggers struct {
-	clock   clock.Clock
-	mu      sync.Mutex
-	loggers map[*state.State]*bufferedDbLogger
+	clock                 clock.Clock
+	dbLoggerBufferSize    int
+	dbLoggerFlushInterval time.Duration
+	mu                    sync.Mutex
+	loggers               map[*state.State]*bufferedDbLogger
 }
 
 func (d *dbloggers) get(st *state.State) recordLogger {
@@ -71,8 +66,8 @@ func (d *dbloggers) get(st *state.State) recordLogger {
 	dbl := state.NewDbLogger(st)
 	l := &bufferedDbLogger{dbl, logdb.NewBufferedLogger(
 		dbl,
-		dbLoggerBufferSize,
-		dbLoggerFlushInterval,
+		d.dbLoggerBufferSize,
+		d.dbLoggerFlushInterval,
 		d.clock,
 	)}
 	d.loggers[st] = l

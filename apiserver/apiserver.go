@@ -166,6 +166,11 @@ type ServerConfig struct {
 	// aspects of rate limiting connections and logins.
 	RateLimitConfig RateLimitConfig
 
+	// LogSinkConfig holds parameters to control the API server's
+	// logsink endpoint behaviour. If this is nil, the values from
+	// DefaultLogSinkConfig() will be used.
+	LogSinkConfig *LogSinkConfig
+
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
 }
@@ -183,8 +188,15 @@ func (c *ServerConfig) Validate() error {
 	if c.StatePool == nil {
 		return errors.NotValidf("missing StatePool")
 	}
-
-	return errors.Annotate(c.RateLimitConfig.Validate(), "validating rate limit configuration")
+	if err := c.RateLimitConfig.Validate(); err != nil {
+		return errors.Annotate(err, "validating rate limit configuration")
+	}
+	if c.LogSinkConfig != nil {
+		if err := c.LogSinkConfig.Validate(); err != nil {
+			return errors.Annotate(err, "validating logsink configuration")
+		}
+	}
+	return nil
 }
 
 func (c *ServerConfig) pingClock() clock.Clock {
@@ -194,7 +206,7 @@ func (c *ServerConfig) pingClock() clock.Clock {
 	return c.PingClock
 }
 
-// RateLimitConfig holds holds parameters to control
+// RateLimitConfig holds parameters to control
 // aspects of rate limiting connections and logins.
 type RateLimitConfig struct {
 	LoginRateLimit     int
@@ -252,12 +264,46 @@ func (c RateLimitConfig) Validate() error {
 	return nil
 }
 
+// LogSinkConfig holds parameters to control the API server's
+// logsink endpoint behaviour.
+type LogSinkConfig struct {
+	// DBLoggerBufferSize is the capacity of the database logger's buffer.
+	DBLoggerBufferSize int
+
+	// DBLoggerFlushInterval is the amount of time to allow a log record
+	// to sit in the buffer before being flushed to the database.
+	DBLoggerFlushInterval time.Duration
+}
+
+// Validate validates the logsink endpoint configuration.
+func (cfg LogSinkConfig) Validate() error {
+	if cfg.DBLoggerBufferSize <= 0 || cfg.DBLoggerBufferSize > 1000 {
+		return errors.NotValidf("DBLoggerBufferSize %d <= 0 or > 1000", cfg.DBLoggerBufferSize)
+	}
+	if cfg.DBLoggerFlushInterval <= 0 || cfg.DBLoggerFlushInterval > 10*time.Second {
+		return errors.NotValidf("DBLoggerFlushInterval %s <= 0 or > 10 seconds", cfg.DBLoggerFlushInterval)
+	}
+	return nil
+}
+
+// DefaultLogSinkConfig returns a LogSinkConfig with default values.
+func DefaultLogSinkConfig() LogSinkConfig {
+	return LogSinkConfig{
+		DBLoggerBufferSize:    defaultDBLoggerBufferSize,
+		DBLoggerFlushInterval: defaultDBLoggerFlushInterval,
+	}
+}
+
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 //
 // The Server will close the listener when it exits, even if returns an error.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	if cfg.LogSinkConfig == nil {
+		logSinkConfig := DefaultLogSinkConfig()
+		cfg.LogSinkConfig = &logSinkConfig
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -304,7 +350,11 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
-		dbloggers:                     dbloggers{clock: cfg.Clock},
+		dbloggers: dbloggers{
+			clock:                 cfg.Clock,
+			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
+			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
+		},
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)

@@ -1276,6 +1276,10 @@ func (a *MachineAgent) newAPIserverWorker(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting rate limit config")
 	}
+	logSinkConfig, err := getLogSinkConfig(agentConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting log sink config")
+	}
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
@@ -1293,6 +1297,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		StatePool:                     statePool,
 		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
 		RateLimitConfig:               rateLimitConfig,
+		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          a.prometheusRegistry,
 	})
 	if err != nil {
@@ -1384,6 +1389,27 @@ func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
 			)
 		}
 		result.ConnUpperThreshold = val
+	}
+	return result, nil
+}
+
+func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
+	result := apiserver.DefaultLogSinkConfig()
+	var err error
+	if v := cfg.Value(agent.LogSinkDBLoggerBufferSize); v != "" {
+		result.DBLoggerBufferSize, err = strconv.Atoi(v)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerBufferSize,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkDBLoggerFlushInterval); v != "" {
+		if result.DBLoggerFlushInterval, err = time.ParseDuration(v); err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerFlushInterval,
+			)
+		}
 	}
 	return result, nil
 }
