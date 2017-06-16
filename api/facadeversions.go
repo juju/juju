@@ -29,6 +29,7 @@ var facadeVersions = map[string]int{
 	"Client":                       1,
 	"Cloud":                        1,
 	"Controller":                   3,
+	"CrossModelRelations":          1,
 	"Deployer":                     1,
 	"DiskManager":                  2,
 	"EntityWatcher":                2,

@@ -11,11 +11,17 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/remoterelations"
 )
 
 func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {
 	facade := remoterelations.NewClient(apiCaller)
+	return facade, nil
+}
+
+func NewCrossModelRelationsFacade(apiCaller base.APICaller) (RemoteRelationChangePublisher, error) {
+	facade := crossmodelrelations.NewClient(apiCaller)
 	return facade, nil
 }
 
@@ -31,8 +37,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 // can be used be construct instances which publish remote relation
 // changes for a given model.
 
-// For now we use a facade on the same controller, but in future this
-// may evolve into a REST caller.
+// For now we use a facade, but in future this may evolve into a REST caller.
 func relationChangePublisherForModelFunc(
 	apiConnForModelFunc func(string) (api.Connection, error),
 ) func(string) (RemoteRelationChangePublisherCloser, error) {
@@ -41,7 +46,7 @@ func relationChangePublisherForModelFunc(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		facade, err := NewRemoteRelationsFacade(conn)
+		facade, err := NewCrossModelRelationsFacade(conn)
 		if err != nil {
 			conn.Close()
 			return nil, errors.Trace(err)
