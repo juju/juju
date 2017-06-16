@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
@@ -47,10 +48,13 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 	s.assertAddedRelation(c, "applicationname", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 2, "Consume",
-		params.ApplicationOffer{
-			OfferName: "hosted-mysql",
-		}, "applicationname2", s.mac,
-	)
+		crossmodel.ConsumeApplicationArgs{
+			ApplicationOffer: params.ApplicationOffer{
+				OfferName: "hosted-mysql",
+			},
+			ApplicationAlias: "applicationname2",
+			Macaroon:         s.mac,
+		})
 	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname", "applicationname2"})
 }
 
@@ -58,10 +62,13 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 	s.assertAddedRelation(c, "othermodel.applicationname2", "applicationname")
 	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 2, "Consume",
-		params.ApplicationOffer{
-			OfferName: "hosted-mysql",
-		}, "applicationname2", s.mac,
-	)
+		crossmodel.ConsumeApplicationArgs{
+			ApplicationOffer: params.ApplicationOffer{
+				OfferName: "hosted-mysql",
+			},
+			ApplicationAlias: "applicationname2",
+			Macaroon:         s.mac,
+		})
 	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname2", "applicationname"})
 }
 
@@ -204,9 +211,9 @@ func (m *mockAddRelationAPI) BestAPIVersion() int {
 	return m.version
 }
 
-func (m *mockAddRelationAPI) Consume(offer params.ApplicationOffer, alias string, mac *macaroon.Macaroon) (string, error) {
-	m.AddCall("Consume", offer, alias, mac)
-	return alias, nil
+func (m *mockAddRelationAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
+	m.AddCall("Consume", arg)
+	return arg.ApplicationAlias, nil
 }
 
 func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {

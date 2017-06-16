@@ -10,30 +10,21 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
-
-type mockStatePool struct {
-	st *mockState
-}
-
-func (st *mockStatePool) Get(modelUUID string) (remoterelations.RemoteRelationsState, func(), error) {
-	return st.st, func() {}, nil
-}
 
 type mockState struct {
 	testing.Stub
 	relations                    map[string]*mockRelation
 	remoteApplications           map[string]*mockRemoteApplication
 	applications                 map[string]*mockApplication
-	offers                       []crossmodel.ApplicationOffer
 	remoteApplicationsWatcher    *mockStringsWatcher
 	remoteRelationsWatcher       *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
@@ -52,10 +43,6 @@ func newMockState() *mockState {
 	}
 }
 
-func (st *mockState) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
-	return st.offers, nil
-}
-
 func (st *mockState) ModelUUID() string {
 	return coretesting.ModelTag.Id()
 }
@@ -72,12 +59,6 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (remoterelations.R
 		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
 	st.relations[rel.key] = rel
 	return rel, nil
-}
-
-func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (remoterelations.RemoteApplication, error) {
-	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, consumerproxy: params.IsConsumerProxy}
-	st.remoteApplications[params.Name] = app
-	return app, nil
 }
 
 func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error {
@@ -240,23 +221,6 @@ func (r *mockRelation) Life() state.Life {
 	return r.life
 }
 
-func (r *mockRelation) Destroy() error {
-	r.MethodCall(r, "Destroy")
-	return r.NextErr()
-}
-
-func (r *mockRelation) RemoteUnit(unitId string) (remoterelations.RelationUnit, error) {
-	r.MethodCall(r, "RemoteUnit", unitId)
-	if err := r.NextErr(); err != nil {
-		return nil, err
-	}
-	u, ok := r.units[unitId]
-	if !ok {
-		return nil, errors.NotFoundf("unit %q", unitId)
-	}
-	return u, nil
-}
-
 func (r *mockRelation) Unit(unitId string) (remoterelations.RelationUnit, error) {
 	r.MethodCall(r, "Unit", unitId)
 	if err := r.NextErr(); err != nil {
@@ -343,16 +307,15 @@ func (r *mockRemoteApplication) SourceModel() names.ModelTag {
 	return names.NewModelTag("model-uuid")
 }
 
-func (r *mockRemoteApplication) Destroy() error {
-	r.MethodCall(r, "Destroy")
-	return r.NextErr()
+func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
+	r.MethodCall(r, "Macaroon")
+	return macaroon.New(nil, "test", "")
 }
 
 type mockApplication struct {
 	testing.Stub
 	name string
 	life state.Life
-	eps  []state.Endpoint
 }
 
 func newMockApplication(name string) *mockApplication {
@@ -369,11 +332,6 @@ func (a *mockApplication) Name() string {
 func (a *mockApplication) Tag() names.Tag {
 	a.MethodCall(a, "Tag")
 	return names.NewApplicationTag(a.name)
-}
-
-func (a *mockApplication) Endpoints() ([]state.Endpoint, error) {
-	a.MethodCall(a, "Endpoints")
-	return a.eps, nil
 }
 
 func (a *mockApplication) Life() state.Life {
@@ -454,43 +412,4 @@ func newMockRelationUnit() *mockRelationUnit {
 func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
 	u.MethodCall(u, "Settings")
 	return u.settings, u.NextErr()
-}
-
-func (u *mockRelationUnit) InScope() (bool, error) {
-	u.MethodCall(u, "InScope")
-	return u.inScope, u.NextErr()
-}
-
-func (u *mockRelationUnit) LeaveScope() error {
-	u.MethodCall(u, "LeaveScope")
-	if err := u.NextErr(); err != nil {
-		return err
-	}
-	u.inScope = false
-	return nil
-}
-
-func (u *mockRelationUnit) EnterScope(settings map[string]interface{}) error {
-	u.MethodCall(u, "EnterScope", settings)
-	if err := u.NextErr(); err != nil {
-		return err
-	}
-	u.inScope = true
-	u.settings = make(map[string]interface{})
-	for k, v := range settings {
-		u.settings[k] = v
-	}
-	return nil
-}
-
-func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) error {
-	u.MethodCall(u, "ReplaceSettings", settings)
-	if err := u.NextErr(); err != nil {
-		return err
-	}
-	u.settings = make(map[string]interface{})
-	for k, v := range settings {
-		u.settings[k] = v
-	}
-	return nil
 }

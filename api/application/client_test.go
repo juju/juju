@@ -16,8 +16,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type applicationSuite struct {
@@ -380,6 +382,12 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 	}
 	mac, err := macaroon.New(nil, "id", "loc")
 	c.Assert(err, jc.ErrorIsNil)
+	controllerInfo := &params.ExternalControllerInfo{
+		ControllerTag: coretesting.ControllerTag.String(),
+		Addrs:         []string{"192.168.1.0"},
+		CACert:        coretesting.CACert,
+	}
+
 	var called bool
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -396,6 +404,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 					ApplicationAlias: "alias",
 					ApplicationOffer: offer,
 					Macaroon:         mac,
+					ControllerInfo:   controllerInfo,
 				},
 			})
 			if results, ok := result.(*params.ErrorResults); ok {
@@ -405,7 +414,16 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 			return nil
 		})
 	client := application.NewClient(apiCaller)
-	name, err := client.Consume(offer, "alias", mac)
+	name, err := client.Consume(crossmodel.ConsumeApplicationArgs{
+		ApplicationOffer: offer,
+		ApplicationAlias: "alias",
+		Macaroon:         mac,
+		ControllerInfo: &crossmodel.ControllerInfo{
+			ControllerTag: coretesting.ControllerTag,
+			Addrs:         controllerInfo.Addrs,
+			CACert:        controllerInfo.CACert,
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "alias")
 	c.Assert(called, jc.IsTrue)

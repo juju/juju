@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -33,6 +34,8 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
+	SaveController(crossmodel.ControllerInfo) (ExternalController, error)
+	ControllerTag() names.ControllerTag
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -118,6 +121,13 @@ type Model interface {
 
 type stateShim struct {
 	*state.State
+}
+
+type ExternalController state.ExternalController
+
+func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo) (ExternalController, error) {
+	api := state.NewExternalControllers(s.State)
+	return api.Save(controllerInfo)
 }
 
 // NewStateBackend converts a state.State into a Backend.

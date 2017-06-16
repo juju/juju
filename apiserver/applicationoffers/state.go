@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -40,13 +41,13 @@ func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 
 // Backend provides selected methods off the state.State struct.
 type Backend interface {
+	common.AddressAndCertGetter
 	ControllerTag() names.ControllerTag
 	Charm(*charm.URL) (Charm, error)
 	Application(name string) (Application, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	AllModels() ([]Model, error)
-	ModelUUID() string
 	ModelTag() names.ModelTag
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 	Space(string) (Space, error)

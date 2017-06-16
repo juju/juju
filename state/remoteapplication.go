@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -42,6 +44,7 @@ type remoteApplicationDoc struct {
 	Life            Life                `bson:"life"`
 	RelationCount   int                 `bson:"relationcount"`
 	IsConsumerProxy bool                `bson:"is-consumer-proxy"`
+	Macaroon        string              `bson:"macaroon,omitempty"`
 }
 
 // remoteEndpointDoc represents the internal state of a remote application endpoint in MongoDB.
@@ -507,6 +510,18 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 	return s.Refresh()
 }
 
+func (s *RemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
+	if s.doc.Macaroon == "" {
+		return nil, nil
+	}
+	var mac macaroon.Macaroon
+	err := json.Unmarshal([]byte(s.doc.Macaroon), &mac)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &mac, nil
+}
+
 // String returns the application name.
 func (s *RemoteApplication) String() string {
 	return s.doc.Name
@@ -568,6 +583,9 @@ type AddRemoteApplicationParams struct {
 	// IsConsumerProxy is true when a remote application is created as a result
 	// of a registration operation from a remote model.
 	IsConsumerProxy bool
+
+	// Macaroon is used for authentication on the offering side.
+	Macaroon *macaroon.Macaroon
 }
 
 // Validate returns an error if there's a problem with the
@@ -614,6 +632,14 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
+	var macJSON string
+	if args.Macaroon != nil {
+		b, err := json.Marshal(args.Macaroon)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		macJSON = string(b)
+	}
 	applicationID := st.docID(args.Name)
 	// Create the application addition operations.
 	appDoc := &remoteApplicationDoc{
@@ -625,6 +651,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		Bindings:        args.Bindings,
 		Life:            Alive,
 		IsConsumerProxy: args.IsConsumerProxy,
+		Macaroon:        macJSON,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {

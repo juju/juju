@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
@@ -138,8 +137,23 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer targetClient.Close()
 
-	//
-	localName, err := targetClient.Consume(*consumeDetails.Offer, c.applicationAlias, consumeDetails.Macaroon)
+	arg := crossmodel.ConsumeApplicationArgs{
+		ApplicationOffer: *consumeDetails.Offer,
+		ApplicationAlias: c.applicationAlias,
+		Macaroon:         consumeDetails.Macaroon,
+	}
+	if consumeDetails.ControllerInfo != nil {
+		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		arg.ControllerInfo = &crossmodel.ControllerInfo{
+			ControllerTag: controllerTag,
+			Addrs:         consumeDetails.ControllerInfo.Addrs,
+			CACert:        consumeDetails.ControllerInfo.CACert,
+		}
+	}
+	localName, err := targetClient.Consume(arg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -149,7 +163,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 
 type applicationConsumeAPI interface {
 	Close() error
-	Consume(params.ApplicationOffer, string, *macaroon.Macaroon) (string, error)
+	Consume(crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
 type applicationConsumeDetailsAPI interface {

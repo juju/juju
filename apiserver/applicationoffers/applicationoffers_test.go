@@ -976,6 +976,11 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 		},
 		Access: "consume",
 	})
+	c.Assert(results.Results[0].ControllerInfo, jc.DeepEquals, &params.ExternalControllerInfo{
+		ControllerTag: testing.ControllerTag.String(),
+		Addrs:         []string{"192.168.1.1:17070"},
+		CACert:        testing.CACert,
+	})
 	// TODO(wallyworld)
 	c.Assert(results.Results[0].Macaroon, gc.IsNil)
 }

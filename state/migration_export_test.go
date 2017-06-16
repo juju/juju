@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
+	"gopkg.in/macaroon.v1"
 )
 
 // Constraints stores megabytes by default for memory and root disk.
@@ -1329,6 +1330,8 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 			"db-admin": "private",
 			"logging":  "public",
 		},
+		// Macaroon not exported.
+		Macaroon: &macaroon.Macaroon{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

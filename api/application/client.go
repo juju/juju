@@ -12,12 +12,12 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -454,14 +454,21 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 }
 
 // Consume adds a remote application to the model.
-func (c *Client) Consume(offer params.ApplicationOffer, alias string, macaroon *macaroon.Macaroon) (string, error) {
+func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
 	var consumeRes params.ErrorResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationAlias: alias,
-			ApplicationOffer: offer,
-			Macaroon:         macaroon,
+			ApplicationOffer: arg.ApplicationOffer,
+			ApplicationAlias: arg.ApplicationAlias,
+			Macaroon:         arg.Macaroon,
 		}},
+	}
+	if arg.ControllerInfo != nil {
+		args.Args[0].ControllerInfo = &params.ExternalControllerInfo{
+			ControllerTag: arg.ControllerInfo.ControllerTag.String(),
+			Addrs:         arg.ControllerInfo.Addrs,
+			CACert:        arg.ControllerInfo.CACert,
+		}
 	}
 	err := c.facade.FacadeCall("Consume", args, &consumeRes)
 	if err != nil {
@@ -473,9 +480,9 @@ func (c *Client) Consume(offer params.ApplicationOffer, alias string, macaroon *
 	if err := consumeRes.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	localName := offer.OfferName
-	if alias != "" {
-		localName = alias
+	localName := arg.ApplicationOffer.OfferName
+	if arg.ApplicationAlias != "" {
+		localName = arg.ApplicationAlias
 	}
 	return localName, nil
 }

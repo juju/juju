@@ -132,6 +132,10 @@ type ConsumeApplicationArg struct {
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
+	// ControllerInfo contains connection details to the controller
+	// hosting the offer.
+	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
+
 	// ApplicationAlias is the name of the alias to use for the application name.
 	ApplicationAlias string `json:"application-alias,omitempty"`
 }
@@ -205,6 +209,9 @@ type RemoteApplication struct {
 	// IsConsumerProxy returns the application is created
 	// from a registration operation by a consuming model.
 	Registered bool `json:"registered"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
 // GetTokenArgs holds the arguments to a GetTokens API call.
@@ -313,6 +320,9 @@ type RemoteRelationChangeEvent struct {
 	// DepartedUnits contains the ids of units that have departed
 	// the relation since the last change.
 	DepartedUnits []int `json:"departed-units,omitempty"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
 // RegisterRemoteRelation holds attributes used to register a remote relation.
@@ -335,6 +345,9 @@ type RegisterRemoteRelation struct {
 
 	// LocalEndpointName is the name of the endpoint in the local model.
 	LocalEndpointName string `json:"local-endpoint-name"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
 // RegisterRemoteRelations holds args used to add remote relations.
@@ -372,8 +385,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer    *ApplicationOffer  `json:"offer,omitempty"`
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	Offer          *ApplicationOffer       `json:"offer,omitempty"`
+	Macaroon       *macaroon.Macaroon      `json:"macaroon,omitempty"`
+	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
 }
 
 // ConsumeOfferDetailsResult contains the details necessary to
@@ -425,3 +439,11 @@ const (
 	OfferConsumeAccess OfferAccessPermission = "consume"
 	OfferReadAccess    OfferAccessPermission = "read"
 )
+
+// ExternalControllerInfo holds addressed and other information
+// needed to make a connection to an external controller.
+type ExternalControllerInfo struct {
+	ControllerTag string   `json:"controller-tag"`
+	Addrs         []string `json:"addrs"`
+	CACert        string   `json:"ca-cert"`
+}

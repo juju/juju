@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -91,7 +92,8 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 		"db-admin": "private",
 		"logging":  "public",
 	}
-	var err error
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
 		URL:         "me/model.mysql",
@@ -100,6 +102,7 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 		Endpoints:   eps,
 		Spaces:      spaces,
 		Bindings:    bindings,
+		Macaroon:    mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -308,6 +311,14 @@ func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 	eps, err := s.application.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{serverEP, adminEp, loggingEp})
+}
+
+func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	appMac, err := s.application.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appMac, gc.DeepEquals, mac)
 }
 
 func (s *remoteApplicationSuite) TestApplicationRefresh(c *gc.C) {

@@ -5,6 +5,9 @@ package crossmodel
 
 import (
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // ApplicationOffer holds the details of an application offered
@@ -25,7 +28,7 @@ type ApplicationOffer struct {
 	Endpoints map[string]charm.Relation
 }
 
-// AddApplicationOfferArgs contain parameters used to create an application offer.
+// AddApplicationOfferArgs contains parameters used to create an application offer.
 type AddApplicationOfferArgs struct {
 	// OfferName is the name of the offer.
 	OfferName string
@@ -50,6 +53,22 @@ type AddApplicationOfferArgs struct {
 	// Icon is an icon to display when browsing the ApplicationOffers, which by default
 	// comes from the charm.
 	Icon []byte
+}
+
+// ConsumeApplicationArgs contains parameters used to consume an offer.
+type ConsumeApplicationArgs struct {
+	// The offer to be consumed.
+	ApplicationOffer params.ApplicationOffer
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon
+
+	// ControllerInfo contains connection details to the controller
+	// hosting the offer.
+	ControllerInfo *ControllerInfo
+
+	// ApplicationAlias is the name of the alias to use for the application name.
+	ApplicationAlias string
 }
 
 // String returns the offered application name.
