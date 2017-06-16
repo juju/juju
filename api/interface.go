@@ -124,12 +124,13 @@ type DialOpts struct {
 	// before starting to dial another address.
 	DialAddressInterval time.Duration
 
-	// Timeout is the amount of time to wait contacting
-	// a controller.
+	// Timeout is the amount of time to wait for
+	// the api.Open to succeed. If this is zero, there is no timeout.
 	Timeout time.Duration
 
 	// RetryDelay is the amount of time to wait between
-	// unsuccessful connection attempts.
+	// unsuccessful connection attempts. If this is
+	// zero, only one attempt will be made.
 	RetryDelay time.Duration
 
 	// BakeryClient is the httpbakery Client, which

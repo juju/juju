@@ -162,11 +162,6 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
-	dialOpts := api.DialOpts{
-		DialAddressInterval: 20 * time.Millisecond,
-		Timeout:             50 * time.Millisecond,
-		RetryDelay:          50 * time.Millisecond,
-	}
 	info := &api.Info{
 		Addrs:    []string{s.address},
 		CACert:   coretesting.CACert,
@@ -175,7 +170,7 @@ func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 		Password: s.password,
 		Nonce:    s.nonce,
 	}
-	conn, err := api.Open(info, dialOpts)
+	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 
