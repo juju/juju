@@ -36,6 +36,7 @@ import (
 type controllerSuite struct {
 	statetesting.StateSuite
 
+	statePool  *state.StatePool
 	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -50,6 +51,13 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.StateSuite.SetUpTest(c)
+
+	s.statePool = state.NewStatePool(s.State)
+	s.AddCleanup(func(c *gc.C) {
+		err := s.statePool.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -61,6 +69,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	controller, err := controller.NewControllerAPI(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.statePool,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
 		})
