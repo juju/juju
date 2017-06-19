@@ -1330,11 +1330,11 @@ func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 }
 
 func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(m *Model, all *multiwatcherStore) error {
-	st, err := b.st.ForModel(m.ModelTag())
+	st, releaser, err := b.stPool.Get(m.UUID())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer st.Close()
+	defer releaser()
 
 	err = loadAllWatcherEntities(st, b.collectionByName, all)
 	if err != nil {
