@@ -130,6 +130,13 @@ func TestingMigratingRoot() rpc.Root {
 	return restrictRoot(r, migrationClientMethodsOnly)
 }
 
+// TestingAnonymousRoot returns a restricted srvRoot as if
+// logged in anonymously.
+func TestingAnonymousRoot() rpc.Root {
+	r := TestingAPIRoot(AllFacades())
+	return restrictRoot(r, anonymousFacadesOnly)
+}
+
 // TestingControllerOnlyRoot returns a restricted srvRoot as if
 // logged in to the root of the API path.
 func TestingControllerOnlyRoot() rpc.Root {

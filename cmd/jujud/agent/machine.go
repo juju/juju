@@ -1465,17 +1465,17 @@ func newObserverFn(
 
 // limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrades or restore are running.
-func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
-	if err := a.limitLoginsDuringRestore(req); err != nil {
+func (a *MachineAgent) limitLogins(authTag names.Tag) error {
+	if err := a.limitLoginsDuringRestore(authTag); err != nil {
 		return err
 	}
-	if err := a.limitLoginsDuringUpgrade(req); err != nil {
+	if err := a.limitLoginsDuringUpgrade(authTag); err != nil {
 		return err
 	}
-	return a.limitLoginsDuringMongoUpgrade(req)
+	return a.limitLoginsDuringMongoUpgrade()
 }
 
-func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) error {
+func (a *MachineAgent) limitLoginsDuringMongoUpgrade() error {
 	// If upgrade is running we will not be able to lock AgentConfigWriter
 	// and it also means we are not upgrading mongo.
 	if a.isUpgradeRunning() {
@@ -1491,7 +1491,7 @@ func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) er
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes
 // while the different steps of restore are running.
-func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
+func (a *MachineAgent) limitLoginsDuringRestore(authTag names.Tag) error {
 	var err error
 	switch {
 	case a.IsRestoreRunning():
@@ -1500,9 +1500,9 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 		err = apiserver.AboutToRestoreError
 	}
 	if err != nil {
-		authTag, parseErr := names.ParseTag(req.AuthTag)
-		if parseErr != nil {
-			return errors.Annotate(err, "could not parse auth tag")
+		// If anonymous login, disallow.
+		if authTag == nil {
+			return errors.Errorf("anonymous login blocked because restore is in progress")
 		}
 		switch authTag := authTag.(type) {
 		case names.UserTag:
@@ -1522,11 +1522,11 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // limitLoginsDuringUpgrade is called by the API server for each login
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
-func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
+func (a *MachineAgent) limitLoginsDuringUpgrade(authTag names.Tag) error {
 	if a.isUpgradeRunning() || a.isInitialUpgradeCheckPending() {
-		authTag, err := names.ParseTag(req.AuthTag)
-		if err != nil {
-			return errors.Annotate(err, "could not parse auth tag")
+		// If anonymous login, disallow.
+		if authTag == nil {
+			return errors.Errorf("anonymous login blocked because %s", params.CodeUpgradeInProgress)
 		}
 		switch authTag := authTag.(type) {
 		case names.UserTag:
@@ -1543,8 +1543,6 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 		return nil // allow all logins
 	}
 }
-
-var stateWorkerServingConfigErr = errors.New("state worker started with no state serving info")
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.

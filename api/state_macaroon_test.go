@@ -23,16 +23,21 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
-	client api.Connection
+	client   api.Connection
+	macSlice []macaroon.Slice
 }
 
 const testUserName = "testuser@somewhere"
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.macSlice = []macaroon.Slice{{mac}}
 	s.AddModelUser(c, testUserName)
 	s.AddControllerUser(c, testUserName, permission.LoginAccess)
 	info := s.APIInfo(c)
+	info.Macaroons = nil
 	info.SkipLogin = true
 	s.client = s.OpenAPI(c, info, nil)
 }
@@ -44,12 +49,12 @@ func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
 
 func (s *macaroonLoginSuite) TestSuccessfulLogin(c *gc.C) {
 	s.DischargerLogin = func() string { return testUserName }
-	err := s.client.Login(nil, "", "", nil)
+	err := s.client.Login(nil, "", "", s.macSlice)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
-	err := s.client.Login(nil, "", "", nil)
+	err := s.client.Login(nil, "", "", s.macSlice)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 }
 
@@ -57,7 +62,7 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "testUnknown"
 	}
-	err := s.client.Login(nil, "", "", nil)
+	err := s.client.Login(nil, "", "", s.macSlice)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
@@ -74,7 +79,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 		return testUserName
 	}
 	// First log into the regular API.
-	err := s.client.Login(nil, "", "", nil)
+	err := s.client.Login(nil, "", "", s.macSlice)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dischargeCount, gc.Equals, 1)
 

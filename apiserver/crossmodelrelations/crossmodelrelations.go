@@ -40,9 +40,7 @@ func NewCrossModelRelationsAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*CrossModelRelationsAPI, error) {
-	if !authorizer.AuthController() {
-		return nil, common.ErrPerm
-	}
+	// TODO(wallyworld) - auth based on macaroons.
 	return &CrossModelRelationsAPI{
 		st:         st,
 		resources:  resources,

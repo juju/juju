@@ -68,6 +68,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if !ok {
 		return nil, errors.New("no API connection details")
 	}
+	// We use an anonymous connection and macaroon sent with the
+	// publish requests for authentication.
+	apiInfo.Tag = nil
+	apiInfo.Password = ""
+	apiInfo.Macaroons = nil
 	apiConnForModelFunc, err := config.NewAPIConnForModel(apiInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
