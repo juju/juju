@@ -782,3 +782,51 @@ func (u *Unit) NetworkInfo(bindings []string) (map[string]params.NetworkInfoResu
 
 	return results.Results, nil
 }
+
+// TrackPayloads starts tracking specified payload for a unit.
+func (u *Unit) TrackPayloads(payloads []params.TrackPayloadParams) error {
+	if u.st.facade.BestAPIVersion() < 5 {
+		return errors.NotImplementedf("TrackPayloads() (need V5+)")
+	}
+
+	args := params.TrackPayloadsParams{payloads}
+	var results params.ErrorResults
+	err := u.st.facade.FacadeCall("TrackPayloads", args, &results)
+	if err != nil {
+		return err
+	}
+
+	return results.Combine()
+}
+
+// UntrackPayloads stops tracking specified payload for a unit.
+func (u *Unit) UntrackPayloads(payloads []params.UntrackPayloadParams) error {
+	if u.st.facade.BestAPIVersion() < 5 {
+		return errors.NotImplementedf("UntrackPayloads() (need V5+)")
+	}
+
+	args := params.UntrackPayloadsParams{payloads}
+	var results params.ErrorResults
+	err := u.st.facade.FacadeCall("UntrackPayloads", args, &results)
+	if err != nil {
+		return err
+	}
+
+	return results.Combine()
+}
+
+// SetPayloadsStatus sets payload status.
+func (u *Unit) SetPayloadsStatus(payloads []params.PayloadStatusParams) error {
+	if u.st.facade.BestAPIVersion() < 5 {
+		return errors.NotImplementedf("SetPayloadStatus() (need V5+)")
+	}
+
+	args := params.PayloadsStatusParams{payloads}
+	var results params.ErrorResults
+	err := u.st.facade.FacadeCall("SetPayloadsStatus", args, &results)
+	if err != nil {
+		return err
+	}
+
+	return results.Combine()
+}

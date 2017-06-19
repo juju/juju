@@ -3,61 +3,68 @@
 
 package params
 
-// TrackPayloadArgs are the arguments for the
-// PayloadsHookContext.Track endpoint.
-type TrackPayloadArgs struct {
-	// Payloads is the list of Payloads to track
-	Payloads []Payload `json:"payloads"`
-}
+// TrackPayloadParams contains payload information
+// used to enable tracking by hook tool.
+type TrackPayloadParams struct {
+	// Class is the name of the payload class.
+	Class string `json:"class"`
 
-// LookUpPayloadArgs are the arguments for the LookUp endpoint.
-type LookUpPayloadArgs struct {
-	// Args is the list of arguments to pass to this function.
-	Args []LookUpPayloadArg `json:"args"`
-}
+	// Type is the name of the payload type.
+	Type string `json:"type"`
 
-// LookUpPayloadArg contains all the information necessary to identify
-// a payload.
-type LookUpPayloadArg struct {
-	// Name is the payload name.
-	Name string `json:"name"`
-
-	// ID uniquely identifies the payload for the given name.
+	// ID is a unique string identifying the payload to
+	// the underlying technology.
 	ID string `json:"id"`
+
+	// Status is the Juju-level status for the payload.
+	Status string `json:"status"`
+
+	// Labels are labels associated with the payload.
+	Labels []string `json:"labels"`
 }
 
-// SetPayloadStatusArgs are the arguments for the
-// PayloadsHookContext.SetStatus endpoint.
-type SetPayloadStatusArgs struct {
-	// Args is the list of arguments to pass to this function.
-	Args []SetPayloadStatusArg `json:"args"`
+// TrackPayloadParams are the collection of payloads
+// to track from hook tool.
+type TrackPayloadsParams struct {
+	// Payloads is the list of Payloads to track
+	Payloads []TrackPayloadParams `json:"payloads"`
 }
 
-// SetPayloadStatusArg are the arguments for a single call to the
-// SetStatus endpoint.
-type SetPayloadStatusArg struct {
-	Entity
+// PayloadStatusParams contains payload information
+// used to set payload status by hook tool.
+type PayloadStatusParams struct {
+	// Class is the name of the payload class.
+	Class string `json:"class"`
 
-	// Status is the new status of the payload.
+	// ID is a unique string identifying the payload to
+	// the underlying technology.
+	ID string `json:"id"`
+
+	// Status is the Juju-level status for the payload.
 	Status string `json:"status"`
 }
 
-// PayloadResults is the result for a call that makes one or more
-// requests about payloads.
-type PayloadResults struct {
-	Results []PayloadResult `json:"results"`
+// PayloadsStatusParams are the collection of payloads
+// to set status from hook tool.
+type PayloadsStatusParams struct {
+	// Payloads is the list of Payloads to track
+	Payloads []PayloadStatusParams `json:"payloads"`
 }
 
-// PayloadResult contains the result for a single call.
-type PayloadResult struct {
-	Entity
+// UntrackPayloadParams contains payload information
+// used to stop tracking by hook tool.
+type UntrackPayloadParams struct {
+	// Class is the name of the payload class.
+	Class string `json:"class"`
 
-	// Payload holds the details of the payload, if any.
-	Payload *Payload `json:"payload"`
+	// ID is a unique string identifying the payload to
+	// the underlying technology.
+	ID string `json:"id"`
+}
 
-	// NotFound indicates that the payload was not found in state.
-	NotFound bool `json:"not-found"`
-
-	// Error is the error (if any) for the call referring to ID.
-	Error *Error `json:"error,omitempty"`
+// UntrackPayloadsParams are the collection of payloads
+// to stop tracking from hook tool.
+type UntrackPayloadsParams struct {
+	// Payloads is the list of Payloads to track
+	Payloads []UntrackPayloadParams `json:"payloads"`
 }

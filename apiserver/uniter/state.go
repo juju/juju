@@ -7,8 +7,21 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state"
 )
+
+// payloadsStateInterface exposes the State functionality for a unit's payloads.
+type payloadsStateInterface interface {
+	// Track tracks a payload for the unit and info.
+	Track(info payload.Payload) error
+
+	// SetStatus sets the status for the payload with the given id on the unit.
+	SetStatus(id, status string) error
+
+	// Untrack removes the information for the payload with the given name.
+	Untrack(name string) error
+}
 
 type storageStateInterface interface {
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
@@ -37,6 +50,14 @@ type storageStateShim struct {
 
 var getStorageState = func(st *state.State) storageStateInterface {
 	return storageStateShim{st}
+}
+
+type payloadsStateShim struct {
+	state.UnitPayloads
+}
+
+var getPayloadsState = func(st state.UnitPayloads) payloadsStateInterface {
+	return payloadsStateShim{st}
 }
 
 // UnitAssignedMachine returns the tag of the machine that the unit

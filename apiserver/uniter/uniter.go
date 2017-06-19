@@ -29,7 +29,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v5) of the Uniter API.
+// UniterAPI implements the latest version (v6) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -49,6 +49,7 @@ type UniterAPI struct {
 	unit              *state.Unit
 	accessMachine     common.GetAuthFunc
 	StorageAPI
+	PayloadsAPI
 }
 
 // UniterAPIV4 has old WatchApplicationRelations and NetworkConfig
@@ -116,6 +117,10 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 	if err != nil {
 		return nil, err
 	}
+	payloadsAPI, err := newPayloadsAPI(st, unit)
+	if err != nil {
+		return nil, err
+	}
 	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
@@ -142,6 +147,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		accessMachine:     accessMachine,
 		unit:              unit,
 		StorageAPI:        *storageAPI,
+		PayloadsAPI:       *payloadsAPI,
 	}, nil
 }
 

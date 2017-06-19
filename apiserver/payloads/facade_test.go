@@ -11,10 +11,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/payloadscommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/payloads"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
 )
 
 var _ = gc.Suite(&Suite{})
@@ -217,7 +217,7 @@ func (s *Suite) TestListAllFilters(c *gc.C) {
 		},
 		Machine: "1",
 	}
-	apiPayload := api.Payload2api(pl)
+	apiPayload := payloadscommon.PayloadInfoToParams(pl)
 	s.state.payloads = append(s.state.payloads, pl)
 
 	facade := payloads.NewAPI(s.state)

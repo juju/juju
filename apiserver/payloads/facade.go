@@ -6,10 +6,10 @@ package payloads
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common/payloadscommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
 	"github.com/juju/juju/state"
 )
 
@@ -57,7 +57,7 @@ func (a API) List(args params.PayloadListArgs) (params.PayloadListResults, error
 	payloads = payload.Filter(payloads, filters...)
 
 	for _, payload := range payloads {
-		apiInfo := api.Payload2api(payload)
+		apiInfo := payloadscommon.PayloadInfoToParams(payload)
 		r.Results = append(r.Results, apiInfo)
 	}
 	return r, nil

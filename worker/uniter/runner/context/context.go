@@ -213,6 +213,15 @@ type HookContext struct {
 
 	//  slaLevel contains the current SLA level.
 	slaLevel string
+
+	// trackPayloads contains payloads to track.
+	trackPayloads []params.TrackPayloadParams
+
+	// untrackPayloads contains payloads to stop tracking.
+	untrackPayloads []params.UntrackPayloadParams
+
+	// payloadsStatus contains payloads that needs status updated.
+	payloadsStatus []params.PayloadStatusParams
 }
 
 // Component implements jujuc.Context.
@@ -720,6 +729,39 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 			}
 		}
 	}
+	// track unit payloads dynamically
+	if len(ctx.trackPayloads) > 0 && writeChanges {
+		err := ctx.unit.TrackPayloads(ctx.trackPayloads)
+		if err != nil {
+			err = errors.Annotatef(err, "cannot track payloads")
+			logger.Errorf("%v", err)
+			if ctxErr == nil {
+				ctxErr = err
+			}
+		}
+	}
+	// stop tracking unit payloads dynamically
+	if len(ctx.untrackPayloads) > 0 && writeChanges {
+		err := ctx.unit.UntrackPayloads(ctx.untrackPayloads)
+		if err != nil {
+			err = errors.Annotatef(err, "cannot stop tracking payloads")
+			logger.Errorf("%v", err)
+			if ctxErr == nil {
+				ctxErr = err
+			}
+		}
+	}
+	// change unit payloads' status dynamically
+	if len(ctx.payloadsStatus) > 0 && writeChanges {
+		err := ctx.unit.SetPayloadsStatus(ctx.payloadsStatus)
+		if err != nil {
+			err = errors.Annotatef(err, "cannot change payloads' status")
+			logger.Errorf("%v", err)
+			if ctxErr == nil {
+				ctxErr = err
+			}
+		}
+	}
 
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
@@ -840,4 +882,31 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 // NetworkInfo returns the network info for the given bindingNames.
 func (ctx *HookContext) NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error) {
 	return ctx.unit.NetworkInfo(bindingNames)
+}
+
+// TrackPayload starts tracking specified payload.
+func (ctx *HookContext) TrackPayload(p params.TrackPayloadParams) error {
+	if ctx.trackPayloads == nil {
+		ctx.trackPayloads = []params.TrackPayloadParams{}
+	}
+	ctx.trackPayloads = append(ctx.trackPayloads, p)
+	return nil
+}
+
+// UntrackPayload stops tracking specified payload.
+func (ctx *HookContext) UntrackPayload(p params.UntrackPayloadParams) error {
+	if ctx.untrackPayloads == nil {
+		ctx.untrackPayloads = []params.UntrackPayloadParams{}
+	}
+	ctx.untrackPayloads = append(ctx.untrackPayloads, p)
+	return nil
+}
+
+// SetPayloadStatus sets payload status.
+func (ctx *HookContext) SetPayloadStatus(p params.PayloadStatusParams) error {
+	if ctx.payloadsStatus == nil {
+		ctx.payloadsStatus = []params.PayloadStatusParams{}
+	}
+	ctx.payloadsStatus = append(ctx.payloadsStatus, p)
+	return nil
 }

@@ -158,9 +158,10 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
 		clock:              f.clock,
-		componentDir:       f.paths.ComponentDir,
-		componentFuncs:     registeredComponentFuncs,
 		availabilityzone:   f.zone,
+		// TODO (anastaciamac 2017-06-02) These can be removed onces all components r gone.
+		componentDir:   f.paths.ComponentDir,
+		componentFuncs: registeredComponentFuncs,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err

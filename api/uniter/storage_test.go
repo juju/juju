@@ -30,7 +30,8 @@ func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 5)
+		// This functionality is available from v5.
+		c.Check(version, jc.GreaterThan, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "UnitStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.Entities{
@@ -57,7 +58,8 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 5)
+		// This functionality is available from v5.
+		c.Check(version, jc.GreaterThan, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "DestroyUnitStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.Entities{
@@ -103,7 +105,8 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 5)
+		// This functionality is available from v5.
+		c.Check(version, jc.GreaterThan, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchUnitStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.Entities{
@@ -129,7 +132,8 @@ func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 5)
+		// This functionality is available from v5.
+		c.Check(version, jc.GreaterThan, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
@@ -166,7 +170,8 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 5)
+		// This functionality is available from v5.
+		c.Check(version, jc.GreaterThan, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "StorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
@@ -195,7 +200,8 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 5)
+		// This functionality is available from v5.
+		c.Check(version, jc.GreaterThan, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "StorageAttachmentLife")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
@@ -225,7 +231,8 @@ func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 func (s *storageSuite) TestRemoveStorageAttachment(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 5)
+		// This functionality is available from v5.
+		c.Check(version, jc.GreaterThan, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "RemoveStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{

@@ -53,6 +53,7 @@ type HookContext interface {
 	ContextComponents
 	ContextRelations
 	ContextVersion
+	ContextPayload
 }
 
 // UnitHookContext is the context for a unit hook.
@@ -299,6 +300,19 @@ type Settings interface {
 	Map() params.Settings
 	Set(string, string)
 	Delete(string)
+}
+
+// ContextPayload expresses the capabilities of a hook with respect to a payload.
+type ContextPayload interface {
+
+	// TrackPayload records the payload in the hook context.
+	TrackPayload(params.TrackPayloadParams) error
+
+	// UntrackPayload removes the payload from list of payloads to track.
+	UntrackPayload(params.UntrackPayloadParams) error
+
+	// SetPayloadStatus sets payload status.
+	SetPayloadStatus(params.PayloadStatusParams) error
 }
 
 // newRelationIdValue returns a gnuflag.Value for convenient parsing of relation

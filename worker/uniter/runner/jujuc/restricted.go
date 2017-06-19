@@ -152,3 +152,18 @@ func (*RestrictedContext) UnitWorkloadVersion() (string, error) {
 func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
 	return ErrRestrictedContext
 }
+
+// TrackPayload records the payload in the hook context.
+func (*RestrictedContext) TrackPayload(params.TrackPayloadParams) error {
+	return ErrRestrictedContext
+}
+
+// UntrackPayload removes the payload from list of payloads to track.
+func (*RestrictedContext) UntrackPayload(params.UntrackPayloadParams) error {
+	return ErrRestrictedContext
+}
+
+// SetPayloadStatus sets payload status.
+func (*RestrictedContext) SetPayloadStatus(params.PayloadStatusParams) error {
+	return ErrRestrictedContext
+}
