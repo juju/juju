@@ -44,7 +44,7 @@ func (s *BufferedLoggerSuite) assertNoFlush(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case records := <-s.mock.called:
-		c.Fatal("unexpected log records: %v", records)
+		c.Fatalf("unexpected log records: %v", records)
 	case <-time.After(coretesting.ShortWait):
 	}
 }
