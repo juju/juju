@@ -4,6 +4,7 @@ package model
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -12,25 +13,31 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
 )
 
 const (
-	modelConfigSummary = "Displays or sets configuration values on a model."
-	modelConfigHelpDoc = `
+	modelConfigSummary        = "Displays or sets configuration values on a model."
+	modelConfigHelpDocPartOne = `
 By default, all configuration (keys, source, and values) for the current model
 are displayed.
 
 Supplying one key name returns only the value for the key. Supplying key=value
 will set the supplied key to the supplied value, this can be repeated for
 multiple keys.
-
-Examples
+`
+	modelConfigHelpDocKeys = `
+The following keys are available:
+`
+	modelConfigHelpDocPartTwo = `
+Examples:
     juju model-config default-series
     juju model-config -m mycontroller:mymodel
     juju model-config ftp-proxy=10.0.0.1:8000
@@ -40,6 +47,8 @@ Examples
 See also:
     models
     model-defaults
+    show-cloud
+    controller-config
 `
 )
 
@@ -75,12 +84,25 @@ type configCommandAPI interface {
 
 // Info implements part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	info := &cmd.Info{
 		Args:    "[<model-key>[<=value>] ...]",
-		Doc:     modelConfigHelpDoc,
 		Name:    "model-config",
 		Purpose: modelConfigSummary,
 	}
+	if details, err := c.modelConfigDetails(); err == nil {
+		if output, err := formatGlobalModelConfigDetails(details); err == nil {
+			info.Doc = fmt.Sprintf("%s%s\n%s%s",
+				modelConfigHelpDocPartOne,
+				modelConfigHelpDocKeys,
+				output,
+				modelConfigHelpDocPartTwo)
+			return info
+		}
+	}
+	info.Doc = fmt.Sprintf("%s%s",
+		modelConfigHelpDocPartOne,
+		modelConfigHelpDocPartTwo)
+	return info
 }
 
 // SetFlags implements part of the cmd.Command interface.
@@ -280,7 +302,7 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	for attrName := range attrs {
 		// We don't want model attributes included, these are available
 		// via show-model.
-		if c.isModelAttrbute(attrName) {
+		if c.isModelAttribute(attrName) {
 			delete(attrs, attrName)
 		}
 	}
@@ -337,7 +359,7 @@ func (c *configCommand) verifyKnownKeys(client configCommandAPI) error {
 
 // isModelAttribute returns if the supplied attribute is a valid model
 // attribute.
-func (c *configCommand) isModelAttrbute(attr string) bool {
+func (c *configCommand) isModelAttribute(attr string) bool {
 	switch attr {
 	case config.NameKey, config.TypeKey, config.UUIDKey:
 		return true
@@ -377,4 +399,35 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 
 	tw.Flush()
 	return nil
+}
+
+// modelConfigDetails gets ModelDetails when a model is not available
+// to use.
+func (c *configCommand) modelConfigDetails() (map[string]interface{}, error) {
+
+	defaultSchema, err := config.Schema(nil)
+	if err != nil {
+		return nil, err
+	}
+	specifics := make(map[string]interface{})
+	for key, attr := range defaultSchema {
+		if attr.Secret || c.isModelAttribute(key) ||
+			attr.Group != environschema.EnvironGroup {
+			continue
+		}
+		specifics[key] = common.PrintConfigSchema{
+			Description: attr.Description,
+			Type:        fmt.Sprintf("%s", attr.Type),
+		}
+	}
+	return specifics, nil
+}
+
+func formatGlobalModelConfigDetails(values interface{}) (string, error) {
+	out := &bytes.Buffer{}
+	err := cmd.FormatSmart(out, values)
+	if err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }

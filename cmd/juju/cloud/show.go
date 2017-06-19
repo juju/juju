@@ -119,11 +119,6 @@ type cloudDetails struct {
 	RegionConfig jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
 }
 
-type cloudConfig struct {
-	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-}
-
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	result := &cloudDetails{
 		Source:           "public",
@@ -177,7 +172,7 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 		if providerSchema[attr].Secret {
 			continue
 		}
-		specifics[attr] = cloudConfig{
+		specifics[attr] = common.PrintConfigSchema{
 			Description: providerSchema[attr].Description,
 			Type:        fmt.Sprintf("%s", providerSchema[attr].Type),
 		}

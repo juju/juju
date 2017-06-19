@@ -151,3 +151,9 @@ func ProviderConfigSchemaSourceByType(cloudType string) (config.ConfigSchemaSour
 	}
 	return nil, errors.NotImplementedf("config.ConfigSource")
 }
+
+// PrintConfigSchema is used to print model configuration schema.
+type PrintConfigSchema struct {
+	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
