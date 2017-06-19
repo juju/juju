@@ -24,3 +24,9 @@ func NewStorageAPI(
 ) (*StorageAPI, error) {
 	return newStorageAPI(storageStateInterface(st), resources, accessUnit)
 }
+
+type PayloadsStateInterface payloadsStateInterface
+
+func NewTestPayloadsAPI(st PayloadsStateInterface) *PayloadsAPI {
+	return &PayloadsAPI{st}
+}

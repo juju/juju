@@ -1,14 +1,14 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package payloadscommon_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	gc "gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
 }

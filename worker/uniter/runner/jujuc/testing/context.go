@@ -23,6 +23,7 @@ type ContextInfo struct {
 	RelationHook
 	ActionHook
 	Version
+	Payloads
 }
 
 // Context returns a Context that wraps the info.
@@ -63,6 +64,7 @@ type Context struct {
 	ContextRelationHook
 	ContextActionHook
 	ContextVersion
+	ContextPayloads
 }
 
 // NewContext builds a jujuc.Context test double.
@@ -92,5 +94,6 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextActionHook.info = &info.ActionHook
 	ctx.ContextVersion.stub = stub
 	ctx.ContextVersion.info = &info.Version
+	ctx.ContextPayloads.p = &info.Payloads
 	return &ctx
 }

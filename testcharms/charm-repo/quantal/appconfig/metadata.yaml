@@ -3,3 +3,8 @@ summary: "That's a charm with with a few config settings to test 'config-get' an
 description: |
     A very tricky charm.
 minjujuversion: "1.0.0"
+payloads:
+    monitoring:
+        type: docker
+    kvm-guest:
+        type: kvm

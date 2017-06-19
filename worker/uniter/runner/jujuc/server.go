@@ -77,6 +77,12 @@ var leaderCommands = map[string]creator{
 	"leader-set" + cmdSuffix: NewLeaderSetCommand,
 }
 
+var payloadCommands = map[string]creator{
+	PayloadRegisterCmdName + cmdSuffix:   NewPayloadRegisterCmd,
+	PayloadUnregisterCmdName + cmdSuffix: NewPayloadUnregisterCmd,
+	PayloadStatusSetCmdName + cmdSuffix:  NewPayloadStatusSetCmd,
+}
+
 func allEnabledCommands() map[string]creator {
 	all := map[string]creator{}
 	add := func(m map[string]creator) {
@@ -88,6 +94,7 @@ func allEnabledCommands() map[string]creator {
 	add(storageCommands)
 	add(leaderCommands)
 	add(registeredCommands)
+	add(payloadCommands)
 	return all
 }
 

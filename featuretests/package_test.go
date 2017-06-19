@@ -62,6 +62,7 @@ func init() {
 		gc.Suite(&cloudImageMetadataSuite{})
 		gc.Suite(&cmdSpaceSuite{})
 		gc.Suite(&cmdUpgradeSuite{})
+		gc.Suite(&PayloadsHookSuite{})
 	}
 }
 

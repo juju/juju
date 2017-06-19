@@ -58,7 +58,6 @@ import (
 	"github.com/juju/juju/apiserver/modelconfig"     // ModelUser Write
 	"github.com/juju/juju/apiserver/modelmanager"    // ModelUser Write
 	"github.com/juju/juju/apiserver/payloads"
-	"github.com/juju/juju/apiserver/payloadshookcontext"
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/apiserver/proxyupdater"
 	"github.com/juju/juju/apiserver/reboot"
@@ -170,11 +169,6 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 
 	reg("Payloads", 1, payloads.NewFacade)
-	regHookContext(
-		"PayloadsHookContext", 1,
-		payloadshookcontext.NewHookContextFacade,
-		reflect.TypeOf(&payloadshookcontext.UnitFacade{}),
-	)
 
 	reg("Pinger", 1, NewPinger)
 	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
@@ -207,6 +201,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Uniter", 4, uniter.NewUniterAPIV4)
 	reg("Uniter", 5, uniter.NewUniterAPI)
+	reg("Uniter", 6, uniter.NewUniterAPI) // adds payloads functionality
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
