@@ -65,6 +65,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 			}, s.stub.NextErr()
 		},
 		s.abort,
+		nil, // no rate-limiting
 	))
 	s.AddCleanup(func(*gc.C) { s.srv.Close() })
 }
@@ -166,6 +167,70 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	websockettest.AssertWebsocketClosed(c, conn)
+}
+
+func (s *logsinkSuite) TestRateLimit(c *gc.C) {
+	testClock := testing.NewClock(time.Time{})
+	s.srv.Close()
+	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
+		func(req *http.Request) (logsink.LogWriteCloser, error) {
+			s.stub.AddCall("Open")
+			return &mockLogWriteCloser{
+				&s.stub,
+				s.written,
+			}, s.stub.NextErr()
+		},
+		s.abort,
+		&logsink.RateLimitConfig{
+			Burst:  2,
+			Refill: time.Second,
+			Clock:  testClock,
+		},
+	))
+
+	conn := s.dialWebsocket(c)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	record := params.LogRecord{
+		Time:     time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC),
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "all is well",
+	}
+	for i := 0; i < 4; i++ {
+		err := conn.WriteJSON(&record)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	expectRecord := func() {
+		select {
+		case written, ok := <-s.written:
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(written, jc.DeepEquals, record)
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for log record to be written")
+		}
+	}
+	expectNoRecord := func() {
+		select {
+		case <-s.written:
+			c.Fatal("unexpected log record")
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	// There should be 2 records received immediately,
+	// and then rate-limiting should kick in.
+	expectRecord()
+	expectRecord()
+	expectNoRecord()
+	testClock.WaitAdvance(time.Second, coretesting.LongWait, 1)
+	expectRecord()
+	expectNoRecord()
+	testClock.WaitAdvance(time.Second, coretesting.LongWait, 1)
+	expectRecord()
+	expectNoRecord()
 }
 
 type mockLogWriteCloser struct {

@@ -51,46 +51,49 @@ var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIO
 
 // These vars define how we rate limit incoming connections.
 const (
-	defaultLoginRateLimit     = 10 // concurrent login operations
-	defaultLoginMinPause      = 100 * time.Millisecond
-	defaultLoginMaxPause      = 1 * time.Second
-	defaultLoginRetryPause    = 5 * time.Second
-	defaultConnMinPause       = 0 * time.Millisecond
-	defaultConnMaxPause       = 5 * time.Second
-	defaultConnLookbackWindow = 1 * time.Second
-	defaultConnLowerThreshold = 1000   // connections per second
-	defaultConnUpperThreshold = 100000 // connections per second
+	defaultLoginRateLimit         = 10 // concurrent login operations
+	defaultLoginMinPause          = 100 * time.Millisecond
+	defaultLoginMaxPause          = 1 * time.Second
+	defaultLoginRetryPause        = 5 * time.Second
+	defaultConnMinPause           = 0 * time.Millisecond
+	defaultConnMaxPause           = 5 * time.Second
+	defaultConnLookbackWindow     = 1 * time.Second
+	defaultConnLowerThreshold     = 1000   // connections per second
+	defaultConnUpperThreshold     = 100000 // connections per second
+	defaultLogSinkRateLimitBurst  = 1000
+	defaultLogSinkRateLimitRefill = time.Millisecond
 )
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb             tomb.Tomb
-	clock            clock.Clock
-	pingClock        clock.Clock
-	wg               sync.WaitGroup
-	state            *state.State
-	statePool        *state.StatePool
-	lis              net.Listener
-	tag              names.Tag
-	dataDir          string
-	logDir           string
-	limiter          utils.Limiter
-	loginRetryPause  time.Duration
-	validator        LoginValidator
-	facades          *facade.Registry
-	modelUUID        string
-	authCtxt         *authContext
-	lastConnectionID uint64
-	centralHub       *pubsub.StructuredHub
-	newObserver      observer.ObserverFactory
-	connCount        int64
-	totalConn        int64
-	loginAttempts    int64
-	certChanged      <-chan params.StateServingInfo
-	tlsConfig        *tls.Config
-	allowModelAccess bool
-	logSinkWriter    io.WriteCloser
-	dbloggers        dbloggers
+	tomb                   tomb.Tomb
+	clock                  clock.Clock
+	pingClock              clock.Clock
+	wg                     sync.WaitGroup
+	state                  *state.State
+	statePool              *state.StatePool
+	lis                    net.Listener
+	tag                    names.Tag
+	dataDir                string
+	logDir                 string
+	limiter                utils.Limiter
+	loginRetryPause        time.Duration
+	validator              LoginValidator
+	facades                *facade.Registry
+	modelUUID              string
+	authCtxt               *authContext
+	lastConnectionID       uint64
+	centralHub             *pubsub.StructuredHub
+	newObserver            observer.ObserverFactory
+	connCount              int64
+	totalConn              int64
+	loginAttempts          int64
+	certChanged            <-chan params.StateServingInfo
+	tlsConfig              *tls.Config
+	allowModelAccess       bool
+	logSinkWriter          io.WriteCloser
+	logsinkRateLimitConfig logsink.RateLimitConfig
+	dbloggers              dbloggers
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -175,7 +178,8 @@ type ServerConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 }
 
-func (c *ServerConfig) Validate() error {
+// Validate validates the API server configuration.
+func (c ServerConfig) Validate() error {
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
 	}
@@ -199,7 +203,7 @@ func (c *ServerConfig) Validate() error {
 	return nil
 }
 
-func (c *ServerConfig) pingClock() clock.Clock {
+func (c ServerConfig) pingClock() clock.Clock {
 	if c.PingClock == nil {
 		return c.Clock
 	}
@@ -273,6 +277,14 @@ type LogSinkConfig struct {
 	// DBLoggerFlushInterval is the amount of time to allow a log record
 	// to sit in the buffer before being flushed to the database.
 	DBLoggerFlushInterval time.Duration
+
+	// RateLimitBurst defines the number of log messages that will be let
+	// through before we start rate limiting.
+	RateLimitBurst int64
+
+	// RateLimitRefill defines the rate at which log messages will be let
+	// through once the initial burst amount has been depleted.
+	RateLimitRefill time.Duration
 }
 
 // Validate validates the logsink endpoint configuration.
@@ -283,6 +295,12 @@ func (cfg LogSinkConfig) Validate() error {
 	if cfg.DBLoggerFlushInterval <= 0 || cfg.DBLoggerFlushInterval > 10*time.Second {
 		return errors.NotValidf("DBLoggerFlushInterval %s <= 0 or > 10 seconds", cfg.DBLoggerFlushInterval)
 	}
+	if cfg.RateLimitBurst <= 0 {
+		return errors.NotValidf("RateLimitBurst %d <= 0", cfg.RateLimitBurst)
+	}
+	if cfg.RateLimitRefill <= 0 {
+		return errors.NotValidf("RateLimitRefill %s <= 0", cfg.RateLimitRefill)
+	}
 	return nil
 }
 
@@ -291,6 +309,8 @@ func DefaultLogSinkConfig() LogSinkConfig {
 	return LogSinkConfig{
 		DBLoggerBufferSize:    defaultDBLoggerBufferSize,
 		DBLoggerFlushInterval: defaultDBLoggerFlushInterval,
+		RateLimitBurst:        defaultLogSinkRateLimitBurst,
+		RateLimitRefill:       defaultLogSinkRateLimitRefill,
 	}
 }
 
@@ -350,6 +370,11 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
+		logsinkRateLimitConfig: logsink.RateLimitConfig{
+			Refill: cfg.LogSinkConfig.RateLimitRefill,
+			Burst:  cfg.LogSinkConfig.RateLimitBurst,
+			Clock:  cfg.Clock,
+		},
 		dbloggers: dbloggers{
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
@@ -611,6 +636,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
+		&srv.logsinkRateLimitConfig,
 	)
 	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 
@@ -618,6 +644,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logTransferHandler := logsink.NewHTTPHandler(
 		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
 		httpCtxt.stop(),
+		nil, // no rate-limiting
 	)
 	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
 

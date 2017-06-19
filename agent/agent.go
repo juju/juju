@@ -183,6 +183,8 @@ const (
 
 	LogSinkDBLoggerBufferSize    = "LOGSINK_DBLOGGER_BUFFER_SIZE"
 	LogSinkDBLoggerFlushInterval = "LOGSINK_DBLOGGER_FLUSH_INTERVAL"
+	LogSinkRateLimitBurst        = "LOGSINK_RATELIMIT_BURST"
+	LogSinkRateLimitRefill       = "LOGSINK_RATELIMIT_REFILL"
 )
 
 // The Config interface is the sole way that the agent gets access to the
