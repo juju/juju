@@ -672,6 +672,27 @@ type Pinger struct {
 	fieldBit  uint64 // 1 << (beingKey%63)
 	lastSlot  int64
 	delta     time.Duration
+	recorder  PingRecorder
+}
+
+type PingRecorder interface {
+	Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error
+}
+
+type DirectRecorder struct {
+	pings *mgo.Collection
+}
+
+func (dr *DirectRecorder) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
+	session := dr.pings.Database.Session.Copy()
+	pings := dr.pings.With(session)
+	_, err := pings.UpsertId(
+		docIDInt64(modelUUID, slot),
+		bson.D{
+			{"$set", bson.D{{"slot", slot}}},
+			{"$inc", bson.D{{"alive." + fieldKey, fieldBit}}},
+		})
+	return err
 }
 
 // NewPinger returns a new Pinger to report that key is alive.
@@ -682,6 +703,7 @@ func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string) *Pinge
 		pings:     pingsC(base),
 		beingKey:  key,
 		modelUUID: modelTag.Id(),
+		recorder:  &DirectRecorder{pings: pingsC(base)},
 	}
 }
 
@@ -857,9 +879,9 @@ func (p *Pinger) ping() (err error) {
 			err = fmt.Errorf("%v", v)
 		}
 	}()
-	session := p.pings.Database.Session.Copy()
-	defer session.Close()
 	if p.delta == 0 {
+		session := p.pings.Database.Session.Copy()
+		defer session.Close()
 		base := p.base.With(session)
 		delta, err := clockDelta(base)
 		if err != nil {
@@ -875,13 +897,7 @@ func (p *Pinger) ping() (err error) {
 		return nil
 	}
 	p.lastSlot = slot
-	pings := p.pings.With(session)
-	_, err = pings.UpsertId(
-		docIDInt64(p.modelUUID, slot),
-		bson.D{
-			{"$set", bson.D{{"slot", slot}}},
-			{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}},
-		})
+	p.recorder.Ping(p.modelUUID, slot, p.fieldKey, p.fieldBit)
 	return errors.Trace(err)
 }
 

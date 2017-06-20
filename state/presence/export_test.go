@@ -3,6 +3,14 @@
 
 package presence
 
+import (
+	"time"
+
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/testing"
+)
+
 func FakeTimeSlot(offset int) {
 	fakeTimeSlot(offset)
 }
@@ -19,4 +27,23 @@ var realPeriod = period
 
 func RealPeriod() {
 	period = realPeriod
+}
+
+func (pb *PingBatcher) ForceFlush() error {
+	request := make(chan struct{})
+	select {
+	case pb.flushChan <- request:
+		select {
+		case <-request:
+			return nil
+		case <-pb.tomb.Dying():
+			return pb.tomb.Err()
+		case <-time.After(testing.LongWait):
+			return errors.Errorf("timeout waiting for flush to finish")
+		}
+	case <-pb.tomb.Dying():
+		return pb.tomb.Err()
+	case <-time.After(testing.LongWait):
+		return errors.Errorf("timeout waiting for flush request")
+	}
 }
