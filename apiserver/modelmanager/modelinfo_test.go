@@ -1016,5 +1016,6 @@ type mockPool struct {
 }
 
 func (p *mockPool) Get(modelUUID string) (common.ModelManagerBackend, func(), error) {
+	p.st.MethodCall(p, "Get", modelUUID)
 	return p.st, func() {}, p.st.NextErr()
 }
