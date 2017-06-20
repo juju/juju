@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/testing"
+	"gopkg.in/mgo.v2"
 )
 
 func FakeTimeSlot(offset int) {
@@ -46,4 +47,8 @@ func (pb *PingBatcher) ForceFlush() error {
 	case <-time.After(testing.LongWait):
 		return errors.Errorf("timeout waiting for flush request")
 	}
+}
+
+func DirectRecordFunc(base *mgo.Collection) PingRecorder {
+	return &DirectRecorder{pings: pingsC(base)}
 }
