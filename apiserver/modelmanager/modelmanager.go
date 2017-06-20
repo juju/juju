@@ -478,14 +478,14 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 
 	st := m.state
 	if st.ModelTag() != modelTag {
-		st, err = m.state.ForModel(modelTag)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Trace(common.ErrBadId)
-			}
+		newSt, releaser, err := m.pool.Get(modelTag.Id())
+		if errors.IsNotFound(err) {
+			return nil, errors.Trace(common.ErrBadId)
+		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer st.Close()
+		defer releaser()
+		st = newSt
 	}
 
 	return st.DumpAll()
