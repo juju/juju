@@ -13,35 +13,32 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 )
 
 // controllerAddresses returns the list of internal addresses of the state
 // server machines.
 func (st *State) controllerAddresses() ([]string, error) {
-	ssState := st
-	model, err := st.ControllerModel()
+	cinfo, err := st.ControllerInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if st.ModelTag() != model.ModelTag() {
-		// We are not using the controller model, so get one.
-		logger.Debugf("getting a controller state connection, current env: %s", st.ModelTag())
-		ssState, err = st.ForModel(model.ModelTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer ssState.Close()
-		logger.Debugf("ssState env: %s", ssState.ModelTag())
+
+	var machines mongo.Collection
+	var closer SessionCloser
+	if st.ModelTag() == cinfo.ModelTag {
+		machines, closer = st.db().GetCollection(machinesC)
+	} else {
+		machines, closer = st.db().GetCollectionFor(cinfo.ModelTag.Id(), machinesC)
 	}
+	defer closer()
 
 	type addressMachine struct {
 		Addresses []address
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	machines, closer := ssState.db().GetCollection(machinesC)
-	defer closer()
 	err = machines.Find(bson.D{{"jobs", JobManageModel}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
