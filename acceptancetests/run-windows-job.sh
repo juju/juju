@@ -28,7 +28,7 @@ runcmd "mkdir C:\\Users\\Administrator\\payloads\\$ts"
 if [[ $2 == *"tar"* ]]; then
     tarfile=$2
     echo "Using $tarfile as tarball"
-elif [[ $2 =~ [[:digit:]] ]]; then
+elif [ "$2" -eq "$2" ] 2>/dev/null; then
     echo "Retrieving tarball for revision build $2"
     tarfile=$($SCRIPTS/s3ci.py get $2 build-revision "juju-core_.*.tar.gz" .)
     tarfile=$(basename $tarfile)
