@@ -75,6 +75,10 @@ algorithm by assigning a "placement directive" via the '--to' option. This
 dictates what machine to use for the controller. This would typically be
 used with the MAAS provider ('--to <host>.maas').
 
+Available keys for use with --config can be found here:
+    https://jujucharms.com/docs/stable/controllers-config
+    https://jujucharms.com/docs/stable/models-config
+
 You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
 (all values represent number of seconds):
@@ -107,7 +111,10 @@ Examples:
 See also:
     add-credentials
     add-model
-    set-constraints`
+    controller-config
+    model-config
+    set-constraints
+    show-cloud`
 
 // defaultHostedModelName is the name of the hosted model created in each
 // controller for deploying workloads to, in addition to the "controller" model.
