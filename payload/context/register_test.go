@@ -38,17 +38,17 @@ func (s *registerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s registerSuite) TestInitNilArgs(c *gc.C) {
+func (s *registerSuite) TestInitNilArgs(c *gc.C) {
 	err := s.command.Init(nil)
 	c.Assert(err, gc.NotNil)
 }
 
-func (s registerSuite) TestInitTooFewArgs(c *gc.C) {
+func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
 	err := s.command.Init([]string{"foo", "bar"})
 	c.Assert(err, gc.NotNil)
 }
 
-func (s registerSuite) TestInit(c *gc.C) {
+func (s *registerSuite) TestInit(c *gc.C) {
 	err := s.command.Init([]string{"type", "class", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.command.typ, gc.Equals, "type")
@@ -57,7 +57,7 @@ func (s registerSuite) TestInit(c *gc.C) {
 	c.Assert(s.command.labels, gc.HasLen, 0)
 }
 
-func (s registerSuite) TestInitWithLabels(c *gc.C) {
+func (s *registerSuite) TestInitWithLabels(c *gc.C) {
 	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.command.typ, gc.Equals, "type")
@@ -66,7 +66,7 @@ func (s registerSuite) TestInitWithLabels(c *gc.C) {
 	c.Assert(s.command.labels, gc.DeepEquals, []string{"tag1", "tag 2"})
 }
 
-func (s registerSuite) TestRun(c *gc.C) {
+func (s *registerSuite) TestRun(c *gc.C) {
 	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -87,7 +87,7 @@ func (s registerSuite) TestRun(c *gc.C) {
 	// TODO (natefinch): we need to do something with the labels
 }
 
-func (s registerSuite) TestRunUnknownClass(c *gc.C) {
+func (s *registerSuite) TestRunUnknownClass(c *gc.C) {
 	err := s.command.Init([]string{"type", "badclass", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -96,7 +96,7 @@ func (s registerSuite) TestRunUnknownClass(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "payload \"badclass\" not found in metadata.yaml")
 }
 
-func (s registerSuite) TestRunUnknownType(c *gc.C) {
+func (s *registerSuite) TestRunUnknownType(c *gc.C) {
 	err := s.command.Init([]string{"badtype", "class", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -105,7 +105,7 @@ func (s registerSuite) TestRunUnknownType(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "incorrect type \"badtype\" for payload \"class\", expected \"type\"")
 }
 
-func (s registerSuite) TestRunTrackErr(c *gc.C) {
+func (s *registerSuite) TestRunTrackErr(c *gc.C) {
 	s.hookCtx.trackerr = errors.Errorf("boo")
 	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)

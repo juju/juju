@@ -8,11 +8,9 @@ import (
 	"runtime"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type HelpToolSuite struct {
@@ -30,8 +28,39 @@ Show help on a Juju charm tool.
 `)
 }
 
+var expectedCommands = []string{
+	"action-fail",
+	"action-get",
+	"action-set",
+	"add-metric",
+	"application-version-set",
+	"close-port",
+	"config-get",
+	"is-leader",
+	"juju-log",
+	"juju-reboot",
+	"leader-get",
+	"leader-set",
+	"network-get",
+	"open-port",
+	"opened-ports",
+	"payload-register",
+	"payload-status-set",
+	"payload-unregister",
+	"relation-get",
+	"relation-ids",
+	"relation-list",
+	"relation-set",
+	"resource-get",
+	"status-get",
+	"status-set",
+	"storage-add",
+	"storage-get",
+	"storage-list",
+	"unit-get",
+}
+
 func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
-	expectedNames := jujuc.CommandNames()
 	output := badrun(c, 0, "help-tool")
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	template := "%v"
@@ -42,28 +71,7 @@ func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
 		command := strings.Fields(line)[0]
 		lines[i] = fmt.Sprintf(template, command)
 	}
-	c.Assert(lines, gc.DeepEquals, expectedNames)
-}
-
-// Component-based features such as payloads and resources
-// are different enough in implementation to the rest
-// of Juju code that we need to ensure that help-tool can reach them
-// explicitely.
-func (suite *HelpToolSuite) TestHelpToolHasComponents(c *gc.C) {
-	hasPayloads, hasResources := false, false
-	output := badrun(c, 0, "help-tool")
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	for _, line := range lines {
-		command := strings.Fields(line)[0]
-		if strings.HasPrefix(command, "payload-") {
-			hasPayloads = true
-		}
-		if strings.HasPrefix(command, "resource-") {
-			hasResources = true
-		}
-	}
-	c.Assert(hasPayloads, jc.IsTrue)
-	c.Assert(hasResources, jc.IsTrue)
+	c.Assert(lines, gc.DeepEquals, expectedCommands)
 }
 
 func (suite *HelpToolSuite) TestHelpToolName(c *gc.C) {
