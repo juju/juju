@@ -14,7 +14,11 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-type UpdateStatusTimerFunc func(time.Duration) func() <-chan time.Time
+type Waiter interface {
+	After() <-chan time.Time
+}
+
+type UpdateStatusTimerFunc func(time.Duration) Waiter
 
 type State interface {
 	Relation(names.RelationTag) (Relation, error)

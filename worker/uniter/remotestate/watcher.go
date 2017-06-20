@@ -418,7 +418,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 
-		case <-w.updateStatusChannel(updateStatusInterval)():
+		case <-w.updateStatusChannel(updateStatusInterval).After():
 			logger.Debugf("update status timer triggered")
 			if err := w.updateStatusChanged(); err != nil {
 				return errors.Trace(err)
