@@ -15,9 +15,8 @@ import (
 const maxBatch = 1000
 
 type slot struct {
-	Slot      int64
-	ModelUUID string
-	Alive     map[string]uint64
+	Slot  int64
+	Alive map[string]uint64
 }
 
 type singlePing struct {
@@ -138,7 +137,6 @@ func (pb *PingBatcher) handlePing(ping singlePing) {
 	if !slotExists {
 		cur.Alive = make(map[string]uint64)
 		cur.Slot = ping.Slot
-		cur.ModelUUID = ping.ModelUUID
 		pb.pending[docId] = cur
 	}
 	alive := cur.Alive

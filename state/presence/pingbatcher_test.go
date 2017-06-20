@@ -196,9 +196,9 @@ func (s *PingBatcherSuite) TestDocBatchSize(c *gc.C) {
 	fieldBit := uint64(64)
 	// 100 slots * 100 models should be 10,000 docs that we are inserting.
 	// mgo.Bulk fails if you try to do more than 1000 requests at once, so this would trigger it if we didn't batch properly.
-	for modelCounter := 0; modelCounter  < 100; modelCounter ++ {
+	for modelCounter := 0; modelCounter < 100; modelCounter++ {
 		for slotOffset := 0; slotOffset < 100; slotOffset++ {
-			slot := slotBase + int64(slotOffset * 30)
+			slot := slotBase + int64(slotOffset*30)
 			uuid := fmt.Sprintf("uuid-%d", modelCounter)
 			c.Assert(pb.Ping(uuid, slot, fieldKey, fieldBit), jc.ErrorIsNil)
 		}
@@ -207,4 +207,49 @@ func (s *PingBatcherSuite) TestDocBatchSize(c *gc.C) {
 	count, err := s.pings.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(count, gc.Equals, 100*100)
+}
+
+func (s *PingBatcherSuite) TestBatchFlushesByTime(c *gc.C) {
+	t := time.Now()
+	pb := presence.NewPingBatcher(s.pings, testing.ShortWait)
+	pb.Start()
+	defer assertStopped(c, pb)
+
+	slot := int64(1497960150)
+	uuid := "test-uuid"
+	pb.Ping("test-uuid", slot, "0", 8)
+	pb.Ping("test-uuid", slot, "0", 16)
+	docId := fmt.Sprintf("%s:%d", uuid, slot)
+	var res bson.M
+	// We should not have found it yet
+	c.Assert(s.pings.FindId(docId).One(&res), gc.Equals, mgo.ErrNotFound)
+	// We wait up to 1s for the write to succeed.
+	for i := 0; i < 1000; i++ {
+		time.Sleep(time.Millisecond)
+		err := s.pings.FindId(docId).One(&res)
+		waitTime := time.Since(t)
+		if waitTime < time.Duration(float64(testing.ShortWait)*0.7) {
+			// Officially it should take a minimum of 50*0.8 = 40ms.
+			// make sure the timer hasn't flushed yet
+			c.Assert(err, gc.Equals, mgo.ErrNotFound,
+				gc.Commentf("PingBatcher flushed too soon, expected at least 15ms"))
+			c.Logf("no document, but not yet time")
+			continue
+		}
+		if err == nil {
+			c.Logf("found the document after %v", waitTime)
+			break
+		} else {
+			c.Logf("no document after %v", waitTime)
+			c.Assert(err, gc.Equals, mgo.ErrNotFound)
+		}
+	}
+	// If it wasn't found, this check will fail
+	c.Check(res, gc.DeepEquals, bson.M{
+		"_id":  docId,
+		"slot": slot,
+		"alive": bson.M{
+			"0": int64(24),
+		},
+	})
 }
