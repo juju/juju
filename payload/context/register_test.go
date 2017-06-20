@@ -115,7 +115,7 @@ func (s *registerSuite) TestRunTrackErr(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boo")
 }
 
-func (s registerSuite) TestRunFlushErr(c *gc.C) {
+func (s *registerSuite) TestRunFlushErr(c *gc.C) {
 	s.hookCtx.flusherr = errors.Errorf("boo")
 	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
