@@ -91,12 +91,12 @@ class TestParseArgs(TestCase):
 class TestAfter22Beta4(TestCase):
 
     def test_returns_False_for_prev_final_releases(self):
-        self.assertFalse(amm.after_22beta4('2.1'))
+        self.assertFalse(amm.after_22beta4('2.1-xenial-amd64'))
 
     def test_returns_True_for_final_release(self):
-        self.assertTrue(amm.after_22beta4('2.2.0'))
-        self.assertTrue(amm.after_22beta4('2.2'))
-        self.assertTrue(amm.after_22beta4('2.2.1'))
+        self.assertTrue(amm.after_22beta4('2.2.0-xenial-amd64'))
+        self.assertTrue(amm.after_22beta4('2.2-xenial-amd64'))
+        self.assertTrue(amm.after_22beta4('2.2.1-xenial-amd64'))
 
     def test_returns_True_when_newer(self):
         self.assertTrue(amm.after_22beta4('2.2-beta8-xenial-amd64'))
