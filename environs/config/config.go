@@ -975,8 +975,16 @@ func (c *Config) MaxStatusHistorySizeMB() uint {
 // UpdateStatusHookInterval is how often to run the charm
 // update-status hook.
 func (c *Config) UpdateStatusHookInterval() time.Duration {
+	// TODO(wallyworld) - remove this work around when possible as
+	// we already have a defaulting mechanism for config.
+	// It's only here to guard against using Juju clients >= 2.2
+	// with Juju controllers running 2.1.x
+	raw := c.asString(UpdateStatusHookInterval)
+	if raw == "" {
+		raw = DefaultUpdateStatusHookInterval
+	}
 	// Value has already been validated.
-	val, _ := time.ParseDuration(c.mustString(UpdateStatusHookInterval))
+	val, _ := time.ParseDuration(raw)
 	return val
 }
 
