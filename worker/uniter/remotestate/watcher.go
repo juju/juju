@@ -5,7 +5,6 @@ package remotestate
 
 import (
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -33,7 +32,7 @@ type RemoteStateWatcher struct {
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
 	storageAttachmentChanges  chan storageAttachmentChange
 	leadershipTracker         leadership.Tracker
-	updateStatusChannel       func() <-chan time.Time
+	updateStatusChannel       UpdateStatusTimerFunc
 	commandChannel            <-chan string
 	retryHookChannel          <-chan struct{}
 
@@ -49,7 +48,7 @@ type RemoteStateWatcher struct {
 type WatcherConfig struct {
 	State               State
 	LeadershipTracker   leadership.Tracker
-	UpdateStatusChannel func() <-chan time.Time
+	UpdateStatusChannel UpdateStatusTimerFunc
 	CommandChannel      <-chan string
 	RetryHookChannel    <-chan struct{}
 	UnitTag             names.UnitTag
@@ -300,6 +299,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		observedEvent(&seenLeadershipChange)
 	}
 
+	// TODO(wallyworld) - listen for changes to this value
+	updateStatusInterval, err := w.st.UpdateStatusHookInterval()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -413,7 +418,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 
-		case <-w.updateStatusChannel():
+		case <-w.updateStatusChannel(updateStatusInterval)():
 			logger.Debugf("update status timer triggered")
 			if err := w.updateStatusChanged(); err != nil {
 				return errors.Trace(err)
