@@ -4,13 +4,13 @@
 package commands
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type HelpToolSuite struct {
@@ -28,19 +28,50 @@ Show help on a Juju charm tool.
 `)
 }
 
+var expectedCommands = []string{
+	"action-fail",
+	"action-get",
+	"action-set",
+	"add-metric",
+	"application-version-set",
+	"close-port",
+	"config-get",
+	"is-leader",
+	"juju-log",
+	"juju-reboot",
+	"leader-get",
+	"leader-set",
+	"network-get",
+	"open-port",
+	"opened-ports",
+	"payload-register",
+	"payload-status-set",
+	"payload-unregister",
+	"relation-get",
+	"relation-ids",
+	"relation-list",
+	"relation-set",
+	"resource-get",
+	"status-get",
+	"status-set",
+	"storage-add",
+	"storage-get",
+	"storage-list",
+	"unit-get",
+}
+
 func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
-	expectedNames := jujuc.CommandNames()
 	output := badrun(c, 0, "help-tool")
 	lines := strings.Split(strings.TrimSpace(output), "\n")
-	for i, line := range lines {
-		lines[i] = strings.Fields(line)[0]
-	}
+	template := "%v"
 	if runtime.GOOS == "windows" {
-		for i, command := range lines {
-			lines[i] = command + ".exe"
-		}
+		template = "%v.exe"
 	}
-	c.Assert(lines, gc.DeepEquals, expectedNames)
+	for i, line := range lines {
+		command := strings.Fields(line)[0]
+		lines[i] = fmt.Sprintf(template, command)
+	}
+	c.Assert(lines, gc.DeepEquals, expectedCommands)
 }
 
 func (suite *HelpToolSuite) TestHelpToolName(c *gc.C) {

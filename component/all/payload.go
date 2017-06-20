@@ -28,6 +28,8 @@ func (c payloads) registerForServer() error {
 
 func (c payloads) registerForClient() error {
 	c.registerPublicCommands()
+	// needed for help-tool
+	c.registerHookContextCommands()
 	return nil
 }
 
