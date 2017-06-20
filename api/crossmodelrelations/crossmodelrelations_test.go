@@ -27,13 +27,13 @@ func (s *CrossModelRelationsSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
-func (s *CrossModelRelationsSuite) TestPublishLocalRelationChange(c *gc.C) {
+func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "PublishLocalRelationChange")
+		c.Check(request, gc.Equals, "PublishRelationChange")
 		c.Check(arg, gc.DeepEquals, params.RemoteRelationsChanges{
 			Changes: []params.RemoteRelationChangeEvent{{
 				DepartedUnits: []int{1}}},
@@ -48,7 +48,7 @@ func (s *CrossModelRelationsSuite) TestPublishLocalRelationChange(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClient(apiCaller)
-	err := client.PublishLocalRelationChange(params.RemoteRelationChangeEvent{DepartedUnits: []int{1}})
+	err := client.PublishRelationChange(params.RemoteRelationChangeEvent{DepartedUnits: []int{1}})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -92,4 +92,55 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationCount(c *gc.C) {
 	client := crossmodelrelations.NewClient(apiCaller)
 	_, err := client.RegisterRemoteRelations(params.RegisterRemoteRelation{})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+}
+
+func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
+	remoteRelationId := params.RemoteEntityId{}
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(arg, jc.DeepEquals, params.RemoteEntities{Entities: []params.RemoteEntityId{remoteRelationId}})
+		c.Check(request, gc.Equals, "WatchRelationUnits")
+		c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResults{})
+		*(result.(*params.RelationUnitsWatchResults)) = params.RelationUnitsWatchResults{
+			Results: []params.RelationUnitsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := crossmodelrelations.NewClient(apiCaller)
+	_, err := client.WatchRelationUnits(remoteRelationId)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *CrossModelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
+	remoteRelationId := params.RemoteEntityId{}
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "RelationUnitSettings")
+		c.Check(arg, gc.DeepEquals, params.RemoteRelationUnits{
+			RelationUnits: []params.RemoteRelationUnit{{RelationId: remoteRelationId, Unit: "u"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.SettingsResults{})
+		*(result.(*params.SettingsResults)) = params.SettingsResults{
+			Results: []params.SettingsResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := crossmodelrelations.NewClient(apiCaller)
+	result, err := client.RelationUnitSettings([]params.RemoteRelationUnit{{RelationId: remoteRelationId, Unit: "u"}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
 }

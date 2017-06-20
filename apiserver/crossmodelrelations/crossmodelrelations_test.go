@@ -19,9 +19,9 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&remoteRelationsSuite{})
+var _ = gc.Suite(&crossmodelRelationsSuite{})
 
-type remoteRelationsSuite struct {
+type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
 
 	resources  *common.Resources
@@ -30,7 +30,7 @@ type remoteRelationsSuite struct {
 	api        *crossmodelrelations.CrossModelRelationsAPI
 }
 
-func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
+func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
@@ -47,7 +47,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
@@ -57,7 +57,7 @@ func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
 	rel.units["db2/2"] = ru2
 	s.st.relations["db2:db django:db"] = rel
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
-	results, err := s.api.PublishLocalRelationChange(params.RemoteRelationsChanges{
+	results, err := s.api.PublishRelationChange(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
 				Life: params.Alive,
@@ -92,7 +92,7 @@ func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
 	})
 }
 
-func (s *remoteRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	app := &mockApplication{}
 	app.eps = []state.Endpoint{{
 		ApplicationName: "offeredapp",
@@ -129,11 +129,32 @@ func (s *remoteRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
 }
 
-func (s *remoteRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	s.assertRegisterRemoteRelations(c)
 }
 
-func (s *remoteRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C) {
 	s.assertRegisterRemoteRelations(c)
 	s.assertRegisterRemoteRelations(c)
+}
+
+func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
+	djangoRelationUnit := newMockRelationUnit()
+	djangoRelationUnit.settings["key"] = "value"
+	db2Relation := newMockRelation(123)
+	db2Relation.units["django/0"] = djangoRelationUnit
+	s.st.relations["db2:db django:db"] = db2Relation
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2"
+	result, err := s.api.RelationUnitSettings(params.RemoteRelationUnits{
+		RelationUnits: []params.RemoteRelationUnit{{
+			RelationId: params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2"},
+			Unit:       "unit-django-0",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, jc.DeepEquals, []params.SettingsResult{{Settings: params.Settings{"key": "value"}}})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "token-db2"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+	})
 }

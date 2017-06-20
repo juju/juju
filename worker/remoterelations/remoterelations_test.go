@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,11 +28,12 @@ var _ = gc.Suite(&remoteRelationsSuite{})
 type remoteRelationsSuite struct {
 	coretesting.BaseSuite
 
-	resources       *common.Resources
-	authorizer      *apiservertesting.FakeAuthorizer
-	relationsFacade *mockRelationsFacade
-	config          remoterelations.Config
-	stub            *jujutesting.Stub
+	resources             *common.Resources
+	authorizer            *apiservertesting.FakeAuthorizer
+	relationsFacade       *mockRelationsFacade
+	remoteRelationsFacade *mockRemoteRelationsFacade
+	config                remoterelations.Config
+	stub                  *jujutesting.Stub
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
@@ -40,11 +41,12 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 
 	s.stub = new(jujutesting.Stub)
 	s.relationsFacade = newMockRelationsFacade(s.stub)
+	s.remoteRelationsFacade = newMockRemoteRelationsFacade(s.stub)
 	s.config = remoterelations.Config{
 		ModelUUID:       "local-model-uuid",
 		RelationsFacade: s.relationsFacade,
-		NewPublisherForModelFunc: func(modelUUID string) (remoterelations.RemoteRelationChangePublisherCloser, error) {
-			return s.relationsFacade, nil
+		NewRemoteModelFacadeFunc: func(modelUUID string) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+			return s.remoteRelationsFacade, nil
 		},
 	}
 }
@@ -169,10 +171,16 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		}}}},
 		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-offer-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
+		{"WatchRelationUnits", []interface{}{"token-db2:db django:db"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
 	unitWatcher, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
+	c.Check(ok, jc.IsTrue)
+	waitForStubCalls(c, &unitWatcher.Stub, []jujutesting.StubCall{
+		{"Changes", nil},
+	})
+	unitWatcher, ok = s.remoteRelationsFacade.relationsUnitsWatcher("token-db2:db django:db")
 	c.Check(ok, jc.IsTrue)
 	waitForStubCalls(c, &unitWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
@@ -188,11 +196,15 @@ func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *gc.C) {
 	relWatcher, ok := s.relationsFacade.relationsUnitsWatchers["db2:db django:db"]
 	c.Check(ok, jc.IsTrue)
 	c.Check(relWatcher.killed(), jc.IsTrue)
+
+	relWatcher, ok = s.remoteRelationsFacade.relationsUnitsWatchers["token-db2:db django:db"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(relWatcher.killed(), jc.IsTrue)
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 	// Checks that when a remote relation dies, the relation units
-	// worker is killed.
+	// workers are killed.
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -202,6 +214,10 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		_, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
+		if ok {
+			continue
+		}
+		_, ok = s.remoteRelationsFacade.relationsUnitsWatcher("token-db2:db django:db")
 		if !ok {
 			break
 		}
@@ -213,7 +229,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
 		{"RemoveRemoteEntity", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
-		{"PublishLocalRelationChange", []interface{}{
+		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life: params.Dead,
 				ApplicationId: params.RemoteEntityId{
@@ -252,7 +268,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
 		{"RemoveRemoteEntity", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
-		{"PublishLocalRelationChange", []interface{}{
+		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life: params.Dead,
 				ApplicationId: params.RemoteEntityId{
@@ -268,7 +284,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
+func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -286,12 +302,51 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
 			[]params.RelationUnit{{
 				Relation: "relation-db2.db#django.db",
 				Unit:     "unit-unit-1"}}}},
-		{"PublishLocalRelationChange", []interface{}{
+		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life: params.Alive,
 				ApplicationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-django"},
+				RelationId: params.RemoteEntityId{
+					ModelUUID: "model-uuid",
+					Token:     "token-db2:db django:db"},
+				ChangedUnits: []params.RemoteRelationUnitChange{{
+					UnitId:   1,
+					Settings: map[string]interface{}{"foo": "bar"},
+				}},
+				DepartedUnits: []int{2},
+				Macaroon:      mac,
+			},
+		}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
+	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	unitsWatcher, _ := s.remoteRelationsFacade.relationsUnitsWatcher("token-db2:db django:db")
+	unitsWatcher.changes <- watcher.RelationUnitsChange{
+		Changed:  map[string]watcher.UnitSettings{"unit/1": {Version: 2}},
+		Departed: []string{"unit/2"},
+	}
+
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []jujutesting.StubCall{
+		{"RelationUnitSettings", []interface{}{
+			[]params.RemoteRelationUnit{{
+				RelationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
+				Unit:       "unit-unit-1"}}}},
+		{"ConsumeRemoteRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				Life: params.Alive,
+				ApplicationId: params.RemoteEntityId{
+					ModelUUID: "source-model-uuid",
+					Token:     "token-offer-db2"},
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-db2:db django:db"},
@@ -361,7 +416,6 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"GetToken", []interface{}{"remote-model-uuid", names.NewRelationTag("db2:db django:db")}},
 		{"GetToken", []interface{}{"local-model-uuid", names.NewApplicationTag("django")}},
-		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/crossmodelrelations"
+	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -42,21 +42,21 @@ func (st *mockState) ModelUUID() string {
 	return coretesting.ModelTag.Id()
 }
 
-func (st *mockState) AddRelation(eps ...state.Endpoint) (crossmodelrelations.Relation, error) {
+func (st *mockState) AddRelation(eps ...state.Endpoint) (common.Relation, error) {
 	rel := &mockRelation{
 		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
 	st.relations[rel.key] = rel
 	return rel, nil
 }
 
-func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (crossmodelrelations.Relation, error) {
+func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (common.Relation, error) {
 	rel := &mockRelation{
 		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
 	st.relations[rel.key] = rel
 	return rel, nil
 }
 
-func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (crossmodelrelations.RemoteApplication, error) {
+func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (common.RemoteApplication, error) {
 	app := &mockRemoteApplication{consumerproxy: params.IsConsumerProxy}
 	st.remoteApplications[params.Name] = app
 	return app, nil
@@ -71,15 +71,6 @@ func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names
 		return errors.AlreadyExistsf(entity.Id())
 	}
 	st.remoteEntities[entity] = token
-	return nil
-}
-
-func (st *mockState) RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error {
-	st.MethodCall(st, "RemoveRemoteEntity", sourceModel, entity)
-	if err := st.NextErr(); err != nil {
-		return err
-	}
-	delete(st.remoteEntities, entity)
 	return nil
 }
 
@@ -109,15 +100,7 @@ func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (
 	return nil, errors.NotFoundf("token %v", token)
 }
 
-func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (string, error) {
-	st.MethodCall(st, "GetToken", sourceModel, entity)
-	if err := st.NextErr(); err != nil {
-		return "", err
-	}
-	return "token-" + entity.String(), nil
-}
-
-func (st *mockState) KeyRelation(key string) (crossmodelrelations.Relation, error) {
+func (st *mockState) KeyRelation(key string) (common.Relation, error) {
 	st.MethodCall(st, "KeyRelation", key)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -129,20 +112,7 @@ func (st *mockState) KeyRelation(key string) (crossmodelrelations.Relation, erro
 	return r, nil
 }
 
-func (st *mockState) Relation(id int) (crossmodelrelations.Relation, error) {
-	st.MethodCall(st, "Relation", id)
-	if err := st.NextErr(); err != nil {
-		return nil, err
-	}
-	for _, r := range st.relations {
-		if r.id == id {
-			return r, nil
-		}
-	}
-	return nil, errors.NotFoundf("relation %d", id)
-}
-
-func (st *mockState) RemoteApplication(id string) (crossmodelrelations.RemoteApplication, error) {
+func (st *mockState) RemoteApplication(id string) (common.RemoteApplication, error) {
 	st.MethodCall(st, "RemoteApplication", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -154,7 +124,7 @@ func (st *mockState) RemoteApplication(id string) (crossmodelrelations.RemoteApp
 	return a, nil
 }
 
-func (st *mockState) Application(id string) (crossmodelrelations.Application, error) {
+func (st *mockState) Application(id string) (common.Application, error) {
 	st.MethodCall(st, "Application", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -167,16 +137,17 @@ func (st *mockState) Application(id string) (crossmodelrelations.Application, er
 }
 
 type mockRelation struct {
+	common.Relation
 	testing.Stub
 	id    int
 	key   string
-	units map[string]crossmodelrelations.RelationUnit
+	units map[string]common.RelationUnit
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
 		id:    id,
-		units: make(map[string]crossmodelrelations.RelationUnit),
+		units: make(map[string]common.RelationUnit),
 	}
 }
 
@@ -190,7 +161,7 @@ func (r *mockRelation) Destroy() error {
 	return r.NextErr()
 }
 
-func (r *mockRelation) RemoteUnit(unitId string) (crossmodelrelations.RelationUnit, error) {
+func (r *mockRelation) RemoteUnit(unitId string) (common.RelationUnit, error) {
 	r.MethodCall(r, "RemoteUnit", unitId)
 	if err := r.NextErr(); err != nil {
 		return nil, err
@@ -202,7 +173,25 @@ func (r *mockRelation) RemoteUnit(unitId string) (crossmodelrelations.RelationUn
 	return u, nil
 }
 
+func (r *mockRelation) Unit(unitId string) (common.RelationUnit, error) {
+	r.MethodCall(r, "Unit", unitId)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	u, ok := r.units[unitId]
+	if !ok {
+		return nil, errors.NotFoundf("unit %q", unitId)
+	}
+	return u, nil
+}
+
+func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
+	u.MethodCall(u, "Settings")
+	return u.settings, u.NextErr()
+}
+
 type mockRemoteApplication struct {
+	common.RemoteApplication
 	testing.Stub
 	consumerproxy bool
 }
@@ -218,6 +207,7 @@ func (r *mockRemoteApplication) Destroy() error {
 }
 
 type mockApplication struct {
+	common.Application
 	testing.Stub
 	life state.Life
 	eps  []state.Endpoint
@@ -234,6 +224,7 @@ func (a *mockApplication) Life() state.Life {
 }
 
 type mockRelationUnit struct {
+	common.RelationUnit
 	testing.Stub
 	inScope  bool
 	settings map[string]interface{}

@@ -13,6 +13,7 @@ import (
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
+	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/state"
@@ -21,6 +22,7 @@ import (
 )
 
 type mockState struct {
+	remoterelations.RemoteRelationsState
 	testing.Stub
 	relations                    map[string]*mockRelation
 	remoteApplications           map[string]*mockRemoteApplication
@@ -47,14 +49,7 @@ func (st *mockState) ModelUUID() string {
 	return coretesting.ModelTag.Id()
 }
 
-func (st *mockState) AddRelation(eps ...state.Endpoint) (remoterelations.Relation, error) {
-	rel := &mockRelation{
-		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
-	st.relations[rel.key] = rel
-	return rel, nil
-}
-
-func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (remoterelations.Relation, error) {
+func (st *mockState) AddRelation(eps ...state.Endpoint) (common.Relation, error) {
 	rel := &mockRelation{
 		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
 	st.relations[rel.key] = rel
@@ -116,7 +111,7 @@ func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (str
 	return "token-" + entity.String(), nil
 }
 
-func (st *mockState) KeyRelation(key string) (remoterelations.Relation, error) {
+func (st *mockState) KeyRelation(key string) (common.Relation, error) {
 	st.MethodCall(st, "KeyRelation", key)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -128,7 +123,7 @@ func (st *mockState) KeyRelation(key string) (remoterelations.Relation, error) {
 	return r, nil
 }
 
-func (st *mockState) Relation(id int) (remoterelations.Relation, error) {
+func (st *mockState) Relation(id int) (common.Relation, error) {
 	st.MethodCall(st, "Relation", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -141,7 +136,7 @@ func (st *mockState) Relation(id int) (remoterelations.Relation, error) {
 	return nil, errors.NotFoundf("relation %d", id)
 }
 
-func (st *mockState) RemoteApplication(id string) (remoterelations.RemoteApplication, error) {
+func (st *mockState) RemoteApplication(id string) (common.RemoteApplication, error) {
 	st.MethodCall(st, "RemoteApplication", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -153,7 +148,7 @@ func (st *mockState) RemoteApplication(id string) (remoterelations.RemoteApplica
 	return a, nil
 }
 
-func (st *mockState) Application(id string) (remoterelations.Application, error) {
+func (st *mockState) Application(id string) (common.Application, error) {
 	st.MethodCall(st, "Application", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -188,20 +183,23 @@ func (st *mockState) WatchRemoteRelations() state.StringsWatcher {
 }
 
 type mockRelation struct {
+	common.Relation
 	testing.Stub
 	id                    int
 	key                   string
 	life                  state.Life
-	units                 map[string]remoterelations.RelationUnit
+	units                 map[string]common.RelationUnit
+	remoteUnits           map[string]common.RelationUnit
 	endpoints             []state.Endpoint
 	endpointUnitsWatchers map[string]*mockRelationUnitsWatcher
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
-		id:    id,
-		life:  state.Alive,
-		units: make(map[string]remoterelations.RelationUnit),
+		id:                    id,
+		life:                  state.Alive,
+		units:                 make(map[string]common.RelationUnit),
+		remoteUnits:           make(map[string]common.RelationUnit),
 		endpointUnitsWatchers: make(map[string]*mockRelationUnitsWatcher),
 	}
 }
@@ -221,7 +219,7 @@ func (r *mockRelation) Life() state.Life {
 	return r.life
 }
 
-func (r *mockRelation) Unit(unitId string) (remoterelations.RelationUnit, error) {
+func (r *mockRelation) Unit(unitId string) (common.RelationUnit, error) {
 	r.MethodCall(r, "Unit", unitId)
 	if err := r.NextErr(); err != nil {
 		return nil, err
@@ -229,6 +227,18 @@ func (r *mockRelation) Unit(unitId string) (remoterelations.RelationUnit, error)
 	u, ok := r.units[unitId]
 	if !ok {
 		return nil, errors.NotFoundf("unit %q", unitId)
+	}
+	return u, nil
+}
+
+func (r *mockRelation) RemoteUnit(unitId string) (common.RelationUnit, error) {
+	r.MethodCall(r, "RemoteUnit", unitId)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	u, ok := r.remoteUnits[unitId]
+	if !ok {
+		return nil, errors.NotFoundf("remote unit %q", unitId)
 	}
 	return u, nil
 }
@@ -251,6 +261,7 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 }
 
 type mockRemoteApplication struct {
+	common.RemoteApplication
 	testing.Stub
 	name          string
 	alias         string
@@ -313,6 +324,7 @@ func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 }
 
 type mockApplication struct {
+	common.Application
 	testing.Stub
 	name string
 	life state.Life
@@ -398,6 +410,7 @@ func (w *mockRelationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 }
 
 type mockRelationUnit struct {
+	common.RelationUnit
 	testing.Stub
 	inScope  bool
 	settings map[string]interface{}
@@ -412,4 +425,31 @@ func newMockRelationUnit() *mockRelationUnit {
 func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
 	u.MethodCall(u, "Settings")
 	return u.settings, u.NextErr()
+}
+
+func (u *mockRelationUnit) InScope() (bool, error) {
+	u.MethodCall(u, "InScope")
+	return u.inScope, u.NextErr()
+}
+
+func (u *mockRelationUnit) LeaveScope() error {
+	u.MethodCall(u, "LeaveScope")
+	if err := u.NextErr(); err != nil {
+		return err
+	}
+	u.inScope = false
+	return nil
+}
+
+func (u *mockRelationUnit) EnterScope(settings map[string]interface{}) error {
+	u.MethodCall(u, "EnterScope", settings)
+	if err := u.NextErr(); err != nil {
+		return err
+	}
+	u.inScope = true
+	u.settings = make(map[string]interface{})
+	for k, v := range settings {
+		u.settings[k] = v
+	}
+	return nil
 }

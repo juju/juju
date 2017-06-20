@@ -8,9 +8,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -24,7 +24,11 @@ type RemoteRelationsAPI struct {
 // NewStateRemoteRelationsAPI creates a new server-side RemoteRelationsAPI facade
 // backed by global state.
 func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error) {
-	return NewRemoteRelationsAPI(stateShim{ctx.State()}, ctx.Resources(), ctx.Auth())
+	return NewRemoteRelationsAPI(
+		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
+		ctx.Resources(), ctx.Auth(),
+	)
+
 }
 
 // NewRemoteRelationsAPI returns a new server-side RemoteRelationsAPI facade.
@@ -324,7 +328,7 @@ func (api *RemoteRelationsAPI) WatchLocalRelationUnits(args params.Entities) (pa
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		w, err := api.watchLocalRelationUnits(relationTag)
+		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -338,28 +342,6 @@ func (api *RemoteRelationsAPI) WatchLocalRelationUnits(args params.Entities) (pa
 		results.Results[i].Changes = changes
 	}
 	return results, nil
-}
-
-func (api *RemoteRelationsAPI) watchLocalRelationUnits(tag names.RelationTag) (state.RelationUnitsWatcher, error) {
-	relation, err := api.st.KeyRelation(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, ep := range relation.Endpoints() {
-		_, err := api.st.Application(ep.ApplicationName)
-		if errors.IsNotFound(err) {
-			// Not found, so it's the remote application. Try the next endpoint.
-			continue
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		w, err := relation.WatchUnits(ep.ApplicationName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return w, nil
-	}
-	return nil, errors.NotFoundf("local application for %s", names.ReadableString(tag))
 }
 
 // WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
@@ -406,4 +388,21 @@ func (api *RemoteRelationsAPI) WatchRemoteRelations() (params.StringsWatchResult
 		}, nil
 	}
 	return params.StringsWatchResult{}, watcher.EnsureErr(w)
+}
+
+// ConsumeRemoteRelationChange consumes a change to settings originating
+// from the remote/offering side of a relation.
+func (api *RemoteRelationsAPI) ConsumeRemoteRelationChange(
+	changes params.RemoteRelationsChanges,
+) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(changes.Changes)),
+	}
+	for i, change := range changes.Changes {
+		if err := commoncrossmodel.PublishRelationChange(api.st, change); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
 }

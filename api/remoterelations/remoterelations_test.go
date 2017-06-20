@@ -397,3 +397,29 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
+
+func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
+	var callCount int
+	change := params.RemoteRelationChangeEvent{}
+	changes := params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{change},
+	}
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "RemoteRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ConsumeRemoteRelationChange")
+		c.Check(arg, jc.DeepEquals, changes)
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}}}
+		callCount++
+		return nil
+	})
+	client := remoterelations.NewClient(apiCaller)
+	err := client.ConsumeRemoteRelationChange(change)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
