@@ -679,23 +679,6 @@ type PingRecorder interface {
 	Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error
 }
 
-type DirectRecorder struct {
-	pings *mgo.Collection
-}
-
-func (dr *DirectRecorder) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
-	session := dr.pings.Database.Session.Copy()
-	defer session.Close()
-	pings := dr.pings.With(session)
-	_, err := pings.UpsertId(
-		docIDInt64(modelUUID, slot),
-		bson.D{
-			{"$set", bson.D{{"slot", slot}}},
-			{"$inc", bson.D{{"alive." + fieldKey, fieldBit}}},
-		})
-	return err
-}
-
 // NewPinger returns a new Pinger to report that key is alive.
 // It starts reporting after Start is called.
 func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string, recorder PingRecorder) *Pinger {

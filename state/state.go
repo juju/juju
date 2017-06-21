@@ -494,9 +494,9 @@ func (st *State) getPresenceCollection() *mgo.Collection {
 	return st.session.DB(presenceDB).C(presenceC)
 }
 
-// getPingRecorder returns the implementation of how we serialize Ping requests
+// getPingBatcher returns the implementation of how we serialize Ping requests
 // for agents to the database.
-func (st *State) getPingRecorder() presence.PingRecorder {
+func (st *State) getPingBatcher() *presence.PingBatcher {
 	return st.workers.pingBatcherWorker()
 }
 

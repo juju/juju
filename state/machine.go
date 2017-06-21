@@ -927,12 +927,17 @@ func (m *Machine) AgentPresence() (bool, error) {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// These should really only be used in the test suite.
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	pwatcher := m.st.workers.presenceWatcher()
 	pwatcher.Watch(m.globalKey(), ch)
 	defer pwatcher.Unwatch(m.globalKey(), ch)
+	pingBatcher := m.st.getPingBatcher()
+	if err := pingBatcher.ForceFlush(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -953,7 +958,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresenceCollection()
-	recorder := m.st.getPingRecorder()
+	recorder := m.st.getPingBatcher()
 	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey(), recorder)
 	err := p.Start()
 	if err != nil {

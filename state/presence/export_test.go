@@ -4,12 +4,8 @@
 package presence
 
 import (
-	"time"
-
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/testing"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func FakeTimeSlot(offset int) {
@@ -30,25 +26,23 @@ func RealPeriod() {
 	period = realPeriod
 }
 
-func (pb *PingBatcher) ForceFlush() error {
-	request := make(chan struct{})
-	select {
-	case pb.flushChan <- request:
-		select {
-		case <-request:
-			return nil
-		case <-pb.tomb.Dying():
-			return pb.tomb.Err()
-		case <-time.After(testing.LongWait):
-			return errors.Errorf("timeout waiting for flush to finish")
-		}
-	case <-pb.tomb.Dying():
-		return pb.tomb.Err()
-	case <-time.After(testing.LongWait):
-		return errors.Errorf("timeout waiting for flush request")
-	}
-}
-
 func DirectRecordFunc(base *mgo.Collection) PingRecorder {
 	return &DirectRecorder{pings: pingsC(base)}
+}
+
+type DirectRecorder struct {
+	pings *mgo.Collection
+}
+
+func (dr *DirectRecorder) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
+	session := dr.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := dr.pings.With(session)
+	_, err := pings.UpsertId(
+		docIDInt64(modelUUID, slot),
+		bson.D{
+			{"$set", bson.D{{"slot", slot}}},
+			{"$inc", bson.D{{"alive." + fieldKey, fieldBit}}},
+		})
+	return err
 }
