@@ -1117,65 +1117,6 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) TestAddPingFlushIntervalSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
-	defer settingsCloser()
-	_, err := settingsColl.RemoveAll(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m1 := s.makeModel(c, "m1", testing.Attrs{
-		"ping-flush-interval": "10s",
-	})
-	defer m1.Close()
-
-	m2 := s.makeModel(c, "m2", testing.Attrs{})
-	defer m2.Close()
-	// We remove the 'ping-flush-interval' value to
-	// represent an old-style model that needs updating.
-	settingsKey := m2.ModelUUID() + ":e"
-	err = settingsColl.UpdateId(settingsKey,
-		bson.M{"$unset": bson.M{"settings.ping-flush-interval": ""}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = settingsColl.Insert(bson.M{
-		"_id": "someothersettingshouldnotbetouched",
-		// non-model setting: should not be touched
-		"settings": bson.M{"key": "value"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg1, err := m1.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	expected1 := cfg1.AllAttrs()
-	expected1["resource-tags"] = ""
-
-	cfg2, err := m2.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	expected2 := cfg2.AllAttrs()
-	expected2["ping-flush-interval"] = "1s"
-	expected2["resource-tags"] = ""
-
-	expectedSettings := bsonMById{
-		{
-			"_id":        m1.ModelUUID() + ":e",
-			"settings":   bson.M(expected1),
-			"model-uuid": m1.ModelUUID(),
-		}, {
-			"_id":        m2.ModelUUID() + ":e",
-			"settings":   bson.M(expected2),
-			"model-uuid": m2.ModelUUID(),
-		}, {
-			"_id":      "someothersettingshouldnotbetouched",
-			"settings": bson.M{"key": "value"},
-		},
-	}
-	sort.Sort(expectedSettings)
-
-	s.assertUpgradedData(c, AddPingFlushIntervalSettings,
-		expectUpgradedData{settingsColl, expectedSettings},
-	)
-}
-
 func (s *upgradesSuite) TestAddStorageInstanceConstraints(c *gc.C) {
 	storageInstancesColl, storageInstancesCloser := s.state.getRawCollection(storageInstancesC)
 	defer storageInstancesCloser()

@@ -33,6 +33,8 @@ type workers struct {
 	*worker.Runner
 }
 
+const pingFlushInterval = time.Second
+
 func newWorkers(st *State) (*workers, error) {
 	ws := &workers{
 		state: st,
@@ -51,15 +53,7 @@ func newWorkers(st *State) (*workers, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.ModelTag()), nil
 	})
 	ws.StartWorker(pingBatcherWorker, func() (worker.Worker, error) {
-		conf, err := st.ModelConfig()
-		if err != nil {
-			return nil, err
-		}
-		// TODO(jam) 2017-06-21: We should update this worker
-		// when the interval changes from model config. We shouldn't have
-		// to restart the worker, just tell it that we have a new value.
-		interval := conf.PingFlushInterval()
-		return presence.NewPingBatcher(st.getPresenceCollection(), interval), nil
+		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
 	})
 	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
 		client, err := st.getLeadershipLeaseClient()

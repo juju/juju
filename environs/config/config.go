@@ -152,9 +152,6 @@ const (
 	// UpdateStatusHookInterval is how often to run the update-status hook.
 	UpdateStatusHookInterval = "update-status-hook-interval"
 
-	// PingFlushInterval is how often to flush Ping requests to the database
-	PingFlushInterval = "ping-flush-interval"
-
 	//
 	// Deprecated Settings Attributes
 	//
@@ -312,9 +309,6 @@ const (
 
 	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
 	DefaultUpdateStatusHookInterval = "5m"
-
-	// DefaultPingFlushInterval is the default time between flushing Pings to the database
-	DefaultPingFlushInterval = "1s"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -355,7 +349,6 @@ var defaultConfigValues = map[string]interface{}{
 	"test-mode":                false,
 	TransmitVendorMetricsKey:   true,
 	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
-	PingFlushInterval: DefaultPingFlushInterval,
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -538,19 +531,6 @@ func Validate(cfg, old *Config) error {
 			}
 			if f > 60*time.Minute {
 				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
-			}
-		}
-	}
-
-	if v, ok := cfg.defined[PingFlushInterval].(string); ok {
-		if f, err := time.ParseDuration(v); err != nil {
-			return errors.Annotate(err, "invalid ping flush interval in model configuration")
-		} else {
-			if f < 10*time.Millisecond {
-				return errors.Annotatef(err, "ping flush interval %v cannot be less than 10 milliseconds", f)
-			}
-			if f > 20*time.Second {
-				return errors.Annotatef(err, "ping flush interval %v cannot be greater than 20s", f)
 			}
 		}
 	}
@@ -1008,23 +988,6 @@ func (c *Config) UpdateStatusHookInterval() time.Duration {
 	return val
 }
 
-// UpdateStatusHookInterval is how often to run the charm
-// update-status hook.
-func (c *Config) PingFlushInterval() time.Duration {
-	// TODO(jam) - remove this work around when possible as
-	// we already have a defaulting mechanism for config.
-	// It's only here to guard against using Juju clients >= 2.2
-	// with Juju controllers running 2.1.x
-	// switch to c.mustString(PingFlushInterval)
-	raw := c.asString(PingFlushInterval)
-	if raw == "" {
-		raw = DefaultPingFlushInterval
-	}
-	// Value has already been validated.
-	val, _ := time.ParseDuration(raw)
-	return val
-}
-
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1133,7 +1096,6 @@ var alwaysOptional = schema.Defaults{
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
-	PingFlushInterval:     schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1517,11 +1479,6 @@ data of the store. (default false)`,
 	},
 	UpdateStatusHookInterval: {
 		Description: "How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m)",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	PingFlushInterval: {
-		Description: "How often to write agent-alive pings to the database, in human-readable time format (default 1s, range 10ms-20s)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

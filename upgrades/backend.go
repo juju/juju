@@ -31,7 +31,6 @@ type StateBackend interface {
 	AddStorageInstanceConstraints() error
 	SplitLogCollections() error
 	AddUpdateStatusHookSettings() error
-	AddPingFlushIntervalSettings() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -110,9 +109,6 @@ func (s stateBackend) AddUpdateStatusHookSettings() error {
 	return state.AddUpdateStatusHookSettings(s.st)
 }
 
-func (s stateBackend) AddPingFlushIntervalSettings() error {
-	return state.AddPingFlushIntervalSettings(s.st)
-}
 func (s stateBackend) AddStorageInstanceConstraints() error {
 	return state.AddStorageInstanceConstraints(s.st)
 }

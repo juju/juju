@@ -13,12 +13,5 @@ func stateStepsFor221() []Step {
 				return context.State().AddUpdateStatusHookSettings()
 			},
 		},
-		&upgradeStep{
-			description: "add ping-flush-interval config settings",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return context.State().AddPingFlushIntervalSettings()
-			},
-		},
 	}
 }
