@@ -183,7 +183,7 @@ func assertStopped(c *gc.C, w worker.Worker) {
 
 func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	FakePeriod(1)
-	keys := make([]string, 10000)
+	keys := make([]string, 500)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%04d", i)
 	}

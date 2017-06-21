@@ -206,7 +206,7 @@ func (s *PingBatcherSuite) TestDocBatchSize(c *gc.C) {
 
 func (s *PingBatcherSuite) TestBatchFlushesByTime(c *gc.C) {
 	t := time.Now()
-	pb := presence.NewPingBatcher(s.presence, testing.ShortWait)
+	pb := presence.NewPingBatcher(s.presence, 50*time.Millisecond)
 	defer assertStopped(c, pb)
 
 	slot := int64(1497960150)
@@ -217,17 +217,20 @@ func (s *PingBatcherSuite) TestBatchFlushesByTime(c *gc.C) {
 	var res bson.M
 	// We should not have found it yet
 	c.Assert(s.pings.FindId(docId).One(&res), gc.Equals, mgo.ErrNotFound)
-	// We wait up to 1s for the write to succeed.
+	// We will wait up to 1s for the write to succeed. While waiting, we will ping on another slot, to
+	// hint at other pingers that are still active, without messing up our final assertion.
+	slot2 := slot + 30
 	for i := 0; i < 1000; i++ {
 		time.Sleep(time.Millisecond)
 		err := s.pings.FindId(docId).One(&res)
+		slot2 = slot2 + 30
+		pb.Ping("test-uuid", slot2, "0", 1)
 		waitTime := time.Since(t)
-		if waitTime < time.Duration(float64(testing.ShortWait)*0.7) {
+		if waitTime < time.Duration(35*time.Millisecond) {
 			// Officially it should take a minimum of 50*0.8 = 40ms.
 			// make sure the timer hasn't flushed yet
 			c.Assert(err, gc.Equals, mgo.ErrNotFound,
 				gc.Commentf("PingBatcher flushed too soon, expected at least 15ms"))
-			c.Logf("no document, but not yet time")
 			continue
 		}
 		if err == nil {
@@ -255,7 +258,7 @@ func (s *PingBatcherSuite) TestStoppedPingerRejectsPings(c *gc.C) {
 	slot := int64(1497960150)
 	uuid := "test-uuid"
 	err := pb.Ping(uuid, slot, "0", 8)
-	c.Assert(err, gc.ErrorMatches, "PingBatcher not started")
+	c.Assert(err, gc.ErrorMatches, "PingBatcher is stopped")
 }
 
 func (s *PingBatcherSuite) TestNewDeadPingBatcher(c *gc.C) {
@@ -264,7 +267,7 @@ func (s *PingBatcherSuite) TestNewDeadPingBatcher(c *gc.C) {
 	slot := int64(1497960150)
 	uuid := "test-uuid"
 	err := pb.Ping(uuid, slot, "0", 8)
-	c.Assert(err, gc.ErrorMatches, "PingBatcher not started")
+	c.Assert(err, gc.ErrorMatches, "this is an error")
 
 	err = pb.Stop()
 	c.Assert(err, gc.ErrorMatches, "this is an error")
