@@ -176,17 +176,14 @@ func assertStopped(c *gc.C, w worker.Worker) {
 	select {
 	case <-done:
 		return
-	case <-time.After(testing.LongWait):
+	case <-time.After(testing.ShortWait):
 		c.Fatalf("failed to stop worker %v after %v", w, testing.ShortWait)
 	}
 }
 
 func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	FakePeriod(1)
-	// Each Pinger potentially grabs another socket to Mongo,
-	// which can exhaust connections. Somewhere around 5000 pingers on my
-	// machine everything starts failing because Mongo refuses new connections.
-	keys := make([]string, 500)
+	keys := make([]string, 10000)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%04d", i)
 	}
