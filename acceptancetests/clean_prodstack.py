@@ -3,24 +3,23 @@
 import re
 import os
 import sys
+import json
 import logging
 import subprocess
 
 def get_current_controller_and_models():
-    lines = subprocess.check_output(
-        ['juju', 'models'], stderr=subprocess.STDOUT).split('\n')
-    ctrl_name = [
-        item.split(':')[-1].strip() for item in lines if 'Controller:' in item][0]
-    for i in range(0, len(lines)):
-        if ('Model' in lines[i] and
-            'Cloud/Region' in lines[i] and
-            i+1<len(lines)):
-            model_lines = filter(None, lines[i+1:])
-            break
-    if not model_lines:
-        logging.info('No model has been found, exit.')
+    """Get Models name from current Controller, as well as Controller name.
+       Returns:
+       ctrl_name: a string for current Controller name
+       model_list: a list for name of Models under the current Controller"""
+
+    ctrl_output = json.loads(subprocess.check_output(['juju', 'controllers', '--format', 'json']))
+    ctrl_name = ctrl_output['current-controller']
+    model_output = json.loads(subprocess.check_output(['juju', 'models', '--format', 'json']))
+    model_list = [m['name'] for m in model_output['models']]
+    if not model_list:
+        logging.error('No model has been found, exit.')
         sys.exit(1)
-    model_list = [elem.split(' ')[0].strip('*') for elem in model_lines]
     logging.info(
         'Models under the Controller {} are:\n{}'.format(
         ctrl_name,
@@ -29,11 +28,16 @@ def get_current_controller_and_models():
 
 
 def get_reserved_machine_ipaddress():
-    role = 'admin'
+    """Machines (nova servers) associated to Models from current Controller
+       will be reserved, as they are either in use or orchestrating services.
+       Returns:
+       ip_pool: a list stores ip address of nova servers from Models in 
+                current Controller."""
+
     ip_pool = []
     ctrl_name, model_list = get_current_controller_and_models()
     for item in model_list:
-        model = '{}:{}/{}'.format(ctrl_name, role, item)
+        model = '{}:{}'.format(ctrl_name, item)
         lines = subprocess.check_output(
             ['juju', 'show-machine', '--model', model],
             stderr=subprocess.STDOUT)
@@ -42,6 +46,8 @@ def get_reserved_machine_ipaddress():
         if ip_list:
             [ip_pool.append(elem) for elem in ip_list if elem not in ip_pool]
     if ip_pool:
+        # ip_pool stores ip address associated to machines from active
+        # Models and Controllers, therefore need to be reserved
         logging.info(
             'DO NOT touch servers associated to these ip address:\n{}'.format(
             '\n'.join(ip_pool)))
@@ -52,6 +58,12 @@ def get_reserved_machine_ipaddress():
 
 
 def get_target_server_list():
+    """From nova list output, remove reserved machines based on their ip adress,
+       the rest is a lifeover server list which need to be reclaimed.
+       Returns:
+       target_nova_server_dict: a dictionary stores server_id:server_name which
+                                being sent to destroy_nova_server()"""
+
     ip_pool = get_reserved_machine_ipaddress()
     egrep_out = []
     reserved_nova_server_dict = {}
@@ -61,16 +73,20 @@ def get_target_server_list():
     with open(temp_file, 'w') as f:
         subprocess.check_call(['nova', 'list'], stdout=f)
     if not os.path.isfile(temp_file):
-        logging.info('Failed to get nova server list, exit.')
+        logging.error('Failed to get nova server list, exit.')
         sys.exit(1)
     with open(temp_file, 'r') as stream:
         # using readlines() as the outout from nova list is tiny
+        # using juju- as a search prefix as all instances created
+        # by Juju are in align with this format.
         for line in stream.readlines():
             if 'juju-' in line:
                 full_nova_server_dict[
                     filter(None, line.split('|'))[0].strip()] = filter(
                     None, line.split('|'))[1].strip()
     if not ip_pool:
+        # if there is no reserved server associated to
+        # ip address from ip_pool, delete them all
         target_nova_server_dict = full_nova_server_dict
         return target_nova_server_dict
     else:
@@ -104,6 +120,10 @@ def get_target_server_list():
 
 
 def destroy_nova_server():
+    """Using nova delete to remove leftover servers gathered from 
+       get_target_server_list()
+       Returns: None"""
+
     target_nova_server_dict = get_target_server_list()
     # delete nova server by its name
     for key in target_nova_server_dict:
@@ -115,7 +135,7 @@ def destroy_nova_server():
                 'nova server {} has been deleted.'.format(
                 target_nova_server_dict[key]))
         except subprocess.CalledProcessError:
-            logging.info(
+            logging.warning(
                 'Failed to delete {}, manual check required.'.format(
                 target_nova_server_dict[key]))
 
