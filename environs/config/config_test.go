@@ -1133,6 +1133,18 @@ func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigValue(c *gc.C) {
 	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 30*time.Minute)
 }
 
+func (s *ConfigSuite) TestPingFlushIntervalConfigDefault(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.PingFlushInterval(), gc.Equals, 1*time.Second)
+}
+
+func (s *ConfigSuite) TestPingFlushIntervalConfigValue(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"ping-flush-interval": "10s",
+	})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 10*time.Second)
+}
+
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
 	schema, err := config.Schema(nil)
 	c.Assert(err, gc.IsNil)

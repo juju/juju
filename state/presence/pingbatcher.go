@@ -133,6 +133,10 @@ func (pb *PingBatcher) loop() error {
 			pb.mu.Unlock()
 			return errors.Trace(tomb.ErrDying)
 		case <-time.After(pb.nextSleep()):
+			// TODO (jam): 2017-06-21 I think I was wrong about channel selectivity.
+			// I think the problem was actually that we restart this timer every time we get a ping
+			// Switch back to a central loop and move this timeout
+			// outside of the loop, only creating it when it times out.
 			if err := pb.flush(); err != nil {
 				return errors.Trace(err)
 			}
