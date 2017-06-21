@@ -140,11 +140,19 @@ func (s *suite) TestPrunesLogsBySize(c *gc.C) {
 }
 
 func (s *suite) addLogs(c *gc.C, t0 time.Time, text string, count int) {
-	dbLogger := state.NewEntityDbLogger(s.state, names.NewMachineTag("0"), version.Current)
+	dbLogger := state.NewDbLogger(s.state)
 	defer dbLogger.Close()
 
 	for offset := 0; offset < count; offset++ {
 		t := t0.Add(-time.Duration(offset) * time.Second)
-		dbLogger.Log(t, "some.module", "foo.go:42", loggo.INFO, text)
+		dbLogger.Log([]state.LogRecord{{
+			Time:     t,
+			Entity:   names.NewMachineTag("0"),
+			Version:  version.Current,
+			Module:   "some.module",
+			Location: "foo.go:42",
+			Level:    loggo.INFO,
+			Message:  text,
+		}})
 	}
 }

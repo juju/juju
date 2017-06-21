@@ -154,7 +154,10 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
-	s.server, s.address = newServerWithHub(c, s.State, s.hub)
+
+	statePool := state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { statePool.Close() })
+	s.server, s.address = newServerWithHub(c, statePool, s.hub)
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })
 }
 
@@ -223,10 +226,10 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})
 }
 
-func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*apiserver.Server, string) {
+func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.StructuredHub) (*apiserver.Server, string) {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		Cert:            coretesting.ServerCert,
 		Key:             coretesting.ServerKey,
@@ -234,7 +237,6 @@ func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*api
 		LogDir:          c.MkDir(),
 		Hub:             hub,
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		StatePool:       state.NewStatePool(st),
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

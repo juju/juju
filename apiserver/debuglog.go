@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/state"
 )
 
@@ -32,7 +32,7 @@ type debugLogHandler struct {
 
 type debugLogHandlerFunc func(
 	state.LogTailerState,
-	*debugLogParams,
+	debugLogParams,
 	debugLogSocket,
 	<-chan struct{},
 ) error
@@ -93,7 +93,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	websocketServer(w, req, handler)
+	websocket.Serve(w, req, handler)
 }
 
 func isBrokenPipe(err error) bool {
@@ -131,7 +131,7 @@ func (s *debugLogSocketImpl) sendOk() {
 
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
-	if sendErr := sendInitialErrorV0(s.conn, err); sendErr != nil {
+	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		s.conn.Close()
 		return
@@ -156,13 +156,13 @@ type debugLogParams struct {
 	excludeModule []string
 }
 
-func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
-	params := new(debugLogParams)
+func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
+	var params debugLogParams
 
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
 		params.maxLines = uint(num)
 	}
@@ -170,7 +170,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("replay"); value != "" {
 		replay, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
+			return params, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
 	}
@@ -178,7 +178,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("noTail"); value != "" {
 		noTail, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
+			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
 		params.noTail = noTail
 	}
@@ -186,7 +186,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("backlog"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
 		}
 		params.backlog = uint(num)
 	}
@@ -195,7 +195,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 		var ok bool
 		level, ok := loggo.ParseLevel(value)
 		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return nil, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+			return params, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
 				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		params.filterLevel = level
@@ -204,7 +204,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("startTime"); value != "" {
 		startTime, err := time.Parse(time.RFC3339Nano, value)
 		if err != nil {
-			return nil, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
+			return params, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
 		}
 		params.startTime = startTime
 	}

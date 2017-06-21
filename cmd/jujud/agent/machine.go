@@ -81,6 +81,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
@@ -398,7 +399,14 @@ type MachineAgent struct {
 }
 
 type statePoolHolder struct {
+	mu   sync.Mutex
 	pool *state.StatePool
+}
+
+func (h *statePoolHolder) set(pool *state.StatePool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pool = pool
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -1083,9 +1091,6 @@ func (a *MachineAgent) startStateWorkers(
 			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
 				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
 			})
-			a.startWorkerAfterUpgrade(runner, "statemetrics", func() (worker.Worker, error) {
-				return newStateMetricsWorker(st, a.prometheusRegistry), nil
-			})
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
@@ -1208,8 +1213,12 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		w, err := a.newAPIserverWorker(st, certChanged, dependencyReporter)
+		statePool := state.NewStatePool(st)
+		w, err := a.newAPIserverWorker(
+			st, statePool, certChanged, dependencyReporter,
+		)
 		if err != nil {
+			statePool.Close()
 			st.Close()
 			return nil, errors.Trace(err)
 		}
@@ -1219,6 +1228,7 @@ func (a *MachineAgent) apiserverWorkerStarter(
 
 func (a *MachineAgent) newAPIserverWorker(
 	st *state.State,
+	statePool *state.StatePool,
 	certChanged chan params.StateServingInfo,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
@@ -1271,8 +1281,6 @@ func (a *MachineAgent) newAPIserverWorker(
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
-	statePool := state.NewStatePool(st)
-	a.statePool.pool = statePool
 
 	registerIntrospectionHandlers := func(f func(string, http.Handler)) {
 		introspection.RegisterHTTPHandlers(
@@ -1286,7 +1294,12 @@ func (a *MachineAgent) newAPIserverWorker(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting rate limit config")
 	}
-	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+	logSinkConfig, err := getLogSinkConfig(agentConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting log sink config")
+	}
+
+	server, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
 		Key:                           key,
@@ -1300,16 +1313,54 @@ func (a *MachineAgent) newAPIserverWorker(
 		AutocertDNSName:               controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
 		NewObserver:                   newObserver,
-		StatePool:                     statePool,
 		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
 		RateLimitConfig:               rateLimitConfig,
+		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          a.prometheusRegistry,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}
 
-	return server, nil
+	// Report state metrics.
+	stateMetricsRunner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       cmdutil.IsFatal,
+		MoreImportant: cmdutil.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
+	stateMetricsRunner.StartWorker("statemetrics", func() (worker.Worker, error) {
+		return newStateMetricsWorker(statePool, a.prometheusRegistry), nil
+	})
+
+	var apiserverWorker catacombWorker
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &apiserverWorker.Catacomb,
+		Work: func() error {
+			defer st.Close()
+			defer statePool.Close()
+			defer a.statePool.set(nil)
+			<-apiserverWorker.Catacomb.Dying()
+			// Wait for the workers to die before
+			// closing the state pool, as they
+			// may still be using it.
+			server.Wait()
+			stateMetricsRunner.Wait()
+			return apiserverWorker.Catacomb.ErrDying()
+		},
+		Init: []worker.Worker{server, stateMetricsRunner},
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	a.statePool.set(statePool)
+	return &apiserverWorker, nil
+}
+
+type catacombWorker struct {
+	catacomb.Catacomb
+}
+
+func (w *catacombWorker) Kill() {
+	w.Catacomb.Kill(nil)
 }
 
 func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
@@ -1842,9 +1893,9 @@ var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) dep
 	return deployer.NewSimpleContext(agentConfig, st)
 }
 
-func newStateMetricsWorker(st *state.State, registry *prometheus.Registry) worker.Worker {
+func newStateMetricsWorker(statePool *state.StatePool, registry *prometheus.Registry) worker.Worker {
 	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		collector := statemetrics.New(statemetrics.NewState(st))
+		collector := statemetrics.New(statemetrics.NewStatePool(statePool))
 		if err := registry.Register(collector); err != nil {
 			return errors.Annotate(err, "registering statemetrics collector")
 		}
@@ -1852,4 +1903,41 @@ func newStateMetricsWorker(st *state.State, registry *prometheus.Registry) worke
 		<-stop
 		return nil
 	})
+}
+
+func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
+	result := apiserver.DefaultLogSinkConfig()
+	var err error
+	if v := cfg.Value(agent.LogSinkDBLoggerBufferSize); v != "" {
+		result.DBLoggerBufferSize, err = strconv.Atoi(v)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerBufferSize,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkDBLoggerFlushInterval); v != "" {
+		if result.DBLoggerFlushInterval, err = time.ParseDuration(v); err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerFlushInterval,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkRateLimitBurst); v != "" {
+		result.RateLimitBurst, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkRateLimitBurst,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkRateLimitRefill); v != "" {
+		result.RateLimitRefill, err = time.ParseDuration(v)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkRateLimitRefill,
+			)
+		}
+	}
+	return result, nil
 }

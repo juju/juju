@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"bufio"
 	"crypto/x509"
 	"encoding/json"
 	"io"
@@ -116,17 +115,6 @@ func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket
 	conn, _, err := dialer.Dial(server, header)
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
-}
-
-func assertWebsocketClosed(c *gc.C, ws *websocket.Conn) {
-	_, _, err := ws.NextReader()
-	goodClose := []int{
-		websocket.CloseNormalClosure,
-		websocket.CloseGoingAway,
-		websocket.CloseNoStatusReceived,
-	}
-	c.Logf("%#v", err)
-	c.Assert(websocket.IsCloseError(err, goodClose...), jc.IsTrue)
 }
 
 func (s *authHTTPSuite) makeURL(c *gc.C, scheme, path string, queryParams url.Values) *url.URL {
@@ -282,35 +270,6 @@ func (s *authHTTPSuite) uploadRequest(c *gc.C, uri string, contentType, path str
 		contentType: contentType,
 		body:        file,
 	})
-}
-
-// assertJSONError checks the JSON encoded error returned by the log
-// and logsink APIs matches the expected value.
-func assertJSONError(c *gc.C, ws *websocket.Conn, expected string) {
-	errResult := readJSONErrorLine(c, ws)
-	c.Assert(errResult.Error, gc.NotNil)
-	c.Assert(errResult.Error.Message, gc.Matches, expected)
-}
-
-// assertJSONInitialErrorNil checks the JSON encoded error returned by the log
-// and logsink APIs are nil.
-func assertJSONInitialErrorNil(c *gc.C, ws *websocket.Conn) {
-	errResult := readJSONErrorLine(c, ws)
-	c.Assert(errResult.Error, gc.IsNil)
-}
-
-// readJSONErrorLine returns the error line returned by the log and
-// logsink APIS.
-func readJSONErrorLine(c *gc.C, ws *websocket.Conn) params.ErrorResult {
-	messageType, reader, err := ws.NextReader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(messageType, gc.Equals, websocket.TextMessage)
-	line, err := bufio.NewReader(reader).ReadSlice('\n')
-	c.Assert(err, jc.ErrorIsNil)
-	var errResult params.ErrorResult
-	err = json.Unmarshal(line, &errResult)
-	c.Assert(err, jc.ErrorIsNil)
-	return errResult
 }
 
 func assertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {

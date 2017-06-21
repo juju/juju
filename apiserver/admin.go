@@ -313,7 +313,7 @@ func (a *admin) checkCreds(req params.LoginRequest, lookForModelUser bool) (stat
 }
 
 func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
-	return checkControllerMachineCreds(a.srv.state, req, a.authenticator())
+	return checkControllerMachineCreds(a.srv.statePool.SystemState(), req, a.authenticator())
 }
 
 func (a *admin) authenticator() authentication.EntityAuthenticator {

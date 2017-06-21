@@ -30,6 +30,7 @@ type StateBackend interface {
 	AddStatusHistoryPruneSettings() error
 	AddStorageInstanceConstraints() error
 	SplitLogCollections() error
+	AddUpdateStatusHookSettings() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -102,6 +103,10 @@ func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
 
 func (s stateBackend) AddStatusHistoryPruneSettings() error {
 	return state.AddStatusHistoryPruneSettings(s.st)
+}
+
+func (s stateBackend) AddUpdateStatusHookSettings() error {
+	return state.AddUpdateStatusHookSettings(s.st)
 }
 
 func (s stateBackend) AddStorageInstanceConstraints() error {
