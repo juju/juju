@@ -69,7 +69,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.New("no API connection details")
 	}
 	// We use an anonymous connection and macaroon sent with the
-	// publish requests for authentication.
+	// api requests for authentication.
 	apiInfo.Tag = nil
 	apiInfo.Password = ""
 	apiInfo.Macaroons = nil
@@ -81,7 +81,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	w, err := config.NewWorker(Config{
 		ModelUUID:                agent.CurrentConfig().Model().Id(),
 		RelationsFacade:          facade,
-		NewPublisherForModelFunc: relationChangePublisherForModelFunc(apiConnForModelFunc),
+		NewRemoteModelFacadeFunc: remoteRelationsFacadeForModelFunc(apiConnForModelFunc),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -4,7 +4,6 @@
 package crossmodelrelations
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -13,10 +12,12 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
@@ -31,7 +32,10 @@ type CrossModelRelationsAPI struct {
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
-	return NewCrossModelRelationsAPI(stateShim{ctx.State()}, ctx.Resources(), ctx.Auth())
+	return NewCrossModelRelationsAPI(
+		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
+		ctx.Resources(), ctx.Auth(),
+	)
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -48,16 +52,16 @@ func NewCrossModelRelationsAPI(
 	}, nil
 }
 
-// PublishLocalRelationChange publishes local relations changes to the
-// remote side offering those relations.
-func (api *CrossModelRelationsAPI) PublishLocalRelationChange(
+// PublishRelationChange publishes relation changes to the
+// model hosting the remote application involved in the relation.
+func (api *CrossModelRelationsAPI) PublishRelationChange(
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		if err := api.publishRelationChange(change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.st, change); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -65,115 +69,7 @@ func (api *CrossModelRelationsAPI) PublishLocalRelationChange(
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPI) publishRelationChange(change params.RemoteRelationChangeEvent) error {
-	logger.Debugf("publish into model %v change: %+v", api.st.ModelUUID(), change)
-
-	relationTag, err := api.getRemoteEntityTag(change.RelationId)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Debugf("not found relation tag %+v in model %v, exit early", change.RelationId, api.st.ModelUUID())
-			return nil
-		}
-		return errors.Trace(err)
-	}
-	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
-
-	// Ensure the relation exists.
-	rel, err := api.st.KeyRelation(relationTag.Id())
-	if errors.IsNotFound(err) {
-		if change.Life != params.Alive {
-			return nil
-		}
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Look up the application on the remote side of this relation
-	// ie from the model which published this change.
-	applicationTag, err := api.getRemoteEntityTag(change.ApplicationId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
-
-	// If the remote model has destroyed the relation, do it here also.
-	if change.Life != params.Alive {
-		logger.Debugf("remote side of %v died", relationTag)
-		if err := rel.Destroy(); err != nil {
-			return errors.Trace(err)
-		}
-		// See if we need to remove the remote application proxy - we do this
-		// on the offering side as there is 1:1 between proxy and consuming app.
-		if applicationTag != nil {
-			remoteApp, err := api.st.RemoteApplication(applicationTag.Id())
-			if err != nil && !errors.IsNotFound(err) {
-				return errors.Trace(err)
-			}
-			if err == nil && remoteApp.IsConsumerProxy() {
-				logger.Debugf("destroy consuming app proxy for %v", applicationTag.Id())
-				if err := remoteApp.Destroy(); err != nil {
-					return errors.Trace(err)
-				}
-			}
-		}
-	}
-
-	// TODO(wallyworld) - deal with remote application being removed
-	if applicationTag == nil {
-		logger.Infof("no remote application found for %v", relationTag.Id())
-		return nil
-	}
-	logger.Debugf("remote applocation for changed relation %v is %v", relationTag.Id(), applicationTag.Id())
-
-	for _, id := range change.DepartedUnits {
-		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
-		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), relationTag.Id())
-		ru, err := rel.RemoteUnit(unitTag.Id())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("%s leaving scope", unitTag.Id())
-		if err := ru.LeaveScope(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	for _, change := range change.ChangedUnits {
-		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), change.UnitId))
-		logger.Debugf("changed unit tag for remote id %v is %v", change.UnitId, unitTag)
-		ru, err := rel.RemoteUnit(unitTag.Id())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		inScope, err := ru.InScope()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		settings := make(map[string]interface{})
-		for k, v := range change.Settings {
-			settings[k] = v
-		}
-		if !inScope {
-			logger.Debugf("%s entering scope (%v)", unitTag.Id(), settings)
-			err = ru.EnterScope(settings)
-		} else {
-			logger.Debugf("%s updated settings (%v)", unitTag.Id(), settings)
-			err = ru.ReplaceSettings(settings)
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func (api *CrossModelRelationsAPI) getRemoteEntityTag(id params.RemoteEntityId) (names.Tag, error) {
-	modelTag := names.NewModelTag(id.ModelUUID)
-	return api.st.GetRemoteEntity(modelTag, id.Token)
-}
-
-// RegisterRemoteRelations sets up the local model to participate
+// RegisterRemoteRelations sets up the model to participate
 // in the specified relations. This operation is idempotent.
 func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
 	relations params.RegisterRemoteRelations,
@@ -302,4 +198,59 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		ModelUUID: api.st.ModelUUID(),
 		Token:     token,
 	}, nil
+}
+
+// WatchRelationUnits starts a RelationUnitsWatcher for watching the
+// relation units involved in each specified relation, and returns the
+// watcher IDs and initial values, or an error if the relation units could not be watched.
+func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteEntities params.RemoteEntities) (params.RelationUnitsWatchResults, error) {
+	results := params.RelationUnitsWatchResults{
+		Results: make([]params.RelationUnitsWatchResult, len(remoteEntities.Entities)),
+	}
+	for i, arg := range remoteEntities.Entities {
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(arg.ModelUUID), arg.Token)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag.(names.RelationTag))
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		changes, ok := <-w.Changes()
+		if !ok {
+			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+		results.Results[i].RelationUnitsWatcherId = api.resources.Register(w)
+		results.Results[i].Changes = changes
+	}
+	return results, nil
+}
+
+// RelationUnitSettings returns the relation unit settings for the given relation units.
+func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.RemoteRelationUnits) (params.SettingsResults, error) {
+	results := params.SettingsResults{
+		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
+	}
+	for i, arg := range relationUnits.RelationUnits {
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(arg.RelationId.ModelUUID), arg.RelationId.Token)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		ru := params.RelationUnit{
+			Relation: relationTag.String(),
+			Unit:     arg.Unit,
+		}
+		settings, err := commoncrossmodel.RelationUnitSettings(api.st, ru)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Settings = settings
+	}
+	return results, nil
 }

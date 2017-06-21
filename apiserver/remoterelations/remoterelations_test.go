@@ -340,3 +340,49 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 		{"RemoteApplication", []interface{}{"db2"}},
 	})
 }
+
+func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
+	djangoRelationUnit := newMockRelationUnit()
+	djangoRelationUnit.settings["key"] = "value"
+	db2Relation := newMockRelation(123)
+	db2Relation.remoteUnits["django/0"] = djangoRelationUnit
+	s.st.relations["db2:db django:db"] = db2Relation
+	app := newMockApplication("django")
+	s.st.applications["django"] = app
+	remoteApp := newMockRemoteApplication("db2", "url")
+	s.st.remoteApplications["db2"] = remoteApp
+
+	_, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
+			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "app-token"},
+			{ModelTag: coretesting.ModelTag.String(), Tag: "relation-db2:db#django:db", Token: "rel-token"},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.ResetCalls()
+
+	change := params.RemoteRelationChangeEvent{
+		RelationId:    params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "rel-token"},
+		ApplicationId: params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "app-token"},
+		Life:          params.Alive,
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId:   0,
+			Settings: map[string]interface{}{"foo": "bar"},
+		}},
+	}
+	changes := params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{change},
+	}
+	result, err := s.api.ConsumeRemoteRelationChange(changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+
+	settings, err := db2Relation.remoteUnits["django/0"].Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "rel-token"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "app-token"}},
+	})
+}

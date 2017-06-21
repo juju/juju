@@ -394,8 +394,11 @@ func (r *apiHandler) AuthClient() bool {
 	return isUser
 }
 
-// GetAuthTag returns the tag of the authenticated entity.
+// GetAuthTag returns the tag of the authenticated entity, if any.
 func (r *apiHandler) GetAuthTag() names.Tag {
+	if r.entity == nil {
+		return nil
+	}
 	return r.entity.Tag()
 }
 
@@ -405,11 +408,6 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 // that method is deprecated.
 func (r *apiHandler) ConnectedModel() string {
 	return r.modelUUID
-}
-
-// GetAuthEntity returns the authenticated entity.
-func (r *apiHandler) GetAuthEntity() state.Entity {
-	return r.entity
 }
 
 // HasPermission returns true if the logged in user can perform <operation> on <target>.

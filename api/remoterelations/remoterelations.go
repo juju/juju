@@ -242,3 +242,17 @@ func (c *Client) WatchRemoteRelations() (watcher.StringsWatcher, error) {
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// ConsumeRemoteRelationChange consumes a change to settings originating
+// from the remote/offering side of a relation.
+func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error {
+	args := params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{change},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("ConsumeRemoteRelationChange", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}

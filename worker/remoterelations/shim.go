@@ -20,7 +20,7 @@ func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, 
 	return facade, nil
 }
 
-func NewCrossModelRelationsFacade(apiCaller base.APICaller) (RemoteRelationChangePublisher, error) {
+func NewRemoteModelRelationsFacade(apiCaller base.APICaller) (RemoteModelRelationsFacade, error) {
 	facade := crossmodelrelations.NewClient(apiCaller)
 	return facade, nil
 }
@@ -33,33 +33,33 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// relationChangePublisherForModelFunc returns a function that
-// can be used be construct instances which publish remote relation
+// remoteRelationsFacadeForModelFunc returns a function that
+// can be used be construct instances which manage remote relation
 // changes for a given model.
 
 // For now we use a facade, but in future this may evolve into a REST caller.
-func relationChangePublisherForModelFunc(
+func remoteRelationsFacadeForModelFunc(
 	apiConnForModelFunc func(string) (api.Connection, error),
-) func(string) (RemoteRelationChangePublisherCloser, error) {
-	return func(modelUUID string) (RemoteRelationChangePublisherCloser, error) {
+) func(string) (RemoteModelRelationsFacadeCloser, error) {
+	return func(modelUUID string) (RemoteModelRelationsFacadeCloser, error) {
 		conn, err := apiConnForModelFunc(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		facade, err := NewCrossModelRelationsFacade(conn)
+		facade, err := NewRemoteModelRelationsFacade(conn)
 		if err != nil {
 			conn.Close()
 			return nil, errors.Trace(err)
 		}
-		return &publisherCloser{facade, conn}, nil
+		return &remoteModelRelationsFacadeCloser{facade, conn}, nil
 	}
 }
 
-type publisherCloser struct {
-	RemoteRelationChangePublisher
+type remoteModelRelationsFacadeCloser struct {
+	RemoteModelRelationsFacade
 	conn io.Closer
 }
 
-func (p *publisherCloser) Close() error {
+func (p *remoteModelRelationsFacadeCloser) Close() error {
 	return p.conn.Close()
 }

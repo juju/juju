@@ -408,6 +408,17 @@ type RemoteEntities struct {
 	Entities []RemoteEntityId `json:"remote-entities"`
 }
 
+// RelationUnit holds a remote relation id and a unit tag.
+type RemoteRelationUnit struct {
+	RelationId RemoteEntityId `json:"relation"`
+	Unit       string         `json:"unit"`
+}
+
+// RemoteRelationUnits identifies multiple remote relation units.
+type RemoteRelationUnits struct {
+	RelationUnits []RemoteRelationUnit `json:"relation-units"`
+}
+
 // ModifyModelAccessRequest holds the parameters for making grant and revoke offer calls.
 type ModifyOfferAccessRequest struct {
 	Changes []ModifyOfferAccess `json:"changes"`
