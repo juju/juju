@@ -34,15 +34,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 		errorMatch string
 		nilErr     bool
 	}{
-		{ // Test set
-			desc:       "keys cannot be duplicates",
-			args:       []string{"special=extra", "special=other"},
-			errorMatch: `key "special" specified more than once`,
-		}, {
-			desc:       "agent-version cannot be set",
-			args:       []string{"agent-version=2.0.0"},
-			errorMatch: `agent-version must be set via "upgrade-juju"`,
-		}, {
+		{
 			// Test reset
 			desc:       "reset requires arg",
 			args:       []string{"--reset"},
@@ -55,10 +47,6 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 			desc:       "agent-version cannot be reset",
 			args:       []string{"--reset", "agent-version"},
 			errorMatch: `"agent-version" cannot be reset`,
-		}, {
-			desc:       "set and reset cannot have duplicate keys",
-			args:       []string{"--reset", "special", "special=extra"},
-			errorMatch: `key "special" cannot be both set and reset in the same command`,
 		}, {
 			desc:       "reset cannot have k=v pairs",
 			args:       []string{"--reset", "a,b,c=d,e"},
@@ -183,6 +171,45 @@ func (s *ConfigCommandSuite) TestAllValuesTabular(c *gc.C) {
 	c.Assert(output, gc.Equals, expected)
 }
 
+func (s *ConfigCommandSuite) TestSetAgentVersion(c *gc.C) {
+	_, err := s.run(c, "agent-version=2.0.0")
+	c.Assert(err, gc.ErrorMatches, `"agent-version"" must be set via "upgrade-juju"`)
+}
+
+func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {
+	_, err := s.run(c, "--reset", "special", "special=bar")
+	c.Assert(err, gc.ErrorMatches, `key "special" cannot be both set and reset in the same command`)
+}
+
+func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]interface{}{
+		"special": "extra",
+	}
+	c.Assert(s.fake.values, jc.DeepEquals, expected)
+}
+
+func (s *ConfigCommandSuite) TestSetFromFileCombined(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile, "unknown=foo")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]interface{}{
+		"special": "extra",
+		"unknown": "foo",
+	}
+	c.Assert(s.fake.values, jc.DeepEquals, expected)
+}
+
 func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,7 +220,7 @@ func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
 
-func (s *ConfigCommandSuite) TestSettingKnownValue(c *gc.C) {
+func (s *ConfigCommandSuite) TestSettingUnknownValue(c *gc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
 	c.Assert(err, jc.ErrorIsNil)
 	// Command succeeds, but warning logged.

@@ -1121,6 +1121,18 @@ func (s *ConfigSuite) TestStatusHistoryConfigValues(c *gc.C) {
 	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(8192))
 }
 
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigDefault(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 5*time.Minute)
+}
+
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigValue(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"update-status-hook-interval": "30m",
+	})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 30*time.Minute)
+}
+
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
 	schema, err := config.Schema(nil)
 	c.Assert(err, gc.IsNil)

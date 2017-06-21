@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -85,7 +86,7 @@ func (w *commonWatcher) commonLoop() {
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
 			// Don't log an error if a watcher is stopped due to an agent restart.
-			if err.Error() != worker.ErrRestartAgent.Error() {
+			if err.Error() != worker.ErrRestartAgent.Error() && err.Error() != rpc.ErrShutdown.Error() {
 				logger.Errorf("error trying to stop watcher: %v", err)
 			}
 		}

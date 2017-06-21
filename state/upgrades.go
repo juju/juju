@@ -698,6 +698,43 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	return nil
 }
 
+// AddUpdateStatusHookSettings adds the model settings
+// to control how often to run the update-status hook
+// if they are missing.
+func AddUpdateStatusHookSettings(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	models, err := st.AllModels()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var ids []string
+	for _, m := range models {
+		ids = append(ids, m.UUID()+":e")
+	}
+
+	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		settingsChanged :=
+			maybeUpdateSettings(doc.Settings, config.UpdateStatusHookInterval, config.DefaultUpdateStatusHookInterval)
+		if settingsChanged {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
 // AddStorageInstanceConstraints sets the "constraints" field on
 // storage instance docs.
 func AddStorageInstanceConstraints(st *State) error {

@@ -605,13 +605,22 @@ func dialAPI(info *Info, opts0 DialOpts) (*dialResult, error) {
 // is used only for TLS verification when tlsConfig.ServerName
 // is empty.
 func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+	url, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// TODO(rogpeppe) We'd like to set Deadline here
 	// but that would break lots of tests that rely on
 	// setting a zero timeout.
 	netDialer := net.Dialer{}
 	dialer := &websocket.Dialer{
 		NetDial: func(netw, addr string) (net.Conn, error) {
-			return netDialer.DialContext(ctx, netw, ipAddr)
+			if addr == url.Host {
+				// Use pre-resolved IP address. The address
+				// may be different if a proxy is in use.
+				addr = ipAddr
+			}
+			return netDialer.DialContext(ctx, netw, addr)
 		},
 		Proxy:           proxy.DefaultConfig.GetProxy,
 		TLSClientConfig: tlsConfig,
