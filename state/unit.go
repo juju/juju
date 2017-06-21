@@ -1230,7 +1230,8 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
+	recorder := u.st.getPingRecorder()
+	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey(), recorder)
 	err := p.Start()
 	if err != nil {
 		return nil, err

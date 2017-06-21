@@ -26,7 +26,21 @@ type singlePing struct {
 	FieldBit  uint64
 }
 
-func NewPingBatcher(pings *mgo.Collection, flushInterval time.Duration) *PingBatcher {
+// NewPingBatcher creates a worker that will batch ping requests and prepare them
+// for insertion into the Pings collection. Pass in the base "presence" collection.
+// flushInterval is how often we will write the contents to the database.
+// It should be shorter than the 30s slot window for us to not cause active
+// pingers to show up as missing. Current defaults are around 1s, but testing needs
+// to be done to find a good balance of how much batching we do vs responsiveness.
+// 10s might actually be a reasonable value, given the 30s windows.
+// Note that we don't strictly sync on flushInterval times, but use a range of
+// times around that interval to avoid having all ping batchers get synchronized
+// and still be issuing all requests concurrently.
+func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatcher {
+	var pings *mgo.Collection
+	if base != nil {
+		pings = pingsC(base)
+	}
 	return &PingBatcher{
 		pings:         pings,
 		pending:       make(map[string]slot),
@@ -34,6 +48,13 @@ func NewPingBatcher(pings *mgo.Collection, flushInterval time.Duration) *PingBat
 		pingChan:      make(chan singlePing),
 		flushChan:     make(chan chan struct{}),
 	}
+}
+
+// NewDeadPingBatcher returns a PingBatcher that is already stopped with an error.
+func NewDeadPingBatcher(err error) *PingBatcher {
+	pb := NewPingBatcher(nil, time.Second)
+	pb.tomb.Kill(err)
+	return pb
 }
 
 // PingBatcher aggregates several pingers to update the database on a fixed schedule.
@@ -48,10 +69,11 @@ type PingBatcher struct {
 	flushChan     chan chan struct{}
 }
 
-func (p *PingBatcher) Start() error {
+// Start the worker loop.
+func (pb *PingBatcher) Start() error {
 	rand.Seed(time.Now().UnixNano())
 	go func() {
-		err := p.loop()
+		err := pb.loop()
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
 		// exact values, so we need to log and unwrap
@@ -59,8 +81,8 @@ func (p *PingBatcher) Start() error {
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("ping batching loop failed: %v", err)
 		}
-		p.tomb.Kill(cause)
-		p.tomb.Done()
+		pb.tomb.Kill(cause)
+		pb.tomb.Done()
 	}()
 	return nil
 }
@@ -76,13 +98,16 @@ func (pb *PingBatcher) Wait() error {
 	return pb.tomb.Wait()
 }
 
-// Stop this PingBatcher
+// Stop this PingBatcher, part of the extended Worker interface.
 func (pb *PingBatcher) Stop() error {
 	pb.tomb.Kill(nil)
 	err := pb.tomb.Wait()
 	return errors.Trace(err)
 }
 
+// nextSleep determines how long we should wait before flushing our state to the database.
+// We use a range of time around the requested 'flushInterval', so that we avoid having
+// all requests to the database happen at exactly the same time across machines.
 func (pb *PingBatcher) nextSleep() time.Duration {
 	sleepMin := float64(pb.flushInterval) * 0.8
 	sleepRange := float64(pb.flushInterval) * 0.4
@@ -116,6 +141,12 @@ func (pb *PingBatcher) loop() error {
 	}
 }
 
+// Ping should be called by a Pinger when it is ready to update its time slot.
+// It passes in all of the pre-resolved information (what exact field bit is
+// being set), rather than the higher level "I'm pinging for this Agent".
+// Internally, we synchronize with the main worker loop. Which means that this
+// function will return once the main loop recognizes that we have a ping request
+// but it will not have updated its internal structures, and certainly not the database.
 func (pb *PingBatcher) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
 	ping := singlePing{
 		Slot:      slot,
@@ -127,10 +158,16 @@ func (pb *PingBatcher) Ping(modelUUID string, slot int64, fieldKey string, field
 	case pb.pingChan <- ping:
 		return nil
 	case <-pb.tomb.Dying():
-		return errors.Trace(pb.tomb.Err())
+		err := pb.tomb.Err()
+		if err == nil {
+			return errors.Errorf("PingBatcher is stopped")
+		}
+		return errors.Trace(err)
 	}
 }
 
+// handlePing is where we actually update our internal structures after we
+// get a ping request.
 func (pb *PingBatcher) handlePing(ping singlePing) {
 	docId := docIDInt64(ping.ModelUUID, ping.Slot)
 	cur, slotExists := pb.pending[docId]
@@ -144,6 +181,12 @@ func (pb *PingBatcher) handlePing(ping singlePing) {
 	pb.pingCount++
 }
 
+// flush pushes the internal state to the database. Note that if the database
+// updates fail, we will still wipe our internal state as it is unsafe to
+// publish the same updates to the same slots.
+// TODO (jam): 2017-06-21 Maybe if we switched from "$inc" to "$bit":
+// https://docs.mongodb.com/manual/reference/operator/update/bit/
+// Bitwise OR was supported all the way back to Mongo 2.2
 func (pb *PingBatcher) flush() error {
 	// We treat all of these as 'consumed'. Even if the query fails, it is
 	// not safe to ever $inc the same fields a second time, so we just move on.
@@ -188,6 +231,7 @@ func (pb *PingBatcher) flush() error {
 		}
 	}
 	// usually we should only be processing 1 slot
-	logger.Debugf("recorded %d pings for %d ping slot(s) and %d fields in %v", pingCount, docCount, fieldCount, time.Since(t))
+	logger.Debugf("recorded %d pings for %d ping slot(s) and %d fields in %v",
+		pingCount, docCount, fieldCount, time.Since(t))
 	return nil
 }
