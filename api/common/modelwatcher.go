@@ -4,6 +4,8 @@
 package common
 
 import (
+	"time"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -67,4 +69,15 @@ func (e *ModelWatcher) LogForwardConfig() (*syslog.RawConfig, bool, error) {
 	}
 	cfg, ok := modelConfig.LogFwdSyslog()
 	return cfg, ok, nil
+}
+
+// UpdateStatusHookInterval returns the current update status hook interval.
+func (e *ModelWatcher) UpdateStatusHookInterval() (time.Duration, error) {
+	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
+	// For now, we'll piggyback off the ModelConfig API.
+	modelConfig, err := e.ModelConfig()
+	if err != nil {
+		return 0, err
+	}
+	return modelConfig.UpdateStatusHookInterval(), nil
 }

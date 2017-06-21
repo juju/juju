@@ -793,20 +793,25 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				return err
 			}
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
+				st.Close()
 				return err
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
+				st.Close()
 				return err
 			}
 			// We log this out for test purposes only. No one in real life can use
@@ -815,17 +820,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
-			estate.apiStatePool = state.NewStatePool(st)
-
+			statePool := state.NewStatePool(st)
 			machineTag := names.NewMachineTag("0")
-			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
+			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
 				Clock:       clock.WallClock,
 				Cert:        testing.ServerCert,
 				Key:         testing.ServerKey,
 				Tag:         machineTag,
 				DataDir:     DataDir,
 				LogDir:      LogDir,
-				StatePool:   estate.apiStatePool,
 				Hub:         centralhub.New(machineTag),
 				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
@@ -835,11 +838,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 						io.WriteString(w, "gazing")
 					}))
 				},
+				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 			})
 			if err != nil {
+				statePool.Close()
+				st.Close()
 				panic(err)
 			}
 			estate.apiState = st
+			estate.apiStatePool = statePool
 		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil

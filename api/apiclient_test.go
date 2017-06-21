@@ -9,6 +9,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,6 +19,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
+	proxyutils "github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -35,6 +38,7 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -84,6 +88,45 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	assertConnAddrForModel(c, location, serverAddr, s.State.ModelUUID())
+}
+
+func (s *apiclientSuite) TestDialAPIWithProxy(c *gc.C) {
+	info := s.APIInfo(c)
+	opts := api.DialOpts{IPAddrResolver: apitesting.IPAddrResolverMap{
+		"testing.invalid": {"0.1.1.1"},
+	}}
+	fakeAddr := "testing.invalid:1234"
+
+	// Confirm that the proxy configuration is used. See:
+	//     https://bugs.launchpad.net/juju/+bug/1698989
+	//
+	// TODO(axw) use github.com/elazarl/goproxy set up a real
+	// forward proxy, and confirm that we can dial a successful
+	// connection.
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "CONNECT" {
+			http.Error(w, fmt.Sprintf("invalid method %s", r.Method), http.StatusMethodNotAllowed)
+			return
+		}
+		if r.URL.Host != fakeAddr {
+			http.Error(w, fmt.Sprintf("unexpected host %s", r.URL.Host), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "🍵", http.StatusTeapot)
+	}
+	proxyServer := httptest.NewServer(http.HandlerFunc(handler))
+	defer proxyServer.Close()
+
+	err := proxy.DefaultConfig.Set(proxyutils.Settings{
+		Https: proxyServer.Listener.Addr().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer proxy.DefaultConfig.Set(proxyutils.Settings{})
+
+	// Check that we can use the proxy to connect.
+	info.Addrs = []string{fakeAddr}
+	_, _, err = api.DialAPI(info, opts)
+	c.Assert(err, gc.ErrorMatches, "unable to connect to API: I'm a teapot")
 }
 
 func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
@@ -524,7 +567,9 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, gc.IsNil)
 	machineTag := names.NewMachineTag("0")
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+	statePool := state.NewStatePool(s.State)
+	defer statePool.Close()
+	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		Cert:            jtesting.ServerCert,
 		Key:             jtesting.ServerKey,
@@ -532,10 +577,10 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 		Hub:             centralhub.New(machineTag),
 		DataDir:         c.MkDir(),
 		LogDir:          c.MkDir(),
-		StatePool:       state.NewStatePool(s.State),
 		AutocertDNSName: "somewhere.example.com",
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(srv)

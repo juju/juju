@@ -47,7 +47,7 @@ var (
 // Collector is a prometheus.Collector that collects metrics about
 // the Juju global state.
 type Collector struct {
-	st State
+	pool StatePool
 
 	scrapeDuration prometheus.Gauge
 	scrapeErrors   prometheus.Gauge
@@ -58,9 +58,9 @@ type Collector struct {
 }
 
 // New returns a new Collector.
-func New(st State) *Collector {
+func New(pool StatePool) *Collector {
 	return &Collector{
-		st: st,
+		pool: pool,
 		scrapeDuration: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Namespace: metricsNamespace,
@@ -136,7 +136,8 @@ func (c *Collector) updateMetrics() {
 	logger.Tracef("updating state metrics")
 	defer logger.Tracef("updated state metrics")
 
-	models, err := c.st.AllModels()
+	st := c.pool.SystemState()
+	models, err := st.AllModels()
 	if err != nil {
 		logger.Debugf("error getting models: %v", err)
 		c.scrapeErrors.Inc()
@@ -149,8 +150,8 @@ func (c *Collector) updateMetrics() {
 	// TODO(axw) AllUsers only returns *local* users. We do not have User
 	// records for external users. To obtain external users, we will need
 	// to get all of the controller and model-level access documents.
-	controllerTag := c.st.ControllerTag()
-	localUsers, err := c.st.AllUsers()
+	controllerTag := st.ControllerTag()
+	localUsers, err := st.AllUsers()
 	if err != nil {
 		logger.Debugf("error getting local users: %v", err)
 		c.scrapeErrors.Inc()
@@ -158,7 +159,7 @@ func (c *Collector) updateMetrics() {
 	}
 	for _, u := range localUsers {
 		userTag := u.UserTag()
-		access, err := c.st.UserAccess(userTag, controllerTag)
+		access, err := st.UserAccess(userTag, controllerTag)
 		if err != nil && !errors.IsNotFound(err) {
 			logger.Debugf("error getting controller user access: %v", err)
 			c.scrapeErrors.Inc()
@@ -192,7 +193,7 @@ func (c *Collector) updateModelMetrics(model Model) {
 	}
 
 	modelTag := model.ModelTag()
-	st, err := c.st.ForModel(modelTag)
+	st, releaseState, err := c.pool.Get(modelTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return // Model removed
@@ -201,7 +202,7 @@ func (c *Collector) updateModelMetrics(model Model) {
 		logger.Debugf("error getting model state: %v", err)
 		return
 	}
-	defer st.Close()
+	defer releaseState()
 
 	machines, err := st.AllMachines()
 	if err != nil {

@@ -336,7 +336,7 @@ func (u *Unit) Destroy() (err error) {
 	}
 	if err = unit.st.run(buildTxn); err == nil {
 		if historyErr := unit.eraseHistory(); historyErr != nil {
-			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), err)
+			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), historyErr)
 		}
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil

@@ -226,7 +226,7 @@ func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	placement := []string{"valid"}
-	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G"), defaultSeries, placement)
+	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G tags=foobar"), defaultSeries, placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
@@ -238,8 +238,8 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
-		constraints.MustParse("mem=4G"),
-		constraints.MustParse("mem=4G"),
+		{},
+		constraints.MustParse("mem=4G tags=foobar"),
 	}
 	expectedPlacement := []string{"", "valid", ""}
 	for i, m := range machines {

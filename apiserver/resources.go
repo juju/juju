@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/state"
 )
 
 // ResourcesBackend is the functionality of Juju's state needed for the resources API.
@@ -41,7 +42,7 @@ type ResourcesBackend interface {
 // ResourcesHandler is the HTTP handler for client downloads and
 // uploads of resources.
 type ResourcesHandler struct {
-	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, func(), names.Tag, error)
+	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, state.StatePoolReleaser, names.Tag, error)
 }
 
 // ServeHTTP implements http.Handler.

@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -40,11 +39,10 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
-		Sender:                            &s.sender,
-		NewStorageClient:                  s.storageClient.NewClient,
-		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
-		RandomWindowsAdminPassword:        func() string { return "sorandom" },
-		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
+		Sender:                     &s.sender,
+		NewStorageClient:           s.storageClient.NewClient,
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.sender = nil
 

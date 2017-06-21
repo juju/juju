@@ -268,6 +268,21 @@ func (s *MigrationImportSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(ms.Info, gc.Equals, "info message")
 }
 
+func (s *MigrationImportSuite) TestMeterStatusNotAvailable(c *gc.C) {
+	newModel, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		c.Log(desc["meter-status"])
+		desc["meter-status"].(map[interface{}]interface{})["code"] = ""
+	})
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "NOT AVAILABLE")
+	c.Assert(ms.Info, gc.Equals, "")
+	ms, err := newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "NOT AVAILABLE")
+	c.Assert(ms.Info, gc.Equals, "")
+}
+
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())

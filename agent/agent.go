@@ -167,6 +167,24 @@ const (
 	AgentServiceName  = "AGENT_SERVICE_NAME"
 	MongoOplogSize    = "MONGO_OPLOG_SIZE"
 	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
+
+	AgentLoginRateLimit  = "AGENT_LOGIN_RATE_LIMIT"
+	AgentLoginMinPause   = "AGENT_LOGIN_MIN_PAUSE"
+	AgentLoginMaxPause   = "AGENT_LOGIN_MAX_PAUSE"
+	AgentLoginRetryPause = "AGENT_LOGIN_RETRY_PAUSE"
+
+	AgentConnMinPause       = "AGENT_CONN_MIN_PAUSE"
+	AgentConnMaxPause       = "AGENT_CONN_MAX_PAUSE"
+	AgentConnLowerThreshold = "AGENT_CONN_LOWER_THRESHOLD"
+	AgentConnUpperThreshold = "AGENT_CONN_UPPER_THRESHOLD"
+	AgentConnLookbackWindow = "AGENT_CONN_LOOKBACK_WINDOW"
+
+	MgoStatsEnabled = "MGO_STATS_ENABLED"
+
+	LogSinkDBLoggerBufferSize    = "LOGSINK_DBLOGGER_BUFFER_SIZE"
+	LogSinkDBLoggerFlushInterval = "LOGSINK_DBLOGGER_FLUSH_INTERVAL"
+	LogSinkRateLimitBurst        = "LOGSINK_RATELIMIT_BURST"
+	LogSinkRateLimitRefill       = "LOGSINK_RATELIMIT_REFILL"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -554,7 +572,7 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
-	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
+	logger.Debugf("API server address details %q written to agent config as %q", servers, addrs)
 }
 
 func (c *configInternal) SetCACert(cert string) {

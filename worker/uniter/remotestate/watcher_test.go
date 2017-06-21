@@ -67,8 +67,8 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.clock = testing.NewClock(time.Now())
-	statusTicker := func() <-chan time.Time {
-		return s.clock.After(statusTickDuration)
+	statusTicker := func(wait time.Duration) remotestate.Waiter {
+		return dummyWaiter{s.clock.After(statusTickDuration)}
 	}
 
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
@@ -79,6 +79,14 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.watcher = w
+}
+
+type dummyWaiter struct {
+	c <-chan time.Time
+}
+
+func (w dummyWaiter) After() <-chan time.Time {
+	return w.c
 }
 
 func (s *WatcherSuite) TearDownTest(c *gc.C) {

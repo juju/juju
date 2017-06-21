@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -16,14 +15,15 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bmizerany/pat"
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/juju/names.v2"
@@ -34,8 +34,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -47,35 +49,50 @@ var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
-// loginRateLimit defines how many concurrent Login requests we will
-// accept
-const loginRateLimit = 10
+// These vars define how we rate limit incoming connections.
+const (
+	defaultLoginRateLimit         = 10 // concurrent login operations
+	defaultLoginMinPause          = 100 * time.Millisecond
+	defaultLoginMaxPause          = 1 * time.Second
+	defaultLoginRetryPause        = 5 * time.Second
+	defaultConnMinPause           = 0 * time.Millisecond
+	defaultConnMaxPause           = 5 * time.Second
+	defaultConnLookbackWindow     = 1 * time.Second
+	defaultConnLowerThreshold     = 1000   // connections per second
+	defaultConnUpperThreshold     = 100000 // connections per second
+	defaultLogSinkRateLimitBurst  = 1000
+	defaultLogSinkRateLimitRefill = time.Millisecond
+)
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb             tomb.Tomb
-	clock            clock.Clock
-	pingClock        clock.Clock
-	wg               sync.WaitGroup
-	state            *state.State
-	statePool        *state.StatePool
-	lis              net.Listener
-	tag              names.Tag
-	dataDir          string
-	logDir           string
-	limiter          utils.Limiter
-	validator        LoginValidator
-	facades          *facade.Registry
-	modelUUID        string
-	authCtxt         *authContext
-	lastConnectionID uint64
-	centralHub       *pubsub.StructuredHub
-	newObserver      observer.ObserverFactory
-	connCount        int64
-	certChanged      <-chan params.StateServingInfo
-	tlsConfig        *tls.Config
-	allowModelAccess bool
-	logSinkWriter    io.WriteCloser
+	tomb                   tomb.Tomb
+	clock                  clock.Clock
+	pingClock              clock.Clock
+	wg                     sync.WaitGroup
+	statePool              *state.StatePool
+	lis                    net.Listener
+	tag                    names.Tag
+	dataDir                string
+	logDir                 string
+	limiter                utils.Limiter
+	loginRetryPause        time.Duration
+	validator              LoginValidator
+	facades                *facade.Registry
+	modelUUID              string
+	authCtxt               *authContext
+	lastConnectionID       uint64
+	centralHub             *pubsub.StructuredHub
+	newObserver            observer.ObserverFactory
+	connCount              int64
+	totalConn              int64
+	loginAttempts          int64
+	certChanged            <-chan params.StateServingInfo
+	tlsConfig              *tls.Config
+	allowModelAccess       bool
+	logSinkWriter          io.WriteCloser
+	logsinkRateLimitConfig logsink.RateLimitConfig
+	dbloggers              dbloggers
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -138,17 +155,27 @@ type ServerConfig struct {
 	// notified of key events during API requests.
 	NewObserver observer.ObserverFactory
 
-	// StatePool is created by the machine agent and passed in.
-	StatePool *state.StatePool
-
 	// RegisterIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
 	// is to support registering the handlers underneath the
 	// "/introspection" prefix.
 	RegisterIntrospectionHandlers func(func(string, http.Handler))
+
+	// RateLimitConfig holds paramaters to control
+	// aspects of rate limiting connections and logins.
+	RateLimitConfig RateLimitConfig
+
+	// LogSinkConfig holds parameters to control the API server's
+	// logsink endpoint behaviour. If this is nil, the values from
+	// DefaultLogSinkConfig() will be used.
+	LogSinkConfig *LogSinkConfig
+
+	// PrometheusRegisterer registers Prometheus collectors.
+	PrometheusRegisterer prometheus.Registerer
 }
 
-func (c *ServerConfig) Validate() error {
+// Validate validates the API server configuration.
+func (c ServerConfig) Validate() error {
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
 	}
@@ -158,26 +185,142 @@ func (c *ServerConfig) Validate() error {
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
 	}
-	if c.StatePool == nil {
-		return errors.NotValidf("missing StatePool")
+	if err := c.RateLimitConfig.Validate(); err != nil {
+		return errors.Annotate(err, "validating rate limit configuration")
 	}
-
+	if c.LogSinkConfig != nil {
+		if err := c.LogSinkConfig.Validate(); err != nil {
+			return errors.Annotate(err, "validating logsink configuration")
+		}
+	}
 	return nil
 }
 
-func (c *ServerConfig) pingClock() clock.Clock {
+func (c ServerConfig) pingClock() clock.Clock {
 	if c.PingClock == nil {
 		return c.Clock
 	}
 	return c.PingClock
 }
 
+// RateLimitConfig holds parameters to control
+// aspects of rate limiting connections and logins.
+type RateLimitConfig struct {
+	LoginRateLimit     int
+	LoginMinPause      time.Duration
+	LoginMaxPause      time.Duration
+	LoginRetryPause    time.Duration
+	ConnMinPause       time.Duration
+	ConnMaxPause       time.Duration
+	ConnLookbackWindow time.Duration
+	ConnLowerThreshold int
+	ConnUpperThreshold int
+}
+
+// DefaultRateLimitConfig returns a RateLimtConfig struct with
+// all attributes set to their default values.
+func DefaultRateLimitConfig() RateLimitConfig {
+	return RateLimitConfig{
+		LoginRateLimit:     defaultLoginRateLimit,
+		LoginMinPause:      defaultLoginMinPause,
+		LoginMaxPause:      defaultLoginMaxPause,
+		LoginRetryPause:    defaultLoginRetryPause,
+		ConnMinPause:       defaultConnMinPause,
+		ConnMaxPause:       defaultConnMaxPause,
+		ConnLookbackWindow: defaultConnLookbackWindow,
+		ConnLowerThreshold: defaultConnLowerThreshold,
+		ConnUpperThreshold: defaultConnUpperThreshold,
+	}
+}
+
+// Validate validates the rate limit configuration.
+// We apply arbitrary but sensible upper limits to prevent
+// typos from introducing obviously bad config.
+func (c RateLimitConfig) Validate() error {
+	if c.LoginRateLimit <= 0 || c.LoginRateLimit > 100 {
+		return errors.NotValidf("login-rate-limit %d <= 0 or > 100", c.LoginRateLimit)
+	}
+	if c.LoginMinPause < 0 || c.LoginMinPause > 100*time.Millisecond {
+		return errors.NotValidf("login-min-pause %d < 0 or > 100ms", c.LoginMinPause)
+	}
+	if c.LoginMaxPause < 0 || c.LoginMaxPause > 5*time.Second {
+		return errors.NotValidf("login-max-pause %d < 0 or > 5s", c.LoginMaxPause)
+	}
+	if c.LoginRetryPause < 0 || c.LoginRetryPause > 10*time.Second {
+		return errors.NotValidf("login-retry-pause %d < 0 or > 10s", c.LoginRetryPause)
+	}
+	if c.ConnMinPause < 0 || c.ConnMinPause > 100*time.Millisecond {
+		return errors.NotValidf("conn-min-pause %d < 0 or > 100ms", c.ConnMinPause)
+	}
+	if c.ConnMaxPause < 0 || c.ConnMaxPause > 10*time.Second {
+		return errors.NotValidf("conn-max-pause %d < 0 or > 10s", c.ConnMaxPause)
+	}
+	if c.ConnLookbackWindow < 0 || c.ConnLookbackWindow > 5*time.Second {
+		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
+	}
+	return nil
+}
+
+// LogSinkConfig holds parameters to control the API server's
+// logsink endpoint behaviour.
+type LogSinkConfig struct {
+	// DBLoggerBufferSize is the capacity of the database logger's buffer.
+	DBLoggerBufferSize int
+
+	// DBLoggerFlushInterval is the amount of time to allow a log record
+	// to sit in the buffer before being flushed to the database.
+	DBLoggerFlushInterval time.Duration
+
+	// RateLimitBurst defines the number of log messages that will be let
+	// through before we start rate limiting.
+	RateLimitBurst int64
+
+	// RateLimitRefill defines the rate at which log messages will be let
+	// through once the initial burst amount has been depleted.
+	RateLimitRefill time.Duration
+}
+
+// Validate validates the logsink endpoint configuration.
+func (cfg LogSinkConfig) Validate() error {
+	if cfg.DBLoggerBufferSize <= 0 || cfg.DBLoggerBufferSize > 1000 {
+		return errors.NotValidf("DBLoggerBufferSize %d <= 0 or > 1000", cfg.DBLoggerBufferSize)
+	}
+	if cfg.DBLoggerFlushInterval <= 0 || cfg.DBLoggerFlushInterval > 10*time.Second {
+		return errors.NotValidf("DBLoggerFlushInterval %s <= 0 or > 10 seconds", cfg.DBLoggerFlushInterval)
+	}
+	if cfg.RateLimitBurst <= 0 {
+		return errors.NotValidf("RateLimitBurst %d <= 0", cfg.RateLimitBurst)
+	}
+	if cfg.RateLimitRefill <= 0 {
+		return errors.NotValidf("RateLimitRefill %s <= 0", cfg.RateLimitRefill)
+	}
+	return nil
+}
+
+// DefaultLogSinkConfig returns a LogSinkConfig with default values.
+func DefaultLogSinkConfig() LogSinkConfig {
+	return LogSinkConfig{
+		DBLoggerBufferSize:    defaultDBLoggerBufferSize,
+		DBLoggerFlushInterval: defaultDBLoggerFlushInterval,
+		RateLimitBurst:        defaultLogSinkRateLimitBurst,
+		RateLimitRefill:       defaultLogSinkRateLimitRefill,
+	}
+}
+
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 //
-// The Server will close the listener when it exits, even if returns an error.
-func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+// The Server will not close the StatePool; the caller is responsible
+// for closing it after the Server has been stopped.
+//
+// The Server will close the listener when it exits, even if returns
+// an error.
+func NewServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	if cfg.LogSinkConfig == nil {
+		logSinkConfig := DefaultLogSinkConfig()
+		cfg.LogSinkConfig = &logSinkConfig
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -187,7 +330,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	// server needs to run before mongo upgrades have happened and
 	// any state manipulation may be be relying on features of the
 	// database added by upgrades. Here be dragons.
-	srv, err := newServer(s, lis, cfg)
+	srv, err := newServer(stPool, lis, cfg)
 	if err != nil {
 		// There is no running server around to close the listener.
 		lis.Close()
@@ -196,23 +339,21 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	return srv, nil
 }
 
-func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, err error) {
-	stPool := cfg.StatePool
-	if stPool == nil {
-		stPool = state.NewStatePool(s)
-	}
-
+func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *Server, err error) {
+	limiter := utils.NewLimiterWithPause(
+		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
+		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
 	srv := &Server{
 		clock:                         cfg.Clock,
 		pingClock:                     cfg.pingClock(),
 		lis:                           lis,
 		newObserver:                   cfg.NewObserver,
-		state:                         s,
 		statePool:                     stPool,
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
-		limiter:                       utils.NewLimiter(loginRateLimit),
+		limiter:                       limiter,
+		loginRetryPause:               cfg.RateLimitConfig.LoginRetryPause,
 		validator:                     cfg.Validator,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
@@ -220,12 +361,23 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
+		logsinkRateLimitConfig: logsink.RateLimitConfig{
+			Refill: cfg.LogSinkConfig.RateLimitRefill,
+			Burst:  cfg.LogSinkConfig.RateLimitBurst,
+			Clock:  cfg.Clock,
+		},
+		dbloggers: dbloggers{
+			clock:                 cfg.Clock,
+			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
+			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
+		},
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
-	srv.lis = tls.NewListener(lis, srv.tlsConfig)
+	srv.lis = newThrottlingListener(
+		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
-	srv.authCtxt, err = newAuthContext(s)
+	srv.authCtxt, err = newAuthContext(stPool.SystemState())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -233,14 +385,42 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
 
-	logSinkWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "logsink.log"))
+	logSinkWriter, err := logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
 	if err != nil {
 		return nil, errors.Annotate(err, "creating logsink writer")
 	}
 	srv.logSinkWriter = logSinkWriter
 
+	if cfg.PrometheusRegisterer != nil {
+		apiserverCollectior := NewMetricsCollector(&metricAdaptor{srv})
+		cfg.PrometheusRegisterer.Unregister(apiserverCollectior)
+		if err := cfg.PrometheusRegisterer.Register(apiserverCollectior); err != nil {
+			return nil, errors.Annotate(err, "registering apiserver metrics collector")
+		}
+	}
+
 	go srv.run()
 	return srv, nil
+}
+
+type metricAdaptor struct {
+	srv *Server
+}
+
+func (a *metricAdaptor) TotalConnections() int64 {
+	return a.srv.TotalConnections()
+}
+
+func (a *metricAdaptor) ConnectionCount() int64 {
+	return a.srv.ConnectionCount()
+}
+
+func (a *metricAdaptor) ConcurrentLoginAttempts() int64 {
+	return a.srv.LoginAttempts()
+}
+
+func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
+	return a.srv.lis.(*throttlingListener).pauseTime()
 }
 
 func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
@@ -255,7 +435,7 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 	}
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		Cache:      srv.state.AutocertCache(),
+		Cache:      srv.statePool.SystemState().AutocertCache(),
 		HostPolicy: autocert.HostWhitelist(cfg.AutocertDNSName),
 	}
 	if cfg.AutocertURL != "" {
@@ -282,8 +462,19 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 	return tlsConfig
 }
 
+// TotalConnections returns the total number of connections ever made.
+func (srv *Server) TotalConnections() int64 {
+	return atomic.LoadInt64(&srv.totalConn)
+}
+
+// ConnectionCount returns the number of current connections.
 func (srv *Server) ConnectionCount() int64 {
 	return atomic.LoadInt64(&srv.connCount)
+}
+
+// LoginAttempts returns the number of current login attempts.
+func (srv *Server) LoginAttempts() int64 {
+	return atomic.LoadInt64(&srv.loginAttempts)
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -333,12 +524,11 @@ func (srv *Server) run() {
 
 		// Break deadlocks caused by leadership BlockUntil... calls.
 		srv.statePool.KillWorkers()
-		srv.state.KillWorkers()
+		srv.statePool.SystemState().KillWorkers()
 
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.tomb.Done()
-		srv.statePool.Close()
-		srv.state.Close()
+		srv.dbloggers.dispose()
 		srv.logSinkWriter.Close()
 	}()
 
@@ -432,11 +622,19 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 
-	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
+	logSinkHandler := logsink.NewHTTPHandler(
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
+		httpCtxt.stop(),
+		&srv.logsinkRateLimitConfig,
+	)
 	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 
 	// We don't need to save the migrated logs to a logfile as well as to the DB.
-	logTransferHandler := newLogSinkHandler(httpCtxt, ioutil.Discard, newMigrationLoggingStrategy)
+	logTransferHandler := logsink.NewHTTPHandler(
+		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
+		httpCtxt.stop(),
+		nil, // no rate-limiting
+	)
 	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
 
 	modelRestHandler := &modelRestHandler{
@@ -467,7 +665,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 
 	add("/model/:modeluuid/applications/:application/resources/:resource", &ResourcesHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, func(), names.Tag, error) {
+		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.StatePoolReleaser, names.Tag, error) {
 			st, closer, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
@@ -480,7 +678,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	})
 	add("/model/:modeluuid/units/:unit/resources/:resource", &UnitResourcesHandler{
-		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, func(), error) {
+		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
 			st, closer, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
@@ -582,7 +780,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 
 	// Add HTTP handlers for local-user macaroon authentication.
-	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}
+	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.statePool.SystemState()}
 	dischargeMux := http.NewServeMux()
 	httpbakery.AddDischargeHandler(
 		dischargeMux,
@@ -661,6 +859,7 @@ func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
+	atomic.AddInt64(&srv.totalConn, 1)
 	addCount := func(delta int64) {
 		atomic.AddInt64(&srv.connCount, delta)
 	}
@@ -674,18 +873,17 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	apiObserver.Join(req, connectionID)
 	defer apiObserver.Leave()
 
-	handler := func(conn *websocket.Conn) {
+	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := req.URL.Query().Get(":modeluuid")
 		logger.Tracef("got a request for model %q", modelUUID)
 		if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
-	}
-	websocketServer(w, req, handler)
+	})
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
-	codec := jsoncodec.NewWebsocket(wsConn)
+	codec := jsoncodec.NewWebsocket(wsConn.Conn)
 	conn := rpc.NewConn(codec, apiObserver)
 
 	// Note that we don't overwrite modelUUID here because
@@ -698,7 +896,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	var (
 		st       *state.State
 		h        *apiHandler
-		releaser func()
+		releaser state.StatePoolReleaser
 	)
 	if err == nil {
 		st, releaser, err = srv.statePool.Get(resolvedModelUUID)
@@ -727,7 +925,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 }
 
 func (srv *Server) mongoPinger() error {
-	session := srv.state.MongoSession().Copy()
+	session := srv.statePool.SystemState().MongoSession().Copy()
 	defer session.Close()
 	for {
 		if err := session.Ping(); err != nil {
@@ -825,7 +1023,8 @@ func serverError(err error) error {
 }
 
 func (srv *Server) processModelRemovals() error {
-	w := srv.state.WatchModelLives()
+	st := srv.statePool.SystemState()
+	w := st.WatchModelLives()
 	defer w.Stop()
 	for {
 		select {
@@ -833,7 +1032,7 @@ func (srv *Server) processModelRemovals() error {
 			return tomb.ErrDying
 		case modelUUIDs := <-w.Changes():
 			for _, modelUUID := range modelUUIDs {
-				model, err := srv.state.GetModel(names.NewModelTag(modelUUID))
+				model, err := st.GetModel(names.NewModelTag(modelUUID))
 				gone := errors.IsNotFound(err)
 				dead := err == nil && model.Life() == state.Dead
 				if err != nil && !gone {
@@ -847,8 +1046,7 @@ func (srv *Server) processModelRemovals() error {
 				// Model's gone away - ensure that it gets removed
 				// from from the state pool once people are finished
 				// with it.
-				err = srv.statePool.Remove(modelUUID)
-				if err != nil {
+				if _, err := srv.statePool.Remove(modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}

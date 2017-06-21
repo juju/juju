@@ -183,7 +183,8 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	expectWorker := &fakeWorker{}
+	var stub testing.Stub
+	expectWorker := newStubWorker(&stub)
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		ClockName:     "clock",
 		APICallerName: "api-caller",
@@ -203,5 +204,39 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 
 	worker, err := manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, expectWorker)
+
+	var out engine.Flag
+	err = manifold.Output(worker, &out)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(out.Check(), jc.IsTrue)
+
+	c.Check(worker.Wait(), jc.ErrorIsNil)
+	stub.CheckCallNames(c, "Check", "Wait")
+}
+
+func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *gc.C) {
+	var stub testing.Stub
+	stub.SetErrors(singular.ErrRefresh)
+	errWorker := newStubWorker(&stub)
+
+	manifold := singular.Manifold(singular.ManifoldConfig{
+		ClockName:     "clock",
+		APICallerName: "api-caller",
+		AgentName:     "agent",
+		NewFacade: func(_ base.APICaller, _ names.MachineTag) (singular.Facade, error) {
+			return &fakeFacade{}, nil
+		},
+		NewWorker: func(_ singular.FlagConfig) (worker.Worker, error) {
+			return errWorker, nil
+		},
+	})
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": &fakeAPICaller{},
+		"agent":      &mockAgent{},
+	})
+
+	worker, err := manifold.Start(context)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(worker.Wait(), gc.Equals, dependency.ErrBounce)
 }

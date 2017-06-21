@@ -11,20 +11,19 @@ import (
 	"github.com/juju/juju/status"
 )
 
+// StatePool represents a pool of State objects.
+type StatePool interface {
+	SystemState() State
+	Get(modelUUID string) (State, state.StatePoolReleaser, error)
+}
+
 // State represents the global state managed by the Juju controller.
 type State interface {
 	AllMachines() ([]Machine, error)
 	AllModels() ([]Model, error)
 	AllUsers() ([]User, error)
 	ControllerTag() names.ControllerTag
-	ForModel(names.ModelTag) (StateCloser, error)
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
-}
-
-// StateCloser extends the State interface with a Close method.
-type StateCloser interface {
-	State
-	Close() error
 }
 
 // Machine represents a machine in a Juju model.
@@ -48,9 +47,26 @@ type User interface {
 	UserTag() names.UserTag
 }
 
-// NewState takes a *state.State, and returns a State value backed by it.
-func NewState(st *state.State) State {
-	return stateShim{st}
+// NewStatePool takes a *state.StatePool, and returns
+// a StatePool value backed by it.
+func NewStatePool(pool *state.StatePool) StatePool {
+	return statePoolShim{pool}
+}
+
+type statePoolShim struct {
+	*state.StatePool
+}
+
+func (p statePoolShim) SystemState() State {
+	return stateShim{p.StatePool.SystemState()}
+}
+
+func (p statePoolShim) Get(modelUUID string) (State, state.StatePoolReleaser, error) {
+	st, releaser, err := p.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return stateShim{st}, releaser, nil
 }
 
 type stateShim struct {
@@ -97,12 +113,4 @@ func (s stateShim) AllUsers() ([]User, error) {
 		}
 	}
 	return out, nil
-}
-
-func (s stateShim) ForModel(tag names.ModelTag) (StateCloser, error) {
-	st, err := s.State.ForModel(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return stateShim{st}, nil
 }
