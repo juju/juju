@@ -272,4 +272,7 @@ func (s *PingBatcherSuite) TestNewDeadPingBatcher(c *gc.C) {
 	uuid := "test-uuid"
 	err := pb.Ping(uuid, slot, "0", 8)
 	c.Assert(err, gc.ErrorMatches, "PingBatcher not started")
+
+	err = pb.Stop()
+	c.Assert(err, gc.ErrorMatches, "this is an error")
 }

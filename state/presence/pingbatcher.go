@@ -45,8 +45,10 @@ func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatc
 
 // NewDeadPingBatcher returns a PingBatcher that is already stopped with an error.
 func NewDeadPingBatcher(err error) *PingBatcher {
-	pb := NewPingBatcher(nil, time.Second)
+	// we never start the loop, so the timeout doesn't matter.
+	pb := NewPingBatcher(nil, time.Millisecond)
 	pb.tomb.Kill(err)
+	pb.tomb.Done()
 	return pb
 }
 
@@ -86,6 +88,7 @@ func (pb *PingBatcher) Start() error {
 
 // Kill is part of the worker.Worker interface.
 func (pb *PingBatcher) Kill() {
+	logger.Debugf("PingBatcher.Kill() called")
 	pb.tomb.Kill(nil)
 }
 
@@ -118,6 +121,7 @@ func (pb *PingBatcher) loop() error {
 	for {
 		select {
 		case <-pb.tomb.Dying():
+			logger.Debugf("PingBatcher Dying")
 			pb.mu.Lock()
 			pb.started = false
 			pb.mu.Unlock()
@@ -132,7 +136,7 @@ func (pb *PingBatcher) loop() error {
 			// close the channel that was passed to us once we have
 			// finished flushing.
 			if err := pb.flush(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			close(flushReq)
 		}
