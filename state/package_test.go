@@ -15,9 +15,8 @@ func TestPackage(t *testing.T) {
 	// At this stage, Juju only supports running the apiservers and database
 	// on Ubuntu. If we end up officially supporting CentOS, then we should
 	// make sure we run the tests there.
-	_ = os.HostOS()
-	/// if os.HostOS() != os.Ubuntu {
-	/// 	t.Skipf("skipping tests on %v", os.HostOS())
-	/// }
+	if os.HostOS() != os.Ubuntu {
+		t.Skipf("skipping tests on %v", os.HostOS())
+	}
 	coretesting.MgoTestPackage(t)
 }
