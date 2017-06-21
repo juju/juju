@@ -5,6 +5,7 @@ package remotestate_test
 
 import (
 	"sync"
+	"time"
 
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -179,6 +180,10 @@ func (st *mockState) WatchStorageAttachment(
 		return nil, &params.Error{Code: params.CodeNotFound}
 	}
 	return watcher, nil
+}
+
+func (st *mockState) UpdateStatusHookInterval() (time.Duration, error) {
+	return 5 * time.Minute, nil
 }
 
 type mockUnit struct {

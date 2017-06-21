@@ -4,6 +4,8 @@
 package remotestate
 
 import (
+	"time"
+
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
@@ -12,6 +14,12 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
+type Waiter interface {
+	After() <-chan time.Time
+}
+
+type UpdateStatusTimerFunc func(time.Duration) Waiter
+
 type State interface {
 	Relation(names.RelationTag) (Relation, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
@@ -19,6 +27,7 @@ type State interface {
 	Unit(names.UnitTag) (Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
+	UpdateStatusHookInterval() (time.Duration, error)
 }
 
 type Unit interface {
