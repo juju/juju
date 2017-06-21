@@ -181,6 +181,11 @@ const (
 
 	MgoStatsEnabled = "MGO_STATS_ENABLED"
 
+	// LoggingOverride will set the logging for this agent to the value
+	// specified. Model configuration will be ignored and this value takes
+	// precidence for the agent.
+	LoggingOverride = "LOGGING_OVERRIDE"
+
 	LogSinkDBLoggerBufferSize    = "LOGSINK_DBLOGGER_BUFFER_SIZE"
 	LogSinkDBLoggerFlushInterval = "LOGSINK_DBLOGGER_FLUSH_INTERVAL"
 	LogSinkRateLimitBurst        = "LOGSINK_RATELIMIT_BURST"

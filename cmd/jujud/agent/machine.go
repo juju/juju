@@ -225,12 +225,22 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 
+	config := a.currentConfig.CurrentConfig()
 	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
 	a.ctx.Stderr = &lumberjack.Logger{
-		Filename:   agent.LogFilename(a.currentConfig.CurrentConfig()),
+		Filename:   agent.LogFilename(config),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 		Compress:   true,
+	}
+
+	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
+		logger.Infof("setting logging override to %q", loggingOverride)
+		loggo.DefaultContext().ResetLoggerLevels()
+		err := loggo.ConfigureLoggers(loggingOverride)
+		if err != nil {
+			logger.Errorf("setting logging override %v", err)
+		}
 	}
 
 	return nil
