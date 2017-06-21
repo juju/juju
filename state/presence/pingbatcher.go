@@ -97,7 +97,6 @@ func (pb *PingBatcher) start() {
 
 // Kill is part of the worker.Worker interface.
 func (pb *PingBatcher) Kill() {
-	logger.Debugf("PingBatcher.Kill() called")
 	pb.tomb.Kill(nil)
 }
 
