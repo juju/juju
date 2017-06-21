@@ -1480,3 +1480,183 @@ func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 	err = SplitLogCollections(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
+	relations, rCloser := s.state.getRawCollection(relationsC)
+	defer rCloser()
+	scopes, sCloser := s.state.getRawCollection(relationScopesC)
+	defer sCloser()
+
+	uuid := s.state.ModelUUID()
+
+	err := relations.Insert(bson.M{
+		"_id":        uuid + ":min:juju-info nrpe:general-info",
+		"key":        "min:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         4,
+		"endpoints": []bson.M{{
+			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, {
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 6,
+	}, bson.M{
+		"_id":        uuid + ":ntp:ntp-peers",
+		"key":        "ntp:ntp-peers",
+		"model-uuid": uuid,
+		"id":         3,
+		"endpoints": []bson.M{{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "ntp-peers",
+				"role":      "peer",
+				"interface": "ntp",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "global",
+			},
+		}},
+		"unitcount": 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = scopes.Insert(bson.M{
+		"_id":        uuid + ":r#4#min/0#provider#min/0",
+		"key":        "r#4#min/0#provider#min/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/0#requirer#nrpe/0",
+		"key":        "r#4#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/1#provider#min/1",
+		"key":        "r#4#min/1#provider#min/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/1#requirer#nrpe/1",
+		"key":        "r#4#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min2/0#requirer#nrpe/2",
+		"key":        "r#4#min2/0#requirer#nrpe/2",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min2/1#requirer#nrpe/3",
+		"key":        "r#4#min2/1#requirer#nrpe/3",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#3#peer#ntp/0",
+		"key":        "r#3#peer#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#3#peer#ntp/1",
+		"key":        "r#3#peer#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedRelations := []bson.M{{
+		"_id":        uuid + ":min:juju-info nrpe:general-info",
+		"key":        "min:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         4,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, bson.M{
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
+	}, {
+		"_id":        uuid + ":ntp:ntp-peers",
+		"key":        "ntp:ntp-peers",
+		"model-uuid": uuid,
+		"id":         3,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "ntp-peers",
+				"role":      "peer",
+				"interface": "ntp",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "global",
+			},
+		}},
+		"unitcount": 2,
+	}}
+	expectedScopes := []bson.M{{
+		"_id":        uuid + ":r#3#peer#ntp/0",
+		"key":        "r#3#peer#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#3#peer#ntp/1",
+		"key":        "r#3#peer#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/0#provider#min/0",
+		"key":        "r#4#min/0#provider#min/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/0#requirer#nrpe/0",
+		"key":        "r#4#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/1#provider#min/1",
+		"key":        "r#4#min/1#provider#min/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/1#requirer#nrpe/1",
+		"key":        "r#4#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}}
+	s.assertUpgradedData(c, CorrectRelationUnitCounts,
+		expectUpgradedData{relations, expectedRelations},
+		expectUpgradedData{scopes, expectedScopes},
+	)
+}
