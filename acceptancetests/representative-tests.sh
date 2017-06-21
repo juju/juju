@@ -31,7 +31,7 @@ else
 fi
 timeout 45m concurrently.py -v -l $WORKSPACE/artifacts \
     xenial="$SCRIPTS/run-unit-tests c4.4xlarge $XENIAL_AMI --local $TARFILE_NAME --use-tmpfs --use-ppa ppa:juju/golang --force-archive" \
-    windows="$SCRIPTS/gotestwin.py developer-win-unit-tester.vapour.ws $TARFILE_NAME github.com/juju/juju/cmd" \
+    windows="$SCRIPTS/run-windows-job.sh Administrator@developer-win-unit-tester.vapour.ws $TARFILE_NAME" \
     network="$NETWORK" \
     grant="$GRANT" \
     race="$RACE"
