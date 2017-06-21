@@ -192,7 +192,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test invalid positional args with set",
 		args:        []string{"a=b", "b", "c=d"},
-		errorMatch:  `.*no such file or directory`,
+		errorMatch:  `.*(no such file or directory|cannot find the file specified).*`,
 	}, {
 		description: "test invalid positional args with set and trailing key",
 		args:        []string{"a=b", "c=d", "e"},
