@@ -319,6 +319,11 @@ func (w *Watcher) loop() error {
 				close(done)
 			}
 			w.syncsSinceLastPrune++
+			// TODO (jam): 2017-06-21 https://bugs.launchpad.net/juju/+bug/1699440
+			// now that we are batching pings
+			// on the write side, it makes sense to move this
+			// mutation-of-the-database away from the read side, and
+			// into the periodic writer.
 			w.checkShouldPrune()
 		case req := <-w.request:
 			w.handle(req)

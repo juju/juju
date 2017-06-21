@@ -176,7 +176,7 @@ func assertStopped(c *gc.C, w worker.Worker) {
 	select {
 	case <-done:
 		return
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("failed to stop worker %v after %v", w, testing.ShortWait)
 	}
 }
@@ -202,7 +202,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	w := NewWatcher(s.presence, s.modelTag)
 	// Ensure that all pingers and the watcher are clean at exit
 	defer assertStopped(c, w)
-	pb := NewPingBatcher(s.presence, 25*time.Millisecond)
+	pb := NewPingBatcher(s.presence, 500*time.Millisecond)
 	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 	defer func() {

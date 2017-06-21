@@ -4,6 +4,7 @@ package presence
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,13 +18,6 @@ const maxBatch = 1000
 type slot struct {
 	Slot  int64
 	Alive map[string]uint64
-}
-
-type singlePing struct {
-	Slot      int64
-	ModelUUID string
-	FieldKey  string
-	FieldBit  uint64
 }
 
 // NewPingBatcher creates a worker that will batch ping requests and prepare them
@@ -45,7 +39,6 @@ func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatc
 		pings:         pings,
 		pending:       make(map[string]slot),
 		flushInterval: flushInterval,
-		pingChan:      make(chan singlePing),
 		flushChan:     make(chan chan struct{}),
 	}
 }
@@ -61,11 +54,12 @@ func NewDeadPingBatcher(err error) *PingBatcher {
 type PingBatcher struct {
 	pings         *mgo.Collection
 	modelUUID     string
+	mu            sync.Mutex
 	pending       map[string]slot
 	pingCount     uint64
 	flushInterval time.Duration
 	tomb          tomb.Tomb
-	pingChan      chan singlePing
+	started       bool
 	flushChan     chan chan struct{}
 }
 
@@ -118,16 +112,20 @@ func (pb *PingBatcher) nextSleep() time.Duration {
 func (pb *PingBatcher) loop() error {
 	// flushDone and flushRequest exist to make a flushRequest synchronous
 	// with all other pings that have been requested. The logic is:
+	pb.mu.Lock()
+	pb.started = true
+	pb.mu.Unlock()
 	for {
 		select {
 		case <-pb.tomb.Dying():
+			pb.mu.Lock()
+			pb.started = false
+			pb.mu.Unlock()
 			return errors.Trace(tomb.ErrDying)
 		case <-time.After(pb.nextSleep()):
 			if err := pb.flush(); err != nil {
 				return errors.Trace(err)
 			}
-		case singlePing := <-pb.pingChan:
-			pb.handlePing(singlePing)
 		case flushReq := <-pb.flushChan:
 			// Flush is requested synchronously.
 			// This way we know all pings have been handled. We will
@@ -144,41 +142,34 @@ func (pb *PingBatcher) loop() error {
 // Ping should be called by a Pinger when it is ready to update its time slot.
 // It passes in all of the pre-resolved information (what exact field bit is
 // being set), rather than the higher level "I'm pinging for this Agent".
-// Internally, we synchronize with the main worker loop. Which means that this
-// function will return once the main loop recognizes that we have a ping request
-// but it will not have updated its internal structures, and certainly not the database.
 func (pb *PingBatcher) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
-	ping := singlePing{
-		Slot:      slot,
-		ModelUUID: modelUUID,
-		FieldKey:  fieldKey,
-		FieldBit:  fieldBit,
+	// We use a 'direct-update' model rather than synchronizing with the main loop.
+	// In testing '10,000' concurrent pingers, trying to synchronize with the main loop
+	// actually caused starvation where the timeout triggered very infrequently.
+	// (over 30s with a 25ms timeout, there were only 5 flush requests).
+	// Using a mutex and doing the internal-state update had the same total time spent
+	// doing updates, but meant that we could reliably trigger flushing to the db.
+	// My guess is that channels are "fair" to the people sending, and 10,000 things
+	// trying to send on one channel vs 1 thing sending on another channel.
+	// What we wanted was fairness between channels vs fairness between senders.
+	pb.mu.Lock()
+	if !pb.started {
+		// Should this be more pb.Tomb.Err() ?
+		pb.mu.Unlock()
+		return errors.Errorf("PingBatcher not started")
 	}
-	select {
-	case pb.pingChan <- ping:
-		return nil
-	case <-pb.tomb.Dying():
-		err := pb.tomb.Err()
-		if err == nil {
-			return errors.Errorf("PingBatcher is stopped")
-		}
-		return errors.Trace(err)
-	}
-}
-
-// handlePing is where we actually update our internal structures after we
-// get a ping request.
-func (pb *PingBatcher) handlePing(ping singlePing) {
-	docId := docIDInt64(ping.ModelUUID, ping.Slot)
+	docId := docIDInt64(modelUUID, slot)
 	cur, slotExists := pb.pending[docId]
 	if !slotExists {
 		cur.Alive = make(map[string]uint64)
-		cur.Slot = ping.Slot
+		cur.Slot = slot
 		pb.pending[docId] = cur
 	}
 	alive := cur.Alive
-	alive[ping.FieldKey] |= ping.FieldBit
+	alive[fieldKey] |= fieldBit
 	pb.pingCount++
+	pb.mu.Unlock()
+	return nil
 }
 
 // flush pushes the internal state to the database. Note that if the database
@@ -190,7 +181,11 @@ func (pb *PingBatcher) handlePing(ping singlePing) {
 func (pb *PingBatcher) flush() error {
 	// We treat all of these as 'consumed'. Even if the query fails, it is
 	// not safe to ever $inc the same fields a second time, so we just move on.
-	next := pb.pending
+	// We grab a mutex just long enough to create a copy of the internal structures,
+	// and reset them to their empty values. New Pings() can be handled concurrently while
+	// we write the current set to the database.
+	pb.mu.Lock()
+	toFlush := pb.pending
 	pingCount := pb.pingCount
 	pb.pending = make(map[string]slot)
 	pb.pingCount = 0
@@ -198,11 +193,12 @@ func (pb *PingBatcher) flush() error {
 	defer session.Close()
 	pings := pb.pings.With(session)
 	bulk := pings.Bulk()
+	pb.mu.Unlock()
 	docCount := 0
 	fieldCount := 0
 	t := time.Now()
 	bulkCount := 0
-	for docId, slot := range next {
+	for docId, slot := range toFlush {
 		docCount++
 		var incFields bson.D
 		for fieldKey, value := range slot.Alive {
