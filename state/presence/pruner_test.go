@@ -229,7 +229,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		// As this is a busy channel, we may be queued up behind some other
 		// pinger showing up as alive, so allow up to LongWait for the event to show up
 		waitForFirstChange(c, ch, Change{key, false})
-		p := NewPinger(s.presence, s.modelTag, key, DirectRecordFunc(s.presence))
+		p := NewPinger(s.presence, s.modelTag, key, pb)
 		err := p.Start()
 		c.Assert(err, jc.ErrorIsNil)
 		newPingers[i] = p
@@ -276,7 +276,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 				assertStopped(c, old)
 			}
 			oldPingers[i] = newPingers[i]
-			p := NewPinger(s.presence, s.modelTag, keys[i], DirectRecordFunc(s.presence))
+			p := NewPinger(s.presence, s.modelTag, keys[i], pb)
 			err := p.Start()
 			c.Assert(err, jc.ErrorIsNil)
 			newPingers[i] = p
