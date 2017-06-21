@@ -739,7 +739,6 @@ func AddUpdateStatusHookSettings(st *State) error {
 // to control how often to run Pings are flushed to the database if the setting
 // is missing.
 func AddPingFlushIntervalSettings(st *State) error {
-	return nil
 	coll, closer := st.getRawCollection(settingsC)
 	defer closer()
 

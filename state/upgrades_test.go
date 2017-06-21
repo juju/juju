@@ -1061,20 +1061,23 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// One model has a valid setting that is not default.
 	m1 := s.makeModel(c, "m1", testing.Attrs{
 		"update-status-hook-interval": "20m",
 	})
 	defer m1.Close()
 
-	m2 := s.makeModel(c, "m1", testing.Attrs{
-		// TODO (jam): 2017-06-21 we really need to start with an
-		// 'invalid' configuration so that we can assert that we turn
-		// an invalid config into a valid one. However, we're not
-		// allowed to 'makeModel' with invalid configuration....
-		// "update-status-hook-interval": "",
-	})
+	// This model is missing a setting entirely.
+	m2 := s.makeModel(c, "m2", testing.Attrs{})
 	defer m2.Close()
+	// We remove the 'update-status-hook-interval' value to
+	// represent an old-style model that needs updating.
+	settingsKey := m2.ModelUUID() + ":e"
+	err = settingsColl.UpdateId(settingsKey,
+		bson.M{"$unset": bson.M{"settings.update-status-hook-interval": ""}})
+	c.Assert(err, jc.ErrorIsNil)
 
+	// And something that isn't model settings
 	err = settingsColl.Insert(bson.M{
 		"_id": "someothersettingshouldnotbetouched",
 		// non-model setting: should not be touched
@@ -1125,14 +1128,14 @@ func (s *upgradesSuite) TestAddPingFlushIntervalSettings(c *gc.C) {
 	})
 	defer m1.Close()
 
-	m2 := s.makeModel(c, "m2", testing.Attrs{
-		// TODO (jam): 2017-06-21 we really need to start with an
-		// 'invalid' configuration so that we can assert that we turn
-		// an invalid config into a valid one. However, we're not
-		// allowed to 'makeModel' with invalid configuration....
-		// "ping-flush-interval": "",
-	})
+	m2 := s.makeModel(c, "m2", testing.Attrs{})
 	defer m2.Close()
+	// We remove the 'ping-flush-interval' value to
+	// represent an old-style model that needs updating.
+	settingsKey := m2.ModelUUID() + ":e"
+	err = settingsColl.UpdateId(settingsKey,
+		bson.M{"$unset": bson.M{"settings.ping-flush-interval": ""}})
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = settingsColl.Insert(bson.M{
 		"_id": "someothersettingshouldnotbetouched",
@@ -1149,7 +1152,6 @@ func (s *upgradesSuite) TestAddPingFlushIntervalSettings(c *gc.C) {
 	cfg2, err := m2.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected2 := cfg2.AllAttrs()
-	fmt.Printf("expected2: %v", expected2)
 	expected2["ping-flush-interval"] = "1s"
 	expected2["resource-tags"] = ""
 
