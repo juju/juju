@@ -167,13 +167,14 @@ type RemoteEntityIdResults struct {
 // RemoteRelation describes the current state of a cross-model relation from
 // the perspective of the local model.
 type RemoteRelation struct {
-	Life               Life           `json:"life"`
-	Id                 int            `json:"id"`
-	Key                string         `json:"key"`
-	ApplicationName    string         `json:"application-name"`
-	Endpoint           RemoteEndpoint `json:"endpoint"`
-	RemoteEndpointName string         `json:"remote-endpoint-name"`
-	SourceModelUUID    string         `json:"source-model-uuid"`
+	Life                  Life           `json:"life"`
+	Id                    int            `json:"id"`
+	Key                   string         `json:"key"`
+	ApplicationName       string         `json:"application-name"`
+	Endpoint              RemoteEndpoint `json:"endpoint"`
+	RemoteApplicationName string         `json:"remote-application-name"`
+	RemoteEndpointName    string         `json:"remote-endpoint-name"`
+	SourceModelUUID       string         `json:"source-model-uuid"`
 }
 
 // RemoteRelationResult holds a remote relation and an error.
@@ -320,6 +321,29 @@ type RemoteRelationChangeEvent struct {
 	// DepartedUnits contains the ids of units that have departed
 	// the relation since the last change.
 	DepartedUnits []int `json:"departed-units,omitempty"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+}
+
+// IngressNetworksChanges holds a set of IngressNetworksChangeEvent structures.
+type IngressNetworksChanges struct {
+	Changes []IngressNetworksChangeEvent `json:"changes,omitempty"`
+}
+
+type IngressNetworksChangeEvent struct {
+	// RelationId is the remote id of the relation.
+	RelationId RemoteEntityId `json:"relation-id"`
+
+	// ApplicationId is the application id on the remote model.
+	ApplicationId RemoteEntityId `json:"application-id"`
+
+	// Networks are the CIDRs for which ingress is required.
+	Networks []string `json:"networks,omitempty"`
+
+	// IngressRequired is true if ingress is needed, otherwise
+	// ingress should be disabled.
+	IngressRequired bool `json:"ingress-required"`
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`

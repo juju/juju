@@ -76,7 +76,7 @@ func PublishRelationChange(backend Backend, change params.RemoteRelationChangeEv
 		logger.Infof("no remote application found for %v", relationTag.Id())
 		return nil
 	}
-	logger.Debugf("remote applocation for changed relation %v is %v", relationTag.Id(), applicationTag.Id())
+	logger.Debugf("remote application for changed relation %v is %v", relationTag.Id(), applicationTag.Id())
 
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
@@ -181,4 +181,36 @@ func RelationUnitSettings(backend Backend, ru params.RelationUnit) (params.Setti
 		paramsSettings[k] = vString
 	}
 	return paramsSettings, nil
+}
+
+// PublishIngressNetworkChange saves the specified ingress networks for a relation.
+func PublishIngressNetworkChange(backend Backend, change params.IngressNetworksChangeEvent) error {
+	logger.Debugf("publish into model %v network change: %+v", backend.ModelUUID(), change)
+
+	relationTag, err := getRemoteEntityTag(backend, change.RelationId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+
+	// Ensure the relation exists.
+	rel, err := backend.KeyRelation(relationTag.Id())
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Look up the application on the remote side of this relation
+	// ie from the model which published this change.
+	applicationTag, err := getRemoteEntityTag(backend, change.ApplicationId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
+
+	// TODO(wallyworld) - record this info in the model so firewaller can see it.
+	logger.Infof("rel %v has networks %v", rel, change.Networks)
+	return nil
 }

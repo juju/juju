@@ -33,7 +33,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "PublishRelationChange")
+		c.Check(request, gc.Equals, "PublishRelationChanges")
 		c.Check(arg, gc.DeepEquals, params.RemoteRelationsChanges{
 			Changes: []params.RemoteRelationChangeEvent{{
 				DepartedUnits: []int{1}}},
@@ -142,5 +142,31 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *CrossModelRelationsSuite) TestIngressNetworkChange(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "PublishIngressNetworkChanges")
+		c.Check(arg, gc.DeepEquals, params.IngressNetworksChanges{
+			Changes: []params.IngressNetworksChangeEvent{{
+				Networks: []string{"1.2.3.4/32"}}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := crossmodelrelations.NewClient(apiCaller)
+	err := client.PublishIngressNetworkChange(params.IngressNetworksChangeEvent{Networks: []string{"1.2.3.4/32"}})
+	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

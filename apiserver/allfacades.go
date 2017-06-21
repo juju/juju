@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/apiserver/proxyupdater"
 	"github.com/juju/juju/apiserver/reboot"
-	"github.com/juju/juju/apiserver/remotefirewaller"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/apiserver/resources"
 	"github.com/juju/juju/apiserver/resourceshookcontext"
@@ -135,7 +134,7 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 3, controller.NewControllerAPI)
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
-	reg("Firewaller", 3, firewaller.NewFirewallerAPI)
+	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
@@ -213,9 +212,9 @@ func AllFacades() *facade.Registry {
 
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
-		reg("RemoteFirewaller", 1, remotefirewaller.NewStateRemoteFirewallerAPI)
 		reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 		reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
+		reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
 	}
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))

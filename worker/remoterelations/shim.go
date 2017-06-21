@@ -20,7 +20,7 @@ func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, 
 	return facade, nil
 }
 
-func NewRemoteModelRelationsFacade(apiCaller base.APICaller) (RemoteModelRelationsFacade, error) {
+func NewRemoteModelRelationsFacade(apiCaller base.APICallCloser) (RemoteModelRelationsFacade, error) {
 	facade := crossmodelrelations.NewClient(apiCaller)
 	return facade, nil
 }
@@ -34,7 +34,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 // remoteRelationsFacadeForModelFunc returns a function that
-// can be used be construct instances which manage remote relation
+// can be used to construct instances which manage remote relation
 // changes for a given model.
 
 // For now we use a facade, but in future this may evolve into a REST caller.

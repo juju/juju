@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remotefirewaller_test
+package firewaller_test
 
 import (
 	"github.com/juju/testing"
@@ -12,8 +12,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/remotefirewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -28,7 +28,7 @@ type RemoteFirewallerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
-	api        *remotefirewaller.FirewallerAPI
+	api        *firewaller.FirewallerAPIV4
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -43,12 +43,12 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState(coretesting.ModelTag.Id())
-	api, err := remotefirewaller.NewRemoteFirewallerAPI(s.st, s.resources, s.authorizer)
+	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockcloudSpecAPI{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+	s.api = &firewaller.FirewallerAPIV4{api}
 }
 
-func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	db2Relation := newMockRelation(123)
 	db2Relation.ruwApp = "django"
 	db2Relation.endpoints = []state.Endpoint{
@@ -81,10 +81,10 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 	app.units = []*mockUnit{unit, unit1}
 	s.st.applications["django"] = app
 
-	result, err := s.api.WatchIngressAddressesForRelation(
-		params.RemoteEntities{Entities: []params.RemoteEntityId{{
-			ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2:db django:db"}},
-		})
+	result, err := s.api.WatchEgressAddressesForRelations(
+		params.Entities{Entities: []params.Entity{{
+			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
+		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Changes, jc.SameContents, []string{"1.2.3.4/32", "4.3.2.1/32"})
@@ -96,7 +96,6 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
 
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
 		{"Application", []interface{}{"django"}},
 		{"Application", []interface{}{"django"}},
@@ -105,7 +104,7 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 	})
 }
 
-func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelationIgnoresProvider(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *gc.C) {
 	db2Relation := newMockRelation(123)
 	db2Relation.endpoints = []state.Endpoint{
 		{
@@ -125,11 +124,11 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelationIgnoresProvi
 	s.st.applications["db2"] = app
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
 
-	result, err := s.api.WatchIngressAddressesForRelation(
-		params.RemoteEntities{Entities: []params.RemoteEntityId{{
-			ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2:db django:db"}},
-		})
+	result, err := s.api.WatchEgressAddressesForRelations(
+		params.Entities{Entities: []params.Entity{{
+			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
+		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "ingress network for application db2 without requires endpoint not supported")
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "egress network for application db2 without requires endpoint not supported")
 }

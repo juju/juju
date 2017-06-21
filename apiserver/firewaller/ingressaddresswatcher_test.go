@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remotefirewaller_test
+package firewaller_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/remotefirewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/network"
 	statetesting "github.com/juju/juju/state/testing"
@@ -26,7 +26,7 @@ type addressWatcherSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
-	api        *remotefirewaller.FirewallerAPI
+	api        *firewaller.FirewallerAPIV3
 }
 
 type nopSyncStarter struct{}
@@ -45,7 +45,7 @@ func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState(coretesting.ModelTag.Id())
-	api, err := remotefirewaller.NewRemoteFirewallerAPI(s.st, s.resources, s.authorizer)
+	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockcloudSpecAPI{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -68,7 +68,7 @@ func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation 
 func (s *addressWatcherSuite) TestInitial(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -79,7 +79,7 @@ func (s *addressWatcherSuite) TestInitial(c *gc.C) {
 
 func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -107,7 +107,7 @@ func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 
 func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -134,7 +134,7 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 
 func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -167,7 +167,7 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 
 func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 	rel := s.setupRelation(c, "")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -195,7 +195,7 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
 	rel := s.setupRelation(c, "")
 	s.st.units["django/0"].assigned = false
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -222,7 +222,7 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
 
 func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -239,7 +239,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
 
 func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -273,7 +273,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 
 func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -315,7 +315,7 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 	rel := s.setupRelation(c, "55.1.2.3")
 	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -348,7 +348,7 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
 	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -366,7 +366,7 @@ func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
 	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
@@ -388,7 +388,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	s.st.units["django/1"] = unit
 
 	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0", "django/1")
-	w, err := remotefirewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)

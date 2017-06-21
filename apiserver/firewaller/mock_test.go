@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remotefirewaller_test
+package firewaller_test
 
 import (
 	"sync"
@@ -12,13 +12,23 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/remotefirewaller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
+type mockcloudSpecAPI struct {
+	// TODO - implement when remaining firewaller tests become unit tests
+	cloudspec.CloudSpecAPI
+}
+
 type mockState struct {
+	// TODO - implement when remaining firewaller tests become unit tests
+	state.ModelMachinesWatcher
+	state.ModelAccessor
+
 	testing.Stub
 	modelUUID      string
 	remoteEntities map[names.Tag]string
@@ -45,7 +55,7 @@ func (st *mockState) ModelUUID() string {
 	return st.modelUUID
 }
 
-func (st *mockState) Application(id string) (remotefirewaller.Application, error) {
+func (st *mockState) Application(id string) (firewaller.Application, error) {
 	st.MethodCall(st, "Application", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -57,7 +67,7 @@ func (st *mockState) Application(id string) (remotefirewaller.Application, error
 	return a, nil
 }
 
-func (st *mockState) Unit(name string) (remotefirewaller.Unit, error) {
+func (st *mockState) Unit(name string) (firewaller.Unit, error) {
 	st.MethodCall(st, "Unit", name)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -69,7 +79,7 @@ func (st *mockState) Unit(name string) (remotefirewaller.Unit, error) {
 	return u, nil
 }
 
-func (st *mockState) Machine(id string) (remotefirewaller.Machine, error) {
+func (st *mockState) Machine(id string) (firewaller.Machine, error) {
 	st.MethodCall(st, "Machine", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -84,6 +94,24 @@ func (st *mockState) Machine(id string) (remotefirewaller.Machine, error) {
 func (st *mockState) WatchSubnets(func(id interface{}) bool) state.StringsWatcher {
 	st.MethodCall(st, "WatchSubnets")
 	return st.subnetsWatcher
+}
+
+func (st *mockState) WatchOpenedPorts() state.StringsWatcher {
+	st.MethodCall(st, "WatchOpenedPorts")
+	// TODO - implement when remaining firewaller tests become unit tests
+	return nil
+}
+
+func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
+	st.MethodCall(st, "FindEntity")
+	// TODO - implement when remaining firewaller tests become unit tests
+	return nil, errors.NotImplementedf("FindEntity")
+}
+
+func (st *mockState) GetModel(tag names.ModelTag) (*state.Model, error) {
+	st.MethodCall(st, "GetModel", tag)
+	// TODO - implement when remaining firewaller tests become unit tests
+	return nil, errors.NotImplementedf("GetModel")
 }
 
 type mockWatcher struct {
@@ -148,7 +176,7 @@ func (a *mockApplication) Name() string {
 	return a.name
 }
 
-func (a *mockApplication) AllUnits() (results []remotefirewaller.Unit, err error) {
+func (a *mockApplication) AllUnits() (results []firewaller.Unit, err error) {
 	a.MethodCall(a, "AllUnits")
 	for _, unit := range a.units {
 		results = append(results, unit)
@@ -191,7 +219,7 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 	return r.ruw, nil
 }
 
-func (r *mockRelation) UnitInScope(u remotefirewaller.Unit) (bool, error) {
+func (r *mockRelation) UnitInScope(u firewaller.Unit) (bool, error) {
 	return r.inScope.Contains(u.Name()), nil
 }
 
@@ -223,7 +251,7 @@ func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (
 	return nil, errors.NotFoundf("token %v", token)
 }
 
-func (st *mockState) KeyRelation(key string) (remotefirewaller.Relation, error) {
+func (st *mockState) KeyRelation(key string) (firewaller.Relation, error) {
 	st.MethodCall(st, "KeyRelation", key)
 	if err := st.NextErr(); err != nil {
 		return nil, err

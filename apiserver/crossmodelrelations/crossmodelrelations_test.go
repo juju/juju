@@ -47,7 +47,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
@@ -57,7 +57,7 @@ func (s *crossmodelRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
 	rel.units["db2/2"] = ru2
 	s.st.relations["db2:db django:db"] = rel
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
-	results, err := s.api.PublishRelationChange(params.RemoteRelationsChanges{
+	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
 				Life: params.Alive,
@@ -157,4 +157,31 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "token-db2"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
+}
+
+func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
+		Changes: []params.IngressNetworksChangeEvent{
+			{
+				ApplicationId: params.RemoteEntityId{
+					ModelUUID: "uuid",
+					Token:     "token-db2"},
+				RelationId: params.RemoteEntityId{
+					ModelUUID: "uuid",
+					Token:     "token-db2:db django:db"},
+				Networks: []string{"1.2.3.4/32"},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = results.Combine()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2:db django:db"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+	})
+	// TODO(wallyworld) - add mre tests when implementation finished
 }

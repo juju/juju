@@ -7,10 +7,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -18,7 +21,7 @@ import (
 // so common code can be reused. Do not add test cases to it,
 // otherwise they'll be run by each other suite that embeds it.
 type firewallerSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 
 	st          api.Connection
 	machines    []*state.Machine
@@ -81,4 +84,28 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Create the firewaller API facade.
 	s.firewaller = firewaller.NewState(s.st)
 	c.Assert(s.firewaller, gc.NotNil)
+}
+
+func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
+	var callCount int
+	relationTag := names.NewRelationTag("mediawiki:db mysql:db")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: relationTag.String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := firewaller.NewState(apiCaller)
+	_, err := client.WatchEgressAddressesForRelation(relationTag)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
 }

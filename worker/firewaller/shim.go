@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/api/remotefirewaller"
 	"github.com/juju/juju/api/remoterelations"
 )
 
@@ -37,28 +37,29 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// remoteFirewallerAPIFunc returns a function that
-// can be used be construct instances which provide a
-// remote firewaller API facade for a given (remote) model.
-// For now we use a facade on the same controller.
-func remoteFirewallerAPIFunc(
+// crossmodelFirewallerFacadeFunc returns a function that
+// can be used to construct instances which manage remote relation
+// firewall changes for a given model.
+
+// For now we use a facade, but in future this may evolve into a REST caller.
+func crossmodelFirewallerFacadeFunc(
 	apiConnForModelFunc func(string) (api.Connection, error),
-) func(string) (RemoteFirewallerAPICloser, error) {
-	return func(modelUUID string) (RemoteFirewallerAPICloser, error) {
+) func(string) (CrossModelFirewallerFacadeCloser, error) {
+	return func(modelUUID string) (CrossModelFirewallerFacadeCloser, error) {
 		conn, err := apiConnForModelFunc(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		facade := remotefirewaller.NewClient(conn)
-		return &firewallerAPICloser{facade, conn}, nil
+		facade := crossmodelrelations.NewClient(conn)
+		return &crossModelFirewallerFacadeCloser{facade, conn}, nil
 	}
 }
 
-type firewallerAPICloser struct {
-	RemoteFirewallerAPI
+type crossModelFirewallerFacadeCloser struct {
+	CrossModelFirewallerFacade
 	conn io.Closer
 }
 
-func (p *firewallerAPICloser) Close() error {
+func (p *crossModelFirewallerFacadeCloser) Close() error {
 	return p.conn.Close()
 }

@@ -117,7 +117,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		EnvironFirewaller:  environ,
 		EnvironInstances:   environ,
 		Mode:               mode,
-		NewRemoteFirewallerAPIFunc: remoteFirewallerAPIFunc(apiConnForModelFunc),
+		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(apiConnForModelFunc),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -52,9 +52,9 @@ func NewCrossModelRelationsAPI(
 	}, nil
 }
 
-// PublishRelationChange publishes relation changes to the
+// PublishRelationChanges publishes relation changes to the
 // model hosting the remote application involved in the relation.
-func (api *CrossModelRelationsAPI) PublishRelationChange(
+func (api *CrossModelRelationsAPI) PublishRelationChanges(
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{
@@ -160,7 +160,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
 	}
-	logger.Debugf("added remote application %v to local model with token %v", uniqueRemoteApplicationName, relation.ApplicationId.Token)
+	logger.Debugf("added remote application %v to local model with token %v from model %v", uniqueRemoteApplicationName, relation.ApplicationId.Token, remoteModelTag.Id())
 
 	// Now add the relation if it doesn't already exist.
 	localRel, err := api.st.EndpointsRelation(*localEndpoint, remoteEndpoint)
@@ -251,6 +251,23 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 			continue
 		}
 		results.Results[i].Settings = settings
+	}
+	return results, nil
+}
+
+// PublishIngressNetworkChanges publishes changes to the required
+// ingress addresses to the model hosting the offer in the relation.
+func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
+	changes params.IngressNetworksChanges,
+) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(changes.Changes)),
+	}
+	for i, change := range changes.Changes {
+		if err := commoncrossmodel.PublishIngressNetworkChange(api.st, change); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
 	}
 	return results, nil
 }

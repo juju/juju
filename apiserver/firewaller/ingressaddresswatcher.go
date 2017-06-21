@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remotefirewaller
+package firewaller
 
 import (
 	"github.com/juju/errors"
@@ -166,10 +166,6 @@ func (w *IngressAddressWatcher) loop() error {
 		}
 
 	}
-}
-
-func areDifferent(s1, s2 set.Strings) bool {
-	return !s1.Difference(s2).IsEmpty() || !s2.Difference(s1).IsEmpty()
 }
 
 func formatAsCIDR(addresses []string) []string {
