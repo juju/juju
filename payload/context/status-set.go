@@ -6,8 +6,6 @@ package context
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/payload"
 )
 
 // StatusSetCmdName is the name of the payload status-set command.
@@ -56,9 +54,6 @@ func (c *StatusSetCmd) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
-	if err := c.validate(ctx); err != nil {
-		return errors.Trace(err)
-	}
 	hctx, err := c.hookContextFunc()
 	if err != nil {
 		return errors.Trace(err)
@@ -77,8 +72,4 @@ func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
 	}
 
 	return nil
-}
-
-func (c *StatusSetCmd) validate(ctx *cmd.Context) error {
-	return payload.ValidateState(c.status)
 }

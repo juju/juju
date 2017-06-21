@@ -73,28 +73,12 @@ func (s *PayloadsSuite) TestTrackInvalidPayload(c *gc.C) {
 }
 
 func (s *PayloadsSuite) TestTrackInvalidUnit(c *gc.C) {
-
-	// Note: this is STUPID, but none of the unit-specific contexts
-	// between `api/context/register.go` and here ever check that
-	// the track request is correctly targeted. So we overwrite it
-	// unconditionally... because register is unconditionally
-	// sending a garbage unit name for some reason.
-
 	fix := s.newFixture(c)
 	expect := fix.SamplePayload("some-docker-id")
 	track := expect
 	track.Unit = "different/0"
 
 	err := fix.UnitPayloads.Track(track)
-	// In a sensible implementation, this would be:
-	//
-	//    c.Check(err, jc.Satisfies, errors.IsNotValid)
-	//    c.Check(err, gc.ErrorMatches, `unexpected Unit "different/0" not valid`)
-	//
-	//    fix.CheckUnitPayloads(c)
-	//    fix.CheckModelPayloads(c)
-	//
-	// ...but instead we have:
 	c.Assert(err, jc.ErrorIsNil)
 	fix.CheckOnePayload(c, expect)
 }
@@ -108,6 +92,20 @@ func (s *PayloadsSuite) TestTrackInsertPayload(c *gc.C) {
 	fix.CheckOnePayload(c, desired)
 }
 
+func (s *PayloadsSuite) TestValidationOnTrack(c *gc.C) {
+	fix := s.newFixture(c)
+	desired := fix.SamplePayload("some-docker-id")
+
+	desired.PayloadClass.Type = "not-a-type"
+
+	err := fix.UnitPayloads.Track(desired)
+	c.Assert(err, gc.ErrorMatches, `incorrect type "not-a-type" for payload "database", expected "docker"`)
+
+	desired.PayloadClass.Name = "not-a-class"
+	err = fix.UnitPayloads.Track(desired)
+	c.Assert(err, gc.ErrorMatches, `payload "not-a-class" not declared for unit "a-application/0"`)
+}
+
 func (s *PayloadsSuite) TestTrackUpdatePayload(c *gc.C) {
 	fix, initial := s.newPayloadFixture(c)
 	replacement := initial
@@ -116,20 +114,6 @@ func (s *PayloadsSuite) TestTrackUpdatePayload(c *gc.C) {
 	err := fix.UnitPayloads.Track(replacement)
 	c.Assert(err, jc.ErrorIsNil)
 	fix.CheckOnePayload(c, replacement)
-}
-
-func (s *PayloadsSuite) TestTrackMultiplePayloads(c *gc.C) {
-	fix, initial := s.newPayloadFixture(c)
-	additional := fix.SamplePayload("another-docker-id")
-	additional.Name = "app"
-
-	err := fix.UnitPayloads.Track(additional)
-	c.Assert(err, jc.ErrorIsNil)
-
-	full1 := fix.FullPayload(initial)
-	full2 := fix.FullPayload(additional)
-	fix.CheckUnitPayloads(c, full1, full2)
-	fix.CheckModelPayloads(c, full1, full2)
 }
 
 func (s *PayloadsSuite) TestTrackMultipleUnits(c *gc.C) {
@@ -186,12 +170,10 @@ func (s *PayloadsSuite) TestSetStatus(c *gc.C) {
 	fix.CheckOnePayload(c, expect)
 }
 
-func (s *PayloadsSuite) TestUntrackMissing(c *gc.C) {
-	fix := s.newFixture(c)
-
-	err := fix.UnitPayloads.Untrack("whatever")
-	c.Assert(err, jc.ErrorIsNil)
-	fix.CheckNoPayload(c)
+func (s *PayloadsSuite) TestValidationOnSetStatus(c *gc.C) {
+	fix, _ := s.newPayloadFixture(c)
+	err := fix.UnitPayloads.SetStatus("app", "stopping")
+	c.Assert(err, gc.ErrorMatches, `payload "app" not declared for unit "a-application/0"`)
 }
 
 func (s *PayloadsSuite) TestUntrack(c *gc.C) {
@@ -202,10 +184,15 @@ func (s *PayloadsSuite) TestUntrack(c *gc.C) {
 	fix.CheckNoPayload(c)
 }
 
+func (s *PayloadsSuite) TestValidationOnUntrack(c *gc.C) {
+	fix, _ := s.newPayloadFixture(c)
+	err := fix.UnitPayloads.Untrack("app")
+	c.Assert(err, gc.ErrorMatches, `payload "app" not declared for unit "a-application/0"`)
+}
+
 func (s *PayloadsSuite) TestRemoveUnitUntracksPayloads(c *gc.C) {
 	fix, _ := s.newPayloadFixture(c)
 	additional := fix.SamplePayload("another-docker-id")
-	additional.Name = "app"
 	err := fix.UnitPayloads.Track(additional)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -383,9 +370,24 @@ type payloadsFixture struct {
 	Unit          *state.Unit
 }
 
+const dummyPayloadsMetaYAML = `
+name: a-charm
+summary: a charm...
+description: a charm...
+payloads:
+  database:
+    type: docker
+`
+
 func (s *PayloadsSuite) newFixture(c *gc.C) payloadsFixture {
 	machine := s.Factory.MakeMachine(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Machine: machine})
+	unit := addUnit(c, s.ConnSuite, unitArgs{
+		charm:    "dummy",
+		service:  "a-application",
+		metadata: dummyPayloadsMetaYAML,
+		machine:  machine,
+	})
+
 	modelPayloads, err := s.State.ModelPayloads()
 	c.Assert(err, jc.ErrorIsNil)
 	unitPayloads, err := s.State.UnitPayloads(unit)
@@ -493,7 +495,7 @@ type PayloadsFunctionalSuite struct {
 var _ = gc.Suite(&PayloadsFunctionalSuite{})
 
 func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
-	machine := "0"
+	machine := s.Factory.MakeMachine(c, nil)
 	unit := addUnit(c, s.ConnSuite, unitArgs{
 		charm:    "dummy",
 		service:  "a-application",
@@ -539,7 +541,7 @@ func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
 			Labels: []string{},
 			Unit:   "a-application/0",
 		},
-		Machine: machine,
+		Machine: machine.String(),
 	}})
 
 	id, err := ust.LookUp("payloadA", "xyz")
@@ -554,7 +556,7 @@ func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
 }
 
 func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
-	machine := "0"
+	machine := s.Factory.MakeMachine(c, nil)
 	unit := addUnit(c, s.ConnSuite, unitArgs{
 		charm:    "dummy",
 		service:  "a-application",
@@ -591,7 +593,7 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 		ID: id,
 		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
-			Machine: machine,
+			Machine: machine.String(),
 		},
 	}})
 
@@ -606,7 +608,7 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 		ID: id,
 		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
-			Machine: machine,
+			Machine: machine.String(),
 		},
 	}})
 
@@ -619,7 +621,7 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 		ID: id,
 		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
-			Machine: machine,
+			Machine: machine.String(),
 		},
 	}})
 
@@ -634,7 +636,7 @@ func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 		ID: id,
 		Payload: &payload.FullPayloadInfo{
 			Payload: update,
-			Machine: machine,
+			Machine: machine.String(),
 		},
 	}})
 
@@ -659,7 +661,8 @@ type unitArgs struct {
 	charm    string
 	service  string
 	metadata string
-	machine  string
+	//machine  string
+	machine *state.Machine
 }
 
 func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
@@ -671,8 +674,11 @@ func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
-	c.Assert(args.machine, gc.Equals, "0")
-	err = unit.AssignToNewMachine() // machine "0"
+	if args.machine == nil {
+		err = unit.AssignToNewMachine() // machine "0"
+	} else {
+		err = unit.AssignToMachine(args.machine)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	return unit

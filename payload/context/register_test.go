@@ -87,24 +87,6 @@ func (s *registerSuite) TestRun(c *gc.C) {
 	// TODO (natefinch): we need to do something with the labels
 }
 
-func (s *registerSuite) TestRunUnknownClass(c *gc.C) {
-	err := s.command.Init([]string{"type", "badclass", "id"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := setupMetadata(c)
-	err = s.command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, "payload \"badclass\" not found in metadata.yaml")
-}
-
-func (s *registerSuite) TestRunUnknownType(c *gc.C) {
-	err := s.command.Init([]string{"badtype", "class", "id"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := setupMetadata(c)
-	err = s.command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, "incorrect type \"badtype\" for payload \"class\", expected \"type\"")
-}
-
 func (s *registerSuite) TestRunTrackErr(c *gc.C) {
 	s.hookCtx.trackerr = errors.Errorf("boo")
 	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})

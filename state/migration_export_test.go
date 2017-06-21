@@ -1125,6 +1125,10 @@ func (s *MigrationExportSuite) TestStoragePools(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
+	s.PatchValue(state.ValidPayloadForUnit, func(unit *state.Unit, c, t string) error {
+		return nil
+	})
+
 	unit := s.Factory.MakeUnit(c, nil)
 	up, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
