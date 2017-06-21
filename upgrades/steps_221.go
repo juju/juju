@@ -13,5 +13,12 @@ func stateStepsFor221() []Step {
 				return context.State().AddUpdateStatusHookSettings()
 			},
 		},
+		&upgradeStep{
+			description: "correct relation unit counts for subordinates",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().CorrectRelationUnitCounts()
+			},
+		},
 	}
 }
