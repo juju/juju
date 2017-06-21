@@ -64,9 +64,6 @@ func (c *RegisterCmd) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *RegisterCmd) Run(ctx *cmd.Context) error {
-	if err := c.validate(ctx); err != nil {
-		return errors.Trace(err)
-	}
 	pl := payload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: c.class,
@@ -93,26 +90,5 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 
 	// TODO(ericsnow) Print out the full ID.
 
-	return nil
-}
-
-func (c *RegisterCmd) validate(ctx *cmd.Context) error {
-	meta, err := readMetadata(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	found := false
-	for _, class := range meta.PayloadClasses {
-		if c.class == class.Name {
-			if c.typ != class.Type {
-				return errors.Errorf("incorrect type %q for payload %q, expected %q", c.typ, class.Name, class.Type)
-			}
-			found = true
-		}
-	}
-	if !found {
-		return errors.Errorf("payload %q not found in metadata.yaml", c.class)
-	}
 	return nil
 }

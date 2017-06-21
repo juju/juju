@@ -82,13 +82,6 @@ func (s *statusSetSuite) TestTooFewArgs(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `missing .*`)
 }
 
-func (s *statusSetSuite) TestInvalidStatjs(c *gc.C) {
-	s.init(c, "docker", "foo", "created")
-	err := s.cmd.Run(s.ctx)
-
-	c.Check(err, gc.ErrorMatches, `status .* not supported; expected .*`)
-}
-
 func (s *statusSetSuite) TestStatusSet(c *gc.C) {
 	s.init(c, "docker", "foo", payload.StateStopped)
 	err := s.cmd.Run(s.ctx)

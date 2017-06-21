@@ -63,6 +63,7 @@ var (
 	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
 	UpgradeInProgressError               = errUpgradeInProgress
+	ValidPayloadForUnit                  = &checkPayloadClassForUnit
 )
 
 type (

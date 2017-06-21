@@ -43,15 +43,16 @@ func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	}
 	return UnitPayloads{
 		db:      st.database,
-		unit:    unit.Name(),
+		unit:    unit,
 		machine: machineID,
 	}, nil
 }
 
 // UnitPayloads lets you CRUD payloads for a single unit.
 type UnitPayloads struct {
-	db      Database
-	unit    string
+	db Database
+
+	unit    *Unit
 	machine string
 }
 
@@ -65,10 +66,10 @@ func (up UnitPayloads) List(names ...string) ([]payload.Result, error) {
 	var sel bson.D
 	var out func([]payloadDoc) []payload.Result
 	if len(names) == 0 {
-		sel = nsPayloads.forUnit(up.unit)
+		sel = nsPayloads.forUnit(up.unit.Name())
 		out = nsPayloads.asResults
 	} else {
-		sel = nsPayloads.forUnitWithNames(up.unit, names)
+		sel = nsPayloads.forUnitWithNames(up.unit.Name(), names)
 		out = func(docs []payloadDoc) []payload.Result {
 			return nsPayloads.orderedResults(docs, names)
 		}
@@ -100,6 +101,7 @@ func (UnitPayloads) LookUp(name, rawID string) (string, error) {
 // is already in the DB then it is replaced.
 func (up UnitPayloads) Track(pl payload.Payload) error {
 
+	// anastasiamac: not sure why is this a problem if the unit is known here?...
 	// XXX OMFG payload/context/register.go:83 launches bad data
 	// which flies on a majestic unvalidated arc right through the
 	// system until it lands here. This code should be:
@@ -109,9 +111,15 @@ func (up UnitPayloads) Track(pl payload.Payload) error {
 	//    }
 	//
 	// ...but is instead:
-	pl.Unit = up.unit
+	pl.Unit = up.unit.Name()
 
+	// validate general payload correctness
 	if err := pl.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// validate payload correctness for this charm
+	if err := checkPayloadClassForUnit(up.unit, pl.PayloadClass.Name, pl.PayloadClass.Type); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -134,8 +142,13 @@ func (up UnitPayloads) SetStatus(name, status string) error {
 		return errors.Trace(err)
 	}
 
+	// validate payload correctness for this charm
+	if err := checkPayloadClassForUnit(up.unit, name, ""); err != nil {
+		return errors.Trace(err)
+	}
+
 	change := payloadSetStatusChange{
-		Unit:   up.unit,
+		Unit:   up.unit.Name(),
 		Name:   name,
 		Status: status,
 	}
@@ -150,12 +163,36 @@ func (up UnitPayloads) SetStatus(name, status string) error {
 // missing then this is a noop.
 func (up UnitPayloads) Untrack(name string) error {
 	logger.Tracef("untracking %q", name)
+
+	// validate payload correctness for this charm
+	if err := checkPayloadClassForUnit(up.unit, name, ""); err != nil {
+		return errors.Trace(err)
+	}
 	change := payloadUntrackChange{
-		Unit: up.unit,
+		Unit: up.unit.Name(),
 		Name: name,
 	}
 	if err := Apply(up.db, change); err != nil {
 		return errors.Trace(err)
+	}
+	return nil
+}
+
+var checkPayloadClassForUnit = validatePayloadClassForUnit
+
+func validatePayloadClassForUnit(unit *Unit, c, t string) error {
+	ch, err := unit.charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	metaClass, found := ch.Meta().PayloadClasses[c]
+	if !found {
+		return errors.Errorf("payload %q not declared for unit %q", c, unit.Name())
+	}
+	if t != "" && t != metaClass.Type {
+		return errors.Errorf("incorrect type %q for payload %q, expected %q",
+			t, c, metaClass.Type)
 	}
 	return nil
 }
