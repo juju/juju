@@ -21,6 +21,7 @@ var _ = gc.Suite(&WhiteboxPingBatcherSuite{})
 
 func checkSleepRange(c *gc.C, interval, minTime, maxTime time.Duration) {
 	pingBatcher := NewPingBatcher(nil, interval)
+	defer pingBatcher.Stop()
 	var lastTime time.Duration
 	var measuredMinTime time.Duration
 	var measuredMaxTime time.Duration

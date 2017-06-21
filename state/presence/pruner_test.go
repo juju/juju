@@ -203,7 +203,6 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	// Ensure that all pingers and the watcher are clean at exit
 	defer assertStopped(c, w)
 	pb := NewPingBatcher(s.presence, 500*time.Millisecond)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 	defer func() {
 		for i, p := range oldPingers {

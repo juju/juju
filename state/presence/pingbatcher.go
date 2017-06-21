@@ -35,18 +35,25 @@ func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatc
 	if base != nil {
 		pings = pingsC(base)
 	}
-	return &PingBatcher{
+	pb := &PingBatcher{
 		pings:         pings,
 		pending:       make(map[string]slot),
 		flushInterval: flushInterval,
 		flushChan:     make(chan chan struct{}),
 	}
+	pb.start()
+	return pb
 }
 
 // NewDeadPingBatcher returns a PingBatcher that is already stopped with an error.
 func NewDeadPingBatcher(err error) *PingBatcher {
 	// we never start the loop, so the timeout doesn't matter.
-	pb := NewPingBatcher(nil, time.Millisecond)
+	pb := &PingBatcher{
+		pings:         nil,
+		pending:       make(map[string]slot),
+		flushInterval: time.Millisecond,
+		flushChan:     make(chan chan struct{}),
+	}
 	pb.tomb.Kill(err)
 	pb.tomb.Done()
 	return pb
@@ -66,7 +73,7 @@ type PingBatcher struct {
 }
 
 // Start the worker loop.
-func (pb *PingBatcher) Start() error {
+func (pb *PingBatcher) start() {
 	rand.Seed(time.Now().UnixNano())
 	go func() {
 		err := pb.loop()
@@ -83,7 +90,6 @@ func (pb *PingBatcher) Start() error {
 	pb.mu.Lock()
 	pb.started = true
 	pb.mu.Unlock()
-	return nil
 }
 
 // Kill is part of the worker.Worker interface.

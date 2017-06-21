@@ -66,7 +66,6 @@ func (s *PingBatcherSuite) TearDownTest(c *gc.C) {
 
 func (s *PingBatcherSuite) TestRecordsPings(c *gc.C) {
 	pb := presence.NewPingBatcher(s.presence, time.Second)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 
 	// UnixNano time rounded to 30s interval
@@ -88,7 +87,6 @@ func (s *PingBatcherSuite) TestRecordsPings(c *gc.C) {
 
 func (s *PingBatcherSuite) TestMultipleUUIDs(c *gc.C) {
 	pb := presence.NewPingBatcher(s.presence, time.Second)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 
 	// UnixNano time rounded to 30s interval
@@ -116,7 +114,6 @@ func (s *PingBatcherSuite) TestMultipleUUIDs(c *gc.C) {
 
 func (s *PingBatcherSuite) TestMultipleFlushes(c *gc.C) {
 	pb := presence.NewPingBatcher(s.presence, time.Second)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 
 	slot := int64(1497960150)
@@ -149,7 +146,6 @@ func (s *PingBatcherSuite) TestMultipleFlushes(c *gc.C) {
 
 func (s *PingBatcherSuite) TestMultipleSlots(c *gc.C) {
 	pb := presence.NewPingBatcher(s.presence, time.Second)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 
 	slot1 := int64(1497960150)
@@ -188,7 +184,6 @@ func (s *PingBatcherSuite) TestMultipleSlots(c *gc.C) {
 func (s *PingBatcherSuite) TestDocBatchSize(c *gc.C) {
 	// We don't want to hit an internal flush
 	pb := presence.NewPingBatcher(s.presence, time.Hour)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 
 	slotBase := int64(1497960150)
@@ -212,7 +207,6 @@ func (s *PingBatcherSuite) TestDocBatchSize(c *gc.C) {
 func (s *PingBatcherSuite) TestBatchFlushesByTime(c *gc.C) {
 	t := time.Now()
 	pb := presence.NewPingBatcher(s.presence, testing.ShortWait)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 
 	slot := int64(1497960150)
@@ -256,7 +250,6 @@ func (s *PingBatcherSuite) TestBatchFlushesByTime(c *gc.C) {
 
 func (s *PingBatcherSuite) TestStoppedPingerRejectsPings(c *gc.C) {
 	pb := presence.NewPingBatcher(s.presence, testing.ShortWait)
-	c.Assert(pb.Start(), jc.ErrorIsNil)
 	defer assertStopped(c, pb)
 	c.Assert(pb.Stop(), jc.ErrorIsNil)
 	slot := int64(1497960150)

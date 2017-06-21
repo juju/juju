@@ -123,7 +123,7 @@ type Watcher struct {
 	pending []event
 
 	// request is used to deliver requests from the public API into
-	// the the gorotuine loop.
+	// the the goroutine loop.
 	request chan interface{}
 
 	// syncDone contains pending done channels from sync requests.
