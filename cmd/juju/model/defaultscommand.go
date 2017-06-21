@@ -6,13 +6,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
@@ -32,6 +33,7 @@ const (
 By default, all default configuration (keys and values) are
 displayed if a key is not specified. Supplying key=value will set the
 supplied key to the supplied value. This can be repeated for multiple keys.
+You can also specify a yaml file containing key values.
 By default, the model is the current model.
 
 
@@ -44,6 +46,8 @@ Examples:
     juju model-defaults ftp-proxy=10.0.0.1:8000
     juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
+    juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000 path/to/file.yaml
+    juju model-defaults us-east-1 path/to/file.yaml    
     juju model-defaults -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-defaults --reset default-series test-mode
     juju model-defaults aws/us-east-1 --reset http-proxy
@@ -88,7 +92,7 @@ type defaultsCommand struct {
 	resetKeys             []string // Holds the keys to be reset once parsed.
 	cloudName, regionName string
 	reset                 []string // Holds the keys to be reset until parsed.
-	values                attributes
+	setOptions            common.ConfigFlag
 }
 
 // cloudAPI defines an API to be passed in for testing.
@@ -253,8 +257,16 @@ func (c *defaultsCommand) parseArgs(args []string) error {
 
 	// Remember we *might* have one less arg at this point if we chopped the
 	// first off because it was a valid cloud/region option.
+	wantSet := false
+	if len(args) > 0 {
+		lastArg := args[len(args)-1]
+		// We may have a config.yaml file
+		_, err := os.Stat(lastArg)
+		wantSet = err == nil || strings.Contains(lastArg, "=")
+	}
+
 	switch {
-	case len(args) > 0 && strings.Contains(args[len(args)-1], "="):
+	case wantSet:
 		// In the event that we are setting values, the final positional arg
 		// will always have an "=" in it. So if we see that we know we want to
 		// set args.
@@ -396,7 +408,9 @@ func (c *defaultsCommand) validCloudRegion(cloudName, region string) (bool, erro
 
 // handleSetArgs parses args for setting defaults.
 func (c *defaultsCommand) handleSetArgs(args []string) error {
-	argZeroKeyOnly := !strings.Contains(args[0], "=")
+	// We may have a config.yaml file
+	_, err := os.Stat(args[0])
+	argZeroKeyOnly := err != nil && !strings.Contains(args[0], "=")
 	// If an invalid region was specified, the first positional arg won't have
 	// an "=". If we see one here we know it is invalid.
 	switch {
@@ -416,22 +430,9 @@ func (c *defaultsCommand) handleSetArgs(args []string) error {
 // parseSetKeys iterates over the args and make sure that the key=value pairs
 // are valid. It also checks that the same key isn't also being reset.
 func (c *defaultsCommand) parseSetKeys(args []string) error {
-	options, err := keyvalues.Parse(args, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	c.values = make(attributes)
-	for k, v := range options {
-		if k == config.AgentVersionKey {
-			return errors.Errorf(`%q must be set via "upgrade-juju"`, config.AgentVersionKey)
-		}
-		c.values[k] = v
-	}
-	for _, k := range c.resetKeys {
-		if _, ok := c.values[k]; ok {
-			return errors.Errorf(
-				"key %q cannot be both set and unset in the same command", k)
+	for _, arg := range args {
+		if err := c.setOptions.Set(arg); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -473,7 +474,9 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 	// last positional arg is not one. We assume the user intended to get a
 	// value after setting them.
 	for _, arg := range args {
-		if strings.Contains(arg, "=") {
+		// We may have a config.yaml file
+		_, err := os.Stat(arg)
+		if err == nil || strings.Contains(arg, "=") {
 			return errors.New("cannot set and retrieve default values simultaneously")
 		}
 	}
@@ -550,19 +553,39 @@ func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 
 // setDefaults sets defaults as provided in c.values.
 func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
-	// ctx unused in this method.
-	if err := c.verifyKnownKeys(client); err != nil {
+	attrs, err := c.setOptions.ReadAttrs(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var keys []string
+	values := make(attributes)
+	for k, v := range attrs {
+		if k == config.AgentVersionKey {
+			return errors.Errorf(`"agent-version" must be set via "upgrade-juju"`)
+		}
+		values[k] = v
+		keys = append(keys, k)
+	}
+
+	for _, k := range c.resetKeys {
+		if _, ok := values[k]; ok {
+			return errors.Errorf(
+				"key %q cannot be both set and unset in the same command", k)
+		}
+	}
+
+	if err := c.verifyKnownKeys(client, keys); err != nil {
 		return errors.Trace(err)
 	}
 	return block.ProcessBlockedError(
 		client.SetModelDefaults(
-			c.cloudName, c.regionName, c.values), block.BlockChange)
+			c.cloudName, c.regionName, values), block.BlockChange)
 }
 
 // resetDefaults resets the keys in resetKeys.
 func (c *defaultsCommand) resetDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method.
-	if err := c.verifyKnownKeys(client); err != nil {
+	if err := c.verifyKnownKeys(client, c.resetKeys); err != nil {
 		return errors.Trace(err)
 	}
 	return block.ProcessBlockedError(
@@ -573,14 +596,14 @@ func (c *defaultsCommand) resetDefaults(client defaultsCommandAPI, ctx *cmd.Cont
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
-func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI) error {
+func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI, keys []string) error {
 	known, err := client.ModelDefaults()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	allKeys := c.resetKeys[:]
-	for k := range c.values {
+	for _, k := range keys {
 		allKeys = append(allKeys, k)
 	}
 
