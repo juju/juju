@@ -262,7 +262,7 @@ func (s *PingBatcherSuite) TestStoppedPingerRejectsPings(c *gc.C) {
 	slot := int64(1497960150)
 	uuid := "test-uuid"
 	err := pb.Ping(uuid, slot, "0", 8)
-	c.Assert(err, gc.ErrorMatches, "PingBatcher is stopped")
+	c.Assert(err, gc.ErrorMatches, "PingBatcher not started")
 }
 
 func (s *PingBatcherSuite) TestNewDeadPingBatcher(c *gc.C) {
@@ -271,5 +271,5 @@ func (s *PingBatcherSuite) TestNewDeadPingBatcher(c *gc.C) {
 	slot := int64(1497960150)
 	uuid := "test-uuid"
 	err := pb.Ping(uuid, slot, "0", 8)
-	c.Assert(err, gc.ErrorMatches, "this is an error")
+	c.Assert(err, gc.ErrorMatches, "PingBatcher not started")
 }

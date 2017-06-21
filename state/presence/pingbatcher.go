@@ -78,6 +78,9 @@ func (pb *PingBatcher) Start() error {
 		pb.tomb.Kill(cause)
 		pb.tomb.Done()
 	}()
+	pb.mu.Lock()
+	pb.started = true
+	pb.mu.Unlock()
 	return nil
 }
 
@@ -112,9 +115,6 @@ func (pb *PingBatcher) nextSleep() time.Duration {
 func (pb *PingBatcher) loop() error {
 	// flushDone and flushRequest exist to make a flushRequest synchronous
 	// with all other pings that have been requested. The logic is:
-	pb.mu.Lock()
-	pb.started = true
-	pb.mu.Unlock()
 	for {
 		select {
 		case <-pb.tomb.Dying():
