@@ -129,7 +129,7 @@ func (a *UnitAgent) Init(args []string) error {
 		loggo.DefaultContext().ResetLoggerLevels()
 		err := loggo.ConfigureLoggers(loggingOverride)
 		if err != nil {
-			logger.Errorf("setting override %v", err)
+			logger.Errorf("setting logging override %v", err)
 		}
 	}
 

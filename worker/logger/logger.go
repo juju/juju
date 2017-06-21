@@ -45,28 +45,31 @@ func NewLogger(api *logger.State, agentConfig agent.Config) (worker.Worker, erro
 }
 
 func (logger *Logger) setLogging() {
-	loggingConfig, err := logger.api.LoggingConfig(logger.agentConfig.Tag())
+	loggingConfig := ""
+
 	if logger.configOverride != "" {
-		log.Debugf("overriding model config %q with override from agent.conf %q", loggingConfig, logger.configOverride)
+		log.Debugf("overriding logging config with override from agent.conf %q", logger.configOverride)
 		loggingConfig = logger.configOverride
-		// If we are overriding the logging config value, there is no error.
-		err = nil
-	}
-	if err != nil {
-		log.Errorf("%v", err)
 	} else {
-		if loggingConfig != logger.lastConfig {
-			log.Debugf("reconfiguring logging from %q to %q", logger.lastConfig, loggingConfig)
-			loggo.DefaultContext().ResetLoggerLevels()
-			if err := loggo.ConfigureLoggers(loggingConfig); err != nil {
-				// This shouldn't occur as the loggingConfig should be
-				// validated by the original Config before it gets here.
-				log.Warningf("configure loggers failed: %v", err)
-				// Try to reset to what we had before
-				loggo.ConfigureLoggers(logger.lastConfig)
-			}
-			logger.lastConfig = loggingConfig
+		modelLoggingConfig, err := logger.api.LoggingConfig(logger.agentConfig.Tag())
+		if err != nil {
+			log.Errorf("%v", err)
+			return
 		}
+		loggingConfig = modelLoggingConfig
+	}
+
+	if loggingConfig != logger.lastConfig {
+		log.Debugf("reconfiguring logging from %q to %q", logger.lastConfig, loggingConfig)
+		loggo.DefaultContext().ResetLoggerLevels()
+		if err := loggo.ConfigureLoggers(loggingConfig); err != nil {
+			// This shouldn't occur as the loggingConfig should be
+			// validated by the original Config before it gets here.
+			log.Warningf("configure loggers failed: %v", err)
+			// Try to reset to what we had before
+			loggo.ConfigureLoggers(logger.lastConfig)
+		}
+		logger.lastConfig = loggingConfig
 	}
 }
 
