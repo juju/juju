@@ -869,6 +869,27 @@ func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationNoPublicAddr(c *gc.
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
 }
 
+func (s *RelationUnitSuite) TestRejectsRUWithWrongPrincipal(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	wordpressApp := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "logging")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	loggingApp, err := s.State.Application("logging")
+	c.Assert(err, jc.ErrorIsNil)
+	wpU, _ := addRU(c, wordpressApp, rel, nil)
+	loggingU, _ := addRU(c, loggingApp, rel, wpU)
+
+	// We now have mysql-logging and wordpress-logging relations. We
+	// shouldn't be able to take a logging unit with a wordpress
+	// principal and get a RelationUnit in the mysql-logging relation.
+	_, err = prr.rel.Unit(loggingU)
+	c.Assert(err, gc.ErrorMatches, `principal "wordpress/0" is not a member of "logging:info mysql:juju-info"`)
+	c.Assert(err, jc.Satisfies, state.IsInvalidPrincipalError)
+}
+
 type PeerRelation struct {
 	rel                *state.Relation
 	app                *state.Application
