@@ -4,6 +4,7 @@ package presence
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -101,6 +102,9 @@ type PingBatcher struct {
 
 	// awaitingSync is the slice of requests that are waiting for flush to finish
 	awaitingSync []chan struct{}
+
+	// flushMutex ensures only one concurrent flush is done
+	flushMutex sync.Mutex
 }
 
 // Start the worker loop.
@@ -140,21 +144,21 @@ func (pb *PingBatcher) Stop() error {
 // nextSleep determines how long we should wait before flushing our state to the database.
 // We use a range of time around the requested 'flushInterval', so that we avoid having
 // all requests to the database happen at exactly the same time across machines.
-func (pb *PingBatcher) nextSleep() time.Duration {
+func (pb *PingBatcher) nextSleep(r *rand.Rand) time.Duration {
 	sleepMin := float64(pb.flushInterval) * 0.8
 	sleepRange := float64(pb.flushInterval) * 0.4
-	offset := pb.rand.Int63n(int64(sleepRange))
+	offset := r.Int63n(int64(sleepRange))
 	return time.Duration(int64(sleepMin) + offset)
 }
 
 func (pb *PingBatcher) loop() error {
-	flushTimeout := time.After(pb.nextSleep())
+	flushTimeout := time.After(pb.nextSleep(pb.rand))
 	var syncTimeout <-chan time.Time
 	for {
 		doflush := func() error {
 			syncTimeout = nil
 			err := pb.flush()
-			flushTimeout = time.After(pb.nextSleep())
+			flushTimeout = time.After(pb.nextSleep(pb.rand))
 			return errors.Trace(err)
 		}
 		select {
@@ -173,7 +177,11 @@ func (pb *PingBatcher) loop() error {
 			// We also know that any "Ping()" requests that have
 			// returned will have been handled before Flush()
 			// because they are all serialized in this loop.
+			// We need to guard access to pb.awaitingSync as tests
+			// poke this asynchronously.
+			pb.flushMutex.Lock()
 			pb.awaitingSync = append(pb.awaitingSync, syncReq)
+			pb.flushMutex.Unlock()
 			if syncTimeout == nil {
 				syncTimeout = time.After(pb.syncDelay)
 			}
@@ -259,6 +267,9 @@ func (pb *PingBatcher) handlePing(ping singlePing) {
 // updates fail, we will still wipe our internal state as it is unsafe to
 // publish the same updates to the same slots.
 func (pb *PingBatcher) flush() error {
+	pb.flushMutex.Lock()
+	defer pb.flushMutex.Unlock()
+
 	awaiting := pb.awaitingSync
 	pb.awaitingSync = nil
 	// We are doing a flush, make sure everyone waiting is told that it has been done
@@ -268,7 +279,7 @@ func (pb *PingBatcher) flush() error {
 		}
 	}()
 	if pb.pingCount == 0 {
-		logger.Debugf("pingbatcher has 0 pings to record")
+		logger.Tracef("pingbatcher has 0 pings to record")
 		return nil
 	}
 	// We treat all of these as 'consumed'. Even if the query fails, it is
@@ -318,7 +329,7 @@ func (pb *PingBatcher) flush() error {
 		}
 	}
 	// usually we should only be processing 1 slot
-	logger.Debugf("pingbatcher recorded %d pings for %d ping slot(s) and %d fields in %v",
+	logger.Tracef("pingbatcher recorded %d pings for %d ping slot(s) and %d fields in %v",
 		pingCount, docCount, fieldCount, time.Since(t))
 	return nil
 }
