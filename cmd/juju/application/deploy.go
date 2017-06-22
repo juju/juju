@@ -336,7 +336,12 @@ For example:
   juju deploy /path/to/bundle/openstack/bundle.yaml
 
 If an 'application name' is not provided, the application name used is the
-'charm or bundle' name.
+'charm or bundle' name.  A user-supplied 'application name' must consist only of
+lower-case letters (a-z), numbers (0-9), and single hyphens (-).  The name must
+begin with a letter and not have a group of all numbers follow a hyphen.
+Examples:
+  Valid:   myappname, custom-app, app2-scat-23skidoo
+  Invalid: myAppName, custom--app, app2-scat-23, areacode-555-info
 
 Constraints can be specified by specifying the '--constraints' option. If the
 application is later scaled out with ` + "`juju add-unit`" + `, provisioned machines
