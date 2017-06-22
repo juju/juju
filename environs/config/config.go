@@ -1478,7 +1478,7 @@ data of the store. (default false)`,
 		Group:       environschema.EnvironGroup,
 	},
 	UpdateStatusHookInterval: {
-		Description: "How often to run the charm update-status hook, in human-readable time format",
+		Description: "How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

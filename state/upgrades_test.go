@@ -1061,14 +1061,23 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// One model has a valid setting that is not default.
 	m1 := s.makeModel(c, "m1", testing.Attrs{
 		"update-status-hook-interval": "20m",
 	})
 	defer m1.Close()
 
+	// This model is missing a setting entirely.
 	m2 := s.makeModel(c, "m2", testing.Attrs{})
 	defer m2.Close()
+	// We remove the 'update-status-hook-interval' value to
+	// represent an old-style model that needs updating.
+	settingsKey := m2.ModelUUID() + ":e"
+	err = settingsColl.UpdateId(settingsKey,
+		bson.M{"$unset": bson.M{"settings.update-status-hook-interval": ""}})
+	c.Assert(err, jc.ErrorIsNil)
 
+	// And something that isn't model settings
 	err = settingsColl.Insert(bson.M{
 		"_id": "someothersettingshouldnotbetouched",
 		// non-model setting: should not be touched

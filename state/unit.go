@@ -1204,12 +1204,17 @@ func (u *Unit) UnitTag() names.UnitTag {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// These should really only be used in the test suite.
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	pwatcher := u.st.workers.presenceWatcher()
 	pwatcher.Watch(u.globalAgentKey(), ch)
 	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
+	pingBatcher := u.st.getPingBatcher()
+	if err := pingBatcher.Sync(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1230,11 +1235,14 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
+	recorder := u.st.getPingBatcher()
+	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey(), recorder)
 	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	return p, nil
 }
 
