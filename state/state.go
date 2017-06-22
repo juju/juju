@@ -1904,6 +1904,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.workers.txnLogWatcher().StartSync()
+	st.workers.pingBatcherWorker().Sync()
 	st.workers.presenceWatcher().Sync()
 }
 

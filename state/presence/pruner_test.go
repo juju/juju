@@ -232,7 +232,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		// All newPingers will be checked that they stop cleanly
 		// Spread them out slightly
 	}
-	c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	c.Logf("initialized %d pingers in %v\n", len(newPingers), time.Since(t))
 	// Make sure all of the entities stay showing up as alive
 	done := make(chan struct{})
@@ -277,7 +277,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			newPingers[i] = p
 		}
-		c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+		c.Assert(pb.Sync(), jc.ErrorIsNil)
 		c.Logf("loop %d in %v\n", loop, time.Since(t))
 	}
 	// Now that we've gone through all of that, check that we've created as

@@ -71,7 +71,7 @@ func (s *PingBatcherSuite) TestRecordsPings(c *gc.C) {
 	c.Assert(pb.Ping("test-uuid", slot, "0", 16), jc.ErrorIsNil)
 	c.Assert(pb.Ping("test-uuid", slot, "1", 128), jc.ErrorIsNil)
 	c.Assert(pb.Ping("test-uuid", slot, "1", 1), jc.ErrorIsNil)
-	c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	docId := "test-uuid:1497960150"
 	var res bson.M
 	c.Assert(s.pings.FindId(docId).One(&res), jc.ErrorIsNil)
@@ -93,7 +93,7 @@ func (s *PingBatcherSuite) TestMultipleUUIDs(c *gc.C) {
 	c.Assert(pb.Ping(uuid1, slot, "0", 8), jc.ErrorIsNil)
 	c.Assert(pb.Ping(uuid2, slot, "0", 8), jc.ErrorIsNil)
 	c.Assert(pb.Ping(uuid2, slot, "0", 4), jc.ErrorIsNil)
-	c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	docId1 := fmt.Sprintf("%s:%d", uuid1, slot)
 	var res bson.M
 	c.Assert(s.pings.FindId(docId1).One(&res), jc.ErrorIsNil)
@@ -116,7 +116,7 @@ func (s *PingBatcherSuite) TestMultipleFlushes(c *gc.C) {
 	slot := int64(1497960150)
 	uuid1 := "test-uuid1"
 	c.Assert(pb.Ping(uuid1, slot, "0", 8), jc.ErrorIsNil)
-	c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 
 	docId1 := fmt.Sprintf("%s:%d", uuid1, slot)
 	var res bson.M
@@ -130,7 +130,7 @@ func (s *PingBatcherSuite) TestMultipleFlushes(c *gc.C) {
 	})
 
 	c.Assert(pb.Ping(uuid1, slot, "0", 1024), jc.ErrorIsNil)
-	c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	c.Assert(s.pings.FindId(docId1).One(&res), jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, bson.M{
 		"_id":  docId1,
@@ -152,7 +152,7 @@ func (s *PingBatcherSuite) TestMultipleSlots(c *gc.C) {
 	c.Assert(pb.Ping(uuid1, slot1, "0", 32), jc.ErrorIsNil)
 	c.Assert(pb.Ping(uuid1, slot2, "1", 16), jc.ErrorIsNil)
 	c.Assert(pb.Ping(uuid1, slot2, "0", 8), jc.ErrorIsNil)
-	c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 
 	docId1 := fmt.Sprintf("%s:%d", uuid1, slot1)
 	var res bson.M
@@ -195,7 +195,7 @@ func (s *PingBatcherSuite) TestDocBatchSize(c *gc.C) {
 			c.Assert(pb.Ping(uuid, slot, fieldKey, fieldBit), jc.ErrorIsNil)
 		}
 	}
-	c.Assert(pb.ForceFlush(), jc.ErrorIsNil)
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	count, err := s.pings.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(count, gc.Equals, 100*100)

@@ -176,10 +176,10 @@ func (pb *PingBatcher) Ping(modelUUID string, slot int64, fieldKey string, field
 	}
 }
 
-// ForceFlush immediately flushes the current state to the database.
+// Sync immediately flushes the current state to the database.
 // This should generally only be called from testing code, everyone else can
 // generally wait the usual wait for updates to be flushed naturally.
-func (pb *PingBatcher) ForceFlush() error {
+func (pb *PingBatcher) Sync() error {
 	request := make(chan struct{})
 	select {
 	case pb.flushChan <- request:

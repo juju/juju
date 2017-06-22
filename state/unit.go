@@ -1212,7 +1212,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	pwatcher.Watch(u.globalAgentKey(), ch)
 	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
 	pingBatcher := u.st.getPingBatcher()
-	if err := pingBatcher.ForceFlush(); err != nil {
+	if err := pingBatcher.Sync(); err != nil {
 		return err
 	}
 	for i := 0; i < 2; i++ {

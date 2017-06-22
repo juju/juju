@@ -935,7 +935,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	pwatcher.Watch(m.globalKey(), ch)
 	defer pwatcher.Unwatch(m.globalKey(), ch)
 	pingBatcher := m.st.getPingBatcher()
-	if err := pingBatcher.ForceFlush(); err != nil {
+	if err := pingBatcher.Sync(); err != nil {
 		return err
 	}
 	for i := 0; i < 2; i++ {
