@@ -973,7 +973,7 @@ func CorrectRelationUnitCounts(st *State) error {
 		})
 	}
 	if len(ops) > 0 {
-		return errors.Trace(st.runTransaction(ops))
+		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
 }
