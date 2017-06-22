@@ -1035,7 +1035,16 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			return err
 		}
 		relUnit, err := rel.Unit(unit)
-		if err != nil {
+		if state.IsInvalidPrincipalError(err) {
+			// This error indicates that the agent asked to EnterScope
+			// for a unit whose principal isn't a participant in the
+			// relation. These should be ignored for backwards
+			// compatibility reasons - see
+			// https://bugs.launchpad.net/juju/+bug/1699050 for
+			// details.
+			logger.Debugf("ignoring EnterScope for %q: %s", unitTag.Id(), err)
+			return nil
+		} else if err != nil {
 			return err
 		}
 
