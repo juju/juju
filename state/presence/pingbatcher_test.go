@@ -7,16 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	// 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	// 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	// 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testing"

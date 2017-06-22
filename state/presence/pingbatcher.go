@@ -30,9 +30,9 @@ type singlePing struct {
 // for insertion into the Pings collection. Pass in the base "presence" collection.
 // flushInterval is how often we will write the contents to the database.
 // It should be shorter than the 30s slot window for us to not cause active
-// pingers to show up as missing. Current defaults are around 1s, but testing needs
-// to be done to find a good balance of how much batching we do vs responsiveness.
-// 10s might actually be a reasonable value, given the 30s windows.
+// pingers to show up as missing. The current default is 1s as it provides a good
+// balance of significant-batching-for-performance while still having responsiveness
+// to agents coming alive.
 // Note that we don't strictly sync on flushInterval times, but use a range of
 // times around that interval to avoid having all ping batchers get synchronized
 // and still be issuing all requests concurrently.
@@ -130,10 +130,6 @@ func (pb *PingBatcher) loop() error {
 		case <-pb.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case <-flushTimeout:
-			// TODO (jam): 2017-06-21 I think I was wrong about channel selectivity.
-			// I think the problem was actually that we restart this timer every time we get a ping
-			// Switch back to a central loop and move this timeout
-			// outside of the loop, only creating it when it times out.
 			if err := pb.flush(); err != nil {
 				return errors.Trace(err)
 			}
@@ -142,9 +138,11 @@ func (pb *PingBatcher) loop() error {
 			pb.handlePing(singlePing)
 		case flushReq := <-pb.flushChan:
 			// Flush is requested synchronously.
-			// This way we know all pings have been handled. We will
-			// close the channel that was passed to us once we have
-			// finished flushing.
+			// The caller passes in a channel we can close so that
+			// they know when we have finished flushing.
+			// We also know that any "Ping()" requests that have
+			// returned will have been handled before Flush()
+			// because they are all serialized in this loop.
 			if err := pb.flush(); err != nil {
 				return errors.Trace(err)
 			}
@@ -214,9 +212,6 @@ func (pb *PingBatcher) handlePing(ping singlePing) {
 // flush pushes the internal state to the database. Note that if the database
 // updates fail, we will still wipe our internal state as it is unsafe to
 // publish the same updates to the same slots.
-// TODO (jam): 2017-06-21 Maybe if we switched from "$inc" to "$bit":
-// https://docs.mongodb.com/manual/reference/operator/update/bit/
-// Bitwise OR was supported all the way back to Mongo 2.2
 func (pb *PingBatcher) flush() error {
 	// We treat all of these as 'consumed'. Even if the query fails, it is
 	// not safe to ever $inc the same fields a second time, so we just move on.
@@ -239,6 +234,10 @@ func (pb *PingBatcher) flush() error {
 			incFields = append(incFields, bson.DocElem{Name: "alive." + fieldKey, Value: value})
 			fieldCount++
 		}
+		// TODO(jam): 2016-06-22 https://bugs.launchpad.net/juju/+bug/1699678
+		// Consider switching $inc to $bit {or }. It would let us cleanup
+		// presence.beings a lot if we didn't have to worry about pinging
+		// the same slot twice.
 		bulk.Upsert(
 			bson.D{{"_id", docId}},
 			bson.D{
