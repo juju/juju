@@ -49,16 +49,32 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Level:   loggo.INFO,
 			},
 		}, {
-			args: []string{"--include", "machine-1", "-i", "machine-2"},
+			args: []string{
+				"--include", "machine-1",
+				"-i", "2",
+				"--include", "unit-foo-2",
+				"-i", "foo/3",
+				"--include", "bar"},
 			expected: common.DebugLogParams{
-				IncludeEntity: []string{"machine-1", "machine-2"},
-				Backlog:       10,
+				IncludeEntity: []string{
+					"machine-1", "machine-2",
+					"unit-foo-2", "unit-foo-3",
+					"unit-bar-*"},
+				Backlog: 10,
 			},
 		}, {
-			args: []string{"--exclude", "machine-1", "-x", "machine-2"},
+			args: []string{
+				"--exclude", "machine-1",
+				"-x", "2",
+				"--exclude", "unit-foo-2",
+				"-x", "foo/3",
+				"--exclude", "bar"},
 			expected: common.DebugLogParams{
-				ExcludeEntity: []string{"machine-1", "machine-2"},
-				Backlog:       10,
+				ExcludeEntity: []string{
+					"machine-1", "machine-2",
+					"unit-foo-2", "unit-foo-3",
+					"unit-bar-*"},
+				Backlog: 10,
 			},
 		}, {
 			args: []string{"--include-module", "juju.foo", "--include-module", "unit"},
