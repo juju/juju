@@ -73,7 +73,6 @@ func (s *WhiteboxPingBatcherSuite) TestNextSleep(c *gc.C) {
 	checkSleepRange(c, 2*time.Second, 1599*time.Millisecond, 2401*time.Millisecond)
 }
 
-
 func (s *WhiteboxPingBatcherSuite) TestSyncWaitsForFlush(c *gc.C) {
 	// We can do this without a database, because we don't actually Ping so
 	// we don't write to the database
@@ -108,7 +107,7 @@ func (s *WhiteboxPingBatcherSuite) TestFlushWakesUpAllSync(c *gc.C) {
 	for i := 0; i < count; i++ {
 		go func() {
 			c.Check(pb.Sync(), jc.ErrorIsNil)
-			done<-struct{}{}
+			done <- struct{}{}
 		}()
 	}
 	select {
@@ -153,7 +152,7 @@ func (s *WhiteboxPingBatcherSuite) TestSyncReturnsOnShutdown(c *gc.C) {
 
 func (s *WhiteboxPingBatcherSuite) TestContinualSyncDoesntPreventFlush(c *gc.C) {
 	pb := NewPingBatcher(nil, time.Hour)
-	pb.syncDelay = 100*time.Millisecond
+	pb.syncDelay = 100 * time.Millisecond
 	// the first routine to call Sync gets the channel we synchronize on
 	done := make(chan struct{})
 	start := time.Now()

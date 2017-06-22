@@ -1241,6 +1241,8 @@ func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	return p, nil
 }
 
