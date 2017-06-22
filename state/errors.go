@@ -134,3 +134,38 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 	_, ok := value.(*ErrParentDeviceHasChildren)
 	return ok
 }
+
+// ErrInvalidPrincipal is raised when we try to create a relation unit
+// where the unit's principal application isn't a member of the
+// relation.
+type ErrInvalidPrincipal struct {
+	principalName string
+	relationKey   string
+}
+
+func (e *ErrInvalidPrincipal) Error() string {
+	return fmt.Sprintf("principal %q is not a member of %q", e.principalName, e.relationKey)
+}
+
+func newInvalidPrincipalError(principalName, relationKey string) error {
+	return &ErrInvalidPrincipal{
+		principalName: principalName,
+		relationKey:   relationKey,
+	}
+}
+
+// IsInvalidPrincipalError returns whether the given error or its
+// cause is ErrInvalidPrincipal.
+func IsInvalidPrincipalError(err interface{}) bool {
+	if err == nil {
+		return false
+	}
+	// In case of a wrapped error, check the cause first.
+	value := err
+	cause := errors.Cause(err.(error))
+	if cause != nil {
+		value = cause
+	}
+	_, ok := value.(*ErrInvalidPrincipal)
+	return ok
+}

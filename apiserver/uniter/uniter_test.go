@@ -1714,6 +1714,64 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
+	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "logging",
+		URL:  "cs:quantal/logging-1",
+	})
+	logging := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "logging",
+		Charm: loggingCharm,
+	})
+	mysqlRel := s.addRelation(c, "logging", "mysql")
+	wpRel := s.addRelation(c, "logging", "wordpress")
+
+	// Create logging units for each of the mysql and wp units.
+	mysqlRU, err := mysqlRel.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRU.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlLoggingU := findSubordinateUnit(c, logging, s.mysqlUnit)
+	_, err = mysqlRel.Unit(mysqlLoggingU)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpRU, err := wpRel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpRU.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wpLoggingU := findSubordinateUnit(c, logging, s.wordpressUnit)
+	_, err = wpRel.Unit(wpLoggingU)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Sanity check - we can't make a mysqlRel RU for wpLoggingU.
+	_, err = mysqlRel.Unit(wpLoggingU)
+	c.Assert(err, jc.Satisfies, state.IsInvalidPrincipalError)
+
+	subAuthorizer := s.authorizer
+	subAuthorizer.Tag = wpLoggingU.Tag()
+	api, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		subAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// But asking the API to add wpLoggingU to mysqlRel silently
+	// fails. This means that we'll drop incorrect requests from
+	// uniters to re-enter the relation scope after the upgrade step
+	// has cleaned them up.
+	// See https://bugs.launchpad.net/juju/+bug/1699050
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{{
+		Relation: mysqlRel.Tag().String(),
+		Unit:     wpLoggingU.Tag().String(),
+	}}}
+	result, err := api.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+}
+
 func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)

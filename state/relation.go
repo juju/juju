@@ -378,11 +378,11 @@ func (r *Relation) unit(
 	isPrincipal bool,
 	checkUnitLife bool,
 ) (*RelationUnit, error) {
-	serviceName, err := names.UnitApplication(unitName)
+	appName, err := names.UnitApplication(unitName)
 	if err != nil {
 		return nil, err
 	}
-	ep, err := r.Endpoint(serviceName)
+	ep, err := r.Endpoint(appName)
 	if err != nil {
 		return nil, err
 	}
@@ -391,6 +391,17 @@ func (r *Relation) unit(
 		container := principal
 		if container == "" {
 			container = unitName
+		} else {
+			// Ensure the principal is in this relation.
+			principalAppName, err := names.UnitApplication(container)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			_, err = r.Endpoint(principalAppName)
+			if err != nil {
+				return nil, errors.Wrap(
+					err, newInvalidPrincipalError(container, r.String()))
+			}
 		}
 		scope = fmt.Sprintf("%s#%s", scope, container)
 	}
