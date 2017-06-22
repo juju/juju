@@ -1487,7 +1487,12 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 	scopes, sCloser := s.state.getRawCollection(relationScopesC)
 	defer sCloser()
 
-	uuid := s.state.ModelUUID()
+	// Use the non-controller model to ensure we can run the function
+	// across multiple models.
+	otherState := s.makeModel(c, "crack-up", testing.Attrs{})
+	defer otherState.Close()
+
+	uuid := otherState.ModelUUID()
 
 	err := relations.Insert(bson.M{
 		"_id":        uuid + ":min:juju-info nrpe:general-info",
