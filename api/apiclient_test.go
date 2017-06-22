@@ -276,8 +276,10 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 	c.Assert(info0.location, gc.Equals, "wss://place1.example:1234/api")
 
 	var info1 dialInfo
-	// Wait for the next dial to be made.
-	err := clock.WaitAdvance(dialAddressInterval, time.Second, 1)
+	// Wait for the next dial to be made. Note that we wait for two
+	// waiters because ContextWithTimeout as created by the
+	// outer level of api.Open also waits.
+	err := clock.WaitAdvance(dialAddressInterval, time.Second, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -498,8 +500,6 @@ func (s *apiclientSuite) testOpenDialError(c *gc.C, t dialTest) {
 	go func() {
 		defer close(done)
 		conn, err := api.Open(t.apiInfo, api.DialOpts{
-			Timeout:        5 * time.Second,
-			RetryDelay:     1 * time.Second,
 			DialWebsocket:  fakeDialer,
 			IPAddrResolver: seqResolver(t.apiInfo.Addrs...),
 			Clock:          &fakeClock{},
@@ -630,14 +630,11 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 		SkipLogin: true,
 		CACert:    jtesting.CACert,
 	}, api.DialOpts{
-		Timeout:       5 * time.Second,
-		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
 		IPAddrResolver: apitesting.IPAddrResolverMap{
 			"place1.example": {"0.1.1.1"},
 		},
 		DNSCache: dnsCache,
-		Clock:    &fakeClock{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
@@ -666,7 +663,6 @@ func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 		DNSCache: dnsCacheMap{
 			"place1.example": {"0.1.1.1"},
 		},
-		Clock: &fakeClock{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
@@ -688,12 +684,9 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 		SkipLogin: true,
 		CACert:    jtesting.CACert,
 	}, api.DialOpts{
-		Timeout:        5 * time.Second,
-		RetryDelay:     1 * time.Second,
 		DialWebsocket:  fakeDialer,
 		IPAddrResolver: apitesting.IPAddrResolverMap{},
 		DNSCache:       dnsCache,
-		Clock:          &fakeClock{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
@@ -736,7 +729,6 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 				"place1.example": {"0.2.2.2"},
 			},
 			DNSCache: dnsCache,
-			Clock:    &fakeClock{},
 		})
 		openc <- openResult{conn, err}
 	}()
@@ -773,6 +765,38 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.2.2.2"})
 }
 
+func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
+	unblock := make(chan struct{})
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
+		return &loginTimeoutAPI{
+			unblock: unblock,
+		}
+	})
+	defer srv.Close()
+
+	clk := testing.NewClock(time.Now())
+	done := make(chan error, 1)
+	go func() {
+		_, err := api.Open(&api.Info{
+			Addrs:    srv.Addrs,
+			CACert:   jtesting.CACert,
+			ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
+		}, api.DialOpts{
+			Clock:   clk,
+			Timeout: 5 * time.Second,
+		})
+		done <- err
+	}()
+	err := clk.WaitAdvance(5*time.Second, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case err := <-done:
+		c.Assert(err, gc.ErrorMatches, `cannot log in: context deadline exceeded`)
+	case <-time.After(time.Second):
+		c.Fatalf("timed out waiting for api.Open timeout")
+	}
+}
+
 func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 		c.Errorf("dial was called but should not have been")
@@ -785,11 +809,8 @@ func (s *apiclientSuite) TestWithUnresolvableAddr(c *gc.C) {
 		SkipLogin: true,
 		CACert:    jtesting.CACert,
 	}, api.DialOpts{
-		Timeout:        5 * time.Second,
-		RetryDelay:     1 * time.Second,
 		DialWebsocket:  fakeDialer,
 		IPAddrResolver: apitesting.IPAddrResolverMap{},
-		Clock:          &fakeClock{},
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot resolve "nowhere.example": mock resolver cannot resolve "nowhere.example"`)
 	c.Assert(conn, jc.ErrorIsNil)
@@ -814,14 +835,11 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 		SkipLogin: true,
 		CACert:    jtesting.CACert,
 	}, api.DialOpts{
-		Timeout:       5 * time.Second,
-		RetryDelay:    1 * time.Second,
 		DialWebsocket: fakeDialer,
 		IPAddrResolver: apitesting.IPAddrResolverMap{
 			"place1.example": {"0.2.2.2"},
 		},
 		DNSCache: dnsCache,
-		Clock:    &fakeClock{},
 	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(conn, gc.Equals, nil)
@@ -975,6 +993,10 @@ func (f *fakeClock) After(d time.Duration) <-chan time.Time {
 	return time.After(0)
 }
 
+func (f *fakeClock) NewTimer(d time.Duration) clock.Timer {
+	panic("NewTimer called on fakeClock - perhaps because fakeClock can't be used with DialOpts.Timeout")
+}
+
 func newRPCConnection(errs ...error) *fakeRPCConnection {
 	conn := new(fakeRPCConnection)
 	conn.stub.SetErrors(errs...)
@@ -1088,4 +1110,21 @@ func (m dnsCacheMap) Lookup(host string) []string {
 
 func (m dnsCacheMap) Add(host string, ips []string) {
 	m[host] = append([]string{}, ips...)
+}
+
+type loginTimeoutAPI struct {
+	unblock chan struct{}
+}
+
+func (r *loginTimeoutAPI) Admin(id string) (*loginTimeoutAPIAdmin, error) {
+	return &loginTimeoutAPIAdmin{r}, nil
+}
+
+type loginTimeoutAPIAdmin struct {
+	r *loginTimeoutAPI
+}
+
+func (a *loginTimeoutAPIAdmin) Login(req params.LoginRequest) (params.LoginResult, error) {
+	<-a.r.unblock
+	return params.LoginResult{}, errors.Errorf("login failed")
 }
