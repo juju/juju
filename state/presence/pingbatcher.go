@@ -47,6 +47,7 @@ func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatc
 		flushInterval: flushInterval,
 		pingChan:      make(chan singlePing),
 		flushChan:     make(chan chan struct{}),
+		rand:          rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	pb.start()
 	return pb
@@ -76,11 +77,11 @@ type PingBatcher struct {
 	tomb          tomb.Tomb
 	pingChan      chan singlePing
 	flushChan     chan chan struct{}
+	rand          *rand.Rand
 }
 
 // Start the worker loop.
 func (pb *PingBatcher) start() {
-	rand.Seed(time.Now().UnixNano())
 	go func() {
 		err := pb.loop()
 		cause := errors.Cause(err)
@@ -119,7 +120,7 @@ func (pb *PingBatcher) Stop() error {
 func (pb *PingBatcher) nextSleep() time.Duration {
 	sleepMin := float64(pb.flushInterval) * 0.8
 	sleepRange := float64(pb.flushInterval) * 0.4
-	offset := rand.Int63n(int64(sleepRange))
+	offset := pb.rand.Int63n(int64(sleepRange))
 	return time.Duration(int64(sleepMin) + offset)
 }
 

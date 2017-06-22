@@ -27,14 +27,14 @@ func RealPeriod() {
 }
 
 func DirectRecordFunc(base *mgo.Collection) PingRecorder {
-	return &DirectRecorder{pings: pingsC(base)}
+	return &directRecorder{pings: pingsC(base)}
 }
 
-type DirectRecorder struct {
+type directRecorder struct {
 	pings *mgo.Collection
 }
 
-func (dr *DirectRecorder) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
+func (dr *directRecorder) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
 	session := dr.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := dr.pings.With(session)
