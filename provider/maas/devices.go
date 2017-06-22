@@ -357,6 +357,7 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 	primaryNIC := interface_set[0]
 	primaryNICVLAN := primaryNIC.VLAN()
 
+	interfaceCreated := false
 	// Populate the rest of the desired interfaces on this device
 	for _, nic := range params.DesiredInterfaceInfo {
 		if nic.InterfaceName == params.PrimaryNICName {
@@ -386,6 +387,7 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 			return nil, errors.Annotate(err, "creating device interface")
 		}
 		logger.Debugf("created device interface: %+v", createdNIC)
+		interfaceCreated = true
 
 		if !knownSubnet {
 			// If we didn't request an explicit subnet, then we
@@ -403,6 +405,20 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 		} else {
 			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 		}
+	}
+	// If we have created any secondary interfaces we need to reload device from maas
+	// so that the changes are reflected in structure.
+	if interfaceCreated {
+		deviceID := device.SystemID()
+		args := gomaasapi.DevicesArgs{SystemIDs: []string{deviceID}}
+		devices, err := env.maasController.Devices(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(devices) != 1 {
+			return nil, errors.Errorf("unexpected response requesting device %v: %v", deviceID, devices)
+		}
+		device = devices[0]
 	}
 	return device, nil
 }
