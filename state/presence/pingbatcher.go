@@ -12,7 +12,10 @@ import (
 	"gopkg.in/tomb.v1"
 )
 
-const maxBatch = 1000
+const (
+	maxBatch         = 1000
+	defaultSyncDelay = 10 * time.Millisecond
+)
 
 type slot struct {
 	Slot  int64
@@ -46,7 +49,8 @@ func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatc
 		pending:       make(map[string]slot),
 		flushInterval: flushInterval,
 		pingChan:      make(chan singlePing),
-		flushChan:     make(chan chan struct{}),
+		syncChan:      make(chan chan struct{}),
+		syncDelay:     defaultSyncDelay,
 		rand:          rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	pb.start()
@@ -56,12 +60,7 @@ func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatc
 // NewDeadPingBatcher returns a PingBatcher that is already stopped with an error.
 func NewDeadPingBatcher(err error) *PingBatcher {
 	// we never start the loop, so the timeout doesn't matter.
-	pb := &PingBatcher{
-		pings:         nil,
-		pending:       make(map[string]slot),
-		flushInterval: time.Millisecond,
-		flushChan:     make(chan chan struct{}),
-	}
+	pb := &PingBatcher{}
 	pb.tomb.Kill(err)
 	pb.tomb.Done()
 	return pb
@@ -69,15 +68,39 @@ func NewDeadPingBatcher(err error) *PingBatcher {
 
 // PingBatcher aggregates several pingers to update the database on a fixed schedule.
 type PingBatcher struct {
-	pings         *mgo.Collection
-	modelUUID     string
-	pending       map[string]slot
-	pingCount     uint64
+
+	// pings is the collection where we record our information
+	pings *mgo.Collection
+
+	// pending is the list of pings that have not been written to the database yet
+	pending map[string]slot
+
+	// pingCount is how many pings we've received that we have not flushed
+	pingCount uint64
+
+	// flushInterval is the nominal amount of time where we will automatically flush
 	flushInterval time.Duration
-	tomb          tomb.Tomb
-	pingChan      chan singlePing
-	flushChan     chan chan struct{}
-	rand          *rand.Rand
+
+	// rand is a random source used to vary our nominal flushInterval
+	rand *rand.Rand
+
+	// tomb is used to track a request to shutdown this worker
+	tomb tomb.Tomb
+
+	// pingChan is where requests from Ping() are brought into the main loop
+	pingChan chan singlePing
+
+	// syncChan is where explicit requests to flush come in
+	syncChan chan chan struct{}
+
+	// syncDelay is the time we will wait before triggering a flush after a
+	// sync request comes in. We don't do it immediately so that many agents
+	// waking all issuing their initial request still don't flood the database
+	// with separate requests, but we do respond faster than normal.
+	syncDelay time.Duration
+
+	// awaitingSync is the slice of requests that are waiting for flush to finish
+	awaitingSync []chan struct{}
 }
 
 // Start the worker loop.
@@ -126,28 +149,45 @@ func (pb *PingBatcher) nextSleep() time.Duration {
 
 func (pb *PingBatcher) loop() error {
 	flushTimeout := time.After(pb.nextSleep())
+	var syncTimeout <-chan time.Time
 	for {
+		doflush := func() error {
+			syncTimeout = nil
+			err := pb.flush()
+			flushTimeout = time.After(pb.nextSleep())
+			return errors.Trace(err)
+		}
 		select {
 		case <-pb.tomb.Dying():
-			return errors.Trace(tomb.ErrDying)
-		case <-flushTimeout:
+			// We were asked to shut down. Make sure we flush
 			if err := pb.flush(); err != nil {
 				return errors.Trace(err)
 			}
-			flushTimeout = time.After(pb.nextSleep())
+			return errors.Trace(tomb.ErrDying)
 		case singlePing := <-pb.pingChan:
 			pb.handlePing(singlePing)
-		case flushReq := <-pb.flushChan:
+		case syncReq := <-pb.syncChan:
 			// Flush is requested synchronously.
 			// The caller passes in a channel we can close so that
 			// they know when we have finished flushing.
 			// We also know that any "Ping()" requests that have
 			// returned will have been handled before Flush()
 			// because they are all serialized in this loop.
-			if err := pb.flush(); err != nil {
+			pb.awaitingSync = append(pb.awaitingSync, syncReq)
+			if syncTimeout == nil {
+				syncTimeout = time.After(pb.syncDelay)
+			}
+		case <-syncTimeout:
+			// Golang says I can't use 'fallthrough' here, but I
+			// want to do exactly the same thing if either of the channels trigger
+			// fallthrough
+			if err := doflush(); err != nil {
 				return errors.Trace(err)
 			}
-			close(flushReq)
+		case <-flushTimeout:
+			if err := doflush(); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
@@ -177,21 +217,26 @@ func (pb *PingBatcher) Ping(modelUUID string, slot int64, fieldKey string, field
 	}
 }
 
-// Sync immediately flushes the current state to the database.
-// This should generally only be called from testing code, everyone else can
-// generally wait the usual wait for updates to be flushed naturally.
+// Sync schedules a flush of the current state to the database.
+// This is not immediate, but actually within a short timeout so that many calls
+// to sync in a short time frame will only trigger one write to the database.
 func (pb *PingBatcher) Sync() error {
 	request := make(chan struct{})
 	select {
-	case pb.flushChan <- request:
+	case pb.syncChan <- request:
 		select {
 		case <-request:
 			return nil
 		case <-pb.tomb.Dying():
-			return pb.tomb.Err()
+			break
 		}
 	case <-pb.tomb.Dying():
-		return pb.tomb.Err()
+		break
+	}
+	if err := pb.tomb.Err(); err == nil {
+		return errors.Errorf("PingBatcher is stopped")
+	} else {
+		return err
 	}
 }
 
@@ -214,6 +259,18 @@ func (pb *PingBatcher) handlePing(ping singlePing) {
 // updates fail, we will still wipe our internal state as it is unsafe to
 // publish the same updates to the same slots.
 func (pb *PingBatcher) flush() error {
+	awaiting := pb.awaitingSync
+	pb.awaitingSync = nil
+	// We are doing a flush, make sure everyone waiting is told that it has been done
+	defer func() {
+		for _, waiting := range awaiting {
+			close(waiting)
+		}
+	}()
+	if pb.pingCount == 0 {
+		logger.Debugf("pingbatcher has 0 pings to record")
+		return nil
+	}
 	// We treat all of these as 'consumed'. Even if the query fails, it is
 	// not safe to ever $inc the same fields a second time, so we just move on.
 	next := pb.pending
@@ -261,7 +318,7 @@ func (pb *PingBatcher) flush() error {
 		}
 	}
 	// usually we should only be processing 1 slot
-	logger.Debugf("recorded %d pings for %d ping slot(s) and %d fields in %v",
+	logger.Debugf("pingbatcher recorded %d pings for %d ping slot(s) and %d fields in %v",
 		pingCount, docCount, fieldCount, time.Since(t))
 	return nil
 }

@@ -72,3 +72,114 @@ func (s *WhiteboxPingBatcherSuite) TestNextSleep(c *gc.C) {
 	checkSleepRange(c, 1*time.Second, 799*time.Millisecond, 1201*time.Millisecond)
 	checkSleepRange(c, 2*time.Second, 1599*time.Millisecond, 2401*time.Millisecond)
 }
+
+
+func (s *WhiteboxPingBatcherSuite) TestSyncWaitsForFlush(c *gc.C) {
+	// We can do this without a database, because we don't actually Ping so
+	// we don't write to the database
+	// Don't let a flush happen based on time
+	pb := NewPingBatcher(nil, time.Hour)
+	pb.syncDelay = time.Hour
+	done := make(chan struct{})
+	go func() {
+		c.Check(pb.Sync(), jc.ErrorIsNil)
+		close(done)
+	}()
+	select {
+	case <-done:
+		c.Fatalf("done was closed before flush was called")
+	case <-time.After(testing.ShortWait):
+	}
+	// Now when we flush, we should be closed
+	pb.flush()
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("done was not closed after flush")
+	}
+}
+
+func (s *WhiteboxPingBatcherSuite) TestFlushWakesUpAllSync(c *gc.C) {
+	// Don't let a flush happen based on time
+	pb := NewPingBatcher(nil, time.Hour)
+	pb.syncDelay = time.Hour
+	const count = 10
+	done := make(chan struct{}, count)
+	for i := 0; i < count; i++ {
+		go func() {
+			c.Check(pb.Sync(), jc.ErrorIsNil)
+			done<-struct{}{}
+		}()
+	}
+	select {
+	case <-done:
+		c.Fatalf("some routine finished before flush")
+	case <-time.After(testing.ShortWait):
+	}
+	// Now when we flush, all should have responded
+	pb.flush()
+	timeout := time.After(testing.LongWait)
+	for i := 0; i < count; i++ {
+		select {
+		case <-done:
+		case <-timeout:
+			c.Fatalf("not all callers were done after flush")
+		}
+	}
+}
+
+func (s *WhiteboxPingBatcherSuite) TestSyncReturnsOnShutdown(c *gc.C) {
+	// Don't let a flush happen based on time
+	pb := NewPingBatcher(nil, time.Hour)
+	pb.syncDelay = time.Hour
+	done := make(chan struct{})
+	go func() {
+		c.Check(pb.Sync(), gc.ErrorMatches, "PingBatcher is stopped")
+		close(done)
+	}()
+	select {
+	case <-done:
+		c.Fatalf("done was closed before PingBatcher was stopped")
+	case <-time.After(testing.ShortWait):
+	}
+	pb.Kill()
+	timeout := time.After(testing.LongWait)
+	select {
+	case <-done:
+	case <-timeout:
+		c.Fatalf("not all callers were done after flush")
+	}
+}
+
+func (s *WhiteboxPingBatcherSuite) TestContinualSyncDoesntPreventFlush(c *gc.C) {
+	pb := NewPingBatcher(nil, time.Hour)
+	pb.syncDelay = 100*time.Millisecond
+	// the first routine to call Sync gets the channel we synchronize on
+	done := make(chan struct{})
+	start := time.Now()
+	go func() {
+		c.Check(pb.Sync(), jc.ErrorIsNil)
+		close(done)
+	}()
+	finished := false
+	select {
+	case <-done:
+		c.Fatalf("we shouldn't be done already")
+	case <-time.After(time.Millisecond):
+	}
+	for i := 0; i < 1000; i++ {
+		select {
+		case <-done:
+			finished = true
+		case <-time.After(time.Millisecond):
+			// start another Sync, it should block, but only until
+			// the first request causes it to go off.
+			go pb.Sync()
+		}
+		if finished {
+			break
+		}
+	}
+	c.Logf("done was finally triggered after %v", time.Since(start))
+	c.Check(finished, jc.IsTrue)
+}

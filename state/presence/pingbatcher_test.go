@@ -248,6 +248,31 @@ func (s *PingBatcherSuite) TestBatchFlushesByTime(c *gc.C) {
 	})
 }
 
+func (s *PingBatcherSuite) TestPingBatcherFlushesOnShutdown(c *gc.C) {
+	// Make sure it doesn't flush on a timer
+	pb := presence.NewPingBatcher(s.presence, time.Hour)
+	defer assertStopped(c, pb)
+	slot := int64(1497960150)
+	uuid := "test-uuid"
+	docId := fmt.Sprintf("%s:%d", uuid, slot)
+	var res bson.M
+	// We should not have found it yet
+	c.Assert(s.pings.FindId(docId).One(&res), gc.Equals, mgo.ErrNotFound)
+	c.Assert(pb.Ping("test-uuid", slot, "0", 8), jc.ErrorIsNil)
+	// Still not found, as it hasn't been flushed
+	c.Assert(s.pings.FindId(docId).One(&res), gc.Equals, mgo.ErrNotFound)
+	c.Assert(pb.Stop(), jc.ErrorIsNil)
+	// And now we find it
+	c.Assert(s.pings.FindId(docId).One(&res), jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, bson.M{
+		"_id":  docId,
+		"slot": slot,
+		"alive": bson.M{
+			"0": int64(8),
+		},
+	})
+}
+
 func (s *PingBatcherSuite) TestStoppedPingerRejectsPings(c *gc.C) {
 	pb := presence.NewPingBatcher(s.presence, testing.ShortWait)
 	defer assertStopped(c, pb)
@@ -255,6 +280,8 @@ func (s *PingBatcherSuite) TestStoppedPingerRejectsPings(c *gc.C) {
 	slot := int64(1497960150)
 	uuid := "test-uuid"
 	err := pb.Ping(uuid, slot, "0", 8)
+	c.Assert(err, gc.ErrorMatches, "PingBatcher is stopped")
+	err = pb.Sync()
 	c.Assert(err, gc.ErrorMatches, "PingBatcher is stopped")
 }
 
