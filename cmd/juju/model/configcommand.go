@@ -6,13 +6,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api/modelconfig"
@@ -31,7 +31,7 @@ are displayed.
 
 Supplying one key name returns only the value for the key. Supplying key=value
 will set the supplied key to the supplied value, this can be repeated for
-multiple keys.
+multiple keys. You can also specify a yaml file containing key values.
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
@@ -41,6 +41,8 @@ Examples:
     juju model-config default-series
     juju model-config -m mycontroller:mymodel
     juju model-config ftp-proxy=10.0.0.1:8000
+    juju model-config ftp-proxy=10.0.0.1:8000 path/to/file.yaml
+    juju model-config path/to/file.yaml
     juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-config --reset default-series test-mode
 
@@ -66,11 +68,11 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action    func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys      []string
-	reset     []string // Holds the keys to be reset until parsed.
-	resetKeys []string // Holds the keys to be reset once parsed.
-	values    attributes
+	action     func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys       []string
+	reset      []string // Holds the keys to be reset until parsed.
+	resetKeys  []string // Holds the keys to be reset once parsed.
+	setOptions common.ConfigFlag
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -149,7 +151,9 @@ func (c *configCommand) handleZeroArgs() error {
 
 // handleOneArg handles the case where there is one positional arg.
 func (c *configCommand) handleOneArg(arg string) error {
-	if strings.Contains(arg, "=") {
+	// We may have a single config.yaml file
+	_, err := os.Stat(arg)
+	if err == nil || strings.Contains(arg, "=") {
 		return c.parseSetKeys([]string{arg})
 	}
 	// If we are not setting a value, then we are retrieving one so we need to
@@ -166,12 +170,15 @@ func (c *configCommand) handleOneArg(arg string) error {
 
 // handleArgs handles the case where there's more than one positional arg.
 func (c *configCommand) handleArgs(args []string) error {
-	err := c.parseSetKeys(args)
-	if err != nil {
-		if !strings.Contains(strings.Join(args, " "), "=") {
+	if err := c.parseSetKeys(args); err != nil {
+		return errors.Trace(err)
+	}
+	for _, arg := range args {
+		// We may have a config.yaml file.
+		_, err := os.Stat(arg)
+		if err != nil && !strings.Contains(arg, "=") {
 			return errors.New("can only retrieve a single value, or all values")
 		}
-		return errors.Trace(err)
 	}
 	return nil
 }
@@ -179,25 +186,11 @@ func (c *configCommand) handleArgs(args []string) error {
 // parseSetKeys iterates over the args and make sure that the key=value pairs
 // are valid. It also checks that the same key isn't being reset.
 func (c *configCommand) parseSetKeys(args []string) error {
-	options, err := keyvalues.Parse(args, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	c.values = make(attributes)
-	for k, v := range options {
-		if k == config.AgentVersionKey {
-			return errors.Errorf(`agent-version must be set via "upgrade-juju"`)
-		}
-		c.values[k] = v
-	}
-
-	for _, k := range c.resetKeys {
-		if _, ok := c.values[k]; ok {
-			return errors.Errorf(
-				"key %q cannot be both set and reset in the same command", k)
+	for _, arg := range args {
+		if err := c.setOptions.Set(arg); err != nil {
+			return errors.Trace(err)
 		}
 	}
-
 	c.action = c.setConfig
 	return nil
 }
@@ -269,7 +262,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 // reset unsets the keys provided to the command.
 func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method
-	if err := c.verifyKnownKeys(client); err != nil {
+	if err := c.verifyKnownKeys(client, c.resetKeys); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -278,18 +271,31 @@ func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) e
 
 // set sets the provided key/value pairs on the model.
 func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
-	// ctx unused in this method.
-	envAttrs, err := client.ModelGet()
+	attrs, err := c.setOptions.ReadAttrs(ctx)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	for key := range c.values {
-		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %q is not defined in the current model configuration: possible misspelling", key)
+	var keys []string
+	values := make(attributes)
+	for k, v := range attrs {
+		if k == config.AgentVersionKey {
+			return errors.Errorf(`"agent-version"" must be set via "upgrade-juju"`)
 		}
-
+		values[k] = v
+		keys = append(keys, k)
 	}
-	return block.ProcessBlockedError(client.ModelSet(c.values), block.BlockChange)
+
+	for _, k := range c.resetKeys {
+		if _, ok := values[k]; ok {
+			return errors.Errorf(
+				"key %q cannot be both set and reset in the same command", k)
+		}
+	}
+
+	if err := c.verifyKnownKeys(client, keys); err != nil {
+		return errors.Trace(err)
+	}
+	return block.ProcessBlockedError(client.ModelSet(values), block.BlockChange)
 }
 
 // get writes the value of a single key or the full output for the model to the cmd.Context.
@@ -335,17 +341,13 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
-func (c *configCommand) verifyKnownKeys(client configCommandAPI) error {
+func (c *configCommand) verifyKnownKeys(client configCommandAPI, keys []string) error {
 	known, err := client.ModelGet()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	allKeys := c.resetKeys[:]
-	for k := range c.values {
-		allKeys = append(allKeys, k)
-	}
-
+	allKeys := keys[:]
 	for _, key := range allKeys {
 		// check if the key exists in the known config
 		// and warn the user if the key is not defined

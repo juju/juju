@@ -1330,11 +1330,11 @@ func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 }
 
 func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(m *Model, all *multiwatcherStore) error {
-	st, err := b.st.ForModel(m.ModelTag())
+	st, releaser, err := b.stPool.Get(m.UUID())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer st.Close()
+	defer releaser()
 
 	err = loadAllWatcherEntities(st, b.collectionByName, all)
 	if err != nil {
@@ -1399,7 +1399,7 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func(), error) {
+func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, StatePoolReleaser, error) {
 	st, releaser, err := b.stPool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

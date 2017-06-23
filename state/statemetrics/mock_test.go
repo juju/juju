@@ -14,6 +14,29 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+type mockStatePool struct {
+	testing.Stub
+	system *mockState
+}
+
+func (m *mockStatePool) SystemState() statemetrics.State {
+	return m.system
+}
+
+func (m *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePoolReleaser, error) {
+	m.MethodCall(m, "Get", modelUUID)
+	if err := m.NextErr(); err != nil {
+		return nil, nil, err
+	}
+	for _, m := range m.system.models {
+		if m.tag.Id() == modelUUID {
+			st := mockModelState{mockModel: m}
+			return st, st.release, nil
+		}
+	}
+	panic("model not found")
+}
+
 type mockState struct {
 	statemetrics.State
 
@@ -64,22 +87,14 @@ func (m *mockState) UserAccess(subject names.UserTag, object names.Tag) (permiss
 	panic("subject not found")
 }
 
-func (m *mockState) ForModel(tag names.ModelTag) (statemetrics.StateCloser, error) {
-	m.MethodCall(m, "ForModel", tag)
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-	for _, m := range m.models {
-		if m.tag == tag {
-			return mockModelState{mockModel: m}, nil
-		}
-	}
-	panic("model not found")
-}
-
 type mockModelState struct {
 	statemetrics.State
 	*mockModel
+}
+
+func (m *mockModelState) release() bool {
+	m.MethodCall(m, "release")
+	return false
 }
 
 func (m mockModelState) AllMachines() ([]statemetrics.Machine, error) {
@@ -92,11 +107,6 @@ func (m mockModelState) AllMachines() ([]statemetrics.Machine, error) {
 		out[i] = m
 	}
 	return out, nil
-}
-
-func (m mockModelState) Close() error {
-	m.MethodCall(m, "Close")
-	return m.NextErr()
 }
 
 type mockModel struct {

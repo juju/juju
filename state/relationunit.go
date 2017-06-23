@@ -344,6 +344,34 @@ func (ru *RelationUnit) LeaveScope() error {
 	return nil
 }
 
+// Valid returns whether this RelationUnit is one that can actually
+// exist in the relation. For container-scoped relations, RUs can be
+// created for subordinate units whose principal unit isn't a member
+// of the relation. There are too many places that rely on being able
+// to construct a nonsensical RU to query InScope or Joined, so we
+// allow them to be constructed but they will always return false for
+// Valid.
+// TODO(babbageclunk): unpick the reliance on creating invalid RUs.
+func (ru *RelationUnit) Valid() (bool, error) {
+	if ru.endpoint.Scope != charm.ScopeContainer || ru.isPrincipal {
+		return true, nil
+	}
+	// A subordinate container-scoped relation unit is only valid if
+	// its principal unit is also a member of the relation.
+	unit, err := ru.st.Unit(ru.unitName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// No need to check the flag here - we know we're subordinate.
+	name, _ := unit.PrincipalName()
+	appName, err := names.UnitApplication(name)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	_, err = ru.relation.Endpoint(appName)
+	return err == nil, nil
+}
+
 // InScope returns whether the relation unit has entered scope and not left it.
 func (ru *RelationUnit) InScope() (bool, error) {
 	return ru.inScope(nil)

@@ -30,7 +30,7 @@ import (
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
 	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.State, func(), error)
+	stateAuthFunc func(*http.Request) (*state.State, state.StatePoolReleaser, error)
 }
 
 // toolsHandler handles tool download through HTTPS in the API server.

@@ -1039,6 +1039,17 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			return err
 		}
 
+		valid, err := relUnit.Valid()
+		if err != nil {
+			return err
+		}
+		if !valid {
+			principalName, _ := unit.PrincipalName()
+			logger.Debugf("ignoring %q EnterScope for %q - unit has invalid principal %q",
+				unit.Name(), rel.String(), principalName)
+			return nil
+		}
+
 		settings := map[string]interface{}{}
 		settingsAddress, err := relUnit.SettingsAddress()
 		if err == nil {

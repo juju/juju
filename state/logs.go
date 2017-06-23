@@ -216,20 +216,49 @@ func NewDbLogger(st ModelSessioner) *DbLogger {
 	}
 }
 
-// Log writes a log message to the database.
-func (logger *DbLogger) Log(t time.Time, entity string, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
+// Log writes log messages to the database. Log records
+// are written to the database in bulk; callers should
+// buffer log records to and call Log with a batch to
+// minimise database writes.
+//
+// The ModelUUID and ID fields of records are ignored;
+// DbLogger is scoped to a single model, and ID is
+// controlled by the DbLogger code.
+func (logger *DbLogger) Log(records []LogRecord) error {
+	for _, r := range records {
+		if err := validateInputLogRecord(r); err != nil {
+			return errors.Annotate(err, "validating input log record")
+		}
+	}
+	bulk := logger.logsColl.Bulk()
+	for _, r := range records {
+		var versionString string
+		if r.Version != version.Zero {
+			versionString = r.Version.String()
+		}
+		bulk.Insert(&logDoc{
+			// TODO(axw) Use a controller-global int
+			// sequence for Id, so we can order by
+			// insertion.
+			Id:       bson.NewObjectId(),
+			Time:     r.Time.UnixNano(),
+			Entity:   r.Entity.String(),
+			Version:  versionString,
+			Module:   r.Module,
+			Location: r.Location,
+			Level:    int(r.Level),
+			Message:  r.Message,
+		})
+	}
+	_, err := bulk.Run()
+	return errors.Annotatef(err, "inserting %d log record(s)", len(records))
+}
 
-	unixEpochNanoUTC := t.UnixNano()
-	return logger.logsColl.Insert(&logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     unixEpochNanoUTC,
-		Entity:   entity,
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
-	})
+func validateInputLogRecord(r LogRecord) error {
+	if r.Entity == nil {
+		return errors.NotValidf("missing Entity")
+	}
+	return nil
 }
 
 // Close cleans up resources used by the DbLogger instance.
@@ -237,41 +266,6 @@ func (logger *DbLogger) Close() {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
-}
-
-// EntityDbLogger writes log records about one entity.
-type EntityDbLogger struct {
-	DbLogger
-	entity  string
-	version string
-}
-
-// NewEntityDbLogger returns an EntityDbLogger instance which is used
-// to write logs to the database.
-func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
-	dbLogger := NewDbLogger(st)
-	return &EntityDbLogger{
-		DbLogger: *dbLogger,
-		entity:   entity.String(),
-		version:  ver.String(),
-	}
-}
-
-// Log writes a log message to the database.
-func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
-
-	unixEpochNanoUTC := t.UnixNano()
-	return logger.logsColl.Insert(&logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     unixEpochNanoUTC,
-		Entity:   logger.entity,
-		Version:  logger.version,
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
-	})
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
@@ -362,7 +356,7 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error) {
+func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
@@ -388,7 +382,7 @@ type logTailer struct {
 	modelUUID       string
 	session         *mgo.Session
 	logsColl        *mgo.Collection
-	params          *LogTailerParams
+	params          LogTailerParams
 	logCh           chan *LogRecord
 	lastID          int64
 	lastTime        time.Time
@@ -445,7 +439,7 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 		return errors.Errorf("too many lines requested (%d) maximum is %d",
 			t.params.InitialLines, maxInitialLines)
 	}
-	query.Sort("-e", "-t", "-_id")
+	query.Sort("-t", "-_id")
 	query.Limit(t.params.InitialLines)
 	iter := query.Iter()
 	queue := make([]logDoc, t.params.InitialLines)
@@ -581,7 +575,7 @@ func (t *logTailer) tailOplog() error {
 	}
 }
 
-func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})

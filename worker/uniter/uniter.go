@@ -93,7 +93,7 @@ type Uniter struct {
 
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
-	updateStatusAt func() <-chan time.Time
+	updateStatusAt remotestate.UpdateStatusTimerFunc
 
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
@@ -112,7 +112,7 @@ type UniterParams struct {
 	Downloader           charm.Downloader
 	MachineLockName      string
 	CharmDirGuard        fortress.Guard
-	UpdateStatusSignal   func() <-chan time.Time
+	UpdateStatusSignal   remotestate.UpdateStatusTimerFunc
 	HookRetryStrategy    params.RetryStrategy
 	NewOperationExecutor NewExecutorFunc
 	TranslateResolverErr func(error) error

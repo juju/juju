@@ -109,6 +109,7 @@ europe-west1
 asia-east1
 asia-northeast1
 asia-southeast1
+australia-southeast1
 
 `[1:])
 }
@@ -131,6 +132,8 @@ asia-east1:
 asia-northeast1:
   endpoint: https://www.googleapis.com
 asia-southeast1:
+  endpoint: https://www.googleapis.com
+australia-southeast1:
   endpoint: https://www.googleapis.com
 `[1:])
 }

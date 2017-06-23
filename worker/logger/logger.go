@@ -18,20 +18,23 @@ var log = loggo.GetLogger("juju.worker.logger")
 // Logger is responsible for updating the loggo configuration when the
 // environment watcher tells the agent that the value has changed.
 type Logger struct {
-	api         *logger.State
-	agentConfig agent.Config
-	lastConfig  string
+	api            *logger.State
+	agentConfig    agent.Config
+	lastConfig     string
+	configOverride string
 }
 
 // NewLogger returns a worker.Worker that uses the notify watcher returned
 // from the setup.
 func NewLogger(api *logger.State, agentConfig agent.Config) (worker.Worker, error) {
 	logger := &Logger{
-		api:         api,
-		agentConfig: agentConfig,
-		lastConfig:  loggo.LoggerInfo(),
+		api:            api,
+		agentConfig:    agentConfig,
+		lastConfig:     loggo.LoggerInfo(),
+		configOverride: agentConfig.Value(agent.LoggingOverride),
 	}
 	log.Debugf("initial log config: %q", logger.lastConfig)
+
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: logger,
 	})
@@ -42,22 +45,31 @@ func NewLogger(api *logger.State, agentConfig agent.Config) (worker.Worker, erro
 }
 
 func (logger *Logger) setLogging() {
-	loggingConfig, err := logger.api.LoggingConfig(logger.agentConfig.Tag())
-	if err != nil {
-		log.Errorf("%v", err)
+	loggingConfig := ""
+
+	if logger.configOverride != "" {
+		log.Debugf("overriding logging config with override from agent.conf %q", logger.configOverride)
+		loggingConfig = logger.configOverride
 	} else {
-		if loggingConfig != logger.lastConfig {
-			log.Debugf("reconfiguring logging from %q to %q", logger.lastConfig, loggingConfig)
-			loggo.DefaultContext().ResetLoggerLevels()
-			if err := loggo.ConfigureLoggers(loggingConfig); err != nil {
-				// This shouldn't occur as the loggingConfig should be
-				// validated by the original Config before it gets here.
-				log.Warningf("configure loggers failed: %v", err)
-				// Try to reset to what we had before
-				loggo.ConfigureLoggers(logger.lastConfig)
-			}
-			logger.lastConfig = loggingConfig
+		modelLoggingConfig, err := logger.api.LoggingConfig(logger.agentConfig.Tag())
+		if err != nil {
+			log.Errorf("%v", err)
+			return
 		}
+		loggingConfig = modelLoggingConfig
+	}
+
+	if loggingConfig != logger.lastConfig {
+		log.Debugf("reconfiguring logging from %q to %q", logger.lastConfig, loggingConfig)
+		loggo.DefaultContext().ResetLoggerLevels()
+		if err := loggo.ConfigureLoggers(loggingConfig); err != nil {
+			// This shouldn't occur as the loggingConfig should be
+			// validated by the original Config before it gets here.
+			log.Warningf("configure loggers failed: %v", err)
+			// Try to reset to what we had before
+			loggo.ConfigureLoggers(logger.lastConfig)
+		}
+		logger.lastConfig = loggingConfig
 	}
 }
 

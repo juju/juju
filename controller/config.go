@@ -110,7 +110,6 @@ const (
 
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
-
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant

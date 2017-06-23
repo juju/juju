@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state"
 )
 
 type ResourcesHandlerSuite struct {
@@ -61,11 +62,11 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, func(), names.Tag, error) {
+func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.StatePoolReleaser, names.Tag, error) {
 	if s.stateAuthErr != nil {
 		return nil, nil, nil, errors.Trace(s.stateAuthErr)
 	}
-	closer := func() {}
+	closer := func() bool { return false }
 	tag := names.NewUserTag(s.username)
 	return s.backend, closer, tag, nil
 }

@@ -86,6 +86,8 @@ func newPrometheusRegistry() (*prometheus.Registry, error) {
 }
 
 func (h *statePoolHolder) IntrospectionReport() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if h.pool == nil {
 		return "agent has no pool set"
 	}

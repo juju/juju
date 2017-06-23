@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // worstCase is used for timeouts when timing out
@@ -488,7 +489,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
 		MachineLockName:      hookExecutionLockName(),
-		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
+		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
 		TranslateResolverErr: s.translateResolverErr,
 		Observer:             ctx,
@@ -1784,9 +1785,19 @@ func (t *manualTicker) Tick() error {
 	return nil
 }
 
+type dummyWaiter struct {
+	c chan time.Time
+}
+
+func (w dummyWaiter) After() <-chan time.Time {
+	return w.c
+}
+
 // ReturnTimer can be used to replace the update status signal generator.
-func (t *manualTicker) ReturnTimer() <-chan time.Time {
-	return t.c
+func (t *manualTicker) ReturnTimer() remotestate.UpdateStatusTimerFunc {
+	return func(_ time.Duration) remotestate.Waiter {
+		return dummyWaiter{t.c}
+	}
 }
 
 func newManualTicker() *manualTicker {

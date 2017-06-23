@@ -3,6 +3,8 @@
 package model_test
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -44,10 +46,6 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		nilErr      bool
 	}{{
 		// Test set
-		description: "test set key specified more than once",
-		args:        []string{"special=extra", "special=other"},
-		errorMatch:  `key "special" specified more than once`,
-	}, {
 		description: "test cannot set agent-version",
 		args:        []string{"agent-version=2.0.0"},
 		errorMatch:  `"agent-version" must be set via "upgrade-juju"`,
@@ -194,7 +192,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test invalid positional args with set",
 		args:        []string{"a=b", "b", "c=d"},
-		errorMatch:  `expected "key=value", got "b"`,
+		errorMatch:  `.*(no such file or directory|cannot find the file specified).*`,
 	}, {
 		description: "test invalid positional args with set and trailing key",
 		args:        []string{"a=b", "c=d", "e"},
@@ -276,6 +274,48 @@ func (s *DefaultsCommandSuite) TestSetUnknownValueLogs(c *gc.C) {
 
 func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 	_, err := s.run(c, "special=extra", "attr=baz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {Controller: "baz", Default: nil, Regions: nil},
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"special": {Controller: "extra", Default: nil, Regions: nil},
+	})
+}
+
+func (s *DefaultsCommandSuite) TestSetFromFile(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {Controller: nil, Default: "foo", Regions: nil},
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"special": {Controller: "extra", Default: nil, Regions: nil},
+	})
+}
+
+func (s *DefaultsCommandSuite) TestSetFromFileCombined(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile, "attr=baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},

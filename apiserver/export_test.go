@@ -94,13 +94,13 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Resources) {
-	authCtxt, err := newAuthContext(srvSt)
+func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
+	authCtxt, err := newAuthContext(pool.SystemState())
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
-		authCtxt: authCtxt,
-		state:    srvSt,
-		tag:      names.NewMachineTag("0"),
+		authCtxt:  authCtxt,
+		statePool: pool,
+		tag:       names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,8 +110,8 @@ func TestingAPIHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
 // TestingAPIHandler but sets the passed entity as the apiHandler
 // entity.
-func TestingAPIHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, srvSt, st)
+func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
+	h, hr := TestingAPIHandler(c, pool, st)
 	h.entity = entity
 	return h, hr
 }
