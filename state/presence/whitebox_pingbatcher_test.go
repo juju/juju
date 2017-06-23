@@ -4,6 +4,7 @@
 package presence
 
 import (
+	"math/rand"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -26,8 +27,9 @@ func checkSleepRange(c *gc.C, interval, minTime, maxTime time.Duration) {
 	var measuredMinTime time.Duration
 	var measuredMaxTime time.Duration
 
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < 1000; i++ {
-		next := pingBatcher.nextSleep()
+		next := pingBatcher.nextSleep(r)
 		// We use Assert rather than Check because we don't want 100s of failures
 		c.Assert(next, jc.GreaterThan, minTime)
 		c.Assert(next, jc.LessThan, maxTime)
@@ -112,7 +114,7 @@ func (s *WhiteboxPingBatcherSuite) TestFlushWakesUpAllSync(c *gc.C) {
 	}
 	select {
 	case <-done:
-		c.Fatalf("some routine finished before flush")
+		c.Fatalf("some routines finished before flush")
 	case <-time.After(testing.ShortWait):
 	}
 	// Now when we flush, all should have responded
@@ -133,7 +135,7 @@ func (s *WhiteboxPingBatcherSuite) TestSyncReturnsOnShutdown(c *gc.C) {
 	pb.syncDelay = time.Hour
 	done := make(chan struct{})
 	go func() {
-		c.Check(pb.Sync(), gc.ErrorMatches, "PingBatcher is stopped")
+		pb.Sync()
 		close(done)
 	}()
 	select {
@@ -148,6 +150,8 @@ func (s *WhiteboxPingBatcherSuite) TestSyncReturnsOnShutdown(c *gc.C) {
 	case <-timeout:
 		c.Fatalf("not all callers were done after flush")
 	}
+	err := pb.Sync()
+	c.Assert(err, gc.ErrorMatches, "PingBatcher is stopped")
 }
 
 func (s *WhiteboxPingBatcherSuite) TestContinualSyncDoesntPreventFlush(c *gc.C) {
