@@ -102,8 +102,14 @@ export | grep -v $FILTER > $JUJU_DEBUG/env.sh
 cat > $JUJU_DEBUG/welcome.msg <<END
 This is a Juju debug-hooks tmux session. Remember:
 1. You need to execute hooks manually if you want them to run for trapped events.
-2. When you are finished with an event, you can run 'exit' to close the current window and allow Juju to continue running.
-3. CTRL+a is tmux prefix.
+2. When you are finished with an event, you can run 'exit' to close the current window and allow Juju to continue processing
+new events for this unit without exiting a current debug-session.
+3. To run a hook and end the debugging session avoiding processing any more events manually, use:
+
+./hooks/$JUJU_HOOK_NAME
+tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
+
+4. CTRL+a is tmux prefix.
 
 More help and info is available in the online documentation:
 https://jujucharms.com/docs/authors-hook-debug.html
