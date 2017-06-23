@@ -79,7 +79,7 @@ func (s *prunerSuite) TestPrunesOldPingsAndBeings(c *gc.C) {
 	keys := []string{"key1", "key2"}
 	pingers := make([]*Pinger, len(keys))
 	for i, key := range keys {
-		pingers[i] = NewPinger(s.presence, s.modelTag, key)
+		pingers[i] = NewPinger(s.presence, s.modelTag, key, DirectRecordFunc(s.presence))
 	}
 	const numSlots = 10
 	sequences := make([][]int64, len(keys))
@@ -121,10 +121,10 @@ func (s *prunerSuite) TestPreservesLatestSequence(c *gc.C) {
 	FakePeriod(1)
 
 	key := "blah"
-	p1 := NewPinger(s.presence, s.modelTag, key)
+	p1 := NewPinger(s.presence, s.modelTag, key, DirectRecordFunc(s.presence))
 	p1.Start()
 	assertStopped(c, p1)
-	p2 := NewPinger(s.presence, s.modelTag, key)
+	p2 := NewPinger(s.presence, s.modelTag, key, DirectRecordFunc(s.presence))
 	p2.Start()
 	assertStopped(c, p2)
 	// we're starting p2 second, so it should get a higher sequence
@@ -168,14 +168,21 @@ func waitForFirstChange(c *gc.C, watch <-chan Change, want Change) {
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
 func assertStopped(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	done := make(chan struct{})
+	go func() {
+		c.Check(worker.Stop(w), jc.ErrorIsNil)
+		close(done)
+	}()
+	select {
+	case <-done:
+		return
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("failed to stop worker %v after %v", w, testing.ShortWait)
+	}
 }
 
 func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	FakePeriod(1)
-	// Each Pinger potentially grabs another socket to Mongo,
-	// which can exhaust connections. Somewhere around 5000 pingers on my
-	// machine everything starts failing because Mongo refuses new connections.
 	keys := make([]string, 500)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%04d", i)
@@ -192,6 +199,8 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	w := NewWatcher(s.presence, s.modelTag)
 	// Ensure that all pingers and the watcher are clean at exit
 	defer assertStopped(c, w)
+	pb := NewPingBatcher(s.presence, 500*time.Millisecond)
+	defer assertStopped(c, pb)
 	defer func() {
 		for i, p := range oldPingers {
 			if p == nil {
@@ -216,13 +225,14 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		// As this is a busy channel, we may be queued up behind some other
 		// pinger showing up as alive, so allow up to LongWait for the event to show up
 		waitForFirstChange(c, ch, Change{key, false})
-		p := NewPinger(s.presence, s.modelTag, key)
+		p := NewPinger(s.presence, s.modelTag, key, pb)
 		err := p.Start()
 		c.Assert(err, jc.ErrorIsNil)
 		newPingers[i] = p
 		// All newPingers will be checked that they stop cleanly
 		// Spread them out slightly
 	}
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	c.Logf("initialized %d pingers in %v\n", len(newPingers), time.Since(t))
 	// Make sure all of the entities stay showing up as alive
 	done := make(chan struct{})
@@ -262,11 +272,12 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 				assertStopped(c, old)
 			}
 			oldPingers[i] = newPingers[i]
-			p := NewPinger(s.presence, s.modelTag, keys[i])
+			p := NewPinger(s.presence, s.modelTag, keys[i], pb)
 			err := p.Start()
 			c.Assert(err, jc.ErrorIsNil)
 			newPingers[i] = p
 		}
+		c.Assert(pb.Sync(), jc.ErrorIsNil)
 		c.Logf("loop %d in %v\n", loop, time.Since(t))
 	}
 	// Now that we've gone through all of that, check that we've created as

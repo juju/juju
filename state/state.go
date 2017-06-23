@@ -495,6 +495,12 @@ func (st *State) getPresenceCollection() *mgo.Collection {
 	return st.session.DB(presenceDB).C(presenceC)
 }
 
+// getPingBatcher returns the implementation of how we serialize Ping requests
+// for agents to the database.
+func (st *State) getPingBatcher() *presence.PingBatcher {
+	return st.workers.pingBatcherWorker()
+}
+
 // getTxnLogCollection returns the raw mongodb txns collection, which is
 // needed to interact with the state/watcher package.
 func (st *State) getTxnLogCollection() *mgo.Collection {
@@ -1944,6 +1950,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.workers.txnLogWatcher().StartSync()
+	st.workers.pingBatcherWorker().Sync()
 	st.workers.presenceWatcher().Sync()
 }
 

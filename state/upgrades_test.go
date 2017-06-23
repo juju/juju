@@ -1041,6 +1041,68 @@ func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// One model has a valid setting that is not default.
+	m1 := s.makeModel(c, "m1", testing.Attrs{
+		"update-status-hook-interval": "20m",
+	})
+	defer m1.Close()
+
+	// This model is missing a setting entirely.
+	m2 := s.makeModel(c, "m2", testing.Attrs{})
+	defer m2.Close()
+	// We remove the 'update-status-hook-interval' value to
+	// represent an old-style model that needs updating.
+	settingsKey := m2.ModelUUID() + ":e"
+	err = settingsColl.UpdateId(settingsKey,
+		bson.M{"$unset": bson.M{"settings.update-status-hook-interval": ""}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// And something that isn't model settings
+	err = settingsColl.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg1, err := m1.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected1 := cfg1.AllAttrs()
+	expected1["resource-tags"] = ""
+
+	cfg2, err := m2.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected2 := cfg2.AllAttrs()
+	expected2["update-status-hook-interval"] = "5m"
+	expected2["resource-tags"] = ""
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	s.assertUpgradedData(c, AddUpdateStatusHookSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
 func (s *upgradesSuite) TestAddStorageInstanceConstraints(c *gc.C) {
 	storageInstancesColl, storageInstancesCloser := s.state.getRawCollection(storageInstancesC)
 	defer storageInstancesCloser()
@@ -1412,4 +1474,189 @@ func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 
 	err = SplitLogCollections(s.state)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
+	relations, rCloser := s.state.getRawCollection(relationsC)
+	defer rCloser()
+	scopes, sCloser := s.state.getRawCollection(relationScopesC)
+	defer sCloser()
+
+	// Use the non-controller model to ensure we can run the function
+	// across multiple models.
+	otherState := s.makeModel(c, "crack-up", testing.Attrs{})
+	defer otherState.Close()
+
+	uuid := otherState.ModelUUID()
+
+	err := relations.Insert(bson.M{
+		"_id":        uuid + ":min:juju-info nrpe:general-info",
+		"key":        "min:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         4,
+		"endpoints": []bson.M{{
+			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, {
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 6,
+	}, bson.M{
+		"_id":        uuid + ":ntp:ntp-peers",
+		"key":        "ntp:ntp-peers",
+		"model-uuid": uuid,
+		"id":         3,
+		"endpoints": []bson.M{{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "ntp-peers",
+				"role":      "peer",
+				"interface": "ntp",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "global",
+			},
+		}},
+		"unitcount": 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = scopes.Insert(bson.M{
+		"_id":        uuid + ":r#4#min/0#provider#min/0",
+		"key":        "r#4#min/0#provider#min/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/0#requirer#nrpe/0",
+		"key":        "r#4#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/1#provider#min/1",
+		"key":        "r#4#min/1#provider#min/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/1#requirer#nrpe/1",
+		"key":        "r#4#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min2/0#requirer#nrpe/2",
+		"key":        "r#4#min2/0#requirer#nrpe/2",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min2/1#requirer#nrpe/3",
+		"key":        "r#4#min2/1#requirer#nrpe/3",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#3#peer#ntp/0",
+		"key":        "r#3#peer#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#3#peer#ntp/1",
+		"key":        "r#3#peer#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedRelations := []bson.M{{
+		"_id":        uuid + ":min:juju-info nrpe:general-info",
+		"key":        "min:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         4,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, bson.M{
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
+	}, {
+		"_id":        uuid + ":ntp:ntp-peers",
+		"key":        "ntp:ntp-peers",
+		"model-uuid": uuid,
+		"id":         3,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "ntp-peers",
+				"role":      "peer",
+				"interface": "ntp",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "global",
+			},
+		}},
+		"unitcount": 2,
+	}}
+	expectedScopes := []bson.M{{
+		"_id":        uuid + ":r#3#peer#ntp/0",
+		"key":        "r#3#peer#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#3#peer#ntp/1",
+		"key":        "r#3#peer#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/0#provider#min/0",
+		"key":        "r#4#min/0#provider#min/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/0#requirer#nrpe/0",
+		"key":        "r#4#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/1#provider#min/1",
+		"key":        "r#4#min/1#provider#min/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/1#requirer#nrpe/1",
+		"key":        "r#4#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}}
+	s.assertUpgradedData(c, CorrectRelationUnitCounts,
+		expectUpgradedData{relations, expectedRelations},
+		expectUpgradedData{scopes, expectedScopes},
+	)
 }

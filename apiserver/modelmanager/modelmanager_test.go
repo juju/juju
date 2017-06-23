@@ -546,12 +546,11 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModels(models)
-
-	calls := s.st.Calls()
-	c.Logf("%#v", calls)
-	lastCall := calls[len(calls)-1]
-	c.Check(lastCall.FuncName, gc.Equals, "ModelUUID")
-
+	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+		{"ControllerTag", nil},
+		{"ModelUUID", nil},
+		{"Get", []interface{}{tag.Id()}},
+	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Result, gc.Equals, "")
@@ -605,11 +604,12 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 	models := params.Entities{[]params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModelsDB(models)
 
-	calls := s.st.Calls()
-	c.Logf("%#v", calls)
-	lastCall := calls[len(calls)-1]
-	c.Check(lastCall.FuncName, gc.Equals, "ForModel")
-
+	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+		{"ControllerTag", nil},
+		{"ModelUUID", nil},
+		{"ModelTag", nil},
+		{"Get", []interface{}{tag.Id()}},
+	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Result, gc.IsNil)

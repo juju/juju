@@ -698,6 +698,43 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	return nil
 }
 
+// AddUpdateStatusHookSettings adds the model settings
+// to control how often to run the update-status hook
+// if they are missing.
+func AddUpdateStatusHookSettings(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	models, err := st.AllModels()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var ids []string
+	for _, m := range models {
+		ids = append(ids, m.UUID()+":e")
+	}
+
+	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		settingsChanged :=
+			maybeUpdateSettings(doc.Settings, config.UpdateStatusHookInterval, config.DefaultUpdateStatusHookInterval)
+		if settingsChanged {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
 // AddStorageInstanceConstraints sets the "constraints" field on
 // storage instance docs.
 func AddStorageInstanceConstraints(st *State) error {
@@ -854,4 +891,131 @@ func SplitLogCollections(st *State) error {
 		return errors.Annotate(err, "failed to drop old logs collection")
 	}
 	return nil
+}
+
+type relationUnitCountInfo struct {
+	docId     string
+	endpoints set.Strings
+	unitCount int
+}
+
+// CorrectRelationUnitCounts ensures that there aren't any rows in
+// relationscopes for applications that shouldn't be there. Fix for
+// https://bugs.launchpad.net/juju/+bug/1699050
+func CorrectRelationUnitCounts(st *State) error {
+	relationsColl, rCloser := st.getRawCollection(relationsC)
+	defer rCloser()
+
+	scopesColl, sCloser := st.getRawCollection(relationScopesC)
+	defer sCloser()
+
+	relations, err := collectRelationInfo(relationsColl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	var scope struct {
+		DocId     string `bson:"_id"`
+		Key       string `bson:"key"`
+		ModelUUID string `bson:"model-uuid"`
+	}
+	relationsToUpdate := set.NewStrings()
+	iter := scopesColl.Find(nil).Iter()
+
+	for iter.Next(&scope) {
+		// Scope key looks like: r#<relation id>#[<principal unit for container scope>#]<role>#<unit>
+		keyParts := strings.Split(scope.Key, "#")
+		if len(keyParts) < 4 {
+			upgradesLogger.Errorf("malformed scope key %q", scope.Key)
+			continue
+		}
+
+		principalApp, found := extractPrincipalUnitApp(keyParts)
+		if !found {
+			// No change needed - this isn't a container scope.
+			continue
+		}
+		relationKey := scope.ModelUUID + ":" + keyParts[1]
+		relation, ok := relations[relationKey]
+		if !ok {
+			upgradesLogger.Errorf("orphaned relation scope %q", scope.DocId)
+			continue
+		}
+
+		if relation.endpoints.Contains(principalApp) {
+			// This scope record is fine - it's for an app that's in the relation.
+			continue
+		}
+
+		// This scope record needs to be removed and the unit count updated.
+		relation.unitCount--
+		relationsToUpdate.Add(relationKey)
+		ops = append(ops, txn.Op{
+			C:      relationScopesC,
+			Id:     scope.DocId,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Add in the updated unit counts.
+	for _, key := range relationsToUpdate.Values() {
+		relation := relations[key]
+		ops = append(ops, txn.Op{
+			C:      relationsC,
+			Id:     relation.docId,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"unitcount": relation.unitCount}},
+		})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInfo, error) {
+	relations := make(map[string]*relationUnitCountInfo)
+	var doc struct {
+		DocId     string   `bson:"_id"`
+		ModelUUID string   `bson:"model-uuid"`
+		Id        int      `bson:"id"`
+		UnitCount int      `bson:"unitcount"`
+		Endpoints []bson.M `bson:"endpoints"`
+	}
+
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		endpoints := set.NewStrings()
+		for _, epDoc := range doc.Endpoints {
+			appName, ok := epDoc["applicationname"].(string)
+			if !ok {
+				return nil, errors.Errorf("invalid application name: %v", epDoc["applicationname"])
+			}
+			endpoints.Add(appName)
+		}
+		key := fmt.Sprintf("%s:%d", doc.ModelUUID, doc.Id)
+		relations[key] = &relationUnitCountInfo{
+			docId:     doc.DocId,
+			endpoints: endpoints,
+			unitCount: doc.UnitCount,
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return relations, nil
+}
+
+func extractPrincipalUnitApp(scopeKeyParts []string) (string, bool) {
+	if len(scopeKeyParts) < 5 {
+		return "", false
+	}
+	unitName := scopeKeyParts[2]
+	unitParts := strings.Split(unitName, "/")
+	return unitParts[0], true
 }

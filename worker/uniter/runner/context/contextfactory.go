@@ -74,6 +74,7 @@ type contextFactory struct {
 	storage    StorageContextAccessor
 	clock      clock.Clock
 	zone       string
+	principal  string
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -115,6 +116,14 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	principal, ok, err := unit.PrincipalName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if !ok {
+		principal = ""
+	}
+
 	f := &contextFactory{
 		unit:             unit,
 		state:            config.State,
@@ -129,6 +138,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
 		clock:            config.Clock,
 		zone:             zone,
+		principal:        principal,
 	}
 	return f, nil
 }
@@ -161,6 +171,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
 		availabilityzone:   f.zone,
+		principal:          f.principal,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -298,14 +309,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 	ctx.proxySettings = modelConfig.ProxySettings()
-
-	principal, ok, err := ctx.unit.PrincipalName()
-	if err != nil {
-		return err
-	}
-	if ok {
-		ctx.principal = principal
-	}
 
 	// Calling these last, because there's a potential race: they're not guaranteed
 	// to be set in time to be needed for a hook. If they're not, we just leave them

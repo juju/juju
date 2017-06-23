@@ -3,6 +3,11 @@
 
 package presence
 
+import (
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+)
+
 func FakeTimeSlot(offset int) {
 	fakeTimeSlot(offset)
 }
@@ -19,4 +24,25 @@ var realPeriod = period
 
 func RealPeriod() {
 	period = realPeriod
+}
+
+func DirectRecordFunc(base *mgo.Collection) PingRecorder {
+	return &directRecorder{pings: pingsC(base)}
+}
+
+type directRecorder struct {
+	pings *mgo.Collection
+}
+
+func (dr *directRecorder) Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error {
+	session := dr.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := dr.pings.With(session)
+	_, err := pings.UpsertId(
+		docIDInt64(modelUUID, slot),
+		bson.D{
+			{"$set", bson.D{{"slot", slot}}},
+			{"$inc", bson.D{{"alive." + fieldKey, fieldBit}}},
+		})
+	return err
 }

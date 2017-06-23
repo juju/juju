@@ -149,6 +149,9 @@ const (
 	// collection can grow to before it is pruned, eg "5M"
 	MaxStatusHistorySize = "max-status-history-size"
 
+	// UpdateStatusHookInterval is how often to run the update-status hook.
+	UpdateStatusHookInterval = "update-status-hook-interval"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -303,6 +306,9 @@ const (
 
 	// DefaultStatusHistorySize is the default value for MaxStatusHistorySize.
 	DefaultStatusHistorySize = "5G"
+
+	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
+	DefaultUpdateStatusHookInterval = "5m"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -342,6 +348,7 @@ var defaultConfigValues = map[string]interface{}{
 	"development":              false,
 	"test-mode":                false,
 	TransmitVendorMetricsKey:   true,
+	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -493,6 +500,19 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.defined[MaxStatusHistorySize].(string); ok {
 		if _, err := utils.ParseSize(v); err != nil {
 			return errors.Annotate(err, "invalid max status history size in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[UpdateStatusHookInterval].(string); ok {
+		if f, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid update status hook interval in model configuration")
+		} else {
+			if f < 1*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", f)
+			}
+			if f > 60*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
+			}
 		}
 	}
 
@@ -933,6 +953,22 @@ func (c *Config) MaxStatusHistorySizeMB() uint {
 	return uint(val)
 }
 
+// UpdateStatusHookInterval is how often to run the charm
+// update-status hook.
+func (c *Config) UpdateStatusHookInterval() time.Duration {
+	// TODO(wallyworld) - remove this work around when possible as
+	// we already have a defaulting mechanism for config.
+	// It's only here to guard against using Juju clients >= 2.2
+	// with Juju controllers running 2.1.x
+	raw := c.asString(UpdateStatusHookInterval)
+	if raw == "" {
+		raw = DefaultUpdateStatusHookInterval
+	}
+	// Value has already been validated.
+	val, _ := time.ParseDuration(raw)
+	return val
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1040,6 +1076,7 @@ var alwaysOptional = schema.Defaults{
 	NetBondReconfigureDelayKey:   schema.Omit,
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
+	UpdateStatusHookInterval:     schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1418,6 +1455,11 @@ data of the store. (default false)`,
 	},
 	MaxStatusHistorySize: {
 		Description: "The maximum size for the status history collection, in human-readable memory format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	UpdateStatusHookInterval: {
+		Description: "How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

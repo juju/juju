@@ -869,6 +869,32 @@ func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationNoPublicAddr(c *gc.
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
 }
 
+func (s *RelationUnitSuite) TestIsValidYes(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	rus := []*state.RelationUnit{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
+	for _, ru := range rus {
+		result, err := ru.Valid()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result, jc.IsTrue)
+	}
+}
+
+func (s *RelationUnitSuite) TestIsValidNo(c *gc.C) {
+	mysqlLogging := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	wpApp := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wpLogging := newProReqRelationForApps(c, &s.ConnSuite, wpApp, mysqlLogging.rsvc)
+
+	// We have logging related to mysql and to wordpress. We can
+	// create an invalid RU by taking a logging unit from
+	// mysql-logging and getting the wp-logging RU for it.
+	ru, err := wpLogging.rel.Unit(mysqlLogging.ru0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := ru.Valid()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsFalse)
+}
+
 type PeerRelation struct {
 	rel                *state.Relation
 	app                *state.Application
@@ -919,19 +945,23 @@ func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReq
 	} else {
 		rapp = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	eps, err := s.State.InferEndpoints("mysql", rapp.Name())
+	return newProReqRelationForApps(c, s, papp, rapp)
+}
+
+func newProReqRelationForApps(c *gc.C, s *ConnSuite, proApp, reqApp *state.Application) *ProReqRelation {
+	eps, err := s.State.InferEndpoints(proApp.Name(), reqApp.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	prr := &ProReqRelation{rel: rel, psvc: papp, rsvc: rapp}
-	prr.pu0, prr.pru0 = addRU(c, papp, rel, nil)
-	prr.pu1, prr.pru1 = addRU(c, papp, rel, nil)
-	if scope == charm.ScopeGlobal {
-		prr.ru0, prr.rru0 = addRU(c, rapp, rel, nil)
-		prr.ru1, prr.rru1 = addRU(c, rapp, rel, nil)
+	prr := &ProReqRelation{rel: rel, psvc: proApp, rsvc: reqApp}
+	prr.pu0, prr.pru0 = addRU(c, proApp, rel, nil)
+	prr.pu1, prr.pru1 = addRU(c, proApp, rel, nil)
+	if eps[0].Scope == charm.ScopeGlobal {
+		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, nil)
+		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, nil)
 	} else {
-		prr.ru0, prr.rru0 = addRU(c, rapp, rel, prr.pu0)
-		prr.ru1, prr.rru1 = addRU(c, rapp, rel, prr.pu1)
+		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, prr.pu0)
+		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, prr.pu1)
 	}
 	return prr
 }

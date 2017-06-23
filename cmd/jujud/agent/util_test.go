@@ -455,6 +455,7 @@ func newDummyWorker() worker.Worker {
 
 type FakeConfig struct {
 	agent.ConfigSetter
+	values map[string]string
 }
 
 func (FakeConfig) LogDir() string {
@@ -465,14 +466,22 @@ func (FakeConfig) Tag() names.Tag {
 	return names.NewMachineTag("42")
 }
 
+func (f FakeConfig) Value(key string) string {
+	if f.values == nil {
+		return ""
+	}
+	return f.values[key]
+}
+
 type FakeAgentConfig struct {
 	AgentConf
+	values map[string]string
 }
 
 func (FakeAgentConfig) ReadConfig(string) error { return nil }
 
-func (FakeAgentConfig) CurrentConfig() agent.Config {
-	return FakeConfig{}
+func (a FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{values: a.values}
 }
 
 func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {

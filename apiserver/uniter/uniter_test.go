@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -1712,6 +1713,86 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "1.2.3.4",
 	})
+}
+
+func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
+	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "logging",
+		URL:  "cs:quantal/logging-1",
+	})
+	logging := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "logging",
+		Charm: loggingCharm,
+	})
+	mysqlRel := s.addRelation(c, "logging", "mysql")
+	wpRel := s.addRelation(c, "logging", "wordpress")
+
+	// Create logging units for each of the mysql and wp units.
+	mysqlRU, err := mysqlRel.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRU.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlLoggingU := findSubordinateUnit(c, logging, s.mysqlUnit)
+	mysqlLoggingRU, err := mysqlRel.Unit(mysqlLoggingU)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlLoggingRU.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpRU, err := wpRel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpRU.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wpLoggingU := findSubordinateUnit(c, logging, s.wordpressUnit)
+	_, err = wpRel.Unit(wpLoggingU)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Sanity check - a mysqlRel RU for wpLoggingU is invalid.
+	ru, err := mysqlRel.Unit(wpLoggingU)
+	c.Assert(err, jc.ErrorIsNil)
+	valid, err := ru.Valid()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(valid, jc.IsFalse)
+
+	subAuthorizer := s.authorizer
+	subAuthorizer.Tag = wpLoggingU.Tag()
+	api, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		subAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Count how many relationscopes records there are beforehand.
+	scopesBefore := countRelationScopes(c, s.State, mysqlRel)
+	// One for each unit of mysql and the logging subordinate.
+	c.Assert(scopesBefore, gc.Equals, 2)
+
+	// Asking the API to add wpLoggingU to mysqlRel silently
+	// fails. This means that we'll drop incorrect requests from
+	// uniters to re-enter the relation scope after the upgrade step
+	// has cleaned them up.
+	// See https://bugs.launchpad.net/juju/+bug/1699050
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{{
+		Relation: mysqlRel.Tag().String(),
+		Unit:     wpLoggingU.Tag().String(),
+	}}}
+	result, err := api.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	scopesAfter := countRelationScopes(c, s.State, mysqlRel)
+	c.Assert(scopesAfter, gc.Equals, scopesBefore)
+}
+
+func countRelationScopes(c *gc.C, st *state.State, rel *state.Relation) int {
+	coll := st.MongoSession().DB("juju").C("relationscopes")
+	count, err := coll.Find(bson.M{"key": bson.M{
+		"$regex": fmt.Sprintf(`^r#%d#`, rel.Id()),
+	}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	return count
 }
 
 func (s *uniterSuite) TestLeaveScope(c *gc.C) {

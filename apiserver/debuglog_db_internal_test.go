@@ -31,7 +31,7 @@ func (s *debugLogDBIntSuite) SetUpTest(c *gc.C) {
 
 func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	t1 := time.Date(2016, 11, 30, 10, 51, 0, 0, time.UTC)
-	reqParams := &debugLogParams{
+	reqParams := debugLogParams{
 		fromTheStart:  false,
 		noTail:        true,
 		backlog:       11,
@@ -44,7 +44,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		// Start time will be used once the client is extended to send
@@ -69,13 +69,13 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 }
 
 func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
-	reqParams := &debugLogParams{
+	reqParams := debugLogParams{
 		fromTheStart: true,
 		backlog:      123,
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
@@ -110,12 +110,12 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 		Level:    loggo.ERROR,
 		Message:  "whoops",
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params state.LogTailerParams) (state.LogTailer, error) {
 		return tailer, nil
 	})
 
 	stop := make(chan struct{})
-	done := s.runRequest(&debugLogParams{}, stop)
+	done := s.runRequest(debugLogParams{}, stop)
 
 	s.assertOutput(c, []string{
 		"ok", // sendOk() call needs to happen first.
@@ -130,12 +130,12 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 
 func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 	tailer := newFakeLogTailer()
-	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params state.LogTailerParams) (state.LogTailer, error) {
 		close(tailer.logsCh) // make the request stop immediately
 		return tailer, nil
 	})
 
-	err := handleDebugLogDBRequest(nil, &debugLogParams{}, s.sock, nil)
+	err := handleDebugLogDBRequest(nil, debugLogParams{}, s.sock, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tailer.stopped, jc.IsTrue)
 }
@@ -153,11 +153,11 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 			Message:  "stuff happened",
 		}
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params state.LogTailerParams) (state.LogTailer, error) {
 		return tailer, nil
 	})
 
-	done := s.runRequest(&debugLogParams{maxLines: 3}, nil)
+	done := s.runRequest(debugLogParams{maxLines: 3}, nil)
 
 	s.assertOutput(c, []string{
 		"ok", // sendOk() call needs to happen first.
@@ -170,7 +170,7 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 	s.assertStops(c, done, tailer)
 }
 
-func (s *debugLogDBIntSuite) runRequest(params *debugLogParams, stop chan struct{}) chan error {
+func (s *debugLogDBIntSuite) runRequest(params debugLogParams, stop chan struct{}) chan error {
 	done := make(chan error)
 	go func() {
 		done <- handleDebugLogDBRequest(&fakeState{}, params, s.sock, stop)

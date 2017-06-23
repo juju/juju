@@ -74,6 +74,7 @@ func (s *relationsResolver) NextOp(
 type relations struct {
 	st           *uniter.State
 	unit         *uniter.Unit
+	subordinate  bool
 	charmDir     string
 	relationsDir string
 	relationers  map[int]*Relationer
@@ -86,9 +87,14 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	_, subordinate, err := unit.PrincipalName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	r := &relations{
 		st:           st,
 		unit:         unit,
+		subordinate:  subordinate,
 		charmDir:     charmDir,
 		relationsDir: relationsDir,
 		relationers:  make(map[int]*Relationer),
@@ -407,9 +413,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 			return errors.Trace(removeErr)
 		}
 	}
-	if _, ok, err := r.unit.PrincipalName(); err != nil {
-		return errors.Trace(err)
-	} else if !ok {
+	if !r.subordinate {
 		return nil
 	}
 	// If no Alive relations remain between a subordinate unit's service

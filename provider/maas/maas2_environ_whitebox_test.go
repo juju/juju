@@ -2098,7 +2098,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 				subnets: []gomaasapi.Subnet{subnet1},
 			},
 		},
-		// devices:      []gomaasapi.Device{device},
+		devices: []gomaasapi.Device{goodDevice},
 	}
 	suite.injectController(controller)
 	suite.setupFakeTools(c)

@@ -22,7 +22,7 @@ import (
 
 type collectorSuite struct {
 	testing.IsolationSuite
-	st        mockState
+	pool      mockStatePool
 	collector *statemetrics.Collector
 }
 
@@ -67,11 +67,13 @@ func (s *collectorSuite) SetUpTest(c *gc.C) {
 		}},
 	}}
 
-	s.st = mockState{
-		users:  users,
-		models: models,
+	s.pool = mockStatePool{
+		system: &mockState{
+			users:  users,
+			models: models,
+		},
 	}
-	s.collector = statemetrics.New(&s.st)
+	s.collector = statemetrics.New(&s.pool)
 }
 
 func (s *collectorSuite) TestDescribe(c *gc.C) {
@@ -226,7 +228,7 @@ func (s *collectorSuite) TestCollect(c *gc.C) {
 }
 
 func (s *collectorSuite) TestCollectErrors(c *gc.C) {
-	s.st.SetErrors(
+	s.pool.system.SetErrors(
 		errors.New("no models for you"),
 		errors.New("no users for you"),
 	)
