@@ -185,9 +185,19 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 	// Use a short poll interval when initially waiting for
 	// a machine's address and machine agent to start, and a long one when it already
 	// has an address and the machine agent is started.
+	var instId instance.Id
 	pollInterval := ShortPoll
 	pollInstance := func() error {
-		instInfo, err := pollInstanceInfo(context, m)
+		if instId == "" {
+			var err error
+			instId, err = m.InstanceId()
+			if err != nil {
+				instId = ""
+				return errors.Annotate(err, "cannot get machine's instance id")
+			}
+		}
+
+		instInfo, err := pollInstanceInfo(context, m, instId)
 		if err != nil {
 			return err
 		}
@@ -248,16 +258,7 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 
 // pollInstanceInfo checks the current provider addresses and status
 // for the given machine's instance, and sets them on the machine if they've changed.
-func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo, err error) {
-	instInfo = instanceInfo{}
-	instId, err := m.InstanceId()
-	// We can't ask the machine for its addresses if it isn't provisioned yet.
-	if params.IsCodeNotProvisioned(err) {
-		return instanceInfo{}, err
-	}
-	if err != nil {
-		return instanceInfo{}, errors.Annotate(err, "cannot get machine's instance id")
-	}
+func pollInstanceInfo(context machineContext, m machine, instId instance.Id) (instInfo instanceInfo, err error) {
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
 		// TODO (anastasiamac 2016-02-01) This does not look like it needs to be removed now.
