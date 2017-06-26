@@ -215,6 +215,7 @@ func (api *RemoteRelationsAPI) remoteRelation(entity params.Entity) (*params.Rem
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		} else if err == nil {
+			result.RemoteApplicationName = remoteApp.Name()
 			result.RemoteEndpointName = ep.Name
 			result.SourceModelUUID = remoteApp.SourceModel().Id()
 			continue

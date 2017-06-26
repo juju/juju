@@ -14,13 +14,18 @@ import (
 
 // Client provides access to the crossmodelrelations api facade.
 type Client struct {
+	base.ClientFacade
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client-side CrossModelRelations facade.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, "CrossModelRelations")
-	return &Client{facadeCaller}
+func NewClient(caller base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(caller, "CrossModelRelations")
+	return &Client{ClientFacade: frontend, facade: backend}
+}
+
+func (c *Client) Close() error {
+	return c.ClientFacade.Close()
 }
 
 // PublishRelationChange publishes relation changes to the
@@ -30,18 +35,29 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("PublishRelationChange", args, &results)
+	err := c.facade.FacadeCall("PublishRelationChanges", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	err = results.OneError()
+	if err != nil {
+		if params.IsCodeNotFound(err) {
+			return errors.NotFoundf("relation for event %v", change)
+		}
 	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return errors.Trace(result.Error)
+	return err
+}
+
+func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChangeEvent) error {
+	args := params.IngressNetworksChanges{
+		Changes: []params.IngressNetworksChangeEvent{change},
 	}
-	return nil
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("PublishIngressNetworkChanges", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }
 
 // RegisterRemoteRelation sets up the remote model to participate

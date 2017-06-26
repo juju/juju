@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remotefirewaller
+package firewaller
 
 import (
 	"github.com/juju/errors"
@@ -14,6 +14,9 @@ import (
 // State provides the subset of global state required by the
 // remote firewaller facade.
 type State interface {
+	state.ModelMachinesWatcher
+	state.ModelAccessor
+
 	ModelUUID() string
 
 	WatchSubnets(func(id interface{}) bool) state.StringsWatcher
@@ -27,6 +30,15 @@ type State interface {
 	Unit(string) (Unit, error)
 
 	Machine(string) (Machine, error)
+
+	WatchOpenedPorts() state.StringsWatcher
+
+	FindEntity(tag names.Tag) (state.Entity, error)
+}
+
+// TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
+func StateShim(st *state.State) stateShim {
+	return stateShim{st}
 }
 
 type stateShim struct {

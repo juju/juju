@@ -319,12 +319,13 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteRelationResult{{
 		Result: &params.RemoteRelation{
-			Id:                 123,
-			Life:               "alive",
-			Key:                "db2:db django:db",
-			RemoteEndpointName: "data",
-			ApplicationName:    "django",
-			SourceModelUUID:    "model-uuid",
+			Id:   123,
+			Life: "alive",
+			Key:  "db2:db django:db",
+			RemoteApplicationName: "db2",
+			RemoteEndpointName:    "data",
+			ApplicationName:       "django",
+			SourceModelUUID:       "model-uuid",
 			Endpoint: params.RemoteEndpoint{
 				Name:      "db",
 				Role:      "provides",

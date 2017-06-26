@@ -13,7 +13,15 @@ import (
 
 // CloudSpecAPI implements common methods for use by various
 // facades for querying the cloud spec of models.
-type CloudSpecAPI struct {
+type CloudSpecAPI interface {
+	// CloudSpec returns the model's cloud spec.
+	CloudSpec(args params.Entities) (params.CloudSpecResults, error)
+
+	// GetCloudSpec constructs the CloudSpec for a validated and authorized model.
+	GetCloudSpec(tag names.ModelTag) params.CloudSpecResult
+}
+
+type cloudSpecAPI struct {
 	getCloudSpec func(names.ModelTag) (environs.CloudSpec, error)
 	getAuthFunc  common.GetAuthFunc
 }
@@ -23,11 +31,11 @@ func NewCloudSpec(
 	getCloudSpec func(names.ModelTag) (environs.CloudSpec, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPI {
-	return CloudSpecAPI{getCloudSpec, getAuthFunc}
+	return cloudSpecAPI{getCloudSpec, getAuthFunc}
 }
 
 // CloudSpec returns the model's cloud spec.
-func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
+func (s cloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
 	authFunc, err := s.getAuthFunc()
 	if err != nil {
 		return params.CloudSpecResults{}, err
@@ -50,8 +58,8 @@ func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 	return results, nil
 }
 
-// GetCloudSpec constucts the CloudSpec for a validated and authorized model.
-func (s CloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
+// GetCloudSpec constructs the CloudSpec for a validated and authorized model.
+func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 	var result params.CloudSpecResult
 	spec, err := s.getCloudSpec(tag)
 	if err != nil {

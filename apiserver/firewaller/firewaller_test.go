@@ -10,12 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -23,7 +26,7 @@ type firewallerSuite struct {
 	firewallerBaseSuite
 	*commontesting.ModelWatcherTest
 
-	firewaller *firewaller.FirewallerAPI
+	firewaller *firewaller.FirewallerAPIV3
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -34,11 +37,14 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
+	environConfigGetter := stateenvirons.EnvironConfigGetter{s.State}
+	cloudSpecAPI := cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(s.State.ModelTag()))
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewFirewallerAPI(
-		s.State,
+		firewaller.StateShim(s.State),
 		s.resources,
 		s.authorizer,
+		cloudSpecAPI,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
@@ -47,7 +53,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
 	constructor := func(st *state.State, res facade.Resources, auth facade.Authorizer) error {
-		_, err := firewaller.NewFirewallerAPI(st, res, auth)
+		_, err := firewaller.NewFirewallerAPI(firewaller.StateShim(st), res, auth, nil)
 		return err
 	}
 	s.testFirewallerFailsWithNonEnvironManagerUser(c, constructor)
