@@ -656,3 +656,19 @@ func NewSLALevel(level string) (slaLevel, error) {
 func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
 }
+
+func RemoveRelation(c *gc.C, rel *Relation) {
+	ops, err := rel.removeOps("", "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.st.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func IngressNetworks(rel *Relation) ([]string, error) {
+	relIngress := NewRelationIngressNetworks(rel.st)
+	doc, err := relIngress.ingressNetworks(rel.Tag().Id())
+	if err != nil {
+		return nil, err
+	}
+	return doc.CIDRS, nil
+}

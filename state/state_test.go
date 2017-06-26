@@ -455,6 +455,28 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
+			about: "relation ingress networks",
+			getWatcher: func(st *state.State) interface{} {
+				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
+				eps, err := st.InferEndpoints("wordpress", "mysql")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := st.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+				return rel.WatchRelationIngressNetworks()
+			},
+			triggerEvent: func(st *state.State) {
+				relIngress := state.NewRelationIngressNetworks(st)
+				_, err := relIngress.Save("wordpress:db mysql:database", []string{"1.2.3.4/32", "4.3.2.1/16"})
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
 			about: "open ports",
 			getWatcher: func(st *state.State) interface{} {
 				return st.WatchOpenedPorts()
@@ -4670,4 +4692,58 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	// this test, but they couldn't be made to work with 3.2.
 	err = tryOpenState(st.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) setUpWatchIngressScenario(c *gc.C) *state.Relation {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", SourceModel: s.State.ModelTag(),
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	f := factory.NewFactory(s.State)
+	wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	return rel
+}
+
+func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
+	rel := s.setUpWatchIngressScenario(c)
+	// Check initial event.
+	w := rel.WatchRelationIngressNetworks()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Initial ingress network creation.
+	relIngress := state.NewRelationIngressNetworks(s.State)
+	_, err := relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("1.2.3.4/32", "4.3.2.1/16")
+	wc.AssertNoChange()
+
+	// Update value.
+	_, err = relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("1.2.3.4/32")
+	wc.AssertNoChange()
+
+	// Same value.
+	_, err = relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Delete relation.
+	state.RemoveRelation(c, rel)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }

@@ -22,6 +22,7 @@ import (
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -705,7 +706,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, expectedCIDRS []string) {
+func (s *InstanceModeSuite) TestRemoteRelationRequirerRole(c *gc.C) {
 	// Set up the consuming model - create the local app.
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Set up the consuming model - create the remote app.
@@ -715,6 +716,13 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, expectedCIDRS []string
 		Name: "mysql", SourceModel: offeringModelTag,
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Create the external controller info.
+	ec := state.NewExternalControllers(s.State)
+	_, err = ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Addrs:         []string{"1.2.3.4:1234"},
+		CACert:        coretesting.CACert}, offeringModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	published := make(chan bool)
@@ -729,7 +737,7 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, expectedCIDRS []string
 			Changes: []params.IngressNetworksChangeEvent{{
 				RelationId:      params.RemoteEntityId{ModelUUID: s.State.ModelUUID(), Token: relToken},
 				ApplicationId:   params.RemoteEntityId{ModelUUID: offeringModelTag.Id(), Token: appToken},
-				Networks:        expectedCIDRS,
+				Networks:        []string{"10.0.0.4/32"},
 				IngressRequired: ingressRequired,
 			}},
 		}
@@ -808,8 +816,71 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, expectedCIDRS []string
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelation(c *gc.C) {
-	s.assertRemoteRelation(c, []string{"10.0.0.4/32"})
+func (s *InstanceModeSuite) TestRemoteRelationProviderRole(c *gc.C) {
+	// Set up the offering model - create the local app.
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	u, m := s.addUnit(c, mysql)
+	inst := s.startInstance(c, m)
+	err := u.OpenPort("tcp", 3306)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set up the offering model - create the remote app.
+	consumingModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	relToken := utils.MustNewUUID().String()
+	appToken := utils.MustNewUUID().String()
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "wordpress", SourceModel: consumingModelTag,
+		Endpoints: []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the firewaller facade on the offering model.
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Export the relation details so the firewaller knows it's ready to be processed.
+	re := s.State.RemoteEntities()
+	err = re.ImportRemoteEntity(consumingModelTag, rel.Tag(), relToken)
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.ImportRemoteEntity(consumingModelTag, app.Tag(), appToken)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No port changes yet.
+	s.assertPorts(c, inst, m.Id(), nil)
+
+	// Save a new ingress network against the relation.
+	rin := state.NewRelationIngressNetworks(s.State)
+	_, err = rin.Save(rel.Tag().Id(), []string{"10.0.0.4/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	//Ports opened.
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+	})
+
+	// Check the relation ready poll time is as expected.
+	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+
+	// Change should be sent when ingress networks disappear.
+	_, err = rin.Save(rel.Tag().Id(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), nil)
+
+	_, err = rin.Save(rel.Tag().Id(), []string{"10.0.0.4/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+	})
+
+	// And again when relation is destroyed.
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), nil)
 }
 
 type GlobalModeSuite struct {

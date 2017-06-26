@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
+	"github.com/juju/juju/apiserver/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -18,6 +19,7 @@ import (
 
 type mockState struct {
 	testing.Stub
+	crossmodelrelations.CrossModelRelationsState
 	relations          map[string]*mockRelation
 	remoteApplications map[string]*mockRemoteApplication
 	applications       map[string]*mockApplication

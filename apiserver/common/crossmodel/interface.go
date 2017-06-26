@@ -48,6 +48,9 @@ type Backend interface {
 	// ImportRemoteEntity adds an entity to the remote entities collection
 	// with the specified opaque token.
 	ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error
+
+	// SaveIngressNetworks stores in state the ingress networks for the relation.
+	SaveIngressNetworks(relationKey string, cidrs []string) (RelationIngress, error)
 }
 
 // Relation provides access a relation in global state.
