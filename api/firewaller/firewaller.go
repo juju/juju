@@ -132,7 +132,7 @@ func (st *State) Relation(tag names.RelationTag) (*Relation, error) {
 }
 
 // WatchEgressAddressesForRelation returns a watcher that notifies when addresses,
-// from which connections to the offering side of the relation will originate.
+// from which connections will originate to the offering side of the relation, change.
 // Each event contains the entire set of addresses which the offering side is required
 // to allow for access to the other side of the relation.
 func (c *State) WatchEgressAddressesForRelation(relationTag names.RelationTag) (watcher.StringsWatcher, error) {

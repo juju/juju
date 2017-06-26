@@ -1337,6 +1337,34 @@ func (rd *remoteRelationData) providerEndpointLoop() error {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
 		case cidrs := <-ingressAddressWatcher.Changes():
+			logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			if err := rd.updateIngressNetworks(*rd.remoteRelationId, cidrs); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+}
+
+func (rd *remoteRelationData) providerEndpointLoop() error {
+	logger.Debugf("starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
+	// Watch for ingress changes requested by the consuming model.
+	ingressAddressWatcher, err := rd.fw.firewallerApi.WatchIngressAddressesForRelation(rd.tag)
+	if err != nil {
+		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
+			return errors.Trace(err)
+		}
+		logger.Infof("no ingress required for %v", rd.localApplicationTag)
+		rd.ingressRequired = false
+		return nil
+	}
+	if err := rd.fw.catacomb.Add(ingressAddressWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	for {
+		select {
+		case <-rd.catacomb.Dying():
+			return rd.catacomb.ErrDying()
+		case cidrs := <-ingressAddressWatcher.Changes():
 			logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
 			if err := rd.updateIngressNetworks(*rd.remoteRelationId, cidrs); err != nil {
 				return errors.Trace(err)
