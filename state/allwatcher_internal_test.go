@@ -456,14 +456,14 @@ type changeTestCase struct {
 	about string
 
 	// initialContents contains the infos of the
-	// watcher before signalling the change.
+	// watcher before signaling the change.
 	initialContents []multiwatcher.EntityInfo
 
 	// change signals the change of the watcher.
 	change watcher.Change
 
 	// expectContents contains the expected infos of
-	// the watcher before signalling the change.
+	// the watcher after signaling the change.
 	expectContents []multiwatcher.EntityInfo
 }
 
@@ -2362,6 +2362,103 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						Constraints: constraints.MustParse("mem=99M"),
 						Config:      charm.Settings{"blog-title": "boring"},
 					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			unit, err := app.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+			err = unit.SetWorkloadVersion("42.47")
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "workload version is updated when set on a unit",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID: st.ModelUUID(),
+						Name:      "wordpress/0",
+					},
+					&multiwatcher.ApplicationInfo{
+						ModelUUID: st.ModelUUID(),
+						Name:      "wordpress",
+						CharmURL:  "local:quantal/quantal-wordpress-3",
+					},
+				},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID("u#" + unit.Name() + "#charm"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID: st.ModelUUID(),
+						Name:      "wordpress/0",
+						WorkloadStatus: multiwatcher.StatusInfo{
+							Current: "waiting",
+							Message: "waiting for machine",
+							Data:    map[string]interface{}{},
+						},
+					},
+					&multiwatcher.ApplicationInfo{
+						ModelUUID:       st.ModelUUID(),
+						Name:            "wordpress",
+						CharmURL:        "local:quantal/quantal-wordpress-3",
+						WorkloadVersion: "42.47",
+						Status: multiwatcher.StatusInfo{
+							Current: "waiting",
+							Message: "waiting for machine",
+							Data:    map[string]interface{}{},
+						},
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			unit, err := app.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+			err = unit.SetWorkloadVersion("")
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "workload version is not updated when empty",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID: st.ModelUUID(),
+						Name:      "wordpress/0",
+					},
+					&multiwatcher.ApplicationInfo{
+						ModelUUID:       st.ModelUUID(),
+						Name:            "wordpress",
+						CharmURL:        "local:quantal/quantal-wordpress-3",
+						WorkloadVersion: "ultimate",
+					},
+				},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID("u#" + unit.Name() + "#charm"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID: st.ModelUUID(),
+						Name:      "wordpress/0",
+						WorkloadStatus: multiwatcher.StatusInfo{
+							Current: "waiting",
+							Message: "waiting for machine",
+							Data:    map[string]interface{}{},
+						},
+					},
+					&multiwatcher.ApplicationInfo{
+						ModelUUID:       st.ModelUUID(),
+						Name:            "wordpress",
+						CharmURL:        "local:quantal/quantal-wordpress-3",
+						WorkloadVersion: "ultimate",
+						Status: multiwatcher.StatusInfo{
+							Current: "waiting",
+							Message: "waiting for machine",
+							Data:    map[string]interface{}{},
+						},
+					},
+				},
+			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))

@@ -78,9 +78,10 @@ var marshalTestCases = []struct {
 				Current: status.Active,
 				Message: "all good",
 			},
+			WorkloadVersion: "42.47",
 		},
 	},
-	json: `["application","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name","name":"Benji","exposed":true,"life":"dying","owner-tag":"test-owner","min-units":42,"constraints":{"arch":"armhf", "mem": 1024},"config": {"hello":"goodbye","foo":false},"subordinate":false,"status":{"current":"active", "message":"all good", "version": ""}}]`,
+	json: `["application","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name","name":"Benji","exposed":true,"life":"dying","owner-tag":"test-owner","workload-version":"42.47","min-units":42,"constraints":{"arch":"armhf", "mem": 1024},"config": {"hello":"goodbye","foo":false},"subordinate":false,"status":{"current":"active", "message":"all good", "version": ""}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: multiwatcher.Delta{

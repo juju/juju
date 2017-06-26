@@ -347,7 +347,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		// so fetch the associated unit status and opened ports.
 		unitStatus, agentStatus, err := unitAndAgentStatus(st, u.Name)
 		if err != nil {
-			return errors.Annotatef(err, "reading unit and agent status for %q", u.Name)
+			return errors.Annotatef(err, "cannot retrieve unit and agent status for %q", u.Name)
 		}
 		// Unit and workload status.
 		info.WorkloadStatus = multiwatcher.NewStatusInfo(unitStatus, nil)
@@ -375,7 +375,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 	}
 	publicAddress, privateAddress, err := getUnitAddresses(st, u.Name)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "cannot get addresses for %q", u.Name)
 	}
 	info.PublicAddress = publicAddress
 	info.PrivateAddress = privateAddress
@@ -474,6 +474,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		// The entry already exists, so preserve the current status.
 		oldInfo := oldInfo.(*multiwatcher.ApplicationInfo)
 		info.Constraints = oldInfo.Constraints
+		info.WorkloadVersion = oldInfo.WorkloadVersion
 		if info.CharmURL == oldInfo.CharmURL {
 			// The charm URL remains the same - we can continue to
 			// use the same config settings.
@@ -841,8 +842,13 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		}
 	}
 
-	// A change in a unit's status might also affect it's application.
-	application, err := st.Application(newInfo.Application)
+	// Retrieve the unit.
+	unit, err := st.Unit(newInfo.Name)
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve unit %q", newInfo.Name)
+	}
+	// A change in a unit's status might also affect its application.
+	application, err := unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -860,6 +866,12 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	}
 	newApplicationInfo := *applicationInfo.(*multiwatcher.ApplicationInfo)
 	newApplicationInfo.Status = multiwatcher.NewStatusInfo(status, nil)
+	workloadVersion, err := unit.WorkloadVersion()
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve workload version for %q", unit.Name())
+	} else if workloadVersion != "" {
+		newApplicationInfo.WorkloadVersion = workloadVersion
+	}
 	store.Update(&newApplicationInfo)
 	return nil
 }
