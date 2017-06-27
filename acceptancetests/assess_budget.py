@@ -9,16 +9,16 @@ You can use charm login to do this, or let juju authenticate with a browser.
 from __future__ import print_function
 
 import argparse
+from fixtures import EnvironmentVariable
 import json
 import logging
+import os
 import pexpect
 from random import randint
 import shutil
 import subprocess
 import sys
-import os
 
-from fixtures import EnvironmentVariable
 
 from deploy_stack import (
     BootstrapManager,
