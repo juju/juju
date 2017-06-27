@@ -3,73 +3,141 @@
 
 from __future__ import print_function
 
-import argparse
+import os
+import sys
+import time
 import yaml
 import logging
-from subprocess import CalledProcessError
-import sys
+import argparse
+import subprocess
+
+from jujucharm import local_charm_path
 
 from deploy_stack import (
     BootstrapManager,
-    get_random_string,
+    # get_random_string,
     )
+
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     )
-from jujucharm import local_charm_path
 
 __metaclass__ = type
-
-
 log = logging.getLogger("assess_persistent_storage")
 
 
-def assess_persistent_storage(client):
-    ensure_storage_remains_after_application_removal()
+def assess_storage_remove_single_storage(client, storage_type):
+    """remove-storage should fail if deployed charm has one storage only.
 
+       Steps taken to test:
+       - Deploy dummy-storage charm configured with single filesystem.
+       - Get storage list once the charm deployment is done.
+       - Run remove-storage command to remove the only storage.
+       - Test Passed if the remove-storage failed, otherwise Test Failed.
 
-def ensure_storage_remains_after_application_removal(client):
-    """Storage created during a deploy must persist after application removal.
-
-    Steps taken to test:
-      - Deploy the dummy storage charm
-      - Set config and ensure data is stored on storage.
-      - Remove application, taking note of the remaining storage name
-      - Re-deploy new charm using persisted storage
-      - Ensure data has remained.
-
-    :param client: ModelClient object to deploy the charm on.
+       :param client: ModelClient object to deploy the charm on.
     """
-    random_token = get_random_string()
-    expected_token_values = {'single-fs-token': random_token}
-    charm_path = local_charm_path(
-        charm='dummy-storage', juju_ver=client.version)
-    client.deploy(charm_path, storage='single-fs=rootfs')
-    client.wait_for_started()
-    client.set_config('dummy-storage', {'single-fs-token': random_token})
-    client.wait_for_workloads()
 
-    assert_storage_is_intact(client, expected_results=expected_token_values)
+    charm_name = 'dummy-storage'
+    charm_path = local_charm_path(
+        charm=charm_name, juju_ver=client.version)
+    log.info('{} is going to be deployed with storage type: {}.'.format(
+        charm_name, storage_type))
+    client.deploy(charm_path, storage=storage_type)
+    client.wait_for_started()
+    client.wait_for_workloads()
 
     try:
-        single_filesystem_name = get_storage_filesystems(
+        single_storage_name = get_storage_filesystems(
             client, 'single-fs')[0]
+        log.info(
+            'Single storage ID is {}'.format(single_storage_name))
     except IndexError:
-        raise JujuAssertionError('Storage was not found.')
+        raise JujuAssertionError('Storage was not found, test aborted')
 
-    client.remove_service('dummy-storage')
+    try:
+        client.juju('remove-storage', single_storage_name)
+        log.info(
+            'Test Failed - remove-storage is expected to fail in single-fs!')
+    except subprocess.CalledProcessError:
+        log.info(
+            'Test Passed - storage cannot be removed if it is the only one.')
 
-    # Wait for application to be removed then re-deploy with existing storage.
+    log.info('Test is done, time to clean up.')
+    remove_deployed_charm(client, charm_id=charm_name)
+    log.info('{} has been removed'.format(charm_name))
 
-    storage_command = '--attach-storage single-fs={}'.format(
-        single_filesystem_name)
-    client.deploy(charm_path, alias=storage_command)
+
+def assess_storage_remove_multi_fs(client):
+    """remove-storage should succeed if deployed charm has multiple storages.
+
+       Steps taken to test:
+       - Deploy dummy-storage charm configured with multiple filesystem.
+       - Get storage list once the charm deployment is done.
+       - Check if the number of storages deployed matches to the spec.
+       - Run remove-storage command to remove one of the storages.
+       - Get storage list again to check if the removed storage still exists.
+       - Test Passed if the removed storage is gone, otherwise Test Failed.
+
+       :param client: ModelClient object to deploy the charm on.
+    """
+    charm_name = 'dummy-storage'
+    charm_path = local_charm_path(
+        charm=charm_name, juju_ver=client.version)
+    storage_number = 2
+    log.info(
+        '{} is going to be deployed with {} storages.'.format(
+        charm_name, str(storage_number)))
+    client.deploy(
+        charm_path,
+        storage='multi-fs=rootfs,{}'.format(str(storage_number)))
     client.wait_for_started()
     client.wait_for_workloads()
 
-    assert_storage_is_intact(client, expected_token_values)
+    try:
+        multi_filesystem_name = get_storage_filesystems(client, 'multi-fs')
+        log.info(
+            'Following filesystems have been found:\n{}'.format(
+            ', '.join(multi_filesystem_name)))
+    except IndexError:
+        raise JujuAssertionError('Storage was not found, test aborted')
+
+    if len(multi_filesystem_name) == storage_number:
+        try:
+            client.juju('remove-storage', multi_filesystem_name[-1])
+            log.info('Command remove-storage has been excuted.')
+        except subprocess.CalledProcessError:
+            log.info('Test Failed - Run command remove-storage failed!')
+    else:
+        log.info('{} deployment failed - '
+                 'the number of storages deployed does not match the spec!'
+                 .format(charm_name))
+
+    # Get file systems after waited 30 seconds
+    time.sleep(30)
+    try:
+        filesystem_remain = get_storage_filesystems(client, 'multi-fs')
+    except subprocess.CalledProcessError:
+        log.info('Get remaining storage list failed!')
+    if multi_filesystem_name[-1] in filesystem_remain:
+        log.info(
+            'Test Failed - {} still exists after remove-storage!'.format(
+            multi_filesystem_name[-1]))
+    else:
+        log.info(
+            'Test Passed - {} has been successfully removed.'.format(
+            multi_filesystem_name[-1]))
+
+    log.info('Test is done, time to clean up.')
+    remove_deployed_charm(client, charm_id=charm_name)
+    log.info('{} has been removed'.format(charm_name))
+
+
+def remove_deployed_charm(client, charm_id):
+    client.remove_service(charm_id)
+    time.sleep(30)
 
 
 def get_storage_filesystems(client, storage_name):
@@ -85,63 +153,26 @@ def get_storage_filesystems(client, storage_name):
         if details['storage'].startswith(storage_name)]
 
 
-def assert_storage_is_intact(client, expected_results):
-    """Ensure stored tokens match the expected values in `expected_results`.
-
-    Checks the token values stored on the storage assigned to the deployed
-    dummy-storage charm.
-
-    Only matches the provided expected token values and ignores any that have
-    no values provided for them.
-
-    :param client: ModelClient object where dummy-storage application is
-      deployed
-    :param expected_results: Dict containing 'token name' -> 'expected value'
-      look up values.
-    :raises JujuAssertionError: If expected token values are not present in the
-      stored token details.
-    """
-    stored_content = get_stored_token_content(client)
-
-    for expected_name, expected_value in expected_results.iteritems():
-        try:
-            stored_value = stored_content[expected_name]
-        except KeyError:
-            raise JujuAssertionError(
-                'Expected token "{}" not found in stored results.'.format(
-                    expected_name))
-        if stored_value != expected_value:
-            raise JujuAssertionError(
-                'Token values do not match. Expected: {} got: {}'.format(
-                    expected_value, stored_value))
-
-
-def get_stored_token_content(client):
-    """Retrieve token values from file stored on the unit.
-
-    Token values are retrieved from the storage units and logged into a file on
-    the application unit.
-
-    :param client: ModelClient object to query.
-    :return: Dict containing 'token name' -> 'token value'.
-    """
-    try:
-        # TODO: Need to pass in application/unit
-        contents = client.get_juju_output(
-            'ssh', ('dummy-storage/0', 'cat', '/tmp/status'))
-    except CalledProcessError as e:
-        raise JujuAssertionError('Failed to read token file: {}'.format(e))
-
-    return {token_name: token_value for token_name, token_value in (
-        line.split(':', 1) for line in contents.splitlines() if line != '')}
-
-
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
         description="Test for Persistent Storage feature.")
     add_basic_testing_arguments(parser)
     return parser.parse_args(argv)
+
+
+def assess_persistent_storage(client):
+    # Based on the test spec, persistent storage need to be tested on both
+    # LXD and AWS and ebs volume is unavailable on LXD, a switcher is
+    # required here to decide which test should be run.
+    environment = os.getenv('ENV', default='parallel-lxd')
+    if environment == 'parallel-lxd':
+        assess_storage_remove_single_storage(
+            client, storage_type='single-fs=rootfs')
+    elif environment == 'parallel-aws':
+        assess_storage_remove_single_storage(
+            client, storage_type='single-fs=ebs,10G')
+    #assess_storage_remove_multi_fs(client)
 
 
 def main(argv=None):
