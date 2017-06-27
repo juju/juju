@@ -11,10 +11,14 @@ from __future__ import print_function
 import argparse
 import json
 import logging
+import pexpect
 from random import randint
+import shutil
 import subprocess
 import sys
 import os
+
+from fixtures import EnvironmentVariable
 
 from deploy_stack import (
     BootstrapManager,
@@ -22,6 +26,7 @@ from deploy_stack import (
 
 from utility import (
     add_basic_testing_arguments,
+    temp_dir,
     JujuAssertionError,
     configure_logging,
 )
@@ -243,22 +248,47 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def set_controller_cookie_file():
-    """Plant pre-generated cookie file to avoid launching Browser."""
-    user_home = os.getenv('HOME', default='/var/lib/jenkins')
-    juju_home = os.getenv('JUJU_HOME', default='/var/lib/jenkins/cloud-city')
-    ctrl_name = os.getenv('JOB_NAME', default='budget-management')
-    cookies_source = '{}/go-cookies-extended'.format(user_home)
-    cookies_target = '{}/jes-homes/{}/cookies/{}.json'.format(juju_home,
-                                                              ctrl_name,
-                                                              ctrl_name)
-    try:
-        subprocess.check_output(['cp', cookies_source, cookies_target],
-                                stderr=subprocess.STDOUT)
-        log.info('Cookie file go-cookies-extended has been planted.')
-    except subprocess.CalledProcessError as e:
-        log.info(e.output)
-        raise
+def set_controller_cookie_file(client):
+    """Plant pre-generated cookie file to avoid launching Browser.
+
+    Using an existing usso token use 'charm login' to create a .go-cookies file
+    (in a tmp HOME). Copy this new cookies file to become the controller cookie
+    file.
+    """
+
+    with temp_dir() as tmp_home:
+        with EnvironmentVariable('HOME', tmp_home):
+            move_usso_token_to_juju_home(tmp_home)
+
+            # charm login shoulnd't be interactive, fail if it is.
+            try:
+                command = pexpect.spawn(
+                    'charm', ['login'], env={'HOME': tmp_home})
+                command.expect(pexpect.EOF)
+            except (pexpect).TIMEOUT:
+                raise RuntimeError('charm login command was interactive.')
+
+            go_cookie = os.path.join(tmp_home, '.go-cookies')
+            controller_cookie_path = os.path.join(
+                client.env.juju_home,
+                'cookies',
+                '{}.json'.format(client.env.controller.name))
+
+            shutil.copyfile(go_cookie, controller_cookie_path)
+
+
+def move_usso_token_to_juju_home(tmp_home):
+    """Move pre-packaged token to juju data dir.
+
+    Move the stored store-usso-token to a tmp juju home dir for charm command
+    use.
+    """
+    source_usso_path = os.path.join(
+        os.environ['JUJU_HOME'], 'juju-bot-store-usso-token')
+    dest_usso_dir = os.path.join(tmp_home, '.local', 'share', 'juju')
+    os.makedirs(dest_usso_dir)
+    dest_usso_path = os.path.join(dest_usso_dir, 'store-usso-token')
+    shutil.copyfile(source_usso_path, dest_usso_path)
 
 
 def main(argv=None):
@@ -266,7 +296,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        set_controller_cookie_file()
+        set_controller_cookie_file(bs_manager.client)
         assess_budget(bs_manager.client)
     return 0
 
