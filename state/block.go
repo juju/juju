@@ -271,7 +271,7 @@ func setModelBlock(st *State, t BlockType, msg string) error {
 
 // newBlockId returns a sequential block id for this model.
 func newBlockId(st *State) (string, error) {
-	seq, err := st.sequence("block")
+	seq, err := sequence(st, "block")
 	if err != nil {
 		return "", errors.Trace(err)
 	}

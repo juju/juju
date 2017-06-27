@@ -650,7 +650,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 	}
 
 	revisionSeq := charmRevSeqName(curl.WithRevision(-1).String())
-	revision, err := st.sequenceWithMin(revisionSeq, curl.Revision)
+	revision, err := sequenceWithMin(st, revisionSeq, curl.Revision)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to allocate charm revision")
 	}

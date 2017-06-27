@@ -740,7 +740,7 @@ func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 // volume ID will incorporate it as the volume's
 // machine scope.
 func newVolumeName(st *State, machineId string) (string, error) {
-	seq, err := st.sequence("volume")
+	seq, err := sequence(st, "volume")
 	if err != nil {
 		return "", errors.Trace(err)
 	}

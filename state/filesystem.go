@@ -792,7 +792,7 @@ func ParseFilesystemAttachmentId(id string) (names.MachineTag, names.FilesystemT
 // filesystem ID will incorporate it as the
 // filesystem's machine scope.
 func newFilesystemId(st *State, machineId string) (string, error) {
-	seq, err := st.sequence("filesystem")
+	seq, err := sequence(st, "filesystem")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
