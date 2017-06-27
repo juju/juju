@@ -88,9 +88,9 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 		lenM := len(metrics)
 		if lenM == 0 {
 			if sent == 0 {
-				logger.Infof("nothing to send")
+				logger.Debugf("nothing to send")
 			} else {
-				logger.Infof("done sending")
+				logger.Debugf("done sending")
 			}
 			break
 		}
@@ -151,7 +151,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("metrics collection summary for %s: sent:%d unsent:%d held:%d (%d sent metrics stored)", st.ModelTag(), sent, unsent, held, sentStored)
+	logger.Debugf("metrics collection summary for %s: sent:%d unsent:%d held:%d (%d sent metrics stored)", st.ModelTag(), sent, unsent, held, sentStored)
 
 	return nil
 }

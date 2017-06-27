@@ -121,7 +121,7 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 	}
 
 	if m.IsContainer() {
-		logger.Warningf("not updating network config for container %q", m.Id())
+		logger.Debugf("not updating network config for container %q", m.Id())
 	}
 
 	return m, nil

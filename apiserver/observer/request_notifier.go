@@ -19,6 +19,7 @@ import (
 type RequestObserver struct {
 	clock              clock.Clock
 	logger             loggo.Logger
+	connLogger         loggo.Logger
 	apiConnectionCount func() int64
 
 	// state represents information that's built up as methods on this
@@ -30,6 +31,8 @@ type RequestObserver struct {
 		id                 uint64
 		websocketConnected time.Time
 		tag                string
+		model              string
+		agent              bool
 	}
 }
 
@@ -46,15 +49,34 @@ type RequestObserverContext struct {
 
 // NewRequestObserver returns a new RPCObserver.
 func NewRequestObserver(ctx RequestObserverContext) *RequestObserver {
+	// Ideally we should have a logging context so we can log into the correct
+	// model rather than the api server for everything.
+	module := ctx.Logger.Name()
 	return &RequestObserver{
-		clock:  ctx.Clock,
-		logger: ctx.Logger,
+		clock:      ctx.Clock,
+		logger:     ctx.Logger,
+		connLogger: loggo.GetLogger(module + ".connection"),
+	}
+}
+
+func (n *RequestObserver) isAgent(entity names.Tag) bool {
+	switch entity.(type) {
+	case names.UnitTag, names.MachineTag:
+		return true
+	default:
+		return false
 	}
 }
 
 // Login implements Observer.
-func (n *RequestObserver) Login(entity names.Tag, _ names.ModelTag, _ bool, _ string) {
+func (n *RequestObserver) Login(entity names.Tag, model names.ModelTag, fromController bool, _ string) {
 	n.state.tag = entity.String()
+	// Don't log connections from the controller to the model.
+	if n.isAgent(entity) && !fromController {
+		n.state.agent = true
+		n.state.model = model.Id()
+		n.connLogger.Infof("agent login: %s for %s", n.state.tag, n.state.model)
+	}
 }
 
 // Join implements Observer.
@@ -71,6 +93,9 @@ func (n *RequestObserver) Join(req *http.Request, connectionID uint64) {
 
 // Leave implements Observer.
 func (n *RequestObserver) Leave() {
+	if n.state.agent {
+		n.connLogger.Infof("agent disconnected: %s for %s", n.state.tag, n.state.model)
+	}
 	n.logger.Debugf(
 		"[%X] %s API connection terminated after %v",
 		n.state.id,
