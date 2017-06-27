@@ -163,7 +163,7 @@ def restore_missing_state_server(bs_manager, controller_client, backup_file,
         controller_client.wait_for_started(600)
         # status can return even if controller isn't ready
         logging.info('Waiting for application to be ready')
-        self.wait_for_application('dummy-source', 600)
+        controller_client.wait_for_application('dummy-source', 600)
     show_controller(bs_manager.client)
     bs_manager.has_controller = True
     bs_manager.client.set_config('dummy-source', {'token': 'Two'})

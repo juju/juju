@@ -2430,8 +2430,8 @@ class ModelClient:
         return status
 
     def wait_for_application(self, application, timeout=60):
-        """Wait till config returns without error. This is used as a 
-        proxy for the application itself being ready to accept 
+        """Wait till config returns without error. This is used as a
+        proxy for the application itself being ready to accept
         operations.
 
         :param application: Application to wait for
@@ -2440,7 +2440,7 @@ class ModelClient:
             try:
                 return self.get_config(application)
             except subprocess.CalledProcessError:
-                sleep(10)
+                time.sleep(10)
                 pass
         raise Exception(
             'Timed out waiting for %s' % (application))
