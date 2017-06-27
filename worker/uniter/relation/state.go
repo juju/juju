@@ -219,10 +219,22 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 
 // Remove removes the directory if it exists and is empty.
 func (d *StateDir) Remove() error {
-	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
+	if files, err := ioutil.ReadDir(d.path); err != nil && !os.IsNotExist(err) {
 		return err
+	} else if err == nil {
+		if len(files) > 0 {
+			names := make([]string, len(files))
+			for i, file := range files {
+				names[i] = file.Name()
+			}
+			logger.Debugf("relation state directory %q not empty on removal: %v", d.path, names)
+		}
+		if err := os.RemoveAll(d.path); err != nil {
+			return err
+		}
 	}
-	// If atomic delete succeeded, update own state.
+
+	// If delete succeeded, update own state.
 	d.state.Members = nil
 	return nil
 }
