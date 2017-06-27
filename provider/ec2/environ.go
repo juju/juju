@@ -271,7 +271,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
-		subnetResp, err := e.ec2.Subnets(nil, nil)
+		subnetResp, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -969,7 +969,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			results = append(results, info)
 		}
 	} else {
-		resp, err := e.ec2.Subnets(nil, nil)
+		resp, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
@@ -1008,6 +1008,20 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	}
 
 	return results, nil
+}
+
+func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, err error) {
+	filter := ec2.NewFilter()
+	vpcId := e.ecfg().vpcID()
+	if !isVPCIDSet(vpcId) {
+		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+			vpcId = e.defaultVPC.Id
+		}
+	}
+	if isVPCIDSet(vpcId) {
+		filter.Add("vpc-id", vpcId)
+	}
+	return e.ec2.Subnets(nil, filter)
 }
 
 // AdoptResources is part of the Environ interface.
