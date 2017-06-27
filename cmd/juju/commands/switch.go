@@ -37,14 +37,11 @@ Selects or identifies the current controller and model.`[1:]
 var usageDetails = `
 When used without an argument, the command shows the current controller 
 and its active model. 
-When switching by controller name alone, the model
-you get is the active model for that controller. If you want a different
-model then you must switch using controller:model notation or switch to
-the controller and then to the model.
-When using a single argument without a colon juju first looks for a controller
-by that name and switches to it, and if it's not found it tries to switch to a
-model within current controller. Use mycontroller: or :mymodel notation to
-avoid ambiguity.
+When a single argument without a colon is provided juju first looks for a
+controller by that name and switches to it, and if it's not found it tries
+to switch to a model within current controller. mycontroller: switches to
+default model in mycontroller, :mymodel switches to mymodel in current
+controller and mycontroller:mymodel switches to mymodel on mycontroller.
 The `[1:] + "`juju models`" + ` command can be used to determine the active model
 (of any controller). An asterisk denotes it.
 
