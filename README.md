@@ -174,8 +174,3 @@ To enable strict mode, the following bugs need to be resolved, and the snap upda
  * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
  * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
  * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
-
-Needed for confinement
-----------------------
- * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
- * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
