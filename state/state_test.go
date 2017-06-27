@@ -90,6 +90,32 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestOpenController(c *gc.C) {
+	controller, err := state.OpenController(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controller.Close(), gc.IsNil)
+}
+
+func (s *StateSuite) TestOpenControllerTwice(c *gc.C) {
+	for i := 0; i < 2; i++ {
+		controller, err := state.OpenController(state.OpenParams{
+			Clock:              clock.WallClock,
+			ControllerTag:      s.State.ControllerTag(),
+			ControllerModelTag: s.modelTag,
+			MongoInfo:          statetesting.NewMongoInfo(),
+			MongoDialOpts:      mongotest.DialOpts(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(controller.Close(), gc.IsNil)
+	}
+}
+
 func (s *StateSuite) TestIsController(c *gc.C) {
 	c.Assert(s.State.IsController(), jc.IsTrue)
 	st2 := s.Factory.MakeModel(c, nil)

@@ -80,6 +80,50 @@ func (p OpenParams) Validate() error {
 	return nil
 }
 
+// OpenController connects to the server with the given parameters, waits for it
+// to be initialized, and returns a new Controller instance.
+//
+// OpenController returns unauthorizedError if access is unauthorized.
+func OpenController(args OpenParams) (*Controller, error) {
+	if err := args.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating args")
+	}
+
+	logger.Infof("opening controller state, mongo addresses: %q; entity %v",
+		args.MongoInfo.Addrs, args.MongoInfo.Tag)
+	logger.Debugf("dialing mongo")
+	session, err := mongo.DialWithInfo(args.MongoInfo.Info, args.MongoDialOpts)
+	if err != nil {
+		return nil, maybeUnauthorized(err, "cannot connect to mongodb")
+	}
+	logger.Debugf("connection established")
+
+	err = mongodbLogin(session, args.MongoInfo)
+	if err != nil {
+		session.Close()
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("mongodb login successful")
+
+	if args.InitDatabaseFunc != nil {
+		if err := args.InitDatabaseFunc(session, args.ControllerModelTag.Id(), nil); err != nil {
+			session.Close()
+			return nil, errors.Trace(err)
+		}
+		logger.Debugf("mongodb initialised")
+	}
+
+	return &Controller{
+		clock:                  args.Clock,
+		controllerTag:          args.ControllerTag,
+		controllerModelTag:     args.ControllerModelTag,
+		mongoInfo:              args.MongoInfo,
+		session:                session,
+		newPolicy:              args.NewPolicy,
+		runTransactionObserver: args.RunTransactionObserver,
+	}, nil
+}
+
 // Open connects to the server with the given parameters, waits for it
 // to be initialized, and returns a new State representing the model
 // connected to.
