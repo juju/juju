@@ -39,8 +39,12 @@ When used without an argument, the command shows the current controller
 and its active model. 
 When switching by controller name alone, the model
 you get is the active model for that controller. If you want a different
-model then you must switch using controller:model notation or switch to 
-the controller and then to the model. 
+model then you must switch using controller:model notation or switch to
+the controller and then to the model.
+When using a single argument without a colon juju first looks for a controller
+by that name and switches to it, and if it's not found it tries to switch to a
+model within current controller. Use mycontroller: or :mymodel notation to
+avoid ambiguity.
 The `[1:] + "`juju models`" + ` command can be used to determine the active model
 (of any controller). An asterisk denotes it.
 
@@ -49,6 +53,8 @@ Examples:
     juju switch mymodel
     juju switch mycontroller
     juju switch mycontroller:mymodel
+    juju switch mycontroller:
+    juju switch :mymodel
 
 See also: 
     controllers
@@ -58,7 +64,7 @@ See also:
 func (c *switchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
-		Args:    "[<controller>|<model>|<controller>:<model>]",
+		Args:    "[<controller>|<model>|<controller>:|:<model>|<controller>:<model>]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
 	}
@@ -113,9 +119,15 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", model)
 	}
 
-	// If the target identifies a controller, then set that as the current controller.
+	// If the target identifies a controller, or we want a controller explicitly,
+	// then set that as the current controller.
 	var newControllerName = c.Target
-	if _, err = store.ControllerByName(c.Target); err == nil {
+	var forceController = false
+	if c.Target[len(c.Target)-1] == ':' {
+		forceController = true
+		newControllerName = c.Target[:len(c.Target)-1]
+	}
+	if _, err = store.ControllerByName(newControllerName); err == nil {
 		if newControllerName == currentControllerName {
 			newName = currentName
 			return nil
@@ -126,7 +138,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 			}
 			return errors.Trace(store.SetCurrentController(newControllerName))
 		}
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.IsNotFound(err) || forceController {
 		return errors.Trace(err)
 	}
 
