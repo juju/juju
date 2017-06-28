@@ -351,7 +351,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		assertCloudCredentialOp,
 	}
 	ops := append(prereqOps, modelOps...)
-	err = newSt.runTransaction(ops)
+	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
@@ -554,7 +554,7 @@ func (m *Model) SetMigrationMode(mode MigrationMode) error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"migration-mode", mode}}}},
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return m.Refresh()
@@ -653,7 +653,7 @@ func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
 		Id:     m.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"available-tools", v}}}},
 	}}
-	err := m.st.runTransaction(ops)
+	err := m.st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -710,7 +710,7 @@ func (m *Model) SetSLA(level, owner string, credentials []byte) error {
 			Credentials: credentials,
 		}}}}},
 	}}
-	err = m.st.runTransaction(ops)
+	err = m.st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -730,7 +730,7 @@ func (m *Model) SetMeterStatus(status, info string) error {
 			Info: info,
 		}}}}},
 	}}
-	err := m.st.runTransaction(ops)
+	err := m.st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -864,7 +864,7 @@ func (m *Model) destroy(ensureNoHostedModels bool) (err error) {
 		return ops, nil
 	}
 
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // errModelNotAlive is a signal emitted from destroyOps to indicate

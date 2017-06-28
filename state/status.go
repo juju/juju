@@ -120,7 +120,7 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	if params.token != nil {
 		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
-	err = st.run(buildTxn)
+	err = st.db().Run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return errors.NotFoundf(params.badge)
 	}

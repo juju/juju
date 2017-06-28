@@ -267,7 +267,7 @@ func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interfac
 }
 
 func RunTransaction(st *State, ops []txn.Op) error {
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 // Return the PasswordSalt that goes along with the PasswordHash
@@ -375,7 +375,7 @@ func SetModelLifeDead(st *State, modelUUID string) error {
 		Id:     modelUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 func HostedModelCount(c *gc.C, st *State) int {
@@ -483,7 +483,7 @@ func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
 	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
-	txnError := app.st.runTransaction([]txn.Op{removeOp})
+	txnError := app.st.db().RunTransaction([]txn.Op{removeOp})
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -525,7 +525,7 @@ func ResetMigrationMode(c *gc.C, st *State) {
 			"$set": bson.M{"migration-mode": MigrationModeNone},
 		},
 	}}
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -574,7 +574,7 @@ func PrimeUnitStatusHistory(
 		return statusSetOps(unit.st, doc, globalKey)
 	}
 
-	err := unit.st.run(buildTxn)
+	err := unit.st.db().Run(buildTxn)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

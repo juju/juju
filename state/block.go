@@ -266,7 +266,7 @@ func setModelBlock(st *State, t BlockType, msg string) error {
 		}
 		return createModelBlockOps(st, t, msg)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // newBlockId returns a sequential block id for this model.
@@ -306,7 +306,7 @@ func RemoveModelBlock(st *State, t BlockType) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		return RemoveModelBlockOps(st, t)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func RemoveModelBlockOps(st *State, t BlockType) ([]txn.Op, error) {

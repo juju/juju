@@ -126,7 +126,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 				Update: bson.D{{"$set", bson.D{{"code", code.String()}, {"info", info}}}},
 			}}, nil
 	}
-	return errors.Annotatef(u.st.run(buildTxn), "cannot set meter state for unit %s", u.Name())
+	return errors.Annotatef(u.st.db().Run(buildTxn), "cannot set meter state for unit %s", u.Name())
 }
 
 // createMeterStatusOp returns the operation needed to create the meter status

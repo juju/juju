@@ -185,7 +185,7 @@ type ActionResults struct {
 // Begin marks an action as running, and logs the time it was started.
 // It asserts that the action is currently pending.
 func (a *action) Begin() (Action, error) {
-	err := a.st.runTransaction([]txn.Op{
+	err := a.st.db().RunTransaction([]txn.Op{
 		{
 			C:      actionsC,
 			Id:     a.doc.DocId,
@@ -211,7 +211,7 @@ func (a *action) Finish(results ActionResults) (Action, error) {
 // an actionresult to capture the outcome of the action. It asserts that
 // the action is not already completed.
 func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (Action, error) {
-	err := a.st.runTransaction([]txn.Op{
+	err := a.st.db().RunTransaction([]txn.Op{
 		{
 			C:  actionsC,
 			Id: a.doc.DocId,
@@ -396,7 +396,7 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return newAction(st, doc), nil
 	}
 	return nil, err

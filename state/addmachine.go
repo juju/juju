@@ -177,7 +177,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	}
 	ops = append(ops, ssOps...)
 	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
 			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
@@ -190,7 +190,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	ops = append([]txn.Op{assertModelActiveOp(st.ModelUUID())}, ops...)
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
 			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
@@ -862,7 +862,7 @@ func (st *State) EnableHA(
 		ops, change, err = st.enableHAIntentionOps(intent, currentInfo, cons, series)
 		return ops, err
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		err = errors.Annotate(err, "failed to create new controller machines")
 		return ControllersChanges{}, err
 	}

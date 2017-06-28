@@ -518,7 +518,7 @@ func (st *State) DetachFilesystem(machine names.MachineTag, filesystem names.Fil
 		ops := detachFilesystemOps(machine, filesystem)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func (st *State) filesystemVolumeAttachment(m names.MachineTag, f names.FilesystemTag) (VolumeAttachment, error) {
@@ -592,7 +592,7 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeFilesystemAttachmentOps(st *State, m names.MachineTag, f *filesystem) ([]txn.Op, error) {
@@ -656,7 +656,7 @@ func (st *State) DestroyFilesystem(tag names.FilesystemTag) (err error) {
 		}}}
 		return destroyFilesystemOps(st, filesystem, hasNoStorageAssignment)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.Op, error) {
@@ -735,7 +735,7 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 		}
 		return removeFilesystemOps(st, filesystem, isDeadDoc)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) ([]txn.Op, error) {
@@ -1013,7 +1013,7 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 		ops := setFilesystemInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func validateFilesystemInfoChange(newInfo, oldInfo FilesystemInfo) error {
@@ -1088,7 +1088,7 @@ func (st *State) SetFilesystemAttachmentInfo(
 		ops := setFilesystemAttachmentInfoOps(machineTag, filesystemTag, info, unsetParams)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func setFilesystemAttachmentInfoOps(

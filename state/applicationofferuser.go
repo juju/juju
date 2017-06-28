@@ -49,7 +49,7 @@ func (st *State) CreateOfferAccess(offer names.ApplicationOfferTag, user names.U
 	}
 	op := createPermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)), access)
 
-	err = st.runTransaction([]txn.Op{op})
+	err = st.db().RunTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("permission for user %q for offer %q", user.Id(), offer.Name)
 	}
@@ -67,7 +67,7 @@ func (st *State) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.U
 	}
 	op := updatePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)), access)
 
-	err = st.runTransaction([]txn.Op{op})
+	err = st.db().RunTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -82,7 +82,7 @@ func (st *State) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.U
 	}
 	op := removePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))
 
-	err = st.runTransaction([]txn.Op{op})
+	err = st.db().RunTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", user.Id()))
 	}

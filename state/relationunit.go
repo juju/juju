@@ -143,7 +143,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := ru.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
@@ -259,7 +259,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
-	return ru.st.runTransaction(ops)
+	return ru.st.db().RunTransaction(ops)
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -338,7 +338,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err := ru.st.run(buildTxn); err != nil {
+	if err := ru.st.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "cannot leave scope for %s", desc)
 	}
 	return nil

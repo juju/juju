@@ -383,7 +383,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	}
 	ops = append(ops, modelOps...)
 
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())

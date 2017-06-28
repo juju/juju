@@ -99,7 +99,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		}
 		return ops, nil
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "updating cloud credentials")
 	}
 	return nil
@@ -117,7 +117,7 @@ func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag) error {
 		}
 		return removeCloudCredentialOps(tag), nil
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "removing cloud credential")
 	}
 	return nil

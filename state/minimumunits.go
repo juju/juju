@@ -61,7 +61,7 @@ func (a *Application) SetMinUnits(minUnits int) (err error) {
 		}
 		return setMinUnitsOps(app, minUnits), nil
 	}
-	return a.st.run(buildTxn)
+	return a.st.db().Run(buildTxn)
 }
 
 // setMinUnitsOps returns the operations required to set MinUnits on the
@@ -155,7 +155,7 @@ func (a *Application) EnsureMinUnits() (err error) {
 			return err
 		}
 		// Add missing unit.
-		switch err := a.st.runTransaction(ops); err {
+		switch err := a.st.db().RunTransaction(ops); err {
 		case nil:
 			// Assign the new unit.
 			unit, err := a.st.Unit(name)

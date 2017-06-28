@@ -201,7 +201,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			Id:     modelUUID,
 			Assert: modelAssertion,
 		}}, ops...)
-		err = st.runTransaction(ops)
+		err = st.db().RunTransaction(ops)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -231,7 +231,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = st.runTransaction(ops)
+	err = st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -260,7 +260,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())
 	}
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 // removeAllInCollectionRaw removes all the documents from the given
@@ -698,7 +698,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
+	if err = st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		// Although there is a small chance of a race here, try to
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
@@ -1277,7 +1277,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	// At the last moment before inserting the application, prime status history.
 	probablyUpdateStatusHistory(st, app.globalKey(), statusDoc)
 
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.
 		if err = app.Refresh(); err != nil {
 			return nil, errors.Trace(err)
@@ -1800,7 +1800,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		})
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, errors.Trace(err)
@@ -2084,7 +2084,7 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set state serving info")
 	}
 	return nil
@@ -2141,7 +2141,7 @@ func (st *State) setMongoSpaceName(mongoSpaceName network.SpaceName) error {
 		}},
 	}}
 
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
@@ -2151,7 +2151,7 @@ func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
 		Update: bson.D{{"$set", bson.D{{"mongo-space-state", mongoSpaceState}}}},
 	}}
 
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {

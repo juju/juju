@@ -127,7 +127,7 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 		}
 		return ops, nil
 	}
-	if err := ec.st.run(buildTxn); err != nil {
+	if err := ec.st.db().Run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create external controllers")
 	}
 

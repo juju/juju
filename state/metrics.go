@@ -165,7 +165,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		}}
 		return ops, nil
 	}
-	err = st.run(buildTxn)
+	err = st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -211,7 +211,7 @@ func (st *State) AddModelMetrics(batch ModelBatchParam) (*MetricBatch, error) {
 		}}
 		return ops, nil
 	}
-	err = st.run(buildTxn)
+	err = st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -436,7 +436,7 @@ func (m *MetricBatch) UniqueMetrics() []Metric {
 func (m *MetricBatch) SetSent(t time.Time) error {
 	deleteTime := t.UTC().Add(CleanupAge)
 	ops := setSentOps([]string{m.UUID()}, deleteTime)
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
 	}
 
@@ -472,7 +472,7 @@ func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
 	deleteTime := st.clock.Now().UTC().Add(CleanupAge)
 	ops := setSentOps(batchUUIDs, deleteTime)
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")
 	}
 	return nil

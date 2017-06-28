@@ -122,7 +122,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 		}
 		return []txn.Op{op}, nil
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
 	logger.Debugf("setting API hostPorts: %v", netHostsPorts)

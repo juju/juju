@@ -75,7 +75,7 @@ func (sp statePersistence) All(collName string, query, docs interface{}) error {
 
 // Run runs the transaction produced by the provided factory function.
 func (sp statePersistence) Run(transactions jujutxn.TransactionSource) error {
-	if err := sp.st.run(transactions); err != nil {
+	if err := sp.st.db().Run(transactions); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

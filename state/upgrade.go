@@ -284,7 +284,7 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 	if len(extraOps) > 0 {
 		ops = append(ops, extraOps...)
 	}
-	err = info.st.runTransaction(ops)
+	err = info.st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		return errors.Errorf("cannot set upgrade status to %q: Another "+
 			"status change may have occurred concurrently", status)
@@ -355,7 +355,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 			"$addToSet", bson.D{{"controllersReady", machineId}},
 		}},
 	}}
-	switch err := st.runTransaction(ops); err {
+	switch err := st.db().RunTransaction(ops); err {
 	case nil:
 		return ensureUpgradeInfoUpdated(st, machineId, previousVersion, targetVersion)
 	case txn.ErrAborted:
@@ -467,7 +467,7 @@ func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 			Update: bson.D{{"$addToSet", bson.D{{"controllersDone", machineId}}}},
 		}}, nil
 	}
-	err = info.st.run(buildTxn)
+	err = info.st.db().Run(buildTxn)
 	return errors.Annotate(err, "cannot complete upgrade")
 }
 
@@ -492,7 +492,7 @@ func (info *UpgradeInfo) Abort() error {
 
 		return ops, nil
 	}
-	err := info.st.run(buildTxn)
+	err := info.st.db().Run(buildTxn)
 	return errors.Annotate(err, "cannot abort upgrade")
 }
 
@@ -584,6 +584,6 @@ func (st *State) ClearUpgradeInfo() error {
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	return errors.Annotate(err, "cannot clear upgrade info")
 }

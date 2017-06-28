@@ -108,7 +108,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		defaultControllerPermission)
 	ops = append(ops, controllerUserOps...)
 
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.Errorf("username unavailable")
 	}
@@ -149,7 +149,7 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		}}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string, dateCreated time.Time) []txn.Op {
@@ -440,7 +440,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 		Assert: txn.DocExists,
 		Update: update,
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set password of user %q", u.Name())
 	}
 	u.doc.PasswordHash = pwHash
@@ -506,7 +506,7 @@ func (u *User) setDeactivated(value bool) error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			err = fmt.Errorf("user no longer exists")
 		}

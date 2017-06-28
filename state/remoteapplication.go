@@ -279,7 +279,7 @@ func (s *RemoteApplication) Destroy() (err error) {
 		}
 		return nil, jujutxn.ErrTransientFailure
 	}
-	return s.st.run(buildTxn)
+	return s.st.db().Run(buildTxn)
 }
 
 // destroyOps returns the operations required to destroy the application. If it
@@ -504,7 +504,7 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		}
 		return ops, nil
 	}
-	if err := s.st.run(buildTxn); err != nil {
+	if err := s.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return s.Refresh()
@@ -737,7 +737,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err != nil {
+	if err = st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return app, nil

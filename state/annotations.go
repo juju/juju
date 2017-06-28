@@ -67,7 +67,7 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 		}
 		return updateAnnotations(st, entity, toUpdate, toRemove), nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // Annotations returns all the annotations corresponding to an entity.

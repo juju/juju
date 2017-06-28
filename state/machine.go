@@ -291,7 +291,7 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.HasVote = hasVote
@@ -307,7 +307,7 @@ func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
 		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.StopMongoUntilVersion = v.String()
@@ -453,7 +453,7 @@ func (m *Machine) ForceDestroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := m.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := m.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return errors.Trace(err)
 	}
 	return nil
@@ -725,7 +725,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		op.Assert = advanceAsserts
 		return []txn.Op{op, cleanupOp}, nil
 	}
-	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
+	if err = m.st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
 	return err
@@ -887,7 +887,7 @@ func (m *Machine) Remove() (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -1172,7 +1172,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		},
 	}
 
-	if err = m.st.runTransaction(ops); err == nil {
+	if err = m.st.db().RunTransaction(ops); err == nil {
 		m.doc.Nonce = nonce
 		return nil
 	} else if err != txn.ErrAborted {
@@ -1499,7 +1499,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		ops = append(ops, setPublicAddressOps...)
 		return ops, nil
 	}
-	err = m.st.run(buildTxn)
+	err = m.st.db().Run(buildTxn)
 	if err == txn.ErrAborted {
 		return ErrDead
 	} else if err != nil {
@@ -1593,7 +1593,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // Status returns the status of the machine.
@@ -1707,7 +1707,7 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 				}}},
 		},
 	}
-	if err = m.st.runTransaction(ops); err != nil {
+	if err = m.st.db().RunTransaction(ops); err != nil {
 		err = onAbort(err, ErrDead)
 		logger.Errorf("cannot update supported containers of machine %v: %v", m, err)
 		return err
