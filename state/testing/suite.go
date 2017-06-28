@@ -61,7 +61,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	})
 	s.AddCleanup(func(*gc.C) {
 		s.State.Close()
-		s.State.Close()
+		s.Controller.Close()
 	})
 	s.Factory = factory.NewFactory(s.State)
 }
