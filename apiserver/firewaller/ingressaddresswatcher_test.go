@@ -403,3 +403,44 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	wc.AssertChange("6.7.8.9/32")
 	wc.AssertNoChange()
 }
+
+func (s *addressWatcherSuite) TestEgressAddressConfigured(c *gc.C) {
+	s.st.configAttrs["egress-cidrs"] = "10.0.0.1/16"
+	rel := s.setupRelation(c, "54.1.2.3")
+	w, err := firewaller.NewIngressAddressWatcher(s.st, rel, "django")
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+
+	// Initial event.
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+		},
+	}
+	wc.AssertChange("10.0.0.1/16")
+	wc.AssertNoChange()
+
+	// Change user configured egress addresses.
+	s.st.configAttrs["egress-cidrs"] = "192.168.0.1/16"
+	s.st.modelWatcher.changes <- struct{}{}
+	wc.AssertChange("192.168.0.1/16")
+	wc.AssertNoChange()
+
+	// Reset user configured egress addresses.
+	s.st.configAttrs["egress-cidrs"] = ""
+	s.st.modelWatcher.changes <- struct{}{}
+	wc.AssertChange("54.1.2.3/32")
+	wc.AssertNoChange()
+
+	// A not found unit doesn't trigger an event.
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"unknown/0": {},
+		},
+	}
+	wc.AssertNoChange()
+}

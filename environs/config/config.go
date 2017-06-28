@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -151,6 +152,10 @@ const (
 
 	// UpdateStatusHookInterval is how often to run the update-status hook.
 	UpdateStatusHookInterval = "update-status-hook-interval"
+
+	// EgressCidrs are the source addresses from which traffic from this model
+	// originates if the model is deployed such that NAT or similar is in use.
+	EgressCidrs = "egress-cidrs"
 
 	//
 	// Deprecated Settings Attributes
@@ -349,6 +354,7 @@ var defaultConfigValues = map[string]interface{}{
 	"test-mode":                false,
 	TransmitVendorMetricsKey:   true,
 	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
+	EgressCidrs:                "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -512,6 +518,15 @@ func Validate(cfg, old *Config) error {
 			}
 			if f > 60*time.Minute {
 				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
+			}
+		}
+	}
+
+	if v, ok := cfg.defined[EgressCidrs].(string); ok && v != "" {
+		addresses := strings.Split(v, ",")
+		for _, addr := range addresses {
+			if _, _, err := net.ParseCIDR(strings.TrimSpace(addr)); err != nil {
+				return errors.Annotatef(err, "invalid egress address: %v", addr)
 			}
 		}
 	}
@@ -969,6 +984,22 @@ func (c *Config) UpdateStatusHookInterval() time.Duration {
 	return val
 }
 
+// EgressCidrs are the source addresses from which traffic from this model
+// originates if the model is deployed such that NAT or similar is in use.
+func (c *Config) EgressCidrs() []string {
+	raw := c.asString(EgressCidrs)
+	if raw == "" {
+		return []string{}
+	}
+	// Value has already been validated.
+	rawAddr := strings.Split(raw, ",")
+	result := make([]string, len(rawAddr))
+	for i, addr := range rawAddr {
+		result[i] = strings.TrimSpace(addr)
+	}
+	return result
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1077,6 +1108,7 @@ var alwaysOptional = schema.Defaults{
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
+	EgressCidrs:                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1460,6 +1492,11 @@ data of the store. (default false)`,
 	},
 	UpdateStatusHookInterval: {
 		Description: "How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	EgressCidrs: {
+		Description: "Source address(es) for traffic originating from this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

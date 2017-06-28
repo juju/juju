@@ -1124,6 +1124,13 @@ func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigValue(c *gc.C) {
 	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 30*time.Minute)
 }
 
+func (s *ConfigSuite) TestEgressCidrs(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"egress-cidrs": "10.0.0.1/32, 192.168.1.1/16",
+	})
+	c.Assert(cfg.EgressCidrs(), gc.DeepEquals, []string{"10.0.0.1/32", "192.168.1.1/16"})
+}
+
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
 	schema, err := config.Schema(nil)
 	c.Assert(err, gc.IsNil)

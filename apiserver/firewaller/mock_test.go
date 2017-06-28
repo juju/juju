@@ -15,8 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type mockcloudSpecAPI struct {
@@ -27,7 +29,6 @@ type mockcloudSpecAPI struct {
 type mockState struct {
 	// TODO - implement when remaining firewaller tests become unit tests
 	state.ModelMachinesWatcher
-	state.ModelAccessor
 
 	testing.Stub
 	modelUUID      string
@@ -37,6 +38,8 @@ type mockState struct {
 	machines       map[string]*mockMachine
 	relations      map[string]*mockRelation
 	subnetsWatcher *mockStringsWatcher
+	modelWatcher   *mockNotifyWatcher
+	configAttrs    map[string]interface{}
 }
 
 func newMockState(modelUUID string) *mockState {
@@ -48,7 +51,17 @@ func newMockState(modelUUID string) *mockState {
 		machines:       make(map[string]*mockMachine),
 		remoteEntities: make(map[names.Tag]string),
 		subnetsWatcher: newMockStringsWatcher(),
+		modelWatcher:   newMockNotifyWatcher(),
+		configAttrs:    coretesting.FakeConfig(),
 	}
+}
+
+func (st *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
+	return st.modelWatcher
+}
+
+func (st *mockState) ModelConfig() (*config.Config, error) {
+	return config.New(config.UseDefaults, st.configAttrs)
 }
 
 func (st *mockState) ModelUUID() string {
@@ -155,6 +168,24 @@ func newMockStringsWatcher() *mockStringsWatcher {
 }
 
 func (w *mockStringsWatcher) Changes() <-chan []string {
+	w.MethodCall(w, "Changes")
+	return w.changes
+}
+
+func newMockNotifyWatcher() *mockNotifyWatcher {
+	w := &mockNotifyWatcher{changes: make(chan struct{}, 1)}
+	// Initial event
+	w.changes <- struct{}{}
+	go w.doneWhenDying()
+	return w
+}
+
+type mockNotifyWatcher struct {
+	mockWatcher
+	changes chan struct{}
+}
+
+func (w *mockNotifyWatcher) Changes() <-chan struct{} {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }
