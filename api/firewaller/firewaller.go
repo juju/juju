@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
@@ -173,4 +174,27 @@ func (c *State) WatchIngressAddressesForRelation(relationTag names.RelationTag) 
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// ControllerAPIInfoForModels returns the controller api connection details for the specified model.
+func (c *State) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+	modelTag := names.NewModelTag(modelUUID)
+	args := params.Entities{[]params.Entity{{Tag: modelTag.String()}}}
+	var results params.ControllerAPIInfoResults
+	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &api.Info{
+		Addrs:    result.Addresses,
+		CACert:   result.CACert,
+		ModelTag: modelTag,
+	}, nil
 }

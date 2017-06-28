@@ -541,6 +541,9 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 		ApplicationDescription: "description",
 		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 	}
+	controllerInfo := &params.ExternalControllerInfo{
+		Addrs: []string{"1.2.3.4"},
+	}
 	mac, err := macaroon.New(nil, "id", "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	var called bool
@@ -558,8 +561,9 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 			if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
 				result := params.ConsumeOfferDetailsResult{
 					ConsumeOfferDetails: params.ConsumeOfferDetails{
-						Offer:    &offer,
-						Macaroon: mac,
+						Offer:          &offer,
+						Macaroon:       mac,
+						ControllerInfo: controllerInfo,
 					},
 				}
 				results.Results = []params.ConsumeOfferDetailsResult{result}
@@ -571,8 +575,9 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
-		Offer:    &offer,
-		Macaroon: mac,
+		Offer:          &offer,
+		Macaroon:       mac,
+		ControllerInfo: controllerInfo,
 	})
 }
 

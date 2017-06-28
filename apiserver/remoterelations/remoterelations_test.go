@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -42,7 +43,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
-	api, err := remoterelations.NewRemoteRelationsAPI(s.st, s.resources, s.authorizer)
+	api, err := remoterelations.NewRemoteRelationsAPI(s.st, common.NewControllerConfig(s.st), s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -386,4 +387,24 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "app-token"}},
 	})
+}
+
+func (s *remoteRelationsSuite) TestControllerAPIInfoForModels(c *gc.C) {
+	controllerInfo := &mockControllerInfo{
+		uuid: "some uuid",
+		info: crossmodel.ControllerInfo{
+			Addrs:  []string{"1.2.3.4/32"},
+			CACert: coretesting.CACert,
+		},
+	}
+	s.st.controllerInfo[coretesting.ModelTag.Id()] = controllerInfo
+	result, err := s.api.ControllerAPIInfoForModels(
+		params.Entities{Entities: []params.Entity{{
+			Tag: coretesting.ModelTag.String(),
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Addresses, jc.SameContents, []string{"1.2.3.4/32"})
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].CACert, gc.Equals, coretesting.CACert)
 }

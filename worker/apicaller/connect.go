@@ -266,3 +266,16 @@ func changePassword(oldPassword string, a agent.Agent, facade apiagent.ConnFacad
 	// end up locked out forever.
 	return facade.SetPassword(a.CurrentConfig().Tag(), newPassword)
 }
+
+// NewExternalControllerConnectionFunc returns a function returning an
+// api connection to a controller with the specified api info.
+type NewExternalControllerConnectionFunc func(*api.Info) (api.Connection, error)
+
+// NewExternalControllerConnection returns an api connection to a controller
+// with the specified api info.
+func NewExternalControllerConnection(apiInfo *api.Info) (api.Connection, error) {
+	return api.Open(apiInfo, api.DialOpts{
+		Timeout:    2 * time.Second,
+		RetryDelay: 500 * time.Millisecond,
+	})
+}

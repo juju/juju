@@ -78,7 +78,7 @@ func NewControllerAPI(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
-		ControllerConfigAPI: common.NewControllerConfig(st),
+		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI:      common.NewModelStatusAPI(common.NewModelManagerBackend(st), authorizer, apiUser),
 		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
 		state:               st,

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/worker/apicaller"
 )
 
 // NewRemoteRelationsFacade creates a remote relations API facade.
@@ -43,10 +44,10 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 
 // For now we use a facade, but in future this may evolve into a REST caller.
 func crossmodelFirewallerFacadeFunc(
-	apiConnForModelFunc func(string) (api.Connection, error),
-) func(string) (CrossModelFirewallerFacadeCloser, error) {
-	return func(modelUUID string) (CrossModelFirewallerFacadeCloser, error) {
-		conn, err := apiConnForModelFunc(modelUUID)
+	connectionFunc apicaller.NewExternalControllerConnectionFunc,
+) newCrossModelFacadeFunc {
+	return func(apiInfo *api.Info) (CrossModelFirewallerFacadeCloser, error) {
+		conn, err := connectionFunc(apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

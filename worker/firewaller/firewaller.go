@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
@@ -37,6 +38,7 @@ type FirewallerAPI interface {
 	Relation(tag names.RelationTag) (*firewaller.Relation, error)
 	WatchEgressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
 	WatchIngressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
+	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
@@ -64,6 +66,8 @@ type EnvironInstances interface {
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 }
 
+type newCrossModelFacadeFunc func(*api.Info) (CrossModelFirewallerFacadeCloser, error)
+
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID          string
@@ -73,7 +77,7 @@ type Config struct {
 	EnvironFirewaller  EnvironFirewaller
 	EnvironInstances   EnvironInstances
 
-	NewCrossModelFacadeFunc func(modelUUID string) (CrossModelFirewallerFacadeCloser, error)
+	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
 	Clock clock.Clock
 }
@@ -124,7 +128,7 @@ type Firewaller struct {
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
 
 	modelUUID                   string
-	newRemoteFirewallerAPIFunc  func(modelUUID string) (CrossModelFirewallerFacadeCloser, error)
+	newRemoteFirewallerAPIFunc  newCrossModelFacadeFunc
 	remoteRelationsWatcher      watcher.StringsWatcher
 	remoteRelationNetworkChange chan *remoteRelationNetworkChange
 	localRelationsChange        chan *remoteRelationNetworkChange
@@ -317,7 +321,11 @@ func (fw *Firewaller) publishNetworkChanged(change *remoteRelationNetworkChange)
 		return nil
 	}
 
-	remoteModelAPI, err := fw.newRemoteFirewallerAPIFunc(relData.remoteModelUUID)
+	apiInfo, err := fw.firewallerApi.ControllerAPIInfoForModel(relData.remoteModelUUID)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get api info for model %v", relData.remoteModelUUID)
+	}
+	remoteModelAPI, err := fw.newRemoteFirewallerAPIFunc(apiInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot open facade to remote model to publish network change")
 	}
@@ -1338,34 +1346,6 @@ func (rd *remoteRelationData) providerEndpointLoop() error {
 			return rd.catacomb.ErrDying()
 		case cidrs := <-ingressAddressWatcher.Changes():
 			logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
-			if err := rd.updateIngressNetworks(*rd.remoteRelationId, cidrs); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-}
-
-func (rd *remoteRelationData) providerEndpointLoop() error {
-	logger.Debugf("starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
-	// Watch for ingress changes requested by the consuming model.
-	ingressAddressWatcher, err := rd.fw.firewallerApi.WatchIngressAddressesForRelation(rd.tag)
-	if err != nil {
-		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
-			return errors.Trace(err)
-		}
-		logger.Infof("no ingress required for %v", rd.localApplicationTag)
-		rd.ingressRequired = false
-		return nil
-	}
-	if err := rd.fw.catacomb.Add(ingressAddressWatcher); err != nil {
-		return errors.Trace(err)
-	}
-	for {
-		select {
-		case <-rd.catacomb.Dying():
-			return rd.catacomb.ErrDying()
-		case cidrs := <-ingressAddressWatcher.Changes():
-			logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
 			if err := rd.updateIngressNetworks(*rd.remoteRelationId, cidrs); err != nil {
 				return errors.Trace(err)
 			}

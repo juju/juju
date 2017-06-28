@@ -16,6 +16,7 @@ import (
 
 // RemoteRelationsAPI provides access to the RemoteRelations API facade.
 type RemoteRelationsAPI struct {
+	*common.ControllerConfigAPI
 	st         RemoteRelationsState
 	resources  facade.Resources
 	authorizer facade.Authorizer
@@ -26,6 +27,7 @@ type RemoteRelationsAPI struct {
 func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error) {
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
+		common.NewStateControllerConfig(ctx.State()),
 		ctx.Resources(), ctx.Auth(),
 	)
 
@@ -34,6 +36,7 @@ func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error)
 // NewRemoteRelationsAPI returns a new server-side RemoteRelationsAPI facade.
 func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
+	controllerCfgAPI *common.ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*RemoteRelationsAPI, error) {
@@ -41,9 +44,10 @@ func NewRemoteRelationsAPI(
 		return nil, common.ErrPerm
 	}
 	return &RemoteRelationsAPI{
-		st:         st,
-		resources:  resources,
-		authorizer: authorizer,
+		st:                  st,
+		ControllerConfigAPI: controllerCfgAPI,
+		resources:           resources,
+		authorizer:          authorizer,
 	}, nil
 }
 

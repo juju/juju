@@ -103,6 +103,7 @@ type ModelAccessor interface {
 // access controller information.
 type ControllerAccessor interface {
 	ControllerConfig() (controller.Config, error)
+	ControllerInfo(modelUUID string) (ExternalController, error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a

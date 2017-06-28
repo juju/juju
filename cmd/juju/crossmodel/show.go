@@ -26,6 +26,7 @@ options:
 
 Examples:
    $ juju show-endpoints fred/prod.db2
+   $ juju show-endpoints anothercontroller:fred/prod.db2
 
 See also:
    find-endpoints
@@ -36,15 +37,15 @@ type showCommand struct {
 
 	url        string
 	out        cmd.Output
-	newAPIFunc func() (ShowAPI, error)
+	newAPIFunc func(string) (ShowAPI, error)
 }
 
 // NewShowOfferedEndpointCommand constructs command that
 // allows to show details of offered application's endpoint.
 func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd := &showCommand{}
-	showCmd.newAPIFunc = func() (ShowAPI, error) {
-		return showCmd.NewRemoteEndpointsAPI()
+	showCmd.newAPIFunc = func(controllerName string) (ShowAPI, error) {
+		return showCmd.NewRemoteEndpointsAPI(controllerName)
 	}
 	return modelcmd.WrapController(showCmd)
 }
@@ -79,16 +80,25 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
-	if err := c.validateSource(); err != nil {
-		return errors.Trace(err)
+	url, err := crossmodel.ParseApplicationURL(c.url)
+	if err != nil {
+		return err
 	}
-	api, err := c.newAPIFunc()
+	controllerName := url.Source
+	if controllerName == "" {
+		controllerName, err = c.ControllerName()
+		if err != nil {
+			return err
+		}
+	}
+	api, err := c.newAPIFunc(controllerName)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	found, err := api.ApplicationOffer(c.url)
+	url.Source = ""
+	found, err := api.ApplicationOffer(url.String())
 	if err != nil {
 		return err
 	}
@@ -98,24 +108,6 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	return c.out.Write(ctx, output)
-}
-
-// validateSource checks that the offer is from the
-// current controller.
-func (c *showCommand) validateSource() error {
-	url, err := crossmodel.ParseApplicationURL(c.url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// For now we only support offers on the current controller.
-	if url.Source != "" && url.Source != controllerName {
-		return errors.NotSupportedf("showing endpoints from another controller %q", url.Source)
-	}
-	return nil
 }
 
 // ShowAPI defines the API methods that cross model show command uses.

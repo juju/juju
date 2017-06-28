@@ -230,10 +230,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Scope:         modelTag,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			AgentName:          agentName,
-			APICallerName:      apiCallerName,
-			EnvironName:        environTrackerName,
-			NewAPIConnForModel: api.NewConnectionForModel,
+			AgentName:               agentName,
+			APICallerName:           apiCallerName,
+			EnvironName:             environTrackerName,
+			NewControllerConnection: apicaller.NewExternalControllerConnection,
 
 			NewFirewallerWorker:      firewaller.NewWorker,
 			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
@@ -292,7 +292,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			NewAPIConnForModel:       api.NewConnectionForModel,
+			NewControllerConnection:  apicaller.NewExternalControllerConnection,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
 		}))

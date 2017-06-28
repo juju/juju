@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/worker/apicaller"
 )
 
 func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {
@@ -39,10 +40,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 // For now we use a facade, but in future this may evolve into a REST caller.
 func remoteRelationsFacadeForModelFunc(
-	apiConnForModelFunc func(string) (api.Connection, error),
-) func(string) (RemoteModelRelationsFacadeCloser, error) {
-	return func(modelUUID string) (RemoteModelRelationsFacadeCloser, error) {
-		conn, err := apiConnForModelFunc(modelUUID)
+	connectionFunc apicaller.NewExternalControllerConnectionFunc,
+) newRemoteRelationsFacadeFunc {
+	return func(apiInfo *api.Info) (RemoteModelRelationsFacadeCloser, error) {
+		conn, err := connectionFunc(apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -22,7 +23,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
 
-	NewAPIConnForModel       api.NewConnectionForModelFunc
+	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade func(base.APICaller) (*remoterelations.Client, error)
 	NewFirewallerFacade      func(base.APICaller) (FirewallerAPI, error)
 	NewFirewallerWorker      func(Config) (worker.Worker, error)
@@ -51,8 +52,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
 	}
-	if cfg.NewAPIConnForModel == nil {
-		return errors.NotValidf("nil NewAPIConnForModel")
+	if cfg.NewControllerConnection == nil {
+		return errors.NotValidf("nil NewControllerConnection")
 	}
 	if cfg.NewRemoteRelationsFacade == nil {
 		return errors.NotValidf("nil NewRemoteRelationsFacade")
@@ -91,16 +92,6 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, dependency.ErrUninstall
 	}
 
-	agentConf := agent.CurrentConfig()
-	apiInfo, ok := agentConf.APIInfo()
-	if !ok {
-		return nil, errors.New("no API connection details")
-	}
-	apiConnForModelFunc, err := cfg.NewAPIConnForModel(apiInfo)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	firewallerAPI, err := cfg.NewFirewallerFacade(apiConn)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -117,7 +108,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		EnvironFirewaller:  environ,
 		EnvironInstances:   environ,
 		Mode:               mode,
-		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(apiConnForModelFunc),
+		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

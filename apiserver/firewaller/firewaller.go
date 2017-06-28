@@ -45,6 +45,7 @@ type FirewallerAPIV3 struct {
 // FirewallerAPIV4 provides access to the Firewaller v4 API facade.
 type FirewallerAPIV4 struct {
 	*FirewallerAPIV3
+	*common.ControllerConfigAPI
 }
 
 // NewStateFirewallerAPIv3 creates a new server-side FirewallerAPIV3 facade.
@@ -61,7 +62,10 @@ func NewStateFirewallerAPIV4(context facade.Context) (*FirewallerAPIV4, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &FirewallerAPIV4{facadev3}, nil
+	return &FirewallerAPIV4{
+		ControllerConfigAPI: common.NewStateControllerConfig(context.State()),
+		FirewallerAPIV3:     facadev3,
+	}, nil
 }
 
 // NewFirewallerAPI creates a new server-side FirewallerAPIV3 facade.

@@ -122,7 +122,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		APIAddresser:            common.NewAPIAddresser(st, resources),
 		ModelWatcher:            common.NewModelWatcher(st, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
-		ControllerConfigAPI:     common.NewControllerConfig(st),
+		ControllerConfigAPI:     common.NewStateControllerConfig(st),
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),

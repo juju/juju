@@ -37,7 +37,7 @@ func NewOfferCommandForTest(
 }
 
 func NewShowEndpointsCommandForTest(store jujuclient.ClientStore, api ShowAPI) cmd.Command {
-	aCmd := &showCommand{newAPIFunc: func() (ShowAPI, error) {
+	aCmd := &showCommand{newAPIFunc: func(controllerName string) (ShowAPI, error) {
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
@@ -53,7 +53,7 @@ func NewListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) c
 }
 
 func NewFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) cmd.Command {
-	aCmd := &findCommand{newAPIFunc: func() (FindAPI, error) {
+	aCmd := &findCommand{newAPIFunc: func(controllerName string) (FindAPI, error) {
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)

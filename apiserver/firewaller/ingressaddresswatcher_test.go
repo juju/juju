@@ -45,7 +45,7 @@ func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState(coretesting.ModelTag.Id())
-	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockcloudSpecAPI{})
+	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
