@@ -97,7 +97,7 @@ func (p InitializeParams) Validate() error {
 	for tag, cred := range p.CloudCredentials {
 		creds[tag.Id()] = cred
 	}
-	if _, err := validateCloudCredential(
+	if _, _, err := validateCloudCredential(
 		p.Cloud,
 		creds,
 		p.ControllerModelArgs.CloudCredential,
