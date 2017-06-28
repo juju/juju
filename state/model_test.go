@@ -1156,7 +1156,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		MongoDialOpts:    mongotest.DialOpts(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	ctlr.Close()
+	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 	return st, owner
 }
 

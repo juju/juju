@@ -128,6 +128,6 @@ func NewState(c *gc.C) *state.State {
 	cfg := testing.ModelConfig(c)
 	newPolicy := func(*state.State) state.Policy { return &MockPolicy{} }
 	ctlr, st := Initialize(c, owner, cfg, nil, nil, newPolicy)
-	ctlr.Close()
+	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 	return st
 }
