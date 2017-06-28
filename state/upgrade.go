@@ -175,7 +175,7 @@ func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 	}
 
 	// Extract current and provisioned controllers.
-	instanceData, closer := info.st.getRawCollection(instanceDataC)
+	instanceData, closer := info.st.db().GetRawCollection(instanceDataC)
 	defer closer()
 
 	// If instanceData has the env UUID upgrade query using the
@@ -202,7 +202,7 @@ func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 }
 
 func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
-	instanceData, closer := info.st.getRawCollection(instanceDataC)
+	instanceData, closer := info.st.db().GetRawCollection(instanceDataC)
 	defer closer()
 
 	query := instanceData.Find(bson.D{{"model-uuid", bson.D{{"$exists", true}}}})
@@ -365,7 +365,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 }
 
 func (st *State) isMachineProvisioned(machineId string) (bool, error) {
-	instanceData, closer := st.getRawCollection(instanceDataC)
+	instanceData, closer := st.db().GetRawCollection(instanceDataC)
 	defer closer()
 
 	for _, id := range []string{st.docID(machineId), machineId} {

@@ -88,7 +88,7 @@ func (info *RestoreInfo) Status() (RestoreStatus, error) {
 // These can be caused because this collection is heavy use while backing
 // up and mongo 3.2 does not like this.
 func (info *RestoreInfo) PurgeTxn() error {
-	restoreInfo, closer := info.st.getRawCollection(restoreInfoC)
+	restoreInfo, closer := info.st.db().GetRawCollection(restoreInfoC)
 	defer closer()
 	r := txn.NewRunner(restoreInfo)
 	return r.PurgeMissing(restoreInfoC)

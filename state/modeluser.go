@@ -45,7 +45,7 @@ func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUU
 // LastModelConnection returns when this User last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
 func (st *State) LastModelConnection(user names.UserTag) (time.Time, error) {
-	lastConnections, closer := st.getRawCollection(modelUserLastConnectionC)
+	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
 	defer closer()
 
 	username := user.Id()
@@ -180,7 +180,7 @@ type UserModel struct {
 // LastConnection returns the last time the user has connected to the
 // model.
 func (e *UserModel) LastConnection() (time.Time, error) {
-	lastConnections, lastConnCloser := e.st.getRawCollection(modelUserLastConnectionC)
+	lastConnections, lastConnCloser := e.st.db().GetRawCollection(modelUserLastConnectionC)
 	defer lastConnCloser()
 
 	lastConnDoc := modelUserLastConnectionDoc{}
@@ -224,7 +224,7 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	// the models that a particular user can see is to look through the
 	// model user collection. A raw collection is required to support
 	// queries across multiple models.
-	modelUsers, userCloser := st.getRawCollection(modelUsersC)
+	modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
 	defer userCloser()
 
 	var userSlice []userAccessDoc

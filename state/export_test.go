@@ -337,7 +337,7 @@ func GetCollection(st *State, name string) (mongo.Collection, func()) {
 }
 
 func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
-	return st.getRawCollection(name)
+	return st.db().GetRawCollection(name)
 }
 
 func HasRawAccess(collectionName string) bool {
@@ -363,7 +363,7 @@ func SequenceWithMin(st *State, name string, minVal int) (int, error) {
 }
 
 func SequenceEnsure(st *State, name string, nextVal int) error {
-	sequences, closer := st.getRawCollection(sequenceC)
+	sequences, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
 	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
 	return updater.ensure(nextVal)
