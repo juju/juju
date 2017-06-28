@@ -239,7 +239,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 	}
 	ops = append(ops, modelOps...)
 
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	probablyUpdateStatusHistory(st, modelGlobalKey, modelStatusDoc)
