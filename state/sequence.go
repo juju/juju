@@ -55,7 +55,7 @@ func (st *State) sequence(name string) (int, error) {
 // `sequence` is more efficient than `sequenceWithMin` and should be
 // preferred if there is no minimum value requirement.
 func (st *State) sequenceWithMin(name string, minVal int) (int, error) {
-	sequences, closer := st.getRawCollection(sequenceC)
+	sequences, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
 	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
 	return updateSeqWithMin(updater, minVal)

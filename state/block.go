@@ -211,7 +211,7 @@ func (st *State) AllBlocks() ([]Block, error) {
 // AllBlocksForController returns all blocks in any models on
 // the controller.
 func (st *State) AllBlocksForController() ([]Block, error) {
-	blocksCollection, closer := st.getRawCollection(blocksC)
+	blocksCollection, closer := st.db().GetRawCollection(blocksC)
 	defer closer()
 
 	var bdocs []blockDoc

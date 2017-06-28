@@ -77,7 +77,7 @@ func replaceBsonDField(d bson.D, name string, value interface{}) error {
 
 // RenameAddModelPermission renames any permissions called addmodel to add-model.
 func RenameAddModelPermission(st *State) error {
-	coll, closer := st.getRawCollection(permissionsC)
+	coll, closer := st.db().GetRawCollection(permissionsC)
 	defer closer()
 	upgradesLogger.Infof("migrating addmodel permission")
 
@@ -152,7 +152,7 @@ func StripLocalUserDomain(st *State) error {
 }
 
 func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.Op, error) {
-	coll, closer := st.getRawCollection(collName)
+	coll, closer := st.db().GetRawCollection(collName)
 	defer closer()
 	upgradesLogger.Infof("migrating document fields of the %s collection", collName)
 
@@ -234,7 +234,7 @@ func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.O
 // AddMigrationAttempt adds an "attempt" field to migration documents
 // which are missing one.
 func AddMigrationAttempt(st *State) error {
-	coll, closer := st.getRawCollection(migrationsC)
+	coll, closer := st.db().GetRawCollection(migrationsC)
 	defer closer()
 
 	query := coll.Find(bson.M{"attempt": bson.M{"$exists": false}})
@@ -287,7 +287,7 @@ func extractMigrationAttempt(id interface{}) (int, error) {
 // AddLocalCharmSequences creates any missing sequences in the
 // database for tracking already used local charm revisions.
 func AddLocalCharmSequences(st *State) error {
-	charmsColl, closer := st.getRawCollection(charmsC)
+	charmsColl, closer := st.db().GetRawCollection(charmsC)
 	defer closer()
 
 	query := bson.M{
@@ -341,7 +341,7 @@ func AddLocalCharmSequences(st *State) error {
 
 	}
 
-	sequences, closer := st.getRawCollection(sequenceC)
+	sequences, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
 	for modelUUID, modelRevs := range maxRevs {
 		for baseURL, maxRevision := range modelRevs {
@@ -423,7 +423,7 @@ func updateLegacyLXDCloudsOps(st *State, endpoint string) ([]txn.Op, error) {
 
 func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, error) {
 	var ops []txn.Op
-	coll, closer := st.getRawCollection(cloudCredentialsC)
+	coll, closer := st.db().GetRawCollection(cloudCredentialsC)
 	defer closer()
 	iter := coll.Find(bson.M{"auth-type": "empty"}).Iter()
 	var doc cloudCredentialDoc
@@ -466,7 +466,7 @@ func upgradeNoProxy(np string) string {
 // to hold localhost values as defaults.
 func UpgradeNoProxyDefaults(st *State) error {
 	var ops []txn.Op
-	coll, closer := st.getRawCollection(settingsC)
+	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 	iter := coll.Find(bson.D{}).Iter()
 	var doc settingsDoc
@@ -590,7 +590,7 @@ func addNonDetachableStorageMachineId(st *State) error {
 // RemoveNilValueApplicationSettings removes any application setting
 // key-value pairs from "settings" where value is nil.
 func RemoveNilValueApplicationSettings(st *State) error {
-	coll, closer := st.getRawCollection(settingsC)
+	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
 	var ops []txn.Op
@@ -622,7 +622,7 @@ func RemoveNilValueApplicationSettings(st *State) error {
 // AddControllerLogCollectionsSizeSettings adds the controller
 // settings to control log pruning and txn log size if they are missing.
 func AddControllerLogCollectionsSizeSettings(st *State) error {
-	coll, closer := st.getRawCollection(controllersC)
+	coll, closer := st.db().GetRawCollection(controllersC)
 	defer closer()
 	var doc settingsDoc
 	if err := coll.FindId(controllerSettingsGlobalKey).One(&doc); err != nil {
@@ -663,7 +663,7 @@ func maybeUpdateSettings(settings map[string]interface{}, key string, value inte
 // AddStatusHistoryPruneSettings adds the model settings
 // to control log pruning if they are missing.
 func AddStatusHistoryPruneSettings(st *State) error {
-	coll, closer := st.getRawCollection(settingsC)
+	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 
 	models, err := st.AllModels()
@@ -702,7 +702,7 @@ func AddStatusHistoryPruneSettings(st *State) error {
 // to control how often to run the update-status hook
 // if they are missing.
 func AddUpdateStatusHookSettings(st *State) error {
-	coll, closer := st.getRawCollection(settingsC)
+	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 
 	models, err := st.AllModels()
@@ -903,10 +903,10 @@ type relationUnitCountInfo struct {
 // relationscopes for applications that shouldn't be there. Fix for
 // https://bugs.launchpad.net/juju/+bug/1699050
 func CorrectRelationUnitCounts(st *State) error {
-	relationsColl, rCloser := st.getRawCollection(relationsC)
+	relationsColl, rCloser := st.db().GetRawCollection(relationsC)
 	defer rCloser()
 
-	scopesColl, sCloser := st.getRawCollection(relationScopesC)
+	scopesColl, sCloser := st.db().GetRawCollection(relationScopesC)
 	defer sCloser()
 
 	relations, err := collectRelationInfo(relationsColl)

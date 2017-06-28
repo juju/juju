@@ -29,7 +29,7 @@ type upgradesSuite struct {
 var _ = gc.Suite(&upgradesSuite{})
 
 func (s *upgradesSuite) TestStripLocalUserDomainCredentials(c *gc.C) {
-	coll, closer := s.state.getRawCollection(cloudCredentialsC)
+	coll, closer := s.state.db().GetRawCollection(cloudCredentialsC)
 	defer closer()
 	err := coll.Insert(
 		cloudCredentialDoc{
@@ -72,7 +72,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainCredentials(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
-	coll, closer := s.state.getRawCollection(modelsC)
+	coll, closer := s.state.db().GetRawCollection(modelsC)
 	defer closer()
 
 	var initialModels []bson.M
@@ -139,7 +139,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainModelNames(c *gc.C) {
-	coll, closer := s.state.getRawCollection(usermodelnameC)
+	coll, closer := s.state.db().GetRawCollection(usermodelnameC)
 	defer closer()
 
 	err := coll.Insert(
@@ -168,7 +168,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModelUser(c *gc.C) {
 }
 
 func (s *upgradesSuite) assertStripLocalUserDomainUserAccess(c *gc.C, collName string) {
-	coll, closer := s.state.getRawCollection(collName)
+	coll, closer := s.state.db().GetRawCollection(collName)
 	defer closer()
 
 	var initialUsers []bson.M
@@ -226,7 +226,7 @@ func (s *upgradesSuite) assertStripLocalUserDomainUserAccess(c *gc.C, collName s
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
-	coll, closer := s.state.getRawCollection(permissionsC)
+	coll, closer := s.state.db().GetRawCollection(permissionsC)
 	defer closer()
 
 	var initialPermissions []bson.M
@@ -272,7 +272,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainLastConnection(c *gc.C) {
-	coll, closer := s.state.getRawCollection(modelUserLastConnectionC)
+	coll, closer := s.state.db().GetRawCollection(modelUserLastConnectionC)
 	defer closer()
 
 	now := time.Now()
@@ -339,7 +339,7 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, 
 }
 
 func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
-	coll, closer := s.state.getRawCollection(permissionsC)
+	coll, closer := s.state.db().GetRawCollection(permissionsC)
 	defer closer()
 
 	var initialPermissions []bson.M
@@ -385,7 +385,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
-	coll, closer := s.state.getRawCollection(migrationsC)
+	coll, closer := s.state.db().GetRawCollection(migrationsC)
 	defer closer()
 
 	err := coll.Insert(
@@ -433,7 +433,7 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 		}
 	}
 
-	charms, closer := s.state.getRawCollection(charmsC)
+	charms, closer := s.state.db().GetRawCollection(charmsC)
 	defer closer()
 	err := charms.Insert(
 		mkInput(uuid0, "local:trusty/bar-2", Alive),
@@ -446,7 +446,7 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	sequences, closer := s.state.getRawCollection(sequenceC)
+	sequences, closer := s.state.db().GetRawCollection(sequenceC)
 	defer closer()
 
 	mkExpected := func(uuid, urlBase string, counter int) bson.M {
@@ -488,9 +488,9 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
-	cloudColl, cloudCloser := s.state.getRawCollection(cloudsC)
+	cloudColl, cloudCloser := s.state.db().GetRawCollection(cloudsC)
 	defer cloudCloser()
-	cloudCredColl, cloudCredCloser := s.state.getRawCollection(cloudCredentialsC)
+	cloudCredColl, cloudCredCloser := s.state.db().GetRawCollection(cloudCredentialsC)
 	defer cloudCredCloser()
 
 	_, err := cloudColl.RemoveAll(nil)
@@ -562,9 +562,9 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
-	cloudColl, cloudCloser := s.state.getRawCollection(cloudsC)
+	cloudColl, cloudCloser := s.state.db().GetRawCollection(cloudsC)
 	defer cloudCloser()
-	cloudCredColl, cloudCredCloser := s.state.getRawCollection(cloudCredentialsC)
+	cloudCredColl, cloudCredCloser := s.state.db().GetRawCollection(cloudCredentialsC)
 	defer cloudCredCloser()
 
 	_, err := cloudColl.RemoveAll(nil)
@@ -664,7 +664,7 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestUpgradeNoProxy(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -706,14 +706,14 @@ func (s *upgradesSuite) TestUpgradeNoProxy(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
-	volumesColl, volumesCloser := s.state.getRawCollection(volumesC)
+	volumesColl, volumesCloser := s.state.db().GetRawCollection(volumesC)
 	defer volumesCloser()
-	volumeAttachmentsColl, volumeAttachmentsCloser := s.state.getRawCollection(volumeAttachmentsC)
+	volumeAttachmentsColl, volumeAttachmentsCloser := s.state.db().GetRawCollection(volumeAttachmentsC)
 	defer volumeAttachmentsCloser()
 
-	filesystemsColl, filesystemsCloser := s.state.getRawCollection(filesystemsC)
+	filesystemsColl, filesystemsCloser := s.state.db().GetRawCollection(filesystemsC)
 	defer filesystemsCloser()
-	filesystemAttachmentsColl, filesystemAttachmentsCloser := s.state.getRawCollection(filesystemAttachmentsC)
+	filesystemAttachmentsColl, filesystemAttachmentsCloser := s.state.db().GetRawCollection(filesystemAttachmentsC)
 	defer filesystemAttachmentsCloser()
 
 	uuid := s.state.ModelUUID()
@@ -836,7 +836,7 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -893,7 +893,7 @@ func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -933,7 +933,7 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(
 }
 
 func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -987,7 +987,7 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr testing.Attrs) *Sta
 }
 
 func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1042,7 +1042,7 @@ func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1104,15 +1104,15 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddStorageInstanceConstraints(c *gc.C) {
-	storageInstancesColl, storageInstancesCloser := s.state.getRawCollection(storageInstancesC)
+	storageInstancesColl, storageInstancesCloser := s.state.db().GetRawCollection(storageInstancesC)
 	defer storageInstancesCloser()
-	storageConstraintsColl, storageConstraintsCloser := s.state.getRawCollection(storageConstraintsC)
+	storageConstraintsColl, storageConstraintsCloser := s.state.db().GetRawCollection(storageConstraintsC)
 	defer storageConstraintsCloser()
-	volumesColl, volumesCloser := s.state.getRawCollection(volumesC)
+	volumesColl, volumesCloser := s.state.db().GetRawCollection(volumesC)
 	defer volumesCloser()
-	filesystemsColl, filesystemsCloser := s.state.getRawCollection(filesystemsC)
+	filesystemsColl, filesystemsCloser := s.state.db().GetRawCollection(filesystemsC)
 	defer filesystemsCloser()
-	unitsColl, unitsCloser := s.state.getRawCollection(unitsC)
+	unitsColl, unitsCloser := s.state.db().GetRawCollection(unitsC)
 	defer unitsCloser()
 
 	uuid := s.state.ModelUUID()
@@ -1477,9 +1477,9 @@ func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
-	relations, rCloser := s.state.getRawCollection(relationsC)
+	relations, rCloser := s.state.db().GetRawCollection(relationsC)
 	defer rCloser()
-	scopes, sCloser := s.state.getRawCollection(relationScopesC)
+	scopes, sCloser := s.state.db().GetRawCollection(relationScopesC)
 	defer sCloser()
 
 	// Use the non-controller model to ensure we can run the function

@@ -295,7 +295,7 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	// NOTE(axw) we require a raw collection to obtain the size of the
 	// collection. Take care to include model-uuid in queries where
 	// appropriate.
-	history, closer := st.getRawCollection(statusesHistoryC)
+	history, closer := st.db().GetRawCollection(statusesHistoryC)
 	defer closer()
 
 	// Status Record Age

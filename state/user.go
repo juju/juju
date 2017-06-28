@@ -335,7 +335,7 @@ func (u *User) UserTag() names.UserTag {
 // normal case, the LastLogin is the last time that the user connected through
 // the API server.
 func (u *User) LastLogin() (time.Time, error) {
-	lastLogins, closer := u.st.getRawCollection(userLastLoginC)
+	lastLogins, closer := u.st.db().GetRawCollection(userLastLoginC)
 	defer closer()
 
 	var lastLogin userLastLoginDoc
