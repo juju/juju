@@ -1030,7 +1030,7 @@ func (a *Application) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (a *Application) newUnitName() (string, error) {
-	unitSeq, err := a.st.sequence(a.Tag().String())
+	unitSeq, err := sequence(a.st, a.Tag().String())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -355,11 +355,11 @@ func MultiEnvCollections() []string {
 }
 
 func Sequence(st *State, name string) (int, error) {
-	return st.sequence(name)
+	return sequence(st, name)
 }
 
 func SequenceWithMin(st *State, name string, minVal int) (int, error) {
-	return st.sequenceWithMin(name, minVal)
+	return sequenceWithMin(st, name, minVal)
 }
 
 func SequenceEnsure(st *State, name string, nextVal int) error {

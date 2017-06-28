@@ -652,7 +652,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.Trace(err)
 		}
 
-		attempt, err := st.sequence("modelmigration")
+		attempt, err := sequence(st, "modelmigration")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

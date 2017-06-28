@@ -942,7 +942,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, rel := range peers {
-		relId, err := st.sequence("relation")
+		relId, err := sequence(st, "relation")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1779,7 +1779,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		// an operation to create the relation document.
 		if id == -1 {
 			var err error
-			if id, err = st.sequence("relation"); err != nil {
+			if id, err = sequence(st, "relation"); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}

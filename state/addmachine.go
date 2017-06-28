@@ -277,7 +277,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			return nil, nil, err
 		}
 	}
-	seq, err := st.sequence("machine")
+	seq, err := sequence(st, "machine")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -377,7 +377,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 // newContainerId returns a new id for a machine within the machine
 // with id parentId and the given container type.
 func (st *State) newContainerId(parentId string, containerType instance.ContainerType) (string, error) {
-	seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", parentId, containerType))
+	seq, err := sequence(st, fmt.Sprintf("machine%s%sContainer", parentId, containerType))
 	if err != nil {
 		return "", err
 	}
@@ -392,7 +392,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
-	seq, err := st.sequence("machine")
+	seq, err := sequence(st, "machine")
 	if err != nil {
 		return nil, nil, err
 	}

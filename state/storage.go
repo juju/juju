@@ -211,7 +211,7 @@ type storageAttachmentDoc struct {
 // incorporates the storage name as defined in the charm storage metadata,
 // and a unique sequence number.
 func newStorageInstanceId(st *State, store string) (string, error) {
-	seq, err := st.sequence("stores")
+	seq, err := sequence(st, "stores")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
