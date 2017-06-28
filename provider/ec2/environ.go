@@ -271,7 +271,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
-		subnetResp, err := e.subnetsForVPC()
+		subnetResp, vpcId, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -296,7 +296,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
 			}
 		}
-		logger.Debugf("searched for subnet %q, did not find it in all subnets %v", value, allSubnets)
+		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpcid %q", value, allSubnets, vpcId)
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
@@ -969,7 +969,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			results = append(results, info)
 		}
 	} else {
-		resp, err := e.subnetsForVPC()
+		resp, _, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
@@ -1010,9 +1010,9 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
-func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, err error) {
+func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, vpcId string, err error) {
 	filter := ec2.NewFilter()
-	vpcId := e.ecfg().vpcID()
+	vpcId = e.ecfg().vpcID()
 	if !isVPCIDSet(vpcId) {
 		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
 			vpcId = e.defaultVPC.Id
@@ -1021,7 +1021,8 @@ func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, err error) {
 	if isVPCIDSet(vpcId) {
 		filter.Add("vpc-id", vpcId)
 	}
-	return e.ec2.Subnets(nil, filter)
+	resp, err = e.ec2.Subnets(nil, filter)
+	return resp, vpcId, err
 }
 
 // AdoptResources is part of the Environ interface.
