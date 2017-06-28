@@ -79,7 +79,7 @@ func IsNeverConnectedError(err error) bool {
 
 // UpdateLastModelConnection updates the last connection time of the model user.
 func (st *State) UpdateLastModelConnection(user names.UserTag) error {
-	return st.updateLastModelConnection(user, st.NowToTheSecond())
+	return st.updateLastModelConnection(user, st.nowToTheSecond())
 }
 
 func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) error {

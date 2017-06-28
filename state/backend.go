@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/state/watcher"
@@ -25,6 +27,12 @@ type modelBackend interface {
 	// model UUID prefix. If there is no prefix matching the
 	// State's model, an error is returned.
 	strictLocalID(string) (string, error)
+
+	// nowToTheSecond returns the current time in UTC to the nearest second. We use
+	// this for a time source that is not more precise than we can handle. When
+	// serializing time in and out of mongo, we lose enough precision that it's
+	// misleading to store any more than precision to the second.
+	nowToTheSecond() time.Time
 
 	db() Database
 	modelUUID() string
@@ -53,4 +61,8 @@ func (st *State) strictLocalID(id string) (string, error) {
 
 func (st *State) modelUUID() string {
 	return st.ModelUUID()
+}
+
+func (st *State) nowToTheSecond() time.Time {
+	return st.clock.Now().Round(time.Second).UTC()
 }
