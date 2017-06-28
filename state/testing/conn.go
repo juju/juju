@@ -36,7 +36,7 @@ type InitializeArgs struct {
 // configuration will be used.
 // This provides for tests still using a real clock from utils as tests are
 // migrated to use the testing clock
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.State {
+func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) (*state.Controller, *state.State) {
 	return InitializeWithArgs(c, InitializeArgs{
 		Owner:                     owner,
 		InitialConfig:             cfg,
@@ -50,7 +50,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 // InitializeWithArgs initializes the state and returns it. If state was not
 // already initialized, and args.Config is nil, the minimal default model
 // configuration will be used.
-func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
+func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state.State) {
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
 	}
@@ -61,7 +61,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 	for k, v := range args.ControllerConfig {
 		controllerCfg[k] = v
 	}
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -106,7 +106,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 		NewPolicy:     args.NewPolicy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return st
+	return ctlr, st
 }
 
 // NewMongoInfo returns information suitable for
@@ -127,5 +127,7 @@ func NewState(c *gc.C) *state.State {
 	owner := names.NewLocalUserTag("test-admin")
 	cfg := testing.ModelConfig(c)
 	newPolicy := func(*state.State) state.Policy { return &MockPolicy{} }
-	return Initialize(c, owner, cfg, nil, nil, newPolicy)
+	ctlr, st := Initialize(c, owner, cfg, nil, nil, newPolicy)
+	ctlr.Close()
+	return st
 }

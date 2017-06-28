@@ -24,6 +24,7 @@ type StateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
 	NewPolicy                 state.NewPolicyFunc
+	Controller                *state.Controller
 	State                     *state.State
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
@@ -50,7 +51,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 
 	s.Owner = names.NewLocalUserTag("test-admin")
 	s.Clock = jujutesting.NewClock(testing.NonZeroTime())
-	s.State = InitializeWithArgs(c, InitializeArgs{
+	s.Controller, s.State = InitializeWithArgs(c, InitializeArgs{
 		Owner:                     s.Owner,
 		InitialConfig:             s.InitialConfig,
 		ControllerInheritedConfig: s.ControllerInheritedConfig,
@@ -58,7 +59,10 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		NewPolicy:                 s.NewPolicy,
 		Clock:                     s.Clock,
 	})
-	s.AddCleanup(func(*gc.C) { s.State.Close() })
+	s.AddCleanup(func(*gc.C) {
+		s.State.Close()
+		s.State.Close()
+	})
 	s.Factory = factory.NewFactory(s.State)
 }
 

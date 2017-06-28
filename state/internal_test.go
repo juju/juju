@@ -36,6 +36,7 @@ var _ = gc.Suite(&internalStateSuite{})
 type internalStateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
+	controller *Controller
 	state      *State
 	owner      names.UserTag
 	modelCount int
@@ -67,7 +68,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	}
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	st, err := Initialize(InitializeParams{
+	ctlr, st, err := Initialize(InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
@@ -97,8 +98,12 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.controller = ctlr
 	s.state = st
-	s.AddCleanup(func(*gc.C) { s.state.Close() })
+	s.AddCleanup(func(*gc.C) {
+		s.state.Close()
+		s.controller.Close()
+	})
 }
 
 func (s *internalStateSuite) TearDownTest(c *gc.C) {

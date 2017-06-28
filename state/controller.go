@@ -48,6 +48,28 @@ func (ctlr *Controller) Close() error {
 	return nil
 }
 
+// NewState returns a new State instance for the specified model. The
+// connection uses the same credentials and policy as the Controller.
+func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
+	session := ctlr.session.Copy()
+	st, err := newState(
+		modelTag,
+		ctlr.controllerModelTag,
+		session,
+		ctlr.mongoInfo,
+		ctlr.newPolicy,
+		ctlr.clock,
+		ctlr.runTransactionObserver,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := st.start(ctlr.controllerTag); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st, nil
+}
+
 // ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	settings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)

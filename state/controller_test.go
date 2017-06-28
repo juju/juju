@@ -11,13 +11,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type ControllerConfigSuite struct {
+type ControllerSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&ControllerConfigSuite{})
+var _ = gc.Suite(&ControllerSuite{})
 
-func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
+func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 	// Test setup has created model using a fully populated environs.Config.
 	// This test ensure that the controller specific attributes have been separated out.
 	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
@@ -40,7 +40,15 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 	}
 }
 
-func (s *ControllerConfigSuite) TestControllerConfig(c *gc.C) {
+func (s *ControllerSuite) TestNewState(c *gc.C) {
+	st, err := s.Controller.NewState(s.State.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	c.Check(st.ModelUUID(), gc.Equals, s.State.ModelUUID())
+	c.Check(st, gc.Not(gc.Equals), s.State)
+}
+
+func (s *ControllerSuite) TestControllerConfig(c *gc.C) {
 	cfg, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.ControllerModel()
