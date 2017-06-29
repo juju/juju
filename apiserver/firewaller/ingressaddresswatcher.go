@@ -4,12 +4,15 @@
 package firewaller
 
 import (
+	"net"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -40,6 +43,9 @@ type IngressAddressWatcher struct {
 
 	// A map of known unit addresses, keyed on unit name.
 	known map[string]string
+
+	// A set of known egress cidrs
+	knownEgress set.Strings
 }
 
 // machineData holds the information we track at the machine level.
@@ -97,6 +103,11 @@ func (w *IngressAddressWatcher) initialise() error {
 		}
 
 	}
+	cfg, err := w.backend.ModelConfig()
+	if err != nil {
+		return err
+	}
+	w.knownEgress = set.NewStrings(cfg.EgressCidrs()...)
 	return nil
 }
 
@@ -113,6 +124,18 @@ func (w *IngressAddressWatcher) loop() error {
 		return errors.Trace(err)
 	}
 
+	// TODO(wallyworld) - we just want to watch for egress
+	// address changes but right now can only watch for
+	// any model config change.
+	mw := w.backend.WatchForModelConfigChanges()
+	if err := w.catacomb.Add(mw); err != nil {
+		return errors.Trace(err)
+	}
+	// Consume initial event.
+	if _, ok := <-mw.Changes(); !ok {
+		return watcher.EnsureErr(mw)
+	}
+
 	var (
 		sentInitial bool
 		out         chan<- []string
@@ -125,17 +148,26 @@ func (w *IngressAddressWatcher) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	changed := false
+	unitAddressesChanged := false
+	userConfiguredEgressChanged := false
 	for {
-		if !sentInitial || changed {
-			addressSet := set.NewStrings()
-			for _, addr := range w.known {
-				addressSet.Add(addr)
+		if !sentInitial || unitAddressesChanged || (userConfiguredEgressChanged && len(w.known) > 0) {
+			var addressSet set.Strings
+			// Egress cidrs, if configured, override unit machine addresses.
+			if len(w.known) > 0 {
+				addressSet = set.NewStrings(w.knownEgress.Values()...)
+				if addressSet.Size() == 0 {
+					// No user configured egress so just use the unit addresses.
+					for _, addr := range w.known {
+						addressSet.Add(addr)
+					}
+				}
 			}
-			changed = false
+			unitAddressesChanged = false
 			addresses = formatAsCIDR(addressSet.Values())
 			out = w.out
 		}
+		userConfiguredEgressChanged = false
 
 		select {
 		case <-w.catacomb.Dying():
@@ -144,6 +176,21 @@ func (w *IngressAddressWatcher) loop() error {
 		case out <- addresses:
 			sentInitial = true
 			out = nil
+		case _, ok := <-mw.Changes():
+			if !ok {
+				return w.catacomb.ErrDying()
+			}
+			cfg, err := w.backend.ModelConfig()
+			if err != nil {
+				return err
+			}
+			egress := set.NewStrings(cfg.EgressCidrs()...)
+			// Have the egress addresses changed.
+			if egress.Size() != w.knownEgress.Size() ||
+				egress.Difference(w.knownEgress).Size() != 0 || w.knownEgress.Difference(egress).Size() != 0 {
+				userConfiguredEgressChanged = true
+				w.knownEgress = egress
+			}
 		case c, ok := <-ruw.Changes():
 			if !ok {
 				return w.catacomb.ErrDying()
@@ -151,7 +198,7 @@ func (w *IngressAddressWatcher) loop() error {
 			// A unit has entered or left scope.
 			// Get the new set of addresses resulting from that
 			// change, and if different to what we know, send the change.
-			changed, err = w.processUnitChanges(c)
+			unitAddressesChanged, err = w.processUnitChanges(c)
 			if err != nil {
 				return err
 			}
@@ -159,7 +206,7 @@ func (w *IngressAddressWatcher) loop() error {
 			if !ok {
 				continue
 			}
-			changed, err = w.processMachineAddresses(machineId)
+			unitAddressesChanged, err = w.processMachineAddresses(machineId)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -171,7 +218,17 @@ func (w *IngressAddressWatcher) loop() error {
 func formatAsCIDR(addresses []string) []string {
 	result := make([]string, len(addresses))
 	for i, a := range addresses {
-		result[i] = a + "/32"
+		cidr := a
+		// If address is not already a cidr, add a /32 (ipv4) or /128 (ipv6).
+		if _, _, err := net.ParseCIDR(a); err != nil {
+			ip := net.ParseIP(a)
+			if ip.To4() != nil {
+				cidr = a + "/32"
+			} else {
+				cidr = a + "/128"
+			}
+		}
+		result[i] = cidr
 	}
 	return result
 }
