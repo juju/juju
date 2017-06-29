@@ -982,7 +982,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		prereqOps = append(prereqOps, assertHostedModelsOp(aliveEmpty+dead))
 	}
 
-	timeOfDying := st.NowToTheSecond()
+	timeOfDying := st.nowToTheSecond()
 	modelUpdateValues := bson.D{
 		{"life", nextLife},
 		{"time-of-dying", timeOfDying},

@@ -72,7 +72,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	nameToLower := strings.ToLower(name)
 
-	dateCreated := st.NowToTheSecond()
+	dateCreated := st.nowToTheSecond()
 	user := &User{
 		st: st,
 		doc: userDoc{
@@ -350,14 +350,6 @@ func (u *User) LastLogin() (time.Time, error) {
 	return lastLogin.LastLogin.UTC(), nil
 }
 
-// NowToTheSecond returns the current time in UTC to the nearest second. We use
-// this for a time source that is not more precise than we can handle. When
-// serializing time in and out of mongo, we lose enough precision that it's
-// misleading to store any more than precision to the second.
-func (st *State) NowToTheSecond() time.Time {
-	return st.clock.Now().Round(time.Second).UTC()
-}
-
 // NeverLoggedInError is used to indicate that a user has never logged in.
 type NeverLoggedInError string
 
@@ -392,7 +384,7 @@ func (u *User) UpdateLastLogin() (err error) {
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
 		ModelUUID: u.st.ModelUUID(),
-		LastLogin: u.st.NowToTheSecond(),
+		LastLogin: u.st.nowToTheSecond(),
 	}
 
 	_, err = lastLoginsW.UpsertId(lastLogin.DocID, lastLogin)

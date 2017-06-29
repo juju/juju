@@ -131,7 +131,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		expectedErr: "validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
 	}} {
 		c.Logf("Test %d: should %s", i, t.should)
-		before := s.State.NowToTheSecond()
+		before := state.NowToTheSecond(s.State)
 		later := before.Add(testing.LongWait)
 
 		// Copy params over into empty premade map for comparison later
@@ -161,7 +161,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 			// Enqueued time should be within a reasonable time of the beginning
 			// of the test
-			now := s.State.NowToTheSecond()
+			now := state.NowToTheSecond(s.State)
 			c.Check(action.Enqueued(), jc.TimeBetween(before, now))
 			c.Check(action.Enqueued(), jc.TimeBetween(before, later))
 			continue

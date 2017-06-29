@@ -330,7 +330,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	dateCreated := st.NowToTheSecond()
+	dateCreated := st.nowToTheSecond()
 	ops := createInitialUserOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs.Owner,
@@ -422,7 +422,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 
 	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), st.NowToTheSecond(), permission.AdminAccess,
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), st.nowToTheSecond(), permission.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),

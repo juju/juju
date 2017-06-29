@@ -266,6 +266,10 @@ func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interfac
 	return st.tagToCollectionAndId(tag)
 }
 
+func NowToTheSecond(st *State) time.Time {
+	return st.nowToTheSecond()
+}
+
 func RunTransaction(st *State, ops []txn.Op) error {
 	return st.db().RunTransaction(ops)
 }
