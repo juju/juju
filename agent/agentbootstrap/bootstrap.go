@@ -106,7 +106,7 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Owner:                   adminUser,
@@ -135,6 +135,7 @@ func InitializeState(
 			st.Close()
 		}
 	}()
+	ctlr.Close()
 	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 

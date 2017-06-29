@@ -98,7 +98,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	case *StateTracker:
 		*outPointer = inWorker.stTracker
 	default:
-		return errors.Errorf("out should be *state.State; got %T", out)
+		return errors.Errorf("out should be *StateTracker; got %T", out)
 	}
 	return nil
 }

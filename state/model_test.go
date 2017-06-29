@@ -1134,7 +1134,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		}
 	}
 	controllerCfg := testing.FakeControllerConfig()
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -1156,6 +1156,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		MongoDialOpts:    mongotest.DialOpts(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 	return st, owner
 }
 

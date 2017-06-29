@@ -216,12 +216,13 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	st := statetesting.InitializeWithArgs(c,
+	ctlr, st := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),
 			Clock: gitjujutesting.NewClock(coretesting.NonZeroTime()),
 		})
 	c.Assert(st.Close(), jc.ErrorIsNil)
+	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
 	r.PatchValue(&environsGetNewPolicyFunc, func(

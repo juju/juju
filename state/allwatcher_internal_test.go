@@ -1194,6 +1194,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 
 				err = st.SwitchBlockOn(DestroyBlock, "test block")
 				c.Assert(err, jc.ErrorIsNil)
+
 				return 1
 			},
 		},
@@ -1202,7 +1203,6 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		func() {
 			checkIsolationForModel := func(st *State, w, otherW *testWatcher) {
 				c.Logf("Making changes to model %s", st.ModelUUID())
-
 				if test.setUpState != nil {
 					expected := test.setUpState(st)
 					// Consume events from setup.
