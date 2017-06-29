@@ -109,3 +109,27 @@ func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
+
+func (s *firewallerSuite) TestWatchInressAddressesForRelation(c *gc.C) {
+	var callCount int
+	relationTag := names.NewRelationTag("mediawiki:db mysql:db")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchIngressAddressesForRelations")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: relationTag.String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := firewaller.NewState(apiCaller)
+	_, err := client.WatchIngressAddressesForRelation(relationTag)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}

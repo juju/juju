@@ -36,6 +36,7 @@ type FirewallerAPI interface {
 	Unit(tag names.UnitTag) (*firewaller.Unit, error)
 	Relation(tag names.RelationTag) (*firewaller.Relation, error)
 	WatchEgressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
+	WatchIngressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
@@ -126,6 +127,7 @@ type Firewaller struct {
 	newRemoteFirewallerAPIFunc  func(modelUUID string) (CrossModelFirewallerFacadeCloser, error)
 	remoteRelationsWatcher      watcher.StringsWatcher
 	remoteRelationNetworkChange chan *remoteRelationNetworkChange
+	localRelationsChange        chan *remoteRelationNetworkChange
 	relationIngress             map[names.RelationTag]*remoteRelationData
 	pollClock                   clock.Clock
 }
@@ -153,6 +155,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		exposedChange:               make(chan *exposedChange),
 		relationIngress:             make(map[names.RelationTag]*remoteRelationData),
 		remoteRelationNetworkChange: make(chan *remoteRelationNetworkChange),
+		localRelationsChange:        make(chan *remoteRelationNetworkChange),
 		pollClock:                   clk,
 	}
 
@@ -282,6 +285,13 @@ func (fw *Firewaller) loop() error {
 			if err := fw.publishNetworkChanged(change); err != nil {
 				return errors.Trace(err)
 			}
+		case change := <-fw.localRelationsChange:
+			// We have a notification that the remote (consuming) model
+			// has changed egress networks so need to update the local
+			// model to allow those networks through the firewall.
+			if err := fw.relationIngressChanged(change); err != nil {
+				return errors.Trace(err)
+			}
 		case change := <-fw.unitsChange:
 			if err := fw.unitsChanged(change); err != nil {
 				return errors.Trace(err)
@@ -325,6 +335,28 @@ func (fw *Firewaller) publishNetworkChanged(change *remoteRelationNetworkChange)
 		return nil
 	}
 	return errors.Annotate(err, "cannot publish ingress network change")
+}
+
+func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange) error {
+	logger.Debugf("process remote relation ingress change for %v", change.relationTag)
+	relData, ok := fw.relationIngress[change.relationTag]
+	if ok {
+		relData.networks = change.networks
+		relData.ingressRequired = change.ingressRequired
+	}
+	appData, ok := fw.applicationids[change.localApplicationTag]
+	if !ok {
+		logger.Debugf("ignoring unknown application: %v", change.localApplicationTag)
+		return nil
+	}
+	unitds := []*unitData{}
+	for _, unitd := range appData.unitds {
+		unitds = append(unitds, unitd)
+	}
+	if err := fw.flushUnits(unitds); err != nil {
+		return errors.Annotate(err, "cannot change firewall ports")
+	}
+	return nil
 }
 
 // startMachine creates a new data value for tracking details of the
@@ -1154,12 +1186,6 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 	}
 	rel := results[0].Result
 
-	// We only want to watch for network address changes on the
-	// consuming side of a relation, so we can notify the offering model.
-	if rel.Endpoint.Role == charm.RoleProvider {
-		return nil
-	}
-
 	dead := notfound || rel.Life == params.Dead
 	data, known := fw.relationIngress[tag]
 	if known && dead {
@@ -1167,7 +1193,7 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 		return fw.forgetRelation(data)
 	}
 	if !known && !dead {
-		err := fw.startRelation(rel)
+		err := fw.startRelation(rel, rel.Endpoint.Role)
 		if err != nil {
 			return err
 		}
@@ -1190,21 +1216,24 @@ type remoteRelationData struct {
 	remoteRelationId    *params.RemoteEntityId
 	remoteApplicationId *params.RemoteEntityId
 	remoteModelUUID     string
-	// TODO(wallyworld) - add model listener to set these values
-	// (they will be received after publication from consuming model)
+	endpointRole        charm.RelationRole
+
+	// These values are updated when ingress information on the
+	// relation changes in the model.
 	ingressRequired bool
 	networks        set.Strings
 }
 
 // startRelation creates a new data value for tracking details of the
 // relation and starts watching the related models for subnets added or removed.
-func (fw *Firewaller) startRelation(rel *params.RemoteRelation) error {
+func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.RelationRole) error {
 	tag := names.NewRelationTag(rel.Key)
 	data := &remoteRelationData{
 		fw:                  fw,
 		tag:                 tag,
 		remoteModelUUID:     rel.SourceModelUUID,
 		localApplicationTag: names.NewApplicationTag(rel.ApplicationName),
+		endpointRole:        role,
 		relationReady:       make(chan remoteRelationInfo),
 	}
 	fw.relationIngress[tag] = data
@@ -1224,7 +1253,17 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation) error {
 		return errors.Trace(err)
 	}
 
-	return fw.startRelationPoller(rel.SourceModelUUID, rel.Key, rel.RemoteApplicationName, data.relationReady)
+	var relModelUUID string
+	if role == charm.RoleRequirer {
+		// The requirer side initiates the relation so the model UUID
+		// used to export the relation is that of the consuming side.
+		relModelUUID = fw.modelUUID
+	} else {
+		// Here SourceModelUUID is source model of the offer, which is
+		// the model UUID used to register the relation on the offering side.
+		relModelUUID = rel.SourceModelUUID
+	}
+	return fw.startRelationPoller(relModelUUID, rel.SourceModelUUID, rel.Key, rel.RemoteApplicationName, data.relationReady)
 }
 
 // watchLoop watches the relation for networks added or removed.
@@ -1243,6 +1282,14 @@ func (rd *remoteRelationData) watchLoop() error {
 		}
 	}
 
+	if rd.endpointRole == charm.RoleRequirer {
+		return rd.requirerEndpointLoop()
+	}
+	return rd.providerEndpointLoop()
+}
+
+func (rd *remoteRelationData) requirerEndpointLoop() error {
+	logger.Debugf("starting requirer endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
 	// Now watch for updates to egress addresses so we can inform the offering
 	// model what firewall ingress to allow.
 	egressAddressWatcher, err := rd.fw.firewallerApi.WatchEgressAddressesForRelation(rd.tag)
@@ -1254,7 +1301,7 @@ func (rd *remoteRelationData) watchLoop() error {
 		rd.ingressRequired = false
 		return nil
 	}
-	if err := rd.fw.catacomb.Add(egressAddressWatcher); err != nil {
+	if err := rd.catacomb.Add(egressAddressWatcher); err != nil {
 		return errors.Trace(err)
 	}
 	for {
@@ -1262,8 +1309,36 @@ func (rd *remoteRelationData) watchLoop() error {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
 		case cidrs := <-egressAddressWatcher.Changes():
-			logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.remoteModelUUID, cidrs)
-			if err := rd.updateOfferingModel(*rd.remoteRelationId, cidrs); err != nil {
+			logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			if err := rd.updateProviderModel(*rd.remoteRelationId, cidrs); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+}
+
+func (rd *remoteRelationData) providerEndpointLoop() error {
+	logger.Debugf("starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
+	// Watch for ingress changes requested by the consuming model.
+	ingressAddressWatcher, err := rd.fw.firewallerApi.WatchIngressAddressesForRelation(rd.tag)
+	if err != nil {
+		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
+			return errors.Trace(err)
+		}
+		logger.Infof("no ingress required for %v", rd.localApplicationTag)
+		rd.ingressRequired = false
+		return nil
+	}
+	if err := rd.catacomb.Add(ingressAddressWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	for {
+		select {
+		case <-rd.catacomb.Dying():
+			return rd.catacomb.ErrDying()
+		case cidrs := <-ingressAddressWatcher.Changes():
+			logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			if err := rd.updateIngressNetworks(*rd.remoteRelationId, cidrs); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1277,9 +1352,9 @@ type remoteRelationNetworkChange struct {
 	ingressRequired     bool
 }
 
-// updateOfferingModel gathers the ingress CIDRs for the relation and notifies
+// updateProviderModel gathers the ingress CIDRs for the relation and notifies
 // that a change has occurred.
-func (rd *remoteRelationData) updateOfferingModel(remoteRelationId params.RemoteEntityId, cidrs []string) error {
+func (rd *remoteRelationData) updateProviderModel(remoteRelationId params.RemoteEntityId, cidrs []string) error {
 	logger.Debugf("ingress cidrs for %v: %+v", remoteRelationId, cidrs)
 	change := &remoteRelationNetworkChange{
 		relationTag:         rd.tag,
@@ -1291,6 +1366,23 @@ func (rd *remoteRelationData) updateOfferingModel(remoteRelationId params.Remote
 	case <-rd.catacomb.Dying():
 		return rd.catacomb.ErrDying()
 	case rd.fw.remoteRelationNetworkChange <- change:
+	}
+	return nil
+}
+
+// updateIngressNetworks processes the changed ingress networks on the relation.
+func (rd *remoteRelationData) updateIngressNetworks(remoteRelationId params.RemoteEntityId, cidrs []string) error {
+	logger.Debugf("ingress cidrs for %v: %+v", remoteRelationId, cidrs)
+	change := &remoteRelationNetworkChange{
+		relationTag:         rd.tag,
+		localApplicationTag: rd.localApplicationTag,
+		networks:            set.NewStrings(cidrs...),
+		ingressRequired:     len(cidrs) > 0,
+	}
+	select {
+	case <-rd.catacomb.Dying():
+		return rd.catacomb.ErrDying()
+	case rd.fw.localRelationsChange <- change:
 	}
 	return nil
 }
@@ -1329,23 +1421,25 @@ func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
 }
 
 type remoteRelationPoller struct {
-	catacomb             catacomb.Catacomb
-	fw                   *Firewaller
-	relationTag          names.RelationTag
-	remoteApplicationTag names.ApplicationTag
-	remoteModelUUID      string
-	relationReady        chan remoteRelationInfo
+	catacomb       catacomb.Catacomb
+	fw             *Firewaller
+	relationTag    names.RelationTag
+	applicationTag names.ApplicationTag
+	relModelUUID   string
+	appModelUUID   string
+	relationReady  chan remoteRelationInfo
 }
 
 // startRelationPoller creates a new worker which waits until a remote
 // relation is registered in both models.
-func (fw *Firewaller) startRelationPoller(sourceModelUUID, relationKey, remoteAppName string, relationReady chan remoteRelationInfo) error {
+func (fw *Firewaller) startRelationPoller(relModelUUID, appModelUUID, relationKey, remoteAppName string, relationReady chan remoteRelationInfo) error {
 	poller := &remoteRelationPoller{
-		fw:                   fw,
-		relationTag:          names.NewRelationTag(relationKey),
-		remoteApplicationTag: names.NewApplicationTag(remoteAppName),
-		relationReady:        relationReady,
-		remoteModelUUID:      sourceModelUUID,
+		fw:             fw,
+		relationTag:    names.NewRelationTag(relationKey),
+		applicationTag: names.NewApplicationTag(remoteAppName),
+		relationReady:  relationReady,
+		relModelUUID:   relModelUUID,
+		appModelUUID:   appModelUUID,
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -1369,24 +1463,22 @@ func (p *remoteRelationPoller) pollLoop() error {
 			return p.catacomb.ErrDying()
 		case <-p.fw.pollClock.After(3 * time.Second):
 			// Relation is exported with the consuming model UUID.
-			relationModelUUID := p.fw.modelUUID
-			relToken, err := p.fw.remoteRelationsApi.GetToken(relationModelUUID, p.relationTag)
+			relToken, err := p.fw.remoteRelationsApi.GetToken(p.relModelUUID, p.relationTag)
 			if err != nil {
 				continue
 			}
-			logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), relationModelUUID)
+			logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.relModelUUID)
 
 			// Application is exported with the offering model UUID.
-			appModelUUID := p.remoteModelUUID
-			appToken, err := p.fw.remoteRelationsApi.GetToken(appModelUUID, p.remoteApplicationTag)
+			appToken, err := p.fw.remoteRelationsApi.GetToken(p.appModelUUID, p.applicationTag)
 			if err != nil {
 				continue
 			}
-			logger.Debugf("token %v for application id: %v in model %v", appToken, p.remoteApplicationTag.Id(), appModelUUID)
+			logger.Debugf("token %v for application id: %v in model %v", appToken, p.applicationTag.Id(), p.appModelUUID)
 
 			// relation and application are ready.
-			remoteRelationId := params.RemoteEntityId{ModelUUID: relationModelUUID, Token: relToken}
-			remoteApplicationId := params.RemoteEntityId{ModelUUID: appModelUUID, Token: appToken}
+			remoteRelationId := params.RemoteEntityId{ModelUUID: p.relModelUUID, Token: relToken}
+			remoteApplicationId := params.RemoteEntityId{ModelUUID: p.appModelUUID, Token: appToken}
 			releationInfo := remoteRelationInfo{
 				relationId:          remoteRelationId,
 				remoteApplicationId: remoteApplicationId,

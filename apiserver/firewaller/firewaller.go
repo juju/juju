@@ -490,3 +490,41 @@ func includeAsEgressSubnet(cidr string) (bool, error) {
 	}
 	return true, nil
 }
+
+// WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
+// that have been recorded against the specified relations.
+func (f *FirewallerAPIV4) WatchIngressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		make([]params.StringsWatchResult, len(relations.Entities)),
+	}
+
+	one := func(tag string) (id string, changes []string, _ error) {
+		logger.Debugf("Watching ingress addresses for %+v from model %v", tag, f.st.ModelUUID())
+
+		relationTag, err := names.ParseRelationTag(tag)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		rel, err := f.st.KeyRelation(relationTag.Id())
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		w := rel.WatchRelationIngressNetworks()
+		changes, ok := <-w.Changes()
+		if !ok {
+			return "", nil, common.ServerError(watcher.EnsureErr(w))
+		}
+		return f.resources.Register(w), changes, nil
+	}
+
+	for i, e := range relations.Entities {
+		watcherId, changes, err := one(e.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].StringsWatcherId = watcherId
+		results.Results[i].Changes = changes
+	}
+	return results, nil
+}

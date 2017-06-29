@@ -199,6 +199,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 			ops = append(ops, epOps...)
 		}
 	}
+	ops = append(ops, removeRelationIngressNetworksOps(r.st, r.doc.Key)...)
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
 }

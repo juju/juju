@@ -132,3 +132,26 @@ func (s *RemoteFirewallerSuite) TestWatchEgressAddressesForRelationsIgnoresProvi
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "egress network for application db2 without requires endpoint not supported")
 }
+
+func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
+	db2Relation := newMockRelation(123)
+	s.st.relations["remote-db2:db django:db"] = db2Relation
+
+	result, err := s.api.WatchIngressAddressesForRelations(
+		params.Entities{Entities: []params.Entity{{
+			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Changes, jc.SameContents, []string{"1.2.3.4/32"})
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.NotNil)
+	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
+	})
+}

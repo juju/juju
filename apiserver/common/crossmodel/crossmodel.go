@@ -202,15 +202,7 @@ func PublishIngressNetworkChange(backend Backend, change params.IngressNetworksC
 		return errors.Trace(err)
 	}
 
-	// Look up the application on the remote side of this relation
-	// ie from the model which published this change.
-	applicationTag, err := getRemoteEntityTag(backend, change.ApplicationId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
-
-	// TODO(wallyworld) - record this info in the model so firewaller can see it.
-	logger.Infof("rel %v has networks %v", rel, change.Networks)
-	return nil
+	logger.Debugf("relation %v requires ingress networks %v", rel, change.Networks)
+	_, err = backend.SaveIngressNetworks(rel.Tag().Id(), change.Networks)
+	return err
 }

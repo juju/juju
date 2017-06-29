@@ -223,6 +223,12 @@ func (r *mockRelation) UnitInScope(u firewaller.Unit) (bool, error) {
 	return r.inScope.Contains(u.Name()), nil
 }
 
+func (r *mockRelation) WatchRelationIngressNetworks() state.StringsWatcher {
+	w := newMockStringsWatcher()
+	w.changes <- []string{"1.2.3.4/32"}
+	return w
+}
+
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{changes: make(chan params.RelationUnitsChange, 1)}
 	go w.doneWhenDying()

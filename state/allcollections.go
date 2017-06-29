@@ -439,6 +439,8 @@ func allCollections() collectionSchema {
 			externalControllersC: {
 				global: true,
 			},
+			// relationIngressC holds required ingress cidrs for remote relations.
+			relationIngressC: {},
 		} {
 			result[name] = details
 		}
@@ -533,4 +535,5 @@ const (
 	remoteEntitiesC      = "remoteEntities"
 	tokensC              = "tokens"
 	externalControllersC = "externalControllers"
+	relationIngressC     = "relationIngress"
 )

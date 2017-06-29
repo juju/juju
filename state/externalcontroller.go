@@ -92,10 +92,9 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 		if err != nil {
 			return nil, errors.Annotate(err, "failed to load model")
 		}
-		if model.Life() != Alive {
-			return nil, errors.New("model is not alive")
+		if err := checkModelActive(ec.st); err != nil {
+			return nil, errors.Trace(err)
 		}
-
 		existing, err := ec.controller(controller.ControllerTag.Id())
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)

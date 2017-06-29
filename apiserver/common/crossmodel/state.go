@@ -90,6 +90,13 @@ func (st stateShim) ImportRemoteEntity(model names.ModelTag, entity names.Tag, t
 	return r.ImportRemoteEntity(model, entity, token)
 }
 
+type RelationIngress state.RelationIngress
+
+func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (RelationIngress, error) {
+	api := state.NewRelationIngressNetworks(s.State)
+	return api.Save(relationKey, cidrs)
+}
+
 type relationShim struct {
 	*state.Relation
 	st *state.State

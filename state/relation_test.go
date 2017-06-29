@@ -359,3 +359,21 @@ func assertOneRelation(c *gc.C, srv *state.Application, relId int, endpoints ...
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{expectEp})
 	return rel
 }
+
+func (s *RelationSuite) TestRemoveAlsoDeletesIngressNetworks(c *gc.C) {
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relIngress := state.NewRelationIngressNetworks(s.State)
+	_, err = relIngress.Save(relation.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	state.RemoveRelation(c, relation)
+	_, err = state.IngressNetworks(relation)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
