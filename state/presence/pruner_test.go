@@ -6,6 +6,8 @@ package presence
 import (
 	"fmt"
 	"math/rand"
+	"sort"
+	"sync"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -182,7 +184,7 @@ func assertStopped(c *gc.C, w worker.Worker) {
 }
 
 func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
-	FakePeriod(1)
+	FakePeriod(2)
 	keys := make([]string, 500)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%04d", i)
@@ -229,31 +231,36 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		err := p.Start()
 		c.Assert(err, jc.ErrorIsNil)
 		newPingers[i] = p
-		// All newPingers will be checked that they stop cleanly
-		// Spread them out slightly
 	}
 	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	c.Logf("initialized %d pingers in %v\n", len(newPingers), time.Since(t))
 	// Make sure all of the entities stay showing up as alive
+	deadKeys := make([]string, 0)
 	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		for {
 			select {
 			case got := <-ch:
-				c.Check(got.Alive, jc.IsTrue, gc.Commentf("key %q reported dead", got.Key))
+				if !got.Alive {
+					deadKeys = append(deadKeys, got.Key)
+				}
 			case <-done:
+				wg.Done()
 				return
 			}
 		}
 	}()
-	defer close(done)
 	beings := s.presence.Database.C(s.presence.Name + ".beings")
 	// Create a background Pruner task, that prunes items independently of
 	// when they are being updated
+	wg.Add(1)
 	go func() {
 		for {
 			select {
 			case <-done:
+				wg.Done()
 				return
 			case <-time.After(time.Duration(rand.Intn(500)+1000) * time.Millisecond):
 				oldPruner := NewPruner(s.modelTag.Id(), beings, s.pings, 0)
@@ -297,10 +304,15 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	count, err := beings.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	// After pruning, we should have at least one sequence for each key,
-	// but not more than fits in the last pings
-	c.Check(count, jc.GreaterThan, len(keys))
-	c.Check(count, jc.LessThan, len(keys)*4)
+	// but not more than fits in the last 4 ping slots
+	c.Check(count, jc.GreaterThan, len(keys)-1)
+	c.Check(count, jc.LessThan, len(keys)*8)
 	// Run the pruner again, it should essentially be a no-op
 	oldPruner = NewPruner(s.modelTag.Id(), beings, s.pings, 0)
 	c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
+	close(done)
+	wg.Wait()
+	sort.Strings(deadKeys)
+	c.Check(len(deadKeys), gc.Equals, 0)
+	c.Check(deadKeys, jc.DeepEquals, []string{})
 }
