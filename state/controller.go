@@ -27,7 +27,7 @@ func controllerKey(controllerUUID string) string {
 
 // ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (jujucontroller.Config, error) {
-	settings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
+	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

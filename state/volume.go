@@ -1059,7 +1059,7 @@ func volumeGlobalKey(name string) string {
 
 // VolumeStatus returns the status of the specified volume.
 func (st *State) VolumeStatus(tag names.VolumeTag) (status.StatusInfo, error) {
-	return getStatus(st, volumeGlobalKey(tag.Id()), "volume")
+	return getStatus(st.db(), volumeGlobalKey(tag.Id()), "volume")
 }
 
 // SetVolumeStatus sets the status of the specified volume.
@@ -1085,12 +1085,12 @@ func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status
 	default:
 		return errors.Errorf("cannot set invalid status %q", volumeStatus)
 	}
-	return setStatus(st, setStatusParams{
+	return setStatus(st.db(), setStatusParams{
 		badge:     "volume",
 		globalKey: volumeGlobalKey(tag.Id()),
 		status:    volumeStatus,
 		message:   info,
 		rawData:   data,
-		updated:   updated,
+		updated:   timeOrNow(updated, st.clock),
 	})
 }

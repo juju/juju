@@ -149,7 +149,7 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		return errors.Trace(err)
 	}
 	info.Constraints = c
-	modelStatus, err := getStatus(st, modelGlobalKey, "model")
+	modelStatus, err := getStatus(st.db(), modelGlobalKey, "model")
 	if e.isNotFoundAndModelDead(err) {
 		// Treat it as if the model is removed.
 		return e.removed(store, e.UUID, e.UUID, st)
@@ -446,7 +446,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 		info.Constraints = c
 		needConfig = true
-		applicationStatus, err := getStatus(st, key, "application")
+		applicationStatus, err := getStatus(st.db(), key, "application")
 		if err != nil {
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
@@ -485,7 +485,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 	}
 	if needConfig {
-		doc, err := readSettingsDoc(st, settingsC, applicationSettingsKey(app.Name, app.CharmURL))
+		doc, err := readSettingsDoc(st.db(), settingsC, applicationSettingsKey(app.Name, app.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -530,7 +530,7 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 		logger.Debugf("new remote application %q added to backing state", app.Name)
 		// Fetch the status.
 		key := remoteApplicationGlobalKey(app.Name)
-		serviceStatus, err := getStatus(st, key, "remote application")
+		serviceStatus, err := getStatus(st.db(), key, "remote application")
 		if err != nil {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
 		}
@@ -787,7 +787,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo := *info
 		// Get the unit's current recorded status from state.
 		// It's needed to reset the unit status when a unit comes off error.
-		statusInfo, err := getStatus(st, unitGlobalKey(newInfo.Name), "unit")
+		statusInfo, err := getStatus(st.db(), unitGlobalKey(newInfo.Name), "unit")
 		if err != nil {
 			return err
 		}

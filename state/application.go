@@ -575,7 +575,7 @@ func (a *Application) changeCharmOps(
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldSettings, err := readSettings(a.st, settingsC, a.settingsKey())
+	oldSettings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err == nil {
 		// Filter the old settings through to get the new settings.
 		newSettings = ch.Config().FilterSettings(oldSettings.Map())
@@ -592,14 +592,14 @@ func (a *Application) changeCharmOps(
 	// Create or replace application settings.
 	var settingsOp txn.Op
 	newSettingsKey := applicationSettingsKey(a.doc.Name, ch.URL())
-	if _, err := readSettings(a.st, settingsC, newSettingsKey); errors.IsNotFound(err) {
+	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else {
 		// Settings exist, just replace them with the new ones.
-		settingsOp, _, err = replaceSettingsOp(a.st, settingsC, newSettingsKey, newSettings)
+		settingsOp, _, err = replaceSettingsOp(a.st.db(), settingsC, newSettingsKey, newSettings)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1194,9 +1194,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(a.st, globalKey, unitStatusDoc)
-	probablyUpdateStatusHistory(a.st, agentGlobalKey, agentStatusDoc)
-	probablyUpdateStatusHistory(a.st, globalWorkloadVersionKey(name), workloadVersionDoc)
+	probablyUpdateStatusHistory(a.st.db(), globalKey, unitStatusDoc)
+	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
+	probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 
@@ -1376,7 +1376,7 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 // ConfigSettings returns the raw user configuration for the application's charm.
 // Unset values are omitted.
 func (a *Application) ConfigSettings() (charm.Settings, error) {
-	settings, err := readSettings(a.st, settingsC, a.settingsKey())
+	settings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
 		return nil, err
 	}
@@ -1398,7 +1398,7 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(a.st, settingsC, a.settingsKey())
+	node, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
 		return err
 	}
@@ -1420,7 +1420,7 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
-	doc, err := readSettingsDoc(a.st, settingsC, leadershipSettingsKey(a.doc.Name))
+	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
 	if errors.IsNotFound(err) {
 		return nil, errors.NotFoundf("application")
 	} else if err != nil {
@@ -1482,7 +1482,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// Read the current document state so we can abort if there's
 		// no actual change; and the version number so we can assert
 		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(a.st, settingsC, key)
+		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
 		if errors.IsNotFound(err) {
 			return nil, errors.NotFoundf("application")
 		} else if err != nil {
@@ -1647,7 +1647,7 @@ func (a *Application) Status() (status.StatusInfo, error) {
 			return a.deriveStatus(units)
 		}
 	}
-	return getStatus(a.st, a.globalKey(), "application")
+	return getStatus(a.st.db(), a.globalKey(), "application")
 }
 
 // SetStatus sets the status for the application.
@@ -1655,13 +1655,13 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(a.st, setStatusParams{
+	return setStatus(a.st.db(), setStatusParams{
 		badge:     "application",
 		globalKey: a.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   statusInfo.Since,
+		updated:   timeOrNow(statusInfo.Since, a.st.clock),
 	})
 }
 
@@ -1670,7 +1670,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 // representing past statuses for this application.
 func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        a.st,
+		db:        a.st.db(),
 		globalKey: a.globalKey(),
 		filter:    filter,
 	}

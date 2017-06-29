@@ -1607,7 +1607,7 @@ func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
 
 	// Updating a dead model with missing settings actually causes the
 	// model to be removed from the watcher.
-	err := removeSettings(s.state, settingsC, modelGlobalKey)
+	err := removeSettings(s.state.db(), settingsC, modelGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	ops := []txn.Op{{
 		C:      modelsC,
