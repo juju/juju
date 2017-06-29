@@ -51,12 +51,10 @@ const (
 
 // Model represents the state of a model.
 type Model struct {
-	// st is not necessarily the state of this model. Though it is
-	// usually safe to assume that it is. The only times it isn't is when we
-	// get models other than the current one - which is mostly in
-	// controller api endpoints.
-	st  *State
-	doc modelDoc
+	// globalState is a State that is only safe for accessing non-model
+	// specific data, e.g. (non-model) users, models.
+	globalState *State
+	doc         modelDoc
 }
 
 // modelDoc represents the internal state of the model in MongoDB.
@@ -186,7 +184,9 @@ func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
-	model := &Model{st: st}
+	model := &Model{
+		globalState: st,
+	}
 	if err := model.refresh(models.FindId(tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -206,7 +206,10 @@ func (st *State) AllModels() ([]*Model, error) {
 
 	result := make([]*Model, len(modelDocs))
 	for i, doc := range modelDocs {
-		result[i] = &Model{st: st, doc: doc}
+		result[i] = &Model{
+			globalState: st,
+			doc:         doc,
+		}
 	}
 
 	return result, nil
@@ -387,7 +390,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 	if args.MigrationMode != MigrationModeImporting {
-		probablyUpdateStatusHistory(newSt, modelGlobalKey, modelStatusDoc)
+		probablyUpdateStatusHistory(newSt.db(), modelGlobalKey, modelStatusDoc)
 	}
 
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
@@ -542,19 +545,13 @@ func (m *Model) MigrationMode() MigrationMode {
 
 // SetMigrationMode updates the migration mode of the model.
 func (m *Model) SetMigrationMode(mode MigrationMode) error {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
-
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     m.doc.UUID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"migration-mode", mode}}}},
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := m.globalState.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return m.Refresh()
@@ -573,12 +570,9 @@ func (m *Model) Owner() names.UserTag {
 
 // Status returns the status of the model.
 func (m *Model) Status() (status.StatusInfo, error) {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
-	}
-	defer closeState()
-	status, err := getStatus(st, m.globalKey(), "model")
+	db, closer := m.modelDatabase()
+	defer closer()
+	status, err := getStatus(db, m.globalKey(), "model")
 	if err != nil {
 		return status, err
 	}
@@ -587,21 +581,18 @@ func (m *Model) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status of the model.
 func (m *Model) SetStatus(sInfo status.StatusInfo) error {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
 	if !status.ValidModelStatus(sInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
 	}
-	return setStatus(st, setStatusParams{
+	db, closer := m.modelDatabase()
+	defer closer()
+	return setStatus(db, setStatusParams{
 		badge:     "model",
 		globalKey: m.globalKey(),
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   sInfo.Since,
+		updated:   timeOrNow(sInfo.Since, m.globalState.clock),
 	})
 }
 
@@ -609,13 +600,10 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 // or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this application.
 func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closeState()
+	db, closer := m.modelDatabase()
+	defer closer()
 	args := &statusHistoryArgs{
-		st:        st,
+		db:        db,
 		globalKey: m.globalKey(),
 		filter:    filter,
 	}
@@ -624,22 +612,9 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closeState()
-	return st.ModelConfig()
-}
-
-// ConfigValues returns the config values for the model.
-func (m *Model) ConfigValues() (config.ConfigValues, error) {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closeState()
-	return st.ModelConfigValues()
+	db, closer := m.modelDatabase()
+	defer closer()
+	return getModelConfig(db)
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
@@ -653,7 +628,7 @@ func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
 		Id:     m.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"available-tools", v}}}},
 	}}
-	err := m.st.runTransaction(ops)
+	err := m.globalState.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -710,7 +685,7 @@ func (m *Model) SetSLA(level, owner string, credentials []byte) error {
 			Credentials: credentials,
 		}}}}},
 	}}
-	err = m.st.runTransaction(ops)
+	err = m.globalState.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -730,7 +705,7 @@ func (m *Model) SetMeterStatus(status, info string) error {
 			Info: info,
 		}}}}},
 	}}
-	err := m.st.runTransaction(ops)
+	err := m.globalState.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -752,7 +727,7 @@ func (m *Model) globalKey() string {
 }
 
 func (m *Model) Refresh() error {
-	models, closer := m.st.db().GetCollection(modelsC)
+	models, closer := m.globalState.db().GetCollection(modelsC)
 	defer closer()
 	return m.refresh(models.FindId(m.UUID()))
 }
@@ -767,10 +742,9 @@ func (m *Model) refresh(query mongo.Query) error {
 
 // Users returns a slice of all users for this model.
 func (m *Model) Users() ([]permission.UserAccess, error) {
-	if m.st.ModelUUID() != m.UUID() {
-		return nil, errors.New("cannot lookup model users outside the current model")
-	}
-	coll, closer := m.st.db().GetCollection(modelUsersC)
+	db, dbCloser := m.modelDatabase()
+	defer dbCloser()
+	coll, closer := db.GetCollection(modelUsersC)
 	defer closer()
 
 	var userDocs []userAccessDoc
@@ -785,7 +759,7 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 		// been deleted, in this case we should not return it.
 		userTag := names.NewUserTag(doc.UserName)
 		if userTag.IsLocal() {
-			_, err := m.st.User(userTag)
+			_, err := m.globalState.User(userTag)
 			if err != nil {
 				if _, ok := err.(DeletedUserError); !ok {
 					// We ignore deleted users for now. So if it is not a
@@ -795,7 +769,7 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 				continue
 			}
 		}
-		mu, err := NewModelUserAccess(m.st, doc)
+		mu, err := NewModelUserAccess(m.globalState, doc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -806,7 +780,7 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 }
 
 func (m *Model) isControllerModel() bool {
-	return m.st.controllerModelTag.Id() == m.doc.UUID
+	return m.globalState.controllerModelTag.Id() == m.doc.UUID
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
@@ -836,20 +810,18 @@ func (m *Model) DestroyIncludingHosted() error {
 func (m *Model) destroy(ensureNoHostedModels bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
 
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// On the first attempt, we assume memory state is recent
 		// enough to try using...
 		if attempt != 0 {
 			// ...but on subsequent attempts, we read fresh environ
-			// state from the DB. Note that we do *not* refresh `e`
-			// itself, as detailed in doc/hacking-state.txt
-			if m, err = st.Model(); err != nil {
+			// state from the DB. Note that we do *not* refresh the
+			// original `m` itself, as detailed in doc/hacking-state.txt
+			if attempt == 1 {
+				mCopy := *m
+				m = &mCopy
+			}
+			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -864,7 +836,7 @@ func (m *Model) destroy(ensureNoHostedModels bool) (err error) {
 		return ops, nil
 	}
 
-	return st.run(buildTxn)
+	return m.globalState.db().RunFor(m.UUID(), buildTxn)
 }
 
 // errModelNotAlive is a signal emitted from destroyOps to indicate
@@ -891,13 +863,6 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	if m.Life() != Alive {
 		return nil, errModelNotAlive
 	}
-
-	// Ensure we're using the model's state.
-	st, closeState, err := m.getState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closeState()
 
 	// Check if the model is empty. If it is, we can advance the model's
 	// lifecycle state directly to Dead.
@@ -932,7 +897,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// Check for any Dying or alive but non-empty models. If there
 		// are any, we return an error indicating that there are hosted
 		// models.
-		models, err := st.AllModels()
+		models, err := m.globalState.AllModels()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -982,7 +947,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		prereqOps = append(prereqOps, assertHostedModelsOp(aliveEmpty+dead))
 	}
 
-	timeOfDying := st.NowToTheSecond()
+	timeOfDying := m.globalState.NowToTheSecond()
 	modelUpdateValues := bson.D{
 		{"life", nextLife},
 		{"time-of-dying", timeOfDying},
@@ -1033,13 +998,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 // require external resource cleanup. If the model is not empty, then
 // an error will be returned.
 func (m *Model) checkEmpty() error {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
-
-	modelEntityRefs, closer := st.db().GetCollection(modelEntityRefsC)
+	modelEntityRefs, closer := m.globalState.db().GetCollection(modelEntityRefsC)
 	defer closer()
 
 	var doc modelEntityRefsDoc
@@ -1217,29 +1176,6 @@ func (m *Model) assertActiveOp() txn.Op {
 	return assertModelActiveOp(m.UUID())
 }
 
-// getState returns the State for the model, and a function to close
-// it when done. If m.st is the model-specific state, then it will
-// be returned and the close function will be a no-op.
-//
-// TODO(axw) 2016-04-14 #1570269
-// find a way to guarantee that every Model is associated with the
-// appropriate State. The current work-around is too easy to get wrong.
-func (m *Model) getState() (*State, func(), error) {
-	if m.st.modelTag == m.ModelTag() {
-		return m.st, func() {}, nil
-	}
-	st, err := m.st.ForModel(m.ModelTag())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	uuid := st.ModelUUID()
-	return st, func() {
-		if err := st.Close(); err != nil {
-			logger.Errorf("closing temporary state for model %s", uuid)
-		}
-	}, nil
-}
-
 // assertModelActiveOp returns a txn.Op that asserts the given
 // model UUID refers to an Alive model.
 func assertModelActiveOp(modelUUID string) txn.Op {
@@ -1260,4 +1196,10 @@ func checkModelActive(st *State) error {
 		return errors.Errorf("model %q is being migrated", model.Name())
 	}
 	return nil
+}
+
+// modelDatabase returns a Database scoped to the model's UUID,
+// and a function that will close the database when called.
+func (m *Model) modelDatabase() (Database, func()) {
+	return m.globalState.db().CopyForModel(m.UUID())
 }

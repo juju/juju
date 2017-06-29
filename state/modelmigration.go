@@ -378,11 +378,11 @@ func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg str
 		Updated:    now,
 	}
 
-	ops, err := statusSetOps(st, doc, globalKey)
+	ops, err := statusSetOps(st.db(), doc, globalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	probablyUpdateStatusHistory(st, globalKey, doc)
+	probablyUpdateStatusHistory(st.db(), globalKey, doc)
 	return ops, nil
 }
 

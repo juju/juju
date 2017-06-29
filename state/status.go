@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -49,9 +50,9 @@ func unixNanoToTime(i int64) *time.Time {
 // getStatus retrieves the status document associated with the given
 // globalKey and converts it to a StatusInfo. If the status document
 // is not found, a NotFoundError referencing badge will be returned.
-func getStatus(st *State, globalKey, badge string) (_ status.StatusInfo, err error) {
+func getStatus(db Database, globalKey, badge string) (_ status.StatusInfo, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get status")
-	statuses, closer := st.db().GetCollection(statusesC)
+	statuses, closer := db.GetCollection(statusesC)
 	defer closer()
 
 	var doc statusDoc
@@ -98,38 +99,46 @@ type setStatusParams struct {
 	updated *time.Time
 }
 
+func timeOrNow(t *time.Time, clock clock.Clock) *time.Time {
+	if t == nil {
+		now := clock.Now()
+		t = &now
+	}
+	return t
+}
+
 // setStatus inteprets the supplied params as documented on the type.
-func setStatus(st *State, params setStatusParams) (err error) {
+func setStatus(db Database, params setStatusParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
 	if params.updated == nil {
-		now := st.clock.Now()
-		params.updated = &now
+		return errors.NotValidf("nil updated time")
 	}
+
 	doc := statusDoc{
 		Status:     params.status,
 		StatusInfo: params.message,
 		StatusData: utils.EscapeKeys(params.rawData),
 		Updated:    params.updated.UnixNano(),
 	}
-	probablyUpdateStatusHistory(st, params.globalKey, doc)
+	probablyUpdateStatusHistory(db, params.globalKey, doc)
 
 	// Set the authoritative status document, or fail trying.
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
-		return statusSetOps(st, doc, params.globalKey)
+		return statusSetOps(db, doc, params.globalKey)
 	}
 	if params.token != nil {
 		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
-	err = st.run(buildTxn)
+	err = db.Run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return errors.NotFoundf(params.badge)
 	}
 	return errors.Trace(err)
 }
 
-func statusSetOps(st *State, doc statusDoc, globalKey string) ([]txn.Op, error) {
+func statusSetOps(db Database, doc statusDoc, globalKey string) ([]txn.Op, error) {
 	update := bson.D{{"$set", &doc}}
-	txnRevno, err := st.readTxnRevno(statusesC, globalKey)
+	txnRevno, err := readTxnRevno(db, statusesC, globalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -179,7 +188,7 @@ type historicalStatusDoc struct {
 	Updated int64 `bson:"updated"`
 }
 
-func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
+func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 	historyDoc := &historicalStatusDoc{
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
@@ -187,7 +196,7 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
-	history, closer := st.db().GetCollection(statusesHistoryC)
+	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 	if err := historyW.Insert(historyDoc); err != nil {
@@ -208,7 +217,7 @@ func eraseStatusHistory(st *State, globalKey string) error {
 
 // statusHistoryArgs hold the arguments to call statusHistory.
 type statusHistoryArgs struct {
-	st        *State
+	db        Database
 	globalKey string
 	filter    status.StatusHistoryFilter
 }
@@ -256,7 +265,7 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	if err := args.filter.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating arguments")
 	}
-	statusHistory, closer := args.st.db().GetCollection(statusesHistoryC)
+	statusHistory, closer := args.db.GetCollection(statusesHistoryC)
 	defer closer()
 
 	var results []status.StatusInfo

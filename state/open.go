@@ -390,7 +390,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
-	probablyUpdateStatusHistory(st, modelGlobalKey, modelStatusDoc)
+	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
 	return st, nil
 }
 

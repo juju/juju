@@ -995,7 +995,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st, m.globalInstanceKey(), "instance")
+	machineStatus, err := getStatus(m.st.db(), m.globalInstanceKey(), "instance")
 	if err != nil {
 		logger.Warningf("error when retrieving instance status for machine: %s, %v", m.Id(), err)
 		return status.StatusInfo{}, err
@@ -1005,13 +1005,13 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "instance",
 		globalKey: m.globalInstanceKey(),
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   sInfo.Since,
+		updated:   timeOrNow(sInfo.Since, m.st.clock),
 	})
 
 }
@@ -1023,7 +1023,7 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 // this juju machine is deployed.
 func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalInstanceKey(),
 		filter:    filter,
 	}
@@ -1613,7 +1613,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 
 // Status returns the status of the machine.
 func (m *Machine) Status() (status.StatusInfo, error) {
-	mStatus, err := getStatus(m.st, m.globalKey(), "machine")
+	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
 	if err != nil {
 		return mStatus, err
 	}
@@ -1642,13 +1642,13 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	default:
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   statusInfo.Since,
+		updated:   timeOrNow(statusInfo.Since, m.st.clock),
 	})
 }
 
@@ -1657,7 +1657,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 // representing past statuses for this machine.
 func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalKey(),
 		filter:    filter,
 	}

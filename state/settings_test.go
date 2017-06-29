@@ -25,11 +25,11 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SettingsSuite) createSettings(key string, values map[string]interface{}) (*Settings, error) {
-	return createSettings(s.state, s.collection, key, values)
+	return createSettings(s.state.db(), s.collection, key, values)
 }
 
 func (s *SettingsSuite) readSettings() (*Settings, error) {
-	return readSettings(s.state, s.collection, s.key)
+	return readSettings(s.state.db(), s.collection, s.key)
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *gc.C) {
@@ -55,7 +55,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
 	node, err := s.createSettings(s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = removeSettings(s.state, s.collection, s.key)
+	err = removeSettings(s.state.db(), s.collection, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 
 	node.Set("foo", "bar")
@@ -221,7 +221,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	options := map[string]interface{}{"$baz": 1, "foo.bar": "beta"}
-	rop, settingsChanged, err := replaceSettingsOp(s.state, s.collection, s.key, options)
+	rop, settingsChanged, err := replaceSettingsOp(s.state.db(), s.collection, s.key, options)
 	c.Assert(err, jc.ErrorIsNil)
 	ops := []txn.Op{rop}
 	err = node.db.RunTransaction(ops)

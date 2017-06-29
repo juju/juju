@@ -250,7 +250,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	controllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	controllerInheritedConfig, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
@@ -455,8 +455,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 
 	for k := range regionInheritedConfigIn {
 		// Query for config for each region
-		regionInheritedConfig, err := state.ReadSettings(
-			s.State, state.GlobalSettingsC,
+		regionInheritedConfig, err := s.State.ReadSettings(
+			state.GlobalSettingsC,
 			"dummy#"+k)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(

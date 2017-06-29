@@ -58,7 +58,6 @@ var (
 	AddVolumeOps                         = (*State).addVolumeOps
 	CombineMeterStatus                   = combineMeterStatus
 	ApplicationGlobalKey                 = applicationGlobalKey
-	ReadSettings                         = readSettings
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
 	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
@@ -601,7 +600,7 @@ func PrimeUnitStatusHistory(
 	}
 
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
-		return statusSetOps(unit.st, doc, globalKey)
+		return statusSetOps(unit.st.db(), doc, globalKey)
 	}
 
 	err := unit.st.run(buildTxn)
@@ -669,13 +668,13 @@ func AssertNoCleanups(c *gc.C, st *State) {
 // GetApplicationSettings allows access to settings collection for a
 // given application.
 func GetApplicationSettings(st *State, app *Application) *Settings {
-	return newSettings(st, settingsC, app.settingsKey())
+	return newSettings(st.db(), settingsC, app.settingsKey())
 }
 
 // GetControllerSettings allows access to settings collection for
 // the controller.
 func GetControllerSettings(st *State) *Settings {
-	return newSettings(st, controllersC, controllerSettingsGlobalKey)
+	return newSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 }
 
 // NewSLALevel returns a new SLA level.
