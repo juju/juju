@@ -407,6 +407,48 @@ func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 	s.checkLogTailerFiltering(c, s.otherState, state.LogTailerParams{}, writeLogs, assert)
 }
 
+func (s *LogTailerSuite) TestTailingSkipsBadDocs(c *gc.C) {
+	writeLogs := func() {
+		s.writeLogs(c, s.modelUUID, 1, logTemplate{
+			Entity: emptyTag{},
+		})
+		s.writeLogs(c, s.modelUUID, 1, logTemplate{
+			Message: "good1",
+		})
+		s.writeLogs(c, s.modelUUID, 1, logTemplate{
+			Message: "good2",
+		})
+	}
+
+	assert := func(tailer state.LogTailer) {
+		messages := map[string]bool{}
+		defer func() {
+			c.Assert(messages, gc.HasLen, 2)
+			for m := range messages {
+				if m != "good1" && m != "good2" {
+					c.Fatalf("received message: %v", m)
+				}
+			}
+		}()
+		count := 0
+		for {
+			select {
+			case log := <-tailer.Logs():
+				c.Assert(log.ModelUUID, gc.Equals, s.State.ModelUUID())
+				messages[log.Message] = true
+				count++
+				c.Logf("count %d", count)
+				if count >= 2 {
+					return
+				}
+			case <-time.After(coretesting.ShortWait):
+				c.Fatalf("timeout waiting for logs %d", count)
+			}
+		}
+	}
+	s.checkLogTailerFiltering(c, s.State, state.LogTailerParams{}, writeLogs, assert)
+}
+
 func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
 	writeLogs := func() {
 		s.writeLogs(c, s.otherUUID, 1, logTemplate{
@@ -742,6 +784,14 @@ type logTemplate struct {
 	Level    loggo.Level
 	Message  string
 }
+
+// emptyTag gives us an explicit way to specify an empty tag for the
+// logTemplate.
+type emptyTag struct {
+	names.Tag
+}
+
+func (emptyTag) String() string { return "" }
 
 // writeLogs creates count log messages at the current time using
 // the supplied template. As well as writing to the logs collection,

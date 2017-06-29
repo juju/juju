@@ -412,17 +412,19 @@ func (t *logTailer) Err() error {
 }
 
 func (t *logTailer) loop() error {
+	// NOTE: don't trace or annotate the errors returned
+	// from this method as the error may be tomb.ErrDying, and
+	// the tomb code is sensitive about equality.
 	err := t.processCollection()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	if t.params.NoTail {
 		return nil
 	}
 
-	err = t.tailOplog()
-	return errors.Trace(err)
+	return t.tailOplog()
 }
 
 func (t *logTailer) processReversed(query *mgo.Query) error {
@@ -499,21 +501,42 @@ func (t *logTailer) processCollection() error {
 	// Important: it is critical that the sort index includes _id,
 	// otherwise MongoDB won't use the index, which risks hitting
 	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
+	//
+	// If we get a deserialisation error, write out the first failure,
+	// but don't write out any additional errors until we either hit
+	// a good value, or end the method.
+	deserialisationFailures := 0
 	iter := query.Sort("t", "_id").Iter()
 	for iter.Next(&doc) {
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
-			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+			if deserialisationFailures == 0 {
+				logger.Warningf("deserialization failed (possible DB corruption), %v", err)
+			}
+			// Add the id to the recentIds so we don't try to look at it again
+			// during the oplog traversal.
+			t.recentIds.Add(doc.Id)
+			deserialisationFailures++
+			continue
+		} else {
+			if deserialisationFailures > 1 {
+				logger.Debugf("total of %d serialisation errors", deserialisationFailures)
+			}
+			deserialisationFailures = 0
 		}
 		select {
 		case <-t.tomb.Dying():
-			return errors.Trace(tomb.ErrDying)
+			return tomb.ErrDying
 		case t.logCh <- rec:
 			t.lastID = rec.ID
 			t.lastTime = rec.Time
 			t.recentIds.Add(doc.Id)
 		}
 	}
+	if deserialisationFailures > 1 {
+		logger.Debugf("total of %d serialisation errors", deserialisationFailures)
+	}
+
 	return errors.Trace(iter.Close())
 }
 
@@ -538,11 +561,15 @@ func (t *logTailer) tailOplog() error {
 	logger.Tracef("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
 		recentIds.Length(), t.lastTime, minOplogTs)
 
+	// If we get a deserialisation error, write out the first failure,
+	// but don't write out any additional errors until we either hit
+	// a good value, or end the method.
+	deserialisationFailures := 0
 	skipCount := 0
 	for {
 		select {
 		case <-t.tomb.Dying():
-			return errors.Trace(tomb.ErrDying)
+			return tomb.ErrDying
 		case oplogDoc, ok := <-oplogTailer.Out():
 			if !ok {
 				return errors.Annotate(oplogTailer.Err(), "oplog tailer died")
@@ -564,11 +591,20 @@ func (t *logTailer) tailOplog() error {
 			}
 			rec, err := logDocToRecord(t.modelUUID, doc)
 			if err != nil {
-				return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+				if deserialisationFailures == 0 {
+					logger.Warningf("deserialization failed (possible DB corruption), %v", err)
+				}
+				deserialisationFailures++
+				continue
+			} else {
+				if deserialisationFailures > 1 {
+					logger.Debugf("total of %d serialisation errors", deserialisationFailures)
+				}
+				deserialisationFailures = 0
 			}
 			select {
 			case <-t.tomb.Dying():
-				return errors.Trace(tomb.ErrDying)
+				return tomb.ErrDying
 			case t.logCh <- rec:
 			}
 		}
