@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -45,7 +46,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.config = remoterelations.Config{
 		ModelUUID:       "local-model-uuid",
 		RelationsFacade: s.relationsFacade,
-		NewRemoteModelFacadeFunc: func(modelUUID string) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+		NewRemoteModelFacadeFunc: func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
 	}
@@ -124,7 +125,6 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 	c.Check(relWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
 		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
-		{"Close", nil},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }
@@ -145,6 +145,8 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		},
 		remoteEndpointName: "data",
 	}
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = &api.Info{
+		Addrs: []string{"1.2.3.4:1234"}, CACert: coretesting.CACert}
 
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
@@ -153,6 +155,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), names.NewRelationTag("db2:db django:db")}}},
 		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelation{{

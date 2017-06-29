@@ -424,8 +424,8 @@ func (m *mockExternalController) ControllerInfo() crossmodel.ControllerInfo {
 	return m.info
 }
 
-func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo) (application.ExternalController, error) {
-	m.controllers[controllerInfo.ControllerTag.Id()] = controllerInfo
+func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo, modelUUID string) (application.ExternalController, error) {
+	m.controllers[modelUUID] = controllerInfo
 	return &mockExternalController{controllerInfo.ControllerTag.Id(), controllerInfo}, nil
 }
 

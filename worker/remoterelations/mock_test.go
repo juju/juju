@@ -9,13 +9,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
-	"gopkg.in/macaroon.v1"
 )
 
 type mockRelationsFacade struct {
@@ -28,6 +29,7 @@ type mockRelationsFacade struct {
 	relations                          map[string]*mockRelation
 	relationsEndpoints                 map[string]*relationEndpointInfo
 	relationsUnitsWatchers             map[string]*mockRelationUnitsWatcher
+	controllerInfo                     map[string]*api.Info
 }
 
 func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
@@ -39,6 +41,7 @@ func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
 		remoteApplicationsWatcher:          newMockStringsWatcher(),
 		remoteApplicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 		relationsUnitsWatchers:             make(map[string]*mockRelationUnitsWatcher),
+		controllerInfo:                     make(map[string]*api.Info),
 	}
 }
 
@@ -239,6 +242,14 @@ func (m *mockRelationsFacade) ConsumeRemoteRelationChange(change params.RemoteRe
 		return err
 	}
 	return nil
+}
+
+func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+	m.stub.MethodCall(m, "ControllerAPIInfoForModel", modelUUID)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.controllerInfo[modelUUID], nil
 }
 
 type mockRemoteRelationsFacade struct {

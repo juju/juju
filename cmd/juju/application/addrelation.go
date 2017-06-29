@@ -105,16 +105,20 @@ func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, err
 	return application.NewClient(root), nil
 }
 
-func (c *addRelationCommand) getOffersAPI() (applicationConsumeDetailsAPI, error) {
+func (c *addRelationCommand) getOffersAPI(url *crossmodel.ApplicationURL) (applicationConsumeDetailsAPI, error) {
 	if c.consumeDetailsAPI != nil {
 		return c.consumeDetailsAPI, nil
 	}
 
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return nil, errors.Trace(err)
+	if url.Source == "" {
+		var err error
+		controllerName, err := c.ControllerName()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		url.Source = controllerName
 	}
-	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), controllerName, "")
+	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), url.Source, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,7 +150,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelationAPI) error {
-	sourceClient, err := c.getOffersAPI()
+	sourceClient, err := c.getOffersAPI(c.remoteEndpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,10 +158,18 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 
 	// Get the details of the remote offer - this will fail with a permission
 	// error if the user isn't authorised to consume the offer.
-	consumeDetails, err := sourceClient.GetConsumeDetails(c.remoteEndpoint.String())
+	consumeDetails, err := sourceClient.GetConsumeDetails(c.remoteEndpoint.AsLocal().String())
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Parse the offer details URL and add the source controller so
+	// things like status can show the original source of the offer.
+	offerURL, err := crossmodel.ParseApplicationURL(consumeDetails.Offer.OfferURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerURL.Source = c.remoteEndpoint.Source
+	consumeDetails.Offer.OfferURL = offerURL.String()
 
 	// Consume is idempotent so even if the offer has been consumed previously,
 	// it's safe to do so again.

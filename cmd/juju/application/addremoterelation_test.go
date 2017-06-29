@@ -51,6 +51,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 		crossmodel.ConsumeApplicationArgs{
 			ApplicationOffer: params.ApplicationOffer{
 				OfferName: "hosted-mysql",
+				OfferURL:  "bob/prod.hosted-mysql",
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
@@ -65,6 +66,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 		crossmodel.ConsumeApplicationArgs{
 			ApplicationOffer: params.ApplicationOffer{
 				OfferName: "hosted-mysql",
+				OfferURL:  "bob/prod.hosted-mysql",
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
@@ -221,6 +223,7 @@ func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferD
 	return params.ConsumeOfferDetails{
 		Offer: &params.ApplicationOffer{
 			OfferName: "hosted-mysql",
+			OfferURL:  "bob/prod.hosted-mysql",
 		},
 		Macaroon: m.mac,
 	}, nil

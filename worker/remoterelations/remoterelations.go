@@ -14,6 +14,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
@@ -94,13 +95,18 @@ type RemoteRelationsFacade interface {
 	// ConsumeRemoteRelationChange consumes a change to settings originating
 	// from the remote/offering side of a relation.
 	ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error
+
+	// ControllerAPIInfoForModel returns the controller api info for a model.
+	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 }
+
+type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)
 
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID                string
 	RelationsFacade          RemoteRelationsFacade
-	NewRemoteModelFacadeFunc func(modelUUID string) (RemoteModelRelationsFacadeCloser, error)
+	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -272,7 +278,7 @@ type remoteApplicationWorker struct {
 	// remoteModelFacade interacts with the remote (offering) model.
 	remoteModelFacade RemoteModelRelationsFacadeCloser
 
-	newRemoteModelRelationsFacadeFunc func(modelUUID string) (RemoteModelRelationsFacadeCloser, error)
+	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc
 }
 
 type relation struct {
@@ -294,7 +300,7 @@ func newRemoteApplicationWorker(
 	relationsWatcher watcher.StringsWatcher,
 	localModelUUID string,
 	remoteApplication params.RemoteApplication,
-	newRemoteModelRelationsFacadeFunc func(modelUUID string) (RemoteModelRelationsFacadeCloser, error),
+	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc,
 	facade RemoteRelationsFacade,
 ) (worker.Worker, error) {
 	w := &remoteApplicationWorker{
@@ -331,12 +337,11 @@ func (w *remoteApplicationWorker) Wait() error {
 }
 
 func (w *remoteApplicationWorker) loop() error {
-	var err error
-	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(w.remoteModelUUID)
-	if err != nil {
-		return errors.Annotate(err, "opening facade to remote model")
-	}
-	defer w.remoteModelFacade.Close()
+	defer func() {
+		if w.remoteModelFacade != nil {
+			w.remoteModelFacade.Close()
+		}
+	}()
 
 	relations := make(map[string]*relation)
 	for {
@@ -484,6 +489,16 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 	// sure it is registered on the offering side.
 	w.relationInfo.localEndpoint = remoteRelation.Endpoint
 	w.relationInfo.remoteEndpointName = remoteRelation.RemoteEndpointName
+
+	// Get the connection info for the remote controller.
+	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
+	if err != nil {
+		return errors.Annotate(err, "opening facade to remote model")
+	}
 
 	applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
 	relationTag := names.NewRelationTag(key)

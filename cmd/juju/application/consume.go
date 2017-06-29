@@ -28,6 +28,7 @@ The remote offer is identified by providing a path to the offer:
 Examples:
     $ juju consume othermodel.mysql
     $ juju consume owner/othermodel.mysql
+    $ juju consume anothercontroller:owner/othermodel.mysql
 
 See also:
     add-relation
@@ -86,16 +87,20 @@ func (c *consumeCommand) getTargetAPI() (applicationConsumeAPI, error) {
 	return application.NewClient(root), nil
 }
 
-func (c *consumeCommand) getSourceAPI() (applicationConsumeDetailsAPI, error) {
+func (c *consumeCommand) getSourceAPI(url *crossmodel.ApplicationURL) (applicationConsumeDetailsAPI, error) {
 	if c.sourceAPI != nil {
 		return c.sourceAPI, nil
 	}
 
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return nil, errors.Trace(err)
+	if url.Source == "" {
+		var err error
+		controllerName, err := c.ControllerName()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		url.Source = controllerName
 	}
-	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), controllerName, "")
+	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), url.Source, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,16 +125,24 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		url.User = accountDetails.User
 		c.remoteApplication = url.Path()
 	}
-	sourceClient, err := c.getSourceAPI()
+	sourceClient, err := c.getSourceAPI(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer sourceClient.Close()
 
-	consumeDetails, err := sourceClient.GetConsumeDetails(url.String())
+	consumeDetails, err := sourceClient.GetConsumeDetails(url.AsLocal().String())
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Parse the offer details URL and add the source controller so
+	// things like status can show the original source of the offer.
+	offerURL, err := crossmodel.ParseApplicationURL(consumeDetails.Offer.OfferURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerURL.Source = url.Source
+	consumeDetails.Offer.OfferURL = offerURL.String()
 
 	targetClient, err := c.getTargetAPI()
 	if err != nil {

@@ -56,10 +56,6 @@ func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
 	s.assertFindError(c, []string{"url", "--url", "urlparam"}, ".*URL term cannot be specified twice.*")
 }
 
-func (s *findSuite) TestFindDifferentController(c *gc.C) {
-	s.assertFindError(c, []string{"different:user/model.offer"}, `finding endpoints from another controller "different" not supported`)
-}
-
 func (s *findSuite) TestNoResults(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedModelName = "none"
@@ -154,6 +150,20 @@ fred/model.hosted-db2  consume  http:db2, http:log
 	)
 }
 
+func (s *findSuite) TestFindDifferentController(c *gc.C) {
+	s.mockAPI.expectedModelName = "model"
+	s.mockAPI.controllerName = "different"
+	s.assertFind(
+		c,
+		[]string{"different:fred/model.hosted-db2", "--format", "tabular"},
+		`
+URL                              Access   Interfaces
+different:fred/model.hosted-db2  consume  http:db2, http:log
+
+`[1:],
+	)
+}
+
 func (s *findSuite) assertFind(c *gc.C, args []string, expected string) {
 	context, err := s.runFind(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,6 +179,7 @@ func (s *findSuite) assertFindError(c *gc.C, args []string, expected string) {
 
 type mockFindAPI struct {
 	c                 *gc.C
+	controllerName    string
 	msg, offerName    string
 	expectedModelName string
 	expectedFilter    *jujucrossmodel.ApplicationOfferFilter
@@ -191,8 +202,12 @@ func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.Application
 	if s.results != nil {
 		return s.results, nil
 	}
+	offerURL := fmt.Sprintf("fred/%s.%s", s.expectedModelName, s.offerName)
+	if s.controllerName != "" {
+		offerURL = s.controllerName + ":" + offerURL
+	}
 	return []params.ApplicationOffer{{
-		OfferURL:  fmt.Sprintf("fred/%s.%s", s.expectedModelName, s.offerName),
+		OfferURL:  offerURL,
 		OfferName: s.offerName,
 		Endpoints: []params.RemoteEndpoint{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},

@@ -34,7 +34,7 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
-	SaveController(crossmodel.ControllerInfo) (ExternalController, error)
+	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
 }
 
@@ -125,9 +125,9 @@ type stateShim struct {
 
 type ExternalController state.ExternalController
 
-func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo) (ExternalController, error) {
+func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, modelUUID string) (ExternalController, error) {
 	api := state.NewExternalControllers(s.State)
-	return api.Save(controllerInfo)
+	return api.Save(controllerInfo, modelUUID)
 }
 
 // NewStateBackend converts a state.State into a Backend.

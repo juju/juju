@@ -423,3 +423,26 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
+
+func (s *remoteRelationsSuite) TestControllerAPIInfoForModel(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "RemoteRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ControllerAPIInfoForModels")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ControllerAPIInfoResults{})
+		*(result.(*params.ControllerAPIInfoResults)) = params.ControllerAPIInfoResults{
+			Results: []params.ControllerAPIInfoResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := remoterelations.NewClient(apiCaller)
+	_, err := client.ControllerAPIInfoForModel(coretesting.ModelTag.Id())
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}

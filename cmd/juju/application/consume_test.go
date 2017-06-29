@@ -90,9 +90,9 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 		err error
 	)
 	if alias != "" {
-		ctx, err = s.runConsume(c, "booster.uke", alias)
+		ctx, err = s.runConsume(c, "ctrl:booster.uke", alias)
 	} else {
-		ctx, err = s.runConsume(c, "booster.uke")
+		ctx, err = s.runConsume(c, "ctrl:booster.uke")
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := macaroon.New(nil, "id", "loc")
@@ -100,7 +100,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
 		{"Consume", []interface{}{crossmodel.ConsumeApplicationArgs{
-			ApplicationOffer: params.ApplicationOffer{OfferName: "an offer"},
+			ApplicationOffer: params.ApplicationOffer{OfferName: "an offer", OfferURL: "ctrl:bob/booster.uke"},
 			ApplicationAlias: alias,
 			Macaroon:         mac,
 			ControllerInfo: &crossmodel.ControllerInfo{
@@ -113,7 +113,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 		{"Close", nil},
 		{"Close", nil},
 	})
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added ctrl:bob/booster.uke as mary-weep\n")
 }
 
 func (s *ConsumeSuite) TestSuccessModelDotApplication(c *gc.C) {
@@ -147,7 +147,7 @@ func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetai
 		return params.ConsumeOfferDetails{}, err
 	}
 	return params.ConsumeOfferDetails{
-		Offer:    &params.ApplicationOffer{OfferName: "an offer"},
+		Offer:    &params.ApplicationOffer{OfferName: "an offer", OfferURL: "bob/booster.uke"},
 		Macaroon: mac,
 		ControllerInfo: &params.ExternalControllerInfo{
 			ControllerTag: coretesting.ControllerTag.String(),

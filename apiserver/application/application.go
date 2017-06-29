@@ -968,7 +968,7 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 				ControllerTag: controllerTag,
 				Addrs:         arg.ControllerInfo.Addrs,
 				CACert:        arg.ControllerInfo.CACert,
-			}); err != nil {
+			}, sourceModelTag.Id()); err != nil {
 				return errors.Trace(err)
 			}
 		}

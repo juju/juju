@@ -423,7 +423,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
 		mac: mac,
 	})
-	c.Assert(s.backend.controllers[controllerUUID], jc.DeepEquals, crossmodel.ControllerInfo{
+	c.Assert(s.backend.controllers[coretesting.ModelTag.Id()], jc.DeepEquals, crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(controllerUUID),
 		CACert:        coretesting.CACert,
 		Addrs:         []string{"192.168.1.1:1234"},

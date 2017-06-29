@@ -9,10 +9,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,6 +40,10 @@ func (f *fakeControllerAccessor) ControllerConfig() (controller.Config, error) {
 		controller.APIPort:           4321,
 		controller.StatePort:         1234,
 	}, nil
+}
+
+func (f *fakeControllerAccessor) ControllerInfo(modelUUID string) (state.ExternalController, error) {
+	return nil, errors.NotImplementedf("ControllerInfo")
 }
 
 func (s *controllerConfigSuite) TearDownTest(c *gc.C) {

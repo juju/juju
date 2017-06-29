@@ -250,6 +250,18 @@ type ControllerConfigResult struct {
 	Config ControllerConfig `json:"config"`
 }
 
+// ControllerAPIInfoResult holds controller api address details.
+type ControllerAPIInfoResult struct {
+	Addresses []string `json:"addresses"`
+	CACert    string   `json:"cacert"`
+	Error     *Error   `json:"error,omitempty"`
+}
+
+// ControllerAPIInfoResults holds controller api address details results.
+type ControllerAPIInfoResults struct {
+	Results []ControllerAPIInfoResult `json:"results"`
+}
+
 // RelationUnit holds a relation and a unit tag.
 type RelationUnit struct {
 	Relation string `json:"relation"`

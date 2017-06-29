@@ -53,6 +53,13 @@ func (u *ApplicationURL) String() string {
 	return u.Path()
 }
 
+// AsLocal returns a copy of the URL with an empty (local) source.
+func (u *ApplicationURL) AsLocal() *ApplicationURL {
+	localURL := *u
+	localURL.Source = ""
+	return &localURL
+}
+
 // HasEndpoint returns whether this application URL includes an
 // endpoint name in the application name.
 func (u *ApplicationURL) HasEndpoint() bool {

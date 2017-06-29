@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -130,6 +131,29 @@ func (s *firewallerSuite) TestWatchInressAddressesForRelation(c *gc.C) {
 	})
 	client := firewaller.NewState(apiCaller)
 	_, err := client.WatchIngressAddressesForRelation(relationTag)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestControllerAPIInfoForModel(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ControllerAPIInfoForModels")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ControllerAPIInfoResults{})
+		*(result.(*params.ControllerAPIInfoResults)) = params.ControllerAPIInfoResults{
+			Results: []params.ControllerAPIInfoResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := firewaller.NewState(apiCaller)
+	_, err := client.ControllerAPIInfoForModel(coretesting.ModelTag.Id())
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

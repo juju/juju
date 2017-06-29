@@ -208,7 +208,7 @@ func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
-		NewCrossModelFacadeFunc: func(modelUUID string) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
 		Clock: s.mockClock,
@@ -905,7 +905,7 @@ func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
-		NewCrossModelFacadeFunc: func(modelUUID string) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
 	}
@@ -1152,7 +1152,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
-		NewCrossModelFacadeFunc: func(modelUUID string) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
 	}

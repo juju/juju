@@ -132,6 +132,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
 			if err == nil {
 				store = url.Source
+				url.Source = ""
 				urlPath = url.Path()
 				if store == "" {
 					store = "local"
