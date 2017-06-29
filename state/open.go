@@ -89,8 +89,7 @@ func OpenController(args OpenParams) (*Controller, error) {
 	}
 	logger.Debugf("connection established")
 
-	err = mongodbLogin(session, args.MongoInfo)
-	if err != nil {
+	if err := mongodbLogin(session, args.MongoInfo); err != nil {
 		session.Close()
 		return nil, errors.Trace(err)
 	}

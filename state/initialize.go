@@ -186,7 +186,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		return nil, nil, err
 	}
 
-	dateCreated := st.NowToTheSecond()
+	dateCreated := st.nowToTheSecond()
 	ops := createInitialUserOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs.Owner,
@@ -195,7 +195,6 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		dateCreated,
 	)
 	ops = append(ops,
-
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
@@ -249,11 +248,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 // InitDatabase creates all the collections and indices in a Juju database.
 func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.Config) error {
 	schema := allCollections()
-	err := schema.Create(
-		session.DB(jujuDB),
-		settings,
-	)
-	if err != nil {
+	if err := schema.Create(session.DB(jujuDB), settings); err != nil {
 		return errors.Trace(err)
 	}
 	if err := InitDbLogs(session, modelUUID); err != nil {
@@ -290,7 +285,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 
 	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), st.NowToTheSecond(), permission.AdminAccess,
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), st.nowToTheSecond(), permission.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
