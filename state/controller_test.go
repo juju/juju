@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -54,4 +55,10 @@ func (s *ControllerSuite) TestControllerConfig(c *gc.C) {
 	m, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["controller-uuid"], gc.Equals, m.ControllerUUID())
+}
+
+func (s *ControllerSuite) TestPing(c *gc.C) {
+	c.Assert(s.Controller.Ping(), gc.IsNil)
+	gitjujutesting.MgoServer.Restart()
+	c.Assert(s.Controller.Ping(), gc.NotNil)
 }
