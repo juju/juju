@@ -1015,7 +1015,6 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]network.Id, string) {
 		CIDRBlock: "0.1.0.0/16",
 		IsDefault: true,
 	})
-	fmt.Printf("VPCID %q", vpc)
 	results := make([]network.Id, 3)
 	sub1, err := t.srv.ec2srv.AddSubnet(amzec2.Subnet{
 		VPCId:        vpc.Id,
@@ -1488,7 +1487,7 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 		c.Assert(re.Match([]byte(subnet.CIDR)), jc.IsTrue)
 		index, err := strconv.Atoi(re.FindStringSubmatch(subnet.CIDR)[1])
 		c.Assert(err, jc.ErrorIsNil)
-		// Don't know which AZ thkne subnet will end up in.
+		// Don't know which AZ the subnet will end up in.
 		defaultSubnets[index].AvailabilityZones = subnet.AvailabilityZones
 		c.Check(subnet, jc.DeepEquals, defaultSubnets[index])
 	}

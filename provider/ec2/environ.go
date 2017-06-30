@@ -296,7 +296,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
 			}
 		}
-		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpcid %q", value, allSubnets, vpcId)
+		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpc-id %q", value, allSubnets, vpcId)
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
@@ -1018,9 +1018,7 @@ func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, vpcId string, err erro
 			vpcId = e.defaultVPC.Id
 		}
 	}
-	if isVPCIDSet(vpcId) {
-		filter.Add("vpc-id", vpcId)
-	}
+	filter.Add("vpc-id", vpcId)
 	resp, err = e.ec2.Subnets(nil, filter)
 	return resp, vpcId, err
 }
