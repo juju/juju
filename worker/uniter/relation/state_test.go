@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
@@ -246,65 +245,26 @@ func (s *StateDirSuite) TestWrite(c *gc.C) {
 	}
 }
 
-func checkDir(c *gc.C, basedir string, relId int, shouldExist bool) {
-	path := filepath.Join(basedir, strconv.Itoa(relId))
-	info, err := os.Stat(path)
-	if shouldExist {
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(info.IsDir(), jc.IsTrue)
-	} else {
-		c.Assert(err, jc.Satisfies, os.IsNotExist)
-	}
-}
-
 func (s *StateDirSuite) TestRemove(c *gc.C) {
-	var logWriter loggo.TestWriter
-	logger := loggo.GetLogger("juju.worker.uniter.relation")
-	origLevel := logger.LogLevel()
-	logger.SetLogLevel(loggo.DEBUG)
-	c.Assert(loggo.RegisterWriter("relation-state-tests", &logWriter), jc.ErrorIsNil)
-	defer func() {
-		loggo.RemoveWriter("relation-state-tests")
-		logWriter.Clear()
-		logger.SetLogLevel(origLevel)
-	}()
-
 	basedir := c.MkDir()
 	dir, err := relation.ReadStateDir(basedir, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dir.Ensure()
 	c.Assert(err, jc.ErrorIsNil)
-
-	checkDir(c, basedir, 1, true)
-
 	err = dir.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-
-	checkDir(c, basedir, 1, false)
-
 	err = dir.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Removing an empty state dir doesn't log.
-	c.Assert(logWriter.Log(), gc.HasLen, 0)
 
 	setUpDir(c, basedir, "99", map[string]string{
 		"foo-1": "change-version: 0\n",
 	})
 	dir, err = relation.ReadStateDir(basedir, 99)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Calling remove on a non-empty dir is unexpected, but it's
-	// important that it doesn't crash the agent, so we log if it
-	// wasn't empty.
 	err = dir.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	checkDir(c, basedir, 99, false)
-	expectedDir := filepath.Join(basedir, "99")
-	message := fmt.Sprintf(`relation state directory %q not empty on removal: \[foo-1\]`, expectedDir)
-	c.Assert(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{Level: loggo.DEBUG, Message: message},
-	})
+	// Windows message is The directory is not empty
+	// Unix message is directory not empty
+	c.Assert(err, gc.ErrorMatches, ".* directory (is )?not empty.?")
 }
 
 type ReadAllStateDirsSuite struct{}
