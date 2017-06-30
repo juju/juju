@@ -985,6 +985,39 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	c.Assert(results.Results[0].Macaroon, gc.IsNil)
 }
 
+func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
+	s.setupOffer()
+
+	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
+	st.users.Add("someone")
+	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
+	st.spaces[""] = &mockSpace{
+		name: "",
+	}
+
+	apiUser := names.NewUserTag("someone")
+	offer := names.NewApplicationOfferTag("hosted-mysql")
+	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.Tag = apiUser
+	results, err := s.api.GetConsumeDetails(params.ApplicationURLs{
+		ApplicationURLs: []string{"fred/prod.hosted-mysql"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOffer{
+		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		OfferURL:               "fred/prod.hosted-mysql",
+		OfferName:              "hosted-mysql",
+		ApplicationDescription: "a database",
+		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+		Bindings:               map[string]string{"database": ""},
+		Access:                 "consume",
+	})
+}
+
 func (s *consumeSuite) setupOffer() {
 	modelUUID := testing.ModelTag.Id()
 	offerName := "hosted-mysql"
