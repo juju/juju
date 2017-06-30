@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENSE file for details.
 
-package txnmetrics_test
+package mongometrics_test
 
 import (
 	"errors"
@@ -15,22 +15,22 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/mongo/txnmetrics"
+	"github.com/juju/juju/mongo/mongometrics"
 )
 
-type collectorSuite struct {
+type TxnCollectorSuite struct {
 	testing.IsolationSuite
-	collector *txnmetrics.Collector
+	collector *mongometrics.TxnCollector
 }
 
-var _ = gc.Suite(&collectorSuite{})
+var _ = gc.Suite(&TxnCollectorSuite{})
 
-func (s *collectorSuite) SetUpTest(c *gc.C) {
+func (s *TxnCollectorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.collector = txnmetrics.New()
+	s.collector = mongometrics.NewTxnCollector()
 }
 
-func (s *collectorSuite) TestDescribe(c *gc.C) {
+func (s *TxnCollectorSuite) TestDescribe(c *gc.C) {
 	ch := make(chan *prometheus.Desc)
 	go func() {
 		defer close(ch)
@@ -44,7 +44,7 @@ func (s *collectorSuite) TestDescribe(c *gc.C) {
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_mgo_txn_ops_total".*`)
 }
 
-func (s *collectorSuite) TestCollect(c *gc.C) {
+func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 	s.collector.AfterRunTransaction("dbname", "modeluuid", []txn.Op{{
 		C:      "update-coll",
 		Update: bson.D{},

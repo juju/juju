@@ -851,23 +851,6 @@ func (s *ModelSuite) TestListModelUsers(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
 }
 
-func (s *ModelSuite) TestMisMatchedEnvs(c *gc.C) {
-	// create another model
-	otherEnvState := s.Factory.MakeModel(c, nil)
-	defer otherEnvState.Close()
-	otherEnv, err := otherEnvState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// get that model from State
-	env, err := s.State.GetModel(otherEnv.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// check that the Users method errors
-	users, err := env.Users()
-	c.Assert(users, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot lookup model users outside the current model")
-}
-
 func (s *ModelSuite) TestListUsersIgnoredDeletedUsers(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -909,6 +892,13 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	obtainedUsersOtherEnv, err := otherEnv.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv, expectedUsersOtherEnv)
+
+	// It doesn't matter how you obtain the Model.
+	otherEnv2, err := s.State.GetModel(otherEnv.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedUsersOtherEnv2, err := otherEnv2.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv2, expectedUsersOtherEnv)
 }
 
 func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) {

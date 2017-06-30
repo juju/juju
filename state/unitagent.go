@@ -35,7 +35,7 @@ func (u *UnitAgent) String() string {
 
 // Status returns the status of the unit agent.
 func (u *UnitAgent) Status() (status.StatusInfo, error) {
-	info, err := getStatus(u.st, u.globalKey(), "agent")
+	info, err := getStatus(u.st.db(), u.globalKey(), "agent")
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}
@@ -85,13 +85,13 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 	default:
 		return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
 	}
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "agent",
 		globalKey: u.globalKey(),
 		status:    unitAgentStatus.Status,
 		message:   unitAgentStatus.Message,
 		rawData:   unitAgentStatus.Data,
-		updated:   unitAgentStatus.Since,
+		updated:   timeOrNow(unitAgentStatus.Since, u.st.clock),
 	})
 }
 
@@ -100,7 +100,7 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 // representing past statuses for this agent.
 func (u *UnitAgent) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        u.st,
+		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
 	}

@@ -65,8 +65,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mgometrics"
-	"github.com/juju/juju/mongo/txnmetrics"
+	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -323,7 +322,8 @@ func NewMachineAgent(
 		loopDeviceManager:           loopDeviceManager,
 		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
-		txnmetricsCollector:         txnmetrics.New(),
+		mongoTxnCollector:           mongometrics.NewTxnCollector(),
+		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
 		statePool:                   &statePoolHolder{},
 	}
@@ -339,8 +339,9 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 		// Enable mgo stats collection only if requested,
 		// as it may affect performance.
 		mgo.SetStats(true)
-		if err := a.prometheusRegistry.Register(mgometrics.New()); err != nil {
-			return errors.Annotate(err, "registering mgo collector")
+		collector := mongometrics.NewMgoStatsCollector(mgo.GetStats)
+		if err := a.prometheusRegistry.Register(collector); err != nil {
+			return errors.Annotate(err, "registering mgo stats collector")
 		}
 	}
 	if err := a.prometheusRegistry.Register(
@@ -348,8 +349,11 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 	); err != nil {
 		return errors.Annotate(err, "registering logsender collector")
 	}
-	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
+	if err := a.prometheusRegistry.Register(a.mongoTxnCollector); err != nil {
 		return errors.Annotate(err, "registering mgo/txn collector")
+	}
+	if err := a.prometheusRegistry.Register(a.mongoDialCollector); err != nil {
+		return errors.Annotate(err, "registering mongo dial collector")
 	}
 	return nil
 }
@@ -383,7 +387,8 @@ type MachineAgent struct {
 	loopDeviceManager          looputil.LoopDeviceManager
 	newIntrospectionSocketName func(names.Tag) string
 	prometheusRegistry         *prometheus.Registry
-	txnmetricsCollector        *txnmetrics.Collector
+	mongoTxnCollector          *mongometrics.TxnCollector
+	mongoDialCollector         *mongometrics.DialCollector
 	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
 
 	// Only API servers have hubs. This is temporary until the apiserver and
@@ -883,7 +888,11 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	dialOpts, err := mongoDialOptions(mongo.DefaultDialOpts(), agentConfig)
+	dialOpts, err := mongoDialOptions(
+		mongo.DefaultDialOpts(),
+		agentConfig,
+		a.mongoDialCollector,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -904,7 +913,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		// point in reading existing controller config from state in order
 		// to pass in the max-txn-log-size value.
 		InitDatabaseFunc:       state.InitDatabase,
-		RunTransactionObserver: a.txnmetricsCollector.AfterRunTransaction,
+		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -993,7 +1002,11 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
-func mongoDialOptions(baseOpts mongo.DialOpts, agentConfig agent.Config) (mongo.DialOpts, error) {
+func mongoDialOptions(
+	baseOpts mongo.DialOpts,
+	agentConfig agent.Config,
+	mongoDialCollector *mongometrics.DialCollector,
+) (mongo.DialOpts, error) {
 	dialOpts := baseOpts
 	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
 		limit, err := strconv.Atoi(limitStr)
@@ -1004,6 +1017,10 @@ func mongoDialOptions(baseOpts mongo.DialOpts, agentConfig agent.Config) (mongo.
 			dialOpts.PoolLimit = limit
 		}
 	}
+	if dialOpts.PostDialServer != nil {
+		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
+	}
+	dialOpts.PostDialServer = mongoDialCollector.PostDialServer
 	return dialOpts, nil
 }
 
@@ -1013,14 +1030,18 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 		return nil, err
 	}
 
-	dialOpts, err := mongoDialOptions(stateWorkerDialOpts, agentConfig)
+	dialOpts, err := mongoDialOptions(
+		stateWorkerDialOpts,
+		agentConfig,
+		a.mongoDialCollector,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	st, _, err := openState(
 		agentConfig,
 		dialOpts,
-		a.txnmetricsCollector.AfterRunTransaction,
+		a.mongoTxnCollector.AfterRunTransaction,
 	)
 	if err != nil {
 		return nil, err
@@ -1112,7 +1133,11 @@ func (a *MachineAgent) startStateWorkers(
 			certChangedChan := make(chan params.StateServingInfo, 10)
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
-			dialOpts, err := mongoDialOptions(stateWorkerDialOpts, agentConfig)
+			dialOpts, err := mongoDialOptions(
+				stateWorkerDialOpts,
+				agentConfig,
+				a.mongoDialCollector,
+			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1121,7 +1146,7 @@ func (a *MachineAgent) startStateWorkers(
 				st, _, err := openState(
 					agentConfig,
 					dialOpts,
-					a.txnmetricsCollector.AfterRunTransaction,
+					a.mongoTxnCollector.AfterRunTransaction,
 				)
 				return st, err
 			}

@@ -994,7 +994,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
-	if err := readSettingsDocInto(w.backend, settingsC, key, &doc); err != nil {
+	if err := readSettingsDocInto(w.backend.db(), settingsC, key, &doc); err != nil {
 		return -1, err
 	}
 	setRelationUnitChangeVersion(changes, key, doc.Version)
@@ -1349,8 +1349,8 @@ func (u *Unit) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to a model.
-func (e *Model) Watch() NotifyWatcher {
-	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
+func (m *Model) Watch() NotifyWatcher {
+	return newEntityWatcher(m.globalState, modelsC, m.doc.UUID)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade

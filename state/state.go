@@ -660,7 +660,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, settingsC, modelGlobalKey)
+		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1275,7 +1275,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return ops, nil
 	}
 	// At the last moment before inserting the application, prime status history.
-	probablyUpdateStatusHistory(st, app.globalKey(), statusDoc)
+	probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
 
 	if err = st.db().Run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.

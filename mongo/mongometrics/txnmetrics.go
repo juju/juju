@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package txnmetrics
+package mongometrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,15 +24,15 @@ var (
 	}
 )
 
-// Collector is a prometheus.Collector that collects metrics about
+// TxnCollector is a prometheus.Collector that collects metrics about
 // mgo/txn operations.
-type Collector struct {
+type TxnCollector struct {
 	txnOpsTotalCounter *prometheus.CounterVec
 }
 
-// New returns a new Collector.
-func New() *Collector {
-	return &Collector{
+// NewTxnCollector returns a new TxnCollector.
+func NewTxnCollector() *TxnCollector {
+	return &TxnCollector{
 		prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Namespace: "juju",
@@ -45,13 +45,13 @@ func New() *Collector {
 }
 
 // AfterRunTransaction is called when a mgo/txn transaction has run.
-func (c *Collector) AfterRunTransaction(dbName, modelUUID string, ops []txn.Op, err error) {
+func (c *TxnCollector) AfterRunTransaction(dbName, modelUUID string, ops []txn.Op, err error) {
 	for _, op := range ops {
 		c.updateMetrics(dbName, op, err)
 	}
 }
 
-func (c *Collector) updateMetrics(dbName string, op txn.Op, err error) {
+func (c *TxnCollector) updateMetrics(dbName string, op txn.Op, err error) {
 	var failed string
 	if err != nil {
 		failed = "failed"
@@ -76,11 +76,11 @@ func (c *Collector) updateMetrics(dbName string, op txn.Op, err error) {
 }
 
 // Describe is part of the prometheus.Collector interface.
-func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
+func (c *TxnCollector) Describe(ch chan<- *prometheus.Desc) {
 	c.txnOpsTotalCounter.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
-func (c *Collector) Collect(ch chan<- prometheus.Metric) {
+func (c *TxnCollector) Collect(ch chan<- prometheus.Metric) {
 	c.txnOpsTotalCounter.Collect(ch)
 }
