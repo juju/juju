@@ -119,13 +119,21 @@ func (w *subRelationsWatcher) shouldSendCheck(key string) (bool, error) {
 		return true, nil
 	}
 
-	// Only allow container relations if the other end is our principal.
+	// Only allow container relations if the other end is our
+	// principal or the other end is a subordinate.
 	otherEnds, err := rel.RelatedEndpoints(w.app.Name())
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	for _, otherEnd := range otherEnds {
 		if otherEnd.ApplicationName == w.principalName {
+			return true, nil
+		}
+		otherApp, err := w.backend.Application(otherEnd.ApplicationName)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if !otherApp.IsPrincipal() {
 			return true, nil
 		}
 	}

@@ -907,16 +907,33 @@ type relationUnitCountInfo struct {
 	unitCount int
 }
 
+func (i *relationUnitCountInfo) otherEnd(appName string) (string, error) {
+	for _, name := range i.endpoints.Values() {
+		// TODO(babbageclunk): can a non-peer relation have one app for both endpoints?
+		if name != appName {
+			return name, nil
+		}
+	}
+	return "", errors.Errorf("couldn't find other end of %q for %q", i.docId, appName)
+}
+
 // CorrectRelationUnitCounts ensures that there aren't any rows in
 // relationscopes for applications that shouldn't be there. Fix for
 // https://bugs.launchpad.net/juju/+bug/1699050
 func CorrectRelationUnitCounts(st *State) error {
+	applicationsColl, aCloser := st.getRawCollection(applicationsC)
+	defer aCloser()
+
 	relationsColl, rCloser := st.getRawCollection(relationsC)
 	defer rCloser()
 
 	scopesColl, sCloser := st.getRawCollection(relationScopesC)
 	defer sCloser()
 
+	applications, err := collectApplicationInfo(applicationsColl)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	relations, err := collectRelationInfo(relationsColl)
 	if err != nil {
 		return errors.Trace(err)
@@ -956,6 +973,17 @@ func CorrectRelationUnitCounts(st *State) error {
 			continue
 		}
 
+		unit := keyParts[len(keyParts)-1]
+		subordinate, err := otherEndIsSubordinate(relation, unit, scope.ModelUUID, applications)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if subordinate {
+			// The other end for this unit is for a subordinate
+			// application, allow those.
+			continue
+		}
+
 		// This scope record needs to be removed and the unit count updated.
 		relation.unitCount--
 		relationsToUpdate.Add(relationKey)
@@ -984,6 +1012,22 @@ func CorrectRelationUnitCounts(st *State) error {
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
+}
+
+func collectApplicationInfo(coll *mgo.Collection) (map[string]bool, error) {
+	results := make(map[string]bool)
+	var doc struct {
+		Id          string `bson:"_id"`
+		Subordinate bool   `bson:"subordinate"`
+	}
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		results[doc.Id] = doc.Subordinate
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
 }
 
 func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInfo, error) {
@@ -1019,11 +1063,27 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	return relations, nil
 }
 
+func unitApp(unitName string) string {
+	unitParts := strings.Split(unitName, "/")
+	return unitParts[0]
+}
+
 func extractPrincipalUnitApp(scopeKeyParts []string) (string, bool) {
 	if len(scopeKeyParts) < 5 {
 		return "", false
 	}
-	unitName := scopeKeyParts[2]
-	unitParts := strings.Split(unitName, "/")
-	return unitParts[0], true
+	return unitApp(scopeKeyParts[2]), true
+}
+
+func otherEndIsSubordinate(relation *relationUnitCountInfo, unitName, modelUUID string, applications map[string]bool) (bool, error) {
+	app, err := relation.otherEnd(unitApp(unitName))
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	appKey := fmt.Sprintf("%s:%s", modelUUID, app)
+	res, ok := applications[appKey]
+	if !ok {
+		return false, errors.Errorf("can't determine whether %q is subordinate", appKey)
+	}
+	return res, nil
 }
