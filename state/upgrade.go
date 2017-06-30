@@ -236,11 +236,11 @@ func upgradeStatusHistoryAndOps(st *State, upgradeStatus UpgradeStatus, now time
 		StatusInfo: msg,
 		Updated:    now.UnixNano(),
 	}
-	ops, err := statusSetOps(st, doc, modelGlobalKey)
+	ops, err := statusSetOps(st.db(), doc, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	probablyUpdateStatusHistory(st, modelGlobalKey, doc)
+	probablyUpdateStatusHistory(st.db(), modelGlobalKey, doc)
 	return ops, nil
 }
 

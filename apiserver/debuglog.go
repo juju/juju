@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"syscall"
 	"time"
@@ -99,6 +100,9 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func isBrokenPipe(err error) bool {
 	err = errors.Cause(err)
 	if opErr, ok := err.(*net.OpError); ok {
+		if sysCallErr, ok := opErr.Err.(*os.SyscallError); ok {
+			return sysCallErr.Err == syscall.EPIPE
+		}
 		return opErr.Err == syscall.EPIPE
 	}
 	return false

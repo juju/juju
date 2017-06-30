@@ -209,8 +209,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
 	messages := []jc.SimpleMessage{
-		{loggo.INFO, "reading agent binaries with major version 1"},
-		{loggo.INFO, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
+		{loggo.DEBUG, "reading agent binaries with major version 1"},
+		{loggo.DEBUG, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
 		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
 		{loggo.TRACE, "no series specified when finding agent binaries, looking for \\[.*\\]"},
 	}

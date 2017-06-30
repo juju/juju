@@ -120,7 +120,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st, settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
+	settings, err := readSettings(u.st.db(), settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (u *Unit) Life() Life {
 // the charm (eg, the version of postgresql that is running, as
 // opposed to the version of the postgresql charm).
 func (u *Unit) WorkloadVersion() (string, error) {
-	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	status, err := getStatus(u.st.db(), u.globalWorkloadVersionKey(), "workload")
 	if errors.IsNotFound(err) {
 		return "", nil
 	} else if err != nil {
@@ -212,7 +212,7 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
 	now := u.st.clock.Now()
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
 		status:    status.Active,
@@ -399,7 +399,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// If so then we can't set directly to dead.
 	isAssigned := u.doc.MachineId != ""
 	agentStatusDocId := u.globalAgentKey()
-	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
+	agentStatusInfo, agentErr := getStatus(u.st.db(), agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
@@ -850,7 +850,7 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 // representing past statuses for this unit.
 func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        u.st,
+		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
 	}
@@ -867,12 +867,12 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade) as on unitagent, this transformation does not belong here.
 	// For now, pretend we're always reading the unit status.
-	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
+	info, err := getStatus(u.st.db(), u.globalAgentKey(), "unit")
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
 	if info.Status != status.Error {
-		info, err = getStatus(u.st, u.globalKey(), "unit")
+		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
 			return status.StatusInfo{}, err
 		}
@@ -889,13 +889,13 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(unitStatus.Status) {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
 		status:    unitStatus.Status,
 		message:   unitStatus.Message,
 		rawData:   unitStatus.Data,
-		updated:   unitStatus.Since,
+		updated:   timeOrNow(unitStatus.Since, u.st.clock),
 	})
 }
 
@@ -2526,7 +2526,7 @@ type HistoryGetter struct {
 // StatusHistory implements status.StatusHistoryGetter.
 func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        g.st,
+		db:        g.st.db(),
 		globalKey: g.globalKey,
 		filter:    filter,
 	}

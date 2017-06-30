@@ -1256,7 +1256,7 @@ func filesystemGlobalKey(name string) string {
 
 // FilesystemStatus returns the status of the specified filesystem.
 func (st *State) FilesystemStatus(tag names.FilesystemTag) (status.StatusInfo, error) {
-	return getStatus(st, filesystemGlobalKey(tag.Id()), "filesystem")
+	return getStatus(st.db(), filesystemGlobalKey(tag.Id()), "filesystem")
 }
 
 // SetFilesystemStatus sets the status of the specified filesystem.
@@ -1282,12 +1282,12 @@ func (st *State) SetFilesystemStatus(tag names.FilesystemTag, fsStatus status.St
 	default:
 		return errors.Errorf("cannot set invalid status %q", fsStatus)
 	}
-	return setStatus(st, setStatusParams{
+	return setStatus(st.db(), setStatusParams{
 		badge:     "filesystem",
 		globalKey: filesystemGlobalKey(tag.Id()),
 		status:    fsStatus,
 		message:   info,
 		rawData:   data,
-		updated:   updated,
+		updated:   timeOrNow(updated, st.clock),
 	})
 }

@@ -98,23 +98,23 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int, stream stri
 		return nil, errors.New("cannot find agent binaries without a complete cloud configuration")
 	}
 
-	logger.Infof("finding agent binaries in stream %q", stream)
+	logger.Debugf("finding agent binaries in stream %q", stream)
 	if minorVersion >= 0 {
-		logger.Infof("reading agent binaries with major.minor version %d.%d", majorVersion, minorVersion)
+		logger.Debugf("reading agent binaries with major.minor version %d.%d", majorVersion, minorVersion)
 	} else {
-		logger.Infof("reading agent binaries with major version %d", majorVersion)
+		logger.Debugf("reading agent binaries with major version %d", majorVersion)
 	}
 	defer convertToolsError(&err)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		logger.Infof("filtering agent binaries by version: %s", filter.Number)
+		logger.Debugf("filtering agent binaries by version: %s", filter.Number)
 	}
 	if filter.Series != "" {
-		logger.Infof("filtering agent binaries by series: %s", filter.Series)
+		logger.Debugf("filtering agent binaries by series: %s", filter.Series)
 	}
 	if filter.Arch != "" {
-		logger.Infof("filtering agent binaries by architecture: %s", filter.Arch)
+		logger.Debugf("filtering agent binaries by architecture: %s", filter.Arch)
 	}
 	sources, err := GetMetadataSources(env)
 	if err != nil {
@@ -168,7 +168,7 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 
 // FindExactTools returns only the tools that match the supplied version.
 func FindExactTools(env environs.Environ, vers version.Number, series string, arch string) (_ *coretools.Tools, err error) {
-	logger.Infof("finding exact version %s", vers)
+	logger.Debugf("finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	filter := coretools.Filter{
@@ -177,7 +177,7 @@ func FindExactTools(env environs.Environ, vers version.Number, series string, ar
 		Arch:   arch,
 	}
 	stream := PreferredStream(&vers, env.Config().Development(), env.Config().AgentStream())
-	logger.Infof("looking for tools in stream %q", stream)
+	logger.Debugf("looking for tools in stream %q", stream)
 	availableTools, err := FindTools(env, vers.Major, vers.Minor, stream, filter)
 	if err != nil {
 		return nil, err

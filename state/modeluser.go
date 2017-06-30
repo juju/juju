@@ -180,7 +180,9 @@ type UserModel struct {
 // LastConnection returns the last time the user has connected to the
 // model.
 func (e *UserModel) LastConnection() (time.Time, error) {
-	lastConnections, lastConnCloser := e.st.db().GetRawCollection(modelUserLastConnectionC)
+	db, dbCloser := e.modelDatabase()
+	defer dbCloser()
+	lastConnections, lastConnCloser := db.GetRawCollection(modelUserLastConnectionC)
 	defer lastConnCloser()
 
 	lastConnDoc := modelUserLastConnectionDoc{}

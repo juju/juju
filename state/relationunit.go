@@ -116,7 +116,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		ops = append(ops, createSettingsOp(settingsC, ruKey, settings))
 	} else {
 		var rop txn.Op
-		rop, settingsChanged, err = replaceSettingsOp(ru.st, settingsC, ruKey, settings)
+		rop, settingsChanged, err = replaceSettingsOp(ru.st.db(), settingsC, ruKey, settings)
 		if err != nil {
 			return err
 		}
@@ -414,7 +414,7 @@ func watchRelationScope(
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	return readSettings(ru.st, settingsC, ru.key())
+	return readSettings(ru.st.db(), settingsC, ru.key())
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -433,7 +433,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	node, err := readSettings(ru.st, settingsC, key)
+	node, err := readSettings(ru.st.db(), settingsC, key)
 	if err != nil {
 		return nil, err
 	}

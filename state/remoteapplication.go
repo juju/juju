@@ -367,7 +367,7 @@ func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
 
 // Status returns the status of the remote application.
 func (s *RemoteApplication) Status() (status.StatusInfo, error) {
-	return getStatus(s.st, s.globalKey(), "remote application")
+	return getStatus(s.st.db(), s.globalKey(), "remote application")
 }
 
 // SetStatus sets the status for the application.
@@ -375,13 +375,13 @@ func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
 	if !info.Status.KnownWorkloadStatus() {
 		return errors.Errorf("cannot set invalid status %q", info.Status)
 	}
-	return setStatus(s.st, setStatusParams{
+	return setStatus(s.st.db(), setStatusParams{
 		badge:     "remote application",
 		globalKey: s.globalKey(),
 		status:    info.Status,
 		message:   info.Message,
 		rawData:   info.Data,
-		updated:   info.Since,
+		updated:   timeOrNow(info.Since, s.st.clock),
 	})
 }
 

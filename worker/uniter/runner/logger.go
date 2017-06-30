@@ -37,7 +37,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		l.logger.Infof("%s", line)
+		l.logger.Debugf("%s", line)
 		l.mu.Unlock()
 	}
 }
