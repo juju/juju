@@ -825,8 +825,8 @@ func (t *localServerSuite) TestStartInstanceSubnetAZUnavailable(c *gc.C) {
 }
 
 func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (instance.Instance, error) {
-	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, vpcId := t.addTestingSubnets(c)
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId, "vpc-id-force": true})
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Placement:      fmt.Sprintf("subnet=%s", subnet),
@@ -841,6 +841,23 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 		return nil, err
 	}
 	return result.Instance, nil
+}
+
+func (t *localServerSuite) TestStartInstanceSubnetWrongVPC(c *gc.C) {
+	subIDs, vpcId := t.addTestingSubnets(c)
+	c.Assert(vpcId, gc.Not(gc.Equals), "vpc-0")
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": "vpc-0", "vpc-id-force": true})
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Placement:      "subnet=0.1.2.0/24",
+		SubnetsToZones: map[network.Id][]string{
+			subIDs[0]: []string{"test-available"},
+			subIDs[1]: []string{"test-available"},
+			subIDs[2]: []string{"test-unavailable"},
+		},
+	}
+	_, err := testing.StartInstanceWithParams(env, "1", params)
+	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=0.1.2.0/24`)
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -1039,8 +1056,9 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
 // server: 2 of the subnets are in the "test-available" AZ, the remaining - in
-// "test-unavailable". Returns a slice with the IDs of the created subnets.
-func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
+// "test-unavailable". Returns a slice with the IDs of the created subnets and
+// vpc id that those were added to
+func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]network.Id, string) {
 	vpc := t.srv.ec2srv.AddVPC(amzec2.VPC{
 		CIDRBlock: "0.1.0.0/16",
 		IsDefault: true,
@@ -1072,11 +1090,17 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[2] = network.Id(sub3.Id)
-	return results
+	return results, vpc.Id
 }
 
 func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
-	env := t.Prepare(c)
+	return t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{})
+}
+
+func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretesting.Attrs) environs.Environ {
+	args := t.PrepareParams(c)
+	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(config)
+	env := t.PrepareWithParams(c, args)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
@@ -1089,7 +1113,7 @@ func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
 func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) {
 	c.Skip("temporarily disabled")
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Expect an error because zone test-available isn't in SubnetsToZones
 	params := environs.StartInstanceParams{
@@ -1109,7 +1133,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 
 func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Should work - test-available is in SubnetsToZones and in myspace.
 	params := environs.StartInstanceParams{
@@ -1128,7 +1152,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 
 func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Shoule work because zone is not specified so we can resolve the constraints
 	params := environs.StartInstanceParams{
@@ -1147,8 +1171,8 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	c.Skip("temporarily disabled")
 
-	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, vpcId := t.addTestingSubnets(c)
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
 	// We requested a space, but there are no subnets in SubnetsToZones, so we can't resolve
 	// the constraints
@@ -1508,7 +1532,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
 	subnets, err := env.Subnets(instId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "")
 
 	interfaces, err := env.NetworkInterfaces(instId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1526,7 +1550,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	c.Assert(subnets[0].ProviderId, gc.Equals, interfaces[0].ProviderSubnetId)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "")
 }
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
@@ -1550,22 +1574,25 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	c.Assert(types.InstanceTypes, gc.HasLen, 48)
 }
 
-func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
+func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 	// These are defined in the test server for the testing default
 	// VPC.
 	defaultSubnets := []network.SubnetInfo{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-available"},
 	}, {
 		CIDR:              "10.10.1.0/24",
 		ProviderId:        "subnet-1",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-impaired"},
 	}, {
 		CIDR:              "10.10.2.0/24",
 		ProviderId:        "subnet-2",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
@@ -1579,7 +1606,7 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 		c.Assert(err, jc.ErrorIsNil)
 		// Don't know which AZ the subnet will end up in.
 		defaultSubnets[index].AvailabilityZones = subnet.AvailabilityZones
-		c.Assert(subnet, jc.DeepEquals, defaultSubnets[index])
+		c.Check(subnet, jc.DeepEquals, defaultSubnets[index])
 	}
 }
 
@@ -1589,12 +1616,12 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	subnets, err := env.Subnets(instance.UnknownId, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "vpc-0")
 
 	subnets, err = env.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 3)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "vpc-0")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
