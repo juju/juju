@@ -139,6 +139,10 @@ type Watcher struct {
 	syncsSinceLastPrune int
 }
 
+func (w Watcher) String() string {
+	return fmt.Sprintf("presence.Watcher(%s)", w.modelUUID)
+}
+
 type event struct {
 	ch    chan<- Change
 	key   string
@@ -459,11 +463,9 @@ func decompressPings(maps []map[string]int64) ([]int64, error) {
 	if len(maps) == 0 {
 		return nil, nil
 	}
-	// First step, merge the two value structures together.
-	// Every ping has a bit field in an int64. However, we can bitwise-or them
-	// and preserve the logic about what is actually alive in either set.
-	// It also means we have to convert the base from hex half as often,
-	// and things that ping 2x don't have to be parsed 2x.
+	// First step, merge all value structures together.
+	// Every ping has a bit field in an int64. However, bitwise-or preserves
+	// everything that was ever alive without having to decode them multiple times.
 	baseToBits := make(map[string]int64, len(maps[0]))
 	for i := range maps {
 		for hexbase, bits := range maps[i] {
