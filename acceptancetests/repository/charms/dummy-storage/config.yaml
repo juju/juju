@@ -8,3 +8,11 @@ options:
     type: string
     default: ''
     description: Token used to prove data stored is persistent
+  single-blk-token:
+    type: string
+    default: ''
+    description: TBA
+  multi-blk-token:
+    type: string
+    default: ''
+    description: TBA
