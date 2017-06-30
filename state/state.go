@@ -1747,9 +1747,6 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			} else {
 				localSvc := svc.(*Application)
 				if localSvc.doc.Subordinate {
-					if remoteRelation {
-						return nil, errors.Errorf("cannot relate subordinate %q to remote application", localSvc.Name())
-					}
 					subordinateCount++
 				}
 				series[localSvc.doc.Series] = true

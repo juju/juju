@@ -326,9 +326,13 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 		})
 		spaceName, ok := appBindings[ep.Name]
 		if !ok {
-			// There should always be some binding (even if it's to
-			// the default space).
-			return nil, nil, errors.Errorf("no binding for %q endpoint", ep.Name)
+			// There should always be some binding (even if it's to the default space).
+			// This isn't currently the case so add the default binding here.
+			logger.Warningf("no binding for %q endpoint on application %q", ep.Name, offer.ApplicationName)
+			if result.Bindings == nil {
+				result.Bindings = make(map[string]string)
+			}
+			result.Bindings[ep.Name] = environs.DefaultSpaceName
 		}
 		spaceNames.Add(spaceName)
 	}
