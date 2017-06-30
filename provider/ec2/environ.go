@@ -271,7 +271,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
-		subnetResp, err := e.ec2.Subnets(nil, nil)
+		subnetResp, vpcId, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -296,7 +296,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
 			}
 		}
-		logger.Debugf("searched for subnet %q, did not find it in all subnets %v", value, allSubnets)
+		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpc-id %q", value, allSubnets, vpcId)
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
@@ -909,7 +909,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
-func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
+func makeSubnetInfo(cidr string, subnetId, providerNetworkId network.Id, availZones []string) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
@@ -918,6 +918,7 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 	info := network.SubnetInfo{
 		CIDR:              cidr,
 		ProviderId:        subnetId,
+		ProviderNetworkId: providerNetworkId,
 		VLANTag:           0, // Not supported on EC2
 		AvailabilityZones: availZones,
 	}
@@ -960,7 +961,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 				continue
 			}
 			subIdSet[string(iface.ProviderSubnetId)] = true
-			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
+			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -968,7 +969,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			results = append(results, info)
 		}
 	} else {
-		resp, err := e.ec2.Subnets(nil, nil)
+		resp, _, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
@@ -986,7 +987,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			}
 			subIdSet[subnet.Id] = true
 			cidr := subnet.CIDRBlock
-			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
+			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), network.Id(subnet.VPCId), []string{subnet.AvailZone})
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -1007,6 +1008,19 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	}
 
 	return results, nil
+}
+
+func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, vpcId string, err error) {
+	filter := ec2.NewFilter()
+	vpcId = e.ecfg().vpcID()
+	if !isVPCIDSet(vpcId) {
+		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+			vpcId = e.defaultVPC.Id
+		}
+	}
+	filter.Add("vpc-id", vpcId)
+	resp, err = e.ec2.Subnets(nil, filter)
+	return resp, vpcId, err
 }
 
 // AdoptResources is part of the Environ interface.
