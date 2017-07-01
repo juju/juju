@@ -138,9 +138,8 @@ func newNetplanBridger(clock clock.Clock, timeout time.Duration, directory strin
 	}
 }
 
-// DefaultNetplanBridger returns a Bridger instance that can parse
-// can parse an interfaces(5) to transform existing devices into
-// bridged devices.
+// DefaultNetplanBridger returns a Bridger instance that can parse a set
+// of netplan yaml files to transform existing devices into bridged devices.
 func DefaultNetplanBridger(timeout time.Duration, directory string) (Bridger, error) {
 	return newNetplanBridger(clock.WallClock, timeout, directory), nil
 }

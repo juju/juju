@@ -5,12 +5,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	goyaml "gopkg.in/yaml.v2"
-	"path/filepath"
 )
 
 // Representation of netplan YAML format as Go structures
@@ -79,7 +80,7 @@ type Netplan struct {
 func (np *Netplan) BridgeEthernetById(deviceId string, bridgeName string) (err error) {
 	ethernet, ok := np.Network.Ethernets[deviceId]
 	if !ok {
-		return errors.NotFoundf("Device with id %q", deviceId)
+		return errors.NotFoundf("Device with id %q for bridge %q", deviceId, bridgeName)
 	}
 	for bName, bridge := range np.Network.Bridges {
 		for _, i := range bridge.Interfaces {
@@ -93,7 +94,7 @@ func (np *Netplan) BridgeEthernetById(deviceId string, bridgeName string) (err e
 			}
 		}
 		if bridgeName == bName {
-			return errors.AlreadyExistsf("Bridge named %q", bridgeName)
+			return errors.AlreadyExistsf("Cannot bridge device %q on bridge %q - bridge named %q", deviceId, bridgeName, bridgeName)
 		}
 	}
 	// copy aside and clear the IP settings from the original Ethernet device, except for MTU
@@ -122,6 +123,7 @@ func Marshal(in interface{}) (out []byte, err error) {
 // readYamlFile reads netplan yaml into existing netplan structure
 // TODO(wpk) 2017-06-14 When reading files sequentially netplan replaces single
 // keys with new values, we have to simulate this behaviour.
+// https://bugs.launchpad.net/juju/+bug/1701429
 func (np *Netplan) readYamlFile(path string) (err error) {
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -135,7 +137,21 @@ func (np *Netplan) readYamlFile(path string) (err error) {
 	return nil
 }
 
-// ReadDirectory Reads the contents of a netplan directory and
+type sortableFileInfos []os.FileInfo
+
+func (fil sortableFileInfos) Len() int {
+	return len(fil)
+}
+
+func (fil sortableFileInfos) Less(i, j int) bool {
+	return fil[i].Name() < fil[j].Name()
+}
+
+func (fil sortableFileInfos) Swap(i, j int) {
+	fil[i], fil[j] = fil[j], fil[i]
+}
+
+// ReadDirectory reads the contents of a netplan directory and
 // returns complete config.
 func ReadDirectory(dirPath string) (np Netplan, err error) {
 	fileInfos, err := ioutil.ReadDir(dirPath)
@@ -143,7 +159,9 @@ func ReadDirectory(dirPath string) (np Netplan, err error) {
 		return np, err
 	}
 	np.sourceDirectory = dirPath
-	for _, fileInfo := range fileInfos {
+	sortedFileInfos := sortableFileInfos(fileInfos)
+	sort.Sort(sortedFileInfos)
+	for _, fileInfo := range sortedFileInfos {
 		if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".yaml") {
 			np.sourceFiles = append(np.sourceFiles, fileInfo.Name())
 		}
@@ -157,7 +175,7 @@ func ReadDirectory(dirPath string) (np Netplan, err error) {
 	return np, nil
 }
 
-// MoveYamlsToBak moves source .yaml files in a directory to .yaml.backup.(timestamp), except
+// MoveYamlsToBak moves source .yaml files in a directory to .yaml.bak.(timestamp), except
 func (np *Netplan) MoveYamlsToBak() (err error) {
 	if np.backedFiles != nil {
 		return errors.Errorf("Cannot backup netplan yamls twice")
@@ -168,8 +186,10 @@ func (np *Netplan) MoveYamlsToBak() (err error) {
 		newFilename := fmt.Sprintf("%s%s", file, suffix)
 		oldFile := path.Join(np.sourceDirectory, file)
 		newFile := path.Join(np.sourceDirectory, newFilename)
-		// If it fails we're already past the point of no return, we might log it
-		_ = os.Rename(oldFile, newFile)
+		err = os.Rename(oldFile, newFile)
+		if err != nil {
+			logger.Errorf("Cannot rename %s to %s - %q", oldFile, newFile, err.Error())
+		}
 		np.backedFiles[oldFile] = newFile
 	}
 	return nil
@@ -195,11 +215,16 @@ func (np *Netplan) Write(inPath string) (filePath string, err error) {
 	} else {
 		filePath = inPath
 	}
+	tmpFilePath := fmt.Sprintf("%s.tmp.%d", filePath, time.Now().UnixNano())
 	out, err := Marshal(np)
 	if err != nil {
 		return "", err
 	}
-	err = ioutil.WriteFile(filePath, out, 0644)
+	err = ioutil.WriteFile(tmpFilePath, out, 0644)
+	if err != nil {
+		return "", err
+	}
+	err = os.Rename(tmpFilePath, filePath)
 	if err != nil {
 		return "", err
 	}
@@ -213,7 +238,10 @@ func (np *Netplan) Rollback() (err error) {
 		os.Remove(np.writtenFile)
 	}
 	for oldFile, newFile := range np.backedFiles {
-		_ = os.Rename(newFile, oldFile)
+		err = os.Rename(newFile, oldFile)
+		if err != nil {
+			logger.Errorf("Cannot rename %s to %s - %q", newFile, oldFile, err.Error())
+		}
 	}
 	np.backedFiles = nil
 	np.writtenFile = ""

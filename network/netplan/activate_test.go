@@ -3,6 +3,7 @@ package netplan_test
 import (
 	"io/ioutil"
 	"path"
+	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -53,7 +54,7 @@ func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
 			},
 		},
 		Directory: tempDir,
-		RunMode:   netplan.RunModeSuccess,
+		RunPrefix: "exit 0 &&",
 	}
 	files := []string{"00.yaml", "01.yaml"}
 	contents := make([][]byte, len(files))
@@ -85,7 +86,7 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 			},
 		},
 		Directory: tempDir,
-		RunMode:   netplan.RunModeFailure,
+		RunPrefix: `echo -n "This is stdout" && echo -n "This is stderr" >&2 && exit 1 && `,
 	}
 	files := []string{"00.yaml", "01.yaml"}
 	contents := make([][]byte, len(files))
@@ -102,6 +103,24 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 	c.Check(result.Stderr, gc.DeepEquals, []byte("This is stderr"))
 	c.Check(result.Code, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, "bridge activation error code 1")
+
+	// old files are in place and unchanged
+	for i, file := range files {
+		content, err := ioutil.ReadFile(path.Join(tempDir, file))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(string(content), gc.Equals, string(contents[i]))
+	}
+	// there are no other YAML files in this directory
+	fileInfos, err := ioutil.ReadDir(tempDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	yamlCount := 0
+	for _, fileInfo := range fileInfos {
+		if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".yaml") {
+			yamlCount++
+		}
+	}
+	c.Check(yamlCount, gc.Equals, len(files))
 }
 
 func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
@@ -120,7 +139,7 @@ func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
 			},
 		},
 		Directory: tempDir,
-		RunMode:   netplan.RunModeTimeout,
+		RunPrefix: "sleep 10000 && ",
 		Timeout:   1000,
 		Clock:     clock.WallClock,
 	}

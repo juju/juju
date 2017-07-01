@@ -3,6 +3,7 @@ package netplan_test
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path"
 	"strings"
@@ -153,7 +154,6 @@ network:
 	c.Check(err, jc.ErrorIsNil)
 	out, err := netplan.Marshal(np)
 	c.Check(string(out), gc.Equals, input)
-
 }
 
 func (s *NetplanSuite) TestBridgerBridgeExists(c *gc.C) {
@@ -192,7 +192,7 @@ network:
 	err := netplan.Unmarshal([]byte(input), &np)
 	c.Check(err, jc.ErrorIsNil)
 	err = np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, "Bridge named \"juju-bridge\" already exists")
+	c.Check(err, gc.ErrorMatches, `Cannot bridge device "id0" on bridge "juju-bridge" - bridge named "juju-bridge" already exists`)
 }
 
 func (s *NetplanSuite) TestBridgerDeviceBridged(c *gc.C) {
@@ -228,7 +228,7 @@ network:
 	err := netplan.Unmarshal([]byte(input), &np)
 	c.Check(err, jc.ErrorIsNil)
 	err = np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, ".*Device \"id0\" is already bridged in bridge \"not-juju-bridge\" instead of \"juju-bridge\".*")
+	c.Check(err, gc.ErrorMatches, `.*Device "id0" is already bridged in bridge "not-juju-bridge" instead of "juju-bridge".*`)
 }
 
 func (s *NetplanSuite) TestBridgerDeviceMissing(c *gc.C) {
@@ -264,7 +264,7 @@ network:
 	err := netplan.Unmarshal([]byte(input), &np)
 	c.Check(err, jc.ErrorIsNil)
 	err = np.BridgeEthernetById("id7", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, "Device with id \"id7\" not found")
+	c.Check(err, gc.ErrorMatches, `Device with id "id7" for bridge "juju-bridge" not found`)
 }
 
 func (s *NetplanSuite) TestFindEthernetBySetName(c *gc.C) {
@@ -357,7 +357,7 @@ network:
 }
 
 func (s *NetplanSuite) TestReadDirectory(c *gc.C) {
-	c.Skip("Full netplan merge not supported yet")
+	c.Skip("Full netplan merge not supported yet, see https://bugs.launchpad.net/juju/+bug/1701429")
 	expected := `
 network:
   version: 2
@@ -404,6 +404,7 @@ network:
 }
 
 // TODO(wpk) 2017-06-14 This test checks broken behaviour, it should be removed when TestReadDirectory passes.
+// see https://bugs.launchpad.net/juju/+bug/1701429
 func (s *NetplanSuite) TestReadDirectoryWithoutProperMerge(c *gc.C) {
 	expected := `
 network:
@@ -559,7 +560,6 @@ network:
 
 	err = np.MoveYamlsToBak()
 	c.Check(err, jc.ErrorIsNil)
-
 }
 
 func (s *NetplanSuite) TestReadDirectoryMissing(c *gc.C) {
@@ -602,4 +602,41 @@ func (s *NetplanSuite) TestWriteCantGenerateName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = np.Write("")
 	c.Check(err, gc.ErrorMatches, "Can't generate a filename for netplan YAML")
+}
+
+func (s *NetplanSuite) TestProperReadingOrder(c *gc.C) {
+	var header = `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+`[1:]
+	var template = `
+    id%d:
+      match: {}
+      set-name: foo.%d.%d
+`[1:]
+	tempDir := c.MkDir()
+
+	for _, n := range rand.Perm(100) {
+		content := header
+		for i := 0; i < (100 - n); i++ {
+			content += fmt.Sprintf(template, i, i, n)
+		}
+		ioutil.WriteFile(path.Join(tempDir, fmt.Sprintf("%0.2d-test.yaml", n)), []byte(content), 0644)
+	}
+
+	np, err := netplan.ReadDirectory(tempDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	fileName, err := np.Write("")
+
+	writtenContent, err := ioutil.ReadFile(fileName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	content := header
+	for n := 0; n < 100; n++ {
+		content += fmt.Sprintf(template, n, n, 100-n-1)
+	}
+	c.Check(string(writtenContent), gc.Equals, content)
 }

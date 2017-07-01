@@ -1,6 +1,7 @@
 package netplan
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -13,18 +14,11 @@ import (
 
 var logger = loggo.GetLogger("juju.network.netplan")
 
-const (
-	RunModeRegular = iota
-	RunModeSuccess = iota
-	RunModeFailure = iota
-	RunModeTimeout = iota
-)
-
 // ActivationParams contains options to use when bridging interfaces
 type ActivationParams struct {
 	Clock     clock.Clock
 	Devices   []DeviceToBridge
-	RunMode   int
+	RunPrefix string
 	Directory string
 	Timeout   time.Duration
 }
@@ -54,15 +48,15 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 
 	for _, device := range params.Devices {
 		var deviceId string
+		err := errors.NotFoundf("No such device - name %q MAC %q", device.DeviceName, device.MACAddress)
 		if device.MACAddress != "" {
 			deviceId, err = netplan.FindEthernetByMAC(device.MACAddress)
-			if errors.IsNotFound(err) {
-				logger.Debugf("Trying to find ethernet by MAC %q", err)
-				deviceId, err = netplan.FindEthernetByName(device.DeviceName)
-			}
-			if err != nil {
-				return nil, err
-			}
+		}
+		if err != nil && device.DeviceName != "" {
+			deviceId, err = netplan.FindEthernetByName(device.DeviceName)
+		}
+		if err != nil {
+			return nil, err
 		}
 		err = netplan.BridgeEthernetById(deviceId, device.BridgeName)
 		if err != nil {
@@ -82,15 +76,8 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 
 	environ := os.Environ()
 	// TODO(wpk) 2017-06-21 Is there a way to verify that apply is finished?
-	command := "netplan generate && netplan apply && sleep 3"
-	switch params.RunMode {
-	case RunModeSuccess:
-		command = "true"
-	case RunModeFailure:
-		command = "echo -n This is stderr >&2 && echo -n This is stdout && false"
-	case RunModeTimeout:
-		command = "sleep 10000"
-	}
+	// https://bugs.launchpad.net/netplan/+bug/1701436
+	command := fmt.Sprintf("%snetplan generate && netplan apply && sleep 3", params.RunPrefix)
 
 	result, err := scriptrunner.RunCommand(command, environ, params.Clock, params.Timeout)
 
