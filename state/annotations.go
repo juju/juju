@@ -137,10 +137,10 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 }
 
 // updateAnnotations returns the operations required to update or remove annotations in MongoDB.
-func updateAnnotations(st *State, entity GlobalEntity, toUpdate, toRemove bson.M) []txn.Op {
+func updateAnnotations(mb modelBackend, entity GlobalEntity, toUpdate, toRemove bson.M) []txn.Op {
 	return []txn.Op{{
 		C:      annotationsC,
-		Id:     st.docID(entity.globalKey()),
+		Id:     mb.docID(entity.globalKey()),
 		Assert: txn.DocExists,
 		Update: setUnsetUpdateAnnotations(toUpdate, toRemove),
 	}}
@@ -148,10 +148,10 @@ func updateAnnotations(st *State, entity GlobalEntity, toUpdate, toRemove bson.M
 
 // annotationRemoveOp returns an operation to remove a given annotation
 // document from MongoDB.
-func annotationRemoveOp(st *State, id string) txn.Op {
+func annotationRemoveOp(mb modelBackend, id string) txn.Op {
 	return txn.Op{
 		C:      annotationsC,
-		Id:     st.docID(id),
+		Id:     mb.docID(id),
 		Remove: true,
 	}
 }

@@ -276,9 +276,9 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 	return s.makeApplicationOffer(doc)
 }
 
-func (s *applicationOffers) makeApplicationOfferDoc(st *State, uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
+func (s *applicationOffers) makeApplicationOfferDoc(mb modelBackend, uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
 	doc := applicationOfferDoc{
-		DocID:                  st.docID(offer.OfferName),
+		DocID:                  mb.docID(offer.OfferName),
 		OfferUUID:              uuid,
 		OfferName:              offer.OfferName,
 		ApplicationName:        offer.ApplicationName,

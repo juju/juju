@@ -292,7 +292,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	globalKey := a.globalKey()
 	ops = append(ops,
 		removeEndpointBindingsOp(globalKey),
-		removeConstraintsOp(a.st, globalKey),
+		removeConstraintsOp(globalKey),
 		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
@@ -1249,7 +1249,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
 	} else {
-		ops = append(ops, createConstraintsOp(a.st, agentGlobalKey, args.cons))
+		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial
@@ -1337,7 +1337,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
-		removeConstraintsOp(a.st, u.globalAgentKey()),
+		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
@@ -1600,7 +1600,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 		Id:     a.doc.DocID,
 		Assert: isAliveDoc,
 	}}
-	ops = append(ops, setConstraintsOp(a.st, a.globalKey(), cons))
+	ops = append(ops, setConstraintsOp(a.globalKey(), cons))
 	return onAbort(a.st.db().RunTransaction(ops), errNotAlive)
 }
 
@@ -1813,8 +1813,8 @@ type addApplicationOpsArgs struct {
 // applications collection, along with all the associated expected other application
 // entries. This method is used by both the *State.AddApplication method and the
 // migration import code.
-func addApplicationOps(st *State, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
-	charmRefOps, err := appCharmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
+func addApplicationOps(mb modelBackend, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
+	charmRefOps, err := appCharmIncRefOps(mb, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1825,12 +1825,12 @@ func addApplicationOps(st *State, app *Application, args addApplicationOpsArgs) 
 	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
-		createConstraintsOp(st, globalKey, args.constraints),
+		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
 		createSettingsOp(settingsC, settingsKey, args.settings),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
-		createStatusOp(st, globalKey, args.statusDoc),
-		addModelApplicationRefOp(st, app.Name()),
+		createStatusOp(mb, globalKey, args.statusDoc),
+		addModelApplicationRefOp(mb, app.Name()),
 	}
 	ops = append(ops, charmRefOps...)
 	ops = append(ops, txn.Op{

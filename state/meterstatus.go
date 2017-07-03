@@ -131,11 +131,11 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 
 // createMeterStatusOp returns the operation needed to create the meter status
 // document associated with the given globalKey.
-func createMeterStatusOp(st *State, globalKey string, doc *meterStatusDoc) txn.Op {
-	doc.ModelUUID = st.ModelUUID()
+func createMeterStatusOp(mb modelBackend, globalKey string, doc *meterStatusDoc) txn.Op {
+	doc.ModelUUID = mb.modelUUID()
 	return txn.Op{
 		C:      meterStatusC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -143,10 +143,10 @@ func createMeterStatusOp(st *State, globalKey string, doc *meterStatusDoc) txn.O
 
 // removeMeterStatusOp returns the operation needed to remove the meter status
 // document associated with the given globalKey.
-func removeMeterStatusOp(st *State, globalKey string) txn.Op {
+func removeMeterStatusOp(mb modelBackend, globalKey string) txn.Op {
 	return txn.Op{
 		C:      meterStatusC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Remove: true,
 	}
 }

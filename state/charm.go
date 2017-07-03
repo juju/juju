@@ -94,7 +94,7 @@ type CharmInfo struct {
 
 // insertCharmOps returns the txn operations necessary to insert the supplied
 // charm data. If curl is nil, an error will be returned.
-func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
+func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	if info.ID == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
@@ -120,17 +120,17 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 		}
 		doc.Macaroon = mac
 	}
-	return insertAnyCharmOps(st, &doc)
+	return insertAnyCharmOps(mb, &doc)
 }
 
 // insertPlaceholderCharmOps returns the txn operations necessary to insert a
 // charm document referencing a store charm that is not yet directly accessible
 // within the model. If curl is nil, an error will be returned.
-func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
+func insertPlaceholderCharmOps(mb modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
-	return insertAnyCharmOps(st, &charmDoc{
+	return insertAnyCharmOps(mb, &charmDoc{
 		DocID:       curl.String(),
 		URL:         curl,
 		Placeholder: true,
@@ -140,11 +140,11 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 // insertPendingCharmOps returns the txn operations necessary to insert a charm
 // document referencing a charm that has yet to be uploaded to the model.
 // If curl is nil, an error will be returned.
-func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
+func insertPendingCharmOps(mb modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
-	return insertAnyCharmOps(st, &charmDoc{
+	return insertAnyCharmOps(mb, &charmDoc{
 		DocID:         curl.String(),
 		URL:           curl,
 		PendingUpload: true,
@@ -153,9 +153,8 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
-func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
-	db := st.db()
-	charms, closer := db.GetCollection(charmsC)
+func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
+	charms, closer := mb.db().GetCollection(charmsC)
 	defer closer()
 
 	life, err := nsLife.read(charms, cdoc.DocID)
@@ -175,7 +174,7 @@ func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 		Insert: cdoc,
 	}
 
-	refcounts, closer := db.GetCollection(refcountsC)
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 
 	charmKey := charmGlobalKey(cdoc.URL)
@@ -191,11 +190,8 @@ func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 // updateCharmOps returns the txn operations necessary to update the charm
 // document with the supplied data, so long as the supplied assert still holds
 // true.
-func updateCharmOps(
-	st *State, info CharmInfo, assert bson.D,
-) ([]txn.Op, error) {
-
-	charms, closer := st.db().GetCollection(charmsC)
+func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, error) {
+	charms, closer := mb.db().GetCollection(charmsC)
 	defer closer()
 
 	charmKey := info.ID.String()
@@ -257,10 +253,10 @@ func convertPlaceholderCharmOps(docID string) ([]txn.Op, error) {
 
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
 // records older than the specified charm URL.
-func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *charm.URL) ([]txn.Op, error) {
+func deleteOldPlaceholderCharmsOps(mb modelBackend, charms mongo.Collection, curl *charm.URL) ([]txn.Op, error) {
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
+	curlRegex := "^" + regexp.QuoteMeta(mb.docID(noRevURL.String()))
 
 	var docs []charmDoc
 	query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}
@@ -269,7 +265,7 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 		return nil, errors.Trace(err)
 	}
 
-	refcounts, closer := st.db().GetCollection(refcountsC)
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 
 	var ops []txn.Op

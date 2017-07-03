@@ -396,12 +396,12 @@ func (i *importer) machine(m description.Machine) error {
 	if parentId := ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
 			// Update containers record for host machine.
-			i.st.addChildToContainerRefOp(parentId, mdoc.Id),
+			addChildToContainerRefOp(i.st, parentId, mdoc.Id),
 		)
 	}
 	// insertNewContainerRefOp adds an empty doc into the containerRefsC
 	// collection for the machine being added.
-	prereqOps = append(prereqOps, i.st.insertNewContainerRefOp(mdoc.Id))
+	prereqOps = append(prereqOps, insertNewContainerRefOp(i.st, mdoc.Id))
 
 	// 4. gather prereqs and machine op, run ops.
 	ops := append(prereqOps, machineOp)
@@ -923,7 +923,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	// in the imported model, we put them in the database.
 	if cons := u.Constraints(); cons != nil {
 		agentGlobalKey := unitAgentGlobalKey(u.Name())
-		ops = append(ops, createConstraintsOp(i.st, agentGlobalKey, i.constraints(cons)))
+		ops = append(ops, createConstraintsOp(agentGlobalKey, i.constraints(cons)))
 	}
 
 	if err := i.st.db().RunTransaction(ops); err != nil {

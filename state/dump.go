@@ -30,20 +30,20 @@ func (st *State) DumpAll() (map[string]interface{}, error) {
 	return result, nil
 }
 
-func getModelDoc(st *State) (map[string]interface{}, error) {
-	coll, closer := st.db().GetCollection(modelsC)
+func getModelDoc(mb modelBackend) (map[string]interface{}, error) {
+	coll, closer := mb.db().GetCollection(modelsC)
 	defer closer()
 
 	var doc map[string]interface{}
-	if err := coll.FindId(st.ModelUUID()).One(&doc); err != nil {
-		return nil, errors.Annotatef(err, "reading model %q", st.ModelUUID())
+	if err := coll.FindId(mb.modelUUID()).One(&doc); err != nil {
+		return nil, errors.Annotatef(err, "reading model %q", mb.modelUUID())
 	}
 	return doc, nil
 
 }
 
-func getAllModelDocs(st *State, collectionName string) ([]map[string]interface{}, error) {
-	coll, closer := st.db().GetCollection(collectionName)
+func getAllModelDocs(mb modelBackend, collectionName string) ([]map[string]interface{}, error) {
+	coll, closer := mb.db().GetCollection(collectionName)
 	defer closer()
 
 	var (

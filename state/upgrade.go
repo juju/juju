@@ -215,7 +215,7 @@ func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
 
 // upgradeStatusHistoryAndOps sets the model's status history and returns ops for
 // setting model status according to the UpgradeStatus.
-func upgradeStatusHistoryAndOps(st *State, upgradeStatus UpgradeStatus, now time.Time) ([]txn.Op, error) {
+func upgradeStatusHistoryAndOps(mb modelBackend, upgradeStatus UpgradeStatus, now time.Time) ([]txn.Op, error) {
 	var modelStatus status.Status
 	var msg string
 	switch upgradeStatus {
@@ -236,11 +236,11 @@ func upgradeStatusHistoryAndOps(st *State, upgradeStatus UpgradeStatus, now time
 		StatusInfo: msg,
 		Updated:    now.UnixNano(),
 	}
-	ops, err := statusSetOps(st.db(), doc, modelGlobalKey)
+	ops, err := statusSetOps(mb.db(), doc, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	probablyUpdateStatusHistory(st.db(), modelGlobalKey, doc)
+	probablyUpdateStatusHistory(mb.db(), modelGlobalKey, doc)
 	return ops, nil
 }
 

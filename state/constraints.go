@@ -46,7 +46,7 @@ func (doc constraintsDoc) value() constraints.Value {
 	return result
 }
 
-func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
+func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 	result := constraintsDoc{
 		Arch:         cons.Arch,
 		CpuCores:     cons.CpuCores,
@@ -62,25 +62,25 @@ func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 	return result
 }
 
-func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
+func createConstraintsOp(id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
 		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: newConstraintsDoc(st, cons),
+		Insert: newConstraintsDoc(cons),
 	}
 }
 
-func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
+func setConstraintsOp(id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
 		Id:     id,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", newConstraintsDoc(st, cons)}},
+		Update: bson.D{{"$set", newConstraintsDoc(cons)}},
 	}
 }
 
-func removeConstraintsOp(st *State, id string) txn.Op {
+func removeConstraintsOp(id string) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
 		Id:     id,
@@ -88,8 +88,8 @@ func removeConstraintsOp(st *State, id string) txn.Op {
 	}
 }
 
-func readConstraints(st *State, id string) (constraints.Value, error) {
-	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
+	constraintsCollection, closer := mb.db().GetCollection(constraintsC)
 	defer closer()
 
 	doc := constraintsDoc{}
@@ -101,9 +101,9 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 	return doc.value(), nil
 }
 
-func writeConstraints(st *State, id string, cons constraints.Value) error {
-	ops := []txn.Op{setConstraintsOp(st, id, cons)}
-	if err := st.db().RunTransaction(ops); err != nil {
+func writeConstraints(mb modelBackend, id string, cons constraints.Value) error {
+	ops := []txn.Op{setConstraintsOp(id, cons)}
+	if err := mb.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}
 	return nil
