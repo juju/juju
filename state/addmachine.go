@@ -507,7 +507,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // into the database, based on the given template. Only the constraints are
 // taken from the template.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
-	now := st.clock.Now()
+	now := st.clock().Now()
 	machineStatusDoc := statusDoc{
 		Status:    status.Pending,
 		ModelUUID: st.ModelUUID(),

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/state/watcher"
 )
@@ -34,6 +35,7 @@ type modelBackend interface {
 	// misleading to store any more than precision to the second.
 	nowToTheSecond() time.Time
 
+	clock() clock.Clock
 	db() Database
 	modelUUID() string
 	txnLogWatcher() *watcher.Watcher
@@ -59,10 +61,14 @@ func (st *State) strictLocalID(id string) (string, error) {
 	return localID, nil
 }
 
+func (st *State) clock() clock.Clock {
+	return st.stateClock
+}
+
 func (st *State) modelUUID() string {
 	return st.ModelUUID()
 }
 
 func (st *State) nowToTheSecond() time.Time {
-	return st.clock.Now().Round(time.Second).UTC()
+	return st.clock().Now().Round(time.Second).UTC()
 }

@@ -775,7 +775,7 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	}
 	status := statusDoc{
 		Status:  status.Pending,
-		Updated: st.clock.Now().UnixNano(),
+		Updated: st.clock().Now().UnixNano(),
 	}
 	doc := volumeDoc{
 		Name:      name,
@@ -1103,6 +1103,6 @@ func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status
 		status:    volumeStatus,
 		message:   info,
 		rawData:   data,
-		updated:   timeOrNow(updated, st.clock),
+		updated:   timeOrNow(updated, st.clock()),
 	})
 }

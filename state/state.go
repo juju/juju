@@ -79,7 +79,7 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	clock                  clock.Clock
+	stateClock             clock.Clock
 	modelTag               names.ModelTag
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
@@ -305,7 +305,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
+		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.stateClock,
 		st.runTransactionObserver,
 	)
 	if err != nil {
@@ -412,7 +412,7 @@ func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 		Namespace:    applicationLeadershipNamespace,
 		Collection:   leasesC,
 		Mongo:        &environMongo{st},
-		Clock:        st.clock,
+		Clock:        st.stateClock,
 		MonotonicNow: monotonic.Now,
 	})
 	if err != nil {
@@ -427,7 +427,7 @@ func (st *State) getSingularLeaseClient() (lease.Client, error) {
 		Namespace:    singularControllerNamespace,
 		Collection:   leasesC,
 		Mongo:        &environMongo{st},
-		Clock:        st.clock,
+		Clock:        st.stateClock,
 		MonotonicNow: monotonic.Now,
 	})
 	if err != nil {
@@ -1180,7 +1180,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		ModelUUID:  st.ModelUUID(),
 		Status:     status.Waiting,
 		StatusInfo: status.MessageWaitForMachine,
-		Updated:    st.clock.Now().UnixNano(),
+		Updated:    st.clock().Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense.
@@ -2263,7 +2263,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	st.clock = clock
+	st.stateClock = clock
 	err = st.start(st.controllerTag)
 	if err != nil {
 		return errors.Trace(err)

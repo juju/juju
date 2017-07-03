@@ -3714,7 +3714,7 @@ done:
 					break done
 				}
 			}
-		case <-tw.st.clock.After(maxDuration):
+		case <-tw.st.clock().After(maxDuration):
 			// timed out
 			break done
 		}
@@ -3735,7 +3735,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 		if len(d) > 0 {
 			c.Error("change detected")
 		}
-	case <-tw.st.clock.After(testing.ShortWait):
+	case <-tw.st.clock().After(testing.ShortWait):
 		// expected
 	}
 }
@@ -3743,7 +3743,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 func (tw *testWatcher) AssertChanges(c *gc.C, expected int) {
 	var count int
 	tw.st.StartSync()
-	maxWait := tw.st.clock.After(testing.LongWait)
+	maxWait := tw.st.clock().After(testing.LongWait)
 done:
 	for {
 		select {

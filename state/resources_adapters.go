@@ -29,7 +29,7 @@ func NewResourceState(persist Persistence, base *State) Resources {
 			persist: persist,
 		},
 		storage: persist.NewStorage(),
-		clock:   base.clock,
+		clock:   base.clock(),
 	}
 }
 

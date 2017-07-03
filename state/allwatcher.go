@@ -463,7 +463,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 			// Not sure how status can even return NotFound as it is created
 			// with the application initially. For now, we'll log the error as per
 			// the above and return Unknown.
-			now := st.clock.Now()
+			now := st.clock().Now()
 			info.Status = multiwatcher.StatusInfo{
 				Current: status.Unknown,
 				Since:   &now,

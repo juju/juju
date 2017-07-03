@@ -331,7 +331,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		session,
 		st.mongoInfo,
 		st.newPolicy,
-		st.clock,
+		st.clock(),
 		st.runTransactionObserver,
 	)
 	if err != nil {
@@ -592,7 +592,7 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   timeOrNow(sInfo.Since, m.globalState.clock),
+		updated:   timeOrNow(sInfo.Since, m.globalState.clock()),
 	})
 }
 
