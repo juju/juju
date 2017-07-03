@@ -211,7 +211,7 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// Store in status rather than an attribute of the unit doc - we
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
-	now := u.st.clock.Now()
+	now := u.st.clock().Now()
 	return setStatus(u.st.db(), setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
@@ -895,7 +895,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 		status:    unitStatus.Status,
 		message:   unitStatus.Message,
 		rawData:   unitStatus.Data,
-		updated:   timeOrNow(unitStatus.Since, u.st.clock),
+		updated:   timeOrNow(unitStatus.Since, u.st.clock()),
 	})
 }
 

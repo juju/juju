@@ -277,7 +277,7 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 		Update: bson.D{{"$set", bson.D{{"status", status}}}},
 	}}
 
-	extraOps, err := upgradeStatusHistoryAndOps(info.st, status, info.st.clock.Now())
+	extraOps, err := upgradeStatusHistoryAndOps(info.st, status, info.st.clock().Now())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -308,7 +308,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		PreviousVersion:  previousVersion,
 		TargetVersion:    targetVersion,
 		Status:           UpgradePending,
-		Started:          st.clock.Now().UTC(),
+		Started:          st.clock().Now().UTC(),
 		ControllersReady: []string{machineId},
 	}
 
@@ -445,7 +445,7 @@ func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 			doc.ControllersDone = controllersDone.SortedValues()
 
 			ops := info.makeArchiveOps(doc, UpgradeComplete)
-			extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeComplete, info.st.clock.Now())
+			extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeComplete, info.st.clock().Now())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -482,7 +482,7 @@ func (info *UpgradeInfo) Abort() error {
 			return nil, errors.Trace(err)
 		}
 		ops := info.makeArchiveOps(doc, UpgradeAborted)
-		extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeAborted, info.st.clock.Now())
+		extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeAborted, info.st.clock().Now())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

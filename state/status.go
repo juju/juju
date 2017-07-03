@@ -309,7 +309,7 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 
 	// Status Record Age
 	if maxHistoryTime > 0 {
-		t := st.clock.Now().Add(-maxHistoryTime)
+		t := st.clock().Now().Add(-maxHistoryTime)
 		_, err := history.RemoveAll(bson.D{
 			{"model-uuid", st.ModelUUID()},
 			{"updated", bson.M{"$lt": t.UnixNano()}},

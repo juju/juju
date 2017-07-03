@@ -996,7 +996,7 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   timeOrNow(sInfo.Since, m.st.clock),
+		updated:   timeOrNow(sInfo.Since, m.st.clock()),
 	})
 
 }
@@ -1633,7 +1633,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   timeOrNow(statusInfo.Since, m.st.clock),
+		updated:   timeOrNow(statusInfo.Since, m.st.clock()),
 	})
 }
 
@@ -1740,7 +1740,7 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			if statusInfo.Status == status.Pending {
 				containerType := ContainerTypeFromId(containerId)
-				now := m.st.clock.Now()
+				now := m.st.clock().Now()
 				s := status.StatusInfo{
 					Status:  status.Error,
 					Message: "unsupported container",

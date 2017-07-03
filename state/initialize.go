@@ -280,7 +280,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	modelUUID := args.Config.UUID()
 	modelStatusDoc = statusDoc{
 		ModelUUID: modelUUID,
-		Updated:   st.clock.Now().UnixNano(),
+		Updated:   st.clock().Now().UnixNano(),
 		Status:    status.Available,
 	}
 

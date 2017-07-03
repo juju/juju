@@ -1211,7 +1211,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
-	now := a.st.clock.Now()
+	now := a.st.clock().Now()
 	agentStatusDoc := statusDoc{
 		Status:  status.Allocating,
 		Updated: now.UnixNano(),
@@ -1729,7 +1729,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   timeOrNow(statusInfo.Since, a.st.clock),
+		updated:   timeOrNow(statusInfo.Since, a.st.clock()),
 	})
 }
 

@@ -91,7 +91,7 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		status:    unitAgentStatus.Status,
 		message:   unitAgentStatus.Message,
 		rawData:   unitAgentStatus.Data,
-		updated:   timeOrNow(unitAgentStatus.Since, u.st.clock),
+		updated:   timeOrNow(unitAgentStatus.Since, u.st.clock()),
 	})
 }
 

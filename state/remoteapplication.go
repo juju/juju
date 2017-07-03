@@ -381,7 +381,7 @@ func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
 		status:    info.Status,
 		message:   info.Message,
 		rawData:   info.Data,
-		updated:   timeOrNow(info.Since, s.st.clock),
+		updated:   timeOrNow(info.Since, s.st.clock()),
 	})
 }
 

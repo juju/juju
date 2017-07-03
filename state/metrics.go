@@ -302,7 +302,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	now := st.clock.Now()
+	now := st.clock().Now()
 	metrics, closer := st.db().GetCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
@@ -470,7 +470,7 @@ func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 
 // SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
 func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
-	deleteTime := st.clock.Now().UTC().Add(CleanupAge)
+	deleteTime := st.clock().Now().UTC().Add(CleanupAge)
 	ops := setSentOps(batchUUIDs, deleteTime)
 	if err := st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")

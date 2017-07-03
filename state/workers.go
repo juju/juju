@@ -43,7 +43,7 @@ func newWorkers(st *State) (*workers, error) {
 			// Logger: loggo.GetLogger(logger.Name() + ".workers"),
 			IsFatal:      func(err error) bool { return err == jworker.ErrRestartAgent },
 			RestartDelay: time.Second,
-			Clock:        st.clock,
+			Clock:        st.clock(),
 		}),
 	}
 	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
@@ -63,7 +63,7 @@ func newWorkers(st *State) (*workers, error) {
 		manager, err := lease.NewManager(lease.ManagerConfig{
 			Secretary: leadershipSecretary{},
 			Client:    client,
-			Clock:     ws.state.clock,
+			Clock:     ws.state.clock(),
 			MaxSleep:  time.Minute,
 		})
 		if err != nil {
@@ -79,7 +79,7 @@ func newWorkers(st *State) (*workers, error) {
 		manager, err := lease.NewManager(lease.ManagerConfig{
 			Secretary: singularSecretary{st.ModelUUID()},
 			Client:    client,
-			Clock:     st.clock,
+			Clock:     st.clock(),
 			MaxSleep:  time.Minute,
 		})
 		if err != nil {

@@ -266,7 +266,7 @@ func newState(
 
 	// Create State.
 	st := &State{
-		clock:                  clock,
+		stateClock:             clock,
 		modelTag:               modelTag,
 		controllerModelTag:     controllerModelTag,
 		mongoInfo:              mongoInfo,
