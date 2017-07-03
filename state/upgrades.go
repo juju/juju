@@ -865,14 +865,10 @@ func SplitLogCollections(st *State) error {
 		delete(doc, "e") // old model uuid
 
 		if err := newLogs.Insert(doc); err != nil {
-			// In the case of a restart, we may have already moved some
-			// of these rows, in which case we'd get a duplicate id error.
-			if merr, ok := err.(*mgo.LastError); ok {
-				if merr.Code != 11000 {
-					return errors.Annotate(err, "failed to insert log record")
-				}
-				// Otherwise we just skip the duplicate row.
-			} else {
+			// In the case of a restart, we may have already moved
+			// some of these rows, in which case we'd get a duplicate
+			// id error (this is OK).
+			if !mgo.IsDup(err) {
 				return errors.Annotate(err, "failed to insert log record")
 			}
 		}
@@ -881,16 +877,28 @@ func SplitLogCollections(st *State) error {
 
 	// drop the old collection
 	if err := oldLogs.DropCollection(); err != nil {
-		// If the error is &mgo.QueryError{Code:26, Message:"ns not found", Assertion:false}
-		// that's fine.
-		if merr, ok := err.(*mgo.QueryError); ok {
-			if merr.Code == 26 {
-				return nil
-			}
+		// If the namespace is already missing, that's fine.
+		if isMgoNamespaceNotFound(err) {
+			return nil
 		}
 		return errors.Annotate(err, "failed to drop old logs collection")
 	}
 	return nil
+}
+
+func isMgoNamespaceNotFound(err error) bool {
+	// Check for &mgo.QueryError{Code:26, Message:"ns not found"}
+	if qerr, ok := err.(*mgo.QueryError); ok {
+		if qerr.Code == 26 {
+			return true
+		}
+		// For older mongodb's Code isn't set. Use the message
+		// instead.
+		if qerr.Message == "ns not found" {
+			return true
+		}
+	}
+	return false
 }
 
 type relationUnitCountInfo struct {
