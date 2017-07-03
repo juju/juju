@@ -70,6 +70,12 @@ func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
 	return st, nil
 }
 
+// Ping probes the Controllers's database connection to ensure that it
+// is still alive.
+func (ctlr *Controller) Ping() error {
+	return ctlr.session.Ping()
+}
+
 // ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)

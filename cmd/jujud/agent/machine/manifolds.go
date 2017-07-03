@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
+	workercontroller "github.com/juju/juju/worker/controller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -88,6 +89,10 @@ type ManifoldsConfig struct {
 	// coordinate workers that shouldn't do anything until the
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
+
+	// OpenController is function used by the controller manifold to
+	// create a *state.Controller.
+	OpenController func(coreagent.Config) (*state.Controller, error)
 
 	// OpenState is function used by the state manifold to create a
 	// *state.State.
@@ -230,6 +235,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         loggo.GetLogger("juju.worker.pubsub"),
 			NewWorker:      psworker.NewWorker,
 			Reporter:       config.PubSubReporter,
+		}),
+
+		// The controller manifold creates a *state.Controller and
+		// makes it available to other manifolds. It pings the MongoDB
+		// session regularly and will die if pings fail.
+		controllerName: workercontroller.Manifold(workercontroller.ManifoldConfig{
+			AgentName:              agentName,
+			StateConfigWatcherName: stateConfigWatcherName,
+			OpenController:         config.OpenController,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -516,6 +530,7 @@ const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
+	controllerName         = "controller"
 	stateName              = "state"
 	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
