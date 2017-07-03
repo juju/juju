@@ -16,14 +16,7 @@ ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@finfolk \
   'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-finfolk-vmaas \
   --hours=2
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon \
-  'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-silcoon-vmaas \
-  --hours=2
-
 # Delete all lxd containers left behind on several machines.
-
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon \
-    juju-ci-tools/clean_lxd.py
 
 ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@feature-slave.vapour.ws \
     juju-ci-tools/clean_lxd.py
