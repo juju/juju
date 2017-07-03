@@ -826,12 +826,12 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeStatusOp(m.st, m.globalInstanceKey()),
-		removeConstraintsOp(m.st, m.globalKey()),
+		removeConstraintsOp(m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
-		removeSSHHostKeyOp(m.st, m.globalKey()),
+		removeSSHHostKeyOp(m.globalKey()),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
@@ -1571,7 +1571,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		return err
 	}
 
-	ops = append(ops, setConstraintsOp(m.st, m.globalKey(), mcons))
+	ops = append(ops, setConstraintsOp(m.globalKey(), mcons))
 	// make multiple attempts to push the ErrExcessiveContention case out of the
 	// realm of plausibility: it implies local state indicating unprovisioned,
 	// and remote state indicating provisioned (reasonable); but which changes

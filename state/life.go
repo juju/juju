@@ -61,8 +61,8 @@ type AgentLiving interface {
 	Remove() error
 }
 
-func isAlive(st *State, collName string, id interface{}) (bool, error) {
-	coll, closer := st.db().GetCollection(collName)
+func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {
+	coll, closer := mb.db().GetCollection(collName)
 	defer closer()
 	return isAliveWithSession(coll, id)
 }
@@ -72,8 +72,8 @@ func isAliveWithSession(coll mongo.Collection, id interface{}) (bool, error) {
 	return n == 1, err
 }
 
-func isNotDead(st *State, collName string, id interface{}) (bool, error) {
-	coll, closer := st.db().GetCollection(collName)
+func isNotDead(mb modelBackend, collName string, id interface{}) (bool, error) {
+	coll, closer := mb.db().GetCollection(collName)
 	defer closer()
 	return isNotDeadWithSession(coll, id)
 }

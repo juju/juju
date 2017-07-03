@@ -791,8 +791,8 @@ func ParseFilesystemAttachmentId(id string) (names.MachineTag, names.FilesystemT
 // If the machine ID supplied is non-empty, the
 // filesystem ID will incorporate it as the
 // filesystem's machine scope.
-func newFilesystemId(st *State, machineId string) (string, error) {
-	seq, err := sequence(st, "filesystem")
+func newFilesystemId(mb modelBackend, machineId string) (string, error) {
+	seq, err := sequence(mb, "filesystem")
 	if err != nil {
 		return "", errors.Trace(err)
 	}

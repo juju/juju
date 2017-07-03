@@ -14,9 +14,8 @@ var errCharmInUse = errors.New("charm in use")
 // appCharmIncRefOps returns the operations necessary to record a reference
 // to a charm and its per-application settings and storage constraints
 // documents. It will fail if the charm is not Alive.
-func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
-	db := st.db()
-	charms, closer := db.GetCollection(charmsC)
+func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
+	charms, closer := mb.db().GetCollection(charmsC)
 	defer closer()
 
 	// If we're migrating. charm document will not be present. But
@@ -33,7 +32,7 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 		checkOps = []txn.Op{checkOp}
 	}
 
-	refcounts, closer := db.GetCollection(refcountsC)
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 
 	getIncRefOp := nsRefcounts.CreateOrIncRefOp

@@ -210,8 +210,8 @@ type storageAttachmentDoc struct {
 // newStorageInstanceId returns a unique storage instance name. The name
 // incorporates the storage name as defined in the charm storage metadata,
 // and a unique sequence number.
-func newStorageInstanceId(st *State, store string) (string, error) {
-	seq, err := sequence(st, "stores")
+func newStorageInstanceId(mb modelBackend, store string) (string, error) {
+	seq, err := sequence(mb, "stores")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -522,8 +522,8 @@ func validateStorageCountChange(
 // count for a storage instance for a given application or unit. This
 // should be called when creating a shared storage instance, or when
 // attaching a non-shared storage instance to a unit.
-func increfEntityStorageOp(st *State, owner names.Tag, storageName string, n int) (txn.Op, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+func increfEntityStorageOp(mb modelBackend, owner names.Tag, storageName string, n int) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, n)
@@ -534,8 +534,8 @@ func increfEntityStorageOp(st *State, owner names.Tag, storageName string, n int
 // count for a storage instance from a given application or unit. This
 // should be called when removing a shared storage instance, or when
 // detaching a non-shared storage instance from a unit.
-func decrefEntityStorageOp(st *State, owner names.Tag, storageName string) (txn.Op, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+func decrefEntityStorageOp(mb modelBackend, owner names.Tag, storageName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageRefcountKey)

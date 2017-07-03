@@ -289,7 +289,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
-		createConstraintsOp(st, modelGlobalKey, args.Constraints),
+		createConstraintsOp(modelGlobalKey, args.Constraints),
 	}
 	// Inc ref count for hosted models.
 	if controllerModelUUID != modelUUID {

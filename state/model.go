@@ -1027,51 +1027,51 @@ func (m *Model) checkEmpty() error {
 	return nil
 }
 
-func addModelMachineRefOp(st *State, machineId string) txn.Op {
-	return addModelEntityRefOp(st, "machines", machineId)
+func addModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
+	return addModelEntityRefOp(mb, "machines", machineId)
 }
 
-func removeModelMachineRefOp(st *State, machineId string) txn.Op {
-	return removeModelEntityRefOp(st, "machines", machineId)
+func removeModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
+	return removeModelEntityRefOp(mb, "machines", machineId)
 }
 
-func addModelApplicationRefOp(st *State, applicationname string) txn.Op {
-	return addModelEntityRefOp(st, "applications", applicationname)
+func addModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
+	return addModelEntityRefOp(mb, "applications", applicationname)
 }
 
-func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
-	return removeModelEntityRefOp(st, "applications", applicationname)
+func removeModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
+	return removeModelEntityRefOp(mb, "applications", applicationname)
 }
 
-func addModelVolumeRefOp(st *State, volumeId string) txn.Op {
-	return addModelEntityRefOp(st, "volumes", volumeId)
+func addModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
+	return addModelEntityRefOp(mb, "volumes", volumeId)
 }
 
-func removeModelVolumeRefOp(st *State, volumeId string) txn.Op {
-	return removeModelEntityRefOp(st, "volumes", volumeId)
+func removeModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
+	return removeModelEntityRefOp(mb, "volumes", volumeId)
 }
 
-func addModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
-	return addModelEntityRefOp(st, "filesystems", filesystemId)
+func addModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
+	return addModelEntityRefOp(mb, "filesystems", filesystemId)
 }
 
-func removeModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
-	return removeModelEntityRefOp(st, "filesystems", filesystemId)
+func removeModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
+	return removeModelEntityRefOp(mb, "filesystems", filesystemId)
 }
 
-func addModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
+func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
+		Id:     mb.modelUUID(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$addToSet", bson.D{{entityField, entityId}}}},
 	}
 }
 
-func removeModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
+func removeModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
+		Id:     mb.modelUUID(),
 		Update: bson.D{{"$pull", bson.D{{entityField, entityId}}}},
 	}
 }

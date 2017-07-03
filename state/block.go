@@ -175,7 +175,11 @@ func (st *State) SwitchBlockOff(t BlockType) error {
 //     found -> block, true, nil
 //     error -> nil, false, err
 func (st *State) GetBlockForType(t BlockType) (Block, bool, error) {
-	all, closer := st.db().GetCollection(blocksC)
+	return getBlockForType(st, t)
+}
+
+func getBlockForType(mb modelBackend, t BlockType) (Block, bool, error) {
+	all, closer := mb.db().GetCollection(blocksC)
 	defer closer()
 
 	doc := blockDoc{}
@@ -253,9 +257,9 @@ func (st *State) RemoveAllBlocksForController() error {
 // setModelBlock updates the blocks collection with the
 // specified block.
 // Only one instance of each block type can exist in model.
-func setModelBlock(st *State, t BlockType, msg string) error {
+func setModelBlock(mb modelBackend, t BlockType, msg string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		block, exists, err := st.GetBlockForType(t)
+		block, exists, err := getBlockForType(mb, t)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -264,22 +268,22 @@ func setModelBlock(st *State, t BlockType, msg string) error {
 		if exists {
 			return block.updateMessageOp(msg)
 		}
-		return createModelBlockOps(st, t, msg)
+		return createModelBlockOps(mb, t, msg)
 	}
-	return st.db().Run(buildTxn)
+	return mb.db().Run(buildTxn)
 }
 
 // newBlockId returns a sequential block id for this model.
-func newBlockId(st *State) (string, error) {
-	seq, err := sequence(st, "block")
+func newBlockId(mb modelBackend) (string, error) {
+	seq, err := sequence(mb, "block")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return fmt.Sprint(seq), nil
 }
 
-func createModelBlockOps(st *State, t BlockType, msg string) ([]txn.Op, error) {
-	id, err := newBlockId(st)
+func createModelBlockOps(mb modelBackend, t BlockType, msg string) ([]txn.Op, error) {
+	id, err := newBlockId(mb)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting new block id")
 	}
@@ -287,9 +291,9 @@ func createModelBlockOps(st *State, t BlockType, msg string) ([]txn.Op, error) {
 	// Tag is different from the model, then the migration of blocks will
 	// need to change format.
 	newDoc := blockDoc{
-		DocID:     st.docID(id),
-		ModelUUID: st.ModelUUID(),
-		Tag:       st.ModelTag().String(),
+		DocID:     mb.docID(id),
+		ModelUUID: mb.modelUUID(),
+		Tag:       names.NewModelTag(mb.modelUUID()).String(),
 		Type:      t,
 		Message:   msg,
 	}

@@ -287,7 +287,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, errors.Trace(err)
 	}
 	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
-	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
+	prereqOps = append(prereqOps, insertNewContainerRefOp(st, mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
 			C:      instanceDataC,
@@ -367,9 +367,9 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 	prereqOps = append(prereqOps,
 		// Update containers record for host machine.
-		st.addChildToContainerRefOp(parentId, mdoc.Id),
+		addChildToContainerRefOp(st, parentId, mdoc.Id),
 		// Create a containers reference document for the container itself.
-		st.insertNewContainerRefOp(mdoc.Id),
+		insertNewContainerRefOp(st, mdoc.Id),
 	)
 	return mdoc, append(prereqOps, machineOp), nil
 }
@@ -440,9 +440,9 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	prereqOps = append(prereqOps, parentPrereqOps...)
 	prereqOps = append(prereqOps,
 		// The host machine doesn't exist yet, create a new containers record.
-		st.insertNewContainerRefOp(mdoc.Id),
+		insertNewContainerRefOp(st, mdoc.Id),
 		// Create a containers reference document for the container itself.
-		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
+		insertNewContainerRefOp(st, parentDoc.Id, mdoc.Id),
 	)
 	return mdoc, append(prereqOps, parentOp, machineOp), nil
 }
@@ -566,7 +566,7 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceS
 	globalInstanceKey := machineGlobalInstanceKey(mdoc.Id)
 
 	prereqOps = []txn.Op{
-		createConstraintsOp(st, globalKey, cons),
+		createConstraintsOp(globalKey, cons),
 		createStatusOp(st, globalKey, machineStatusDoc),
 		createStatusOp(st, globalInstanceKey, instanceStatusDoc),
 		createMachineBlockDevicesOp(mdoc.Id),

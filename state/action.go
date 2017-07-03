@@ -247,24 +247,24 @@ func newAction(st *State, adoc actionDoc) Action {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
 	actionId, err := NewUUID()
 	if err != nil {
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
-	modelUUID := st.ModelUUID()
+	modelUUID := mb.modelUUID()
 	return actionDoc{
-			DocId:      st.docID(actionId.String()),
+			DocId:      mb.docID(actionId.String()),
 			ModelUUID:  modelUUID,
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
-			Enqueued:   st.nowToTheSecond(),
+			Enqueued:   mb.nowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
-			DocId:     st.docID(prefix + actionId.String()),
+			DocId:     mb.docID(prefix + actionId.String()),
 			ModelUUID: modelUUID,
 			Receiver:  receiverTag.Id(),
 			ActionID:  actionId.String(),

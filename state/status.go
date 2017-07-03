@@ -153,10 +153,10 @@ func statusSetOps(db Database, doc statusDoc, globalKey string) ([]txn.Op, error
 
 // createStatusOp returns the operation needed to create the given status
 // document associated with the given globalKey.
-func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
+func createStatusOp(mb modelBackend, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
 		C:      statusesC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}
@@ -164,10 +164,10 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 
 // removeStatusOp returns the operation needed to remove the status
 // document associated with the given globalKey.
-func removeStatusOp(st *State, globalKey string) txn.Op {
+func removeStatusOp(mb modelBackend, globalKey string) txn.Op {
 	return txn.Op{
 		C:      statusesC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Remove: true,
 	}
 }
@@ -204,8 +204,8 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 	}
 }
 
-func eraseStatusHistory(st *State, globalKey string) error {
-	history, closer := st.db().GetCollection(statusesHistoryC)
+func eraseStatusHistory(mb modelBackend, globalKey string) error {
+	history, closer := mb.db().GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 
@@ -290,7 +290,7 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 // only logs newer than <maxLogTime> remain and also ensures
 // that the collection is smaller than <maxLogsMB> after the
 // deletion.
-func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+func PruneStatusHistory(mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB int) error {
 	if maxHistoryMB < 0 {
 		return errors.NotValidf("non-positive maxHistoryMB")
 	}
@@ -304,14 +304,14 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	// NOTE(axw) we require a raw collection to obtain the size of the
 	// collection. Take care to include model-uuid in queries where
 	// appropriate.
-	history, closer := st.db().GetRawCollection(statusesHistoryC)
+	history, closer := mb.db().GetRawCollection(statusesHistoryC)
 	defer closer()
 
 	// Status Record Age
 	if maxHistoryTime > 0 {
-		t := st.clock().Now().Add(-maxHistoryTime)
+		t := mb.clock().Now().Add(-maxHistoryTime)
 		_, err := history.RemoveAll(bson.D{
-			{"model-uuid", st.ModelUUID()},
+			{"model-uuid", mb.modelUUID()},
 			{"updated", bson.M{"$lt": t.UnixNano()}},
 		})
 		if err != nil {
