@@ -121,6 +121,7 @@ type Model interface {
 
 type stateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
 type ExternalController state.ExternalController
@@ -131,8 +132,12 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 }
 
 // NewStateBackend converts a state.State into a Backend.
-func NewStateBackend(st *state.State) Backend {
-	return stateShim{st}
+func NewStateBackend(st *state.State) (Backend, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{State: st, IAASModel: im}, nil
 }
 
 // NewStateApplication converts a state.Application into an Application.

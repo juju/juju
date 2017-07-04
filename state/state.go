@@ -2270,3 +2270,8 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	}
 	return nil
 }
+
+// IAASModel returns an Infrastructure-As-A-Service (IAAS) model.
+func (st *State) IAASModel() (*IAASModel, error) {
+	return &IAASModel{mb: st}, nil
+}

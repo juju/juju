@@ -58,7 +58,8 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	backend := storageprovisioner.NewStateBackend(s.State)
+	backend, err := storageprovisioner.NewStateBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = storageprovisioner.NewStorageProvisionerAPI(backend, s.resources, s.authorizer, registry, pm)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -66,8 +67,9 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
-	backend := storageprovisioner.NewStateBackend(s.State)
-	_, err := storageprovisioner.NewStorageProvisionerAPI(backend, common.NewResources(), authorizer, nil, nil)
+	backend, err := storageprovisioner.NewStateBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = storageprovisioner.NewStorageProvisionerAPI(backend, common.NewResources(), authorizer, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

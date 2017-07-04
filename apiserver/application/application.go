@@ -54,7 +54,10 @@ type API struct {
 
 // NewFacade provides the signature required for facade registration.
 func NewFacade(ctx facade.Context) (*API, error) {
-	backend := NewStateBackend(ctx.State())
+	backend, err := NewStateBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting state")
+	}
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
 	return NewAPI(

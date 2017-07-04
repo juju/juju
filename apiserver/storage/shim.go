@@ -20,18 +20,18 @@ import (
 // *trivially* correct, you would be Doing It Wrong.
 
 // NewFacade provides the signature required for facade registration.
-func NewFacade(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
+func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environ")
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewAPI(getState(st), registry, pm, resources, authorizer)
+	ss, err := getState(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting state")
+	}
+	return NewAPI(ss, registry, pm, resources, authorizer)
 }
 
 type storageAccess interface {
@@ -126,12 +126,17 @@ type storageAccess interface {
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 }
 
-var getState = func(st *state.State) storageAccess {
-	return stateShim{st}
+var getState = func(st *state.State) (storageAccess, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{State: st, IAASModel: im}, nil
 }
 
 type stateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
 // UnitAssignedMachine returns the tag of the machine that the unit
