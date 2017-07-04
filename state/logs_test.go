@@ -332,6 +332,33 @@ func (s *LogTailerSuite) getCollection(modelUUID string) *mgo.Collection {
 	return s.State.MongoSession().DB("logs").C("logs." + modelUUID)
 }
 
+func (s *LogTailerSuite) TestLogDeletionDuringTailing(c *gc.C) {
+	var tw loggo.TestWriter
+	err := loggo.RegisterWriter("test", &tw)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("test")
+
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{
+		Oplog: s.oplogColl,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer tailer.Stop()
+
+	want := logTemplate{Message: "want"}
+
+	s.writeLogs(c, s.otherUUID, 2, want)
+	// Delete something.
+	s.deleteLogOplogEntry(s.otherUUID, want)
+	s.writeLogs(c, s.otherUUID, 2, want)
+
+	s.assertTailer(c, tailer, 4, want)
+
+	c.Assert(tw.Log(), gc.Not(jc.LogMatches), jc.SimpleMessages{{
+		loggo.WARNING,
+		`.*log deserialization failed.*`,
+	}})
+}
+
 func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 10 logs that shouldn't be returned.
 	threshT := coretesting.NonZeroTime()
@@ -824,6 +851,18 @@ func (s *LogTailerSuite) writeLogToOplog(modelUUID string, doc interface{}) erro
 		{"ts", bson.MongoTimestamp(coretesting.ZeroTime().Unix() << 32)}, // an approximation which will do
 		{"h", rand.Int63()},                                              // again, a suitable fake
 		{"op", "i"},                                                      // this will always be an insert
+		{"ns", "logs.logs." + modelUUID},
+		{"o", doc},
+	})
+}
+
+// deleteLogOplogEntry writes out a log record to the a (probably fake)
+// oplog collection.
+func (s *LogTailerSuite) deleteLogOplogEntry(modelUUID string, doc interface{}) error {
+	return s.oplogColl.Insert(bson.D{
+		{"ts", bson.MongoTimestamp(coretesting.ZeroTime().Unix() << 32)}, // an approximation which will do
+		{"h", rand.Int63()},                                              // again, a suitable fake
+		{"op", "d"},
 		{"ns", "logs.logs." + modelUUID},
 		{"o", doc},
 	})
