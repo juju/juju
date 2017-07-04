@@ -33,10 +33,15 @@ type storageStateInterface interface {
 
 type storageStateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
-var getStorageState = func(st *state.State) storageStateInterface {
-	return storageStateShim{st}
+var getStorageState = func(st *state.State) (storageStateInterface, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return storageStateShim{State: st, IAASModel: im}, nil
 }
 
 // UnitAssignedMachine returns the tag of the machine that the unit

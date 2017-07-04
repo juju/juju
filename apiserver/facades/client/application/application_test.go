@@ -85,7 +85,8 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
-	backend := application.NewStateBackend(s.State)
+	backend, err := application.NewStateBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
 	api, err := application.NewAPI(
 		backend, s.authorizer, s.BackingStatePool,

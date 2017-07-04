@@ -28,7 +28,9 @@ func (s *BlockDevicesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BlockDevicesSuite) assertBlockDevices(c *gc.C, tag names.MachineTag, expected []state.BlockDeviceInfo) {
-	info, err := s.State.BlockDevices(tag)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := im.BlockDevices(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.DeepEquals, expected)
 }
@@ -145,7 +147,9 @@ func (s *BlockDevicesSuite) TestBlockDevicesMachineRemove(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.BlockDevices(s.machine.MachineTag())
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = im.BlockDevices(s.machine.MachineTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -157,7 +161,9 @@ func (s *BlockDevicesSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start block device watcher.
-	w := s.State.WatchBlockDevices(s.machine.MachineTag())
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	w := im.WatchBlockDevices(s.machine.MachineTag())
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()

@@ -402,7 +402,9 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	imported, err := newSt.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	devices, err := newSt.BlockDevices(imported.MachineTag())
+	im, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	devices, err := im.BlockDevices(imported.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})

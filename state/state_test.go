@@ -536,7 +536,9 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				f := factory.NewFactory(st)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
-				return st.WatchBlockDevices(m.MachineTag())
+				im, err := st.IAASModel()
+				c.Assert(err, jc.ErrorIsNil)
+				return im.WatchBlockDevices(m.MachineTag())
 			},
 			setUpState: func(st *state.State) bool {
 				m, err := st.Machine("0")

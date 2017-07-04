@@ -150,12 +150,17 @@ type storageAccess interface {
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
-var getState = func(st *state.State) storageAccess {
-	return stateShim{st}
+var getState = func(st *state.State) (storageAccess, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{State: st, IAASModel: im}, nil
 }
 
 type stateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
 // UnitAssignedMachine returns the tag of the machine that the unit

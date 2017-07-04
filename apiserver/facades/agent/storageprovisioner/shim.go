@@ -84,11 +84,16 @@ type Backend interface {
 
 type stateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
 // NewStateBackend creates a Backend from the given *state.State.
-func NewStateBackend(st *state.State) Backend {
-	return stateShim{st}
+func NewStateBackend(st *state.State) (Backend, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{State: st, IAASModel: im}, nil
 }
 
 func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) {

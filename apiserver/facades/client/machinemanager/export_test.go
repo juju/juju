@@ -15,8 +15,8 @@ type Patcher interface {
 }
 
 func PatchState(p Patcher, st StateInterface) {
-	p.PatchValue(&getState, func(*state.State) stateInterface {
-		return st
+	p.PatchValue(&getState, func(*state.State) (stateInterface, error) {
+		return st, nil
 	})
 }
 

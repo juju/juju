@@ -48,13 +48,13 @@ type BlockDeviceInfo struct {
 
 // WatchBlockDevices returns a new NotifyWatcher watching for
 // changes to block devices associated with the specified machine.
-func (st *State) WatchBlockDevices(machine names.MachineTag) NotifyWatcher {
-	return newBlockDevicesWatcher(st, machine.Id())
+func (im *IAASModel) WatchBlockDevices(machine names.MachineTag) NotifyWatcher {
+	return newBlockDevicesWatcher(im.mb, machine.Id())
 }
 
 // BlockDevices returns the BlockDeviceInfo for the specified machine.
-func (st *State) BlockDevices(machine names.MachineTag) ([]BlockDeviceInfo, error) {
-	return getBlockDevices(st.db(), machine.Id())
+func (im *IAASModel) BlockDevices(machine names.MachineTag) ([]BlockDeviceInfo, error) {
+	return getBlockDevices(im.mb.db(), machine.Id())
 }
 
 func getBlockDevices(db Database, machineId string) ([]BlockDeviceInfo, error) {

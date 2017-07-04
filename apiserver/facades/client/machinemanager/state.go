@@ -34,6 +34,7 @@ type stateInterface interface {
 
 type stateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
 func (s stateShim) Machine(name string) (Machine, error) {
