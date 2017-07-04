@@ -537,17 +537,17 @@ var _ config.ConfigSchemaSource = (*environProvider)(nil)
 
 // ConfigSchema returns extra config attributes specific
 // to this provider only.
-func (p environProvider) ConfigSchema() schema.Fields {
+func (p *environProvider) ConfigSchema() schema.Fields {
 	return configFields
 }
 
 // ConfigDefaults returns the default values for the
 // provider specific config attributes.
-func (p environProvider) ConfigDefaults() schema.Defaults {
+func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+func (*environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.EmptyAuthType: {},
 		cloud.UserPassAuthType: {
@@ -620,12 +620,12 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
 // this provider does not support custom clouds, this always returns nil.
-func (p environProvider) CloudSchema() *jsonschema.Schema {
+func (p *environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
