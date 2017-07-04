@@ -869,7 +869,7 @@ func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationNoPublicAddr(c *gc.
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
 }
 
-func (s *RelationUnitSuite) TestIsValidYes(c *gc.C) {
+func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	rus := []*state.RelationUnit{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
 	for _, ru := range rus {
@@ -879,7 +879,7 @@ func (s *RelationUnitSuite) TestIsValidYes(c *gc.C) {
 	}
 }
 
-func (s *RelationUnitSuite) TestIsValidNo(c *gc.C) {
+func (s *RelationUnitSuite) TestValidNo(c *gc.C) {
 	mysqlLogging := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	wpApp := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wpLogging := newProReqRelationForApps(c, &s.ConnSuite, wpApp, mysqlLogging.rsvc)
@@ -893,6 +893,45 @@ func (s *RelationUnitSuite) TestIsValidNo(c *gc.C) {
 	result, err := ru.Valid()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
+}
+
+func (s *RelationUnitSuite) TestValidSubordinateToSubordinate(c *gc.C) {
+	// Relate mysql and logging...
+	mysqlLogging := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	monApp := s.AddTestingService(c, "monitoring", s.AddTestingCharm(c, "monitoring"))
+	// Relate mysql and monitoring - relation to a non-subordinate
+	// needed to trigger creation of monitoring unit.
+	mysqlMonitoring := newProReqRelationForApps(c, &s.ConnSuite, mysqlLogging.psvc, monApp)
+	// Monitor the logging app (newProReqRelationForApps assumes that
+	// the providing app is a principal, so we need to do it by hand).
+	loggingApp := mysqlLogging.rsvc
+
+	// Can't infer endpoints because they're ambiguous.
+	ep1, err := loggingApp.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	ep2, err := monApp.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(ep1, ep2)
+	c.Assert(err, jc.ErrorIsNil)
+	prr := &ProReqRelation{rel: rel, psvc: loggingApp, rsvc: monApp}
+
+	// The units already exist, create the relation units.
+	prr.pu0 = mysqlLogging.ru0
+	prr.pru0, err = rel.Unit(prr.pu0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	prr.ru0 = mysqlMonitoring.ru0
+	prr.rru0, err = rel.Unit(prr.ru0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Logging monitoring relation units should be valid.
+	res, err := prr.rru0.Valid()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.IsTrue)
+	res, err = prr.pru0.Valid()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.IsTrue)
 }
 
 type PeerRelation struct {

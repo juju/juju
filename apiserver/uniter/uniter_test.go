@@ -1278,6 +1278,81 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
+	// We should be notified about relations to other subordinates
+	// (since it's possible that they'll be colocated in the same
+	// container).
+	loggingCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+		Name: "logging",
+		URL:  "cs:quantal/logging-1",
+	})
+	loggingApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+		Name:  "logging",
+		Charm: loggingCharm,
+	})
+	monitoringCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+		Name: "monitoring",
+		URL:  "cs:quantal/monitoring-1",
+	})
+	monitoringApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+		Name:  "monitoring",
+		Charm: monitoringCharm,
+	})
+
+	s.makeSubordinateRelation(c, loggingApp, s.mysql, s.mysqlUnit)
+	mysqlMonitoring := s.makeSubordinateRelation(c, monitoringApp, s.mysql, s.mysqlUnit)
+
+	monUnit := findSubordinateUnit(c, monitoringApp, s.mysqlUnit)
+
+	subAuthorizer := s.authorizer
+	subAuthorizer.Tag = monUnit.Tag()
+	api, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		subAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.WatchUnitRelations(params.Entities{
+		Entities: []params.Entity{{Tag: monUnit.Tag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[0].Changes, gc.DeepEquals, []string{mysqlMonitoring.Tag().Id()})
+
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	// Now we relate logging and monitoring together.
+	monEp, err := monitoringApp.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	logEp, err := loggingApp.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.Factory.MakeRelation(c, &jujufactory.RelationParams{
+		Endpoints: []state.Endpoint{monEp, logEp},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We should be told about the new logging-monitoring relation.
+	wc.AssertChange(rel.Tag().Id())
+	wc.AssertNoChange()
+
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(rel.Tag().Id())
+	wc.AssertNoChange()
+}
+
 func (s *uniterSuite) makeSubordinateRelation(c *gc.C, subApp, principalApp *state.Application, principalUnit *state.Unit) *state.Relation {
 	subEndpoint, err := subApp.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)

@@ -1495,6 +1495,8 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 	defer rCloser()
 	scopes, sCloser := s.state.getRawCollection(relationScopesC)
 	defer sCloser()
+	applications, aCloser := s.state.getRawCollection(applicationsC)
+	defer aCloser()
 
 	// Use the non-controller model to ensure we can run the function
 	// across multiple models.
@@ -1547,6 +1549,33 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 			},
 		}},
 		"unitcount": 2,
+	}, bson.M{
+		"_id":        uuid + ":ntp:juju-info nrpe:general-info",
+		"key":        "ntp:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         5,
+		"endpoints": []bson.M{{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, {
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1590,6 +1619,44 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 		"key":        "r#3#peer#ntp/1",
 		"model-uuid": uuid,
 		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/0#provider#ntp/0",
+		"key":        "r#5#min/0#provider#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/0#requirer#nrpe/0",
+		"key":        "r#5#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/1#provider#ntp/1",
+		"key":        "r#5#min/1#provider#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/1#requirer#nrpe/1",
+		"key":        "r#5#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = applications.Insert(bson.M{
+		"_id":         uuid + ":min",
+		"name":        "min",
+		"model-uuid":  uuid,
+		"subordinate": false,
+	}, bson.M{
+		"_id":         uuid + ":ntp",
+		"name":        "ntp",
+		"model-uuid":  uuid,
+		"subordinate": true,
+	}, bson.M{
+		"_id":         uuid + ":nrpe",
+		"name":        "nrpe",
+		"model-uuid":  uuid,
+		"subordinate": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1600,6 +1667,33 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 		"id":         4,
 		"endpoints": []interface{}{bson.M{
 			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, bson.M{
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
+	}, {
+		"_id":        uuid + ":ntp:juju-info nrpe:general-info",
+		"key":        "ntp:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         5,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "ntp",
 			"relation": bson.M{
 				"name":      "juju-info",
 				"role":      "provider",
@@ -1666,6 +1760,26 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 	}, {
 		"_id":        uuid + ":r#4#min/1#requirer#nrpe/1",
 		"key":        "r#4#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/0#provider#ntp/0",
+		"key":        "r#5#min/0#provider#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/0#requirer#nrpe/0",
+		"key":        "r#5#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/1#provider#ntp/1",
+		"key":        "r#5#min/1#provider#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/1#requirer#nrpe/1",
+		"key":        "r#5#min/1#requirer#nrpe/1",
 		"model-uuid": uuid,
 		"departing":  false,
 	}}
