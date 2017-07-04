@@ -932,10 +932,13 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	})
 	machineTag := machine.MachineTag()
 
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// We know that the first volume is called "0/0" as it is the first volume
 	// (volumes use sequences), and it is bound to machine 0.
 	volTag := names.NewVolumeTag("0/0")
-	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
+	err = im.SetVolumeInfo(volTag, state.VolumeInfo{
 		HardwareId: "magic",
 		WWN:        "drbr",
 		Size:       1500,
@@ -943,7 +946,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+	err = im.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
 		DeviceName: "device name",
 		DeviceLink: "device link",
 		BusAddress: "bus address",

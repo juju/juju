@@ -1004,6 +1004,9 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	})
 	machineTag := machine.MachineTag()
 
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// We know that the first volume is called "0/0" - although I don't know why.
 	volTag := names.NewVolumeTag("0/0")
 	volInfo := state.VolumeInfo{
@@ -1014,7 +1017,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		VolumeId:   "volume id",
 		Persistent: true,
 	}
-	err := s.State.SetVolumeInfo(volTag, volInfo)
+	err = im.SetVolumeInfo(volTag, volInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	volAttachmentInfo := state.VolumeAttachmentInfo{
 		DeviceName: "device name",
@@ -1022,12 +1025,14 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		BusAddress: "bus address",
 		ReadOnly:   true,
 	}
-	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
+	err = im.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
 
-	volume, err := newSt.Volume(volTag)
+	volume, err := newIM.Volume(volTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO: check status
@@ -1036,14 +1041,14 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, volInfo)
 
-	attachment, err := newSt.VolumeAttachment(machineTag, volTag)
+	attachment, err := newIM.VolumeAttachment(machineTag, volTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attInfo, err := attachment.Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(attInfo, jc.DeepEquals, volAttachmentInfo)
 
 	volTag = names.NewVolumeTag("0/1")
-	volume, err = newSt.Volume(volTag)
+	volume, err = newIM.Volume(volTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	params, needsProvisioning := volume.Params()
@@ -1051,7 +1056,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	c.Check(params.Pool, gc.Equals, "loop")
 	c.Check(params.Size, gc.Equals, uint64(4000))
 
-	attachment, err = newSt.VolumeAttachment(machineTag, volTag)
+	attachment, err = newIM.VolumeAttachment(machineTag, volTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attParams, needsProvisioning := attachment.Params()
 	c.Check(needsProvisioning, jc.IsTrue)

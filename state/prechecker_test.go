@@ -175,14 +175,17 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		storageAttachments[1].StorageInstance(),
 	}
 
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	volumeTags := make([]names.VolumeTag, len(storageTags))
 	for i, storageTag := range storageTags {
-		volume, err := s.State.StorageInstanceVolume(storageTag)
+		volume, err := im.StorageInstanceVolume(storageTag)
 		c.Assert(err, jc.ErrorIsNil)
 		volumeTags[i] = volume.VolumeTag()
 	}
 	// Provision only the first volume.
-	err = s.State.SetVolumeInfo(volumeTags[0], state.VolumeInfo{
+	err = im.SetVolumeInfo(volumeTags[0], state.VolumeInfo{
 		VolumeId: "foo",
 		Pool:     "modelscoped",
 	})
@@ -195,9 +198,9 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, volumeTag := range volumeTags {
-		err = s.State.DetachVolume(machineTag, volumeTag)
+		err = im.DetachVolume(machineTag, volumeTag)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.RemoveVolumeAttachment(machineTag, volumeTag)
+		err = im.RemoveVolumeAttachment(machineTag, volumeTag)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

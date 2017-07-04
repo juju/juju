@@ -1569,11 +1569,16 @@ func (e *exporter) volumes() error {
 		return errors.Trace(err)
 	}
 
+	im, err := e.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var doc volumeDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		vol := &volume{e.st, doc}
+		vol := &volume{im, doc}
 		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
 			return errors.Trace(err)
 		}

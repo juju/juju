@@ -1651,7 +1651,10 @@ func (i *importer) volumes() error {
 }
 
 func (i *importer) addVolume(volume description.Volume) error {
-
+	im, err := i.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	attachments := volume.Attachments()
 	tag := volume.Tag()
 	var params *VolumeParams
@@ -1679,13 +1682,13 @@ func (i *importer) addVolume(volume description.Volume) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableVolumePool(i.st, volume.Pool()); err != nil {
+	if detachable, err := isDetachableVolumePool(im, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
 		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
-	ops := i.st.newVolumeOps(doc, status)
+	ops := im.newVolumeOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
