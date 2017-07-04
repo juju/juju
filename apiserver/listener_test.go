@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coretesting "github.com/juju/juju/testing"
 )
 
 type listenerSuite struct {
@@ -148,26 +151,26 @@ func (s *listenerSuite) TestPauseTimeInBetween(c *gc.C) {
 
 func (s *listenerSuite) TestPause(c *gc.C) {
 	l := s.testListener()
-	start := make(chan bool, 0)
 	done := make(chan bool, 1)
 	go func() {
-		<-start
 		l.Accept()
 		done <- true
 	}()
 
-	start <- true
-	s.clock.Advance((l.minPause/time.Millisecond - 1) * time.Millisecond)
+	// Min pause is 10ms.
+	err := s.clock.WaitAdvance(9*time.Millisecond, coretesting.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-done:
 		c.Fatal("pause returned too soon")
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 	}
 	c.Assert(s.listener.count, gc.Equals, 0)
-	s.clock.Advance(time.Millisecond)
+	err = s.clock.WaitAdvance(2*time.Millisecond, coretesting.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(coretesting.LongWait):
 		c.Fatal("pause failed")
 	}
 	c.Assert(s.listener.count, gc.Equals, 1)
