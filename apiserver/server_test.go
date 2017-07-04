@@ -544,6 +544,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 }
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
+	coretesting.SkipFlaky(c, "lp:1702215")
 	pool := state.NewStatePool(s.State)
 	defer pool.Close()
 	cfg := defaultServerConfig(c)
