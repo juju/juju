@@ -7,4 +7,8 @@ package state
 // Infrastructure-As-A-Service (IAAS) model.
 type IAASModel struct {
 	mb modelBackend
+
+	// TODO(jsing): This should be removed once things
+	// have been sufficiently untangled.
+	st *State
 }
