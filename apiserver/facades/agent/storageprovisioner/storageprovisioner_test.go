@@ -34,6 +34,7 @@ type provisionerSuite struct {
 	// TODO(wallyworld) remove JujuConnSuite
 	jujutesting.JujuConnSuite
 
+	iaasModel  *state.IAASModel
 	factory    *factory.Factory
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -42,6 +43,11 @@ type provisionerSuite struct {
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+
+	iaasModel, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	s.iaasModel = iaasModel
+
 	s.factory = factory.NewFactory(s.State)
 	s.resources = common.NewResources()
 	// Create the resource registry separately to track invocations to
@@ -88,14 +94,14 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 		},
 	})
 	// Only provision the first and third volumes.
-	err := s.State.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
+	err := s.iaasModel.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
 		HardwareId: "123",
 		VolumeId:   "abc",
 		Size:       1024,
 		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
+	err = s.iaasModel.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
 		HardwareId: "456",
 		VolumeId:   "def",
 		Size:       4096,
@@ -259,7 +265,7 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
 
-	err := s.State.SetVolumeAttachmentInfo(
+	err := s.iaasModel.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewVolumeTag("0/0"),
 		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
@@ -632,14 +638,14 @@ func (s *provisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	s.setupVolumes(c)
 
-	err := s.State.SetVolumeInfo(names.NewVolumeTag("3"), state.VolumeInfo{
+	err := s.iaasModel.SetVolumeInfo(names.NewVolumeTag("3"), state.VolumeInfo{
 		HardwareId: "123",
 		VolumeId:   "xyz",
 		Size:       1024,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetVolumeAttachmentInfo(
+	err = s.iaasModel.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewVolumeTag("3"),
 		state.VolumeAttachmentInfo{
@@ -767,7 +773,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	s.setupVolumes(c)
 
-	err := s.State.SetVolumeInfo(names.NewVolumeTag("4"), state.VolumeInfo{
+	err := s.iaasModel.SetVolumeInfo(names.NewVolumeTag("4"), state.VolumeInfo{
 		VolumeId: "whatever",
 		Size:     1024,
 	})
@@ -1109,7 +1115,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	s.setupVolumes(c)
 	s.factory.MakeMachine(c, nil)
 
-	err := s.State.SetVolumeAttachmentInfo(
+	err := s.iaasModel.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewVolumeTag("0/0"),
 		state.VolumeAttachmentInfo{},
@@ -1219,11 +1225,11 @@ func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {
 		{"volume-invalid"}, {"machine-0"},
 	}}
 
-	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err := s.iaasModel.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err = s.iaasModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyVolume(names.NewVolumeTag("1"))
+	err = s.iaasModel.DestroyVolume(names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1276,11 +1282,11 @@ func (s *provisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 		{"volume-invalid"}, {"machine-0"},
 	}}
 
-	err := s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	err := s.iaasModel.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err = s.iaasModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.iaasModel.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1326,7 +1332,7 @@ func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
 
-	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err := s.iaasModel.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.RemoveAttachment(params.MachineStorageIds{

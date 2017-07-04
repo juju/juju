@@ -678,7 +678,10 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	vas, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	vas, err := im.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vas, gc.HasLen, 1)
 	c.Assert(vas[0].Life(), gc.Equals, state.Dying)
@@ -698,11 +701,14 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = im.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.State.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	attachment, err := im.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }

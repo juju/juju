@@ -991,7 +991,10 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 
-	volume, err := s.State.Volume(volumeTag)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume, err := im.Volume(volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)

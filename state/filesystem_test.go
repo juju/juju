@@ -163,19 +163,22 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 		c, pool, withVolume,
 	)
 
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Machine must be provisioned before either volume or
 	// filesystem can be attached.
-	err := machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if withVolume {
 		// Volume must be provisioned before the filesystem.
 		volume := s.filesystemVolume(c, filesystem.FilesystemTag())
-		err := s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+		err := im.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Volume must be attached before the filesystem.
-		err = s.State.SetVolumeAttachmentInfo(
+		err = im.SetVolumeAttachmentInfo(
 			machine.MachineTag(),
 			volume.VolumeTag(),
 			state.VolumeAttachmentInfo{DeviceName: "sdc"},
@@ -235,7 +238,10 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	_, ok := filesystem.Params()
 	c.Assert(ok, jc.IsTrue)
 
-	volume, err := s.State.StorageInstanceVolume(storageInstance.StorageTag())
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume, err := im.StorageInstanceVolume(storageInstance.StorageTag())
 	if withVolume {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0"))
@@ -245,7 +251,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 		filesystemVolume, err := filesystem.Volume()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(filesystemVolume, gc.Equals, volume.VolumeTag())
-		_, err = s.State.VolumeAttachment(assignedMachineTag, filesystemVolume)
+		_, err = im.VolumeAttachment(assignedMachineTag, filesystemVolume)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -571,6 +577,9 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	u, err := s.State.Unit(unitTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
@@ -592,7 +601,7 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 	// be assigned to the storage.
 	_, err = s.State.StorageInstanceFilesystem(storageTag)
 	c.Assert(err, gc.ErrorMatches, `filesystem for storage instance "data/0" not found`)
-	_, err = s.State.StorageInstanceVolume(storageTag)
+	_, err = im.StorageInstanceVolume(storageTag)
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
 	// The filesystem and volume should still exist. The filesystem
@@ -778,11 +787,14 @@ func (s *FilesystemStateSuite) TestFilesystemVolumeBackedDestroyDetachVolumeFail
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Can't destroy (detach) volume until the filesystem (attachment) is removed.
-	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err = im.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "detaching volume 0 from machine 0: volume contains attached filesystem")
 	c.Assert(err, jc.Satisfies, state.IsContainsFilesystem)
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	err = im.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "destroying volume 0: volume contains filesystem")
 	c.Assert(err, jc.Satisfies, state.IsContainsFilesystem)
 	assertMachineStorageRefs(c, s.State, machine.MachineTag())
@@ -792,9 +804,9 @@ func (s *FilesystemStateSuite) TestFilesystemVolumeBackedDestroyDetachVolumeFail
 	err = s.State.RemoveFilesystem(filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err = im.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	err = im.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

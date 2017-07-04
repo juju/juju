@@ -400,10 +400,11 @@ func (st *State) destroyStorageInstanceOps(
 
 // removeStorageInstanceOps removes the storage instance with the given
 // tag from state, if the specified assertions hold true.
-func removeStorageInstanceOps(
-	si *storageInstance,
-	assert bson.D,
-) ([]txn.Op, error) {
+func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, error) {
+	im, err := si.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Remove the storage instance document, ensuring the owner does not
 	// change from what's passed in.
@@ -465,7 +466,7 @@ func removeStorageInstanceOps(
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	volume, err := si.st.storageInstanceVolume(si.StorageTag())
+	volume, err := im.storageInstanceVolume(si.StorageTag())
 	if err == nil {
 		ops = append(ops, machineStorageOp(
 			volumesC, volume.Tag().Id(),
@@ -475,7 +476,7 @@ func removeStorageInstanceOps(
 		// this case, we want to destroy only the filesystem; when
 		// the filesystem is removed, the volume will be destroyed.
 		if !haveFilesystem {
-			volOps, err := destroyVolumeOps(si.st, volume, si.doc.Releasing, nil)
+			volOps, err := destroyVolumeOps(im, volume, si.doc.Releasing, nil)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1187,11 +1188,15 @@ func (st *State) storageMachineAttachment(
 ) (VolumeAttachment, FilesystemAttachment, error) {
 	switch si.Kind() {
 	case StorageKindBlock:
-		volume, err := st.storageInstanceVolume(si.StorageTag())
+		im, err := st.IAASModel()
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		att, err := st.VolumeAttachment(machineTag, volume.VolumeTag())
+		volume, err := im.storageInstanceVolume(si.StorageTag())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		att, err := im.VolumeAttachment(machineTag, volume.VolumeTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -1351,7 +1356,11 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 
 	switch si.Kind() {
 	case StorageKindBlock:
-		volume, err := st.storageInstanceVolume(si.StorageTag())
+		im, err := st.IAASModel()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		volume, err := im.storageInstanceVolume(si.StorageTag())
 		if errors.IsNotFound(err) {
 			// The volume has already been removed, so must have
 			// already been detached.
@@ -1380,7 +1389,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 			)
 			return nil, nil
 		}
-		att, err := st.VolumeAttachment(machineTag, volume.VolumeTag())
+		att, err := im.VolumeAttachment(machineTag, volume.VolumeTag())
 		if errors.IsNotFound(err) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the

@@ -55,7 +55,6 @@ var (
 	ControllerAvailable                  = &controllerAvailable
 	GetOrCreatePorts                     = getOrCreatePorts
 	GetPorts                             = getPorts
-	AddVolumeOps                         = (*State).addVolumeOps
 	CombineMeterStatus                   = combineMeterStatus
 	ApplicationGlobalKey                 = applicationGlobalKey
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
@@ -674,4 +673,12 @@ func IngressNetworks(rel *Relation) ([]string, error) {
 		return nil, err
 	}
 	return doc.CIDRS, nil
+}
+
+func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, names.VolumeTag{}, err
+	}
+	return im.addVolumeOps(params, machineId)
 }

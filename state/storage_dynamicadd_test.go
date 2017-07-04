@@ -52,7 +52,10 @@ func (s *storageAddSuite) assignUnit(c *gc.C, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.machineTag = m.MachineTag()
 
-	volumes, err := s.State.AllVolumes()
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes, err := im.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	s.originalVolumeCount = len(volumes)
 
@@ -68,7 +71,9 @@ func (s *storageAddSuite) assertStorageCount(c *gc.C, count int) {
 }
 
 func (s *storageAddSuite) assertVolumeCount(c *gc.C, count int) {
-	all, err := s.State.AllVolumes()
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	all, err := im.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, count)
 }
@@ -145,11 +150,13 @@ func (s *storageAddSuite) TestAddStorageToUnitNotAssigned(c *gc.C) {
 }
 
 func allMachineVolumeParams(c *gc.C, st *state.State, m names.MachineTag) []state.VolumeParams {
+	im, err := st.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
 	var allVolumeParams []state.VolumeParams
-	volumeAttachments, err := st.MachineVolumeAttachments(m)
+	volumeAttachments, err := im.MachineVolumeAttachments(m)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range volumeAttachments {
-		volume, err := st.Volume(a.Volume())
+		volume, err := im.Volume(a.Volume())
 		c.Assert(err, jc.ErrorIsNil)
 		volumeParams, ok := volume.Params()
 		c.Assert(ok, jc.IsTrue)
@@ -224,7 +231,10 @@ func (s *storageAddSuite) createAndAssignUnitWithSingleStorage(c *gc.C) names.Un
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumes, err := s.State.AllVolumes()
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes, err := im.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	s.originalVolumeCount = len(volumes)
 
