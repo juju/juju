@@ -31,6 +31,9 @@ func controllerKey(controllerUUID string) string {
 
 // Controller encapsulates state for the Juju controller as a whole,
 // as opposed to model specific functionality.
+//
+// TODO(menn0) - this is currently unused, pending further refactoring
+// of State.
 type Controller struct {
 	clock                  clock.Clock
 	controllerModelTag     names.ModelTag
