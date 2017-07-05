@@ -1419,6 +1419,10 @@ func validateUnitMachineAssignment(
 // validateDynamicMachineStorageParams validates that the provided machine
 // storage parameters are compatible with the specified machine.
 func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParams) error {
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	pools, err := machineStoragePools(m.st, params)
 	if err != nil {
 		return err
@@ -1428,7 +1432,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 	}
 	// Validate the volume/filesystem attachments for the machine.
 	for volumeTag := range params.volumeAttachments {
-		volume, err := m.st.volumeByTag(volumeTag)
+		volume, err := im.volumeByTag(volumeTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1457,9 +1461,13 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 // machineStoragePools returns the names of storage pools in each of the
 // volume, filesystem and attachments in the machine storage parameters.
 func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := st.volumeParamsWithDefaults(v.Volume, "")
+		v, err := im.volumeParamsWithDefaults(v.Volume, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1473,7 +1481,7 @@ func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, 
 		pools.Add(f.Pool)
 	}
 	for volumeTag := range params.volumeAttachments {
-		volume, err := st.Volume(volumeTag)
+		volume, err := im.Volume(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1946,10 +1954,14 @@ func machineStorageParamsForStorageInstance(
 		fallthrough
 
 	case StorageKindBlock:
+		im, err := st.IAASModel()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if volume, err := st.StorageInstanceVolume(storage.StorageTag()); err == nil {
+		if volume, err := im.StorageInstanceVolume(storage.StorageTag()); err == nil {
 			// The volume already exists, so just attach it. When
 			// creating ops to attach the storage to the machine,
 			// we will check if the attachment already exists, and
@@ -1958,7 +1970,7 @@ func machineStorageParamsForStorageInstance(
 				// The storage is not shared, so make sure that it is
 				// not currently attached to any other machine. If it
 				// is, it should be in the process of being detached.
-				existing, err := st.VolumeAttachments(volume.VolumeTag())
+				existing, err := im.VolumeAttachments(volume.VolumeTag())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}

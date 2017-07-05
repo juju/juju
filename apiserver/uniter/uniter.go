@@ -112,7 +112,11 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
 		}
 	}
-	storageAPI, err := newStorageAPI(getStorageState(st), resources, accessUnit)
+	ss, err := getStorageState(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting state")
+	}
+	storageAPI, err := newStorageAPI(ss, resources, accessUnit)
 	if err != nil {
 		return nil, err
 	}

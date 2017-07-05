@@ -522,6 +522,10 @@ func (st *State) DetachFilesystem(machine names.MachineTag, filesystem names.Fil
 }
 
 func (st *State) filesystemVolumeAttachment(m names.MachineTag, f names.FilesystemTag) (VolumeAttachment, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	filesystem, err := st.Filesystem(f)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -530,7 +534,7 @@ func (st *State) filesystemVolumeAttachment(m names.MachineTag, f names.Filesyst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.VolumeAttachment(m, v)
+	return im.VolumeAttachment(m, v)
 }
 
 func detachFilesystemOps(m names.MachineTag, f names.FilesystemTag) []txn.Op {
@@ -547,6 +551,10 @@ func detachFilesystemOps(m names.MachineTag, f names.FilesystemTag) []txn.Op {
 // be detached.
 func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem names.FilesystemTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "removing attachment of filesystem %s from machine %s", filesystem.Id(), machine.Id())
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		attachment, err := st.FilesystemAttachment(machine, filesystem)
 		if errors.IsNotFound(err) && attempt > 0 {
@@ -581,7 +589,7 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 			// If the volume is not detachable, we'll just
 			// destroy it along with the filesystem.
 			volume := volumeAttachment.Volume()
-			detachableVolume, err := isDetachableVolumeTag(st, volume)
+			detachableVolume, err := isDetachableVolumeTag(im, volume)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -739,6 +747,10 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 }
 
 func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) ([]txn.Op, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ops := []txn.Op{
 		{
 			C:      filesystemsC,
@@ -754,11 +766,11 @@ func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) (
 	// not be destroyed before the filesystem is removed.
 	volumeTag, err := filesystem.Volume()
 	if err == nil {
-		volume, err := st.volumeByTag(volumeTag)
+		volume, err := im.volumeByTag(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		volOps, err := destroyVolumeOps(st, volume, nil)
+		volOps, err := destroyVolumeOps(im, volume, nil)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -808,7 +820,12 @@ func newFilesystemId(mb modelBackend, machineId string) (string, error) {
 // directly, a volume will be created and Juju will manage a filesystem
 // on it.
 func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
-	params, err := st.filesystemParamsWithDefaults(params, machineId)
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
+	}
+
+	params, err = st.filesystemParamsWithDefaults(params, machineId)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -843,7 +860,7 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 			params.Pool,
 			params.Size,
 		}
-		volumeOps, volumeTag, err = st.addVolumeOps(volumeParams, machineId)
+		volumeOps, volumeTag, err = im.addVolumeOps(volumeParams, machineId)
 		if err != nil {
 			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "creating backing volume")
 		}
@@ -955,6 +972,12 @@ func createMachineFilesystemAttachmentsOps(machineId string, attachments []files
 // SetFilesystemInfo sets the FilesystemInfo for the specified filesystem.
 func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem %q", tag.Id())
+
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if info.FilesystemId == "" {
 		return errors.New("filesystem ID not set")
 	}
@@ -965,7 +988,7 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 	// If the filesystem is volume-backed, the volume must be provisioned
 	// and attached first.
 	if volumeTag, err := fs.Volume(); err == nil {
-		volumeAttachments, err := st.VolumeAttachments(volumeTag)
+		volumeAttachments, err := im.VolumeAttachments(volumeTag)
 		if err != nil {
 			return errors.Trace(err)
 		}

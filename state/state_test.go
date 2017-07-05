@@ -536,7 +536,9 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				f := factory.NewFactory(st)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
-				return st.WatchBlockDevices(m.MachineTag())
+				im, err := st.IAASModel()
+				c.Assert(err, jc.ErrorIsNil)
+				return im.WatchBlockDevices(m.MachineTag())
 			},
 			setUpState: func(st *state.State) bool {
 				m, err := st.Machine("0")
@@ -1005,7 +1007,10 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	// have been set on the volume params.
 	machineTemplate.Volumes[1].Volume.Pool = "loop"
 
-	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeAttachments, err := im.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 2)
 	if volumeAttachments[0].Volume() == names.NewVolumeTag(m.Id()+"/1") {
@@ -1018,7 +1023,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
 		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
-		volume, err := s.State.Volume(att.Volume())
+		volume, err := im.Volume(att.Volume())
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = volume.Info()
 		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)

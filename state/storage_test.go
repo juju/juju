@@ -68,9 +68,11 @@ func (s *StorageStateSuiteBase) provisionStorageVolume(c *gc.C, u *state.Unit, s
 	volume := s.storageInstanceVolume(c, storageTag)
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeAttachmentInfo(
+	err = im.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = im.SetVolumeAttachmentInfo(
 		machine.MachineTag(),
 		volume.VolumeTag(),
 		state.VolumeAttachmentInfo{DeviceName: "sdc"},
@@ -239,7 +241,9 @@ func (s *StorageStateSuiteBase) filesystemAttachment(c *gc.C, m names.MachineTag
 }
 
 func (s *StorageStateSuiteBase) volume(c *gc.C, tag names.VolumeTag) state.Volume {
-	volume, err := s.State.Volume(tag)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := im.Volume(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return volume
 }
@@ -251,13 +255,17 @@ func (s *StorageStateSuiteBase) volumeFilesystem(c *gc.C, tag names.VolumeTag) s
 }
 
 func (s *StorageStateSuiteBase) volumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) state.VolumeAttachment {
-	attachment, err := s.State.VolumeAttachment(m, v)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	attachment, err := im.VolumeAttachment(m, v)
 	c.Assert(err, jc.ErrorIsNil)
 	return attachment
 }
 
 func (s *StorageStateSuiteBase) storageInstanceVolume(c *gc.C, tag names.StorageTag) state.Volume {
-	volume, err := s.State.StorageInstanceVolume(tag)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := im.StorageInstanceVolume(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return volume
 }
@@ -294,23 +302,27 @@ func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag
 }
 
 func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
-	err := s.State.DestroyVolume(tag)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	err = im.DestroyVolume(tag)
 	if errors.IsNotFound(err) {
 		return
 	}
-	attachments, err := s.State.VolumeAttachments(tag)
+	attachments, err := im.VolumeAttachments(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
 		s.obliterateVolumeAttachment(c, a.Machine(), a.Volume())
 	}
-	err = s.State.RemoveVolume(tag)
+	err = im.RemoveVolume(tag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) {
-	err := s.State.DetachVolume(m, v)
+	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(m, v)
+	err = im.DetachVolume(m, v)
+	c.Assert(err, jc.ErrorIsNil)
+	err = im.RemoveVolumeAttachment(m, v)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -357,8 +369,11 @@ func assertMachineStorageRefs(c *gc.C, st *state.State, m names.MachineTag) {
 		have.Add(names.NewFilesystemTag(f))
 	}
 
+	im, err := st.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	expect := make(set.Tags)
-	volumeAttachments, err := st.MachineVolumeAttachments(m)
+	volumeAttachments, err := im.MachineVolumeAttachments(m)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range volumeAttachments {
 		expect.Add(a.Volume())
@@ -785,7 +800,9 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag())
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	err = im.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we

@@ -888,7 +888,11 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			return st.Charm(url)
 		}
 	case names.VolumeTag:
-		return st.Volume(tag)
+		im, err := st.IAASModel()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return im.Volume(tag)
 	case names.FilesystemTag:
 		return st.Filesystem(tag)
 	default:
@@ -1108,9 +1112,13 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			// attached. We need to pass them along to precheckInstance, in
 			// case the volumes cannot be attached to a machine with the given
 			// placement directive.
+			im, err := st.IAASModel()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
 			for _, storageTag := range args.AttachStorage {
-				v, err := st.StorageInstanceVolume(storageTag)
+				v, err := im.StorageInstanceVolume(storageTag)
 				if errors.IsNotFound(err) {
 					continue
 				} else if err != nil {
@@ -2269,4 +2277,12 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// IAASModel returns an Infrastructure-As-A-Service (IAAS) model.
+func (st *State) IAASModel() (*IAASModel, error) {
+	return &IAASModel{
+		mb: st,
+		st: st,
+	}, nil
 }

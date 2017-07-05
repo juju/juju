@@ -513,18 +513,22 @@ func (st *State) cleanupContainers(machine *Machine) error {
 }
 
 func cleanupDyingMachineResources(m *Machine) error {
-	volumeAttachments, err := m.st.MachineVolumeAttachments(m.MachineTag())
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	volumeAttachments, err := im.MachineVolumeAttachments(m.MachineTag())
 	if err != nil {
 		return errors.Annotate(err, "getting machine volume attachments")
 	}
 	for _, va := range volumeAttachments {
-		if detachable, err := isDetachableVolumeTag(m.st, va.Volume()); err != nil {
+		if detachable, err := isDetachableVolumeTag(im, va.Volume()); err != nil {
 			return errors.Trace(err)
 		} else if !detachable {
 			// Non-detachable volumes will be removed along with the machine.
 			continue
 		}
-		if err := m.st.DetachVolume(va.Machine(), va.Volume()); err != nil {
+		if err := im.DetachVolume(va.Machine(), va.Volume()); err != nil {
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
 				// contained filesystem is removed, whose
@@ -628,13 +632,18 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 	coll, closer := st.db().GetCollection(volumeAttachmentsC)
 	defer closer()
 
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var doc volumeAttachmentDoc
 	fields := bson.D{{"machineid", 1}}
 	iter := coll.Find(bson.D{{"volumeid", volumeId}}).Select(fields).Iter()
 	defer closeIter(iter, &err, "reading volume attachment document")
 	for iter.Next(&doc) {
 		machineTag := names.NewMachineTag(doc.Machine)
-		if err := st.DetachVolume(machineTag, volumeTag); err != nil {
+		if err := im.DetachVolume(machineTag, volumeTag); err != nil {
 			return errors.Annotate(err, "destroying volume attachment")
 		}
 	}

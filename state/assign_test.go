@@ -1093,11 +1093,13 @@ func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.
 	// Check that a volume attachments were added to the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	volumeAttachments, err := im.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 
-	volume, err := s.State.Volume(volumeAttachments[0].Volume())
+	volume, err := im.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	volumeStorageInstance, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
