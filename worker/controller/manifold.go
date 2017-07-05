@@ -3,6 +3,9 @@
 
 package controller
 
+// TODO(menn0) - note that this is currently unused, pending further
+// refactoring of state.State and state.Controller.
+
 import (
 	"time"
 

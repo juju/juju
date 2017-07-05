@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
-	workercontroller "github.com/juju/juju/worker/controller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -237,14 +236,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Reporter:       config.PubSubReporter,
 		}),
 
-		// The controller manifold creates a *state.Controller and
-		// makes it available to other manifolds. It pings the MongoDB
-		// session regularly and will die if pings fail.
-		controllerName: workercontroller.Manifold(workercontroller.ManifoldConfig{
-			AgentName:              agentName,
-			StateConfigWatcherName: stateConfigWatcherName,
-			OpenController:         config.OpenController,
-		}),
+		/* TODO(menn0) - this is currently unused, pending further
+		 * refactoring in the state package.
+
+			// The controller manifold creates a *state.Controller and
+			// makes it available to other manifolds. It pings the MongoDB
+			// session regularly and will die if pings fail.
+			controllerName: workercontroller.Manifold(workercontroller.ManifoldConfig{
+				AgentName:              agentName,
+				StateConfigWatcherName: stateConfigWatcherName,
+				OpenController:         config.OpenController,
+			}),
+		*/
 
 		// The state manifold creates a *state.State and makes it
 		// available to other manifolds. It pings the mongodb session
