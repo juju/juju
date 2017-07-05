@@ -12,6 +12,7 @@ type ActionData struct {
 	Name           string
 	Tag            names.ActionTag
 	Params         map[string]interface{}
+	NonBlocking    bool
 	Failed         bool
 	ResultsMessage string
 	ResultsMap     map[string]interface{}
@@ -19,12 +20,13 @@ type ActionData struct {
 
 // NewActionData builds a suitable ActionData struct with no nil members.
 // this should only be called in the event that an Action hook is being requested.
-func NewActionData(name string, tag *names.ActionTag, params map[string]interface{}) *ActionData {
+func NewActionData(name string, tag *names.ActionTag, nonBlocking bool, params map[string]interface{}) *ActionData {
 	return &ActionData{
-		Name:       name,
-		Tag:        *tag,
-		Params:     params,
-		ResultsMap: map[string]interface{}{},
+		Name:        name,
+		Tag:         *tag,
+		Params:      params,
+		NonBlocking: nonBlocking,
+		ResultsMap:  map[string]interface{}{},
 	}
 }
 

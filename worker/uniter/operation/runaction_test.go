@@ -143,6 +143,28 @@ func (s *RunActionSuite) TestPrepareCtxError(c *gc.C) {
 	ctx.CheckCall(c, 0, "Prepare")
 }
 
+func (s *RunActionSuite) TestPrepareCtxNonBlocking(c *gc.C) {
+	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name", NonBlocking: true}}
+	runnerFactory := &MockRunnerFactory{
+		MockNewActionRunner: &MockNewActionRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{Kind: operation.Continue})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState.Kind, gc.Equals, operation.Continue)
+	c.Assert(newState.NonBlockingActionIds[0], gc.Equals, someActionId)
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
 func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
 	factory := operation.NewFactory(operation.FactoryParams{
@@ -286,4 +308,27 @@ func (s *RunActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)
+}
+
+func (s *RunActionSuite) TestNeedsGlobalMachineLockNonBlocking(c *gc.C) {
+	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name", NonBlocking: true}}
+	runnerFactory := &MockRunnerFactory{
+		MockNewActionRunner: &MockNewActionRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(overwriteState)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// notice how prepare must be called before determining whether a global lock
+	// is needed.
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
 }
