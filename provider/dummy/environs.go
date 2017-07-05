@@ -598,6 +598,11 @@ func (e *environ) state() (*environState, error) {
 	return state, nil
 }
 
+// Version is part of the EnvironProvider interface.
+func (*environProvider) Version() int {
+	return 0
+}
+
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

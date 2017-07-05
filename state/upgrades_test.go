@@ -90,6 +90,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 			Cloud:           "cloud-aws",
 			CloudRegion:     "us-west-1",
 			CloudCredential: "aws#fred@local#default",
+			EnvironVersion:  0,
 		},
 		modelDoc{
 			UUID:            "0000-dead-beaf-0002",
@@ -99,6 +100,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 			Cloud:           "cloud-aws",
 			CloudRegion:     "us-west-1",
 			CloudCredential: "aws#mary@external#default",
+			EnvironVersion:  0,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,6 +122,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"migration-mode":   "",
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
+		"environ-version":  0,
 	}, {
 		"_id":              "0000-dead-beaf-0002",
 		"owner":            "user-mary@external",
@@ -132,6 +135,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"migration-mode":   "",
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
+		"environ-version":  0,
 	},
 		initialModel,
 	}
@@ -1786,5 +1790,32 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 	s.assertUpgradedData(c, CorrectRelationUnitCounts,
 		expectUpgradedData{relations, expectedRelations},
 		expectUpgradedData{scopes, expectedScopes},
+	)
+}
+
+func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
+	models, closer := s.state.getRawCollection(modelsC)
+	defer closer()
+
+	err := models.RemoveId(s.state.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = models.Insert(bson.M{
+		"_id": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	}, bson.M{
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"environ-version": 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedModels := []bson.M{{
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"environ-version": 0,
+	}, {
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"environ-version": 1,
+	}}
+	s.assertUpgradedData(c, AddModelEnvironVersion,
+		expectUpgradedData{models, expectedModels},
 	)
 }

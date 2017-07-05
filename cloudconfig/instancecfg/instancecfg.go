@@ -229,6 +229,10 @@ type StateInitializationParams struct {
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
 
+	// ControllerModelEnvironVersion holds the initial controller model
+	// environ version.
+	ControllerModelEnvironVersion int
+
 	// ControllerCloud contains the properties of the cloud that Juju will
 	// be bootstrapped in.
 	ControllerCloud cloud.Cloud
@@ -287,6 +291,7 @@ type StateInitializationParams struct {
 type stateInitializationParamsInternal struct {
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
+	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
@@ -314,6 +319,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	internal := stateInitializationParamsInternal{
 		p.ControllerConfig,
 		p.ControllerModelConfig.AllAttrs(),
+		p.ControllerModelEnvironVersion,
 		p.ControllerInheritedConfig,
 		p.RegionInheritedConfig,
 		p.HostedModelConfig,
@@ -352,6 +358,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	*p = StateInitializationParams{
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
+		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,
 		HostedModelConfig:                       internal.HostedModelConfig,

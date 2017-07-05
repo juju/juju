@@ -483,6 +483,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 			modelUUID, controllerUUID,
 			args.CloudName, args.CloudRegion, args.CloudCredential,
 			args.MigrationMode,
+			args.EnvironVersion,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)

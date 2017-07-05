@@ -1087,3 +1087,37 @@ func otherEndIsSubordinate(relation *relationUnitCountInfo, unitName, modelUUID 
 	}
 	return res, nil
 }
+
+// AddModelEnvironVersion ensures that all model docs have an environ-version
+// field. For those that do not have one, they are seeded with version zero.
+// This will force all environ upgrade steps to be run; there are only two
+// providers (azure and vsphere) that had upgrade steps at the time, and the
+// upgrade steps are required to be idempotent anyway.
+func AddModelEnvironVersion(st *State) error {
+	coll, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	var doc struct {
+		UUID           string `bson:"_id"`
+		Cloud          string `bson:"cloud"`
+		EnvironVersion *int   `bson:"environ-version,omitempty"`
+	}
+
+	var ops []txn.Op
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		if doc.EnvironVersion != nil {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      modelsC,
+			Id:     doc.UUID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"environ-version", 0}}}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction(ops)
+}

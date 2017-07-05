@@ -377,6 +377,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		Config:          newConfig,
 		Owner:           ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
+		EnvironVersion:          env.Provider().Version(),
 	})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")

@@ -68,11 +68,12 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		CloudName:     model.Cloud(),
-		CloudRegion:   model.CloudRegion(),
-		Config:        cfg,
-		Owner:         model.Owner(),
-		MigrationMode: MigrationModeImporting,
+		CloudName:      model.Cloud(),
+		CloudRegion:    model.CloudRegion(),
+		Config:         cfg,
+		Owner:          model.Owner(),
+		MigrationMode:  MigrationModeImporting,
+		EnvironVersion: model.EnvironVersion(),
 
 		// NOTE(axw) we create the model without any storage
 		// pools. We'll need to import the storage pools from

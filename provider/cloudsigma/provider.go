@@ -57,6 +57,11 @@ func init() {
 	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
 }
 
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return 0
+}
+
 // Open opens the environment and returns it.
 // The configuration must have come from a previously
 // prepared environment.

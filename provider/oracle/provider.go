@@ -83,6 +83,11 @@ func (e EnvironProvider) validateCloudSpec(spec environs.CloudSpec) error {
 	return nil
 }
 
+// Version is part of the EnvironProvider interface.
+func (EnvironProvider) Version() int {
+	return 0
+}
+
 // Open is defined on the environs.EnvironProvider interface.
 func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", params.Config.Name())

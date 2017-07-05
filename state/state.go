@@ -139,6 +139,7 @@ func (st *State) IsController() bool {
 func (st *State) ControllerUUID() string {
 	return st.controllerTag.Id()
 }
+
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }

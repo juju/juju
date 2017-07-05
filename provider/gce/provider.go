@@ -20,6 +20,11 @@ type environProvider struct {
 
 var providerInstance environProvider
 
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return 0
+}
+
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
