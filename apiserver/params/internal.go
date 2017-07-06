@@ -294,9 +294,26 @@ type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }
 
+// RelationResults holds the result of an API call that returns
+// information about multiple relations.
+type RelationResults struct {
+	Results []RelationResult `json:"results"`
+}
+
 // RelationResult returns information about a single relation,
 // or an error.
 type RelationResult struct {
+	Error            *Error                `json:"error,omitempty"`
+	Life             Life                  `json:"life"`
+	Id               int                   `json:"id"`
+	Key              string                `json:"key"`
+	Endpoint         multiwatcher.Endpoint `json:"endpoint"`
+	OtherApplication string                `json:"other-application,omitempty"`
+}
+
+// RelationResultV5 returns information about a single relation,
+// or an error, but doesn't include the other application name.
+type RelationResultV5 struct {
 	Error    *Error                `json:"error,omitempty"`
 	Life     Life                  `json:"life"`
 	Id       int                   `json:"id"`
@@ -304,10 +321,10 @@ type RelationResult struct {
 	Endpoint multiwatcher.Endpoint `json:"endpoint"`
 }
 
-// RelationResults holds the result of an API call that returns
-// information about multiple relations.
-type RelationResults struct {
-	Results []RelationResult `json:"results"`
+// RelationResultsV5 holds the result of an API call that returns
+// information about multiple V5 relations.
+type RelationResultsV5 struct {
+	Results []RelationResultV5 `json:"results"`
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.

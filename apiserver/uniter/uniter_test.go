@@ -1684,6 +1684,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
 				},
+				OtherApplication: s.mysql.Name(),
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1721,6 +1722,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
 				},
+				OtherApplication: s.mysql.Name(),
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -2741,6 +2743,58 @@ func (s *uniterSuite) TestV4WatchApplicationRelations(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestV5Relation(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	wpEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
+	}}
+	apiV5, err := uniter.NewUniterAPIV5(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := apiV5.Relation(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationResultsV5{
+		Results: []params.RelationResultV5{
+			{
+				Id:   rel.Id(),
+				Key:  rel.String(),
+				Life: params.Life(rel.Life().String()),
+				Endpoint: multiwatcher.Endpoint{
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+				},
+			},
+		},
+	})
+}
+
+func (s *uniterSuite) TestV5RelationById(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	wpEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationIds{RelationIds: []int{rel.Id()}}
+	apiV5, err := uniter.NewUniterAPIV5(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := apiV5.RelationById(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationResultsV5{
+		Results: []params.RelationResultV5{
+			{
+				Id:   rel.Id(),
+				Key:  rel.String(),
+				Life: params.Life(rel.Life().String()),
+				Endpoint: multiwatcher.Endpoint{
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+				},
+			},
+		},
+	})
 }
 
 type unitMetricBatchesSuite struct {
