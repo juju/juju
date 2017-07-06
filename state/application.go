@@ -197,7 +197,6 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
-	// TODO(ericsnow) Use a generic registry instead.
 	resOps, err := removeResourcesOps(a.st, a.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)

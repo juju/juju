@@ -132,12 +132,3 @@ func (s *uniterSuite) patchNewState(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 }
-
-func (s *uniterSuite) TestSLALevel(c *gc.C) {
-	err := s.State.SetSLA("essential", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	level, err := s.uniter.SLALevel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(level, gc.Equals, "essential")
-}

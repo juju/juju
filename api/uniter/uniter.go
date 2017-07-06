@@ -69,12 +69,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV5 creates a new client-side Uniter facade, version 5.
-var newStateV5 = newStateForVersionFn(5)
+// newStateV6 creates a new client-side Uniter facade, version 6
+var newStateV6 = newStateForVersionFn(6)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV5
+var NewState = newStateV6
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -203,10 +203,11 @@ func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
 		return nil, err
 	}
 	return &Relation{
-		id:   result.Id,
-		tag:  relationTag,
-		life: result.Life,
-		st:   st,
+		id:       result.Id,
+		tag:      relationTag,
+		life:     result.Life,
+		st:       st,
+		otherApp: result.OtherApplication,
 	}, nil
 }
 
@@ -294,10 +295,11 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	}
 	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
-		id:   result.Id,
-		tag:  relationTag,
-		life: result.Life,
-		st:   st,
+		id:       result.Id,
+		tag:      relationTag,
+		life:     result.Life,
+		st:       st,
+		otherApp: result.OtherApplication,
 	}, nil
 }
 
