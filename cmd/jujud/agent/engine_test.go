@@ -32,6 +32,8 @@ var (
 		"api-config-watcher",
 		"clock",
 		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
 		"not-alive-flag",
 		"not-dead-flag",
 	}
@@ -59,6 +61,8 @@ var (
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
 		"log-forwarder",
 	}
 	// ReallyLongTimeout should be long enough for the model-tracker
