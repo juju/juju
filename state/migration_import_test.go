@@ -32,9 +32,17 @@ import (
 
 type MigrationImportSuite struct {
 	MigrationBaseSuite
+	im *state.IAASModel
 }
 
 var _ = gc.Suite(&MigrationImportSuite{})
+
+func (s *MigrationImportSuite) SetUpTest(c *gc.C) {
+	s.MigrationBaseSuite.SetUpTest(c)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	s.im = im
+}
 
 func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported status.StatusHistoryGetter, size int) {
 	exportedHistory, err := exported.StatusHistory(status.StatusHistoryFilter{Size: size})
@@ -1009,9 +1017,6 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	})
 	machineTag := machine.MachineTag()
 
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// We know that the first volume is called "0/0" - although I don't know why.
 	volTag := names.NewVolumeTag("0/0")
 	volInfo := state.VolumeInfo{
@@ -1022,7 +1027,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		VolumeId:   "volume id",
 		Persistent: true,
 	}
-	err = im.SetVolumeInfo(volTag, volInfo)
+	err := s.im.SetVolumeInfo(volTag, volInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	volAttachmentInfo := state.VolumeAttachmentInfo{
 		DeviceName: "device name",
@@ -1030,7 +1035,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		BusAddress: "bus address",
 		ReadOnly:   true,
 	}
-	err = im.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
+	err = s.im.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
@@ -1091,18 +1096,20 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 		Pool:         "rootfs",
 		FilesystemId: "filesystem id",
 	}
-	err := s.State.SetFilesystemInfo(fsTag, fsInfo)
+	err := s.im.SetFilesystemInfo(fsTag, fsInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	fsAttachmentInfo := state.FilesystemAttachmentInfo{
 		MountPoint: "/mnt/foo",
 		ReadOnly:   true,
 	}
-	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, fsAttachmentInfo)
+	err = s.im.SetFilesystemAttachmentInfo(machineTag, fsTag, fsAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
 
-	filesystem, err := newSt.Filesystem(fsTag)
+	filesystem, err := newIM.Filesystem(fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO: check status
@@ -1111,14 +1118,14 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, fsInfo)
 
-	attachment, err := newSt.FilesystemAttachment(machineTag, fsTag)
+	attachment, err := newIM.FilesystemAttachment(machineTag, fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attInfo, err := attachment.Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(attInfo, jc.DeepEquals, fsAttachmentInfo)
 
 	fsTag = names.NewFilesystemTag("0/1")
-	filesystem, err = newSt.Filesystem(fsTag)
+	filesystem, err = newIM.Filesystem(fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	params, needsProvisioning := filesystem.Params()
@@ -1126,7 +1133,7 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 	c.Check(params.Pool, gc.Equals, "rootfs")
 	c.Check(params.Size, gc.Equals, uint64(4000))
 
-	attachment, err = newSt.FilesystemAttachment(machineTag, fsTag)
+	attachment, err = newIM.FilesystemAttachment(machineTag, fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attParams, needsProvisioning := attachment.Params()
 	c.Check(needsProvisioning, jc.IsTrue)

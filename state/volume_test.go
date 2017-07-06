@@ -79,7 +79,7 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	_, err = im.VolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineStorageRefs(c, s.State, machine.MachineTag())
+	assertMachineStorageRefs(c, im, machine.MachineTag())
 }
 
 func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
@@ -266,7 +266,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 
-	w := s.State.WatchVolumeAttachment(machineTag, volumeTag)
+	w := s.im.WatchVolumeAttachment(machineTag, volumeTag)
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
@@ -306,7 +306,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := s.State.WatchModelVolumes()
+	w := s.im.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0", "1") // initial
@@ -350,7 +350,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := s.State.WatchModelVolumeAttachments()
+	w := s.im.WatchModelVolumeAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
@@ -384,7 +384,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := s.State.WatchMachineVolumes(names.NewMachineTag("0"))
+	w := s.im.WatchMachineVolumes(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0/0", "0/1") // initial
@@ -435,7 +435,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := s.State.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
+	w := s.im.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
@@ -517,7 +517,7 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	assertMachineStorageRefs(c, s.State, machine.MachineTag())
+	assertMachineStorageRefs(c, s.im, machine.MachineTag())
 
 	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
@@ -817,7 +817,7 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
 	remove := func() {
 		err := im.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
-		assertMachineStorageRefs(c, s.State, machine.MachineTag())
+		assertMachineStorageRefs(c, s.im, machine.MachineTag())
 	}
 	defer state.SetBeforeHooks(c, s.State, remove).Check()
 	remove()

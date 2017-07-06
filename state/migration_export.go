@@ -1685,11 +1685,16 @@ func (e *exporter) filesystems() error {
 		return errors.Trace(err)
 	}
 
+	im, err := e.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var doc filesystemDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		fs := &filesystem{e.st, doc}
+		fs := &filesystem{im, doc}
 		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
 			return errors.Trace(err)
 		}

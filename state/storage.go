@@ -452,12 +452,12 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, err
 	// reference to avoid a dangling pointer while the volume/filesystem
 	// is being destroyed.
 	var haveFilesystem bool
-	filesystem, err := si.st.storageInstanceFilesystem(si.StorageTag())
+	filesystem, err := im.storageInstanceFilesystem(si.StorageTag())
 	if err == nil {
 		ops = append(ops, machineStorageOp(
 			filesystemsC, filesystem.Tag().Id(),
 		))
-		fsOps, err := destroyFilesystemOps(si.st, filesystem, si.doc.Releasing, nil)
+		fsOps, err := destroyFilesystemOps(im, filesystem, si.doc.Releasing, nil)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1186,6 +1186,12 @@ func (st *State) storageMachineAttachment(
 	unitTag names.UnitTag,
 	machineTag names.MachineTag,
 ) (VolumeAttachment, FilesystemAttachment, error) {
+
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	switch si.Kind() {
 	case StorageKindBlock:
 		im, err := st.IAASModel()
@@ -1203,11 +1209,11 @@ func (st *State) storageMachineAttachment(
 		return att, nil, nil
 
 	case StorageKindFilesystem:
-		filesystem, err := st.storageInstanceFilesystem(si.StorageTag())
+		filesystem, err := im.storageInstanceFilesystem(si.StorageTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		att, err := st.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		att, err := im.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -1354,12 +1360,13 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 	}
 	machineTag := names.NewMachineTag(machineId)
 
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	switch si.Kind() {
 	case StorageKindBlock:
-		im, err := st.IAASModel()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		volume, err := im.storageInstanceVolume(si.StorageTag())
 		if errors.IsNotFound(err) {
 			// The volume has already been removed, so must have
@@ -1410,7 +1417,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 		return detachVolumeOps(machineTag, volume.VolumeTag()), nil
 
 	case StorageKindFilesystem:
-		filesystem, err := st.storageInstanceFilesystem(si.StorageTag())
+		filesystem, err := im.storageInstanceFilesystem(si.StorageTag())
 		if errors.IsNotFound(err) {
 			// The filesystem has already been removed, so must
 			// have already been detached.
@@ -1437,7 +1444,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 			)
 			return nil, nil
 		}
-		att, err := st.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		att, err := im.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
 		if errors.IsNotFound(err) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the

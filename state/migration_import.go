@@ -128,6 +128,12 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 			newSt.Close()
 		}
 	}()
+
+	iaasModel, err := newSt.IAASModel()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	// We don't actually care what the old model status was, because we are
 	// going to set it to busy, with a message of migrating.
 	if err := dbModel.SetStatus(status.StatusInfo{
@@ -140,6 +146,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
 		st:      newSt,
+		im:      iaasModel,
 		dbModel: dbModel,
 		model:   model,
 		logger:  logger,
@@ -221,6 +228,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 type importer struct {
 	st      *State
+	im      *IAASModel
 	dbModel *Model
 	model   description.Model
 	logger  loggo.Logger
@@ -1652,10 +1660,6 @@ func (i *importer) volumes() error {
 }
 
 func (i *importer) addVolume(volume description.Volume) error {
-	im, err := i.st.IAASModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	attachments := volume.Attachments()
 	tag := volume.Tag()
 	var params *VolumeParams
@@ -1683,13 +1687,13 @@ func (i *importer) addVolume(volume description.Volume) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableVolumePool(im, volume.Pool()); err != nil {
+	if detachable, err := isDetachableVolumePool(i.im, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
 		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
-	ops := im.newVolumeOps(doc, status)
+	ops := i.im.newVolumeOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
@@ -1775,13 +1779,13 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableFilesystemPool(i.st, filesystem.Pool()); err != nil {
+	if detachable, err := isDetachableFilesystemPool(i.im, filesystem.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
 		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
-	ops := i.st.newFilesystemOps(doc, status)
+	ops := i.im.newFilesystemOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))

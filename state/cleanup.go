@@ -539,18 +539,18 @@ func cleanupDyingMachineResources(m *Machine) error {
 			return errors.Trace(err)
 		}
 	}
-	filesystemAttachments, err := m.st.MachineFilesystemAttachments(m.MachineTag())
+	filesystemAttachments, err := im.MachineFilesystemAttachments(m.MachineTag())
 	if err != nil {
 		return errors.Annotate(err, "getting machine filesystem attachments")
 	}
 	for _, fsa := range filesystemAttachments {
-		if detachable, err := isDetachableFilesystemTag(m.st, fsa.Filesystem()); err != nil {
+		if detachable, err := isDetachableFilesystemTag(im, fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		} else if !detachable {
 			// Non-detachable filesystems will be removed along with the machine.
 			continue
 		}
-		if err := m.st.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
+		if err := im.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -655,13 +655,18 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 // to the specified filesystem to Dying, if they are not already Dying or
 // Dead. It's expected to be used when a filesystem is destroyed.
 func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	filesystemTag := names.NewFilesystemTag(filesystemId)
 
 	// This won't miss attachments, because a Dying filesystem cannot have
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.db().GetCollection(filesystemAttachmentsC)
+	coll, closer := im.mb.db().GetCollection(filesystemAttachmentsC)
 	defer closer()
 
 	var doc filesystemAttachmentDoc
@@ -670,7 +675,7 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	defer closeIter(iter, &err, "reading filesystem attachment document")
 	for iter.Next(&doc) {
 		machineTag := names.NewMachineTag(doc.Machine)
-		if err := st.DetachFilesystem(machineTag, filesystemTag); err != nil {
+		if err := im.DetachFilesystem(machineTag, filesystemTag); err != nil {
 			return errors.Annotate(err, "destroying filesystem attachment")
 		}
 	}

@@ -52,6 +52,7 @@ var testAnnotations = map[string]string{
 
 type MigrationBaseSuite struct {
 	ConnWithWallClockSuite
+	im *state.IAASModel
 }
 
 func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
@@ -141,6 +142,9 @@ var _ = gc.Suite(&MigrationExportSuite{})
 func (s *MigrationExportSuite) SetUpTest(c *gc.C) {
 	s.MigrationBaseSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.StrictMigration)
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	s.im = im
 }
 
 func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, statusVal status.Status) {
@@ -1021,12 +1025,12 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	// We know that the first filesystem is called "0/0" as it is the first
 	// filesystem (filesystems use sequences), and it is bound to machine 0.
 	fsTag := names.NewFilesystemTag("0/0")
-	err := s.State.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+	err := s.im.SetFilesystemInfo(fsTag, state.FilesystemInfo{
 		Size:         1500,
 		FilesystemId: "filesystem id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
+	err = s.im.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
 		MountPoint: "/mnt/foo",
 		ReadOnly:   true,
 	})

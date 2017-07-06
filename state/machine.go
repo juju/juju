@@ -752,7 +752,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	}
 	for _, f := range m.doc.Filesystems {
 		tag := names.NewFilesystemTag(f)
-		detachable, err := isDetachableFilesystemTag(m.st, tag)
+		detachable, err := isDetachableFilesystemTag(im, tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -853,7 +853,7 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemOps, err := m.st.removeMachineFilesystemsOps(m)
+	filesystemOps, err := im.removeMachineFilesystemsOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

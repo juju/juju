@@ -520,11 +520,11 @@ func (im *IAASModel) DetachVolume(machine names.MachineTag, volume names.VolumeT
 }
 
 func (im *IAASModel) volumeFilesystemAttachment(machine names.MachineTag, volume names.VolumeTag) (FilesystemAttachment, error) {
-	filesystem, err := im.st.VolumeFilesystem(volume)
+	filesystem, err := im.VolumeFilesystem(volume)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return im.st.FilesystemAttachment(machine, filesystem.FilesystemTag())
+	return im.FilesystemAttachment(machine, filesystem.FilesystemTag())
 }
 
 func detachVolumeOps(m names.MachineTag, v names.VolumeTag) []txn.Op {
@@ -640,7 +640,7 @@ func machineStorageDecrefOp(collection, id string, attachmentCount int, life Lif
 // filesystem; the filesystem must be fully removed first.
 func (im *IAASModel) DestroyVolume(tag names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "destroying volume %s", tag.Id())
-	if _, err := im.st.VolumeFilesystem(tag); err == nil {
+	if _, err := im.VolumeFilesystem(tag); err == nil {
 		return &errContainsFilesystem{errors.New("volume contains filesystem")}
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)

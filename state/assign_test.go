@@ -1023,7 +1023,10 @@ func (s *assignCleanSuite) TestAssignToMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	filesystemAttachments, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
+
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemAttachments, err := im.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, gc.HasLen, 1)
 }

@@ -14,6 +14,7 @@ import (
 
 type FilesystemStatusSuite struct {
 	StorageStateSuiteBase
+	im         *state.IAASModel
 	machine    *state.Machine
 	filesystem state.Filesystem
 }
@@ -22,6 +23,9 @@ var _ = gc.Suite(&FilesystemStatusSuite{})
 
 func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 	s.StorageStateSuiteBase.SetUpTest(c)
+
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -34,13 +38,14 @@ func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystemAttachments, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
+	filesystemAttachments, err := im.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, gc.HasLen, 1)
 
-	filesystem, err := s.State.Filesystem(filesystemAttachments[0].Filesystem())
+	filesystem, err := im.Filesystem(filesystemAttachments[0].Filesystem())
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.im = im
 	s.machine = machine
 	s.filesystem = filesystem
 }
@@ -119,7 +124,7 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 	err := s.filesystem.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	filesystem, err := s.State.Filesystem(s.filesystem.FilesystemTag())
+	filesystem, err := s.im.Filesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err := filesystem.Status()
@@ -135,21 +140,21 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	err := s.State.DestroyFilesystem(s.filesystem.FilesystemTag())
+	err := s.im.DestroyFilesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
 func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
-	err := s.State.DestroyFilesystem(s.filesystem.FilesystemTag())
+	err := s.im.DestroyFilesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachFilesystem(s.machine.MachineTag(), s.filesystem.FilesystemTag())
+	err = s.im.DetachFilesystem(s.machine.MachineTag(), s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveFilesystemAttachment(s.machine.MachineTag(), s.filesystem.FilesystemTag())
+	err = s.im.RemoveFilesystemAttachment(s.machine.MachineTag(), s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystem, err := s.State.Filesystem(s.filesystem.FilesystemTag())
+	filesystem, err := s.im.Filesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
 
@@ -188,7 +193,7 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
-	err := s.State.SetFilesystemInfo(s.filesystem.FilesystemTag(), state.FilesystemInfo{
+	err := s.im.SetFilesystemInfo(s.filesystem.FilesystemTag(), state.FilesystemInfo{
 		FilesystemId: "fs-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)

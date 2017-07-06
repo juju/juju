@@ -34,7 +34,7 @@ type provisionerSuite struct {
 	// TODO(wallyworld) remove JujuConnSuite
 	jujutesting.JujuConnSuite
 
-	iaasModel  *state.IAASModel
+	im         *state.IAASModel
 	factory    *factory.Factory
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -44,9 +44,9 @@ type provisionerSuite struct {
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	iaasModel, err := s.State.IAASModel()
+	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
-	s.iaasModel = iaasModel
+	s.im = im
 
 	s.factory = factory.NewFactory(s.State)
 	s.resources = common.NewResources()
@@ -94,14 +94,14 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 		},
 	})
 	// Only provision the first and third volumes.
-	err := s.iaasModel.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
+	err := s.im.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
 		HardwareId: "123",
 		VolumeId:   "abc",
 		Size:       1024,
 		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.iaasModel.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
+	err = s.im.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
 		HardwareId: "456",
 		VolumeId:   "def",
 		Size:       4096,
@@ -141,12 +141,12 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 	})
 
 	// Only provision the first and third filesystems.
-	err := s.State.SetFilesystemInfo(names.NewFilesystemTag("0/0"), state.FilesystemInfo{
+	err := s.im.SetFilesystemInfo(names.NewFilesystemTag("0/0"), state.FilesystemInfo{
 		FilesystemId: "abc",
 		Size:         1024,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetFilesystemInfo(names.NewFilesystemTag("2"), state.FilesystemInfo{
+	err = s.im.SetFilesystemInfo(names.NewFilesystemTag("2"), state.FilesystemInfo{
 		FilesystemId: "def",
 		Size:         4096,
 	})
@@ -265,7 +265,7 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
 
-	err := s.iaasModel.SetVolumeAttachmentInfo(
+	err := s.im.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewVolumeTag("0/0"),
 		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
@@ -307,7 +307,7 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Controller = false
 
-	err := s.State.SetFilesystemAttachmentInfo(
+	err := s.im.SetFilesystemAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewFilesystemTag("0/0"),
 		state.FilesystemAttachmentInfo{
@@ -638,14 +638,14 @@ func (s *provisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	s.setupVolumes(c)
 
-	err := s.iaasModel.SetVolumeInfo(names.NewVolumeTag("3"), state.VolumeInfo{
+	err := s.im.SetVolumeInfo(names.NewVolumeTag("3"), state.VolumeInfo{
 		HardwareId: "123",
 		VolumeId:   "xyz",
 		Size:       1024,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.iaasModel.SetVolumeAttachmentInfo(
+	err = s.im.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewVolumeTag("3"),
 		state.VolumeAttachmentInfo{
@@ -710,13 +710,13 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 	s.setupFilesystems(c)
 
-	err := s.State.SetFilesystemInfo(names.NewFilesystemTag("1"), state.FilesystemInfo{
+	err := s.im.SetFilesystemInfo(names.NewFilesystemTag("1"), state.FilesystemInfo{
 		FilesystemId: "fsid",
 		Size:         1024,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetFilesystemAttachmentInfo(
+	err = s.im.SetFilesystemAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewFilesystemTag("1"),
 		state.FilesystemAttachmentInfo{
@@ -773,7 +773,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	s.setupVolumes(c)
 
-	err := s.iaasModel.SetVolumeInfo(names.NewVolumeTag("4"), state.VolumeInfo{
+	err := s.im.SetVolumeInfo(names.NewVolumeTag("4"), state.VolumeInfo{
 		VolumeId: "whatever",
 		Size:     1024,
 	})
@@ -821,7 +821,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 	s.setupFilesystems(c)
 
-	err := s.State.SetFilesystemInfo(names.NewFilesystemTag("3"), state.FilesystemInfo{
+	err := s.im.SetFilesystemInfo(names.NewFilesystemTag("3"), state.FilesystemInfo{
 		FilesystemId: "whatever",
 		Size:         1024,
 	})
@@ -1115,7 +1115,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	s.setupVolumes(c)
 	s.factory.MakeMachine(c, nil)
 
-	err := s.iaasModel.SetVolumeAttachmentInfo(
+	err := s.im.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
 		names.NewVolumeTag("0/0"),
 		state.VolumeAttachmentInfo{},
@@ -1225,11 +1225,11 @@ func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {
 		{"volume-invalid"}, {"machine-0"},
 	}}
 
-	err := s.iaasModel.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err := s.im.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.iaasModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err = s.im.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.iaasModel.DestroyVolume(names.NewVolumeTag("1"))
+	err = s.im.DestroyVolume(names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1253,11 +1253,11 @@ func (s *provisionerSuite) TestRemoveFilesystemsEnvironManager(c *gc.C) {
 		{"filesystem-invalid"}, {"machine-0"},
 	}}
 
-	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	err := s.im.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	err = s.im.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyFilesystem(names.NewFilesystemTag("1"))
+	err = s.im.DestroyFilesystem(names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1282,11 +1282,11 @@ func (s *provisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 		{"volume-invalid"}, {"machine-0"},
 	}}
 
-	err := s.iaasModel.DestroyVolume(names.NewVolumeTag("0/0"))
+	err := s.im.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.iaasModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err = s.im.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.iaasModel.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.im.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1310,9 +1310,9 @@ func (s *provisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 		{"filesystem-invalid"}, {"machine-0"},
 	}}
 
-	err := s.State.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	err := s.im.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	err = s.im.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1332,7 +1332,7 @@ func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
 
-	err := s.iaasModel.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err := s.im.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
@@ -1365,7 +1365,7 @@ func (s *provisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Controller = false
 
-	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	err := s.im.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.RemoveAttachment(params.MachineStorageIds{

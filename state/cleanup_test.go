@@ -724,11 +724,14 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.State.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = im.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.State.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	attachment, err := im.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }

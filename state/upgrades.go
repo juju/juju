@@ -546,7 +546,7 @@ func addNonDetachableStorageMachineId(st *State) error {
 			}}},
 		})
 	}
-	filesystems, err := st.filesystems(
+	filesystems, err := im.filesystems(
 		bson.D{{"machineid", bson.D{{"$exists", false}}}},
 	)
 	if err != nil {
@@ -559,12 +559,12 @@ func addNonDetachableStorageMachineId(st *State) error {
 		} else if f.doc.Params != nil {
 			pool = f.doc.Params.Pool
 		}
-		if detachable, err := isDetachableFilesystemPool(st, pool); err != nil {
+		if detachable, err := isDetachableFilesystemPool(im, pool); err != nil {
 			return errors.Trace(err)
 		} else if detachable {
 			continue
 		}
-		attachments, err := st.FilesystemAttachments(f.FilesystemTag())
+		attachments, err := im.FilesystemAttachments(f.FilesystemTag())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -777,7 +777,7 @@ func addStorageInstanceConstraints(st *State) error {
 				return errors.Trace(err)
 			}
 		case StorageKindFilesystem:
-			f, err := st.storageInstanceFilesystem(s.StorageTag())
+			f, err := im.storageInstanceFilesystem(s.StorageTag())
 			if err == nil {
 				if f.doc.Info != nil {
 					siCons.Pool = f.doc.Info.Pool

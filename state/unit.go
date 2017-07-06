@@ -1445,7 +1445,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := m.st.filesystemByTag(filesystemTag)
+		filesystem, err := im.filesystemByTag(filesystemTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1475,7 +1475,7 @@ func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, 
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := st.filesystemParamsWithDefaults(f.Filesystem, "")
+		f, err := im.filesystemParamsWithDefaults(f.Filesystem, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1497,7 +1497,7 @@ func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, 
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := st.Filesystem(filesystemTag)
+		filesystem, err := im.Filesystem(filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1893,6 +1893,11 @@ func machineStorageParamsForStorageInstance(
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	switch storage.Kind() {
 	case StorageKindFilesystem:
 		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
@@ -1908,7 +1913,7 @@ func machineStorageParamsForStorageInstance(
 			charmStorage.ReadOnly,
 		}
 		var volumeBacked bool
-		if filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
+		if filesystem, err := im.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
 			// The filesystem already exists, so just attach it.
 			// When creating ops to attach the storage to the
 			// machine, we will check if the attachment already
@@ -1918,7 +1923,7 @@ func machineStorageParamsForStorageInstance(
 				// The storage is not shared, so make sure that it is
 				// not currently attached to any other machine. If it
 				// is, it should be in the process of being detached.
-				existing, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+				existing, err := im.FilesystemAttachments(filesystem.FilesystemTag())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -1955,10 +1960,6 @@ func machineStorageParamsForStorageInstance(
 		fallthrough
 
 	case StorageKindBlock:
-		im, err := st.IAASModel()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}

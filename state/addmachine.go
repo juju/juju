@@ -633,7 +633,7 @@ func (st *State) machineStorageOps(
 
 	// Create filesystems and filesystem attachments.
 	for _, f := range args.filesystems {
-		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem, mdoc.Id)
+		ops, filesystemTag, volumeTag, err := im.addFilesystemOps(f.Filesystem, mdoc.Id)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}

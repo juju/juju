@@ -895,7 +895,11 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		}
 		return im.Volume(tag)
 	case names.FilesystemTag:
-		return st.Filesystem(tag)
+		im, err := st.IAASModel()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return im.Filesystem(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
