@@ -49,6 +49,9 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"model-upgrader",
 		"not-alive-flag",
 		"not-dead-flag",
 		"state-cleaner",
@@ -68,6 +71,11 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		// model upgrade manifolds are run on all
+		// controller agents, "responsible" or not.
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"model-upgrader",
 	)
 	manifolds := model.Manifolds(model.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -156,6 +164,9 @@ func (s *ManifoldsCrossModelSuite) TestNames(c *gc.C) {
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"model-upgrader",
 		"not-alive-flag",
 		"not-dead-flag",
 		"remote-relations",

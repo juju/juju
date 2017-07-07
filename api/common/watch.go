@@ -15,12 +15,12 @@ import (
 )
 
 // Watch starts a NotifyWatcher for the entity with the specified tag.
-func Watch(facade base.FacadeCaller, tag names.Tag) (watcher.NotifyWatcher, error) {
+func Watch(facade base.FacadeCaller, method string, tag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := facade.FacadeCall("Watch", args, &results)
+	err := facade.FacadeCall(method, args, &results)
 	if err != nil {
 		return nil, err
 	}

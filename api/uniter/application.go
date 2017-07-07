@@ -43,7 +43,7 @@ func (s *Application) String() string {
 
 // Watch returns a watcher for observing changes to an application.
 func (s *Application) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.facade, s.tag)
+	return common.Watch(s.st.facade, "Watch", s.tag)
 }
 
 // Life returns the application's current life state.

@@ -32,7 +32,7 @@ func (s *Application) Tag() names.ApplicationTag {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Application) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.facade, s.tag)
+	return common.Watch(s.st.facade, "Watch", s.tag)
 }
 
 // Life returns the service's current life state.
