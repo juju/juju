@@ -24,7 +24,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/controller"
+	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"

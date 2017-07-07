@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/keymanager"
-	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
-	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	keymanagerserver "github.com/juju/juju/apiserver/facades/client/keymanager"
+	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"

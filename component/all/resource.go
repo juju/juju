@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"

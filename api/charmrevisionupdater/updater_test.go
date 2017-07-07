@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )

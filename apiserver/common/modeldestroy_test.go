@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/metricsender"
+	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

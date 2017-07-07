@@ -12,8 +12,8 @@ import (
 	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 
-	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
-	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	keymanagerserver "github.com/juju/juju/apiserver/facades/client/keymanager"
+	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"

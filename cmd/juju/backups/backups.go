@@ -13,7 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/backups"
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
+	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	statebackups "github.com/juju/juju/state/backups"

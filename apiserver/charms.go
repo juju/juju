@@ -23,8 +23,8 @@ import (
 	ziputil "github.com/juju/utils/zip"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
