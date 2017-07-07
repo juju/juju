@@ -32,6 +32,7 @@ type StateBackend interface {
 	SplitLogCollections() error
 	AddUpdateStatusHookSettings() error
 	CorrectRelationUnitCounts() error
+	AddModelEnvironVersion() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -120,6 +121,10 @@ func (s stateBackend) SplitLogCollections() error {
 
 func (s stateBackend) CorrectRelationUnitCounts() error {
 	return state.CorrectRelationUnitCounts(s.st)
+}
+
+func (s stateBackend) AddModelEnvironVersion() error {
+	return state.AddModelEnvironVersion(s.st)
 }
 
 type modelShim struct {

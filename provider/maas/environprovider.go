@@ -52,6 +52,11 @@ var _ environs.EnvironProvider = (*MaasEnvironProvider)(nil)
 
 var providerInstance MaasEnvironProvider
 
+// Version is part of the EnvironProvider interface.
+func (MaasEnvironProvider) Version() int {
+	return 0
+}
+
 func (MaasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {

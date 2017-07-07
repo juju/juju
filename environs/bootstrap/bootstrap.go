@@ -411,7 +411,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	cfg = environ.Config()
-	if err := finalizeInstanceBootstrapConfig(ctx, instanceConfig, args, cfg, customImageMetadata); err != nil {
+	environVersion := environ.Provider().Version()
+	if err := finalizeInstanceBootstrapConfig(
+		ctx, instanceConfig, args, cfg, environVersion, customImageMetadata,
+	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
 	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
@@ -426,6 +429,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg *instancecfg.InstanceConfig,
 	args BootstrapParams,
 	cfg *config.Config,
+	environVersion int,
 	customImageMetadata []*imagemetadata.ImageMetadata,
 ) error {
 	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
@@ -466,6 +470,7 @@ func finalizeInstanceBootstrapConfig(
 	}
 
 	icfg.Bootstrap.ControllerModelConfig = cfg
+	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
 	icfg.Bootstrap.ControllerCloud = args.Cloud
 	icfg.Bootstrap.ControllerCloudRegion = args.CloudRegion

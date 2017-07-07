@@ -108,6 +108,10 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	environVersion := 123
+	err = original.SetEnvironVersion(environVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.State.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -124,6 +128,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+	c.Assert(newModel.EnvironVersion(), gc.Equals, environVersion)
 	s.assertAnnotations(c, newSt, newModel)
 
 	statusInfo, err := newModel.Status()

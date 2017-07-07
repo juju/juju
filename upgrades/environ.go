@@ -19,6 +19,7 @@ import (
 // These operations are run by the DatabaseMaster target only.
 func newEnvironUpgradeOpsIterator(from version.Number, context Context) (*opsIterator, error) {
 	st := context.State()
+	controllerUUID := st.ControllerUUID()
 	models, err := st.AllModels()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -31,7 +32,7 @@ func newEnvironUpgradeOpsIterator(from version.Number, context Context) (*opsIte
 		}
 		if env, ok := env.(environs.Upgrader); ok {
 			args := environs.UpgradeOperationsParams{
-				ControllerUUID: st.ControllerUUID(),
+				ControllerUUID: controllerUUID,
 			}
 			envUpgradeOps = append(envUpgradeOps, env.UpgradeOperations(args)...)
 		}
@@ -60,7 +61,11 @@ func newEnvironUpgradeOperation(op environs.UpgradeOperation) Operation {
 	for i, step := range op.Steps {
 		steps[i] = newEnvironUpgradeStep(step)
 	}
-	return upgradeToVersion{op.TargetVersion, steps}
+	// NOTE(axw) all two of the current environ upgrade steps will happily
+	// run idempotently; there are no post-upgrade steps that will render
+	// them non-runnable. This is here as a backstop, to ensure the upgrades
+	// continue to run until we remove this code.
+	return upgradeToVersion{jujuversion.Current, steps}
 }
 
 func newEnvironUpgradeStep(step environs.UpgradeStep) Step {

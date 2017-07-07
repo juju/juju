@@ -637,7 +637,7 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 	}
 
 	check(upgrades.Controller, 1, nil)
-	check(upgrades.DatabaseMaster, 1, []string{"AllModels"})
+	check(upgrades.DatabaseMaster, 1, []string{"ControllerUUID", "AllModels"})
 	check(upgrades.AllMachines, 0, nil)
 	check(upgrades.HostMachine, 0, nil)
 }
@@ -651,13 +651,7 @@ func (s *upgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	models := []upgrades.Model{model0, model1}
 	var opsRun int
 	ops := []environs.UpgradeOperation{{
-		TargetVersion: fromVers,
-		Steps: []environs.UpgradeStep{&mockEnvironUpgradeStep{
-			"should not be run",
-			func() error { return errors.New("should not be run") },
-		}},
-	}, {
-		TargetVersion: version.MustParse("1.19.0"),
+		TargetVersion: 1, // ignored
 		Steps: []environs.UpgradeStep{&mockEnvironUpgradeStep{
 			"should be run",
 			func() error {
@@ -695,7 +689,7 @@ func (s *upgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	err := upgrades.PerformUpgrade(fromVers, targets(upgrades.DatabaseMaster), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	state.CheckCallNames(c, "AllModels", "ControllerUUID")
+	state.CheckCallNames(c, "ControllerUUID", "AllModels")
 	model0.CheckCallNames(c, "Config", "CloudSpec")
 	model1.CheckCallNames(c, "Config", "CloudSpec")
 	newEnvironStub.CheckCallNames(c, "NewEnviron", "NewEnviron")

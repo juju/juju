@@ -27,6 +27,11 @@ type environProvider struct {
 
 var providerInstance environProvider
 
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return 0
+}
+
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
