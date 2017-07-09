@@ -53,11 +53,11 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	return nil, errors.NotImplementedf("ControllerConfig")
 }
 
-func (st *mockState) ControllerInfo(modelUUID string) (state.ExternalController, error) {
+func (st *mockState) ControllerInfo(modelUUID string) ([]string, string, error) {
 	if info, ok := st.controllerInfo[modelUUID]; !ok {
-		return nil, errors.NotFoundf("controller info for %v", modelUUID)
+		return nil, "", errors.NotFoundf("controller info for %v", modelUUID)
 	} else {
-		return info, nil
+		return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
 	}
 }
 

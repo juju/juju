@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -49,13 +50,13 @@ func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		ec, err := s.st.ControllerInfo(modelTag.Id())
+		addrs, CACert, err := s.st.ControllerInfo(modelTag.Id())
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		result.Results[i].Addresses = ec.ControllerInfo().Addrs
-		result.Results[i].CACert = ec.ControllerInfo().CACert
+		result.Results[i].Addresses = addrs
+		result.Results[i].CACert = CACert
 	}
 	return result, nil
 }
@@ -65,7 +66,25 @@ type controllerStateShim struct {
 }
 
 // ControllerInfo returns the external controller details for the specified model.
-func (s *controllerStateShim) ControllerInfo(modelUUID string) (state.ExternalController, error) {
+func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, CACert string, _ error) {
+	// First see if the requested model UUID is hosted by this controller.
+	_, err := s.State.GetModel(names.NewModelTag(modelUUID))
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, "", errors.Trace(err)
+	}
+	if err == nil {
+		addr, err := apiAddresses(s.State)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		return addr, s.State.CACert(), nil
+	}
+
+	// Now check any external controllers.
 	ec := state.NewExternalControllers(s.State)
-	return ec.ControllerForModel(modelUUID)
+	info, err := ec.ControllerForModel(modelUUID)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
 }
