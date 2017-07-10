@@ -796,16 +796,13 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
-		addrInAddrs := false
+		newAddrs := []string{localAPIAddr}
 		for _, addr := range addrs {
-			if addr == localAPIAddr {
-				addrInAddrs = true
-				break
+			if addr != localAPIAddr {
+				newAddrs = append(newAddrs, addr)
 			}
 		}
-		if !addrInAddrs {
-			addrs = append(addrs, localAPIAddr)
-		}
+		addrs = newAddrs
 	}
 	return &api.Info{
 		Addrs:    addrs,

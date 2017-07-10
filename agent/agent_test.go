@@ -462,7 +462,7 @@ func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
+func (*suite) TestAPIInfoPutsLocalhostFirstWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
@@ -470,14 +470,19 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
-	localhostAddressFound := false
-	for _, eachAPIAddress := range apiinfo.Addrs {
-		if eachAPIAddress == "localhost:47" {
-			localhostAddressFound = true
-			break
-		}
-	}
-	c.Assert(localhostAddressFound, jc.IsTrue)
+	c.Check(apiinfo.Addrs[0], gc.Equals, "localhost:47")
+}
+
+func (*suite) TestAPIInfoMovesLocalhostFirstWhenServingInfoPresent(c *gc.C) {
+	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"localhost:1235", "localhost:47"}
+	servingInfo := stateServingInfo()
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	apiinfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses))
+	c.Check(apiinfo.Addrs[0], gc.Equals, "localhost:47")
 }
 
 func (*suite) TestMongoInfo(c *gc.C) {
