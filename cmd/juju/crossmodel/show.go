@@ -103,7 +103,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertOffers(found)
+	output, err := convertOffers(controllerName, found)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ type ShowOfferedApplication struct {
 
 // convertOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted offers.
-func convertOffers(offers ...params.ApplicationOffer) (map[string]ShowOfferedApplication, error) {
+func convertOffers(store string, offers ...params.ApplicationOffer) (map[string]ShowOfferedApplication, error) {
 	if len(offers) == 0 {
 		return nil, nil
 	}
@@ -144,7 +144,14 @@ func convertOffers(offers ...params.ApplicationOffer) (map[string]ShowOfferedApp
 		if one.ApplicationDescription != "" {
 			app.Description = one.ApplicationDescription
 		}
-		output[one.OfferURL] = app
+		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
+		if err != nil {
+			return nil, err
+		}
+		if url.Source == "" {
+			url.Source = store
+		}
+		output[url.String()] = app
 	}
 	return output, nil
 }

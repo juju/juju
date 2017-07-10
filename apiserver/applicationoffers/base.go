@@ -123,8 +123,11 @@ func (api *BaseAPI) applicationOffersFromModel(
 			isAdmin = userAccess == permission.AdminAccess
 		}
 		offerParams, app, err := api.makeOfferParams(backend, &appOffer, userAccess)
+		// Just because we can't compose the result for one offer, log
+		// that and move on to the next one.
 		if err != nil {
-			return nil, errors.Trace(err)
+			logger.Warningf("cannot get application offer: %v", err)
+			continue
 		}
 		offer := params.ApplicationOfferDetails{
 			ApplicationOffer: *offerParams,
@@ -134,7 +137,8 @@ func (api *BaseAPI) applicationOffersFromModel(
 			curl, _ := app.CharmURL()
 			status, err := backend.RemoteConnectionStatus(offer.OfferName)
 			if err != nil {
-				return nil, errors.Trace(err)
+				logger.Warningf("cannot get offer connection status: %v", err)
+				continue
 			}
 			offer.ApplicationName = app.Name()
 			offer.CharmName = curl.Name

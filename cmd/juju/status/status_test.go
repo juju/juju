@@ -4037,7 +4037,7 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 Model       Controller  Cloud/Region        Version  Notes                     SLA
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4  unsupported
 
-SAAS name    Status   Store  URL
+SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes

@@ -52,7 +52,7 @@ func (s *showSuite) TestShowYaml(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "yaml"},
 		`
-fred/model.db2:
+test-master:fred/model.db2:
   access: consume
   endpoints:
     db2:
@@ -71,9 +71,9 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-URL             Access   Description                                 Endpoint  Interface  Role
-fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
-                         level database system                       log       http       provider
+Store        URL             Access   Description                                 Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+                                      level database system                       log       http       provider
 
 `[1:],
 	)
@@ -85,9 +85,9 @@ func (s *showSuite) TestShowDifferentController(c *gc.C) {
 		c,
 		[]string{"different:fred/model.db2", "--format", "tabular"},
 		`
-URL                       Access   Description                                 Endpoint  Interface  Role
-different:fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
-                                   level database system                       log       http       provider
+Store      URL             Access   Description                                 Endpoint  Interface  Role
+different  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+                                    level database system                       log       http       provider
 
 `[1:],
 	)
@@ -99,12 +99,12 @@ func (s *showSuite) TestShowTabularExactly180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-URL             Access   Description                                   Endpoint  Interface  Role
-fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                         level database systemIBM DB2 Express Server   log       http       provider
-                         Edition is an entry level database systemIBM                       
-                         DB2 Express Server Edition is an entry level                       
-                         dat                                                                
+Store        URL             Access   Description                                   Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                                      level database systemIBM DB2 Express Server   log       http       provider
+                                      Edition is an entry level database systemIBM                       
+                                      DB2 Express Server Edition is an entry level                       
+                                      dat                                                                
 
 `[1:],
 	)
@@ -116,12 +116,12 @@ func (s *showSuite) TestShowTabularMoreThan180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-URL             Access   Description                                   Endpoint  Interface  Role
-fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                         level database systemIBM DB2 Express Server   log       http       provider
-                         Edition is an entry level database systemIBM                       
-                         DB2 Express Server Edition is an entry level                       
-                         ...                                                                
+Store        URL             Access   Description                                   Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                                      level database systemIBM DB2 Express Server   log       http       provider
+                                      Edition is an entry level database systemIBM                       
+                                      DB2 Express Server Edition is an entry level                       
+                                      ...                                                                
 
 `[1:],
 	)

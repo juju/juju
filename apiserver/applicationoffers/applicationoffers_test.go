@@ -707,6 +707,11 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		ApplicationDescription: "postgresql description",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "postgresql"}},
 	}
+	// Include an offer with bad data to ensure it is ignored.
+	offerAppNotFound := jujucrossmodel.ApplicationOffer{
+		OfferName:       "badoffer",
+		ApplicationName: "missing",
+	}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		var result []jujucrossmodel.ApplicationOffer
@@ -718,6 +723,8 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 				result = append(result, mysqlOffer)
 			case "hosted-postgresql":
 				result = append(result, postgresqlOffer)
+			default:
+				result = append(result, offerAppNotFound)
 			}
 		}
 		return result, nil
@@ -798,6 +805,11 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			},
 			{
 				OfferName: "hosted-postgresql",
+				OwnerName: "mary",
+				ModelName: "another",
+			},
+			{
+				OfferName: "badoffer",
 				OwnerName: "mary",
 				ModelName: "another",
 			},
