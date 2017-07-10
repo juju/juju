@@ -169,48 +169,24 @@ func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 		return provisioned, errors.Annotate(err, "cannot read controllers")
 	}
 
-	upgradeDone, err := info.isModelUUIDUpgradeDone()
-	if err != nil {
-		return provisioned, errors.Trace(err)
-	}
-
 	// Extract current and provisioned controllers.
 	instanceData, closer := info.st.db().GetRawCollection(instanceDataC)
 	defer closer()
 
-	// If instanceData has the env UUID upgrade query using the
-	// machineid field, otherwise check using _id.
-	var sel bson.D
-	var field string
-	if upgradeDone {
-		sel = bson.D{{"model-uuid", info.st.ModelUUID()}}
-		field = "machineid"
-	} else {
-		field = "_id"
+	query := bson.D{
+		{"model-uuid", info.st.ModelUUID()},
+		{"machineid", bson.D{{"$in", controllerInfo.MachineIds}}},
 	}
-	sel = append(sel, bson.DocElem{field, bson.D{{"$in", controllerInfo.MachineIds}}})
-	iter := instanceData.Find(sel).Select(bson.D{{field, true}}).Iter()
+	iter := instanceData.Find(query).Select(bson.D{{"machineid", true}}).Iter()
 
 	var doc bson.M
 	for iter.Next(&doc) {
-		provisioned = append(provisioned, doc[field].(string))
+		provisioned = append(provisioned, doc["machineid"].(string))
 	}
 	if err := iter.Close(); err != nil {
 		return provisioned, errors.Annotate(err, "cannot read provisioned machines")
 	}
 	return provisioned, nil
-}
-
-func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
-	instanceData, closer := info.st.db().GetRawCollection(instanceDataC)
-	defer closer()
-
-	query := instanceData.Find(bson.D{{"model-uuid", bson.D{{"$exists", true}}}})
-	n, err := query.Count()
-	if err != nil {
-		return false, errors.Annotatef(err, "couldn't query instance upgrade status")
-	}
-	return n > 0, nil
 }
 
 // upgradeStatusHistoryAndOps sets the model's status history and returns ops for

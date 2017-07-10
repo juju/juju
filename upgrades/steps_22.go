@@ -53,6 +53,13 @@ func stateStepsFor22() []Step {
 				return context.State().SplitLogCollections()
 			},
 		},
+		&upgradeStep{
+			description: "add environ-version to model docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddModelEnvironVersion()
+			},
+		},
 	}
 }
 

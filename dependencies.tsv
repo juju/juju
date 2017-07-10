@@ -21,7 +21,7 @@ github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	7725027b95e0d54635e0fb11efc2debdcdf19f75	2016-12-15T16:06:52Z
 github.com/juju/cmd	git	ad2437ef0ef282ae26e482eb1e44c02532bae1ba	2017-06-22T12:53:07Z
-github.com/juju/description	git	a720edaca89342e01beeb64ad190468468baf248	2017-05-25T03:39:51Z
+github.com/juju/description	git	b764a15740dbcb800ec894fedd41cc0a37826419	2017-07-06T03:32:20Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
 github.com/juju/go-oracle-cloud	git	932a8cea00a1cd5cba3829a672c823955db674ae	2017-04-21T13:45:47Z

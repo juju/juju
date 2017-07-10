@@ -511,7 +511,7 @@ func (t *logTailer) processCollection() error {
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
 			if deserialisationFailures == 0 {
-				logger.Warningf("deserialization failed (possible DB corruption), %v", err)
+				logger.Warningf("log deserialization failed (possible DB corruption), %v", err)
 			}
 			// Add the id to the recentIds so we don't try to look at it again
 			// during the oplog traversal.
@@ -520,7 +520,7 @@ func (t *logTailer) processCollection() error {
 			continue
 		} else {
 			if deserialisationFailures > 1 {
-				logger.Debugf("total of %d serialisation errors", deserialisationFailures)
+				logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
 			}
 			deserialisationFailures = 0
 		}
@@ -534,7 +534,7 @@ func (t *logTailer) processCollection() error {
 		}
 	}
 	if deserialisationFailures > 1 {
-		logger.Debugf("total of %d serialisation errors", deserialisationFailures)
+		logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
 	}
 
 	return errors.Trace(iter.Close())
@@ -574,6 +574,10 @@ func (t *logTailer) tailOplog() error {
 			if !ok {
 				return errors.Annotate(oplogTailer.Err(), "oplog tailer died")
 			}
+			if oplogDoc.Operation != "i" {
+				// We only care about inserts.
+				continue
+			}
 
 			doc := new(logDoc)
 			err := oplogDoc.UnmarshalObject(doc)
@@ -592,13 +596,13 @@ func (t *logTailer) tailOplog() error {
 			rec, err := logDocToRecord(t.modelUUID, doc)
 			if err != nil {
 				if deserialisationFailures == 0 {
-					logger.Warningf("deserialization failed (possible DB corruption), %v", err)
+					logger.Warningf("log deserialization failed (possible DB corruption), %v", err)
 				}
 				deserialisationFailures++
 				continue
 			} else {
 				if deserialisationFailures > 1 {
-					logger.Debugf("total of %d serialisation errors", deserialisationFailures)
+					logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
 				}
 				deserialisationFailures = 0
 			}

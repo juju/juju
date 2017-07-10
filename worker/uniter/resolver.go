@@ -118,7 +118,7 @@ func (s *uniterResolver) NextOp(
 		}
 
 	case operation.Continue:
-		logger.Infof("no operations in progress; waiting for changes")
+		logger.Debugf("no operations in progress; waiting for changes")
 		return s.nextOp(localState, remoteState, opFactory)
 
 	default:

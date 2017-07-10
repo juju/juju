@@ -7,7 +7,6 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	"github.com/juju/version"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/environs"
@@ -17,7 +16,7 @@ import (
 // UpgradeOperations is part of the upgrades.OperationSource interface.
 func (env *environ) UpgradeOperations(args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
-		version.MustParse("2.2-beta3"),
+		providerVersion1,
 		[]environs.UpgradeStep{
 			extraConfigUpgradeStep{env, args.ControllerUUID},
 			modelFoldersUpgradeStep{env, args.ControllerUUID},
@@ -43,7 +42,6 @@ func (step extraConfigUpgradeStep) Run() error {
 		legacyControllerTag   = "juju_controller_uuid_key"
 		legacyIsControllerTag = "juju_is_controller_key"
 	)
-	controllerUUID := step.controllerUUID
 	return step.env.withSession(func(env *sessionEnviron) error {
 		vms, err := env.client.VirtualMachines(env.ctx, env.namespace.Prefix()+"*")
 		if err != nil || len(vms) == 0 {
@@ -65,7 +63,7 @@ func (step extraConfigUpgradeStep) Run() error {
 				continue
 			}
 			metadata := map[string]string{
-				tags.JujuController: controllerUUID,
+				tags.JujuController: step.controllerUUID,
 				tags.JujuModel:      env.Config().UUID(),
 			}
 			if isController {
@@ -95,11 +93,10 @@ func (modelFoldersUpgradeStep) Description() string {
 
 // Run is part of the environs.UpgradeStep interface.
 func (step modelFoldersUpgradeStep) Run() error {
-	controllerUUID := step.controllerUUID
 	return step.env.withSession(func(env *sessionEnviron) error {
 		// We must create the folder even if there are no VMs in the model.
 		modelFolderPath := path.Join(
-			controllerFolderName(controllerUUID),
+			controllerFolderName(step.controllerUUID),
 			env.modelFolderName(),
 		)
 		if err := env.client.EnsureVMFolder(env.ctx, modelFolderPath); err != nil {

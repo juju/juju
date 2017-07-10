@@ -87,7 +87,7 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(m.st.facade, m.tag)
+	return common.Watch(m.st.facade, "Watch", m.tag)
 }
 
 // Jobs returns a list of jobs for the machine.

@@ -15,6 +15,15 @@ import (
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
 )
 
+const (
+	// provider version 1 introduces the "common" deployment,
+	// which contains common resources such as the virtual
+	// network and network security group.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
+)
+
 // Logger for the Azure provider.
 var logger = loggo.GetLogger("juju.provider.azure")
 
@@ -92,6 +101,11 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 		},
 		config: config,
 	}, nil
+}
+
+// Version is part of the EnvironProvider interface.
+func (prov *azureEnvironProvider) Version() int {
+	return currentProviderVersion
 }
 
 // Open is part of the EnvironProvider interface.

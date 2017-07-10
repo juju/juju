@@ -972,6 +972,59 @@ func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 
+func (s *ModelSuite) TestNewModelEnvironVersion(c *gc.C) {
+	v := 123
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		EnvironVersion: v,
+	})
+	defer st.Close()
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.EnvironVersion(), gc.Equals, v)
+}
+
+func (s *ModelSuite) TestSetEnvironVersion(c *gc.C) {
+	v := 123
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		m, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.EnvironVersion(), gc.Equals, 0)
+		err = m.SetEnvironVersion(v)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.EnvironVersion(), gc.Equals, v)
+	}).Check()
+
+	err = m.SetEnvironVersion(v)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.EnvironVersion(), gc.Equals, v)
+}
+
+func (s *ModelSuite) TestSetEnvironVersionCannotDecrease(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		m, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		err = m.SetEnvironVersion(2)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.EnvironVersion(), gc.Equals, 2)
+	}).Check()
+
+	err = m.SetEnvironVersion(1)
+	c.Assert(err, gc.ErrorMatches, `cannot set environ version to 1, which is less than the current version 2`)
+	// m's cached version is only updated on success
+	c.Assert(m.EnvironVersion(), gc.Equals, 0)
+
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.EnvironVersion(), gc.Equals, 2)
+}
+
 type ModelCloudValidationSuite struct {
 	gitjujutesting.MgoSuite
 }

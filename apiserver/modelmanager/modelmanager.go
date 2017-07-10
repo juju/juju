@@ -61,7 +61,7 @@ type ModelManagerV2 interface {
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
-	pool        StatePool
+	pool        common.BackendPool
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
@@ -89,7 +89,7 @@ func NewFacadeV3(ctx facade.Context) (*ModelManagerAPI, error) {
 
 	return NewModelManagerAPI(
 		common.NewModelManagerBackend(st),
-		&statePool{pool}, configGetter, auth)
+		common.NewBackendPool(pool), configGetter, auth)
 }
 
 // NewFacade is used for API registration.
@@ -101,30 +101,11 @@ func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 	return &ModelManagerAPIV2{v3}, nil
 }
 
-// StatePool provides access to a pool of states.
-type StatePool interface {
-	Get(modelUUID string) (common.ModelManagerBackend, func(), error)
-}
-
-// TODO: move statePool shim into common package.
-type statePool struct {
-	pool *state.StatePool
-}
-
-// Get implements StatePool.
-func (p *statePool) Get(modelUUID string) (common.ModelManagerBackend, func(), error) {
-	st, releaser, err := p.pool.Get(modelUUID)
-	closer := func() {
-		releaser()
-	}
-	return common.NewModelManagerBackend(st), closer, err
-}
-
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
-	statePool StatePool,
+	pool common.BackendPool,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
 ) (*ModelManagerAPI, error) {
@@ -142,9 +123,9 @@ func NewModelManagerAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
+		ModelStatusAPI: common.NewModelStatusAPI(st, pool, authorizer, apiUser),
 		state:          st,
-		pool:           statePool,
+		pool:           pool,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
@@ -377,6 +358,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		Config:          newConfig,
 		Owner:           ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
+		EnvironVersion:          env.Provider().Version(),
 	})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")

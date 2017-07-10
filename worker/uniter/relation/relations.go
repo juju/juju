@@ -72,13 +72,14 @@ func (s *relationsResolver) NextOp(
 
 // relations implements Relations.
 type relations struct {
-	st           *uniter.State
-	unit         *uniter.Unit
-	subordinate  bool
-	charmDir     string
-	relationsDir string
-	relationers  map[int]*Relationer
-	abort        <-chan struct{}
+	st            *uniter.State
+	unit          *uniter.Unit
+	subordinate   bool
+	principalName string
+	charmDir      string
+	relationsDir  string
+	relationers   map[int]*Relationer
+	abort         <-chan struct{}
 }
 
 // NewRelations returns a new Relations instance.
@@ -87,18 +88,19 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, subordinate, err := unit.PrincipalName()
+	principalName, subordinate, err := unit.PrincipalName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	r := &relations{
-		st:           st,
-		unit:         unit,
-		subordinate:  subordinate,
-		charmDir:     charmDir,
-		relationsDir: relationsDir,
-		relationers:  make(map[int]*Relationer),
-		abort:        abort,
+		st:            st,
+		unit:          unit,
+		subordinate:   subordinate,
+		principalName: principalName,
+		charmDir:      charmDir,
+		relationsDir:  relationsDir,
+		relationers:   make(map[int]*Relationer),
+		abort:         abort,
 	}
 	if err := r.init(); err != nil {
 		return nil, errors.Trace(err)
@@ -114,6 +116,8 @@ func (r *relations) init() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Keep the relations ordered for reliable testing.
+	var orderedIds []int
 	joinedRelations := make(map[int]*uniter.Relation)
 	for _, tag := range joinedRelationTags {
 		relation, err := r.st.Relation(tag)
@@ -121,6 +125,7 @@ func (r *relations) init() error {
 			return errors.Trace(err)
 		}
 		joinedRelations[relation.Id()] = relation
+		orderedIds = append(orderedIds, relation.Id())
 	}
 	knownDirs, err := ReadAllStateDirs(r.relationsDir)
 	if err != nil {
@@ -135,7 +140,8 @@ func (r *relations) init() error {
 			return errors.Trace(err)
 		}
 	}
-	for id, rel := range joinedRelations {
+	for _, id := range orderedIds {
+		rel := joinedRelations[id]
 		if _, ok := knownDirs[id]; ok {
 			continue
 		}
@@ -416,9 +422,17 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 	if !r.subordinate {
 		return nil
 	}
-	// If no Alive relations remain between a subordinate unit's service
-	// and its principal's service, the subordinate must become Dying.
+
+	// If no Alive relations remain between a subordinate unit's application
+	// and its principal's application, the subordinate must become Dying.
+	principalApp, err := names.UnitApplication(r.principalName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, relationer := range r.relationers {
+		if relationer.ru.Relation().OtherApplication() != principalApp {
+			continue
+		}
 		scope := relationer.ru.Endpoint().Scope
 		if scope == corecharm.ScopeContainer && !relationer.dying {
 			return nil

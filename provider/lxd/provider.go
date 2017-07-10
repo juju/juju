@@ -41,6 +41,11 @@ func NewProvider() environs.EnvironProvider {
 	}
 }
 
+// Version is part of the EnvironProvider interface.
+func (*environProvider) Version() int {
+	return 0
+}
+
 // Open implements environs.EnvironProvider.
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	local, err := p.validateCloudSpec(args.Cloud)
@@ -64,7 +69,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/logforwarder"
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/modelupgrader"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/remoterelations"
 	"github.com/juju/juju/worker/singular"
@@ -97,7 +99,9 @@ type ManifoldsConfig struct {
 // Manifolds returns a set of interdependent dependency manifolds that will
 // run together to administer a model, as configured.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
-	modelTag := config.Agent.CurrentConfig().Model()
+	agentConfig := config.Agent.CurrentConfig()
+	modelTag := agentConfig.Model()
+	controllerTag := agentConfig.Controller()
 	result := dependency.Manifolds{
 
 		// The first group are foundational; the agent and clock
@@ -148,6 +152,34 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: singular.NewWorker,
 		}),
 
+		// The environ tracker could/should be used by several other
+		// workers (firewaller, provisioners, address-cleaner?).
+		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
+			APICallerName:  apiCallerName,
+			NewEnvironFunc: config.NewEnvironFunc,
+		})),
+
+		// The model upgrader runs on all controller agents, and
+		// unlocks the gate when the model is up-to-date. The
+		// environ tracker will be supplied only to the leader,
+		// which is the agent that will run the upgrade steps;
+		// the other controller agents will wait for it to complete
+		// running those steps before allowing logins to the model.
+		modelUpgradeGateName: gate.Manifold(),
+		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  modelUpgradeGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+		modelUpgraderName: modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			GateName:      modelUpgradeGateName,
+			ControllerTag: controllerTag,
+			ModelTag:      modelTag,
+			NewFacade:     modelupgrader.NewFacade,
+			NewWorker:     modelupgrader.NewWorker,
+		}),
+
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
 		// so they can't accidentally interfere with a migration
@@ -159,23 +191,23 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// fortress).
 		//
 		// Note that the fortress and flag will only exist while
-		// the model is not dead; this frees their dependencies
-		// from model-lifetime concerns.
-		migrationFortressName: ifNotDead(fortress.Manifold()),
-		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
+		// the model is not dead, and not upgrading; this frees
+		// their dependencies from model-lifetime/upgrade concerns.
+		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold())),
+		migrationInactiveFlagName: ifNotUpgrading(ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
-		})),
-		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+		}))),
+		migrationMasterName: ifNotUpgrading(ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			FortressName:  migrationFortressName,
 			Clock:         config.Clock,
 			NewFacade:     migrationmaster.NewFacade,
 			NewWorker:     config.NewMigrationMaster,
-		})),
+		}))),
 
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
@@ -200,21 +232,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		// The environ tracker could/should be used by several other
-		// workers (firewaller, provisioners, address-cleaner?).
-		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			NewEnvironFunc: config.NewEnvironFunc,
-		})),
-
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 
 			NewFacade: undertaker.NewFacade,
 			NewWorker: undertaker.NewWorker,
-		})),
+		}))),
 
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
@@ -359,6 +384,14 @@ var (
 		},
 		Occupy: migrationFortressName,
 	}.Decorate
+
+	// ifNotUpgrading wraps a manifold such that it only runs after
+	// the model upgrade worker has completed.
+	ifNotUpgrading = engine.Housing{
+		Flags: []string{
+			modelUpgradedFlagName,
+		},
+	}.Decorate
 )
 
 const (
@@ -374,6 +407,10 @@ const (
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
+
+	modelUpgradeGateName  = "model-upgrade-gate"
+	modelUpgradedFlagName = "model-upgraded-flag"
+	modelUpgraderName     = "model-upgrader"
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"

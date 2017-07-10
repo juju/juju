@@ -173,12 +173,13 @@ LXC_BRIDGE="ignored"`[1:])
 				Regions:      []cloud.Region{{Name: "dummy-region"}},
 				RegionConfig: regionConfig,
 			},
-			ControllerCloudRegion:     "dummy-region",
-			ControllerConfig:          controllerCfg,
-			ControllerModelConfig:     modelCfg,
-			ModelConstraints:          expectModelConstraints,
-			ControllerInheritedConfig: controllerInheritedConfig,
-			HostedModelConfig:         hostedModelConfigAttrs,
+			ControllerCloudRegion:         "dummy-region",
+			ControllerConfig:              controllerCfg,
+			ControllerModelConfig:         modelCfg,
+			ControllerModelEnvironVersion: 666,
+			ModelConstraints:              expectModelConstraints,
+			ControllerInheritedConfig:     controllerInheritedConfig,
+			HostedModelConfig:             hostedModelConfigAttrs,
 		},
 		BootstrapMachineAddresses: initialAddrs,
 		BootstrapMachineJobs:      []multiwatcher.MachineJob{multiwatcher.JobManageModel},
@@ -200,10 +201,11 @@ LXC_BRIDGE="ignored"`[1:])
 	err = cfg.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the environment has been set up.
+	// Check that the model has been set up.
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.UUID(), gc.Equals, modelCfg.UUID())
+	c.Assert(model.EnvironVersion(), gc.Equals, 666)
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := model.Tag().(names.ModelTag)
@@ -256,6 +258,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
 	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
+	c.Assert(hostedModel.EnvironVersion(), gc.Equals, 123)
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
@@ -321,6 +324,8 @@ LXC_BRIDGE="ignored"`[1:])
 		"Validate",
 		"Open",
 		"Create",
+		"Provider",
+		"Version",
 	)
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		Cloud: environs.CloudSpec{
@@ -494,15 +499,28 @@ func (p *fakeProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, 
 
 func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
-	return &fakeEnviron{Stub: &p.Stub}, p.NextErr()
+	return &fakeEnviron{Stub: &p.Stub, provider: p}, p.NextErr()
+}
+
+func (p *fakeProvider) Version() int {
+	p.MethodCall(p, "Version")
+	p.PopNoErr()
+	return 123
 }
 
 type fakeEnviron struct {
 	environs.Environ
 	*gitjujutesting.Stub
+	provider *fakeProvider
 }
 
 func (e *fakeEnviron) Create(args environs.CreateParams) error {
 	e.MethodCall(e, "Create", args)
 	return e.NextErr()
+}
+
+func (e *fakeEnviron) Provider() environs.EnvironProvider {
+	e.MethodCall(e, "Provider")
+	e.PopNoErr()
+	return e.provider
 }

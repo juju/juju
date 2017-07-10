@@ -583,7 +583,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PreUpgradeSteps:      a.preUpgradeSteps,
 			LogSource:            a.bufferedLogger.Logs(),
 			NewDeployContext:     newDeployContext,
-			NewEnvironFunc:       newEnvirons,
 			Clock:                clock.WallClock,
 			ValidateMigration:    a.validateMigration,
 			PrometheusRegisterer: a.prometheusRegistry,

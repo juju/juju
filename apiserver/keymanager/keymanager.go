@@ -41,7 +41,7 @@ type KeyManagerAPI struct {
 	state      *state.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
-	apiUser    *names.UserTag
+	apiUser    names.UserTag
 	check      *common.BlockChecker
 }
 
@@ -49,20 +49,15 @@ var _ KeyManager = (*KeyManagerAPI)(nil)
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
 func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*KeyManagerAPI, error) {
-	// Only clients and controllers can access the key manager service.
-	if !authorizer.AuthClient() && !authorizer.AuthController() {
+	// Only clients can access the key manager service.
+	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
-	}
-	var apiUser *names.UserTag
-	if authorizer.AuthClient() {
-		u, _ := authorizer.GetAuthTag().(names.UserTag)
-		apiUser = &u
 	}
 	return &KeyManagerAPI{
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
-		apiUser:    apiUser,
+		apiUser:    authorizer.GetAuthTag().(names.UserTag),
 		check:      common.NewBlockChecker(st),
 	}, nil
 }
@@ -73,13 +68,13 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 	} else if err != common.ErrPerm {
 		return errors.Trace(err)
 	}
-	if api.apiUser == nil || sshUser == config.JujuSystemKey {
+	if sshUser == config.JujuSystemKey {
 		// users cannot read the system key.
 		return common.ErrPerm
 	}
 	ok, err := common.HasPermission(
 		api.state.UserPermission,
-		*api.apiUser,
+		api.apiUser,
 		permission.ReadAccess,
 		api.state.ModelTag(),
 	)
@@ -93,14 +88,6 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 }
 
 func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
-	// Are we a machine agent writing the Juju system key.
-	if api.apiUser == nil {
-		if sshUser == config.JujuSystemKey {
-			return nil
-		}
-		// controllers can only modify the system key.
-		return common.ErrPerm
-	}
 	if sshUser == config.JujuSystemKey {
 		// users cannot modify the system key.
 		return common.ErrPerm
@@ -109,7 +96,7 @@ func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ok, err := common.HasModelAdmin(api.authorizer, *api.apiUser, api.state.ControllerTag(), model)
+	ok, err := common.HasModelAdmin(api.authorizer, api.apiUser, api.state.ControllerTag(), model)
 	if err != nil {
 		return errors.Trace(err)
 	}
