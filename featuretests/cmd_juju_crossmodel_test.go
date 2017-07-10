@@ -86,7 +86,7 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 		"admin/controller.varnish", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-admin/controller.varnish:
+kontroll:admin/controller.varnish:
   access: admin
   endpoints:
     webcache:
@@ -103,7 +103,7 @@ func (s *crossmodelSuite) TestShowOtherModel(c *gc.C) {
 		"otheruser/othermodel.hosted-mysql", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-otheruser/othermodel.hosted-mysql:
+kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
     database:
@@ -131,13 +131,13 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 		"admin/controller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-admin/controller.riak:
+kontroll:admin/controller.riak:
   access: admin
   endpoints:
     endpoint:
       interface: http
       role: provider
-admin/controller.varnish:
+kontroll:admin/controller.varnish:
   access: admin
   endpoints:
     webcache:
@@ -153,7 +153,7 @@ func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-otheruser/othermodel.hosted-mysql:
+kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
     database:
@@ -169,19 +169,19 @@ func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(), "kontroll:", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-admin/controller.riak:
+kontroll:admin/controller.riak:
   access: admin
   endpoints:
     endpoint:
       interface: http
       role: provider
-admin/controller.varnish:
+kontroll:admin/controller.varnish:
   access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
-otheruser/othermodel.hosted-mysql:
+kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
     database:
@@ -397,7 +397,7 @@ func (s *crossmodelSuite) TestFindOffersWithPermission(c *gc.C) {
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-otheruser/othermodel.hosted-mysql:
+kontroll:otheruser/othermodel.hosted-mysql:
   access: read
   endpoints:
     database:

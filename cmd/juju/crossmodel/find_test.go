@@ -45,8 +45,8 @@ func (s *findSuite) TestFindNoArgs(c *gc.C) {
 		c,
 		[]string{},
 		`
-URL                   Access   Interfaces
-fred/test.hosted-db2  consume  http:db2, http:log
+Store   URL                   Access   Interfaces
+master  fred/test.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -84,8 +84,8 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--url", "fred/model.hosted-db2"},
 		`
-URL                    Access   Interfaces
-fred/model.hosted-db2  consume  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -106,8 +106,8 @@ func (s *findSuite) TestEndpointFilter(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--url", "fred/model", "--endpoint", "db", "--interface", "mysql"},
 		`
-URL                    Access   Interfaces
-fred/model.hosted-db2  consume  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -124,7 +124,7 @@ func (s *findSuite) TestFindYaml(c *gc.C) {
 		c,
 		[]string{"fred/model.hosted-db2", "--format", "yaml"},
 		`
-fred/model.hosted-db2:
+master:fred/model.hosted-db2:
   access: consume
   endpoints:
     db2:
@@ -143,8 +143,8 @@ func (s *findSuite) TestFindTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.hosted-db2", "--format", "tabular"},
 		`
-URL                    Access   Interfaces
-fred/model.hosted-db2  consume  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -155,10 +155,10 @@ func (s *findSuite) TestFindDifferentController(c *gc.C) {
 	s.mockAPI.controllerName = "different"
 	s.assertFind(
 		c,
-		[]string{"different:fred/model.hosted-db2", "--format", "tabular"},
+		[]string{"fred/model.hosted-db2", "--format", "tabular"},
 		`
-URL                              Access   Interfaces
-different:fred/model.hosted-db2  consume  http:db2, http:log
+Store      URL                    Access   Interfaces
+different  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -202,10 +202,11 @@ func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.Application
 	if s.results != nil {
 		return s.results, nil
 	}
-	offerURL := fmt.Sprintf("fred/%s.%s", s.expectedModelName, s.offerName)
-	if s.controllerName != "" {
-		offerURL = s.controllerName + ":" + offerURL
+	store := s.controllerName
+	if store == "" {
+		store = "master"
 	}
+	offerURL := fmt.Sprintf("%s:fred/%s.%s", store, s.expectedModelName, s.offerName)
 	return []params.ApplicationOffer{{
 		OfferURL:  offerURL,
 		OfferName: s.offerName,

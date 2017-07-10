@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 // formatFindTabular returns a tabular summary of remote applications or
@@ -28,17 +29,22 @@ func formatFindTabular(writer io.Writer, value interface{}) error {
 func formatFoundEndpointsTabular(writer io.Writer, all map[string]ApplicationOfferResult) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("URL", "Access", "Interfaces")
+	w.Println("Store", "URL", "Access", "Interfaces")
 
-	for url, one := range all {
-		applicationURL := url
+	for urlStr, one := range all {
+		url, err := crossmodel.ParseApplicationURL(urlStr)
+		if err != nil {
+			return err
+		}
+		store := url.Source
+		url.Source = ""
 
 		interfaces := []string{}
 		for name, ep := range one.Endpoints {
 			interfaces = append(interfaces, fmt.Sprintf("%s:%s", ep.Interface, name))
 		}
 		sort.Strings(interfaces)
-		w.Println(applicationURL, one.Access, strings.Join(interfaces, ", "))
+		w.Println(store, url.String(), one.Access, strings.Join(interfaces, ", "))
 	}
 	tw.Flush()
 
