@@ -1485,7 +1485,7 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 	defer rCloser()
 	scopes, sCloser := s.state.db().GetRawCollection(relationScopesC)
 	defer sCloser()
-	applications, aCloser := s.state.getRawCollection(applicationsC)
+	applications, aCloser := s.state.db().GetRawCollection(applicationsC)
 	defer aCloser()
 
 	// Use the non-controller model to ensure we can run the function
@@ -1780,7 +1780,7 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
-	models, closer := s.state.getRawCollection(modelsC)
+	models, closer := s.state.db().GetRawCollection(modelsC)
 	defer closer()
 
 	err := models.RemoveId(s.state.ModelUUID())

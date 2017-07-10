@@ -170,3 +170,46 @@ func (s *ModelUpgraderSuite) TestSetModelEnvironVersionArityMismatch(c *gc.C) {
 	err := client.SetModelEnvironVersion(modelTag, 1)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
+
+func (s *ModelUpgraderSuite) TestSetModelStatus(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "ModelUpgrader")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetModelStatus")
+		c.Check(arg, jc.DeepEquals, params.SetStatus{
+			Entities: []params.EntityStatusArgs{{
+				Tag:    modelTag.String(),
+				Status: "foo",
+				Info:   "bar",
+				Data: map[string]interface{}{
+					"baz": "qux",
+				},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Message: "foo"}}},
+		}
+		return nil
+	})
+
+	client := modelupgrader.NewClient(apiCaller)
+	err := client.SetModelStatus(modelTag, "foo", "bar", map[string]interface{}{
+		"baz": "qux",
+	})
+	c.Assert(err, gc.ErrorMatches, "foo")
+}
+
+func (s *ModelUpgraderSuite) TestSetModelStatusArityMismatch(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}, {}},
+		}
+		return nil
+	})
+
+	client := modelupgrader.NewClient(apiCaller)
+	err := client.SetModelStatus(modelTag, "foo", "bar", nil)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}

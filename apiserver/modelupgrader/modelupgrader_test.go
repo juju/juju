@@ -25,10 +25,11 @@ var (
 
 type ModelUpgraderSuite struct {
 	testing.IsolationSuite
-	backend    mockBackend
-	providers  mockProviderRegistry
-	watcher    mockWatcher
-	authorizer apiservertesting.FakeAuthorizer
+	backend      mockBackend
+	providers    mockProviderRegistry
+	watcher      mockWatcher
+	statusSetter mockStatusSetter
+	authorizer   apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&ModelUpgraderSuite{})
@@ -55,22 +56,23 @@ func (s *ModelUpgraderSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.watcher = mockWatcher{}
+	s.statusSetter = mockStatusSetter{}
 }
 
 func (s *ModelUpgraderSuite) TestAuthController(c *gc.C) {
-	_, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.authorizer)
+	_, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelUpgraderSuite) TestAuthNonController(c *gc.C) {
 	s.authorizer.Controller = false
 	s.authorizer.Tag = names.NewUserTag("admin")
-	_, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.authorizer)
+	_, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
 func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.authorizer)
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelEnvironVersion(params.Entities{
 		Entities: []params.Entity{
@@ -99,7 +101,7 @@ func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 
 func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	s.providers.SetErrors(nil, errors.New("blargh"))
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.authorizer)
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelTargetEnvironVersion(params.Entities{
 		Entities: []params.Entity{
@@ -134,7 +136,7 @@ func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 }
 
 func (s *ModelUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.authorizer)
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelEnvironVersion(params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{
@@ -154,6 +156,35 @@ func (s *ModelUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
 	})
 	s.backend.models[modelTag1].CheckCalls(c, []testing.StubCall{
 		{"SetEnvironVersion", []interface{}{int(1)}},
+	})
+}
+
+func (s *ModelUpgraderSuite) TestSetModelStatus(c *gc.C) {
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{{
+			Tag:    "machine-0",
+			Status: "bar",
+			Info:   "baz",
+			Data: map[string]interface{}{
+				"qux": "quux",
+			},
+		}},
+	}
+	s.statusSetter.results = params.ErrorResults{
+		Results: []params.ErrorResult{
+			{&params.Error{Message: `"machine-0" is not a valid model tag`}},
+		},
+	}
+
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := facade.SetModelStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, s.statusSetter.results)
+	s.backend.CheckNoCalls(c)
+	s.backend.models[modelTag1].CheckNoCalls(c)
+	s.statusSetter.CheckCalls(c, []testing.StubCall{
+		{"SetStatus", []interface{}{args}},
 	})
 }
 
@@ -231,4 +262,14 @@ func (m *mockProvider) Version() int {
 	m.MethodCall(m, "Version")
 	m.PopNoErr()
 	return m.version
+}
+
+type mockStatusSetter struct {
+	testing.Stub
+	results params.ErrorResults
+}
+
+func (m *mockStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+	m.MethodCall(m, "SetStatus", args)
+	return m.results, m.NextErr()
 }
