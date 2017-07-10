@@ -100,6 +100,11 @@ func (p ManualProvider) PrepareConfig(args environs.PrepareConfigParams) (*confi
 	return args.Config.Apply(envConfig.attrs)
 }
 
+// Version is part of the EnvironProvider interface.
+func (ManualProvider) Version() int {
+	return 0
+}
+
 func (p ManualProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)

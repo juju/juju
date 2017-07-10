@@ -230,6 +230,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"LatestAvailableTools",
 		"SLA",
 		"MeterStatus",
+		"EnvironVersion",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }

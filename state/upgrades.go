@@ -865,14 +865,10 @@ func SplitLogCollections(st *State) error {
 		delete(doc, "e") // old model uuid
 
 		if err := newLogs.Insert(doc); err != nil {
-			// In the case of a restart, we may have already moved some
-			// of these rows, in which case we'd get a duplicate id error.
-			if merr, ok := err.(*mgo.LastError); ok {
-				if merr.Code != 11000 {
-					return errors.Annotate(err, "failed to insert log record")
-				}
-				// Otherwise we just skip the duplicate row.
-			} else {
+			// In the case of a restart, we may have already moved
+			// some of these rows, in which case we'd get a duplicate
+			// id error (this is OK).
+			if !mgo.IsDup(err) {
 				return errors.Annotate(err, "failed to insert log record")
 			}
 		}
@@ -881,16 +877,28 @@ func SplitLogCollections(st *State) error {
 
 	// drop the old collection
 	if err := oldLogs.DropCollection(); err != nil {
-		// If the error is &mgo.QueryError{Code:26, Message:"ns not found", Assertion:false}
-		// that's fine.
-		if merr, ok := err.(*mgo.QueryError); ok {
-			if merr.Code == 26 {
-				return nil
-			}
+		// If the namespace is already missing, that's fine.
+		if isMgoNamespaceNotFound(err) {
+			return nil
 		}
 		return errors.Annotate(err, "failed to drop old logs collection")
 	}
 	return nil
+}
+
+func isMgoNamespaceNotFound(err error) bool {
+	// Check for &mgo.QueryError{Code:26, Message:"ns not found"}
+	if qerr, ok := err.(*mgo.QueryError); ok {
+		if qerr.Code == 26 {
+			return true
+		}
+		// For older mongodb's Code isn't set. Use the message
+		// instead.
+		if qerr.Message == "ns not found" {
+			return true
+		}
+	}
+	return false
 }
 
 type relationUnitCountInfo struct {
@@ -899,16 +907,33 @@ type relationUnitCountInfo struct {
 	unitCount int
 }
 
+func (i *relationUnitCountInfo) otherEnd(appName string) (string, error) {
+	for _, name := range i.endpoints.Values() {
+		// TODO(babbageclunk): can a non-peer relation have one app for both endpoints?
+		if name != appName {
+			return name, nil
+		}
+	}
+	return "", errors.Errorf("couldn't find other end of %q for %q", i.docId, appName)
+}
+
 // CorrectRelationUnitCounts ensures that there aren't any rows in
 // relationscopes for applications that shouldn't be there. Fix for
 // https://bugs.launchpad.net/juju/+bug/1699050
 func CorrectRelationUnitCounts(st *State) error {
+	applicationsColl, aCloser := st.db().GetRawCollection(applicationsC)
+	defer aCloser()
+
 	relationsColl, rCloser := st.db().GetRawCollection(relationsC)
 	defer rCloser()
 
 	scopesColl, sCloser := st.db().GetRawCollection(relationScopesC)
 	defer sCloser()
 
+	applications, err := collectApplicationInfo(applicationsColl)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	relations, err := collectRelationInfo(relationsColl)
 	if err != nil {
 		return errors.Trace(err)
@@ -948,6 +973,17 @@ func CorrectRelationUnitCounts(st *State) error {
 			continue
 		}
 
+		unit := keyParts[len(keyParts)-1]
+		subordinate, err := otherEndIsSubordinate(relation, unit, scope.ModelUUID, applications)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if subordinate {
+			// The other end for this unit is for a subordinate
+			// application, allow those.
+			continue
+		}
+
 		// This scope record needs to be removed and the unit count updated.
 		relation.unitCount--
 		relationsToUpdate.Add(relationKey)
@@ -976,6 +1012,22 @@ func CorrectRelationUnitCounts(st *State) error {
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
+}
+
+func collectApplicationInfo(coll *mgo.Collection) (map[string]bool, error) {
+	results := make(map[string]bool)
+	var doc struct {
+		Id          string `bson:"_id"`
+		Subordinate bool   `bson:"subordinate"`
+	}
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		results[doc.Id] = doc.Subordinate
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
 }
 
 func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInfo, error) {
@@ -1011,11 +1063,61 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	return relations, nil
 }
 
+func unitApp(unitName string) string {
+	unitParts := strings.Split(unitName, "/")
+	return unitParts[0]
+}
+
 func extractPrincipalUnitApp(scopeKeyParts []string) (string, bool) {
 	if len(scopeKeyParts) < 5 {
 		return "", false
 	}
-	unitName := scopeKeyParts[2]
-	unitParts := strings.Split(unitName, "/")
-	return unitParts[0], true
+	return unitApp(scopeKeyParts[2]), true
+}
+
+func otherEndIsSubordinate(relation *relationUnitCountInfo, unitName, modelUUID string, applications map[string]bool) (bool, error) {
+	app, err := relation.otherEnd(unitApp(unitName))
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	appKey := fmt.Sprintf("%s:%s", modelUUID, app)
+	res, ok := applications[appKey]
+	if !ok {
+		return false, errors.Errorf("can't determine whether %q is subordinate", appKey)
+	}
+	return res, nil
+}
+
+// AddModelEnvironVersion ensures that all model docs have an environ-version
+// field. For those that do not have one, they are seeded with version zero.
+// This will force all environ upgrade steps to be run; there are only two
+// providers (azure and vsphere) that had upgrade steps at the time, and the
+// upgrade steps are required to be idempotent anyway.
+func AddModelEnvironVersion(st *State) error {
+	coll, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	var doc struct {
+		UUID           string `bson:"_id"`
+		Cloud          string `bson:"cloud"`
+		EnvironVersion *int   `bson:"environ-version,omitempty"`
+	}
+
+	var ops []txn.Op
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		if doc.EnvironVersion != nil {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      modelsC,
+			Id:     doc.UUID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"environ-version", 0}}}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction(ops)
 }

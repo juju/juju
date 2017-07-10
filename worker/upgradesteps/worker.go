@@ -108,7 +108,6 @@ func NewWorker(
 		preUpgradeSteps: preUpgradeSteps,
 		machine:         machine,
 		tag:             tag,
-		newEnviron:      newEnvironFunc,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -125,7 +124,6 @@ type upgradesteps struct {
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
-	newEnviron      environs.NewEnvironFunc
 	machine         StatusSetter
 
 	fromVersion  version.Number
@@ -341,7 +339,7 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
 	stBackend := upgrades.NewStateBackend(w.st)
-	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend, w.newEnviron)
+	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := jobsToTargets(w.jobs, w.isMaster)

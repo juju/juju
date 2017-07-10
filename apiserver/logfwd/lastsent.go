@@ -46,7 +46,7 @@ type LogForwardingAPI struct {
 
 // NewLogForwardingAPI creates a new server-side logger API end point.
 func NewLogForwardingAPI(st LogForwardingState, auth facade.Authorizer) (*LogForwardingAPI, error) {
-	if !auth.AuthMachineAgent() { // the controller's machine agent
+	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	api := &LogForwardingAPI{

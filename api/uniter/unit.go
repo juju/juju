@@ -170,7 +170,7 @@ func (u *Unit) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.facade, u.tag)
+	return common.Watch(u.st.facade, "Watch", u.tag)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to

@@ -29,7 +29,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v5) of the Uniter API.
+// UniterAPI implements the latest version (v6) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -51,14 +51,21 @@ type UniterAPI struct {
 	StorageAPI
 }
 
+// UniterAPIV5 returns a RelationResultsV5 instead of RelationResults
+// from Relation and RelationById - elements don't have an
+// OtherApplication field.
+type UniterAPIV5 struct {
+	UniterAPI
+}
+
 // UniterAPIV4 has old WatchApplicationRelations and NetworkConfig
 // methods, and doesn't have the new SLALevel, NetworkInfo or
 // WatchUnitRelations methods.
 type UniterAPIV4 struct {
-	UniterAPI
+	UniterAPIV5
 }
 
-// newUniterAPI creates a new instance of the core Uniter API.
+// NewUniterAPI creates a new instance of the core Uniter API.
 func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -145,14 +152,25 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 	}, nil
 }
 
-// NewUniterAPIV4 creates an instance of the V4 uniter API.
-func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV4, error) {
+// NewUniterAPIV5 creates an instance of the V5 uniter API.
+func NewUniterAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV5, error) {
 	uniterAPI, err := NewUniterAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV4{
+	return &UniterAPIV5{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV4 creates an instance of the V4 uniter API.
+func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV4, error) {
+	uniterAPI, err := NewUniterAPIV5(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV4{
+		UniterAPIV5: *uniterAPI,
 	}, nil
 }
 
@@ -1329,6 +1347,14 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 		// relation.
 		return nothing, err
 	}
+	var otherAppName string
+	otherEndpoints, err := rel.RelatedEndpoints(unit.ApplicationName())
+	if err != nil {
+		return nothing, err
+	}
+	for _, otherEp := range otherEndpoints {
+		otherAppName = otherEp.ApplicationName
+	}
 	return params.RelationResult{
 		Id:   rel.Id(),
 		Key:  rel.String(),
@@ -1337,6 +1363,7 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 			ApplicationName: ep.ApplicationName,
 			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
 		},
+		OtherApplication: otherAppName,
 	}, nil
 }
 
@@ -1813,6 +1840,40 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	}
 
 	return results, nil
+}
+
+func relationResultsToV5(v6Results params.RelationResults) params.RelationResultsV5 {
+	results := make([]params.RelationResultV5, len(v6Results.Results))
+	for i, v6Result := range v6Results.Results {
+		results[i].Error = v6Result.Error
+		results[i].Life = v6Result.Life
+		results[i].Id = v6Result.Id
+		results[i].Key = v6Result.Key
+		results[i].Endpoint = v6Result.Endpoint
+	}
+	return params.RelationResultsV5{Results: results}
+}
+
+// Relation returns information about all given relation/unit pairs,
+// including their id, key and the local endpoint (without other
+// application name).
+func (u *UniterAPIV5) Relation(args params.RelationUnits) (params.RelationResultsV5, error) {
+	v6Results, err := u.UniterAPI.Relation(args)
+	if err != nil {
+		return params.RelationResultsV5{}, errors.Trace(err)
+	}
+	return relationResultsToV5(v6Results), nil
+}
+
+// RelationById returns information about all given relations,
+// specified by their ids, including their key and the local
+// endpoint (without other application name).
+func (u *UniterAPIV5) RelationById(args params.RelationIds) (params.RelationResultsV5, error) {
+	v6Results, err := u.UniterAPI.RelationById(args)
+	if err != nil {
+		return params.RelationResultsV5{}, errors.Trace(err)
+	}
+	return relationResultsToV5(v6Results), nil
 }
 
 // WatchApplicationRelations returns a StringsWatcher, for each given

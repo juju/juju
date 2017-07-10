@@ -23,7 +23,6 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -128,10 +127,6 @@ type ManifoldsConfig struct {
 	// tests can be run without waiting for the 5s watcher refresh time to which we would
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
-
-	// NewEnvironFunc is a function opens a provider "environment"
-	// (typically environs.New).
-	NewEnvironFunc environs.NewEnvironFunc
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
@@ -339,7 +334,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
-			NewEnvironFunc:       config.NewEnvironFunc,
 		}),
 
 		// The migration workers collaborate to run migrations;

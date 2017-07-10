@@ -18,6 +18,13 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.vmware")
 
+const (
+	// provider version 1 organises VMs into folders.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
+)
+
 type environProvider struct {
 	environProviderCredentials
 	dial           DialFunc
@@ -48,6 +55,11 @@ func NewEnvironProvider(config EnvironProviderConfig) environs.EnvironProvider {
 		ovaCacheDir:    config.OVACacheDir,
 		ovaCacheLocker: config.OVACacheLocker,
 	}
+}
+
+// Version implements environs.EnvironProvider.
+func (p *environProvider) Version() int {
+	return currentProviderVersion
 }
 
 // Open implements environs.EnvironProvider.

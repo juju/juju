@@ -89,6 +89,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 			Cloud:           "cloud-aws",
 			CloudRegion:     "us-west-1",
 			CloudCredential: "aws#fred@local#default",
+			EnvironVersion:  0,
 		},
 		modelDoc{
 			UUID:            "0000-dead-beaf-0002",
@@ -98,6 +99,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 			Cloud:           "cloud-aws",
 			CloudRegion:     "us-west-1",
 			CloudCredential: "aws#mary@external#default",
+			EnvironVersion:  0,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,6 +121,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"migration-mode":   "",
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
+		"environ-version":  0,
 	}, {
 		"_id":              "0000-dead-beaf-0002",
 		"owner":            "user-mary@external",
@@ -131,6 +134,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"migration-mode":   "",
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
+		"environ-version":  0,
 	},
 		initialModel,
 	}
@@ -1481,6 +1485,8 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 	defer rCloser()
 	scopes, sCloser := s.state.db().GetRawCollection(relationScopesC)
 	defer sCloser()
+	applications, aCloser := s.state.db().GetRawCollection(applicationsC)
+	defer aCloser()
 
 	// Use the non-controller model to ensure we can run the function
 	// across multiple models.
@@ -1533,6 +1539,33 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 			},
 		}},
 		"unitcount": 2,
+	}, bson.M{
+		"_id":        uuid + ":ntp:juju-info nrpe:general-info",
+		"key":        "ntp:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         5,
+		"endpoints": []bson.M{{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, {
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1576,6 +1609,44 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 		"key":        "r#3#peer#ntp/1",
 		"model-uuid": uuid,
 		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/0#provider#ntp/0",
+		"key":        "r#5#min/0#provider#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/0#requirer#nrpe/0",
+		"key":        "r#5#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/1#provider#ntp/1",
+		"key":        "r#5#min/1#provider#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/1#requirer#nrpe/1",
+		"key":        "r#5#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = applications.Insert(bson.M{
+		"_id":         uuid + ":min",
+		"name":        "min",
+		"model-uuid":  uuid,
+		"subordinate": false,
+	}, bson.M{
+		"_id":         uuid + ":ntp",
+		"name":        "ntp",
+		"model-uuid":  uuid,
+		"subordinate": true,
+	}, bson.M{
+		"_id":         uuid + ":nrpe",
+		"name":        "nrpe",
+		"model-uuid":  uuid,
+		"subordinate": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1586,6 +1657,33 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 		"id":         4,
 		"endpoints": []interface{}{bson.M{
 			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, bson.M{
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
+	}, {
+		"_id":        uuid + ":ntp:juju-info nrpe:general-info",
+		"key":        "ntp:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         5,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "ntp",
 			"relation": bson.M{
 				"name":      "juju-info",
 				"role":      "provider",
@@ -1654,9 +1752,56 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 		"key":        "r#4#min/1#requirer#nrpe/1",
 		"model-uuid": uuid,
 		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/0#provider#ntp/0",
+		"key":        "r#5#min/0#provider#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/0#requirer#nrpe/0",
+		"key":        "r#5#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/1#provider#ntp/1",
+		"key":        "r#5#min/1#provider#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/1#requirer#nrpe/1",
+		"key":        "r#5#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
 	}}
 	s.assertUpgradedData(c, CorrectRelationUnitCounts,
 		expectUpgradedData{relations, expectedRelations},
 		expectUpgradedData{scopes, expectedScopes},
+	)
+}
+
+func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
+	models, closer := s.state.db().GetRawCollection(modelsC)
+	defer closer()
+
+	err := models.RemoveId(s.state.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = models.Insert(bson.M{
+		"_id": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	}, bson.M{
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"environ-version": 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedModels := []bson.M{{
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"environ-version": 0,
+	}, {
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"environ-version": 1,
+	}}
+	s.assertUpgradedData(c, AddModelEnvironVersion,
+		expectUpgradedData{models, expectedModels},
 	)
 }

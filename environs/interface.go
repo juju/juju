@@ -24,6 +24,12 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
+	// Version returns the version of the provider. This is recorded as the
+	// environ version for each model, and used to identify which upgrade
+	// operations to run when upgrading a model's environ. Providers should
+	// start out at version 0.
+	Version() int
+
 	// CloudSchema returns the schema used to validate input for add-cloud.  If
 	// a provider does not suppport custom clouds, CloudSchema should return
 	// nil.
@@ -431,17 +437,20 @@ type Upgrader interface {
 // UpgradeOperationsParams contains the parameters for
 // Upgrader.UpgradeOperations.
 type UpgradeOperationsParams struct {
-	// ControllerUUID is the UUID of the controller to be that contains
-	// the Environ that is to be upgraded.
+	// ControllerUUID is the UUID of the controller that manages
+	// the Environ being upgraded.
 	ControllerUUID string
 }
 
 // UpgradeOperation contains a target agent version and sequence of upgrade
 // steps to apply to get to that version.
 type UpgradeOperation struct {
-	// TargetVersion is the target agent version number to which the
-	// upgrade steps pertain.
-	TargetVersion version.Number
+	// TargetVersion is the target environ provider version number to
+	// which the upgrade steps pertain. When a model is upgraded, all
+	// upgrade operations will be run for versions greater than the
+	// recorded environ version. This version number is independent of
+	// the agent and controller versions.
+	TargetVersion int
 
 	// Steps contains the sequence of upgrade steps to apply when
 	// upgrading to the accompanying target version number.

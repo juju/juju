@@ -304,7 +304,8 @@ func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("application %q is not a member of %q", applicationname, r)
+	msg := fmt.Sprintf("application %q is not a member of %q", applicationname, r)
+	return Endpoint{}, errors.NewNotFound(nil, msg)
 }
 
 // Endpoints returns the endpoints for the relation.

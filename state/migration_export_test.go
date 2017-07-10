@@ -164,6 +164,9 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
+	environVersion := 123
+	err = stModel.SetEnvironVersion(environVersion)
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,6 +183,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	modelCfg["resource-tags"] = map[string]string{}
 	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
+	c.Assert(model.EnvironVersion(), gc.Equals, environVersion)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
 	c.Assert(constraints, gc.NotNil)

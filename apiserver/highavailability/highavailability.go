@@ -39,8 +39,8 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 
 // NewHighAvailabilityAPI creates a new server-side highavailability API end point.
 func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*HighAvailabilityAPI, error) {
-	// Only clients and model managers can access the high availability facade.
-	if !authorizer.AuthClient() && !authorizer.AuthController() {
+	// Only clients can access the high availability facade.
+	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &HighAvailabilityAPI{

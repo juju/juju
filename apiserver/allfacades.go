@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/apiserver/migrationtarget" // ModelUser Write
 	"github.com/juju/juju/apiserver/modelconfig"     // ModelUser Write
 	"github.com/juju/juju/apiserver/modelmanager"    // ModelUser Write
+	"github.com/juju/juju/apiserver/modelupgrader"
 	"github.com/juju/juju/apiserver/payloads"
 	"github.com/juju/juju/apiserver/payloadshookcontext"
 	"github.com/juju/juju/apiserver/provisioner"
@@ -167,6 +168,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelConfig", 1, modelconfig.NewFacade)
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
+	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)
 	regHookContext(
@@ -205,7 +207,8 @@ func AllFacades() *facade.Registry {
 	reg("UnitAssigner", 1, unitassigner.New)
 
 	reg("Uniter", 4, uniter.NewUniterAPIV4)
-	reg("Uniter", 5, uniter.NewUniterAPI)
+	reg("Uniter", 5, uniter.NewUniterAPIV5)
+	reg("Uniter", 6, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)

@@ -96,6 +96,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
+		EnvironVersion:     dbModel.EnvironVersion(),
 		Blocks:             blocks,
 	}
 	export.model = description.NewModel(args)

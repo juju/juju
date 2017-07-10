@@ -38,6 +38,8 @@ type modelBackend interface {
 	clock() clock.Clock
 	db() Database
 	modelUUID() string
+	modelName() (string, error)
+	isController() bool
 	txnLogWatcher() *watcher.Watcher
 }
 
@@ -67,6 +69,18 @@ func (st *State) clock() clock.Clock {
 
 func (st *State) modelUUID() string {
 	return st.ModelUUID()
+}
+
+func (st *State) modelName() (string, error) {
+	m, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return m.Name(), nil
+}
+
+func (st *State) isController() bool {
+	return st.IsController()
 }
 
 func (st *State) nowToTheSecond() time.Time {
