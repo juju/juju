@@ -20,6 +20,7 @@ type Facade struct {
 	backend       Backend
 	providers     ProviderRegistry
 	entityWatcher EntityWatcher
+	statusSetter  StatusSetter
 }
 
 // EntityWatcher is an interface that provides a means of watching
@@ -34,6 +35,12 @@ type ProviderRegistry interface {
 	Provider(string) (environs.EnvironProvider, error)
 }
 
+// StatusSetter is an interface that provides a means of setting
+// the status of entities.
+type StatusSetter interface {
+	SetStatus(params.SetStatus) (params.ErrorResults, error)
+}
+
 // NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	backend := NewStateBackend(ctx.State())
@@ -43,7 +50,11 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		ctx.Resources(),
 		common.AuthFuncForTagKind(names.ModelTagKind),
 	)
-	return NewFacade(backend, registry, watcher, ctx.Auth())
+	statusSetter := common.NewStatusSetter(
+		ctx.State(),
+		common.AuthFuncForTagKind(names.ModelTagKind),
+	)
+	return NewFacade(backend, registry, watcher, statusSetter, ctx.Auth())
 }
 
 // NewFacade returns a new Facade using the given Backend and Authorizer.
@@ -51,6 +62,7 @@ func NewFacade(
 	backend Backend,
 	providers ProviderRegistry,
 	entityWatcher EntityWatcher,
+	statusSetter StatusSetter,
 	auth facade.Authorizer,
 ) (*Facade, error) {
 	if !auth.AuthController() {
@@ -60,6 +72,7 @@ func NewFacade(
 		backend:       backend,
 		providers:     providers,
 		entityWatcher: entityWatcher,
+		statusSetter:  statusSetter,
 	}, nil
 }
 
@@ -164,4 +177,9 @@ func (f *Facade) setModelEnvironVersion(arg params.SetModelEnvironVersion) error
 // the client may be notified of changes unrelated to the environ version.
 func (f *Facade) WatchModelEnvironVersion(args params.Entities) (params.NotifyWatchResults, error) {
 	return f.entityWatcher.Watch(args)
+}
+
+// SetModelStatus sets the status of each given model.
+func (f *Facade) SetModelStatus(args params.SetStatus) (params.ErrorResults, error) {
+	return f.statusSetter.SetStatus(args)
 }
