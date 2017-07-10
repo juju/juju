@@ -14,6 +14,7 @@ import (
 	tomb "gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/modelupgrader"
@@ -47,6 +48,8 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockEnviron.CheckCallNames(c, "UpgradeOperations")
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
@@ -68,6 +71,8 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 }
@@ -117,12 +122,14 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 125", nilData}},
 		{"SetModelEnvironVersion", []interface{}{
 			coretesting.ModelTag, 124,
 		}},
 		{"SetModelEnvironVersion", []interface{}{
 			coretesting.ModelTag, 125,
 		}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockEnviron.CheckCalls(c, []testing.StubCall{
 		{"UpgradeOperations", []interface{}{environs.UpgradeOperationsParams{
@@ -131,6 +138,40 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 	})
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 	stepsStub.CheckCallNames(c, "step124_0", "step124_1", "step125")
+}
+
+func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
+	var stepsStub testing.Stub
+	stepsStub.SetErrors(errors.New("phooey"))
+	mockFacade := mockFacade{current: 123, target: 124}
+	mockEnviron := mockEnviron{
+		ops: []environs.UpgradeOperation{{
+			TargetVersion: 124,
+			Steps: []environs.UpgradeStep{
+				newStep(&stepsStub, "step124"),
+			},
+		}},
+	}
+	mockGateUnlocker := mockGateUnlocker{}
+	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+		Facade:        &mockFacade,
+		Environ:       &mockEnviron,
+		GateUnlocker:  &mockGateUnlocker,
+		ControllerTag: coretesting.ControllerTag,
+		ModelTag:      coretesting.ModelTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, gc.ErrorMatches, "upgrading environ: phooey")
+
+	mockFacade.CheckCalls(c, []testing.StubCall{
+		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
+		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
+		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Error, "failed to upgrade environ: phooey", nilData}},
+	})
+	mockGateUnlocker.CheckNoCalls(c)
 }
 
 func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
@@ -246,6 +287,13 @@ func (f *mockFacade) WatchModelEnvironVersion(tag names.ModelTag) (watcher.Notif
 		return f.watcher, nil
 	}
 	return nil, errors.New("unexpected call to WatchModelEnvironVersion")
+}
+
+var nilData map[string]interface{}
+
+func (f *mockFacade) SetModelStatus(tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
+	f.MethodCall(f, "SetModelStatus", tag, status, info, data)
+	return f.NextErr()
 }
 
 type mockEnviron struct {

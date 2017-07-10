@@ -283,7 +283,8 @@ func ValidModelStatus(status Status) bool {
 	case
 		Available,
 		Busy,
-		Destroying:
+		Destroying,
+		Error:
 		return true
 	default:
 		return false

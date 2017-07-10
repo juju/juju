@@ -4,12 +4,15 @@
 package modelupgrader
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -24,6 +27,7 @@ type Facade interface {
 	ModelEnvironVersion(tag names.ModelTag) (int, error)
 	ModelTargetEnvironVersion(tag names.ModelTag) (int, error)
 	SetModelEnvironVersion(tag names.ModelTag, v int) error
+	SetModelStatus(names.ModelTag, status.Status, string, map[string]interface{}) error
 	WatchModelEnvironVersion(tag names.ModelTag) (watcher.NotifyWatcher, error)
 }
 
@@ -166,6 +170,17 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 		setVersion := func(v int) error {
 			return config.Facade.SetModelEnvironVersion(config.ModelTag, v)
 		}
+		setStatus := func(s status.Status, info string) error {
+			return config.Facade.SetModelStatus(config.ModelTag, s, info, nil)
+		}
+		if targetVersion > currentVersion {
+			if err := setStatus(status.Busy, fmt.Sprintf(
+				"upgrading environ from version %d to %d",
+				currentVersion, targetVersion,
+			)); err != nil {
+				return errors.Trace(err)
+			}
+		}
 		if err := runEnvironUpgradeSteps(
 			config.Environ,
 			config.ControllerTag,
@@ -174,7 +189,14 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 			targetVersion,
 			setVersion,
 		); err != nil {
+			info := fmt.Sprintf("failed to upgrade environ: %s", err)
+			if err := setStatus(status.Error, info); err != nil {
+				logger.Warningf("failed to update model status: %v", err)
+			}
 			return errors.Annotate(err, "upgrading environ")
+		}
+		if err := setStatus(status.Available, ""); err != nil {
+			return errors.Trace(err)
 		}
 		config.GateUnlocker.Unlock()
 		return nil
