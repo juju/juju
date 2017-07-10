@@ -49,14 +49,14 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 }
 
-func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C) {
+func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc.C) {
 	tests := []struct {
 		tag            names.Tag
 		environManager bool
 		expectedError  string
 	}{
-		{names.NewUnitTag("mysql/0"), true, "permission denied"},
-		{names.NewLocalUserTag("admin"), true, "permission denied"},
+		{names.NewUnitTag("mysql/0"), false, "permission denied"},
+		{names.NewLocalUserTag("admin"), false, "permission denied"},
 		{names.NewMachineTag("0"), false, "permission denied"},
 		{names.NewMachineTag("0"), true, ""},
 	}

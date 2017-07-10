@@ -22,7 +22,6 @@ type LastSentSuite struct {
 
 	stub       *testing.Stub
 	state      *stubState
-	machineTag names.MachineTag
 	authorizer apiservertesting.FakeAuthorizer
 }
 
@@ -33,16 +32,26 @@ func (s *LastSentSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.state = &stubState{stub: s.stub}
-	s.machineTag = names.NewMachineTag("99")
-	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.machineTag,
+		Tag:        names.NewMachineTag("99"),
+		Controller: true,
 	}
 }
 
 func (s *LastSentSuite) TestAuthRefusesUser(c *gc.C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewUserTag("bob")
+	anAuthorizer := apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("bob"),
+	}
+
+	_, err := logfwd.NewLogForwardingAPI(s.state, anAuthorizer)
+
+	c.Check(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *LastSentSuite) TestAuthRefusesNonController(c *gc.C) {
+	anAuthorizer := apiservertesting.FakeAuthorizer{
+		Tag: names.NewMachineTag("99"),
+	}
 
 	_, err := logfwd.NewLogForwardingAPI(s.state, anAuthorizer)
 
