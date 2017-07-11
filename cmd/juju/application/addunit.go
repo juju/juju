@@ -172,6 +172,7 @@ func (c *addUnitCommand) Init(args []string) error {
 // serviceAddUnitAPI defines the methods on the client API
 // that the application add-unit command calls.
 type serviceAddUnitAPI interface {
+	BestAPIVersion() int
 	Close() error
 	ModelUUID() string
 	AddUnits(application.AddUnitsParams) ([]string, error)
@@ -196,6 +197,12 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
+
+	if len(c.AttachStorage) > 0 && apiclient.BestAPIVersion() < 5 {
+		// AddUnitsPArams.AttachStorage is only supported from
+		// Application API version 5 and onwards.
+		return errors.New("this juju controller does not support --attach-storage")
+	}
 
 	for i, p := range c.Placement {
 		if p.Scope == "model-uuid" {

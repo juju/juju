@@ -26,12 +26,17 @@ type AddUnitSuite struct {
 }
 
 type fakeServiceAddUnitAPI struct {
-	envType       string
-	application   string
-	numUnits      int
-	placement     []*instance.Placement
-	attachStorage []string
-	err           error
+	envType        string
+	application    string
+	numUnits       int
+	placement      []*instance.Placement
+	attachStorage  []string
+	bestAPIVersion int
+	err            error
+}
+
+func (f *fakeServiceAddUnitAPI) BestAPIVersion() int {
+	return f.bestAPIVersion
 }
 
 func (f *fakeServiceAddUnitAPI) Close() error {
@@ -70,7 +75,12 @@ func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 
 func (s *AddUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeServiceAddUnitAPI{application: "some-application-name", numUnits: 1, envType: "dummy"}
+	s.fake = &fakeServiceAddUnitAPI{
+		application:    "some-application-name",
+		numUnits:       1,
+		envType:        "dummy",
+		bestAPIVersion: 5,
+	}
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -143,6 +153,12 @@ func (s *AddUnitSuite) TestAddUnitAttachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 3)
 	c.Assert(s.fake.attachStorage, jc.DeepEquals, []string{"foo/0", "bar/1"})
+}
+
+func (s *AddUnitSuite) TestAddUnitAttachStorageNotSupported(c *gc.C) {
+	s.fake.bestAPIVersion = 4 // v4 does not support attach-storage
+	err := s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
+	c.Assert(err, gc.ErrorMatches, "this juju controller does not support --attach-storage")
 }
 
 func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {

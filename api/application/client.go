@@ -108,8 +108,13 @@ type DeployArgs struct {
 // it. Placement directives, if provided, specify the machine on which the charm
 // is deployed.
 func (c *Client) Deploy(args DeployArgs) error {
-	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
-		return errors.New("cannot attach existing storage when more than one unit is requested")
+	if len(args.AttachStorage) > 0 {
+		if args.NumUnits != 1 {
+			return errors.New("cannot attach existing storage when more than one unit is requested")
+		}
+		if c.BestAPIVersion() < 5 {
+			return errors.New("this juju controller does not support AttachStorage")
+		}
 	}
 	attachStorage := make([]string, len(args.AttachStorage))
 	for i, id := range args.AttachStorage {
@@ -258,8 +263,13 @@ type AddUnitsParams struct {
 // AddUnits adds a given number of units to an application using the specified
 // placement directives to assign units to machines.
 func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
-	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
-		return nil, errors.New("cannot attach existing storage when more than one unit is requested")
+	if len(args.AttachStorage) > 0 {
+		if args.NumUnits != 1 {
+			return nil, errors.New("cannot attach existing storage when more than one unit is requested")
+		}
+		if c.BestAPIVersion() < 5 {
+			return nil, errors.New("this juju controller does not support AttachStorage")
+		}
 	}
 	attachStorage := make([]string, len(args.AttachStorage))
 	for i, id := range args.AttachStorage {

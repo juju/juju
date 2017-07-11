@@ -1433,6 +1433,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type": "foo",
 	})
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(5)
 	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
 	withCharmDeployable(
@@ -1446,6 +1447,28 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 		"--attach-storage", "bar/1,baz/2",
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	})
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(4) // v4 doesn't support attach-storage
+	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
+	withCharmDeployable(
+		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, []string{"foo/0", "bar/1", "baz/2"},
+	)
+
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(), "--attach-storage", "foo/0")
+	c.Assert(err, gc.ErrorMatches, "this juju controller does not support --attach-storage")
 }
 
 // fakeDeployAPI is a mock of the API used by the deploy command. It's
