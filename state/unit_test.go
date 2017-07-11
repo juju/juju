@@ -40,7 +40,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "wordpress")
 	var err error
-	s.service = s.AddTestingService(c, "wordpress", s.charm)
+	s.service = s.AddTestingApplication(c, "wordpress", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
 	s.unit, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,7 +165,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 	subCharm := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "logging", subCharm)
+	s.AddTestingApplication(c, "logging", subCharm)
 	eps, err := s.State.InferEndpoints("wordpress", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -845,7 +845,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyAssignedUnit(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	// A unit with subordinates is just set to Dying.
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToNewMachine()
@@ -1389,7 +1389,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 		// principal entering scope; and a given principal can only have a
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
-		s.AddTestingService(c, name, subCharm)
+		s.AddTestingApplication(c, name, subCharm)
 		eps, err := s.State.InferEndpoints(name, "wordpress")
 		c.Assert(err, jc.ErrorIsNil)
 		rel, err := s.State.AddRelation(eps...)
@@ -1427,7 +1427,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	// Create a new unit and add a subordinate.
 	u, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1465,7 +1465,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "logging", subCharm)
+	s.AddTestingApplication(c, "logging", subCharm)
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1494,7 +1494,7 @@ func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 
 func (s *UnitSuite) TestRelations(c *gc.C) {
 	wordpress0 := s.unit
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
@@ -1566,7 +1566,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// Add a relation between wordpress and mysql...
 	wordpress := s.service
 	wordpress0 := s.unit
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1613,7 +1613,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// Add a relation between wordpress and mysql...
 	wordpress := s.service
 	wordpress0 := s.unit
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1676,7 +1676,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 		// principal entering scope; and a given principal can only have a
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
-		subSvc := s.AddTestingService(c, name, subCharm)
+		subApp := s.AddTestingApplication(c, name, subCharm)
 		eps, err := s.State.InferEndpoints(name, "wordpress")
 		c.Assert(err, jc.ErrorIsNil)
 		rel, err := s.State.AddRelation(eps...)
@@ -1685,7 +1685,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = ru.EnterScope(nil)
 		c.Assert(err, jc.ErrorIsNil)
-		units, err := subSvc.AllUnits()
+		units, err := subApp.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.HasLen, 1)
 		subUnits = append(subUnits, units[0])
@@ -1776,7 +1776,7 @@ snapshot:
       default: "abcd"
 `[1:]
 
-	wordpress := s.AddTestingService(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
+	wordpress := s.AddTestingApplication(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
 	unit1, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	specs, err := unit1.ActionSpecs()
@@ -1857,8 +1857,8 @@ action-b-a:
 action-b-b:
 `[1:]
 
-	// Add simple service and two units
-	dummy := s.AddTestingService(c, "dummy", s.AddActionsCharm(c, "dummy", basicActions, 1))
+	// Add simple application and two units
+	dummy := s.AddTestingApplication(c, "dummy", s.AddActionsCharm(c, "dummy", basicActions, 1))
 
 	unit1, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1900,7 +1900,7 @@ action-b-b:
 
 func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingService(c, s.State, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 

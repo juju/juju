@@ -117,7 +117,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	service := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
 	unit, err := service.AddUnit(state.AddUnitParams{})
 
 	machine := s.Factory.MakeMachine(c, nil)
@@ -538,7 +538,7 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
-	state.AddTestingServiceWithBindings(
+	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": "one"})
 
@@ -556,8 +556,8 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
-	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)

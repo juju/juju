@@ -169,7 +169,7 @@ func (s *applicationSuite) TestSetMetricCredentials(c *gc.C) {
 
 func (s *applicationSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	// Test the exported settings parsing in a compatible way.
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	app, err := s.State.Application("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := app.Charm()
@@ -606,7 +606,7 @@ func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	result, err := s.applicationAPI.GetCharmURL(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -1269,7 +1269,7 @@ func (s *applicationSuite) TestBlockApplicationUpdateForced(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetCharmNotFound(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	args := params.ApplicationUpdate{
 		ApplicationName: "wordpress",
 		CharmURL:        "cs:precise/wordpress-999999",
@@ -1279,7 +1279,7 @@ func (s *applicationSuite) TestApplicationUpdateSetCharmNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set minimum units for the application.
 	minUnits := 2
@@ -1296,7 +1296,7 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set a negative minimum number of units for the application.
 	minUnits := -1
@@ -1314,7 +1314,7 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1332,7 +1332,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1350,7 +1350,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 }
 
 func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1368,7 +1368,7 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -1437,7 +1437,7 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateNoParams(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Calling Update with no parameters set is a no-op.
 	args := params.ApplicationUpdate{ApplicationName: "wordpress"}
@@ -1461,7 +1461,7 @@ var (
 )
 
 func (s *applicationSuite) TestApplicationSet(c *gc.C) {
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "foobar",
@@ -1513,25 +1513,25 @@ func (s *applicationSuite) assertApplicationSet(c *gc.C, dummy *state.Applicatio
 }
 
 func (s *applicationSuite) TestBlockDestroyApplicationSet(c *gc.C) {
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockDestroyModel(c, "TestBlockDestroyApplicationSet")
 	s.assertApplicationSet(c, dummy)
 }
 
 func (s *applicationSuite) TestBlockRemoveApplicationSet(c *gc.C) {
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockRemoveObject(c, "TestBlockRemoveApplicationSet")
 	s.assertApplicationSet(c, dummy)
 }
 
 func (s *applicationSuite) TestBlockChangesApplicationSet(c *gc.C) {
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockAllChanges(c, "TestBlockChangesApplicationSet")
 	s.assertApplicationSetBlocked(c, dummy, "TestBlockChangesApplicationSet")
 }
 
 func (s *applicationSuite) TestServerUnset(c *gc.C) {
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "foobar",
@@ -1555,7 +1555,7 @@ func (s *applicationSuite) TestServerUnset(c *gc.C) {
 }
 
 func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.applicationAPI.Set(params.ApplicationSet{
 		ApplicationName: "dummy",
@@ -1646,7 +1646,7 @@ var clientAddApplicationUnitsTests = []struct {
 }
 
 func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	for i, t := range clientAddApplicationUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
 		applicationName := t.application
@@ -1677,7 +1677,7 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
-	app := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1722,7 +1722,7 @@ var addApplicationUnitTests = []struct {
 }
 
 func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Add a machine for the units to be placed on.
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1770,8 +1770,8 @@ func (s *applicationSuite) assertAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
@@ -1796,25 +1796,25 @@ func (s *applicationSuite) assertAddApplicationUnitsBlocked(c *gc.C, msg string)
 }
 
 func (s *applicationSuite) TestBlockDestroyAddApplicationUnits(c *gc.C) {
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockDestroyModel(c, "TestBlockDestroyAddApplicationUnits")
 	s.assertAddApplicationUnits(c)
 }
 
 func (s *applicationSuite) TestBlockRemoveAddApplicationUnits(c *gc.C) {
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockRemoveObject(c, "TestBlockRemoveAddApplicationUnits")
 	s.assertAddApplicationUnits(c)
 }
 
 func (s *applicationSuite) TestBlockChangeAddApplicationUnits(c *gc.C) {
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockAllChanges(c, "TestBlockChangeAddApplicationUnits")
 	s.assertAddApplicationUnitsBlocked(c, "TestBlockChangeAddApplicationUnits")
 }
 
 func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
-	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	_, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        3,
@@ -1829,7 +1829,7 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 	apps := make([]*state.Application, len(applicationNames))
 	var err error
 	for i, name := range applicationNames {
-		apps[i] = s.AddTestingService(c, name, charm)
+		apps[i] = s.AddTestingApplication(c, name, charm)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
 	err = apps[1].SetExposed()
@@ -1855,7 +1855,7 @@ func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 	apps := make([]*state.Application, len(applicationNames))
 	var err error
 	for i, name := range applicationNames {
-		apps[i] = s.AddTestingService(c, name, charm)
+		apps[i] = s.AddTestingApplication(c, name, charm)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
 	err = apps[1].SetExposed()
@@ -1957,7 +1957,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	for i, t := range applicationUnexposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		app := s.AddTestingService(c, "dummy-application", charm)
+		app := s.AddTestingApplication(c, "dummy-application", charm)
 		if t.initial {
 			app.SetExposed()
 		}
@@ -1977,7 +1977,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 
 func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application {
 	charm := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingService(c, "dummy-application", charm)
+	app := s.AddTestingApplication(c, "dummy-application", charm)
 	app.SetExposed()
 	c.Assert(app.IsExposed(), gc.Equals, true)
 	return app
@@ -2048,7 +2048,7 @@ var applicationDestroyTests = []struct {
 }
 
 func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
-	s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
 		SourceModel: s.State.ModelTag(),
@@ -2069,7 +2069,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	// Now do Destroy on an application with units. Destroy will
 	// cause the application to be not-Alive, but will not remove its
 	// document.
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	applicationName := "wordpress"
 	application, err := s.State.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2086,7 +2086,7 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 }
 
 func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
-	s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
+	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 
 	// block remove-objects
 	s.BlockRemoveObject(c, "TestBlockApplicationDestroy")
@@ -2101,7 +2101,7 @@ func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	units := make([]*state.Unit, 5)
 	for i := range units {
 		unit, err := wordpress.AddUnit(state.AddUnitParams{})
@@ -2122,10 +2122,10 @@ func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2187,7 +2187,7 @@ func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.U
 
 func (s *applicationSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	units := make([]*state.Unit, 5)
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for i := range units {
 		unit, err := wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -2264,10 +2264,10 @@ func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, lo
 }
 
 func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2299,10 +2299,10 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2334,10 +2334,10 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2361,7 +2361,7 @@ func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -2376,7 +2376,7 @@ func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 }
 
 func (s *applicationSuite) setupSetApplicationConstraints(c *gc.C) (*state.Application, constraints.Value) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2416,7 +2416,7 @@ func (s *applicationSuite) TestBlockChangesSetApplicationConstraints(c *gc.C) {
 }
 
 func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
-	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -2450,8 +2450,8 @@ func (s *applicationSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoint
 }
 
 func (s *applicationSuite) setupRelationScenario(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
@@ -2509,7 +2509,7 @@ func (s *applicationSuite) TestBlockRemoveAddRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.BlockAllChanges(c, "TestBlockChangesAddRelation")
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: []string{"wordpress", "mysql"}})
 	s.AssertBlocked(c, err, "TestBlockChangesAddRelation")
@@ -2524,22 +2524,22 @@ func (s *applicationSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
 }
 
 func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *applicationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	endpoints := []string{"wordpress", "mysql", "logging"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "cannot relate 3 endpoints")
 }
 
 func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Add a relation between wordpress and mysql.
 	endpoints := []string{"wordpress", "mysql"}
 	eps, err := s.State.InferEndpoints(endpoints...)
@@ -2598,7 +2598,7 @@ func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 
 func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 	s.setupRemoteApplication(c)
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
@@ -2620,14 +2620,14 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "hosted-db2"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "unknown"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)

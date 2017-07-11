@@ -821,9 +821,9 @@ func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 
 func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
-		svc := s.AddTestingService(c, name, s.AddTestingCharm(c, name))
+		app := s.AddTestingApplication(c, name, s.AddTestingCharm(c, name))
 		for _, m := range machines {
-			unit, err := svc.AddUnit(state.AddUnitParams{})
+			unit, err := app.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -860,7 +860,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("7")
 
 	// Create a logging service, subordinate to mysql.
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)

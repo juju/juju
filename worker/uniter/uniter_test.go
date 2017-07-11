@@ -134,7 +134,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			"unable to create state dir",
 			writeFile{"state", 0644},
 			createCharm{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": .*` + errNotDir},
 		), ut(
@@ -143,7 +143,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			// connect to the API, but here we use a different service
 			// (and hence unit) name.
 			createCharm{},
-			createServiceAndUnit{serviceName: "w"},
+			createApplicationAndUnit{applicationName: "w"},
 			startUniter{unitTag: "unit-u-0"},
 			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": permission denied`},
 		),
@@ -157,7 +157,7 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			createDownloads{},
 			startUniter{},
 			waitAddresses{},
@@ -211,7 +211,7 @@ func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{
 				newExecutorFunc: executorFunc,
 			},
@@ -497,7 +497,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitHooks{},
@@ -1199,7 +1199,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1230,7 +1230,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1263,7 +1263,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1297,7 +1297,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1340,7 +1340,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1374,7 +1374,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1406,7 +1406,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			addAction{"action-log", nil},
 			addAction{"action-log", nil},
 			addAction{"action-log", nil},
@@ -1446,7 +1446,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1551,16 +1551,16 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	addControllerMachine(c, ctx.st)
 
-	// Create the subordinate service.
+	// Create the subordinate application.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
 	curl, err := corecharm.ParseURL("cs:quantal/logging")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
-	ctx.svc = s.AddTestingService(c, "u", ctx.sch)
+	ctx.svc = s.AddTestingApplication(c, "u", ctx.sch)
 
-	// Create the principal service and add a relation.
-	wps := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	// Create the principal application and add a relation.
+	wps := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wpu, err := wps.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "u")
@@ -1602,7 +1602,7 @@ func (s *UniterSuite) TestRebootDisabledInActions(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			addAction{"action-reboot", nil},
 			startUniter{},
 			waitAddresses{},
@@ -1636,7 +1636,7 @@ func (s *UniterSuite) TestRebootFinishesHook(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUniterDead{err: "machine needs to reboot"},
@@ -1665,7 +1665,7 @@ func (s *UniterSuite) TestRebootNowKillsHook(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUniterDead{err: "machine needs to reboot"},
@@ -1694,7 +1694,7 @@ func (s *UniterSuite) TestRebootDisabledOnHookError(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{
@@ -1851,7 +1851,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1862,7 +1862,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1879,7 +1879,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			// provision and destroy the storage before the uniter starts,
 			// to ensure it never sees the storage as attached
 			provisionStorage{},
@@ -1896,7 +1896,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			startUniter{},
 			// no hooks should be run, as storage isn't provisioned
 			waitHooks{},
@@ -1908,7 +1908,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			unitDying,
 			startUniter{},
 			// no hooks should be run, and unit agent should terminate

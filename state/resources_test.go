@@ -31,7 +31,7 @@ type ResourcesSuite struct {
 
 func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	ch := s.ConnSuite.AddTestingCharm(c, "wordpress")
-	s.ConnSuite.AddTestingService(c, "a-application", ch)
+	s.ConnSuite.AddTestingApplication(c, "a-application", ch)
 
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)

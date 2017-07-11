@@ -652,10 +652,10 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 		},
 	}
 	tests := []struct {
-		serviceNames    []string
-		expectedResults params.ApplicationsCharmActionsResults
+		applicationNames []string
+		expectedResults  params.ApplicationsCharmActionsResults
 	}{{
-		serviceNames: []string{"dummy"},
+		applicationNames: []string{"dummy"},
 		expectedResults: params.ApplicationsCharmActionsResults{
 			Results: []params.ApplicationCharmActionsResult{
 				{
@@ -670,7 +670,7 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 			},
 		},
 	}, {
-		serviceNames: []string{"wordpress"},
+		applicationNames: []string{"wordpress"},
 		expectedResults: params.ApplicationsCharmActionsResults{
 			Results: []params.ApplicationCharmActionsResult{
 				{
@@ -685,7 +685,7 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 			},
 		},
 	}, {
-		serviceNames: []string{"nonsense"},
+		applicationNames: []string{"nonsense"},
 		expectedResults: params.ApplicationsCharmActionsResults{
 			Results: []params.ApplicationCharmActionsResult{
 				{
@@ -700,14 +700,14 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		c.Logf("test %d: services: %#v", i, t.serviceNames)
+		c.Logf("test %d: applications: %#v", i, t.applicationNames)
 
 		svcTags := params.Entities{
-			Entities: make([]params.Entity, len(t.serviceNames)),
+			Entities: make([]params.Entity, len(t.applicationNames)),
 		}
 
-		for j, svc := range t.serviceNames {
-			svcTag := names.NewApplicationTag(svc)
+		for j, app := range t.applicationNames {
+			svcTag := names.NewApplicationTag(app)
 			svcTags.Entities[j] = params.Entity{Tag: svcTag.String()}
 		}
 

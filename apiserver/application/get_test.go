@@ -46,7 +46,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	results, err := s.serviceAPI.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -171,24 +171,24 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
-		svc := s.AddTestingService(c, fmt.Sprintf("test%d", i), ch)
+		app := s.AddTestingApplication(c, fmt.Sprintf("test%d", i), ch)
 
 		var constraintsv constraints.Value
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
-			err := svc.SetConstraints(constraintsv)
+			err := app.SetConstraints(constraintsv)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.config != nil {
-			err := svc.UpdateConfigSettings(t.config)
+			err := app.UpdateConfigSettings(t.config)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		expect := t.expect
 		expect.Constraints = constraintsv
-		expect.Application = svc.Name()
+		expect.Application = app.Name()
 		expect.Charm = ch.Meta().Name
 		client := apiapplication.NewClient(s.APIState)
-		got, err := client.Get(svc.Name())
+		got, err := client.Get(app.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*got, gc.DeepEquals, expect)
 	}
@@ -206,12 +206,12 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
 
 	ch := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "test-service", ch)
+	app := s.AddTestingApplication(c, "test-service", ch)
 
-	err := svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
+	err := app.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiapplication.NewClient(s.APIState)
-	got, err := client.Get(svc.Name())
+	got, err := client.Get(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Config["skill-level"], jc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",

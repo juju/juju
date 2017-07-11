@@ -327,9 +327,9 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
-// WatchServices returns a StringsWatcher that notifies of changes to
+// WatchApplications returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the model.
-func (st *State) WatchServices() StringsWatcher {
+func (st *State) WatchApplications() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
 

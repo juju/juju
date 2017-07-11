@@ -24,11 +24,11 @@ import (
 type firewallerBaseSuite struct {
 	testing.JujuConnSuite
 
-	machines  []*state.Machine
-	service   *state.Application
-	charm     *state.Charm
-	units     []*state.Unit
-	relations []*state.Relation
+	machines    []*state.Machine
+	application *state.Application
+	charm       *state.Charm
+	units       []*state.Unit
+	relations   []*state.Relation
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -48,12 +48,12 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
-	// Create a service and three units for these machines.
+	// Create an application and three units for these machines.
 	s.charm = s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingService(c, "wordpress", s.charm)
+	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
-		unit, err := s.service.AddUnit(state.AddUnitParams{})
+		unit, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Check(err, jc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
 		c.Check(err, jc.ErrorIsNil)
@@ -61,7 +61,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	}
 
 	// Create a relation.
-	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -167,7 +167,7 @@ func (s *firewallerBaseSuite) testInstanceId(
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},
 		{Tag: s.machines[2].Tag().String()},
-		{Tag: s.service.Tag().String()},
+		{Tag: s.application.Tag().String()},
 		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := facade.InstanceId(args)
@@ -233,7 +233,7 @@ func (s *firewallerBaseSuite) testWatch(
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.service.Tag().String()},
+		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := watcher.Watch(args)
@@ -304,7 +304,7 @@ func (s *firewallerBaseSuite) testWatchUnits(
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.service.Tag().String()},
+		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := facade.WatchUnits(args)
@@ -341,12 +341,12 @@ func (s *firewallerBaseSuite) testGetExposed(
 		GetExposed(args params.Entities) (params.BoolResults, error)
 	},
 ) {
-	// Set the service to exposed first.
-	err := s.service.SetExposed()
+	// Set the application to exposed first.
+	err := s.application.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.service.Tag().String()},
+		{Tag: s.application.Tag().String()},
 	}})
 	result, err := facade.GetExposed(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -363,11 +363,11 @@ func (s *firewallerBaseSuite) testGetExposed(
 	})
 
 	// Now reset the exposed flag for the application and check again.
-	err = s.service.ClearExposed()
+	err = s.application.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
 	args = params.Entities{Entities: []params.Entity{
-		{Tag: s.service.Tag().String()},
+		{Tag: s.application.Tag().String()},
 	}}
 	result, err = facade.GetExposed(args)
 	c.Assert(err, jc.ErrorIsNil)

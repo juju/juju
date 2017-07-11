@@ -128,7 +128,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{

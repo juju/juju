@@ -24,7 +24,7 @@ func (s *CmdRelationSuite) SetUpTest(c *gc.C) {
 	s.apps = []string{"wordpress", "mysql"}
 	for _, app := range s.apps {
 		ch := s.AddTestingCharm(c, app)
-		s.AddTestingService(c, app, ch)
+		s.AddTestingApplication(c, app, ch)
 	}
 }
 

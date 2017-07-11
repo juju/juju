@@ -25,7 +25,7 @@ var _ = gc.Suite(&applicationOffersSuite{})
 func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "mysql")
-	s.AddTestingService(c, "mysql", ch)
+	s.AddTestingApplication(c, "mysql", ch)
 }
 
 func (s *applicationOffersSuite) createDefaultOffer(c *gc.C) crossmodel.ApplicationOffer {

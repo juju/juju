@@ -55,8 +55,8 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	var err error
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.rawUnit, err = svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.
 	s.rawMachine, err = s.rawUnit.AssignToCleanMachine()

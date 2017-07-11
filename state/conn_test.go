@@ -66,16 +66,16 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
-func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingService(c, s.State, name, ch)
+func (s *ConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
+	return state.AddTestingApplication(c, s.State, name, ch)
 }
 
-func (s *ConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingServiceWithStorage(c, s.State, name, ch, storage)
+func (s *ConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
 }
 
-func (s *ConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return state.AddTestingServiceWithBindings(c, s.State, name, ch, bindings)
+func (s *ConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+	return state.AddTestingApplicationWithBindings(c, s.State, name, ch, bindings)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

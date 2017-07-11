@@ -111,7 +111,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: fakeEnvTag.String()},
 		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.service.Tag().String()},
+		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := s.firewaller.WatchOpenedPorts(args)
@@ -200,7 +200,7 @@ func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},
 		{Tag: s.machines[2].Tag().String()},
-		{Tag: s.service.Tag().String()},
+		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
 	expectResultsMachine0 := []string{subnetTag, ""}

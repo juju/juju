@@ -20,7 +20,7 @@ type LifeSuite struct {
 func (s *LifeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
-	s.svc = s.AddTestingService(c, "dummysvc", s.charm)
+	s.svc = s.AddTestingApplication(c, "dummysvc", s.charm)
 }
 
 var _ = gc.Suite(&LifeSuite{})

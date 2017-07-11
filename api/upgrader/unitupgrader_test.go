@@ -62,7 +62,7 @@ func (s *unitUpgraderSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName s
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, serviceName)
-	service := s.AddTestingService(c, serviceName, charm)
+	service := s.AddTestingApplication(c, serviceName, charm)
 	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
