@@ -31,7 +31,7 @@ func (s *CleanupSuite) SetUpTest(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 	// Create a application with some units.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
 		unit, err := mysql.AddUnit(state.AddUnitParams{})
@@ -69,7 +69,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 	// Create a application and a charm.
 	ch := s.AddTestingCharm(c, "mysql")
-	mysql := s.AddTestingService(c, "mysql", ch)
+	mysql := s.AddTestingApplication(c, "mysql", ch)
 
 	// Create a dummy archive blob.
 	stor := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
@@ -121,7 +121,7 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps[0], eps[1])
@@ -217,7 +217,7 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a application with some units.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
 		unit, err := mysql.AddUnit(state.AddUnitParams{})
@@ -340,7 +340,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
@@ -505,7 +505,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	// Create a application with a unit.
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -547,7 +547,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 	// Create a application with a unit.
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
@@ -580,7 +580,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -613,7 +613,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"allecto": makeStorageCons("modelscoped-block", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -652,7 +652,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("modelscoped", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)

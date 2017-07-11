@@ -478,7 +478,7 @@ func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.
 	c.Assert(err, jc.ErrorIsNil)
 
 	sch := s.AddTestingCharm(c, "wordpress")
-	wordpress := s.AddTestingService(c, "wordpress", sch)
+	wordpress := s.AddTestingApplication(c, "wordpress", sch)
 	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m1)

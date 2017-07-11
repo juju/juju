@@ -62,9 +62,9 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		s.machines[i], err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 	}
-	// Create a service and three units for these machines.
+	// Create an application and three units for these machines.
 	s.charm = s.AddTestingCharm(c, "wordpress")
-	s.application = s.AddTestingService(c, "wordpress", s.charm)
+	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		s.units[i], err = s.application.AddUnit(state.AddUnitParams{})
@@ -74,7 +74,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	}
 
 	// Create a relation.
-	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 

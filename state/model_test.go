@@ -671,7 +671,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 	// Add a service to prevent the model from transitioning directly to Dead.
 	// Add the service before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
-	svc := factory.NewFactory(st).MakeApplication(c, nil)
+	app := factory.NewFactory(st).MakeApplication(c, nil)
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -682,7 +682,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 		c.Assert(env.Refresh(), jc.ErrorIsNil)
 		c.Assert(env.Life(), gc.Equals, state.Dying)
 
-		err := svc.Destroy()
+		err := app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(st.ProcessDyingModel(), jc.ErrorIsNil)

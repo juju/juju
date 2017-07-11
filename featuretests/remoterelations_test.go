@@ -135,7 +135,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])

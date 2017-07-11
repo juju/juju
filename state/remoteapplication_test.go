@@ -351,7 +351,7 @@ func (s *remoteApplicationSuite) TestAddRelationBothRemote(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestInferEndpointsWrongScope(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "logging", subCharm)
+	s.AddTestingApplication(c, "logging", subCharm)
 	_, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
@@ -631,7 +631,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 
 func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "logging", subCharm)
+	s.AddTestingApplication(c, "logging", subCharm)
 	ep1 := state.Endpoint{
 		ApplicationName: "mysql",
 		Relation: charm.Relation{
@@ -684,7 +684,7 @@ func (s *remoteApplicationSuite) assertAddRemoteRelation(c *gc.C, application1, 
 			},
 		},
 	}
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints(application1, application2)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
@@ -708,7 +708,7 @@ func (s *remoteApplicationSuite) TestDestroySimple(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
@@ -734,13 +734,13 @@ func (s *remoteApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *
 
 func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := s.AddTestingCharm(c, "wordpress")
-	wordpress := s.AddTestingService(c, "wordpress", ch)
+	wordpress := s.AddTestingApplication(c, "wordpress", ch)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.AddTestingService(c, "another", ch)
+	s.AddTestingApplication(c, "another", ch)
 	eps, err = s.State.InferEndpoints("another", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.State.AddRelation(eps[0], eps[1])
@@ -804,8 +804,8 @@ func (s *remoteApplicationSuite) TestAllRemoteApplications(c *gc.C) {
 
 	// Check the returned application, order is defined by sorted keys.
 	names := make([]string, len(applications))
-	for i, svc := range applications {
-		names[i] = svc.Name()
+	for i, app := range applications {
+		names[i] = app.Name()
 	}
 	sort.Strings(names)
 	c.Assert(names[0], gc.Equals, "another")
@@ -913,7 +913,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	wc.AssertNoChange()
 
 	ch := s.AddTestingCharm(c, "wordpress")
-	wordpress := s.AddTestingService(c, "wordpress", ch)
+	wordpress := s.AddTestingApplication(c, "wordpress", ch)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])

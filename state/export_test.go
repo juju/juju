@@ -167,23 +167,23 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingService(c, st, "", name, ch, nil, nil)
+func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
+	return addTestingApplication(c, st, "", name, ch, nil, nil)
 }
 
-func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
-	return addTestingService(c, st, series, name, ch, nil, nil)
+func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+	return addTestingApplication(c, st, series, name, ch, nil, nil)
 }
 
-func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
-	return addTestingService(c, st, "", name, ch, nil, storage)
+func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	return addTestingApplication(c, st, "", name, ch, nil, storage)
 }
 
-func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingService(c, st, "", name, ch, bindings, nil)
+func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingApplication(c, st, "", name, ch, bindings, nil)
 }
 
-func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
+func addTestingApplication(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
 	app, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,

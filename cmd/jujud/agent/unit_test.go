@@ -68,7 +68,7 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 // It returns the assigned machine, new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Config, *tools.Tools) {
 	machine := s.Factory.MakeMachine(c, nil)
-	app := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		Machine:     machine,

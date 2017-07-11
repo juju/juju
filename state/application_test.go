@@ -44,7 +44,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		return validator, nil
 	}
 	s.charm = s.AddTestingCharm(c, "mysql")
-	s.mysql = s.AddTestingService(c, "mysql", s.charm)
+	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
 }
 
 func (s *ApplicationSuite) assertNeedsCleanup(c *gc.C) {
@@ -135,44 +135,44 @@ func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
 
 func (s *ApplicationSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
 		Charm: chDifferentSeries,
 	}
-	err := svc.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series2-8": only these series are supported: trusty, wily`)
 }
 
 func (s *ApplicationSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
 		Charm:       chDifferentSeries,
 		ForceSeries: true,
 	}
-	err := svc.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err = s.State.Application("application")
+	app, err = s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err = svc.Charm()
+	ch, _, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, "cs:multi-series2-8")
 }
 
 func (s *ApplicationSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-windows")
 	cfg := state.SetCharmConfig{
 		Charm:       chDifferentSeries,
 		ForceSeries: true,
 	}
-	err := svc.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-windows-1": OS "Ubuntu" not supported by charm`)
 }
 
@@ -308,9 +308,9 @@ var setCharmEndpointsTests = []struct {
 func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 	revno := 2
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
-	svc := s.AddTestingService(c, "fakemysql", ms)
+	app := s.AddTestingApplication(c, "fakemysql", ms)
 	cfg := state.SetCharmConfig{Charm: ms}
-	err := svc.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range setCharmEndpointsTests {
@@ -318,7 +318,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 
 		newCh := s.AddMetaCharm(c, "mysql", t.meta, revno+i+1)
 		cfg := state.SetCharmConfig{Charm: newCh}
-		err = svc.SetCharm(cfg)
+		err = app.SetCharm(cfg)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -326,24 +326,24 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 		}
 	}
 
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	revno := 2
 	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
-	providerSvc := s.AddTestingService(c, "myprovider", providerCharm)
+	providerApp := s.AddTestingApplication(c, "myprovider", providerCharm)
 
 	cfg := state.SetCharmConfig{Charm: providerCharm}
-	err := providerSvc.SetCharm(cfg)
+	err := providerApp.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
-	requirerSvc := s.AddTestingService(c, "myrequirer", requirerCharm)
+	requirerApp := s.AddTestingApplication(c, "myrequirer", requirerCharm)
 	cfg = state.SetCharmConfig{Charm: requirerCharm}
-	err = requirerSvc.SetCharm(cfg)
+	err = requirerApp.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("myprovider:kludge", "myrequirer:kludge")
@@ -354,9 +354,9 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	revno++
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	cfg = state.SetCharmConfig{Charm: baseCharm}
-	err = providerSvc.SetCharm(cfg)
+	err = providerApp.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
-	err = requirerSvc.SetCharm(cfg)
+	err = requirerApp.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
@@ -431,13 +431,13 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 
 		origCh := charms[t.startconfig]
-		svc := s.AddTestingService(c, "wordpress", origCh)
-		err := svc.UpdateConfigSettings(t.startvalues)
+		app := s.AddTestingApplication(c, "wordpress", origCh)
+		err := app.UpdateConfigSettings(t.startvalues)
 		c.Assert(err, jc.ErrorIsNil)
 
 		newCh := charms[t.endconfig]
 		cfg := state.SetCharmConfig{Charm: newCh}
-		err = svc.SetCharm(cfg)
+		err = app.SetCharm(cfg)
 		var expectVals charm.Settings
 		var expectCh *state.Charm
 		if t.err != "" {
@@ -450,10 +450,10 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 			expectVals = t.endvalues
 		}
 
-		sch, _, err := svc.Charm()
+		sch, _, err := app.Charm()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
-		settings, err := svc.ConfigSettings()
+		settings, err := app.ConfigSettings()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(expectVals) == 0 {
 			c.Assert(settings, gc.HasLen, 0)
@@ -461,7 +461,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 			c.Assert(settings, gc.DeepEquals, expectVals)
 		}
 
-		err = svc.Destroy()
+		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -490,7 +490,7 @@ func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	s.mysql = s.AddTestingService(c, "mysql", s.charm)
+	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
 	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
@@ -898,17 +898,17 @@ func (s *ApplicationSuite) TestUpdateConfigSettings(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	for i, t := range serviceUpdateConfigSettingsTests {
 		c.Logf("test %d. %s", i, t.about)
-		svc := s.AddTestingService(c, "dummy-application", sch)
+		app := s.AddTestingApplication(c, "dummy-application", sch)
 		if t.initial != nil {
-			err := svc.UpdateConfigSettings(t.initial)
+			err := app.UpdateConfigSettings(t.initial)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := svc.UpdateConfigSettings(t.update)
+		err := app.UpdateConfigSettings(t.update)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			settings, err := svc.ConfigSettings()
+			settings, err := app.ConfigSettings()
 			c.Assert(err, jc.ErrorIsNil)
 			expect := t.expect
 			if expect == nil {
@@ -916,7 +916,7 @@ func (s *ApplicationSuite) TestUpdateConfigSettings(c *gc.C) {
 			}
 			c.Assert(settings, gc.DeepEquals, expect)
 		}
-		err = svc.Destroy()
+		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -943,14 +943,14 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
-	// svc is using oldCh, so its settings refcount is incremented.
-	svc := s.AddTestingService(c, svcName, oldCh)
+	// app is using oldCh, so its settings refcount is incremented.
+	app := s.AddTestingApplication(c, svcName, oldCh)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Changing to the same charm does not change the refcount.
 	cfg := state.SetCharmConfig{Charm: oldCh}
-	err := svc.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
@@ -960,21 +960,21 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// incremented. Consequently, because oldCh's refcount is 0, the
 	// settings doc will be removed.
 	cfg = state.SetCharmConfig{Charm: newCh}
-	err = svc.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertSettingsRef(c, s.State, svcName, newCh, 1)
 
 	// The same but newCh swapped with oldCh.
 	cfg = state.SetCharmConfig{Charm: oldCh}
-	err = svc.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Adding a unit without a charm URL set does not affect the
 	// refcount.
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	curl, ok := u.CharmURL()
 	c.Assert(ok, jc.IsFalse)
@@ -982,7 +982,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Setting oldCh as the units charm URL increments oldCh, which is
-	// used by svc as well, hence 2.
+	// used by app as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	curl, ok = u.CharmURL()
@@ -1005,7 +1005,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 
 	// Finally, after the service is destroyed and removed (since the
 	// last unit's gone), the refcount is again decremented.
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
@@ -1027,7 +1027,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
 	appName := "mywp"
 
-	app := s.AddTestingService(c, appName, oldCh)
+	app := s.AddTestingApplication(c, appName, oldCh)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1052,7 +1052,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
 	appName := "mywp"
 
-	app := s.AddTestingService(c, appName, oldCh)
+	app := s.AddTestingApplication(c, appName, oldCh)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1187,7 +1187,7 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {
-	riak := s.AddTestingService(c, "myriak", s.AddTestingCharm(c, "riak"))
+	riak := s.AddTestingApplication(c, "myriak", s.AddTestingCharm(c, "riak"))
 
 	_, err := riak.Endpoint("garble")
 	c.Assert(err, gc.ErrorMatches, `application "myriak" has no "garble" relation`)
@@ -1239,7 +1239,7 @@ func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestWordpressEndpoints(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	_, err := wordpress.Endpoint("nonsense")
 	c.Assert(err, gc.ErrorMatches, `application "wordpress" has no "nonsense" relation`)
@@ -1382,7 +1382,7 @@ func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {
 	err = s.mysql.SetExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 
-	// Remove the service and check that both fail.
+	// Remove the application and check that both fail.
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
@@ -1414,10 +1414,10 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add a subordinate service and check that units cannot be added directly.
+	// Add a subordinate application and check that units cannot be added directly.
 	// to add a subordinate unit.
 	subCharm := s.AddTestingCharm(c, "logging")
-	logging := s.AddTestingService(c, "logging", subCharm)
+	logging := s.AddTestingApplication(c, "logging", subCharm)
 	_, err = logging.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "logging": application is a subordinate`)
 
@@ -1596,7 +1596,7 @@ func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1621,13 +1621,13 @@ func (s *ApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) 
 }
 
 func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err = s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.State.AddRelation(eps...)
@@ -1733,7 +1733,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetCharmURL(ch.URL())
@@ -1873,7 +1873,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	// with matching names.
 	ch, _, err := s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, s.mysql.Name(), ch)
+	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
@@ -1930,7 +1930,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 
 func (s *ApplicationSuite) TestSubordinateConstraints(c *gc.C) {
 	loggingCh := s.AddTestingCharm(c, "logging")
-	logging := s.AddTestingService(c, "logging", loggingCh)
+	logging := s.AddTestingApplication(c, "logging", loggingCh)
 
 	_, err := logging.Constraints()
 	c.Assert(err, gc.Equals, state.ErrSubordinateConstraints)
@@ -2050,7 +2050,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	addRelation := func() *state.Relation {
 		name := fmt.Sprintf("wp%d", wpi)
 		wpi++
-		wp := s.AddTestingService(c, name, wpch)
+		wp := s.AddTestingApplication(c, name, wpch)
 		wpep, err := wp.Endpoint("db")
 		c.Assert(err, jc.ErrorIsNil)
 		rel, err := s.State.AddRelation(mysqlep, wpep)
@@ -2109,7 +2109,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 
 	// Watch relations on the requirer service too (exercises a
 	// different path of the WatchRelations filter function)
-	wpx := s.AddTestingService(c, "wpx", wpch)
+	wpx := s.AddTestingApplication(c, "wpx", wpch)
 	wpxWatcher := wpx.WatchRelations()
 	defer testing.AssertStop(c, wpxWatcher)
 	wpxWatcherC := testing.NewStringsWatcherC(c, s.State, wpxWatcher)
@@ -2135,7 +2135,7 @@ func removeAllUnits(c *gc.C, s *state.Application) {
 	}
 }
 
-func (s *ApplicationSuite) TestWatchService(c *gc.C) {
+func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	w := s.mysql.Watch()
 	defer testing.AssertStop(c, w)
 
@@ -2347,10 +2347,10 @@ func storageRange(min, max int) string {
 func (s *ApplicationSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error {
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
-	svc := s.AddTestingService(c, "test", oldCh)
+	app := s.AddTestingApplication(c, "test", oldCh)
 
 	cfg := state.SetCharmConfig{Charm: newCh}
-	return svc.SetCharm(cfg)
+	return app.SetCharm(cfg)
 }
 
 func (s *ApplicationSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
@@ -2368,7 +2368,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
-	svc := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "test",
 		Charm: oldCh,
 		Storage: map[string]state.StorageConstraints{
@@ -2378,11 +2378,11 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 	})
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Adding a unit will cause the storage to be in-use.
-		_, err := svc.AddUnit(state.AddUnitParams{})
+		_, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	cfg := state.SetCharmConfig{Charm: newCh}
-	err := svc.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": in-use storage "data1" removed`)
 }
 
@@ -2397,12 +2397,12 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageRemoved(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c *gc.C) {
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoRequiredStorageMeta, 3)
-	svc := s.AddTestingService(c, "test", oldCh)
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "test", oldCh)
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{Charm: newCh}
-	err = svc.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the new required storage was added for the unit.
@@ -2414,8 +2414,8 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *gc.C) {
 	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoOptionalStorageMeta, 3)
-	svc := s.AddTestingService(c, "test", oldCh)
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "test", oldCh)
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{
@@ -2424,7 +2424,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 			"data1": {Count: 3},
 		},
 	}
-	err = svc.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that new storage was added for the unit, based on the
@@ -2526,7 +2526,7 @@ func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, serv
 
 func (s *ApplicationSuite) TestEndpointBindingsReturnsDefaultsWhenNotFound(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, nil)
+	service := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
 	state.RemoveEndpointBindingsForService(c, service)
 
 	s.assertApplicationHasOnlyDefaultEndpointBindings(c, service)
@@ -2557,7 +2557,7 @@ func (s *ApplicationSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 	// With unspecified bindings, all endpoints are explicitly bound to the
 	// default space when saved in state.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, nil)
+	service := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
 
 	s.assertApplicationHasOnlyDefaultEndpointBindings(c, service)
 	s.assertApplicationRemovedWithItsBindings(c, service)
@@ -2574,7 +2574,7 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 		"cluster": "ha",
 	}
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, bindings)
+	service := s.AddTestingApplicationWithBindings(c, "yoursql", ch, bindings)
 
 	setBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2596,7 +2596,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 		"kludge": "db",
 		"client": "db",
 	}
-	service := s.AddTestingServiceWithBindings(c, "yoursql", oldCharm, oldBindings)
+	service := s.AddTestingApplicationWithBindings(c, "yoursql", oldCharm, oldBindings)
 	setBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveOld := map[string]string{
@@ -2631,7 +2631,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 69)
-	service := s.AddTestingServiceWithBindings(c, "theirsql", oldCharm, nil)
+	service := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
 	state.RemoveEndpointBindingsForService(c, service)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)

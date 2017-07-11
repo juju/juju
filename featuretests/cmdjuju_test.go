@@ -42,18 +42,18 @@ func (s *cmdJujuSuite) TestSetConstraints(c *gc.C) {
 }
 
 func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
-	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
-	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
+	app := s.AddTestingApplication(c, "app", s.AddTestingCharm(c, "dummy"))
+	err := app.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, application.NewServiceGetConstraintsCommand(), "svc")
+	context, err := cmdtesting.RunCommand(c, application.NewServiceGetConstraintsCommand(), "app")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "cores=64\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "dummy-service", ch)
+	app := s.AddTestingApplication(c, "dummy-service", ch)
 
 	_, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service",
 		"username=hello", "outlook=hello@world.tld")
@@ -64,21 +64,21 @@ func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	}
 
-	settings, err := svc.ConfigSettings()
+	settings, err := app.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, expect)
 }
 
 func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "dummy-service", ch)
+	app := s.AddTestingApplication(c, "dummy-service", ch)
 
 	settings := charm.Settings{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	}
 
-	err := svc.UpdateConfigSettings(settings)
+	err := app.UpdateConfigSettings(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service", "--reset", "username")
@@ -87,7 +87,7 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	expect := charm.Settings{
 		"outlook": "hello@world.tld",
 	}
-	settings, err = svc.ConfigSettings()
+	settings, err = app.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, expect)
 }
@@ -116,7 +116,7 @@ settings:
     value: admin001
 `
 	ch := s.AddTestingCharm(c, "dummy")
-	s.AddTestingService(c, "dummy-service", ch)
+	s.AddTestingApplication(c, "dummy-service", ch)
 
 	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service")
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +150,7 @@ settings:
     value: "123456"
 `
 	ch := s.AddTestingCharm(c, "yaml-config")
-	s.AddTestingService(c, "yaml-config", ch)
+	s.AddTestingApplication(c, "yaml-config", ch)
 
 	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "yaml-config")
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,7 +159,7 @@ settings:
 
 func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "some-application-name", ch)
+	app := s.AddTestingApplication(c, "some-application-name", ch)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -174,7 +174,7 @@ func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 		"--to", container.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

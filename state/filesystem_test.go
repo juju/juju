@@ -209,7 +209,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
@@ -984,7 +984,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
 		"data": makeStorageCons("rootfs", 1024, 1),
 	}
 
-	app := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
@@ -1034,7 +1034,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 			CountMax: 1,
 			Location: location,
 		}, rev)
-		app := s.AddTestingServiceWithStorage(c, applicationname, ch, storage)
+		app := s.AddTestingApplicationWithStorage(c, applicationname, ch, storage)
 		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		return unit.AssignToMachine(machine)
@@ -1064,7 +1064,7 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsConcurrentRemove(c 
 		CountMax: 1,
 		Location: "/not/in/srv",
 	})
-	app := s.AddTestingService(c, "storage-filesystem", ch)
+	app := s.AddTestingApplication(c, "storage-filesystem", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1089,7 +1089,7 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 		CountMax: 1,
 		Location: "/var/lib/juju/storage",
 	})
-	app := s.AddTestingService(c, "storage-filesystem", ch)
+	app := s.AddTestingApplication(c, "storage-filesystem", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
@@ -1111,9 +1111,9 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentLocationConflict(c *gc.C)
 		CountMax: 1,
 		Location: "/srv/within",
 	})
-	svc := s.AddTestingService(c, "storage-filesystem", ch)
+	app := s.AddTestingApplication(c, "storage-filesystem", ch)
 
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, gc.ErrorMatches,

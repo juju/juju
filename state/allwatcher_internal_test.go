@@ -103,7 +103,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		WantsVote:               false,
 	})
 
-	wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+	wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 	err = wordpress.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetMinUnits(units)
@@ -136,7 +136,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		Annotations: pairs,
 	})
 
-	logging := AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"))
+	logging := AddTestingApplication(c, st, "logging", AddTestingCharm(c, st, "logging"))
 	add(&multiwatcher.ApplicationInfo{
 		ModelUUID:   modelUUID,
 		Name:        "logging",
@@ -280,7 +280,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	)
 	add(&remoteApplicationInfo)
 
-	mysql := AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+	mysql := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
 	curl := applicationCharmURL(mysql)
 	add(&multiwatcher.ApplicationInfo{
 		ModelUUID: modelUUID,
@@ -593,7 +593,7 @@ func (s *allWatcherStateSuite) TestChangeApplicationOffers(c *gc.C) {
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			action, err := st.EnqueueAction(u.Tag(), "vacuumdb", map[string]interface{}{})
@@ -695,7 +695,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	// Init the test model.
-	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
+	wordpress := AddTestingApplication(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
 	u, err := wordpress.AddUnit(AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.state.AddMachine("quantal", JobHostUnits)
@@ -789,7 +789,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	// Init the test model.
-	app := AddTestingService(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"))
+	app := AddTestingApplication(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"))
 	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: false})
 	all := newStore()
 	// 1st scenario part: set settings and signal change.
@@ -969,7 +969,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 
-	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
+	wordpress := AddTestingApplication(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
 	wu, err := wordpress.AddUnit(AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m2)
@@ -1084,13 +1084,13 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "applications",
 			triggerEvent: func(st *State) int {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 				return 1
 			},
 		}, {
 			about: "units",
 			setUpState: func(st *State) int {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 				return 1
 			},
 			triggerEvent: func(st *State) int {
@@ -1104,8 +1104,8 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "relations",
 			setUpState: func(st *State) int {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
 				return 2
 			},
 			triggerEvent: func(st *State) int {
@@ -1158,7 +1158,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "constraints",
 			setUpState: func(st *State) int {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 				return 1
 			},
 			triggerEvent: func(st *State) int {
@@ -1173,7 +1173,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "settings",
 			setUpState: func(st *State) int {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 				return 1
 			},
 			triggerEvent: func(st *State) int {
@@ -1442,7 +1442,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			err := app.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -1797,7 +1797,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m11.Id(), gc.Equals, "1")
 
-	wordpress := AddTestingService(c, st1, "wordpress", AddTestingCharm(c, st1, "wordpress"))
+	wordpress := AddTestingApplication(c, st1, "wordpress", AddTestingCharm(c, st1, "wordpress"))
 	wu, err := wordpress.AddUnit(AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m11)
@@ -2253,8 +2253,8 @@ func testChangeRelations(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"))
+			AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			AddTestingApplication(c, st, "logging", AddTestingCharm(c, st, "logging"))
 			eps, err := st.InferEndpoints("logging", "wordpress")
 			c.Assert(err, jc.ErrorIsNil)
 			_, err = st.AddRelation(eps...)
@@ -2306,7 +2306,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			err := wordpress.SetExposed()
 			c.Assert(err, jc.ErrorIsNil)
 			err = wordpress.SetMinUnits(42)
@@ -2335,7 +2335,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setApplicationConfigAttr(c, app, "blog-title", "boring")
 
 			return changeTestCase{
@@ -2364,7 +2364,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			unit, err := app.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("42.47")
@@ -2412,7 +2412,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			unit, err := app.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("")
@@ -2461,7 +2461,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setApplicationConfigAttr(c, app, "blog-title", "boring")
 
 			return changeTestCase{
@@ -2515,7 +2515,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
+			app := AddTestingApplication(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
 			setApplicationConfigAttr(c, app, "username", "foo")
 			setApplicationConfigAttr(c, app, "outlook", "foo@bar")
 
@@ -2539,7 +2539,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
+			app := AddTestingApplication(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
 			setApplicationConfigAttr(c, app, "username", "foo")
 			setApplicationConfigAttr(c, app, "outlook", "foo@bar")
 			setApplicationConfigAttr(c, app, "username", nil)
@@ -2569,7 +2569,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				c, st, "dummy",
 				"config.yaml", dottedConfig,
 				"quantal", 1)
-			app := AddTestingService(c, st, "dummy-application", testCharm)
+			app := AddTestingApplication(c, st, "dummy-application", testCharm)
 			setApplicationConfigAttr(c, app, "key.dotted", "foo")
 
 			return changeTestCase{
@@ -2593,7 +2593,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
+			app := AddTestingApplication(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
 			setApplicationConfigAttr(c, app, "username", "foo")
 
 			return changeTestCase{
@@ -2665,7 +2665,7 @@ func testChangeApplicationsConstraints(c *gc.C, owner names.UserTag, runChangeTe
 				}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			app := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			err := app.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -2717,7 +2717,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2778,7 +2778,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2834,7 +2834,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2874,7 +2874,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2922,7 +2922,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -3023,7 +3023,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToNewMachine()
@@ -3078,7 +3078,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			now := testing.ZeroTime()
@@ -3140,7 +3140,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			now := testing.ZeroTime()
@@ -3200,7 +3200,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToNewMachine()
@@ -3292,7 +3292,7 @@ const (
 
 func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
 	initEnv := func(c *gc.C, st *State, flag initFlag) {
-		wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 		u, err := wordpress.AddUnit(AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		m, err := st.AddMachine("quantal", JobHostUnits)
@@ -3495,7 +3495,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			// a unit to the relation, so that the relation is not
 			// removed and thus the remote application is not removed
 			// upon destroying.
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
 				c, st, "remote-mysql2", "me/model.mysql", "hosted-mysql", mysqlRelations, false,
 			)
@@ -3564,7 +3564,7 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 	addOffer := func(c *gc.C, st *State) (multiwatcher.ApplicationOfferInfo, *User) {
 		owner, err := st.AddUser("owner", "owner", "password", "admin")
 		c.Assert(err, jc.ErrorIsNil)
-		AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+		AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
 		_, applicationOfferInfo := addTestingApplicationOffer(
 			c, st, owner.UserTag(), "hosted-mysql", "mysql",
 			"quantal-mysql", []string{"server"}, 0)
@@ -3613,7 +3613,7 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			curl, _ := app.CharmURL()
 			ch, err := st.Charm(curl)
 			c.Assert(err, jc.ErrorIsNil)
-			AddTestingService(c, st, "another-mysql", ch)
+			AddTestingApplication(c, st, "another-mysql", ch)
 			offers := NewApplicationOffers(st)
 			_, err = offers.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 				OfferName:       "hosted-mysql",

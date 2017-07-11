@@ -381,24 +381,24 @@ func (s serveCharm) step(c *gc.C, ctx *context) {
 	}
 }
 
-type createServiceAndUnit struct {
-	serviceName string
-	storage     map[string]state.StorageConstraints
+type createApplicationAndUnit struct {
+	applicationName string
+	storage         map[string]state.StorageConstraints
 }
 
-func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
-	if csau.serviceName == "" {
-		csau.serviceName = "u"
+func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
+	if csau.applicationName == "" {
+		csau.applicationName = "u"
 	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, jc.ErrorIsNil)
-	svc := ctx.s.AddTestingServiceWithStorage(c, csau.serviceName, sch, csau.storage)
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	app := ctx.s.AddTestingApplicationWithStorage(c, csau.applicationName, sch, csau.storage)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
 	assertAssignUnit(c, ctx.st, unit)
-	ctx.svc = svc
+	ctx.svc = app
 	ctx.unit = unit
 
 	ctx.apiLogin(c)
@@ -412,7 +412,7 @@ type createUniter struct {
 
 func (s createUniter) step(c *gc.C, ctx *context) {
 	step(c, ctx, ensureStateWorker{})
-	step(c, ctx, createServiceAndUnit{})
+	step(c, ctx, createApplicationAndUnit{})
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
@@ -1113,7 +1113,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 		panic("don't add two relations!")
 	}
 	if ctx.relatedSvc == nil {
-		ctx.relatedSvc = ctx.s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
+		ctx.relatedSvc = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints("u", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1207,7 +1207,7 @@ type addSubordinateRelation struct {
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 	if _, err := ctx.st.Application("logging"); errors.IsNotFound(err) {
-		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
+		ctx.s.AddTestingApplication(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, jc.ErrorIsNil)

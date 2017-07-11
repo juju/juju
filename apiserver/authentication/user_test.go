@@ -69,7 +69,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	// add a unit for testing unit agent authentication
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
@@ -123,10 +123,10 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// add relation
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)

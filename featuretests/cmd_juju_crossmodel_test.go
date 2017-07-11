@@ -35,9 +35,9 @@ type crossmodelSuite struct {
 
 func (s *crossmodelSuite) TestListEndpoints(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
-	s.AddTestingService(c, "riakservice", ch)
+	s.AddTestingApplication(c, "riakservice", ch)
 	ch = s.AddTestingCharm(c, "varnish")
-	s.AddTestingService(c, "varnishservice", ch)
+	s.AddTestingApplication(c, "varnishservice", ch)
 
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,9 +70,9 @@ varnish:
 
 func (s *crossmodelSuite) TestShow(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
-	s.AddTestingService(c, "riakservice", ch)
+	s.AddTestingApplication(c, "riakservice", ch)
 	ch = s.AddTestingCharm(c, "varnish")
-	s.AddTestingService(c, "varnishservice", ch)
+	s.AddTestingApplication(c, "varnishservice", ch)
 
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"riakservice:endpoint", "riak")
@@ -114,9 +114,9 @@ kontroll:otheruser/othermodel.hosted-mysql:
 
 func (s *crossmodelSuite) setupOffers(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
-	s.AddTestingService(c, "riakservice", ch)
+	s.AddTestingApplication(c, "riakservice", ch)
 	ch = s.AddTestingCharm(c, "varnish")
-	s.AddTestingService(c, "varnishservice", ch)
+	s.AddTestingApplication(c, "varnishservice", ch)
 
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"riakservice:endpoint", "riak")
@@ -192,9 +192,9 @@ kontroll:otheruser/othermodel.hosted-mysql:
 
 func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
-	s.AddTestingService(c, "wordpress", ch)
+	s.AddTestingApplication(c, "wordpress", ch)
 	ch = s.AddTestingCharm(c, "mysql")
-	s.AddTestingService(c, "mysql", ch)
+	s.AddTestingApplication(c, "mysql", ch)
 
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"mysql:server", "hosted-mysql")
@@ -256,7 +256,7 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 
 func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
-	s.AddTestingService(c, "wordpress", ch)
+	s.AddTestingApplication(c, "wordpress", ch)
 
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel"})
 	s.AddCleanup(func(*gc.C) { otherModel.Close() })
@@ -355,7 +355,7 @@ func (s *crossmodelSuite) loginAdminUser(c *gc.C) {
 
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
-	s.AddTestingService(c, "wordpress", ch)
+	s.AddTestingApplication(c, "wordpress", ch)
 	s.addOtherModelApplication(c)
 
 	s.createTestUser(c)
@@ -367,7 +367,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
-	s.AddTestingService(c, "wordpress", ch)
+	s.AddTestingApplication(c, "wordpress", ch)
 	s.addOtherModelApplication(c)
 
 	s.createTestUser(c)
@@ -408,7 +408,7 @@ kontroll:otheruser/othermodel.hosted-mysql:
 
 func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
-	s.AddTestingService(c, "riakservice", ch)
+	s.AddTestingApplication(c, "riakservice", ch)
 
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)

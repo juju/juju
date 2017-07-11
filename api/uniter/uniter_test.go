@@ -103,7 +103,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 }
 
 func (s *uniterSuite) addRelatedApplication(c *gc.C, firstApp, relatedApp string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
-	relatedApplication := s.AddTestingService(c, relatedApp, s.AddTestingCharm(c, relatedApp))
+	relatedApplication := s.AddTestingApplication(c, relatedApp, s.AddTestingCharm(c, relatedApp))
 	rel := s.addRelation(c, firstApp, relatedApp)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)

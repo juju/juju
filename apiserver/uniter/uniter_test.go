@@ -2371,7 +2371,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 }
 
 func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
-	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
+	relatedService := s.AddTestingApplication(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2432,7 +2432,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
+	service := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)

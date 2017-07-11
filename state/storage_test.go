@@ -54,7 +54,7 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
@@ -88,7 +88,7 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingServiceWithStorage(c, ch.URL().Name, ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, ch.URL().Name, ch, storage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
@@ -152,7 +152,7 @@ func (s *StorageStateSuiteBase) setupMixedScopeStorageApplication(
 		"multi2up":   makeStorageCons(pool1, 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-"+kind+"2")
-	return s.AddTestingServiceWithStorage(c, "storage-"+kind+"2", ch, storageCons)
+	return s.AddTestingApplicationWithStorage(c, "storage-"+kind+"2", ch, storageCons)
 }
 
 func (s *StorageStateSuiteBase) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
@@ -558,7 +558,7 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 		"multi1to10": makeStorageCons("", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	app := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, storage)
 	for i := 0; i < 2; i++ {
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -1058,7 +1058,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 		"multi1to10": makeStorageCons("loop-pool", 1024, 2),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	app := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, storage)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1188,8 +1188,8 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 		CountMax: 1,
 		Location: second,
 	})
-	svc1 := s.AddTestingService(c, "storage-filesystem", ch1)
-	svc2 := s.AddTestingService(c, "storage-filesystem2", ch2)
+	svc1 := s.AddTestingApplication(c, "storage-filesystem", ch1)
+	svc2 := s.AddTestingApplication(c, "storage-filesystem2", ch2)
 
 	u1, err := svc1.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1286,8 +1286,8 @@ func (s *StorageSubordinateStateSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	storageCharm := s.AddTestingCharm(c, "storage-filesystem-subordinate")
-	s.subordinateApplication = s.AddTestingService(c, "storage-filesystem-subordinate", storageCharm)
-	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.subordinateApplication = s.AddTestingApplication(c, "storage-filesystem-subordinate", storageCharm)
+	s.mysql = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.mysqlUnit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 

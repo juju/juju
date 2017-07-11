@@ -13,15 +13,15 @@ import (
 	"github.com/juju/juju/watcher/watchertest"
 )
 
-type serviceSuite struct {
+type applicationSuite struct {
 	firewallerSuite
 
 	apiApplication *firewaller.Application
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = gc.Suite(&applicationSuite{})
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
@@ -30,19 +30,19 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TearDownTest(c *gc.C) {
+func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.firewallerSuite.TearDownTest(c)
 }
 
-func (s *serviceSuite) TestName(c *gc.C) {
+func (s *applicationSuite) TestName(c *gc.C) {
 	c.Assert(s.apiApplication.Name(), gc.Equals, s.application.Name())
 }
 
-func (s *serviceSuite) TestTag(c *gc.C) {
+func (s *applicationSuite) TestTag(c *gc.C) {
 	c.Assert(s.apiApplication.Tag(), gc.Equals, names.NewApplicationTag(s.application.Name()))
 }
 
-func (s *serviceSuite) TestWatch(c *gc.C) {
+func (s *applicationSuite) TestWatch(c *gc.C) {
 	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
 
 	w, err := s.apiApplication.Watch()
@@ -58,13 +58,13 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	// Destroy the service and check it's detected.
+	// Destroy the application and check it's detected.
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
-func (s *serviceSuite) TestRefresh(c *gc.C) {
+func (s *applicationSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
 
 	err := s.application.Destroy()
@@ -76,7 +76,7 @@ func (s *serviceSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiApplication.Life(), gc.Equals, params.Dying)
 }
 
-func (s *serviceSuite) TestIsExposed(c *gc.C) {
+func (s *applicationSuite) TestIsExposed(c *gc.C) {
 	err := s.application.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 

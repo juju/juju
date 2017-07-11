@@ -32,7 +32,7 @@ var _ = gc.Suite(&AssignSuite{})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	wordpress := s.AddTestingService(
+	wordpress := s.AddTestingApplication(
 		c,
 		"wordpress",
 		s.AddTestingCharm(c, "wordpress"),
@@ -41,7 +41,7 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *AssignSuite) addSubordinate(c *gc.C, principal *state.Unit) *state.Unit {
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -684,7 +684,7 @@ var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 func (s *assignCleanSuite) SetUpTest(c *gc.C) {
 	c.Logf("assignment policy for this test: %q", s.policy)
 	s.ConnSuite.SetUpTest(c)
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.wordpress = wordpress
 	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
@@ -723,11 +723,11 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add some units to another service and allocate them to machines
-	service1 := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	// Add some units to another application and allocate them to machines
+	app1 := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		u, err := service1.AddUnit(state.AddUnitParams{})
+		u, err := app1.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1010,7 +1010,7 @@ func (s *assignCleanSuite) setupSingleStorage(c *gc.C, kind, pool string) (*stat
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	service := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
 	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")

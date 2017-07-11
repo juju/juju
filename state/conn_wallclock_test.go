@@ -68,16 +68,16 @@ func (s *ConnWithWallClockSuite) AddTestingCharm(c *gc.C, name string) *state.Ch
 	return state.AddTestingCharm(c, s.State, name)
 }
 
-func (s *ConnWithWallClockSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingService(c, s.State, name, ch)
+func (s *ConnWithWallClockSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
+	return state.AddTestingApplication(c, s.State, name, ch)
 }
 
-func (s *ConnWithWallClockSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingServiceWithStorage(c, s.State, name, ch, storage)
+func (s *ConnWithWallClockSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
 }
 
-func (s *ConnWithWallClockSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return state.AddTestingServiceWithBindings(c, s.State, name, ch, bindings)
+func (s *ConnWithWallClockSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+	return state.AddTestingApplicationWithBindings(c, s.State, name, ch, bindings)
 }
 
 func (s *ConnWithWallClockSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

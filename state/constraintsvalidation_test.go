@@ -240,7 +240,7 @@ func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
 
 func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 	charm := s.AddTestingCharm(c, "wordpress")
-	service := s.AddTestingService(c, "wordpress", charm)
+	service := s.AddTestingApplication(c, "wordpress", charm)
 	for i, t := range setConstraintsTests {
 		c.Logf(
 			"test %d: %s\nconsToSet: %q\nconsFallback: %q\n",

@@ -60,9 +60,9 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.service0 = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
-	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.service1 = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)

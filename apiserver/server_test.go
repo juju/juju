@@ -254,7 +254,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 }
 
 func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
-	// Create a new service and unit to verify "agent alive" behavior.
+	// Create a new application and unit to verify "agent alive" behavior.
 	unit, password := s.Factory.MakeUnitReturningPassword(c, nil)
 
 	// Not alive yet.

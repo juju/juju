@@ -46,7 +46,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
 		return &s.distributor, nil
 	}
-	s.wordpress = s.AddTestingService(
+	s.wordpress = s.AddTestingApplication(
 		c,
 		"wordpress",
 		s.AddTestingCharm(c, "wordpress"),
