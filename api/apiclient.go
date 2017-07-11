@@ -605,6 +605,11 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if opts.DialTimeout > 0 {
+		ctx1, cancel := utils.ContextWithTimeout(ctx, opts.Clock, opts.DialTimeout)
+		defer cancel()
+		ctx = ctx1
+	}
 	dialInfo, err := dialWebsocketMulti(ctx, info.Addrs, path, opts)
 	if err != nil {
 		return nil, errors.Trace(err)

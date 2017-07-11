@@ -124,8 +124,13 @@ type DialOpts struct {
 	// before starting to dial another address.
 	DialAddressInterval time.Duration
 
-	// Timeout is the amount of time to wait for
-	// the api.Open to succeed. If this is zero, there is no timeout.
+	// DialTimeout is the amount of time to wait for the dial
+	// portion only of the api.Open to succeed. If this is zero,
+	// there is no dial timeout.
+	DialTimeout time.Duration
+
+	// Timeout is the amount of time to wait for the entire
+	// api.Open to succeed. If this is zero, there is no timeout.
 	Timeout time.Duration
 
 	// RetryDelay is the amount of time to wait between
