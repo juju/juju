@@ -66,6 +66,9 @@ func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
 	template := "%v"
 	if runtime.GOOS == "windows" {
 		template = "%v.exe"
+		for i, aCmd := range expectedCommands {
+			expectedCommands[i] = fmt.Sprintf(template, aCmd)
+		}
 	}
 	for i, line := range lines {
 		command := strings.Fields(line)[0]
