@@ -20,6 +20,7 @@ type RequestObserver struct {
 	clock              clock.Clock
 	logger             loggo.Logger
 	connLogger         loggo.Logger
+	pingLogger         loggo.Logger
 	apiConnectionCount func() int64
 
 	// state represents information that's built up as methods on this
@@ -56,6 +57,7 @@ func NewRequestObserver(ctx RequestObserverContext) *RequestObserver {
 		clock:      ctx.Clock,
 		logger:     ctx.Logger,
 		connLogger: loggo.GetLogger(module + ".connection"),
+		pingLogger: loggo.GetLogger(module + ".ping"),
 	}
 }
 
@@ -107,10 +109,11 @@ func (n *RequestObserver) Leave() {
 // RPCObserver implements Observer.
 func (n *RequestObserver) RPCObserver() rpc.Observer {
 	return &rpcObserver{
-		clock:  n.clock,
-		logger: n.logger,
-		id:     n.state.id,
-		tag:    n.state.tag,
+		clock:      n.clock,
+		logger:     n.logger,
+		pingLogger: n.pingLogger,
+		id:         n.state.id,
+		tag:        n.state.tag,
 	}
 }
 
@@ -118,23 +121,26 @@ func (n *RequestObserver) RPCObserver() rpc.Observer {
 type rpcObserver struct {
 	clock        clock.Clock
 	logger       loggo.Logger
+	pingLogger   loggo.Logger
 	id           uint64
 	tag          string
 	requestStart time.Time
 }
 
-// ServerReques timplements rpc.Observer.
+// ServerRequest implements rpc.Observer.
 func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 	n.requestStart = n.clock.Now()
 
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
+		n.logRequestTrace(n.pingLogger, hdr, body)
 		return
 	}
+
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
 	if n.logger.IsTraceEnabled() {
-		n.logger.Tracef("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+		n.logRequestTrace(n.logger, hdr, body)
 	} else {
 		n.logger.Debugf("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
 	}
@@ -143,6 +149,7 @@ func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 // ServerReply implements rpc.Observer.
 func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 	if req.Type == "Pinger" && req.Action == "Ping" {
+		n.logReplyTrace(n.pingLogger, hdr, body)
 		return
 	}
 
@@ -150,7 +157,7 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
 	if n.logger.IsTraceEnabled() {
-		n.logger.Tracef("-> [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+		n.logReplyTrace(n.logger, hdr, body)
 	} else {
 		n.logger.Debugf(
 			"-> [%X] %s %s %s %s[%q].%s",
@@ -163,4 +170,16 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 			req.Action,
 		)
 	}
+}
+
+func (n *rpcObserver) logRequestTrace(logger loggo.Logger, hdr *rpc.Header, body interface{}) {
+	n.logTrace(logger, "<-", hdr, body)
+}
+
+func (n *rpcObserver) logReplyTrace(logger loggo.Logger, hdr *rpc.Header, body interface{}) {
+	n.logTrace(logger, "->", hdr, body)
+}
+
+func (n *rpcObserver) logTrace(logger loggo.Logger, prefix string, hdr *rpc.Header, body interface{}) {
+	logger.Tracef("%s [%X] %s %s", prefix, n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 }

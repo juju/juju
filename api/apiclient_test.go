@@ -766,13 +766,14 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
-	unblock := make(chan struct{})
+	unblock := make(chan chan struct{})
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
 		return &loginTimeoutAPI{
 			unblock: unblock,
 		}
 	})
 	defer srv.Close()
+	defer close(unblock)
 
 	clk := testing.NewClock(time.Now())
 	done := make(chan error, 1)
@@ -794,6 +795,122 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, `cannot log in: context deadline exceeded`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
+	}
+}
+
+func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+
+	clk := testing.NewClock(time.Now())
+	done := make(chan error, 1)
+	go func() {
+		_, err := api.Open(&api.Info{
+			Addrs:     []string{"127.0.0.1:1234"},
+			CACert:    jtesting.CACert,
+			ModelTag:  names.NewModelTag("beef1beef1-0000-0000-000011112222"),
+			SkipLogin: true,
+		}, api.DialOpts{
+			Clock:         clk,
+			Timeout:       5 * time.Second,
+			DialWebsocket: fakeDialer,
+		})
+		done <- err
+	}()
+	err := clk.WaitAdvance(5*time.Second, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case err := <-done:
+		c.Assert(err, gc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+	case <-time.After(time.Second):
+		c.Fatalf("timed out waiting for api.Open timeout")
+	}
+}
+
+func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+
+	clk := testing.NewClock(time.Now())
+	done := make(chan error, 1)
+	go func() {
+		_, err := api.Open(&api.Info{
+			Addrs:     []string{"127.0.0.1:1234"},
+			CACert:    jtesting.CACert,
+			ModelTag:  names.NewModelTag("beef1beef1-0000-0000-000011112222"),
+			SkipLogin: true,
+		}, api.DialOpts{
+			Clock:         clk,
+			Timeout:       5 * time.Second,
+			DialTimeout:   3 * time.Second,
+			DialWebsocket: fakeDialer,
+		})
+		done <- err
+	}()
+	err := clk.WaitAdvance(3*time.Second, time.Second, 2) // Timeout & DialTimeout
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case err := <-done:
+		c.Assert(err, gc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+	case <-time.After(time.Second):
+		c.Fatalf("timed out waiting for api.Open timeout")
+	}
+}
+
+func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
+	unblock := make(chan chan struct{}, 1)
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
+		return &loginTimeoutAPI{
+			unblock: unblock,
+		}
+	})
+	defer srv.Close()
+	defer close(unblock)
+
+	clk := testing.NewClock(time.Now())
+	done := make(chan error, 1)
+	go func() {
+		_, err := api.Open(&api.Info{
+			Addrs:    srv.Addrs,
+			CACert:   jtesting.CACert,
+			ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
+		}, api.DialOpts{
+			Clock:       clk,
+			DialTimeout: 5 * time.Second,
+		})
+		done <- err
+	}()
+
+	// We should not get a response from api.Open until we
+	// unblock the login.
+	unblocked := make(chan struct{})
+	unblock <- unblocked
+	select {
+	case <-done:
+		c.Fatalf("unexpected return from api.Open")
+	case <-time.After(jtesting.ShortWait):
+	}
+
+	// There should be nothing waiting.
+	err := clk.WaitAdvance(0, 0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// unblock the login by receiving from "unblocked", and then the
+	// api.Open should return the result of the login.
+	select {
+	case <-unblocked:
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for login to be unblocked")
+	}
+	select {
+	case err := <-done:
+		c.Assert(err, gc.ErrorMatches, "login failed")
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for api.Open to return")
 	}
 }
 
@@ -1113,7 +1230,7 @@ func (m dnsCacheMap) Add(host string, ips []string) {
 }
 
 type loginTimeoutAPI struct {
-	unblock chan struct{}
+	unblock chan chan struct{}
 }
 
 func (r *loginTimeoutAPI) Admin(id string) (*loginTimeoutAPIAdmin, error) {
@@ -1125,6 +1242,20 @@ type loginTimeoutAPIAdmin struct {
 }
 
 func (a *loginTimeoutAPIAdmin) Login(req params.LoginRequest) (params.LoginResult, error) {
-	<-a.r.unblock
+	var unblocked chan struct{}
+	select {
+	case ch, ok := <-a.r.unblock:
+		if !ok {
+			return params.LoginResult{}, errors.New("abort")
+		}
+		unblocked = ch
+	case <-time.After(jtesting.LongWait):
+		return params.LoginResult{}, errors.New("timed out waiting to be unblocked")
+	}
+	select {
+	case unblocked <- struct{}{}:
+	case <-time.After(jtesting.LongWait):
+		return params.LoginResult{}, errors.New("timed out sending on unblocked channel")
+	}
 	return params.LoginResult{}, errors.Errorf("login failed")
 }

@@ -89,8 +89,12 @@ func connectFallback(
 	// than the alternatives.
 	var tryConnect = func() {
 		conn, err = apiOpen(info, api.DialOpts{
-			Timeout:    time.Second,
-			RetryDelay: 200 * time.Millisecond,
+			// NOTE we set DialTimeout but not Timeout, because
+			// the server may apply server-side rate-limiting
+			// before responding to the Login request. The dial
+			// should be fast, but the login may not be.
+			DialTimeout: time.Second,
+			RetryDelay:  200 * time.Millisecond,
 		})
 	}
 

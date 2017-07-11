@@ -53,6 +53,10 @@ type CreateVirtualMachineParams struct {
 	// to create the VM.
 	ComputeResource *mo.ComputeResource
 
+	// Datastore is the name of the datastore in which to create the VM.
+	// If this is empty, any accessible datastore will be used.
+	Datastore string
+
 	// Metadata are metadata key/value pairs to apply to the VM as
 	// "extra config".
 	Metadata map[string]string
@@ -219,7 +223,11 @@ func (c *Client) createImportSpec(
 	}
 	ovfManager := object.NewOvfManager(c.client.Client)
 	resourcePool := object.NewReference(c.client.Client, *args.ComputeResource.ResourcePool)
-	datastore := object.NewReference(c.client.Client, args.ComputeResource.Datastore[0])
+	datastore, err := c.selectDatastore(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	spec, err := ovfManager.CreateImportSpec(ctx, args.OVF, resourcePool, datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -296,6 +304,37 @@ func (c *Client) createImportSpec(
 		})
 	}
 	return spec, nil
+}
+
+func (c *Client) selectDatastore(
+	ctx context.Context,
+	args CreateVirtualMachineParams,
+) (*object.Datastore, error) {
+	// Select a datastore. If the user specified one, use that; otherwise
+	// choose the first one in the list that is accessible.
+	refs := make([]types.ManagedObjectReference, len(args.ComputeResource.Datastore))
+	for i, ds := range args.ComputeResource.Datastore {
+		refs[i] = ds.Reference()
+	}
+	var datastores []mo.Datastore
+	if err := c.client.Retrieve(ctx, refs, nil, &datastores); err != nil {
+		return nil, errors.Annotate(err, "retrieving datastore details")
+	}
+	if args.Datastore != "" {
+		for _, ds := range datastores {
+			if ds.Name == args.Datastore {
+				return object.NewDatastore(c.client.Client, ds.Reference()), nil
+			}
+		}
+		return nil, errors.Errorf("could not find datastore %q", args.Datastore)
+	}
+	for _, ds := range datastores {
+		if ds.Summary.Accessible {
+			c.logger.Debugf("using datastore %q", ds.Name)
+			return object.NewDatastore(c.client.Client, ds.Reference()), nil
+		}
+	}
+	return nil, errors.New("could not find an accessible datastore")
 }
 
 // uploadImage uploads an image from the given extracted OVA directory
