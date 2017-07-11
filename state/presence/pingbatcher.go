@@ -336,7 +336,7 @@ func (pb *PingBatcher) flush() error {
 		}
 	}
 	// usually we should only be processing 1 slot
-	logger.Tracef("[%v] pingbatcher recorded %d pings for %d ping slot(s) and %d fields in %v",
-		strings.Join(uuids.SortedValues(), ", "), pingCount, docCount, fieldCount, time.Since(t))
+	logger.Tracef("[%v] recorded %d pings for %d ping slot(s) and %d fields in %.3fs",
+		strings.Join(uuids.SortedValues(), ", "), pingCount, docCount, fieldCount, time.Since(t).Seconds())
 	return nil
 }
