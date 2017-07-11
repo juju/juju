@@ -27,7 +27,7 @@ var _ = gc.Suite(&storageAddSuite{})
 
 func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 	storageCons := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("loop", 0, 3),
+		"multi1to10": makeStorageCons("persistent-block", 0, 3),
 	}
 	charm := s.AddTestingCharm(c, "storage-block2")
 	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: charm, Storage: storageCons})
@@ -92,12 +92,30 @@ func (s *storageAddSuite) TestAddStorageToUnit(c *gc.C) {
 
 	allVolumeParams := allMachineVolumeParams(c, s.State, s.machineTag)
 	c.Assert(allVolumeParams, jc.SameContents, []state.VolumeParams{
-		{Pool: "loop", Size: 1024},
-		{Pool: "loop", Size: 1024},
-		{Pool: "loop", Size: 1024},
+		{Pool: "persistent-block", Size: 1024}, // multi1to10
+		{Pool: "persistent-block", Size: 1024}, // multi1to10
+		{Pool: "persistent-block", Size: 1024}, // multi1to10
+		{Pool: "loop", Size: 2048},             // multi2up
+		{Pool: "loop", Size: 2048},             // multi2up
+		{Pool: "loop-pool", Size: 4096},        // added above
+	})
+}
+
+func (s *storageAddSuite) TestAddStorageToUnitInheritPoolAndSize(c *gc.C) {
+	u := s.setupMultipleStoragesForAdd(c)
+	s.assignUnit(c, u)
+
+	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
+	c.Assert(err, jc.ErrorIsNil)
+
+	allVolumeParams := allMachineVolumeParams(c, s.State, s.machineTag)
+	c.Assert(allVolumeParams, jc.SameContents, []state.VolumeParams{
+		{Pool: "persistent-block", Size: 1024},
+		{Pool: "persistent-block", Size: 1024},
+		{Pool: "persistent-block", Size: 1024},
+		{Pool: "persistent-block", Size: 1024},
 		{Pool: "loop", Size: 2048},
 		{Pool: "loop", Size: 2048},
-		{Pool: "loop-pool", Size: 4096},
 	})
 }
 
@@ -117,9 +135,9 @@ func (s *storageAddSuite) TestAddStorageToUnitNotAssigned(c *gc.C) {
 
 	allVolumeParams := allMachineVolumeParams(c, s.State, s.machineTag)
 	c.Assert(allVolumeParams, jc.SameContents, []state.VolumeParams{
-		{Pool: "loop", Size: 1024},
-		{Pool: "loop", Size: 1024},
-		{Pool: "loop", Size: 1024},
+		{Pool: "persistent-block", Size: 1024},
+		{Pool: "persistent-block", Size: 1024},
+		{Pool: "persistent-block", Size: 1024},
 		{Pool: "loop", Size: 2048},
 		{Pool: "loop", Size: 2048},
 		{Pool: "loop-pool", Size: 4096},
