@@ -203,6 +203,26 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				},
 			},
 		}},
+		"FakeDatastore1": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "Datastore",
+				Value: "FakeDatastore1",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "datastore1"},
+				{Name: "summary.accessible", Val: false},
+			},
+		}},
+		"FakeDatastore2": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "Datastore",
+				Value: "FakeDatastore2",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "datastore2"},
+				{Name: "summary.accessible", Val: true},
+			},
+		}},
 	}
 
 	// Create an HTTP server to receive image uploads.

@@ -36,7 +36,7 @@ func newEnviron(
 	cloud environs.CloudSpec,
 	cfg *config.Config,
 ) (*environ, error) {
-	ecfg, err := newValidConfig(cfg, configDefaults)
+	ecfg, err := newValidConfig(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
