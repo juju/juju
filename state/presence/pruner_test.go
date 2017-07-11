@@ -77,11 +77,15 @@ func checkCollectionCount(c *gc.C, coll *mgo.Collection, count int) {
 	c.Check(count, gc.Equals, count)
 }
 
+func (s *prunerSuite) getDirectRecorder() PingRecorder {
+	return DirectRecordFunc(s.presence)
+}
+
 func (s *prunerSuite) TestPrunesOldPingsAndBeings(c *gc.C) {
 	keys := []string{"key1", "key2"}
 	pingers := make([]*Pinger, len(keys))
 	for i, key := range keys {
-		pingers[i] = NewPinger(s.presence, s.modelTag, key, DirectRecordFunc(s.presence))
+		pingers[i] = NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
 	}
 	const numSlots = 10
 	sequences := make([][]int64, len(keys))
@@ -123,10 +127,10 @@ func (s *prunerSuite) TestPreservesLatestSequence(c *gc.C) {
 	FakePeriod(1)
 
 	key := "blah"
-	p1 := NewPinger(s.presence, s.modelTag, key, DirectRecordFunc(s.presence))
+	p1 := NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
 	p1.Start()
 	assertStopped(c, p1)
-	p2 := NewPinger(s.presence, s.modelTag, key, DirectRecordFunc(s.presence))
+	p2 := NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
 	p2.Start()
 	assertStopped(c, p2)
 	// we're starting p2 second, so it should get a higher sequence
@@ -203,6 +207,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	defer assertStopped(c, w)
 	pb := NewPingBatcher(s.presence, 500*time.Millisecond)
 	defer assertStopped(c, pb)
+	getPB := func() PingRecorder { return pb }
 	defer func() {
 		for i, p := range oldPingers {
 			if p == nil {
@@ -227,7 +232,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		// As this is a busy channel, we may be queued up behind some other
 		// pinger showing up as alive, so allow up to LongWait for the event to show up
 		waitForFirstChange(c, ch, Change{key, false})
-		p := NewPinger(s.presence, s.modelTag, key, pb)
+		p := NewPinger(s.presence, s.modelTag, key, getPB)
 		err := p.Start()
 		c.Assert(err, jc.ErrorIsNil)
 		newPingers[i] = p
@@ -279,7 +284,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 				assertStopped(c, old)
 			}
 			oldPingers[i] = newPingers[i]
-			p := NewPinger(s.presence, s.modelTag, keys[i], pb)
+			p := NewPinger(s.presence, s.modelTag, keys[i], getPB)
 			err := p.Start()
 			c.Assert(err, jc.ErrorIsNil)
 			newPingers[i] = p

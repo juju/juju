@@ -157,15 +157,14 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 // Validate implements environs.EnvironProvider.
 func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if old == nil {
-		ecfg, err := newValidConfig(cfg, configDefaults)
+		ecfg, err := newValidConfig(cfg)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid config")
 		}
 		return ecfg.Config, nil
 	}
 
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(old, nil)
+	ecfg, err := newValidConfig(old)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}

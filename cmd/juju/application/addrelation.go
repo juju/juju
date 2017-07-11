@@ -146,6 +146,12 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	if params.IsCodeUnauthorized(err) {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
+	if params.IsCodeAlreadyExists(err) {
+		// It's not a real error, mention about it, log it and move along
+		logger.Infof("%s", err)
+		ctx.Infof("%s", err)
+		err = nil
+	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

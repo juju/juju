@@ -86,7 +86,8 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		r.MethodCall(r, "CreateFolder")
 		res.Res = &types.CreateFolderResponse{}
 	case *methods.CreateImportSpecBody:
-		r.MethodCall(r, "CreateImportSpec")
+		req := req.(*methods.CreateImportSpecBody).Req
+		r.MethodCall(r, "CreateImportSpec", req.OvfDescriptor, req.Datastore)
 		res.Res = &types.CreateImportSpecResponse{
 			types.OvfCreateImportSpecResult{
 				FileItem: []types.OvfFileItem{
