@@ -76,6 +76,7 @@ const (
 	CodeHasAssignedUnits          = "machine has assigned units"
 	CodeHasHostedModels           = "controller has hosted models"
 	CodeMachineHasAttachedStorage = "machine has attached storage"
+	CodeStorageAttached           = "storage is attached"
 	CodeNotProvisioned            = "not provisioned"
 	CodeNoAddressSet              = "no address set"
 	CodeTryAgain                  = "try again"
@@ -186,6 +187,10 @@ func IsCodeHasHostedModels(err error) bool {
 
 func IsCodeMachineHasAttachedStorage(err error) bool {
 	return ErrCode(err) == CodeMachineHasAttachedStorage
+}
+
+func IsCodeStorageAttached(err error) bool {
+	return ErrCode(err) == CodeStorageAttached
 }
 
 func IsCodeNotProvisioned(err error) bool {

@@ -21,28 +21,46 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-// API implements the storage interface and is the concrete
-// implementation of the api end point.
-type API struct {
+// APIv3 implements the storage v3 API.
+type APIv3 struct {
 	storage     storageAccess
 	registry    storage.ProviderRegistry
 	poolManager poolmanager.PoolManager
 	authorizer  facade.Authorizer
 }
 
-// NewAPI returns a new storage API facade.
-func NewAPI(
+// APIv4 implements the storage v4 API.
+type APIv4 struct {
+	*APIv3
+}
+
+// NewAPIv4 returns a new storage v4 API facade.
+func NewAPIv4(
 	st storageAccess,
 	registry storage.ProviderRegistry,
 	pm poolmanager.PoolManager,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-) (*API, error) {
+) (*APIv4, error) {
+	apiv3, err := NewAPIv3(st, registry, pm, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &APIv4{apiv3}, nil
+}
+
+// NewAPIv3 returns a new storage v4 API facade.
+func NewAPIv3(
+	st storageAccess,
+	registry storage.ProviderRegistry,
+	pm poolmanager.PoolManager,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*APIv3, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
-	return &API{
+	return &APIv3{
 		storage:     st,
 		registry:    registry,
 		poolManager: pm,
@@ -50,7 +68,7 @@ func NewAPI(
 	}, nil
 }
 
-func (api *API) checkCanRead() error {
+func (api *APIv3) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.storage.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -61,7 +79,7 @@ func (api *API) checkCanRead() error {
 	return nil
 }
 
-func (api *API) checkCanWrite() error {
+func (api *APIv3) checkCanWrite() error {
 	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.storage.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -75,7 +93,7 @@ func (api *API) checkCanWrite() error {
 // StorageDetails retrieves and returns detailed information about desired
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
-func (api *API) StorageDetails(entities params.Entities) (params.StorageDetailsResults, error) {
+func (api *APIv3) StorageDetails(entities params.Entities) (params.StorageDetailsResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.StorageDetailsResults{}, errors.Trace(err)
 	}
@@ -102,7 +120,7 @@ func (api *API) StorageDetails(entities params.Entities) (params.StorageDetailsR
 }
 
 // ListStorageDetails returns storage matching a filter.
-func (api *API) ListStorageDetails(filters params.StorageFilters) (params.StorageDetailsListResults, error) {
+func (api *APIv3) ListStorageDetails(filters params.StorageFilters) (params.StorageDetailsListResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.StorageDetailsListResults{}, errors.Trace(err)
 	}
@@ -120,7 +138,7 @@ func (api *API) ListStorageDetails(filters params.StorageFilters) (params.Storag
 	return results, nil
 }
 
-func (api *API) listStorageDetails(filter params.StorageFilter) ([]params.StorageDetails, error) {
+func (api *APIv3) listStorageDetails(filter params.StorageFilter) ([]params.StorageDetails, error) {
 	if filter != (params.StorageFilter{}) {
 		// StorageFilter has no fields at the time of writing, but
 		// check that no fields are set in case we forget to update
@@ -237,7 +255,7 @@ func storageAttachmentInfo(st storageAccess, a state.StorageAttachment) (_ names
 // pools that match either are returned.
 // This method lists union of pools and environment provider types.
 // If no filter is provided, all pools are returned.
-func (a *API) ListPools(
+func (a *APIv3) ListPools(
 	filters params.StoragePoolFilters,
 ) (params.StoragePoolsResults, error) {
 	if err := a.checkCanRead(); err != nil {
@@ -258,7 +276,7 @@ func (a *API) ListPools(
 	return results, nil
 }
 
-func (a *API) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {
+func (a *APIv3) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {
 	if err := a.validatePoolListFilter(filter); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -334,7 +352,7 @@ func filterPools(
 	return all
 }
 
-func (a *API) validatePoolListFilter(filter params.StoragePoolFilter) error {
+func (a *APIv3) validatePoolListFilter(filter params.StoragePoolFilter) error {
 	if err := a.validateProviderCriteria(filter.Providers); err != nil {
 		return errors.Trace(err)
 	}
@@ -344,7 +362,7 @@ func (a *API) validatePoolListFilter(filter params.StoragePoolFilter) error {
 	return nil
 }
 
-func (a *API) validateNameCriteria(names []string) error {
+func (a *APIv3) validateNameCriteria(names []string) error {
 	for _, n := range names {
 		if !storage.IsValidPoolName(n) {
 			return errors.NotValidf("pool name %q", n)
@@ -353,7 +371,7 @@ func (a *API) validateNameCriteria(names []string) error {
 	return nil
 }
 
-func (a *API) validateProviderCriteria(providers []string) error {
+func (a *APIv3) validateProviderCriteria(providers []string) error {
 	for _, p := range providers {
 		_, err := a.registry.StorageProvider(storage.ProviderType(p))
 		if err != nil {
@@ -364,7 +382,7 @@ func (a *API) validateProviderCriteria(providers []string) error {
 }
 
 // CreatePool creates a new pool with specified parameters.
-func (a *API) CreatePool(p params.StoragePool) error {
+func (a *APIv3) CreatePool(p params.StoragePool) error {
 	_, err := a.poolManager.Create(
 		p.Name,
 		storage.ProviderType(p.Provider),
@@ -375,7 +393,7 @@ func (a *API) CreatePool(p params.StoragePool) error {
 // ListVolumes lists volumes with the given filters. Each filter produces
 // an independent list of volumes, or an error if the filter is invalid
 // or the volumes could not be listed.
-func (a *API) ListVolumes(filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
+func (a *APIv3) ListVolumes(filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.VolumeDetailsListResults{}, errors.Trace(err)
 	}
@@ -526,7 +544,7 @@ func createVolumeDetails(
 // ListFilesystems returns a list of filesystems in the environment matching
 // the provided filter. Each result describes a filesystem in detail, including
 // the filesystem's attachments.
-func (a *API) ListFilesystems(filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
+func (a *APIv3) ListFilesystems(filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
 	results := params.FilesystemDetailsListResults{
 		Results: make([]params.FilesystemDetailsListResult, len(filters.Filters)),
 	}
@@ -684,7 +702,7 @@ func createFilesystemDetails(
 // a failure on one individual storage instance does not block remaining
 // instances from being processed.
 // A "CHANGE" block can block this operation.
-func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
+func (a *APIv3) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -728,7 +746,28 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 
 // Destroy sets the specified storage entities to Dying, unless they are
 // already Dying or Dead.
-func (a *API) Destroy(args params.Entities) (params.ErrorResults, error) {
+func (a *APIv3) Destroy(args params.Entities) (params.ErrorResults, error) {
+	v4Args := params.DestroyStorage{
+		Storage: make([]params.DestroyStorageInstance, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		v4Args.Storage[i] = params.DestroyStorageInstance{
+			Tag: arg.Tag,
+			// The v3 behaviour was to detach the storage
+			// at the same time as marking the storage Dying.
+			DestroyAttached: true,
+		}
+	}
+	return a.destroy(v4Args)
+}
+
+// Destroy sets the specified storage entities to Dying, unless they are
+// already Dying or Dead.
+func (a *APIv4) Destroy(args params.DestroyStorage) (params.ErrorResults, error) {
+	return a.destroy(args)
+}
+
+func (a *APIv3) destroy(args params.DestroyStorage) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -738,21 +777,16 @@ func (a *API) Destroy(args params.Entities) (params.ErrorResults, error) {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	result := make([]params.ErrorResult, len(args.Entities))
-	for i, one := range args.Entities {
-		tag, err := names.ParseTag(one.Tag)
+	result := make([]params.ErrorResult, len(args.Storage))
+	for i, arg := range args.Storage {
+		tag, err := names.ParseStorageTag(arg.Tag)
 		if err != nil {
 			result[i].Error = common.ServerError(err)
 			continue
 		}
-
-		switch tag := tag.(type) {
-		case names.StorageTag:
-			err = a.storage.DestroyStorageInstance(tag)
-		default:
-			err = errors.NotValidf("tag kind %q", tag.Kind())
-		}
-		result[i].Error = common.ServerError(err)
+		result[i].Error = common.ServerError(
+			a.storage.DestroyStorageInstance(tag, arg.DestroyAttached),
+		)
 	}
 	return params.ErrorResults{result}, nil
 }
@@ -760,7 +794,7 @@ func (a *API) Destroy(args params.Entities) (params.ErrorResults, error) {
 // Detach sets the specified storage attachments to Dying, unless they are
 // already Dying or Dead. Any associated, persistent storage will remain
 // alive.
-func (a *API) Detach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+func (a *APIv3) Detach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -793,7 +827,7 @@ func (a *API) Detach(args params.StorageAttachmentIds) (params.ErrorResults, err
 	return params.ErrorResults{result}, nil
 }
 
-func (api *API) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
+func (api *APIv3) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
 	if unitTag != (names.UnitTag{}) {
 		// The caller has specified a unit explicitly. Do
 		// not filter out "not found" errors in this case.
@@ -825,7 +859,7 @@ func (api *API) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag
 
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
-func (a *API) Attach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+func (a *APIv3) Attach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -854,6 +888,6 @@ func (a *API) Attach(args params.StorageAttachmentIds) (params.ErrorResults, err
 	return params.ErrorResults{Results: result}, nil
 }
 
-func (a *API) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
+func (a *APIv3) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
 	return a.storage.AttachStorage(storageTag, unitTag)
 }

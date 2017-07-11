@@ -731,3 +731,19 @@ type StorageAddParams struct {
 type StoragesAddParams struct {
 	Storages []StorageAddParams `json:"storages"`
 }
+
+// DestroyStorage holds the parameters for destroying storage.
+type DestroyStorage struct {
+	Storage []DestroyStorageInstance `json:"storage"`
+}
+
+// DestroyStorage holds the parameters for destroying a storage instance.
+type DestroyStorageInstance struct {
+	// Tag is the tag of the storage instance to be destroyed.
+	Tag string `json:"tag"`
+
+	// DestroyAttached controls whether or not the storage will be
+	// destroyed if it is currently attached. If destroy-attached
+	// is false, then the storage must already be detached.
+	DestroyAttached bool `json:"destroy-attached,bool"`
+}

@@ -200,7 +200,10 @@ func AllFacades() *facade.Registry {
 	reg("Spaces", 3, spaces.NewAPI)
 
 	reg("StatusHistory", 2, statushistory.NewAPI)
-	reg("Storage", 3, storage.NewFacade)
+
+	reg("Storage", 3, storage.NewFacadeV3)
+	reg("Storage", 4, storage.NewFacadeV4) // changes Destroy() method signature.
+
 	reg("StorageProvisioner", 3, storageprovisioner.NewFacade)
 	reg("Subnets", 2, subnets.NewAPI)
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
