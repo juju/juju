@@ -88,10 +88,10 @@ func assertNoChange(c *gc.C, watch <-chan presence.Change) {
 	}
 }
 
-func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
-	alive, err := w.Alive("a")
+func assertAlive(c *gc.C, w *presence.Watcher, key string, expAlive bool) {
+	realAlive, err := w.Alive(key)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, alive)
+	c.Assert(realAlive, gc.Equals, expAlive)
 }
 
 // assertStopped stops a worker and waits until it reports stopped.
