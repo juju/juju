@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statushistorypruner_test
+package pruner_test
 
 import (
 	"sync"
@@ -16,16 +16,17 @@ import (
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/statushistorypruner"
 )
 
-type statusHistoryPrunerSuite struct {
+type PrunerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&statusHistoryPrunerSuite{})
+var _ = gc.Suite(&PrunerSuite{})
 
-func (s *statusHistoryPrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.Clock) {
+func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.Clock) {
 	facade := newFakeFacade()
 	attrs := coretesting.FakeConfig()
 	attrs["max-status-history-age"] = "1s"
@@ -35,13 +36,15 @@ func (s *statusHistoryPrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.C
 	facade.modelConfig = cfg
 
 	testClock := testing.NewClock(time.Time{})
-	conf := statushistorypruner.Config{
+	conf := pruner.Config{
 		Facade:        facade,
 		PruneInterval: coretesting.ShortWait,
 		Clock:         testClock,
 	}
 
+	// an example pruner
 	pruner, err := statushistorypruner.New(conf)
+
 	c.Check(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(worker.Stop(pruner), jc.ErrorIsNil)
@@ -57,7 +60,7 @@ func (s *statusHistoryPrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.C
 	return facade, testClock
 }
 
-func (s *statusHistoryPrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testClock *testing.Clock, collectionSize int) {
+func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testClock *testing.Clock, collectionSize int) {
 	// NewTimer/Reset will have been called with the PruneInterval.
 	testClock.WaitAdvance(coretesting.ShortWait-time.Nanosecond, coretesting.LongWait, 1)
 	select {
@@ -74,12 +77,12 @@ func (s *statusHistoryPrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeF
 	}
 }
 
-func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
+func (s *PrunerSuite) TestWorkerCallsPrune(c *gc.C) {
 	facade, clock := s.setupPruner(c)
 	s.assertWorkerCallsPrune(c, facade, clock, 3)
 }
 
-func (s *statusHistoryPrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
+func (s *PrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
 	facade, _ := s.setupPruner(c)
 
 	select {
@@ -89,7 +92,7 @@ func (s *statusHistoryPrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *g
 	}
 }
 
-func (s *statusHistoryPrunerSuite) TestModelConfigChange(c *gc.C) {
+func (s *PrunerSuite) TestModelConfigChange(c *gc.C) {
 	facade, clock := s.setupPruner(c)
 	s.assertWorkerCallsPrune(c, facade, clock, 3)
 

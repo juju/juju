@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statushistorypruner
+package actionpruner
 
 import (
 	"time"
@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/statushistory"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/pruner"
@@ -21,18 +21,17 @@ type Worker struct {
 	pruner.PrunerWorker
 }
 
-// NewFacade returns a new status history facade.
 func NewFacade(caller base.APICaller) pruner.Facade {
-	return statushistory.NewFacade(caller)
+	return action.NewFacade(caller)
 }
 
 func (w *Worker) loop() error {
 	return w.Work(func(config *config.Config) (time.Duration, uint) {
-		return config.MaxStatusHistoryAge(), config.MaxStatusHistorySizeMB()
+		return config.MaxActionAge(), config.MaxActionSizeMB()
 	})
 }
 
-// New creates a new status history pruner.
+// New creates a new action pruner worker
 func New(conf pruner.Config) (worker.Worker, error) {
 	if err := conf.Validate(); err != nil {
 		return nil, errors.Trace(err)
