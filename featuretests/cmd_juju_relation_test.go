@@ -6,6 +6,8 @@ package featuretests
 import (
 	"os"
 
+	"github.com/juju/cmd/cmdtesting"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -32,9 +34,11 @@ func (s *CmdRelationSuite) TestAddRelationSuccess(c *gc.C) {
 	runCommandExpectSuccess(c, "add-relation", s.apps...)
 }
 
-func (s *CmdRelationSuite) TestAddRelationFail(c *gc.C) {
+func (s *CmdRelationSuite) TestAddRelationSuccessOnAlreadyExists(c *gc.C) {
 	runCommandExpectSuccess(c, "add-relation", s.apps...)
-	runCommandExpectFailure(c, "add-relation", `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`, s.apps...)
+	context, err := runCommand(c, append([]string{"add-relation"}, s.apps...)...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(context), jc.Contains, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
 }
 
 func (s *CmdRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
