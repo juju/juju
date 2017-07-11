@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/action"
+	"github.com/juju/juju/apiserver/actionpruner"
 	"github.com/juju/juju/apiserver/agent" // ModelUser Write
 	"github.com/juju/juju/apiserver/agenttools"
 	"github.com/juju/juju/apiserver/annotations" // ModelUser Write
@@ -113,6 +114,7 @@ func AllFacades() *facade.Registry {
 	}
 
 	reg("Action", 2, action.NewActionAPI)
+	reg("ActionPruner", 1, actionpruner.NewAPI)
 	reg("Agent", 2, agent.NewAgentAPIV2)
 	reg("AgentTools", 1, agenttools.NewFacade)
 	reg("Annotations", 2, annotations.NewAPI)

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statushistorypruner_test
+package pruner_test
 
 import (
 	stdtesting "testing"
