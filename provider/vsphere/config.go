@@ -25,7 +25,7 @@ var (
 
 	configDefaults = schema.Defaults{
 		cfgExternalNetwork: "",
-		cfgDatastore:       "",
+		cfgDatastore:       schema.Omit,
 	}
 
 	configRequiredFields  = []string{}
@@ -58,11 +58,6 @@ func newValidConfig(cfg *config.Config) (*environConfig, error) {
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if validated[cfgDatastore] == "" {
-		// TODO(axw) ValidateUnknownAttrs should not be setting the
-		// empty value when the default is schema.Omit.
-		delete(validated, cfgDatastore)
 	}
 	validCfg, err := cfg.Apply(validated)
 	if err != nil {
