@@ -4,10 +4,12 @@ package presence
 
 import (
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
@@ -279,9 +281,9 @@ func (pb *PingBatcher) flush() error {
 		}
 	}()
 	if pb.pingCount == 0 {
-		logger.Tracef("pingbatcher has 0 pings to record")
 		return nil
 	}
+	uuids := set.NewStrings()
 	// We treat all of these as 'consumed'. Even if the query fails, it is
 	// not safe to ever $inc the same fields a second time, so we just move on.
 	next := pb.pending
@@ -314,6 +316,11 @@ func (pb *PingBatcher) flush() error {
 				{"$inc", incFields},
 			},
 		)
+		if logger.IsTraceEnabled() {
+			// the rest of Pings records the first 6 characters of
+			// model-uuids, so we include that here if we are TRACEing.
+			uuids.Add(docId[:6])
+		}
 		bulkCount++
 		if bulkCount >= maxBatch {
 			if _, err := bulk.Run(); err != nil {
@@ -329,7 +336,7 @@ func (pb *PingBatcher) flush() error {
 		}
 	}
 	// usually we should only be processing 1 slot
-	logger.Tracef("pingbatcher recorded %d pings for %d ping slot(s) and %d fields in %v",
-		pingCount, docCount, fieldCount, time.Since(t))
+	logger.Tracef("[%v] recorded %d pings for %d ping slot(s) and %d fields in %.3fs",
+		strings.Join(uuids.SortedValues(), ", "), pingCount, docCount, fieldCount, time.Since(t).Seconds())
 	return nil
 }
