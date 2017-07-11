@@ -862,7 +862,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
-	unblock := make(chan chan struct{})
+	unblock := make(chan chan struct{}, 1)
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
 		return &loginTimeoutAPI{
 			unblock: unblock,
@@ -887,8 +887,8 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 
 	// We should not get a response from api.Open until we
 	// unblock the login.
-	unblockRecv := make(chan struct{})
-	unblock <- unblockRecv
+	unblocked := make(chan struct{})
+	unblock <- unblocked
 	select {
 	case <-done:
 		c.Fatalf("unexpected return from api.Open")
@@ -899,10 +899,12 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 	err := clk.WaitAdvance(0, 0, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// unblock the login by receiving from "unblocked", and then the
+	// api.Open should return the result of the login.
 	select {
-	case <-unblockRecv:
+	case <-unblocked:
 	case <-time.After(jtesting.LongWait):
-		c.Fatalf("timed out waiting for login to unblock")
+		c.Fatalf("timed out waiting for login to be unblocked")
 	}
 	select {
 	case err := <-done:
@@ -1240,10 +1242,20 @@ type loginTimeoutAPIAdmin struct {
 }
 
 func (a *loginTimeoutAPIAdmin) Login(req params.LoginRequest) (params.LoginResult, error) {
-	ch, ok := <-a.r.unblock
-	if !ok {
-		return params.LoginResult{}, errors.New("abort")
+	var unblocked chan struct{}
+	select {
+	case ch, ok := <-a.r.unblock:
+		if !ok {
+			return params.LoginResult{}, errors.New("abort")
+		}
+		unblocked = ch
+	case <-time.After(jtesting.LongWait):
+		return params.LoginResult{}, errors.New("timed out waiting to be unblocked")
 	}
-	ch <- struct{}{}
+	select {
+	case unblocked <- struct{}{}:
+	case <-time.After(jtesting.LongWait):
+		return params.LoginResult{}, errors.New("timed out sending on unblocked channel")
+	}
 	return params.LoginResult{}, errors.Errorf("login failed")
 }
