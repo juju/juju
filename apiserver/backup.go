@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/errors"
 
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/common"
+	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"

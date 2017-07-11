@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"

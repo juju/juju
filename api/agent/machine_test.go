@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
-	apiserveragent "github.com/juju/juju/apiserver/agent"
+	apiserveragent "github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"

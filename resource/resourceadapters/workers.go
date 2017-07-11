@@ -6,7 +6,7 @@ package resourceadapters
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/resource/workers"
 	"github.com/juju/juju/state"
 )
