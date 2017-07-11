@@ -662,19 +662,19 @@ func (w *Watcher) sync() error {
 // Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
-	modelUUID string
-	mu        sync.Mutex
-	tomb      tomb.Tomb
-	base      *mgo.Collection
-	pings     *mgo.Collection
-	started   bool
-	beingKey  string
-	beingSeq  int64
-	fieldKey  string // hex(beingKey / 63)
-	fieldBit  uint64 // 1 << (beingKey%63)
-	lastSlot  int64
-	delta     time.Duration
-	recorder  PingRecorder
+	modelUUID    string
+	mu           sync.Mutex
+	tomb         tomb.Tomb
+	base         *mgo.Collection
+	pings        *mgo.Collection
+	started      bool
+	beingKey     string
+	beingSeq     int64
+	fieldKey     string // hex(beingKey / 63)
+	fieldBit     uint64 // 1 << (beingKey%63)
+	lastSlot     int64
+	delta        time.Duration
+	recorderFunc func() PingRecorder
 }
 
 type PingRecorder interface {
@@ -683,13 +683,13 @@ type PingRecorder interface {
 
 // NewPinger returns a new Pinger to report that key is alive.
 // It starts reporting after Start is called.
-func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string, recorder PingRecorder) *Pinger {
+func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string, recorderFunc func() PingRecorder) *Pinger {
 	return &Pinger{
-		base:      base,
-		pings:     pingsC(base),
-		beingKey:  key,
-		modelUUID: modelTag.Id(),
-		recorder:  recorder,
+		base:         base,
+		pings:        pingsC(base),
+		beingKey:     key,
+		modelUUID:    modelTag.Id(),
+		recorderFunc: recorderFunc,
 	}
 }
 
@@ -883,7 +883,7 @@ func (p *Pinger) ping() (err error) {
 		return nil
 	}
 	p.lastSlot = slot
-	p.recorder.Ping(p.modelUUID, slot, p.fieldKey, p.fieldBit)
+	p.recorderFunc().Ping(p.modelUUID, slot, p.fieldKey, p.fieldBit)
 	return errors.Trace(err)
 }
 
