@@ -2430,9 +2430,9 @@ class ModelClient:
         return status
 
     def wait_for_application(self, application, timeout=60):
-        """Wait till config returns without error. This is used as a
-        proxy for the application itself being ready to accept
-        operations.
+        """Wait till config returns without error.
+        This is used as a proxy for the application itself being ready
+        to accept operations.
 
         :param application: Application to wait for
         """
@@ -2441,9 +2441,7 @@ class ModelClient:
                 return self.get_config(application)
             except subprocess.CalledProcessError:
                 time.sleep(10)
-                pass
-        raise Exception(
-            'Timed out waiting for %s' % (application))
+        raise Exception('Timed out waiting for {}'.format(application))
 
     def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
