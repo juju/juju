@@ -2429,9 +2429,24 @@ class ModelClient:
             reporter.finish()
         return status
 
+    def wait_for_application(self, application, timeout=60):
+        """Wait till config returns without error.
+        This is used as a proxy for the application itself being ready
+        to accept operations.
+
+        :param application: Application to wait for
+        """
+        for ignored in until_timeout(timeout):
+            try:
+                return self.get_config(application)
+            except subprocess.CalledProcessError:
+                time.sleep(10)
+        raise Exception('Timed out waiting for {}'.format(application))
+
     def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
         reporter = GroupReporter(sys.stdout, 'started')
+        logging.info('Waiting for API to come up')
         return self._wait_for_status(
             reporter, Status.check_agents_started, AgentsNotStarted,
             timeout=timeout, start=start)
