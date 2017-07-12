@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""Testing persistent storage function of Juju."""
+"""Testing Juju's persistent storage feature.
+
+   Full Juju CLI will be printed to the stdout to ease the efforts
+   in understanding the code, investigating and reproducing bugs, especially
+   for those who are not familiar with jujupy framework.
+"""
 
 from __future__ import print_function
 
@@ -7,6 +12,7 @@ import os
 import sys
 import time
 import yaml
+import json
 import logging
 import argparse
 import subprocess
@@ -26,6 +32,116 @@ from utility import (
 
 __metaclass__ = type
 log = logging.getLogger("assess_persistent_storage")
+
+def assess_charm_deploy_and_remove_single_storage(client):
+    """This function tests charm deployment and removal with single
+       persistent storage unit.
+
+       Steps taken to the test:
+       - Deploy dummy-storage charm with a single block storage unit (ebs)
+         and a single filesystem storage unit (rootfs).
+       - Check charm status once the deployment is done.
+       - Check charm storage list once the deployment is done.
+       - Remove the deployed charm, the output should indicate that the
+         rootfs storage unit will be removed, ebs storage unit will be
+         detached.
+       - Check storage list again to ensure ebs storage units really exists.
+
+       :param client: ModelClient object to deploy the charm on.
+    """
+
+    charm_name = 'dummy-storage'
+    charm_path = local_charm_path(
+        charm=charm_name, juju_ver=client.version)
+    log.info(
+        '{} is going to be deployed with 1 ebs block storage unit and '\
+        '1 rootfs filesystem storage unit.'.format(charm_name))
+    log.info(
+        'juju deploy ${JUJU_REPOSITORY}/charms/dummy-storage '\
+        '--storage single-blk=ebs --storage single-fs=rootfs')
+    # client.deploy() doesn't support repeat parameters,
+    # although juju deploy supports it
+    #client.deploy(
+    #    charm_path,
+    #    storage='single-blk=ebs',
+    #    storage='single-fs=rootfs')
+    client.get_juju_output(
+        'deploy', '/home/noname/work/Canonical/workbench/repository/charms/dummy-storage',
+        '--storage', 'single-blk=ebs',
+        '--storage', 'single-fs=rootfs',
+        include_e=False)
+    client.wait_for_started()
+    client.wait_for_workloads()
+
+    log.info('juju status --format json')
+    status_output = json.loads(
+        client.get_juju_output('status', '--format', 'json', include_e=False))
+    app_status = status_output['applications'][charm_name]['application-status']['current']
+
+    if app_status != 'active':
+        log.error(
+            'Charm {} is not functioning properly, test terminated.'.format(
+            charm_name))
+        sys.exit(1)
+    else:
+        log.info('juju storage --format json')
+        storage_output = json.loads(
+            client.get_juju_output('storage', '--format', 'json', include_e=False))
+
+        # check the total number of storage unit(s) and name(s)
+        storage_list = storage_output['storage'].keys()
+        if len(storage_list) != 2:
+            log.error(
+                '{} storage unit(s) found, should be 2, test terminated.'.format(
+                str(len(storage_list))))
+            sys.exit(1)
+        else:
+            log.info(
+                'Following storage units have been found:\n{}'.format(
+                '\n'.join(storage_list)))
+            single_fs_id = ''
+            single_blk_id = ''
+            for elem in storage_list:
+                if elem.startswith('single-fs'):
+                    single_fs_id = elem
+                    log.info(
+                        'Single filesystem storage {} has been found.'.format(
+                        single_fs_id))
+                elif elem.startswith('single-blk'):
+                    single_blk_id = elem
+                    log.info(
+                        'Single block device storage {} has been found.'.format(
+                        single_blk_id))
+            if single_fs_id == '':
+                log.error(
+                    'Name mismatch on Single filesystem storage, test terminated.')
+                sys.exit(1)
+            elif single_blk_id == '':
+                log.error(
+                    'Name mismatch on Single block device storage, test terminated.')
+                sys.exit(1)
+
+        # check type, persistent setting and volume of single block storage unit
+        storage_type = storage_output['storage'][single_blk_id]['kind']
+        persistent_setting = storage_output['storage'][single_blk_id]['persistent']
+        pool_storage = storage_output['volumes']['0']['storage']
+        pool_setting = storage_output['volumes']['0']['pool']
+        if storage_type != 'block':
+            log.error(
+                'Incorrect type for single block device storage detected \
+                - {}, test terminated.'.format(storage_type))
+            sys.exit(1)
+        elif persistent_setting != 'true':
+            log.error(
+                'Incorrect value for persistent setting \
+                - {}, test terminated.'.format(persistent_setting))
+            sys.exit(1)
+        elif (pool_storage != single_blk_id) and (pool_setting != 'ebs'):
+            log.error('Incorrect volumes detected \
+            - {} with {}, test terminated.'.format(
+            pool_storage, pool_setting))
+            sys.exit(1)
+
 
 
 def assess_storage_remove_single_storage(client, storage_type):
@@ -165,13 +281,14 @@ def assess_persistent_storage(client):
     # Based on the test spec, persistent storage need to be tested on both
     # LXD and AWS and ebs volume is unavailable on LXD, a switcher is
     # required here to decide which test should be run.
-    environment = os.getenv('ENV', default='parallel-lxd')
+    environment = os.getenv('ENV', default='parallel-aws')
     if environment == 'parallel-lxd':
         assess_storage_remove_single_storage(
             client, storage_type='single-fs=rootfs')
     elif environment == 'parallel-aws':
-        assess_storage_remove_single_storage(
-            client, storage_type='single-fs=ebs,10G')
+        assess_charm_deploy_and_remove_single_storage(client)
+        #assess_storage_remove_single_storage(
+        #    client, storage_type='single-fs=ebs,10G')
     #assess_storage_remove_multi_fs(client)
 
 
@@ -180,9 +297,11 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_persistent_storage(bs_manager.client)
+        #assess_persistent_storage(bs_manager.client)
+        assess_charm_deploy_and_remove_single_storage(bs_manager.client)
     return 0
 
 
 if __name__ == '__main__':
     sys.exit(main())
+
