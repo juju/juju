@@ -545,6 +545,12 @@ func (c *DeployCommand) deployCharm(
 		return err
 	}
 
+	if len(c.AttachStorage) > 0 && apiRoot.BestFacadeVersion("Application") < 5 {
+		// DeployArgs.AttachStorage is only supported from
+		// Application API version 5 and onwards.
+		return errors.New("this juju controller does not support --attach-storage")
+	}
+
 	numUnits := c.NumUnits
 	if charmInfo.Meta.Subordinate {
 		if !constraints.IsEmpty(&c.Constraints) {
