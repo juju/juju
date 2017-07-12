@@ -1835,19 +1835,39 @@ func (st *State) addStorageForUnitOps(
 	}
 	ops := u.assertCharmOps(ch)
 
-	// Populate missing configuration parameters with default values.
-	modelConfig, err := st.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	completeCons, err := storageConstraintsWithDefaults(
-		modelConfig,
-		charmStorageMeta,
-		storageName,
-		cons,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if cons.Pool == "" || cons.Size == 0 {
+		// Either pool or size, or both, were not specified. Take the
+		// values from the unit's recorded storage constraints.
+		allCons, err := u.StorageConstraints()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if uCons, ok := allCons[storageName]; ok {
+			if cons.Pool == "" {
+				cons.Pool = uCons.Pool
+			}
+			if cons.Size == 0 {
+				cons.Size = uCons.Size
+			}
+		}
+
+		// Populate missing configuration parameters with defaults.
+		if cons.Pool == "" || cons.Size == 0 {
+			modelConfig, err := st.ModelConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			completeCons, err := storageConstraintsWithDefaults(
+				modelConfig,
+				charmStorageMeta,
+				storageName,
+				cons,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cons = completeCons
+		}
 	}
 
 	// This can happen for charm stores that specify instances range from 0,
@@ -1857,7 +1877,7 @@ func (st *State) addStorageForUnitOps(
 		return nil, errors.NotValidf("adding storage where instance count is 0")
 	}
 
-	addUnitStorageOps, err := st.addUnitStorageOps(charmMeta, u, storageName, completeCons, -1)
+	addUnitStorageOps, err := st.addUnitStorageOps(charmMeta, u, storageName, cons, -1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
