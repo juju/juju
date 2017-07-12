@@ -106,4 +106,4 @@ gopkg.in/natefinch/lumberjack.v2	git	df99d62fd42d8b3752c8a42c6723555372c02a03	20
 gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06-21T03:49:01Z
 gopkg.in/retry.v1	git	01631078ef2fdce601e38cfe5f527fab24c9a6d2	2017-05-31T09:12:38Z
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
-gopkg.in/yaml.v2	git	a3f3340b5840cee44f372bddb5880fcbc419b46a	2017-02-08T14:18:51Z
+gopkg.in/yaml.v2	git	1be3d31502d6eabc0dd7ce5b0daab022e14a5538	2017-07-12T05:45:46Z
