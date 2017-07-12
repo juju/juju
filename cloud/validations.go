@@ -104,7 +104,7 @@ func validateCloud(data []byte, jsonSchema *map[string]interface{}) error {
 	formatKeyError := func(invalidKey, similarValidKey string) string {
 		str := fmt.Sprintf("property %s is invalid.", invalidKey)
 		if similarValidKey != "" {
-			str = fmt.Sprintf("%s Perhaps you mean \"%s\".", str, similarValidKey)
+			str = fmt.Sprintf("%s Perhaps you mean %q.", str, similarValidKey)
 		}
 		return str
 	}
