@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/imagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/permission"
@@ -108,27 +108,18 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // Save stores given cloud image metadata.
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
-	all := make([]params.ErrorResult, len(metadata.Metadata))
 	if api.authorizer.AuthClient() {
 		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.metadata.ControllerTag())
 		if err != nil {
-			return params.ErrorResults{Results: all}, errors.Trace(err)
+			return params.ErrorResults{}, errors.Trace(err)
 		}
 		if !admin {
-			return params.ErrorResults{Results: all}, common.ServerError(common.ErrPerm)
+			return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 		}
 	}
-	if len(metadata.Metadata) == 0 {
-		return params.ErrorResults{Results: all}, nil
-	}
-	modelCfg, err := api.metadata.ModelConfig()
+	all, err := imagecommon.Save(api.metadata, metadata)
 	if err != nil {
-		return params.ErrorResults{}, errors.Annotatef(err, "getting model config")
-	}
-	for i, one := range metadata.Metadata {
-		md := api.parseMetadataListFromParams(one, modelCfg)
-		err := api.metadata.SaveMetadata(md)
-		all[i] = params.ErrorResult{Error: common.ServerError(err)}
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return params.ErrorResults{Results: all}, nil
 }
@@ -168,34 +159,6 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		Priority:        p.Priority,
 	}
 	return result
-}
-
-func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Config) []cloudimagemetadata.Metadata {
-	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
-	for i, metadata := range p.Metadata {
-		results[i] = cloudimagemetadata.Metadata{
-			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
-				Stream:          metadata.Stream,
-				Region:          metadata.Region,
-				Version:         metadata.Version,
-				Series:          metadata.Series,
-				Arch:            metadata.Arch,
-				VirtType:        metadata.VirtType,
-				RootStorageType: metadata.RootStorageType,
-				RootStorageSize: metadata.RootStorageSize,
-				Source:          metadata.Source,
-			},
-			Priority: metadata.Priority,
-			ImageId:  metadata.ImageId,
-		}
-		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
-		// Once correct value is read from simplestreams, this needs to go.
-		// Bug# 1616295
-		if results[i].Stream == "" {
-			results[i].Stream = cfg.ImageStream()
-		}
-	}
-	return results
 }
 
 // UpdateFromPublishedImages retrieves currently published image metadata and
@@ -263,12 +226,12 @@ func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published
 	// Store converted metadata.
 	// Note that whether the metadata actually needs
 	// to be stored will be determined within this call.
-	errs, err := api.Save(metadata)
+	errs, err := imagecommon.Save(api.metadata, metadata)
 	if err != nil {
 		return errors.Annotatef(err, "saving published images metadata")
 	}
 
-	return processErrors(append(errs.Results, parseErrs...))
+	return processErrors(append(errs, parseErrs...))
 }
 
 // convertToParams converts model-specific images metadata to structured metadata format.
