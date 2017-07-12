@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
@@ -564,4 +565,98 @@ func (*addSuite) TestSpecifyingCloudFileThroughFlagAndArgument_Errors(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
 	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
 	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with flag and argument")
+}
+
+func (*addSuite) TestValidateGoodCloudFile(c *gc.C) {
+	command := cloud.NewAddCloudCommand(&mockCloudeMetadataStore{})
+	data := `
+clouds:
+  foundations:
+    type: maas
+    auth-types: [oauth1]
+    endpoint: "http://10.245.31.100/MAAS"`
+
+	cloudFile := prepareTestCloudYaml(c, data)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	var logWriter loggo.TestWriter
+	writerName := "add_cloud_tests_writer"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
+	_, err := cmdtesting.RunCommand(c, command, "foundations", cloudFile.Name())
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{})
+}
+
+func (*addSuite) TestValidateBadCloudFile(c *gc.C) {
+	command := cloud.NewAddCloudCommand(&mockCloudeMetadataStore{})
+	data := `
+clouds:
+  foundations:
+    type: maas
+    auth-typs: [oauth1]
+    endpoint: "http://10.245.31.100/MAAS"`
+
+	cloudFile := prepareTestCloudYaml(c, data)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	_, err := cmdtesting.RunCommand(c, command, "foundations", cloudFile.Name())
+	c.Check(err, jc.ErrorIsNil)
+
+	var logWriter loggo.TestWriter
+	writerName := "add_cloud_tests_writer"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
+	_, err = cmdtesting.RunCommand(c, command, "foundations", cloudFile.Name())
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		jc.SimpleMessage{
+			Level:   loggo.WARNING,
+			Message: `property "auth-typs" is invalid. Perhaps you mean "auth-types".`,
+		},
+	})
+}
+
+func prepareTestCloudYaml(c *gc.C, data string) *os.File {
+	cloudFile, err := ioutil.TempFile(c.MkDir(), "cloudFile")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ioutil.WriteFile(cloudFile.Name(), []byte(data), 0644)
+	if err != nil {
+		cloudFile.Close()
+		os.Remove(cloudFile.Name())
+		c.Fatal(err.Error())
+	}
+
+	return cloudFile
+}
+
+type mockCloudeMetadataStore struct{}
+
+func (mockCloudeMetadataStore) ParseCloudMetadataFile(path string) (map[string]cloudfile.Cloud, error) {
+	return cloudfile.ParseCloudMetadataFile(path)
+}
+func (mockCloudeMetadataStore) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
+	return cloudfile.ParseOneCloud(data)
+}
+func (mockCloudeMetadataStore) PublicCloudMetadata(searchPaths ...string) (map[string]cloudfile.Cloud, bool, error) {
+	return cloudfile.PublicCloudMetadata(searchPaths...)
+}
+func (mockCloudeMetadataStore) PersonalCloudMetadata() (map[string]cloudfile.Cloud, error) {
+	return cloudfile.PersonalCloudMetadata()
+}
+func (mockCloudeMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
+	return nil
 }
