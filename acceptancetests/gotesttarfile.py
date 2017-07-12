@@ -70,6 +70,7 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
     version_cmd = [go_cmd, 'version']
+    mongo_version_cmd = ['mongod', '--version']
     env_cmd = [go_cmd, 'env']
     build_cmd = [go_cmd, 'test', '-i', './...']
     test_cmd = [go_cmd, 'test', '-timeout=1200s', './...']
@@ -90,6 +91,7 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         build_cmd = ['powershell.exe', '-Command'] + build_cmd
         test_cmd = ['powershell.exe', '-Command'] + test_cmd
         version_cmd = ['powershell.exe', '-Command'] + version_cmd
+        mongo_version_cmd = ['powershell.exe', '-Command'] + mongo_version_cmd
         env_cmd = ['powershell.exe', '-Command'] + env_cmd
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
@@ -98,6 +100,9 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         # We don't care about return code for these
         run(version_cmd, env=env)
         run(env_cmd, env=env)
+        if verbose:
+            print_now('Mongo environment information')
+        run(mongo_version_cmd, env=env)
         if verbose:
             print_now('Building test dependencies')
         returncode = run(build_cmd, env=env)

@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/metricsmanager"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
@@ -66,7 +65,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/txnmetrics"
+	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -80,6 +79,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
@@ -102,9 +102,11 @@ import (
 )
 
 var (
-	logger       = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun      = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	logger         = loggo.GetLogger("juju.cmd.jujud")
+	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+	jujudSymlinks  = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -222,12 +224,22 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 
+	config := a.currentConfig.CurrentConfig()
 	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
 	a.ctx.Stderr = &lumberjack.Logger{
-		Filename:   agent.LogFilename(a.currentConfig.CurrentConfig()),
+		Filename:   agent.LogFilename(config),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 		Compress:   true,
+	}
+
+	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
+		logger.Infof("setting logging override to %q", loggingOverride)
+		loggo.DefaultContext().ResetLoggerLevels()
+		err := loggo.ConfigureLoggers(loggingOverride)
+		if err != nil {
+			logger.Errorf("setting logging override %v", err)
+		}
 	}
 
 	return nil
@@ -310,19 +322,40 @@ func NewMachineAgent(
 		loopDeviceManager:           loopDeviceManager,
 		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
-		txnmetricsCollector:         txnmetrics.New(),
+		mongoTxnCollector:           mongometrics.NewTxnCollector(),
+		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
 		statePool:                   &statePoolHolder{},
 	}
-	if err := a.prometheusRegistry.Register(
-		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
+	if err := a.registerPrometheusCollectors(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return a, nil
+}
+
+func (a *MachineAgent) registerPrometheusCollectors() error {
+	agentConfig := a.CurrentConfig()
+	if v := agentConfig.Value(agent.MgoStatsEnabled); v == "true" {
+		// Enable mgo stats collection only if requested,
+		// as it may affect performance.
+		mgo.SetStats(true)
+		collector := mongometrics.NewMgoStatsCollector(mgo.GetStats)
+		if err := a.prometheusRegistry.Register(collector); err != nil {
+			return errors.Annotate(err, "registering mgo stats collector")
+		}
+	}
+	if err := a.prometheusRegistry.Register(
+		logsendermetrics.BufferedLogWriterMetrics{a.bufferedLogger},
+	); err != nil {
+		return errors.Annotate(err, "registering logsender collector")
+	}
+	if err := a.prometheusRegistry.Register(a.mongoTxnCollector); err != nil {
+		return errors.Annotate(err, "registering mgo/txn collector")
+	}
+	if err := a.prometheusRegistry.Register(a.mongoDialCollector); err != nil {
+		return errors.Annotate(err, "registering mongo dial collector")
+	}
+	return nil
 }
 
 // MachineAgent is responsible for tying together all functionality
@@ -354,7 +387,8 @@ type MachineAgent struct {
 	loopDeviceManager          looputil.LoopDeviceManager
 	newIntrospectionSocketName func(names.Tag) string
 	prometheusRegistry         *prometheus.Registry
-	txnmetricsCollector        *txnmetrics.Collector
+	mongoTxnCollector          *mongometrics.TxnCollector
+	mongoDialCollector         *mongometrics.DialCollector
 	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
 
 	// Only API servers have hubs. This is temporary until the apiserver and
@@ -370,7 +404,14 @@ type MachineAgent struct {
 }
 
 type statePoolHolder struct {
+	mu   sync.Mutex
 	pool *state.StatePool
+}
+
+func (h *statePoolHolder) set(pool *state.StatePool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pool = pool
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -534,6 +575,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			AgentConfigChanged:   a.configChangedVal,
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			OpenController:       a.initController,
 			OpenState:            a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			StartStateWorkers:    startStateWorkers,
@@ -541,7 +583,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PreUpgradeSteps:      a.preUpgradeSteps,
 			LogSource:            a.bufferedLogger.Logs(),
 			NewDeployContext:     newDeployContext,
-			NewEnvironFunc:       newEnvirons,
 			Clock:                clock.WallClock,
 			ValidateMigration:    a.validateMigration,
 			PrometheusRegisterer: a.prometheusRegistry,
@@ -847,12 +888,20 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
+	dialOpts, err := mongoDialOptions(
+		mongo.DefaultDialOpts(),
+		agentConfig,
+		a.mongoDialCollector,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoInfo:          info,
-		MongoDialOpts:      mongo.DefaultDialOpts(),
+		MongoDialOpts:      dialOpts,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -864,7 +913,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		// point in reading existing controller config from state in order
 		// to pass in the max-txn-log-size value.
 		InitDatabaseFunc:       state.InitDatabase,
-		RunTransactionObserver: a.txnmetricsCollector.AfterRunTransaction,
+		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -953,16 +1002,79 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+func mongoDialOptions(
+	baseOpts mongo.DialOpts,
+	agentConfig agent.Config,
+	mongoDialCollector *mongometrics.DialCollector,
+) (mongo.DialOpts, error) {
+	dialOpts := baseOpts
+	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			return mongo.DialOpts{}, errors.Errorf("invalid mongo socket pool limit %q", limitStr)
+		} else {
+			logger.Infof("using mongo socker pool limit = %d", limit)
+			dialOpts.PoolLimit = limit
+		}
+	}
+	if dialOpts.PostDialServer != nil {
+		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
+	}
+	dialOpts.PostDialServer = mongoDialCollector.PostDialServer
+	return dialOpts, nil
+}
+
+func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controller, error) {
+	info, ok := agentConfig.MongoInfo()
+	if !ok {
+		return nil, errors.Errorf("no state info available")
+	}
+
+	// Start MongoDB server and dial.
+	if err := a.ensureMongoServer(agentConfig); err != nil {
+		return nil, err
+	}
+	dialOpts, err := mongoDialOptions(
+		stateWorkerDialOpts,
+		agentConfig,
+		a.mongoDialCollector,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ctlr, err := state.OpenController(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      agentConfig.Controller(),
+		ControllerModelTag: agentConfig.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      dialOpts,
+		NewPolicy: stateenvirons.GetNewPolicyFunc(
+			stateenvirons.GetNewEnvironFunc(environs.New),
+		),
+		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
+	})
+	return ctlr, nil
+}
+
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}
 
+	dialOpts, err := mongoDialOptions(
+		stateWorkerDialOpts,
+		agentConfig,
+		a.mongoDialCollector,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	st, _, err := openState(
 		agentConfig,
-		stateWorkerDialOpts,
-		a.txnmetricsCollector.AfterRunTransaction,
+		dialOpts,
+		a.mongoTxnCollector.AfterRunTransaction,
 	)
 	if err != nil {
 		return nil, err
@@ -1036,9 +1148,6 @@ func (a *MachineAgent) startStateWorkers(
 			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
 				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
 			})
-			a.startWorkerAfterUpgrade(runner, "statemetrics", func() (worker.Worker, error) {
-				return newStateMetricsWorker(st, a.prometheusRegistry), nil
-			})
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
@@ -1057,12 +1166,20 @@ func (a *MachineAgent) startStateWorkers(
 			certChangedChan := make(chan params.StateServingInfo, 10)
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
+			dialOpts, err := mongoDialOptions(
+				stateWorkerDialOpts,
+				agentConfig,
+				a.mongoDialCollector,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			stateOpener := func() (*state.State, error) {
 				logger.Debugf("opening state for apiserver worker")
 				st, _, err := openState(
 					agentConfig,
-					stateWorkerDialOpts,
-					a.txnmetricsCollector.AfterRunTransaction,
+					dialOpts,
+					a.mongoTxnCollector.AfterRunTransaction,
 				)
 				return st, err
 			}
@@ -1157,8 +1274,12 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		w, err := a.newAPIserverWorker(st, certChanged, dependencyReporter)
+		statePool := state.NewStatePool(st)
+		w, err := a.newAPIserverWorker(
+			st, statePool, certChanged, dependencyReporter,
+		)
 		if err != nil {
+			statePool.Close()
 			st.Close()
 			return nil, errors.Trace(err)
 		}
@@ -1168,6 +1289,7 @@ func (a *MachineAgent) apiserverWorkerStarter(
 
 func (a *MachineAgent) newAPIserverWorker(
 	st *state.State,
+	statePool *state.StatePool,
 	certChanged chan params.StateServingInfo,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
@@ -1220,8 +1342,6 @@ func (a *MachineAgent) newAPIserverWorker(
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
-	statePool := state.NewStatePool(st)
-	a.statePool.pool = statePool
 
 	registerIntrospectionHandlers := func(f func(string, http.Handler)) {
 		introspection.RegisterHTTPHandlers(
@@ -1231,8 +1351,16 @@ func (a *MachineAgent) newAPIserverWorker(
 				PrometheusGatherer: a.prometheusRegistry,
 			}, f)
 	}
+	rateLimitConfig, err := getRateLimitConfig(agentConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting rate limit config")
+	}
+	logSinkConfig, err := getLogSinkConfig(agentConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting log sink config")
+	}
 
-	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+	server, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
 		Key:                           key,
@@ -1246,14 +1374,140 @@ func (a *MachineAgent) newAPIserverWorker(
 		AutocertDNSName:               controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
 		NewObserver:                   newObserver,
-		StatePool:                     statePool,
 		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
+		RateLimitConfig:               rateLimitConfig,
+		LogSinkConfig:                 &logSinkConfig,
+		PrometheusRegisterer:          a.prometheusRegistry,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}
 
-	return server, nil
+	// Report state metrics.
+	stateMetricsRunner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       cmdutil.IsFatal,
+		MoreImportant: cmdutil.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
+	stateMetricsRunner.StartWorker("statemetrics", func() (worker.Worker, error) {
+		return newStateMetricsWorker(statePool, a.prometheusRegistry), nil
+	})
+
+	var apiserverWorker catacombWorker
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &apiserverWorker.Catacomb,
+		Work: func() error {
+			defer st.Close()
+			defer statePool.Close()
+			defer a.statePool.set(nil)
+			<-apiserverWorker.Catacomb.Dying()
+			// Wait for the workers to die before
+			// closing the state pool, as they
+			// may still be using it.
+			server.Wait()
+			stateMetricsRunner.Wait()
+			return apiserverWorker.Catacomb.ErrDying()
+		},
+		Init: []worker.Worker{server, stateMetricsRunner},
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	a.statePool.set(statePool)
+	return &apiserverWorker, nil
+}
+
+type catacombWorker struct {
+	catacomb.Catacomb
+}
+
+func (w *catacombWorker) Kill() {
+	w.Catacomb.Kill(nil)
+}
+
+func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
+	result := apiserver.DefaultRateLimitConfig()
+	if v := cfg.Value(agent.AgentLoginRateLimit); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginRateLimit,
+			)
+		}
+		result.LoginRateLimit = val
+	}
+	if v := cfg.Value(agent.AgentLoginMinPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginMinPause,
+			)
+		}
+		result.LoginMinPause = val
+	}
+	if v := cfg.Value(agent.AgentLoginMaxPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginMaxPause,
+			)
+		}
+		result.LoginMaxPause = val
+	}
+	if v := cfg.Value(agent.AgentLoginRetryPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentLoginRetryPause,
+			)
+		}
+		result.LoginRetryPause = val
+	}
+	if v := cfg.Value(agent.AgentConnMinPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnMinPause,
+			)
+		}
+		result.ConnMinPause = val
+	}
+	if v := cfg.Value(agent.AgentConnMaxPause); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnMaxPause,
+			)
+		}
+		result.ConnMaxPause = val
+	}
+	if v := cfg.Value(agent.AgentConnLookbackWindow); v != "" {
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnLookbackWindow,
+			)
+		}
+		result.ConnLookbackWindow = val
+	}
+	if v := cfg.Value(agent.AgentConnLowerThreshold); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnLowerThreshold,
+			)
+		}
+		result.ConnLowerThreshold = val
+	}
+	if v := cfg.Value(agent.AgentConnUpperThreshold); v != "" {
+		val, err := strconv.Atoi(v)
+		if err != nil {
+			return apiserver.RateLimitConfig{}, errors.Annotatef(
+				err, "parsing %s", agent.AgentConnUpperThreshold,
+			)
+		}
+		result.ConnUpperThreshold = val
+	}
+	return result, nil
 }
 
 func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {
@@ -1330,17 +1584,17 @@ func newObserverFn(
 
 // limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrades or restore are running.
-func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
-	if err := a.limitLoginsDuringRestore(req); err != nil {
+func (a *MachineAgent) limitLogins(authTag names.Tag) error {
+	if err := a.limitLoginsDuringRestore(authTag); err != nil {
 		return err
 	}
-	if err := a.limitLoginsDuringUpgrade(req); err != nil {
+	if err := a.limitLoginsDuringUpgrade(authTag); err != nil {
 		return err
 	}
-	return a.limitLoginsDuringMongoUpgrade(req)
+	return a.limitLoginsDuringMongoUpgrade()
 }
 
-func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) error {
+func (a *MachineAgent) limitLoginsDuringMongoUpgrade() error {
 	// If upgrade is running we will not be able to lock AgentConfigWriter
 	// and it also means we are not upgrading mongo.
 	if a.isUpgradeRunning() {
@@ -1356,7 +1610,7 @@ func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) er
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes
 // while the different steps of restore are running.
-func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
+func (a *MachineAgent) limitLoginsDuringRestore(authTag names.Tag) error {
 	var err error
 	switch {
 	case a.IsRestoreRunning():
@@ -1365,9 +1619,9 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 		err = apiserver.AboutToRestoreError
 	}
 	if err != nil {
-		authTag, parseErr := names.ParseTag(req.AuthTag)
-		if parseErr != nil {
-			return errors.Annotate(err, "could not parse auth tag")
+		// If anonymous login, disallow.
+		if authTag == nil {
+			return errors.Errorf("anonymous login blocked because restore is in progress")
 		}
 		switch authTag := authTag.(type) {
 		case names.UserTag:
@@ -1387,11 +1641,11 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // limitLoginsDuringUpgrade is called by the API server for each login
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
-func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
+func (a *MachineAgent) limitLoginsDuringUpgrade(authTag names.Tag) error {
 	if a.isUpgradeRunning() || a.isInitialUpgradeCheckPending() {
-		authTag, err := names.ParseTag(req.AuthTag)
-		if err != nil {
-			return errors.Annotate(err, "could not parse auth tag")
+		// If anonymous login, disallow.
+		if authTag == nil {
+			return errors.Errorf("anonymous login blocked because %s", params.CodeUpgradeInProgress)
 		}
 		switch authTag := authTag.(type) {
 		case names.UserTag:
@@ -1408,8 +1662,6 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 		return nil // allow all logins
 	}
 }
-
-var stateWorkerServingConfigErr = errors.New("state worker started with no state serving info")
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
@@ -1560,7 +1812,7 @@ func (a *MachineAgent) Tag() names.Tag {
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range jujudSymlinks {
 		err := a.createSymlink(jujud, link)
 		if err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", link)
@@ -1594,7 +1846,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 }
 
 func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range jujudSymlinks {
 		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
 		if err != nil && !os.IsNotExist(err) {
 			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
@@ -1683,14 +1935,6 @@ func (c singularStateConn) Ping() error {
 	return c.session.Ping()
 }
 
-func metricAPI(st api.Connection) (metricsmanager.MetricsManagerClient, error) {
-	client, err := metricsmanager.NewClient(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return client, nil
-}
-
 // newDeployContext gives the tests the opportunity to create a deployer.Context
 // that can be used for testing so as to avoid (1) deploying units to the system
 // running the tests and (2) get access to the *State used internally, so that
@@ -1700,9 +1944,9 @@ var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) dep
 	return deployer.NewSimpleContext(agentConfig, st)
 }
 
-func newStateMetricsWorker(st *state.State, registry *prometheus.Registry) worker.Worker {
+func newStateMetricsWorker(statePool *state.StatePool, registry *prometheus.Registry) worker.Worker {
 	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		collector := statemetrics.New(statemetrics.NewState(st))
+		collector := statemetrics.New(statemetrics.NewStatePool(statePool))
 		if err := registry.Register(collector); err != nil {
 			return errors.Annotate(err, "registering statemetrics collector")
 		}
@@ -1710,4 +1954,41 @@ func newStateMetricsWorker(st *state.State, registry *prometheus.Registry) worke
 		<-stop
 		return nil
 	})
+}
+
+func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
+	result := apiserver.DefaultLogSinkConfig()
+	var err error
+	if v := cfg.Value(agent.LogSinkDBLoggerBufferSize); v != "" {
+		result.DBLoggerBufferSize, err = strconv.Atoi(v)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerBufferSize,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkDBLoggerFlushInterval); v != "" {
+		if result.DBLoggerFlushInterval, err = time.ParseDuration(v); err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkDBLoggerFlushInterval,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkRateLimitBurst); v != "" {
+		result.RateLimitBurst, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkRateLimitBurst,
+			)
+		}
+	}
+	if v := cfg.Value(agent.LogSinkRateLimitRefill); v != "" {
+		result.RateLimitRefill, err = time.ParseDuration(v)
+		if err != nil {
+			return result, errors.Annotatef(
+				err, "parsing %s", agent.LogSinkRateLimitRefill,
+			)
+		}
+	}
+	return result, nil
 }

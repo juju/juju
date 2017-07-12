@@ -185,14 +185,14 @@ type ActionResults struct {
 // Begin marks an action as running, and logs the time it was started.
 // It asserts that the action is currently pending.
 func (a *action) Begin() (Action, error) {
-	err := a.st.runTransaction([]txn.Op{
+	err := a.st.db().RunTransaction([]txn.Op{
 		{
 			C:      actionsC,
 			Id:     a.doc.DocId,
 			Assert: bson.D{{"status", ActionPending}},
 			Update: bson.D{{"$set", bson.D{
 				{"status", ActionRunning},
-				{"started", a.st.NowToTheSecond()},
+				{"started", a.st.nowToTheSecond()},
 			}}},
 		}})
 	if err != nil {
@@ -211,7 +211,7 @@ func (a *action) Finish(results ActionResults) (Action, error) {
 // an actionresult to capture the outcome of the action. It asserts that
 // the action is not already completed.
 func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (Action, error) {
-	err := a.st.runTransaction([]txn.Op{
+	err := a.st.db().RunTransaction([]txn.Op{
 		{
 			C:  actionsC,
 			Id: a.doc.DocId,
@@ -225,7 +225,7 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 				{"status", finalStatus},
 				{"message", message},
 				{"results", results},
-				{"completed", a.st.NowToTheSecond()},
+				{"completed", a.st.nowToTheSecond()},
 			}}},
 		}, {
 			C:      actionNotificationsC,
@@ -247,24 +247,24 @@ func newAction(st *State, adoc actionDoc) Action {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
 	actionId, err := NewUUID()
 	if err != nil {
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
-	modelUUID := st.ModelUUID()
+	modelUUID := mb.modelUUID()
 	return actionDoc{
-			DocId:      st.docID(actionId.String()),
+			DocId:      mb.docID(actionId.String()),
 			ModelUUID:  modelUUID,
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
-			Enqueued:   st.NowToTheSecond(),
+			Enqueued:   mb.nowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
-			DocId:     st.docID(prefix + actionId.String()),
+			DocId:     mb.docID(prefix + actionId.String()),
 			ModelUUID: modelUUID,
 			Receiver:  receiverTag.Id(),
 			ActionID:  actionId.String(),
@@ -396,7 +396,7 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return newAction(st, doc), nil
 	}
 	return nil, err

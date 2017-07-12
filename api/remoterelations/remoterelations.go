@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -24,27 +25,6 @@ type Client struct {
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, remoteRelationsFacade)
 	return &Client{facadeCaller}
-}
-
-// PublishLocalRelationChange publishes local relations changes to the
-// remote side offering those relations.
-func (c *Client) PublishLocalRelationChange(change params.RemoteRelationChangeEvent) error {
-	args := params.RemoteRelationsChanges{
-		Changes: []params.RemoteRelationChangeEvent{change},
-	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("PublishLocalRelationChange", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
 }
 
 // ImportRemoteEntity adds an entity to the remote entities collection
@@ -126,20 +106,6 @@ func (c *Client) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) er
 		return errors.Trace(result.Error)
 	}
 	return nil
-}
-
-// RegisterRemoteRelations sets up the local model to participate in the specified relations.
-func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
-	args := params.RegisterRemoteRelations{Relations: relations}
-	var results params.RemoteEntityIdResults
-	err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != len(relations) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(relations), len(results.Results))
-	}
-	return results.Results, nil
 }
 
 // RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
@@ -276,4 +242,40 @@ func (c *Client) WatchRemoteRelations() (watcher.StringsWatcher, error) {
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// ConsumeRemoteRelationChange consumes a change to settings originating
+// from the remote/offering side of a relation.
+func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error {
+	args := params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{change},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("ConsumeRemoteRelationChange", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+	modelTag := names.NewModelTag(modelUUID)
+	args := params.Entities{[]params.Entity{{Tag: modelTag.String()}}}
+	var results params.ControllerAPIInfoResults
+	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &api.Info{
+		Addrs:    result.Addresses,
+		CACert:   result.CACert,
+		ModelTag: modelTag,
+	}, nil
 }

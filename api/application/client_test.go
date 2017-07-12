@@ -16,8 +16,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type applicationSuite struct {
@@ -71,28 +73,33 @@ func (s *applicationSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 
 func (s *applicationSuite) TestDeploy(c *gc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "Deploy")
-		args, ok := a.(params.ApplicationsDeploy)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Applications, gc.HasLen, 1)
-		app := args.Applications[0]
-		c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
-		c.Assert(app.ApplicationName, gc.Equals, "serviceA")
-		c.Assert(app.Series, gc.Equals, "series")
-		c.Assert(app.NumUnits, gc.Equals, 1)
-		c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
-		c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
-		c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
-		c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
-		c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
-		c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				called = true
+				c.Assert(request, gc.Equals, "Deploy")
+				args, ok := a.(params.ApplicationsDeploy)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args.Applications, gc.HasLen, 1)
+				app := args.Applications[0]
+				c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
+				c.Assert(app.ApplicationName, gc.Equals, "serviceA")
+				c.Assert(app.Series, gc.Equals, "series")
+				c.Assert(app.NumUnits, gc.Equals, 1)
+				c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
+				c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
+				c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+				c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
+				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+				c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
+				c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
-		result := response.(*params.ErrorResults)
-		result.Results = make([]params.ErrorResult, 1)
-		return nil
+				result := response.(*params.ErrorResults)
+				result.Results = make([]params.ErrorResult, 1)
+				return nil
+			},
+		),
+		BestVersion: 5,
 	})
 
 	args := application.DeployArgs{
@@ -115,6 +122,26 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *applicationSuite) TestDeployAttachStorageV4(c *gc.C) {
+	var called bool
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				called = true
+				return nil
+			},
+		),
+		BestVersion: 4, // v4 does not support AttachStorage
+	})
+	args := application.DeployArgs{
+		NumUnits:      1,
+		AttachStorage: []string{"data/0"},
+	}
+	err := client.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, "this juju controller does not support AttachStorage")
+	c.Assert(called, jc.IsFalse)
+}
+
 func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
@@ -126,6 +153,69 @@ func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *gc.C) {
 		AttachStorage: []string{"data/0"},
 	}
 	err := client.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *applicationSuite) TestAddUnits(c *gc.C) {
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "AddUnits")
+				args, ok := a.(params.AddApplicationUnits)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args.ApplicationName, gc.Equals, "foo")
+				c.Assert(args.NumUnits, gc.Equals, 1)
+				c.Assert(args.Placement, jc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+				c.Assert(args.AttachStorage, jc.DeepEquals, []string{"storage-data-0"})
+				result := response.(*params.AddApplicationUnitsResults)
+				result.Units = []string{"foo/0"}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	units, err := client.AddUnits(application.AddUnitsParams{
+		ApplicationName: "foo",
+		NumUnits:        1,
+		Placement:       []*instance.Placement{{"scope", "directive"}},
+		AttachStorage:   []string{"data/0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, jc.DeepEquals, []string{"foo/0"})
+}
+
+func (s *applicationSuite) TestAddUnitsAttachStorageV4(c *gc.C) {
+	var called bool
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				called = true
+				return nil
+			},
+		),
+		BestVersion: 4, // v4 does not support AttachStorage
+	})
+
+	_, err := client.AddUnits(application.AddUnitsParams{
+		NumUnits:      1,
+		AttachStorage: []string{"data/0"},
+	})
+	c.Assert(err, gc.ErrorMatches, "this juju controller does not support AttachStorage")
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		return nil
+	})
+	_, err := client.AddUnits(application.AddUnitsParams{
+		NumUnits:      2,
+		AttachStorage: []string{"data/0"},
+	})
 	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
 	c.Assert(called, jc.IsFalse)
 }
@@ -342,6 +432,12 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 	}
 	mac, err := macaroon.New(nil, "id", "loc")
 	c.Assert(err, jc.ErrorIsNil)
+	controllerInfo := &params.ExternalControllerInfo{
+		ControllerTag: coretesting.ControllerTag.String(),
+		Addrs:         []string{"192.168.1.0"},
+		CACert:        coretesting.CACert,
+	}
+
 	var called bool
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -358,6 +454,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 					ApplicationAlias: "alias",
 					ApplicationOffer: offer,
 					Macaroon:         mac,
+					ControllerInfo:   controllerInfo,
 				},
 			})
 			if results, ok := result.(*params.ErrorResults); ok {
@@ -367,7 +464,16 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 			return nil
 		})
 	client := application.NewClient(apiCaller)
-	name, err := client.Consume(offer, "alias", mac)
+	name, err := client.Consume(crossmodel.ConsumeApplicationArgs{
+		ApplicationOffer: offer,
+		ApplicationAlias: "alias",
+		Macaroon:         mac,
+		ControllerInfo: &crossmodel.ControllerInfo{
+			ControllerTag: coretesting.ControllerTag,
+			Addrs:         controllerInfo.Addrs,
+			CACert:        controllerInfo.CACert,
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "alias")
 	c.Assert(called, jc.IsTrue)

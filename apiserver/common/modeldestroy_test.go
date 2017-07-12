@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/metricsender"
+	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -34,20 +34,6 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.modelManager = common.NewModelManagerBackend(s.State)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-}
-
-// setUpManual adds "manually provisioned" machines to state:
-// one manager machine, and one non-manager.
-func (s *destroyModelSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetProvisioned(instance.Id("manual:0"), "manual:0:fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m1.SetProvisioned(instance.Id("manual:1"), "manual:1:fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return m0, m1
 }
 
 // setUpInstances adds machines to state backed by instances:

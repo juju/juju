@@ -1559,6 +1559,16 @@ class CommandComplete(BaseCondition):
                 ' '.join(self.command_time.full_args)))
 
 
+def get_stripped_version_number(version_string):
+    # strip the series and arch from the built version.
+    version_parts = version_string.split('-')
+    if len(version_parts) == 4:
+        version_number = '-'.join(version_parts[0:2])
+    else:
+        version_number = version_parts[0]
+    return version_number
+
+
 class ModelClient:
     """Wraps calls to a juju instance, associated with a single model.
 
@@ -2681,12 +2691,7 @@ class ModelClient:
         condition.do_raise(self.model_name, status)
 
     def get_matching_agent_version(self, no_build=False):
-        # strip the series and srch from the built version.
-        version_parts = self.version.split('-')
-        if len(version_parts) == 4:
-            version_number = '-'.join(version_parts[0:2])
-        else:
-            version_number = version_parts[0]
+        version_number = get_stripped_version_number(self.version)
         if not no_build and self.env.local:
             version_number += '.1'
         return version_number

@@ -29,9 +29,10 @@ else
     RACE="run-unit-tests c4.4xlarge $XENIAL_AMI --force-archive --race --local $TARFILE_NAME"
     RACE="echo 'Skipping race unit tests.'"
 fi
+# Windows test is disabled for now as it needs work:
+# windows="$SCRIPTS/run-windows-job.sh Administrator@developer-win-unit-tester.vapour.ws $TARFILE_NAME" \
 timeout 45m concurrently.py -v -l $WORKSPACE/artifacts \
     xenial="$SCRIPTS/run-unit-tests c4.4xlarge $XENIAL_AMI --local $TARFILE_NAME --use-tmpfs --use-ppa ppa:juju/golang --force-archive" \
-    windows="$SCRIPTS/gotestwin.py developer-win-unit-tester.vapour.ws $TARFILE_NAME github.com/juju/juju/cmd" \
     network="$NETWORK" \
     grant="$GRANT" \
     race="$RACE"

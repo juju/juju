@@ -128,7 +128,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
@@ -534,7 +534,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -936,7 +936,7 @@ func removeVolumeStorageInstance(c *gc.C, st *state.State, volumeTag names.Volum
 }
 
 func removeStorageInstance(c *gc.C, st *state.State, storageTag names.StorageTag) {
-	err := st.DestroyStorageInstance(storageTag)
+	err := st.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	attachments, err := st.StorageAttachments(storageTag)
 	c.Assert(err, jc.ErrorIsNil)

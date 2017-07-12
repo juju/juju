@@ -6,6 +6,8 @@ package presence
 import (
 	"fmt"
 	"math/rand"
+	"sort"
+	"sync"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -75,11 +77,15 @@ func checkCollectionCount(c *gc.C, coll *mgo.Collection, count int) {
 	c.Check(count, gc.Equals, count)
 }
 
+func (s *prunerSuite) getDirectRecorder() PingRecorder {
+	return DirectRecordFunc(s.presence)
+}
+
 func (s *prunerSuite) TestPrunesOldPingsAndBeings(c *gc.C) {
 	keys := []string{"key1", "key2"}
 	pingers := make([]*Pinger, len(keys))
 	for i, key := range keys {
-		pingers[i] = NewPinger(s.presence, s.modelTag, key)
+		pingers[i] = NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
 	}
 	const numSlots = 10
 	sequences := make([][]int64, len(keys))
@@ -121,10 +127,10 @@ func (s *prunerSuite) TestPreservesLatestSequence(c *gc.C) {
 	FakePeriod(1)
 
 	key := "blah"
-	p1 := NewPinger(s.presence, s.modelTag, key)
+	p1 := NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
 	p1.Start()
 	assertStopped(c, p1)
-	p2 := NewPinger(s.presence, s.modelTag, key)
+	p2 := NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
 	p2.Start()
 	assertStopped(c, p2)
 	// we're starting p2 second, so it should get a higher sequence
@@ -168,14 +174,21 @@ func waitForFirstChange(c *gc.C, watch <-chan Change, want Change) {
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
 func assertStopped(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	done := make(chan struct{})
+	go func() {
+		c.Check(worker.Stop(w), jc.ErrorIsNil)
+		close(done)
+	}()
+	select {
+	case <-done:
+		return
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("failed to stop worker %v after %v", w, testing.ShortWait)
+	}
 }
 
 func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
-	FakePeriod(1)
-	// Each Pinger potentially grabs another socket to Mongo,
-	// which can exhaust connections. Somewhere around 5000 pingers on my
-	// machine everything starts failing because Mongo refuses new connections.
+	FakePeriod(2)
 	keys := make([]string, 500)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%04d", i)
@@ -192,6 +205,9 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	w := NewWatcher(s.presence, s.modelTag)
 	// Ensure that all pingers and the watcher are clean at exit
 	defer assertStopped(c, w)
+	pb := NewPingBatcher(s.presence, 500*time.Millisecond)
+	defer assertStopped(c, pb)
+	getPB := func() PingRecorder { return pb }
 	defer func() {
 		for i, p := range oldPingers {
 			if p == nil {
@@ -216,34 +232,40 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 		// As this is a busy channel, we may be queued up behind some other
 		// pinger showing up as alive, so allow up to LongWait for the event to show up
 		waitForFirstChange(c, ch, Change{key, false})
-		p := NewPinger(s.presence, s.modelTag, key)
+		p := NewPinger(s.presence, s.modelTag, key, getPB)
 		err := p.Start()
 		c.Assert(err, jc.ErrorIsNil)
 		newPingers[i] = p
-		// All newPingers will be checked that they stop cleanly
-		// Spread them out slightly
 	}
+	c.Assert(pb.Sync(), jc.ErrorIsNil)
 	c.Logf("initialized %d pingers in %v\n", len(newPingers), time.Since(t))
 	// Make sure all of the entities stay showing up as alive
+	deadKeys := make([]string, 0)
 	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		for {
 			select {
 			case got := <-ch:
-				c.Check(got.Alive, jc.IsTrue, gc.Commentf("key %q reported dead", got.Key))
+				if !got.Alive {
+					deadKeys = append(deadKeys, got.Key)
+				}
 			case <-done:
+				wg.Done()
 				return
 			}
 		}
 	}()
-	defer close(done)
 	beings := s.presence.Database.C(s.presence.Name + ".beings")
 	// Create a background Pruner task, that prunes items independently of
 	// when they are being updated
+	wg.Add(1)
 	go func() {
 		for {
 			select {
 			case <-done:
+				wg.Done()
 				return
 			case <-time.After(time.Duration(rand.Intn(500)+1000) * time.Millisecond):
 				oldPruner := NewPruner(s.modelTag.Id(), beings, s.pings, 0)
@@ -262,11 +284,12 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 				assertStopped(c, old)
 			}
 			oldPingers[i] = newPingers[i]
-			p := NewPinger(s.presence, s.modelTag, keys[i])
+			p := NewPinger(s.presence, s.modelTag, keys[i], getPB)
 			err := p.Start()
 			c.Assert(err, jc.ErrorIsNil)
 			newPingers[i] = p
 		}
+		c.Assert(pb.Sync(), jc.ErrorIsNil)
 		c.Logf("loop %d in %v\n", loop, time.Since(t))
 	}
 	// Now that we've gone through all of that, check that we've created as
@@ -286,10 +309,15 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	count, err := beings.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	// After pruning, we should have at least one sequence for each key,
-	// but not more than fits in the last pings
-	c.Check(count, jc.GreaterThan, len(keys))
-	c.Check(count, jc.LessThan, len(keys)*4)
+	// but not more than fits in the last 4 ping slots
+	c.Check(count, jc.GreaterThan, len(keys)-1)
+	c.Check(count, jc.LessThan, len(keys)*8)
 	// Run the pruner again, it should essentially be a no-op
 	oldPruner = NewPruner(s.modelTag.Id(), beings, s.pings, 0)
 	c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
+	close(done)
+	wg.Wait()
+	sort.Strings(deadKeys)
+	c.Check(len(deadKeys), gc.Equals, 0)
+	c.Check(deadKeys, jc.DeepEquals, []string{})
 }

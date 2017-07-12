@@ -26,7 +26,7 @@ func (m *environMongo) GetCollection(name string) (mongo.Collection, func()) {
 
 // RunTransaction is part of the lease.Mongo interface.
 func (m *environMongo) RunTransaction(buildTxn jujutxn.TransactionSource) error {
-	return m.state.run(buildTxn)
+	return m.state.db().Run(buildTxn)
 }
 
 // Mongo Upgrade

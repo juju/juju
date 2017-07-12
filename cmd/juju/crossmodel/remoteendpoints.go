@@ -16,8 +16,8 @@ type RemoteEndpointsCommandBase struct {
 
 // NewRemoteEndpointsAPI returns a remote endpoints api for the root api endpoint
 // that the command returns.
-func (c *RemoteEndpointsCommandBase) NewRemoteEndpointsAPI() (*applicationoffers.Client, error) {
-	root, err := c.NewAPIRoot()
+func (c *RemoteEndpointsCommandBase) NewRemoteEndpointsAPI(controllerName string) (*applicationoffers.Client, error) {
+	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), controllerName, "")
 	if err != nil {
 		return nil, err
 	}

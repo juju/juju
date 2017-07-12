@@ -89,7 +89,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			st.NowToTheSecond(),
+			st.nowToTheSecond(),
 			spec.Access)
 		targetTag = names.NewModelTag(target.uuid)
 	case controllerGlobalKey:
@@ -98,13 +98,13 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			st.NowToTheSecond(),
+			st.nowToTheSecond(),
 			spec.Access)
 		targetTag = st.controllerTag
 	default:
 		return permission.UserAccess{}, errors.NotSupportedf("user access global key %q", target.globalKey)
 	}
-	err = st.runTransactionFor(target.uuid, ops)
+	err = st.db().RunTransactionFor(target.uuid, ops)
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("user access %q", spec.User.Id())
 	}

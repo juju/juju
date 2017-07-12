@@ -61,7 +61,7 @@ func (a *Application) SetMinUnits(minUnits int) (err error) {
 		}
 		return setMinUnitsOps(app, minUnits), nil
 	}
-	return a.st.run(buildTxn)
+	return a.st.db().Run(buildTxn)
 }
 
 // setMinUnitsOps returns the operations required to set MinUnits on the
@@ -155,7 +155,7 @@ func (a *Application) EnsureMinUnits() (err error) {
 			return err
 		}
 		// Add missing unit.
-		switch err := a.st.runTransaction(ops); err {
+		switch err := a.st.db().RunTransaction(ops); err {
 		case nil:
 			// Assign the new unit.
 			unit, err := a.st.Unit(name)
@@ -195,5 +195,5 @@ func aliveUnitsCount(app *Application) (int, error) {
 // will be aborted if the application document changes when running the operations.
 func ensureMinUnitsOps(app *Application) (string, []txn.Op, error) {
 	asserts := bson.D{{"txn-revno", app.doc.TxnRevno}}
-	return app.addUnitOps("", asserts)
+	return app.addUnitOps("", AddUnitParams{}, asserts)
 }

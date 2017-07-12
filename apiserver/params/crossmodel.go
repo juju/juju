@@ -132,6 +132,10 @@ type ConsumeApplicationArg struct {
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
+	// ControllerInfo contains connection details to the controller
+	// hosting the offer.
+	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
+
 	// ApplicationAlias is the name of the alias to use for the application name.
 	ApplicationAlias string `json:"application-alias,omitempty"`
 }
@@ -163,13 +167,14 @@ type RemoteEntityIdResults struct {
 // RemoteRelation describes the current state of a cross-model relation from
 // the perspective of the local model.
 type RemoteRelation struct {
-	Life               Life           `json:"life"`
-	Id                 int            `json:"id"`
-	Key                string         `json:"key"`
-	ApplicationName    string         `json:"application-name"`
-	Endpoint           RemoteEndpoint `json:"endpoint"`
-	RemoteEndpointName string         `json:"remote-endpoint-name"`
-	SourceModelUUID    string         `json:"source-model-uuid"`
+	Life                  Life           `json:"life"`
+	Id                    int            `json:"id"`
+	Key                   string         `json:"key"`
+	ApplicationName       string         `json:"application-name"`
+	Endpoint              RemoteEndpoint `json:"endpoint"`
+	RemoteApplicationName string         `json:"remote-application-name"`
+	RemoteEndpointName    string         `json:"remote-endpoint-name"`
+	SourceModelUUID       string         `json:"source-model-uuid"`
 }
 
 // RemoteRelationResult holds a remote relation and an error.
@@ -205,6 +210,9 @@ type RemoteApplication struct {
 	// IsConsumerProxy returns the application is created
 	// from a registration operation by a consuming model.
 	Registered bool `json:"registered"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
 // GetTokenArgs holds the arguments to a GetTokens API call.
@@ -313,6 +321,32 @@ type RemoteRelationChangeEvent struct {
 	// DepartedUnits contains the ids of units that have departed
 	// the relation since the last change.
 	DepartedUnits []int `json:"departed-units,omitempty"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+}
+
+// IngressNetworksChanges holds a set of IngressNetworksChangeEvent structures.
+type IngressNetworksChanges struct {
+	Changes []IngressNetworksChangeEvent `json:"changes,omitempty"`
+}
+
+type IngressNetworksChangeEvent struct {
+	// RelationId is the remote id of the relation.
+	RelationId RemoteEntityId `json:"relation-id"`
+
+	// ApplicationId is the application id on the remote model.
+	ApplicationId RemoteEntityId `json:"application-id"`
+
+	// Networks are the CIDRs for which ingress is required.
+	Networks []string `json:"networks,omitempty"`
+
+	// IngressRequired is true if ingress is needed, otherwise
+	// ingress should be disabled.
+	IngressRequired bool `json:"ingress-required"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
 // RegisterRemoteRelation holds attributes used to register a remote relation.
@@ -335,6 +369,9 @@ type RegisterRemoteRelation struct {
 
 	// LocalEndpointName is the name of the endpoint in the local model.
 	LocalEndpointName string `json:"local-endpoint-name"`
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
 // RegisterRemoteRelations holds args used to add remote relations.
@@ -372,8 +409,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer    *ApplicationOffer  `json:"offer,omitempty"`
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	Offer          *ApplicationOffer       `json:"offer,omitempty"`
+	Macaroon       *macaroon.Macaroon      `json:"macaroon,omitempty"`
+	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
 }
 
 // ConsumeOfferDetailsResult contains the details necessary to
@@ -392,6 +430,17 @@ type ConsumeOfferDetailsResults struct {
 // RemoteEntities identifies multiple remote entities.
 type RemoteEntities struct {
 	Entities []RemoteEntityId `json:"remote-entities"`
+}
+
+// RelationUnit holds a remote relation id and a unit tag.
+type RemoteRelationUnit struct {
+	RelationId RemoteEntityId `json:"relation"`
+	Unit       string         `json:"unit"`
+}
+
+// RemoteRelationUnits identifies multiple remote relation units.
+type RemoteRelationUnits struct {
+	RelationUnits []RemoteRelationUnit `json:"relation-units"`
 }
 
 // ModifyModelAccessRequest holds the parameters for making grant and revoke offer calls.
@@ -425,3 +474,11 @@ const (
 	OfferConsumeAccess OfferAccessPermission = "consume"
 	OfferReadAccess    OfferAccessPermission = "read"
 )
+
+// ExternalControllerInfo holds addressed and other information
+// needed to make a connection to an external controller.
+type ExternalControllerInfo struct {
+	ControllerTag string   `json:"controller-tag"`
+	Addrs         []string `json:"addrs"`
+	CACert        string   `json:"ca-cert"`
+}

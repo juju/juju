@@ -4,12 +4,14 @@
 package cloud
 
 import (
+	"fmt"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 type showCloudCommand struct {
@@ -17,11 +19,17 @@ type showCloudCommand struct {
 	out cmd.Output
 
 	CloudName string
+
+	includeConfig bool
 }
 
 var showCloudDoc = `
 Provided information includes 'defined' (public, built-in), 'type',
-'auth-type', 'regions', and 'endpoints'.
+'auth-type', 'regions', 'endpoints', and cloud specific configuration
+options.
+
+If ‘--include-config’ is used, additional configuration (key, type, and
+description) specific to the cloud are displayed if available.
 
 Examples:
 
@@ -44,6 +52,7 @@ func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
+	f.BoolVar(&c.includeConfig, "include-config", false, "Print available config option details specific to the specified cloud")
 }
 
 func (c *showCloudCommand) Init(args []string) error {
@@ -74,7 +83,17 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	if !ok {
 		return errors.NotFoundf("cloud %q", c.CloudName)
 	}
-	return c.out.Write(ctxt, cloud)
+	if err = c.out.Write(ctxt, cloud); err != nil {
+		return err
+	}
+	if c.includeConfig {
+		config := getCloudConfigDetails(cloud.CloudType)
+		if len(config) > 0 {
+			fmt.Fprintln(ctxt.Stdout, fmt.Sprintf("\nThe available config options specific to %s clouds are:", cloud.CloudType))
+			return c.out.Write(ctxt, config)
+		}
+	}
+	return nil
 }
 
 type regionDetails struct {
@@ -131,6 +150,34 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 		result.RegionsMap[region.Name] = r
 	}
 	return result
+}
+
+func getCloudConfigDetails(cloudType string) map[string]interface{} {
+	// providerSchema has all config options, including their descriptions
+	// and types.
+	providerSchema, err := common.CloudSchemaByType(cloudType)
+	if err != nil {
+		// Some providers do not implement the ProviderSchema interface.
+		return nil
+	}
+	specifics := make(map[string]interface{})
+	ps, err := common.ProviderConfigSchemaSourceByType(cloudType)
+	if err != nil {
+		// Some providers do not implement the ConfigSchema interface.
+		return nil
+	}
+	// ps.ConfigSchema() returns the provider specific config option names, but no
+	// description etc.
+	for attr := range ps.ConfigSchema() {
+		if providerSchema[attr].Secret {
+			continue
+		}
+		specifics[attr] = common.PrintConfigSchema{
+			Description: providerSchema[attr].Description,
+			Type:        fmt.Sprintf("%s", providerSchema[attr].Type),
+		}
+	}
+	return specifics
 }
 
 func getCloudDetails() (map[string]*cloudDetails, error) {

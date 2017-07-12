@@ -25,6 +25,7 @@ type StateWithWallClockSuite struct {
 	testing.MgoSuite
 	coretesting.BaseSuite
 	NewPolicy                 state.NewPolicyFunc
+	Controller                *state.Controller
 	State                     *state.State
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
@@ -49,8 +50,11 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.State = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.NewPolicy)
-	s.AddCleanup(func(*gc.C) { s.State.Close() })
+	s.Controller, s.State = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.NewPolicy)
+	s.AddCleanup(func(*gc.C) {
+		s.State.Close()
+		s.Controller.Close()
+	})
 	s.Factory = factory.NewFactory(s.State)
 }
 

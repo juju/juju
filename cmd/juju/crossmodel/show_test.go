@@ -38,10 +38,6 @@ func (s *showSuite) TestShowNoUrl(c *gc.C) {
 	s.assertShowError(c, nil, ".*must specify endpoint URL.*")
 }
 
-func (s *showSuite) TestShowDifferentController(c *gc.C) {
-	s.assertShowError(c, []string{"different:user/model.offer"}, `showing endpoints from another controller "different" not supported`)
-}
-
 func (s *showSuite) TestShowApiError(c *gc.C) {
 	s.mockAPI.msg = "fail"
 	s.assertShowError(c, []string{"fred/model.db2"}, ".*fail.*")
@@ -56,7 +52,7 @@ func (s *showSuite) TestShowYaml(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "yaml"},
 		`
-fred/model.db2:
+test-master:fred/model.db2:
   access: consume
   endpoints:
     db2:
@@ -75,9 +71,23 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-URL             Access   Description                                 Endpoint  Interface  Role
-fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
-                         level database system                       log       http       provider
+Store        URL             Access   Description                                 Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+                                      level database system                       log       http       provider
+
+`[1:],
+	)
+}
+
+func (s *showSuite) TestShowDifferentController(c *gc.C) {
+	s.mockAPI.controllerName = "different"
+	s.assertShow(
+		c,
+		[]string{"different:fred/model.db2", "--format", "tabular"},
+		`
+Store      URL             Access   Description                                 Endpoint  Interface  Role
+different  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+                                    level database system                       log       http       provider
 
 `[1:],
 	)
@@ -89,12 +99,12 @@ func (s *showSuite) TestShowTabularExactly180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-URL             Access   Description                                   Endpoint  Interface  Role
-fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                         level database systemIBM DB2 Express Server   log       http       provider
-                         Edition is an entry level database systemIBM                       
-                         DB2 Express Server Edition is an entry level                       
-                         dat                                                                
+Store        URL             Access   Description                                   Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                                      level database systemIBM DB2 Express Server   log       http       provider
+                                      Edition is an entry level database systemIBM                       
+                                      DB2 Express Server Edition is an entry level                       
+                                      dat                                                                
 
 `[1:],
 	)
@@ -106,12 +116,12 @@ func (s *showSuite) TestShowTabularMoreThan180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-URL             Access   Description                                   Endpoint  Interface  Role
-fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                         level database systemIBM DB2 Express Server   log       http       provider
-                         Edition is an entry level database systemIBM                       
-                         DB2 Express Server Edition is an entry level                       
-                         ...                                                                
+Store        URL             Access   Description                                   Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                                      level database systemIBM DB2 Express Server   log       http       provider
+                                      Edition is an entry level database systemIBM                       
+                                      DB2 Express Server Edition is an entry level                       
+                                      ...                                                                
 
 `[1:],
 	)
@@ -131,7 +141,8 @@ func (s *showSuite) assertShowError(c *gc.C, args []string, expected string) {
 }
 
 type mockShowAPI struct {
-	msg, desc string
+	controllerName string
+	msg, desc      string
 }
 
 func (s mockShowAPI) Close() error {
@@ -143,9 +154,13 @@ func (s mockShowAPI) ApplicationOffer(url string) (params.ApplicationOffer, erro
 		return params.ApplicationOffer{}, errors.New(s.msg)
 	}
 
+	offerURL := "fred/model.db2"
+	if s.controllerName != "" {
+		offerURL = s.controllerName + ":" + offerURL
+	}
 	return params.ApplicationOffer{
 		OfferName:              "hosted-db2",
-		OfferURL:               "fred/model.db2",
+		OfferURL:               offerURL,
 		ApplicationDescription: s.desc,
 		Endpoints: []params.RemoteEndpoint{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},

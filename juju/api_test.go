@@ -556,10 +556,6 @@ func mustParseHostPorts(ss []string) []network.HostPort {
 	return hps
 }
 
-func newInt(i int) *int {
-	return &i
-}
-
 type ipAddrResolverFunc func(ctx context.Context, host string) ([]net.IPAddr, error)
 
 func (f ipAddrResolverFunc) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {

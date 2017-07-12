@@ -44,7 +44,7 @@ func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
-	svc := s.setupUnitForRemove(c)
+	app := s.setupUnitForRemove(c)
 
 	ctx, err := runRemoveUnit(c, "multi-series/0", "multi-series/1", "multi-series/2", "sillybilly/17")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
@@ -56,7 +56,7 @@ removing unit multi-series/2 failed: unit "multi-series/2" does not exist
 removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
 `[1:])
 
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range units {
 		c.Assert(u.Life(), gc.Equals, state.Dying)
@@ -85,11 +85,11 @@ removing unit storage-filesystem/0
 }
 
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
-	svc := s.setupUnitForRemove(c)
+	app := s.setupUnitForRemove(c)
 
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveUnit")
 	_, err := runRemoveUnit(c, "dummy/0", "dummy/1")
 	s.AssertBlocked(c, err, ".*TestBlockRemoveUnit.*")
-	c.Assert(svc.Life(), gc.Equals, state.Alive)
+	c.Assert(app.Life(), gc.Equals, state.Alive)
 }

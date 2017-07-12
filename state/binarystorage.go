@@ -17,28 +17,20 @@ var binarystorageNew = binarystorage.New
 // ToolsStorage returns a new binarystorage.StorageCloser that stores tools
 // metadata in the "juju" database "toolsmetadata" collection.
 func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
+	modelStorage := newBinaryStorageCloser(st.database, toolsmetadataC, st.ModelUUID())
 	if st.IsController() {
-		return st.newBinaryStorageCloser(toolsmetadataC, st.ModelUUID()), nil
+		return modelStorage, nil
 	}
-
 	// This is a hosted model. Hosted models have their own tools
 	// catalogue, which we combine with the controller's.
-
 	controllerModel, err := st.ControllerModel()
 	if err != nil {
+		modelStorage.Close()
 		return nil, errors.Trace(err)
 	}
-	controllerSt, err := st.ForModel(controllerModel.ModelTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer controllerSt.Close()
-	controllerStorage, err := controllerSt.ToolsStorage()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelStorage := st.newBinaryStorageCloser(toolsmetadataC, st.ModelUUID())
+	controllerStorage := newBinaryStorageCloser(
+		st.database, toolsmetadataC, controllerModel.UUID(),
+	)
 	storage, err := binarystorage.NewLayeredStorage(modelStorage, controllerStorage)
 	if err != nil {
 		modelStorage.Close()
@@ -58,11 +50,11 @@ func (st *State) GUIStorage() (binarystorage.StorageCloser, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.newBinaryStorageCloser(guimetadataC, controllerModel.UUID()), nil
+	return newBinaryStorageCloser(st.database, guimetadataC, controllerModel.UUID()), nil
 }
 
-func (st *State) newBinaryStorageCloser(collectionName, uuid string) binarystorage.StorageCloser {
-	db, closer1 := st.database.Copy()
+func newBinaryStorageCloser(db Database, collectionName, uuid string) binarystorage.StorageCloser {
+	db, closer1 := db.CopyForModel(uuid)
 	metadataCollection, closer2 := db.GetCollection(collectionName)
 	txnRunner, closer3 := db.TransactionRunner()
 	closer := func() {

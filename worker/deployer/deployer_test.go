@@ -57,10 +57,10 @@ func (s *deployerSuite) makeDeployerAndContext(c *gc.C) (worker.Worker, deployer
 
 func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	// Create a machine, and a couple of units.
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u0, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	u1, err := svc.AddUnit(state.AddUnitParams{})
+	u1, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dep, ctx := s.makeDeployerAndContext(c)
@@ -109,8 +109,8 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 }
 
 func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u0, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dep, _ := s.makeDeployerAndContext(c)
@@ -124,11 +124,11 @@ func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 }
 
 func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
-	// Create a service, and a couple of units.
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit(state.AddUnitParams{})
+	// Create an application, and a couple of units.
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u0, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	u1, err := svc.AddUnit(state.AddUnitParams{})
+	u1, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the units to the machine, and set them to Dying/Dead.
@@ -162,15 +162,15 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 }
 
 func (s *deployerSuite) prepareSubordinates(c *gc.C) (*state.Unit, []*state.RelationUnit) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	rus := []*state.RelationUnit{}
 	logging := s.AddTestingCharm(c, "logging")
 	for _, name := range []string{"subsvc0", "subsvc1"} {
-		s.AddTestingService(c, name, logging)
+		s.AddTestingApplication(c, name, logging)
 		eps, err := s.State.InferEndpoints("wordpress", name)
 		c.Assert(err, jc.ErrorIsNil)
 		rel, err := s.State.AddRelation(eps...)

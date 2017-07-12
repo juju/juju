@@ -130,7 +130,6 @@ type mockContext struct {
 	realAgentConfig agent.ConfigSetter
 	apiState        api.Connection
 	state           upgrades.StateBackend
-	newEnviron      environs.NewEnvironFunc
 }
 
 func (c *mockContext) APIState() api.Connection {
@@ -154,10 +153,6 @@ func (c *mockContext) StateContext() upgrades.Context {
 
 func (c *mockContext) APIContext() upgrades.Context {
 	return c
-}
-
-func (c *mockContext) NewEnviron(args environs.OpenParams) (environs.Environ, error) {
-	return c.newEnviron(args)
 }
 
 type mockAgentConfig struct {
@@ -247,17 +242,6 @@ func (m *mockModel) Config() (*config.Config, error) {
 func (m *mockModel) CloudSpec() (environs.CloudSpec, error) {
 	m.MethodCall(m, "CloudSpec")
 	return m.cloudSpec, m.NextErr()
-}
-
-type mockUpgradeableEnviron struct {
-	testing.Stub
-	environs.Environ
-	ops []environs.UpgradeOperation
-}
-
-func (m *mockUpgradeableEnviron) UpgradeOperations(args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
-	m.MethodCall(m, "UpgradeOperations", args)
-	return m.ops
 }
 
 func stateUpgradeOperations() []upgrades.Operation {
@@ -600,7 +584,7 @@ func (s *upgradeSuite) TestAPIStepsGetRestrictedContext(c *gc.C) {
 func (s *upgradeSuite) checkContextRestriction(c *gc.C, expectedPanic string) {
 	fromVersion := version.MustParse("1.20.0")
 	type fakeAgentConfigSetter struct{ agent.ConfigSetter }
-	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, &mockStateBackend{}, nil)
+	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, &mockStateBackend{})
 	c.Assert(
 		func() { upgrades.PerformUpgrade(fromVersion, targets(upgrades.Controller), ctx) },
 		gc.PanicMatches, expectedPanic,
@@ -637,70 +621,9 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 	}
 
 	check(upgrades.Controller, 1, nil)
-	check(upgrades.DatabaseMaster, 1, []string{"AllModels"})
+	check(upgrades.DatabaseMaster, 1, nil)
 	check(upgrades.AllMachines, 0, nil)
 	check(upgrades.HostMachine, 0, nil)
-}
-
-func (s *upgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
-	type nonUpgradeableEnviron struct{ environs.Environ }
-
-	fromVers := version.MustParse("1.18.0")
-	model0 := &mockModel{config: coretesting.ModelConfig(c)}
-	model1 := &mockModel{config: coretesting.ModelConfig(c)}
-	models := []upgrades.Model{model0, model1}
-	var opsRun int
-	ops := []environs.UpgradeOperation{{
-		TargetVersion: fromVers,
-		Steps: []environs.UpgradeStep{&mockEnvironUpgradeStep{
-			"should not be run",
-			func() error { return errors.New("should not be run") },
-		}},
-	}, {
-		TargetVersion: version.MustParse("1.19.0"),
-		Steps: []environs.UpgradeStep{&mockEnvironUpgradeStep{
-			"should be run",
-			func() error {
-				opsRun++
-				return nil
-			},
-		}},
-	}}
-	model0Environ := &mockUpgradeableEnviron{ops: ops}
-	state := &mockStateBackend{models: models}
-
-	var newEnvironStub testing.Stub
-	newEnviron := func(args environs.OpenParams) (environs.Environ, error) {
-		newEnvironStub.AddCall("NewEnviron", args)
-		switch args.Config {
-		case model0.config:
-			return model0Environ, nil
-		case model1.config:
-			return nonUpgradeableEnviron{}, nil
-		}
-		panic("unknown config")
-	}
-
-	s.PatchValue(upgrades.StateUpgradeOperations, func() []upgrades.Operation {
-		return nil
-	})
-	s.PatchValue(upgrades.UpgradeOperations, func() []upgrades.Operation {
-		return nil
-	})
-
-	ctx := &mockContext{
-		state:      state,
-		newEnviron: newEnviron,
-	}
-	err := upgrades.PerformUpgrade(fromVers, targets(upgrades.DatabaseMaster), ctx)
-	c.Assert(err, jc.ErrorIsNil)
-
-	state.CheckCallNames(c, "AllModels", "ControllerUUID")
-	model0.CheckCallNames(c, "Config", "CloudSpec")
-	model1.CheckCallNames(c, "Config", "CloudSpec")
-	newEnvironStub.CheckCallNames(c, "NewEnviron", "NewEnviron")
-	//model0Environ.CheckCallNames(c, "UpgradeOperations")
-	c.Assert(opsRun, gc.Equals, 1)
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
@@ -720,6 +643,7 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 		"2.0.0",
 		"2.1.0",
 		"2.2.0",
+		"2.2.1",
 	})
 }
 

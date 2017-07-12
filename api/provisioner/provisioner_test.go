@@ -368,7 +368,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiMachine, err = s.provisioner.Machine(machine1.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

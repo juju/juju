@@ -78,7 +78,7 @@ func mockAPICaller(c *gc.C, callNumber *int32, apiCalls ...apiCall) apitesting.A
 			c.Check(index < len(apiCalls), jc.IsTrue)
 			call := apiCalls[index]
 			c.Logf("request %d, %s", index, request)
-			c.Check(version, gc.Equals, 5)
+			c.Check(version, gc.Equals, 6)
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, call.request)
 			c.Check(arg, jc.DeepEquals, call.args)
@@ -124,12 +124,13 @@ func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 2)
+	assertNumCalls(c, &numCalls, 3)
 	return r
 }
 
@@ -163,6 +164,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{"relation-wordpress:db mysql:db"}}}}, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
@@ -172,7 +174,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 6)
+	assertNumCalls(c, &numCalls, 7)
 
 	info := r.GetInfo()
 	c.Assert(info, gc.HasLen, 1)
@@ -192,13 +194,13 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
-		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
+		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 2)
+	assertNumCalls(c, &numCalls, 3)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -230,13 +232,13 @@ func relationJoinedAPICalls() []apiCall {
 	}}
 	apiCalls := []apiCall{
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 	}
 	return apiCalls
 }
@@ -249,7 +251,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 2)
+	assertNumCalls(c, numCalls, 3)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -304,7 +306,7 @@ func (s *relationsSuite) assertHookRelationChanged(
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, numCallsBefore+1)
+	assertNumCalls(c, numCalls, numCallsBefore)
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -314,19 +316,9 @@ func (s *relationsSuite) assertHookRelationChanged(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func getPrincipalAPICalls(numCalls int32) []apiCall {
-	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
-	result := make([]apiCall, numCalls)
-	for i := int32(0); i < numCalls; i++ {
-		result[i] = uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil)
-	}
-	return result
-}
-
 func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
-	apiCalls = append(apiCalls, getPrincipalAPICalls(3)...)
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
 
 	// There will be an initial relation-changed regardless of
@@ -384,7 +376,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, numCallsBefore+1)
+	assertNumCalls(c, numCalls, numCallsBefore)
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -399,7 +391,6 @@ func (s *relationsSuite) TestHookRelationDeparted(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 
-	apiCalls = append(apiCalls, getPrincipalAPICalls(2)...)
 	s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 }
 
@@ -407,7 +398,6 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 
-	apiCalls = append(apiCalls, getPrincipalAPICalls(3)...)
 	r := s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 
 	localState := resolver.LocalState{
@@ -425,7 +415,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 11)
+	assertNumCalls(c, &numCalls, 8)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
 }
 
@@ -488,13 +478,13 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	}}
 	apiCalls := []apiCall{
 		uniterAPICall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 	}
 
 	var numCalls int32
@@ -521,4 +511,174 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	relationsResolver := relation.NewRelationsResolver(r)
 	_, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
+}
+
+var (
+	noErrorResult  = params.ErrorResults{Results: []params.ErrorResult{{}}}
+	nrpeUnitTag    = names.NewUnitTag("nrpe/0")
+	nrpeUnitEntity = params.Entities{Entities: []params.Entity{params.Entity{Tag: nrpeUnitTag.String()}}}
+)
+
+func subSubRelationAPICalls() []apiCall {
+	joinedRelationsResults := params.StringsResults{Results: []params.StringsResult{{Result: []string{
+		"relation-wordpress:juju-info nrpe:general-info",
+		"relation-ntp:nrpe-external-master nrpe:external-master",
+	}}}}
+	relationUnits1 := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-wordpress.juju-info#nrpe.general-info", Unit: "unit-nrpe-0"},
+	}}
+	relationResults1 := params.RelationResults{
+		Results: []params.RelationResult{{
+			Id:               1,
+			Key:              "wordpress:juju-info nrpe:general-info",
+			Life:             params.Alive,
+			OtherApplication: "wordpress",
+			Endpoint: multiwatcher.Endpoint{
+				ApplicationName: "nrpe",
+				Relation: multiwatcher.CharmRelation{
+					Name:      "general-info",
+					Role:      string(charm.RoleRequirer),
+					Interface: "juju-info",
+					Scope:     "container",
+				},
+			},
+		}},
+	}
+	relationUnits2 := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-ntp.nrpe-external-master#nrpe.external-master", Unit: "unit-nrpe-0"},
+	}}
+	relationResults2 := params.RelationResults{
+		Results: []params.RelationResult{{
+			Id:               2,
+			Key:              "ntp:nrpe-external-master nrpe:external-master",
+			Life:             params.Alive,
+			OtherApplication: "ntp",
+			Endpoint: multiwatcher.Endpoint{
+				ApplicationName: "nrpe",
+				Relation: multiwatcher.CharmRelation{
+					Name:      "external-master",
+					Role:      string(charm.RoleRequirer),
+					Interface: "nrpe-external-master",
+					Scope:     "container",
+				},
+			},
+		}},
+	}
+
+	return []apiCall{
+		uniterAPICall("Life", nrpeUnitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterAPICall("GetPrincipal", nrpeUnitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "unit-wordpress-0", Ok: true}}}, nil),
+		uniterAPICall("JoinedRelations", nrpeUnitEntity, joinedRelationsResults, nil),
+		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
+		uniterAPICall("Relation", relationUnits2, relationResults2, nil),
+		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
+		uniterAPICall("Watch", nrpeUnitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
+		uniterAPICall("EnterScope", relationUnits1, noErrorResult, nil),
+		uniterAPICall("Relation", relationUnits2, relationResults2, nil),
+		uniterAPICall("Watch", nrpeUnitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "2"}}}, nil),
+		uniterAPICall("EnterScope", relationUnits2, noErrorResult, nil),
+	}
+}
+
+func (s *relationsSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
+	// When two subordinate units are related on a principal unit's
+	// machine, the sub-sub relation shouldn't keep them alive if the
+	// relation to the principal dies.
+	var numCalls int32
+	apiCalls := subSubRelationAPICalls()
+	callsBeforeDestroy := int32(len(apiCalls))
+	callsAfterDestroy := callsBeforeDestroy + 1
+	// This should only be called once the relation to the
+	// principal app is destroyed.
+	apiCalls = append(apiCalls, uniterAPICall("Destroy", nrpeUnitEntity, noErrorResult, nil))
+	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
+
+	st := uniter.NewState(apiCaller, nrpeUnitTag)
+	r, err := relation.NewRelations(st, nrpeUnitTag, s.stateDir, s.relationsDir, make(chan struct{}))
+	c.Assert(err, jc.ErrorIsNil)
+	assertNumCalls(c, &numCalls, callsBeforeDestroy)
+
+	// So now we have a relations object with two relations, one to
+	// wordpress and one to ntp. We want to ensure that if the
+	// relation to wordpress changes to Dying, the unit is destroyed,
+	// even if the ntp relation is still going strong.
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+
+	remoteState := remotestate.Snapshot{
+		Relations: map[int]remotestate.RelationSnapshot{
+			1: remotestate.RelationSnapshot{
+				Life: params.Dying,
+				Members: map[string]int64{
+					"wordpress/0": 1,
+				},
+			},
+			2: remotestate.RelationSnapshot{
+				Life: params.Alive,
+				Members: map[string]int64{
+					"ntp/0": 1,
+				},
+			},
+		},
+	}
+
+	rr := relation.NewRelationsResolver(r)
+	_, err = rr.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we've made the destroy unit call.
+	assertNumCalls(c, &numCalls, callsAfterDestroy)
+}
+
+func (s *relationsSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C) {
+	var numCalls int32
+	apiCalls := subSubRelationAPICalls()
+	// Sanity check: there shouldn't be a destroy at the end.
+	c.Assert(apiCalls[len(apiCalls)-1].request, gc.Not(gc.Equals), "Destroy")
+
+	expectedCalls := int32(len(apiCalls))
+	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
+
+	st := uniter.NewState(apiCaller, nrpeUnitTag)
+	r, err := relation.NewRelations(st, nrpeUnitTag, s.stateDir, s.relationsDir, make(chan struct{}))
+	c.Assert(err, jc.ErrorIsNil)
+	assertNumCalls(c, &numCalls, expectedCalls)
+
+	// So now we have a relations object with two relations, one to
+	// wordpress and one to ntp. We want to ensure that if the
+	// relation to ntp changes to Dying, the unit isn't destroyed,
+	// since it's kept alive by the principal relation.
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+
+	remoteState := remotestate.Snapshot{
+		Relations: map[int]remotestate.RelationSnapshot{
+			1: remotestate.RelationSnapshot{
+				Life: params.Alive,
+				Members: map[string]int64{
+					"wordpress/0": 1,
+				},
+			},
+			2: remotestate.RelationSnapshot{
+				Life: params.Dying,
+				Members: map[string]int64{
+					"ntp/0": 1,
+				},
+			},
+		},
+	}
+
+	rr := relation.NewRelationsResolver(r)
+	_, err = rr.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we didn't try to make a destroy call (the apiCaller
+	// should panic in that case anyway).
+	assertNumCalls(c, &numCalls, expectedCalls)
 }

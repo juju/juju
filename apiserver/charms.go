@@ -23,8 +23,8 @@ import (
 	ziputil "github.com/juju/utils/zip"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -76,7 +76,7 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type charmsHandler struct {
 	ctxt          httpContext
 	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.State, func(), error)
+	stateAuthFunc func(*http.Request) (*state.State, state.StatePoolReleaser, error)
 }
 
 // bundleContentSenderFunc functions are responsible for sending a

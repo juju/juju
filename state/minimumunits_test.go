@@ -13,31 +13,31 @@ import (
 
 type MinUnitsSuite struct {
 	ConnSuite
-	service *state.Application
+	application *state.Application
 }
 
 var _ = gc.Suite(&MinUnitsSuite{})
 
 func (s *MinUnitsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.service = s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
+	s.application = s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 }
 
 func (s *MinUnitsSuite) assertRevno(c *gc.C, expectedRevno int, expectedErr error) {
-	revno, err := state.MinUnitsRevno(s.State, s.service.Name())
+	revno, err := state.MinUnitsRevno(s.State, s.application.Name())
 	c.Assert(err, gc.Equals, expectedErr)
 	c.Assert(revno, gc.Equals, expectedRevno)
 }
 
 func (s *MinUnitsSuite) addUnits(c *gc.C, count int) {
 	for i := 0; i < count; i++ {
-		_, err := s.service.AddUnit(state.AddUnitParams{})
+		_, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
 func (s *MinUnitsSuite) TestSetMinUnits(c *gc.C) {
-	service := s.service
+	service := s.application
 	for i, t := range []struct {
 		about   string
 		initial int
@@ -105,53 +105,53 @@ func (s *MinUnitsSuite) TestSetMinUnits(c *gc.C) {
 }
 
 func (s *MinUnitsSuite) TestInvalidMinUnits(c *gc.C) {
-	err := s.service.SetMinUnits(-1)
+	err := s.application.SetMinUnits(-1)
 	c.Assert(err, gc.ErrorMatches, `cannot set minimum units for application "dummy-application": cannot set a negative minimum number of units`)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsInsertRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.service.SetMinUnits(41)
+		err := s.application.SetMinUnits(41)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertRevno(c, 0, nil)
 	}, func() {
 		s.assertRevno(c, 1, nil)
 	}).Check()
-	err := s.service.SetMinUnits(42)
+	err := s.application.SetMinUnits(42)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.service.MinUnits(), gc.Equals, 42)
+	c.Assert(s.application.MinUnits(), gc.Equals, 42)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsUpdateRetry(c *gc.C) {
-	err := s.service.SetMinUnits(41)
+	err := s.application.SetMinUnits(41)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.service.SetMinUnits(0)
+		err := s.application.SetMinUnits(0)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertRevno(c, 0, mgo.ErrNotFound)
 	}, func() {
 		s.assertRevno(c, 0, nil)
 	}).Check()
-	err = s.service.SetMinUnits(42)
+	err = s.application.SetMinUnits(42)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.service.MinUnits(), gc.Equals, 42)
+	c.Assert(s.application.MinUnits(), gc.Equals, 42)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsRemoveBefore(c *gc.C) {
-	err := s.service.SetMinUnits(41)
+	err := s.application.SetMinUnits(41)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.service.SetMinUnits(0)
+		err := s.application.SetMinUnits(0)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertRevno(c, 0, mgo.ErrNotFound)
 	}).Check()
-	err = s.service.SetMinUnits(0)
+	err = s.application.SetMinUnits(0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.service.MinUnits(), gc.Equals, 0)
+	c.Assert(s.application.MinUnits(), gc.Equals, 0)
 }
 
 func (s *MinUnitsSuite) testDestroyOrRemoveServiceBefore(c *gc.C, initial, input int, preventRemoval bool) {
-	err := s.service.SetMinUnits(initial)
+	err := s.application.SetMinUnits(initial)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `cannot set minimum units for application "dummy-application": application "dummy-application" not found`
 	if preventRemoval {
@@ -159,10 +159,10 @@ func (s *MinUnitsSuite) testDestroyOrRemoveServiceBefore(c *gc.C, initial, input
 		s.addUnits(c, 1)
 	}
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.service.Destroy()
+		err := s.application.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	err = s.service.SetMinUnits(input)
+	err = s.application.SetMinUnits(input)
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
@@ -192,14 +192,14 @@ func (s *MinUnitsSuite) TestMinUnitsRemoveRemoveServiceBefore(c *gc.C) {
 }
 
 func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
-	err := s.service.SetMinUnits(1)
+	err := s.application.SetMinUnits(1)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, nil)
 
 	// Add two units to the service for later use.
-	unit1, err := s.service.AddUnit(state.AddUnitParams{})
+	unit1, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit2, err := s.service.AddUnit(state.AddUnitParams{})
+	unit2, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a unit and ensure the revno has been increased.
@@ -213,17 +213,17 @@ func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 2, nil)
 
-	// Destroy the service and ensure the minUnits document has been removed.
-	err = s.service.Destroy()
+	// Destroy the application and ensure the minUnits document has been removed.
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *gc.C) {
 	// Add two units to the service for later use.
-	unit1, err := s.service.AddUnit(state.AddUnitParams{})
+	unit1, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit2, err := s.service.AddUnit(state.AddUnitParams{})
+	unit2, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a unit and ensure the minUnits document has not been created.
@@ -237,8 +237,8 @@ func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 
-	// Destroy the service and ensure the minUnits document is still missing.
-	err = s.service.Destroy()
+	// Destroy the application and ensure the minUnits document is still missing.
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
@@ -250,7 +250,7 @@ func assertAllUnits(c *gc.C, service *state.Application, expected int) {
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnits(c *gc.C) {
-	service := s.service
+	service := s.application
 	for i, t := range []struct {
 		about    string // Test description.
 		initial  int    // Initial number of units.
@@ -319,51 +319,51 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *gc.C) {
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsServiceNotAlive(c *gc.C) {
-	err := s.service.SetMinUnits(2)
+	err := s.application.SetMinUnits(2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnits(c, 1)
-	err = s.service.Destroy()
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `cannot ensure minimum units for application "dummy-application": application is not alive`
 
 	// An error is returned if the application is not alive.
-	c.Assert(s.service.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
+	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 
 	// An error is returned if the service was removed.
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.service.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
+	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsUpdateMinUnitsRetry(c *gc.C) {
 	s.addUnits(c, 1)
-	err := s.service.SetMinUnits(4)
+	err := s.application.SetMinUnits(4)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.service.SetMinUnits(2)
+		err := s.application.SetMinUnits(2)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
-		assertAllUnits(c, s.service, 2)
+		assertAllUnits(c, s.application, 2)
 	}).Check()
-	err = s.service.EnsureMinUnits()
+	err = s.application.EnsureMinUnits()
 	c.Assert(err, jc.ErrorIsNil)
 
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsRetry(c *gc.C) {
-	err := s.service.SetMinUnits(3)
+	err := s.application.SetMinUnits(3)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetRetryHooks(c, s.State, func() {
 		s.addUnits(c, 2)
 	}, func() {
-		assertAllUnits(c, s.service, 3)
+		assertAllUnits(c, s.application, 3)
 	}).Check()
-	err = s.service.EnsureMinUnits()
+	err = s.application.EnsureMinUnits()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MinUnitsSuite) testEnsureMinUnitsBefore(c *gc.C, f func(), minUnits, expectedUnits int) {
-	service := s.service
+	service := s.application
 	err := service.SetMinUnits(minUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, f).Check()
@@ -374,7 +374,7 @@ func (s *MinUnitsSuite) testEnsureMinUnitsBefore(c *gc.C, f func(), minUnits, ex
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsBefore(c *gc.C) {
 	f := func() {
-		err := s.service.SetMinUnits(3)
+		err := s.application.SetMinUnits(3)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.testEnsureMinUnitsBefore(c, f, 42, 3)
@@ -382,7 +382,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsBefore(c *gc.C) {
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsRemoveMinUnitsBefore(c *gc.C) {
 	f := func() {
-		err := s.service.SetMinUnits(0)
+		err := s.application.SetMinUnits(0)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.testEnsureMinUnitsBefore(c, f, 2, 0)
@@ -397,19 +397,19 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsBefore(c *gc.C) {
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDestroyServiceBefore(c *gc.C) {
 	s.addUnits(c, 1)
-	err := s.service.SetMinUnits(42)
+	err := s.application.SetMinUnits(42)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.service.Destroy()
+		err := s.application.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	c.Assert(s.service.EnsureMinUnits(), gc.ErrorMatches,
+	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches,
 		`cannot ensure minimum units for application "dummy-application": application is not alive`)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsAfter(c *gc.C) {
 	s.addUnits(c, 2)
-	service := s.service
+	service := s.application
 	err := service.SetMinUnits(5)
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetAfterHooks(c, s.State, func() {

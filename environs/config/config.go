@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -148,6 +149,13 @@ const (
 	// MaxStatusHistorySize is the maximum size the status history
 	// collection can grow to before it is pruned, eg "5M"
 	MaxStatusHistorySize = "max-status-history-size"
+
+	// UpdateStatusHookInterval is how often to run the update-status hook.
+	UpdateStatusHookInterval = "update-status-hook-interval"
+
+	// EgressCidrs are the source addresses from which traffic from this model
+	// originates if the model is deployed such that NAT or similar is in use.
+	EgressCidrs = "egress-cidrs"
 
 	//
 	// Deprecated Settings Attributes
@@ -303,6 +311,9 @@ const (
 
 	// DefaultStatusHistorySize is the default value for MaxStatusHistorySize.
 	DefaultStatusHistorySize = "5G"
+
+	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
+	DefaultUpdateStatusHookInterval = "5m"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -342,6 +353,8 @@ var defaultConfigValues = map[string]interface{}{
 	"development":              false,
 	"test-mode":                false,
 	TransmitVendorMetricsKey:   true,
+	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
+	EgressCidrs:                "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -431,25 +444,6 @@ func CoerceForStorage(attrs map[string]interface{}) map[string]interface{} {
 	return coercedAttrs
 }
 
-// InvalidConfigValue is an error type for a config value that failed validation.
-type InvalidConfigValueError struct {
-	// Key is the config key used to access the value.
-	Key string
-	// Value is the value that failed validation.
-	Value string
-	// Reason indicates why the value failed validation.
-	Reason error
-}
-
-// Error returns the error string.
-func (e *InvalidConfigValueError) Error() string {
-	msg := fmt.Sprintf("invalid config value for %s: %q", e.Key, e.Value)
-	if e.Reason != nil {
-		msg = msg + ": " + e.Reason.Error()
-	}
-	return msg
-}
-
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
@@ -512,6 +506,28 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.defined[MaxStatusHistorySize].(string); ok {
 		if _, err := utils.ParseSize(v); err != nil {
 			return errors.Annotate(err, "invalid max status history size in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[UpdateStatusHookInterval].(string); ok {
+		if f, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid update status hook interval in model configuration")
+		} else {
+			if f < 1*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", f)
+			}
+			if f > 60*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
+			}
+		}
+	}
+
+	if v, ok := cfg.defined[EgressCidrs].(string); ok && v != "" {
+		addresses := strings.Split(v, ",")
+		for _, addr := range addresses {
+			if _, _, err := net.ParseCIDR(strings.TrimSpace(addr)); err != nil {
+				return errors.Annotatef(err, "invalid egress address: %v", addr)
+			}
 		}
 	}
 
@@ -952,6 +968,38 @@ func (c *Config) MaxStatusHistorySizeMB() uint {
 	return uint(val)
 }
 
+// UpdateStatusHookInterval is how often to run the charm
+// update-status hook.
+func (c *Config) UpdateStatusHookInterval() time.Duration {
+	// TODO(wallyworld) - remove this work around when possible as
+	// we already have a defaulting mechanism for config.
+	// It's only here to guard against using Juju clients >= 2.2
+	// with Juju controllers running 2.1.x
+	raw := c.asString(UpdateStatusHookInterval)
+	if raw == "" {
+		raw = DefaultUpdateStatusHookInterval
+	}
+	// Value has already been validated.
+	val, _ := time.ParseDuration(raw)
+	return val
+}
+
+// EgressCidrs are the source addresses from which traffic from this model
+// originates if the model is deployed such that NAT or similar is in use.
+func (c *Config) EgressCidrs() []string {
+	raw := c.asString(EgressCidrs)
+	if raw == "" {
+		return []string{}
+	}
+	// Value has already been validated.
+	rawAddr := strings.Split(raw, ",")
+	result := make([]string, len(rawAddr))
+	for i, addr := range rawAddr {
+		result[i] = strings.TrimSpace(addr)
+	}
+	return result
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1059,6 +1107,8 @@ var alwaysOptional = schema.Defaults{
 	NetBondReconfigureDelayKey:   schema.Omit,
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
+	UpdateStatusHookInterval:     schema.Omit,
+	EgressCidrs:                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1437,6 +1487,16 @@ data of the store. (default false)`,
 	},
 	MaxStatusHistorySize: {
 		Description: "The maximum size for the status history collection, in human-readable memory format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	UpdateStatusHookInterval: {
+		Description: "How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	EgressCidrs: {
+		Description: "Source address(es) for traffic originating from this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

@@ -13,12 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/keymanager"
-	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
-	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	keymanagerserver "github.com/juju/juju/apiserver/facades/client/keymanager"
+	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state"
 )
 
 type keymanagerSuite struct {
@@ -93,31 +92,12 @@ func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
 	s.assertModelKeys(c, append([]string{key1}, newKeys[:2]...))
 }
 
-func (s *keymanagerSuite) TestAddSystemKey(c *gc.C) {
+func (s *keymanagerSuite) TestAddSystemKeyForbidden(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorisedKeys(c, key1)
 
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	keyManager := keymanager.NewClient(apiState)
-	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
-	errResults, err := keyManager.AddKeys("juju-system-key", newKey)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
-		{Error: nil},
-	})
-	s.assertModelKeys(c, []string{key1, newKey})
-}
-
-func (s *keymanagerSuite) TestAddSystemKeyWrongUser(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
-
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	keyManager := keymanager.NewClient(apiState)
-	defer keyManager.Close()
-	newKey := sshtesting.ValidKeyTwo.Key
-	_, err := keyManager.AddKeys("some-user", newKey)
+	_, err := s.keymanager.AddKeys("juju-system-key", newKey)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",

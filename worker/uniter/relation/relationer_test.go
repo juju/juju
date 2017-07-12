@@ -44,7 +44,7 @@ var _ = gc.Suite(&RelationerSuite{})
 func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.app = s.AddTestingService(c, "u", s.AddTestingCharm(c, "riak"))
+	s.app = s.AddTestingApplication(c, "u", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, jc.ErrorIsNil)
 	rels, err := s.app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,7 +296,7 @@ var _ = gc.Suite(&RelationerImplicitSuite{})
 
 func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -305,7 +305,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(network.NewScopedAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)

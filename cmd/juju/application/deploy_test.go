@@ -95,7 +95,7 @@ var initErrorTests = []struct {
 		args: []string{"charm", "application", "--force"},
 		err:  `--force is only used with --series`,
 	}, {
-		args: []string{"--attach-storage", "foo/0", "-n", "2"},
+		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
 	},
 }
@@ -1380,7 +1380,10 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		0,
 		nil,
 	)
-	fakeAPI.Call("AddUnits", "mysql", 1, []*instance.Placement(nil)).Returns([]string{"mysql/0"}, error(nil))
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "mysql",
+		NumUnits:        1,
+	}).Returns([]string{"mysql/0"}, error(nil))
 
 	wordpressURL := charm.MustParseURL("cs:wordpress")
 	withCharmRepoResolvable(fakeAPI, wordpressURL, cfg)
@@ -1394,7 +1397,10 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		0,
 		nil,
 	)
-	fakeAPI.Call("AddUnits", "wordpress", 1, []*instance.Placement(nil)).Returns([]string{"wordpress/0"}, error(nil))
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "wordpress",
+		NumUnits:        1,
+	}).Returns([]string{"wordpress/0"}, error(nil))
 
 	fakeAPI.Call("AddRelation", "wordpress:db", "mysql:server").Returns(
 		&params.AddRelationResults{},
@@ -1427,6 +1433,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type": "foo",
 	})
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(5)
 	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
 	withCharmDeployable(
@@ -1440,6 +1447,28 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 		"--attach-storage", "bar/1,baz/2",
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	})
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(4) // v4 doesn't support attach-storage
+	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
+	withCharmDeployable(
+		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, []string{"foo/0", "bar/1", "baz/2"},
+	)
+
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(), "--attach-storage", "foo/0")
+	c.Assert(err, gc.ErrorMatches, "this juju controller does not support --attach-storage")
 }
 
 // fakeDeployAPI is a mock of the API used by the deploy command. It's
@@ -1553,8 +1582,8 @@ func (f *fakeDeployAPI) AddRelation(endpoints ...string) (*params.AddRelationRes
 	return results[0].(*params.AddRelationResults), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	results := f.MethodCall(f, "AddUnits", application, numUnits, placement)
+func (f *fakeDeployAPI) AddUnits(args application.AddUnitsParams) ([]string, error) {
+	results := f.MethodCall(f, "AddUnits", args)
 	return results[0].([]string), jujutesting.TypeAssertError(results[1])
 }
 
@@ -1591,16 +1620,6 @@ func (f *fakeDeployAPI) SetConstraints(application string, constraints constrain
 func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	results := f.MethodCall(f, "AddMachines", machineParams)
 	return results[0].([]params.AddMachinesResult), jujutesting.TypeAssertError(results[0])
-}
-
-type fakeBundle struct {
-	charm.Bundle
-	*jujutesting.CallMocker
-}
-
-func (f *fakeBundle) Data() *charm.BundleData {
-	results := f.MethodCall(f, "Data")
-	return results[0].(*charm.BundleData)
 }
 
 func variadicStringToInterface(args ...string) []interface{} {

@@ -169,31 +169,19 @@ func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 		return provisioned, errors.Annotate(err, "cannot read controllers")
 	}
 
-	upgradeDone, err := info.isModelUUIDUpgradeDone()
-	if err != nil {
-		return provisioned, errors.Trace(err)
-	}
-
 	// Extract current and provisioned controllers.
-	instanceData, closer := info.st.getRawCollection(instanceDataC)
+	instanceData, closer := info.st.db().GetRawCollection(instanceDataC)
 	defer closer()
 
-	// If instanceData has the env UUID upgrade query using the
-	// machineid field, otherwise check using _id.
-	var sel bson.D
-	var field string
-	if upgradeDone {
-		sel = bson.D{{"model-uuid", info.st.ModelUUID()}}
-		field = "machineid"
-	} else {
-		field = "_id"
+	query := bson.D{
+		{"model-uuid", info.st.ModelUUID()},
+		{"machineid", bson.D{{"$in", controllerInfo.MachineIds}}},
 	}
-	sel = append(sel, bson.DocElem{field, bson.D{{"$in", controllerInfo.MachineIds}}})
-	iter := instanceData.Find(sel).Select(bson.D{{field, true}}).Iter()
+	iter := instanceData.Find(query).Select(bson.D{{"machineid", true}}).Iter()
 
 	var doc bson.M
 	for iter.Next(&doc) {
-		provisioned = append(provisioned, doc[field].(string))
+		provisioned = append(provisioned, doc["machineid"].(string))
 	}
 	if err := iter.Close(); err != nil {
 		return provisioned, errors.Annotate(err, "cannot read provisioned machines")
@@ -201,21 +189,9 @@ func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 	return provisioned, nil
 }
 
-func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
-	instanceData, closer := info.st.getRawCollection(instanceDataC)
-	defer closer()
-
-	query := instanceData.Find(bson.D{{"model-uuid", bson.D{{"$exists", true}}}})
-	n, err := query.Count()
-	if err != nil {
-		return false, errors.Annotatef(err, "couldn't query instance upgrade status")
-	}
-	return n > 0, nil
-}
-
 // upgradeStatusHistoryAndOps sets the model's status history and returns ops for
 // setting model status according to the UpgradeStatus.
-func upgradeStatusHistoryAndOps(st *State, upgradeStatus UpgradeStatus, now time.Time) ([]txn.Op, error) {
+func upgradeStatusHistoryAndOps(mb modelBackend, upgradeStatus UpgradeStatus, now time.Time) ([]txn.Op, error) {
 	var modelStatus status.Status
 	var msg string
 	switch upgradeStatus {
@@ -236,11 +212,11 @@ func upgradeStatusHistoryAndOps(st *State, upgradeStatus UpgradeStatus, now time
 		StatusInfo: msg,
 		Updated:    now.UnixNano(),
 	}
-	ops, err := statusSetOps(st, doc, modelGlobalKey)
+	ops, err := statusSetOps(mb.db(), doc, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	probablyUpdateStatusHistory(st, modelGlobalKey, doc)
+	probablyUpdateStatusHistory(mb.db(), modelGlobalKey, doc)
 	return ops, nil
 }
 
@@ -277,14 +253,14 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 		Update: bson.D{{"$set", bson.D{{"status", status}}}},
 	}}
 
-	extraOps, err := upgradeStatusHistoryAndOps(info.st, status, info.st.clock.Now())
+	extraOps, err := upgradeStatusHistoryAndOps(info.st, status, info.st.clock().Now())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(extraOps) > 0 {
 		ops = append(ops, extraOps...)
 	}
-	err = info.st.runTransaction(ops)
+	err = info.st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		return errors.Errorf("cannot set upgrade status to %q: Another "+
 			"status change may have occurred concurrently", status)
@@ -308,7 +284,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		PreviousVersion:  previousVersion,
 		TargetVersion:    targetVersion,
 		Status:           UpgradePending,
-		Started:          st.clock.Now().UTC(),
+		Started:          st.clock().Now().UTC(),
 		ControllersReady: []string{machineId},
 	}
 
@@ -355,7 +331,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 			"$addToSet", bson.D{{"controllersReady", machineId}},
 		}},
 	}}
-	switch err := st.runTransaction(ops); err {
+	switch err := st.db().RunTransaction(ops); err {
 	case nil:
 		return ensureUpgradeInfoUpdated(st, machineId, previousVersion, targetVersion)
 	case txn.ErrAborted:
@@ -365,7 +341,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 }
 
 func (st *State) isMachineProvisioned(machineId string) (bool, error) {
-	instanceData, closer := st.getRawCollection(instanceDataC)
+	instanceData, closer := st.db().GetRawCollection(instanceDataC)
 	defer closer()
 
 	for _, id := range []string{st.docID(machineId), machineId} {
@@ -445,7 +421,7 @@ func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 			doc.ControllersDone = controllersDone.SortedValues()
 
 			ops := info.makeArchiveOps(doc, UpgradeComplete)
-			extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeComplete, info.st.clock.Now())
+			extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeComplete, info.st.clock().Now())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -467,7 +443,7 @@ func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 			Update: bson.D{{"$addToSet", bson.D{{"controllersDone", machineId}}}},
 		}}, nil
 	}
-	err = info.st.run(buildTxn)
+	err = info.st.db().Run(buildTxn)
 	return errors.Annotate(err, "cannot complete upgrade")
 }
 
@@ -482,7 +458,7 @@ func (info *UpgradeInfo) Abort() error {
 			return nil, errors.Trace(err)
 		}
 		ops := info.makeArchiveOps(doc, UpgradeAborted)
-		extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeAborted, info.st.clock.Now())
+		extraOps, err := upgradeStatusHistoryAndOps(info.st, UpgradeAborted, info.st.clock().Now())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -492,7 +468,7 @@ func (info *UpgradeInfo) Abort() error {
 
 		return ops, nil
 	}
-	err := info.st.run(buildTxn)
+	err := info.st.db().Run(buildTxn)
 	return errors.Annotate(err, "cannot abort upgrade")
 }
 
@@ -584,6 +560,6 @@ func (st *State) ClearUpgradeInfo() error {
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	return errors.Annotate(err, "cannot clear upgrade info")
 }

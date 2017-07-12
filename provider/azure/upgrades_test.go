@@ -12,7 +12,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -54,7 +53,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
 	ops := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)
-	c.Assert(ops[0].TargetVersion, gc.Equals, version.MustParse("2.2-alpha1"))
+	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
 	c.Assert(ops[0].Steps, gc.HasLen, 1)
 	c.Assert(ops[0].Steps[0].Description(), gc.Equals, "Create common resource deployment")
 }

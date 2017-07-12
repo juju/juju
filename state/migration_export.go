@@ -22,8 +22,33 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+// ExportConfig allows certain aspects of the model to be skipped
+// during the export. The intent of this is to be able to get a partial
+// export to support other API calls, like status.
+type ExportConfig struct {
+	SkipActions            bool
+	SkipAnnotations        bool
+	SkipCloudImageMetadata bool
+	SkipCredentials        bool
+	SkipIPAddresses        bool
+	SkipSettings           bool
+	SkipSSHHostKeys        bool
+	SkipStatusHistory      bool
+	SkipLinkLayerDevices   bool
+}
+
+// ExportPartial the current model for the State optionally skipping
+// aspects as defined by the ExportConfig.
+func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
+	return st.exportImpl(cfg)
+}
+
 // Export the current model for the State.
 func (st *State) Export() (description.Model, error) {
+	return st.exportImpl(ExportConfig{})
+}
+
+func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -31,6 +56,7 @@ func (st *State) Export() (description.Model, error) {
 
 	export := exporter{
 		st:      st,
+		cfg:     cfg,
 		dbModel: dbModel,
 		logger:  loggo.GetLogger("juju.state.export-model"),
 	}
@@ -54,7 +80,7 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	modelConfig, found := export.modelSettings[modelGlobalKey]
-	if !found {
+	if !found && !cfg.SkipSettings {
 		return nil, errors.New("missing model config")
 	}
 	delete(export.modelSettings, modelGlobalKey)
@@ -70,10 +96,11 @@ func (st *State) Export() (description.Model, error) {
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
+		EnvironVersion:     dbModel.EnvironVersion(),
 		Blocks:             blocks,
 	}
 	export.model = description.NewModel(args)
-	if credsTag, credsSet := dbModel.CloudCredential(); credsSet {
+	if credsTag, credsSet := dbModel.CloudCredential(); credsSet && !cfg.SkipCredentials {
 		creds, err := st.CloudCredential(credsTag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -145,8 +172,13 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := export.model.Validate(); err != nil {
-		return nil, errors.Trace(err)
+	// If we are doing a partial export, it doesn't really make sense
+	// to validate the model.
+	fullExport := ExportConfig{}
+	if cfg == fullExport {
+		if err := export.model.Validate(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	export.model.SetSLA(dbModel.SLALevel(), dbModel.SLAOwner(), string(dbModel.SLACredential()))
@@ -162,6 +194,7 @@ func (st *State) Export() (description.Model, error) {
 }
 
 type exporter struct {
+	cfg     ExportConfig
 	st      *State
 	dbModel *Model
 	model   description.Model
@@ -626,12 +659,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	storageConstraintsKey := application.storageConstraintsKey()
 
 	applicationSettingsDoc, found := e.modelSettings[settingsKey]
-	if !found {
+	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing settings for application %q", appName)
 	}
 	delete(e.modelSettings, settingsKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
-	if !found {
+	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
 	delete(e.modelSettings, leadershipKey)
@@ -886,7 +919,7 @@ func (e *exporter) relations() error {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
 				settingsDoc, found := e.modelSettings[key]
-				if !found {
+				if !found && !e.cfg.SkipSettings {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
 				delete(e.modelSettings, key)
@@ -915,6 +948,9 @@ func (e *exporter) spaces() error {
 }
 
 func (e *exporter) linklayerdevices() error {
+	if e.cfg.SkipLinkLayerDevices {
+		return nil
+	}
 	linklayerdevices, err := e.st.AllLinkLayerDevices()
 	if err != nil {
 		return errors.Trace(err)
@@ -963,6 +999,9 @@ func (e *exporter) subnets() error {
 }
 
 func (e *exporter) ipaddresses() error {
+	if e.cfg.SkipIPAddresses {
+		return nil
+	}
 	ipaddresses, err := e.st.AllIPAddresses()
 	if err != nil {
 		return errors.Trace(err)
@@ -985,6 +1024,9 @@ func (e *exporter) ipaddresses() error {
 }
 
 func (e *exporter) sshHostKeys() error {
+	if e.cfg.SkipSSHHostKeys {
+		return nil
+	}
 	machines, err := e.st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -1008,6 +1050,9 @@ func (e *exporter) sshHostKeys() error {
 }
 
 func (e *exporter) cloudimagemetadata() error {
+	if e.cfg.SkipCloudImageMetadata {
+		return nil
+	}
 	cloudimagemetadata, err := e.st.CloudImageMetadataStorage.AllCloudImageMetadata()
 	if err != nil {
 		return errors.Trace(err)
@@ -1033,6 +1078,9 @@ func (e *exporter) cloudimagemetadata() error {
 }
 
 func (e *exporter) actions() error {
+	if e.cfg.SkipActions {
+		return nil
+	}
 	actions, err := e.st.AllActions()
 	if err != nil {
 		return errors.Trace(err)
@@ -1143,6 +1191,11 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 }
 
 func (e *exporter) readAllAnnotations() error {
+	e.annotations = make(map[string]annotatorDoc)
+	if e.cfg.SkipAnnotations {
+		return nil
+	}
+
 	annotations, closer := e.st.db().GetCollection(annotationsC)
 	defer closer()
 
@@ -1152,7 +1205,6 @@ func (e *exporter) readAllAnnotations() error {
 	}
 	e.logger.Debugf("read %d annotations docs", len(docs))
 
-	e.annotations = make(map[string]annotatorDoc)
 	for _, doc := range docs {
 		e.annotations[doc.GlobalKey] = doc
 	}
@@ -1198,6 +1250,11 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 }
 
 func (e *exporter) readAllSettings() error {
+	e.modelSettings = make(map[string]settingsDoc)
+	if e.cfg.SkipSettings {
+		return nil
+	}
+
 	settings, closer := e.st.db().GetCollection(settingsC)
 	defer closer()
 
@@ -1206,7 +1263,6 @@ func (e *exporter) readAllSettings() error {
 		return errors.Trace(err)
 	}
 
-	e.modelSettings = make(map[string]settingsDoc)
 	for _, doc := range docs {
 		key := e.st.localID(doc.DocID)
 		e.modelSettings[key] = doc
@@ -1244,6 +1300,9 @@ func (e *exporter) readAllStatusHistory() error {
 
 	count := 0
 	e.statusHistory = make(map[string][]historicalStatusDoc)
+	if e.cfg.SkipStatusHistory {
+		return nil
+	}
 	var doc historicalStatusDoc
 	// In tests, sorting by time can leave the results
 	// underconstrained - include document id for deterministic

@@ -12,7 +12,9 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
@@ -20,29 +22,35 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.remoterelations")
 
-// RemoteRelationChangePublisherCloser implements RemoteRelationChangePublisher
+// RemoteModelRelationsFacadeCloser implements RemoteModelRelationsFacade
 // and add a Close() method.
-type RemoteRelationChangePublisherCloser interface {
+type RemoteModelRelationsFacadeCloser interface {
 	io.Closer
-	RemoteRelationChangePublisher
+	RemoteModelRelationsFacade
 }
 
-// RemoteRelationChangePublisher instances publish local relation changes to the
-// model hosting the remote application involved in the relation
-type RemoteRelationChangePublisher interface {
-	// RegisterRemoteRelation sets up the local model to participate
+// RemoteModelRelationsFacade instances publish local relation changes to the
+// model hosting the remote application involved in the relation, and also watches
+// for remote relation changes which are then pushed to the local model.
+type RemoteModelRelationsFacade interface {
+	// RegisterRemoteRelation sets up the remote model to participate
 	// in the specified relations.
 	RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error)
 
-	// PublishLocalRelationChange publishes local relation changes to the
+	// PublishRelationChange publishes relation changes to the
 	// model hosting the remote application involved in the relation.
-	PublishLocalRelationChange(params.RemoteRelationChangeEvent) error
+	PublishRelationChange(params.RemoteRelationChangeEvent) error
+
+	// WatchRelationUnits returns a watcher that notifies of changes to the
+	// units in the remote model for the relation with the given remote id.
+	WatchRelationUnits(params.RemoteEntityId) (watcher.RelationUnitsWatcher, error)
+
+	// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
+	RelationUnitSettings([]params.RemoteRelationUnit) ([]params.SettingsResult, error)
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.
 type RemoteRelationsFacade interface {
-	RemoteRelationChangePublisher
-
 	// ImportRemoteEntity adds an entity to the remote entities collection
 	// with the specified opaque token.
 	ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error
@@ -83,13 +91,22 @@ type RemoteRelationsFacade interface {
 	// and initial values, or an error if the applications' relations could not be
 	// watched.
 	WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error)
+
+	// ConsumeRemoteRelationChange consumes a change to settings originating
+	// from the remote/offering side of a relation.
+	ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error
+
+	// ControllerAPIInfoForModel returns the controller api info for a model.
+	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 }
+
+type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)
 
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID                string
 	RelationsFacade          RemoteRelationsFacade
-	NewPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error)
+	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -100,8 +117,8 @@ func (config Config) Validate() error {
 	if config.RelationsFacade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.NewPublisherForModelFunc == nil {
-		return errors.NotValidf("nil Publisher func")
+	if config.NewRemoteModelFacadeFunc == nil {
+		return errors.NotValidf("nil Remote Model Facade func")
 	}
 	return nil
 }
@@ -214,7 +231,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 			relationsWatcher,
 			w.config.ModelUUID,
 			*result.Result,
-			w.config.NewPublisherForModelFunc,
+			w.config.NewRemoteModelFacadeFunc,
 			w.config.RelationsFacade,
 		)
 		if err != nil {
@@ -237,30 +254,42 @@ func (w *Worker) killApplicationWorker(name string) error {
 	return nil
 }
 
-// remoteApplicationWorker listens for changes to relations
-// involving a remote application, and publishes changes to
-// local relation units to the remote model.
+// remoteApplicationWorker listens for localChanges to relations
+// involving a remote application, and publishes change to
+// local relation units to the remote model. It also watches for
+// changes originating from the offering model and consumes those
+// in the local model.
 type remoteApplicationWorker struct {
-	catacomb         catacomb.Catacomb
-	relationsWatcher watcher.StringsWatcher
-	relationInfo     remoteRelationInfo
-	localModelUUID   string // uuid of the model hosting the local application
-	remoteModelUUID  string // uuid of the model hosting the remote application
-	registered       bool
-	relationChanges  chan params.RemoteRelationChangeEvent
+	catacomb              catacomb.Catacomb
+	relationsWatcher      watcher.StringsWatcher
+	relationInfo          remoteRelationInfo
+	localModelUUID        string // uuid of the model hosting the local application
+	remoteModelUUID       string // uuid of the model hosting the remote application
+	registered            bool
+	localRelationChanges  chan params.RemoteRelationChangeEvent
+	remoteRelationChanges chan params.RemoteRelationChangeEvent
 
-	facade                   RemoteRelationsFacade
-	newPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error)
+	// macaroon is used to confirm that permission has been granted to consume
+	// the remote application to which this worker pertains.
+	macaroon *macaroon.Macaroon
+
+	// localModelFacade interacts with the local (consuming) model.
+	localModelFacade RemoteRelationsFacade
+	// remoteModelFacade interacts with the remote (offering) model.
+	remoteModelFacade RemoteModelRelationsFacadeCloser
+
+	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc
 }
 
 type relation struct {
 	relationId int
 	life       params.Life
-	ruw        *relationUnitsWatcher
+	localRuw   *relationUnitsWorker
+	remoteRuw  *relationUnitsWorker
 }
 
 type remoteRelationInfo struct {
-	applicationId              params.RemoteEntityId
+	localApplicationId         params.RemoteEntityId
 	localEndpoint              params.RemoteEndpoint
 	remoteApplicationName      string
 	remoteApplicationOfferName string
@@ -271,7 +300,7 @@ func newRemoteApplicationWorker(
 	relationsWatcher watcher.StringsWatcher,
 	localModelUUID string,
 	remoteApplication params.RemoteApplication,
-	newPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error),
+	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc,
 	facade RemoteRelationsFacade,
 ) (worker.Worker, error) {
 	w := &remoteApplicationWorker{
@@ -280,12 +309,14 @@ func newRemoteApplicationWorker(
 			remoteApplicationOfferName: remoteApplication.OfferName,
 			remoteApplicationName:      remoteApplication.Name,
 		},
-		localModelUUID:  localModelUUID,
-		remoteModelUUID: remoteApplication.ModelUUID,
-		registered:      remoteApplication.Registered,
-		relationChanges: make(chan params.RemoteRelationChangeEvent),
-		facade:          facade,
-		newPublisherForModelFunc: newPublisherForModelFunc,
+		localModelUUID:                    localModelUUID,
+		remoteModelUUID:                   remoteApplication.ModelUUID,
+		registered:                        remoteApplication.Registered,
+		macaroon:                          remoteApplication.Macaroon,
+		localRelationChanges:              make(chan params.RemoteRelationChangeEvent),
+		remoteRelationChanges:             make(chan params.RemoteRelationChangeEvent),
+		localModelFacade:                  facade,
+		newRemoteModelRelationsFacadeFunc: newRemoteModelRelationsFacadeFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -306,11 +337,11 @@ func (w *remoteApplicationWorker) Wait() error {
 }
 
 func (w *remoteApplicationWorker) loop() error {
-	publisher, err := w.newPublisherForModelFunc(w.remoteModelUUID)
-	if err != nil {
-		return errors.Annotate(err, "opening publisher to remote model")
-	}
-	defer publisher.Close()
+	defer func() {
+		if w.remoteModelFacade != nil {
+			w.remoteModelFacade.Close()
+		}
+	}()
 
 	relations := make(map[string]*relation)
 	for {
@@ -323,43 +354,49 @@ func (w *remoteApplicationWorker) loop() error {
 				// We are dying.
 				continue
 			}
-			results, err := w.facade.Relations(change)
+			results, err := w.localModelFacade.Relations(change)
 			if err != nil {
 				return errors.Annotate(err, "querying relations")
 			}
 			for i, result := range results {
 				key := change[i]
-				if err := w.relationChanged(key, result, relations, publisher); err != nil {
+				if err := w.relationChanged(key, result, relations); err != nil {
 					return errors.Annotatef(err, "handling change for relation %q", key)
 				}
 			}
-		case change := <-w.relationChanges:
-			logger.Debugf("relation units changed: %#v", change)
-			if err := publisher.PublishLocalRelationChange(change); err != nil {
+		case change := <-w.localRelationChanges:
+			logger.Debugf("local relation units changed -> publishing: %#v", change)
+			if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
 				return errors.Annotatef(err, "publishing relation change %+v to remote model %v", change, w.remoteModelUUID)
+			}
+		case change := <-w.remoteRelationChanges:
+			logger.Debugf("remote relation units changed -> consuming: %#v", change)
+			if err := w.localModelFacade.ConsumeRemoteRelationChange(change); err != nil {
+				return errors.Annotatef(err, "consuming relation change %+v from remote model %v", change, w.remoteModelUUID)
 			}
 		}
 	}
 }
 
-func (w *remoteApplicationWorker) processRelationGone(
-	key string, relations map[string]*relation, publisher RemoteRelationChangePublisher,
-) error {
+func (w *remoteApplicationWorker) processRelationGone(key string, relations map[string]*relation) error {
 	logger.Debugf("relation %v gone", key)
 	relation, ok := relations[key]
 	if !ok {
 		return nil
 	}
 	delete(relations, key)
-	if err := worker.Stop(relation.ruw); err != nil {
-		logger.Warningf("stopping relation unit watcher for %v: %v", key, err)
+	if err := worker.Stop(relation.localRuw); err != nil {
+		logger.Warningf("stopping local relation unit worker for %v: %v", key, err)
+	}
+	if err := worker.Stop(relation.remoteRuw); err != nil {
+		logger.Warningf("stopping remote relation unit worker for %v: %v", key, err)
 	}
 
 	// Remove the remote entity record for the relation to ensure any unregister
 	// call from the remote model that may come across at the same time is short circuited.
-	remoteId := relation.ruw.remoteRelationId
+	remoteId := relation.localRuw.remoteRelationId
 	relTag := names.NewRelationTag(key)
-	_, err := w.facade.GetToken(remoteId.ModelUUID, relTag)
+	_, err := w.localModelFacade.GetToken(remoteId.ModelUUID, relTag)
 	if errors.IsNotFound(err) {
 		logger.Debugf("not found token for %v in %v, exit early", key, w.localModelUUID)
 		return nil
@@ -368,19 +405,23 @@ func (w *remoteApplicationWorker) processRelationGone(
 	}
 
 	// We also need to remove the remote entity reference for the relation.
-	if err := w.facade.RemoveRemoteEntity(remoteId.ModelUUID, relTag); err != nil {
+	if err := w.localModelFacade.RemoveRemoteEntity(remoteId.ModelUUID, relTag); err != nil {
 		return errors.Trace(err)
 	}
 
-	// Inform the remote side the relation has died.
-	change := params.RemoteRelationChangeEvent{
-		RelationId:    remoteId,
-		Life:          params.Dead,
-		ApplicationId: w.relationInfo.applicationId,
+	// On the consuming side, inform the remote side the relation has died.
+	if !w.registered {
+		change := params.RemoteRelationChangeEvent{
+			RelationId:    remoteId,
+			Life:          params.Dead,
+			ApplicationId: w.relationInfo.localApplicationId,
+			Macaroon:      w.macaroon,
+		}
+		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
+			return errors.Annotatef(err, "publishing relation departed %+v to remote model %v", change, w.remoteModelUUID)
+		}
 	}
-	if err := publisher.PublishLocalRelationChange(change); err != nil {
-		return errors.Annotatef(err, "publishing relation departed %+v to remote model %v", change, w.remoteModelUUID)
-	}
+	// TODO(wallyworld) - on the offering side, ensure the consuming watcher learns about the removal
 	logger.Debugf("remote relation %v removed from remote model", key)
 
 	// TODO(wallyworld) - check that state cleanup worker properly removes the dead relation.
@@ -389,12 +430,11 @@ func (w *remoteApplicationWorker) processRelationGone(
 
 func (w *remoteApplicationWorker) relationChanged(
 	key string, result params.RemoteRelationResult, relations map[string]*relation,
-	publisher RemoteRelationChangePublisher,
 ) error {
 	logger.Debugf("relation %q changed: %+v", key, result)
 	if result.Error != nil {
 		if params.IsCodeNotFound(result.Error) {
-			return w.processRelationGone(key, relations, publisher)
+			return w.processRelationGone(key, relations)
 		}
 		return result.Error
 	}
@@ -402,11 +442,10 @@ func (w *remoteApplicationWorker) relationChanged(
 
 	// If we have previously started the watcher and the
 	// relation is now dead, stop the watcher.
-	relationTag := names.NewRelationTag(key)
 	if r := relations[key]; r != nil {
 		r.life = remoteRelation.Life
 		if r.life == params.Dead {
-			return w.processRelationGone(key, relations, publisher)
+			return w.processRelationGone(key, relations)
 		}
 		// Nothing to do, we have previously started the watcher.
 		return nil
@@ -415,152 +454,239 @@ func (w *remoteApplicationWorker) relationChanged(
 		// We haven't started the relation unit watcher so just exit.
 		return nil
 	}
-
-	var remoteRelationId params.RemoteEntityId
 	if w.registered {
-		// We are on the offering side and the relation has been registered,
-		// so look up the token to use when communicating status.
-		token, err := w.facade.GetToken(w.remoteModelUUID, relationTag)
-		if err != nil {
-			return errors.Annotatef(err, "getting token for relation %v from consuming model", relationTag.Id())
-		}
-		remoteRelationId = params.RemoteEntityId{ModelUUID: w.remoteModelUUID, Token: token}
-		// Look up the exported token of the local application in the relation.
-		// The export was done when the relation was registered.
-		token, err = w.facade.GetToken(w.localModelUUID, names.NewApplicationTag(remoteRelation.ApplicationName))
-		if err != nil {
-			return errors.Annotatef(err, "getting token for application %v from offering model", remoteRelation.ApplicationName)
-		}
-		w.relationInfo.applicationId = params.RemoteEntityId{ModelUUID: w.localModelUUID, Token: token}
-	} else {
-		// We have not seen the relation before, make
-		// sure it is registered on the offering side.
-		w.relationInfo.localEndpoint = remoteRelation.Endpoint
-		w.relationInfo.remoteEndpointName = remoteRelation.RemoteEndpointName
-		var err error
-		applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
-		w.relationInfo.applicationId, remoteRelationId, err = w.registerRemoteRelation(applicationTag, relationTag, publisher)
-		if err != nil {
-			return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
-		}
+		return w.processNewOfferingRelation(remoteRelation.ApplicationName, key)
 	}
+	return w.processNewConsumingRelation(key, relations, remoteRelation)
+}
 
-	// Start a watcher to track changes to the local units in the
-	// relation, and a worker to process those changes.
-	localRelationUnitsWatcher, err := w.facade.WatchLocalRelationUnits(key)
+func (w *remoteApplicationWorker) processNewOfferingRelation(applicationName string, key string) error {
+	// We are on the offering side and the relation has been registered,
+	// so look up the token to use when communicating status.
+	relationTag := names.NewRelationTag(key)
+	token, err := w.localModelFacade.GetToken(w.remoteModelUUID, relationTag)
+	if err != nil {
+		return errors.Annotatef(err, "getting token for relation %v from consuming model", relationTag.Id())
+	}
+	// Look up the exported token of the local application in the relation.
+	// The export was done when the relation was registered.
+	token, err = w.localModelFacade.GetToken(w.localModelUUID, names.NewApplicationTag(applicationName))
+	if err != nil {
+		return errors.Annotatef(err, "getting token for application %v from offering model", applicationName)
+	}
+	w.relationInfo.localApplicationId = params.RemoteEntityId{ModelUUID: w.localModelUUID, Token: token}
+	return nil
+}
+
+// processNewConsumingRelation starts the sub-workers necessary to listen and publish
+// local unit settings changes, and watch and consume remote unit settings changes.
+func (w *remoteApplicationWorker) processNewConsumingRelation(
+	key string,
+	relations map[string]*relation,
+	remoteRelation *params.RemoteRelation,
+) error {
+	// We have not seen the relation before, make
+	// sure it is registered on the offering side.
+	w.relationInfo.localEndpoint = remoteRelation.Endpoint
+	w.relationInfo.remoteEndpointName = remoteRelation.RemoteEndpointName
+
+	// Get the connection info for the remote controller.
+	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relationUnitsWatcher, err := newRelationUnitsWatcher(
+	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
+	if err != nil {
+		return errors.Annotate(err, "opening facade to remote model")
+	}
+
+	applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
+	relationTag := names.NewRelationTag(key)
+	applicationId, remoteApplictionId, relationId, err := w.registerRemoteRelation(applicationTag, relationTag)
+	if err != nil {
+		return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
+	}
+	w.relationInfo.localApplicationId = applicationId
+
+	// Start a watcher to track changes to the units in the relation in the local model.
+	localRelationUnitsWatcher, err := w.localModelFacade.WatchLocalRelationUnits(key)
+	if err != nil {
+		return errors.Annotatef(err, "watching local side of relation %v", relationTag.Id())
+	}
+
+	// localUnitSettingsFunc converts relations units watcher results from the local model
+	// into settings params using an api call to the local model.
+	localUnitSettingsFunc := func(changedUnitNames []string) ([]params.SettingsResult, error) {
+		relationUnits := make([]params.RelationUnit, len(changedUnitNames))
+		for i, changedName := range changedUnitNames {
+			relationUnits[i] = params.RelationUnit{
+				Relation: relationTag.String(),
+				Unit:     names.NewUnitTag(changedName).String(),
+			}
+		}
+		return w.localModelFacade.RelationUnitSettings(relationUnits)
+	}
+	localUnitsWorker, err := newRelationUnitsWorker(
 		relationTag,
-		w.relationInfo.applicationId,
-		remoteRelationId,
+		applicationId,
+		w.macaroon,
+		relationId,
 		localRelationUnitsWatcher,
-		w.relationChanges,
-		w.facade,
+		w.localRelationChanges,
+		localUnitSettingsFunc,
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(relationUnitsWatcher); err != nil {
+	if err := w.catacomb.Add(localUnitsWorker); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Start a watcher to track changes to the units in the relation in the remote model.
+	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationUnits(relationId)
+	if err != nil {
+		return errors.Annotatef(
+			err, "watching remote side of application %v and relation %v",
+			remoteRelation.ApplicationName, relationTag.Id())
+	}
+
+	// remoteUnitSettingsFunc converts relations units watcher results from the remote model
+	// into settings params using an api call to the remote model.
+	remoteUnitSettingsFunc := func(changedUnitNames []string) ([]params.SettingsResult, error) {
+		relationUnits := make([]params.RemoteRelationUnit, len(changedUnitNames))
+		for i, changedName := range changedUnitNames {
+			relationUnits[i] = params.RemoteRelationUnit{
+				RelationId: relationId,
+				Unit:       names.NewUnitTag(changedName).String(),
+			}
+		}
+		return w.remoteModelFacade.RelationUnitSettings(relationUnits)
+	}
+	remoteUnitsWorker, err := newRelationUnitsWorker(
+		relationTag,
+		remoteApplictionId,
+		w.macaroon,
+		relationId,
+		remoteRelationUnitsWatcher,
+		w.remoteRelationChanges,
+		remoteUnitSettingsFunc,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(remoteUnitsWorker); err != nil {
+		return errors.Trace(err)
+	}
+
 	relations[key] = &relation{
 		relationId: remoteRelation.Id,
 		life:       remoteRelation.Life,
-		ruw:        relationUnitsWatcher,
+		localRuw:   localUnitsWorker,
+		remoteRuw:  remoteUnitsWorker,
 	}
+
 	return nil
 }
 
 func (w *remoteApplicationWorker) registerRemoteRelation(
-	applicationTag, relationTag names.Tag, publisher RemoteRelationChangePublisher,
-) (remoteApplicationId params.RemoteEntityId, remoteRelationId params.RemoteEntityId, _ error) {
+	applicationTag, relationTag names.Tag,
+) (localApplicationId, offeringRemoteAppId, relationId params.RemoteEntityId, _ error) {
 	logger.Debugf("register remote relation %v", relationTag.Id())
+
 	emptyId := params.RemoteEntityId{}
+	fail := func(err error) (params.RemoteEntityId, params.RemoteEntityId, params.RemoteEntityId, error) {
+		return emptyId, emptyId, emptyId, err
+	}
+
 	// Ensure the relation is exported first up.
-	results, err := w.facade.ExportEntities([]names.Tag{applicationTag, relationTag})
+	results, err := w.localModelFacade.ExportEntities([]names.Tag{applicationTag, relationTag})
 	if err != nil {
-		return emptyId, emptyId, errors.Annotatef(err, "exporting relation %v and application", relationTag, applicationTag)
+		return fail(errors.Annotatef(err, "exporting relation %v and application", relationTag, applicationTag))
 	}
 	if results[0].Error != nil && !params.IsCodeAlreadyExists(results[0].Error) {
-		return emptyId, emptyId, errors.Annotatef(err, "exporting application %v", applicationTag)
+		return fail(errors.Annotatef(err, "exporting application %v", applicationTag))
 	}
-	remoteApplicationId = *results[0].Result
+	localApplicationId = *results[0].Result
 	if results[1].Error != nil && !params.IsCodeAlreadyExists(results[1].Error) {
-		return emptyId, emptyId, errors.Annotatef(err, "exporting relation %v", relationTag)
+		return fail(errors.Annotatef(err, "exporting relation %v", relationTag))
 	}
-	remoteRelationId = *results[1].Result
+	relationId = *results[1].Result
 
 	// This data goes to the remote model so we map local info
 	// from this model to the remote arg values and visa versa.
 	arg := params.RegisterRemoteRelation{
-		ApplicationId:     remoteApplicationId,
-		RelationId:        remoteRelationId,
+		ApplicationId:     localApplicationId,
+		RelationId:        relationId,
 		RemoteEndpoint:    w.relationInfo.localEndpoint,
 		OfferName:         w.relationInfo.remoteApplicationOfferName,
 		LocalEndpointName: w.relationInfo.remoteEndpointName,
+		Macaroon:          w.macaroon,
 	}
-	remoteAppIds, err := publisher.RegisterRemoteRelations(arg)
+	remoteAppIds, err := w.remoteModelFacade.RegisterRemoteRelations(arg)
 	if err != nil {
-		return emptyId, emptyId, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	// remoteAppIds is a slice but there's only one item
 	// as we currently only register one remote application
 	if err := remoteAppIds[0].Error; err != nil {
-		return emptyId, emptyId, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	if err := results[0].Error; err != nil && !params.IsCodeAlreadyExists(err) {
-		return emptyId, emptyId, errors.Annotatef(err, "registering relation %v", relationTag)
+		return fail(errors.Annotatef(err, "registering relation %v", relationTag))
 	}
 	// Import the application id from the offering model.
-	offeringRemoteAppId := remoteAppIds[0].Result
+	offeringRemoteAppId = *remoteAppIds[0].Result
 	logger.Debugf("import remote application token %v from %v for %v",
 		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationName)
-	err = w.facade.ImportRemoteEntity(
+	err = w.localModelFacade.ImportRemoteEntity(
 		offeringRemoteAppId.ModelUUID,
 		names.NewApplicationTag(w.relationInfo.remoteApplicationName),
 		offeringRemoteAppId.Token)
 	if err != nil && !params.IsCodeAlreadyExists(err) {
-		return emptyId, emptyId, errors.Annotatef(
-			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationName)
+		return fail(errors.Annotatef(
+			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationName))
 	}
-	return remoteApplicationId, remoteRelationId, nil
+	return localApplicationId, offeringRemoteAppId, relationId, nil
 }
 
-// relationUnitsWatcher uses a watcher.RelationUnitsWatcher to listen
-// to changes to relation settings in the local model and converts
-// to a params.RemoteRelationChanges for export to a remote model.
-type relationUnitsWatcher struct {
+type relationUnitsSettingsFunc func([]string) ([]params.SettingsResult, error)
+
+// relationUnitsWorker uses instances of watcher.RelationUnitsWatcher to
+// listen to changes to relation settings in a model, local or remote.
+// Local changes are exported to the remote model.
+// Remote changes are consumed by the local model.
+type relationUnitsWorker struct {
 	catacomb    catacomb.Catacomb
 	relationTag names.RelationTag
 	ruw         watcher.RelationUnitsWatcher
 	changes     chan<- params.RemoteRelationChangeEvent
 
 	applicationId    params.RemoteEntityId
+	macaroon         *macaroon.Macaroon
 	remoteRelationId params.RemoteEntityId
 	remoteUnitIds    map[string]params.RemoteEntityId
 
-	facade RemoteRelationsFacade
+	unitSettingsFunc relationUnitsSettingsFunc
 }
 
-func newRelationUnitsWatcher(
+func newRelationUnitsWorker(
 	relationTag names.RelationTag,
 	applicationId params.RemoteEntityId,
+	macaroon *macaroon.Macaroon,
 	remoteRelationId params.RemoteEntityId,
 	ruw watcher.RelationUnitsWatcher,
 	changes chan<- params.RemoteRelationChangeEvent,
-
-	facade RemoteRelationsFacade,
-) (*relationUnitsWatcher, error) {
-	w := &relationUnitsWatcher{
+	unitSettingsFunc relationUnitsSettingsFunc,
+) (*relationUnitsWorker, error) {
+	w := &relationUnitsWorker{
 		relationTag:      relationTag,
 		applicationId:    applicationId,
+		macaroon:         macaroon,
 		remoteRelationId: remoteRelationId,
 		ruw:              ruw,
 		changes:          changes,
 		remoteUnitIds:    make(map[string]params.RemoteEntityId),
-		facade:           facade,
+		unitSettingsFunc: unitSettingsFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -571,18 +697,20 @@ func newRelationUnitsWatcher(
 }
 
 // Kill is defined on worker.Worker
-func (w *relationUnitsWatcher) Kill() {
+func (w *relationUnitsWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is defined on worker.Worker
-func (w *relationUnitsWatcher) Wait() error {
+func (w *relationUnitsWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *relationUnitsWatcher) loop() error {
-	var changes chan<- params.RemoteRelationChangeEvent
-	var event params.RemoteRelationChangeEvent
+func (w *relationUnitsWorker) loop() error {
+	var (
+		changes chan<- params.RemoteRelationChangeEvent
+		event   params.RemoteRelationChangeEvent
+	)
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -608,7 +736,7 @@ func (w *relationUnitsWatcher) loop() error {
 	}
 }
 
-func (w *relationUnitsWatcher) relationUnitsChangeEvent(
+func (w *relationUnitsWorker) relationUnitsChangeEvent(
 	change watcher.RelationUnitsChange,
 ) (*params.RemoteRelationChangeEvent, error) {
 	logger.Debugf("update relation units for %v", w.relationTag)
@@ -635,6 +763,7 @@ func (w *relationUnitsWatcher) relationUnitsChangeEvent(
 		RelationId:    w.remoteRelationId,
 		Life:          params.Alive,
 		ApplicationId: w.applicationId,
+		Macaroon:      w.macaroon,
 		DepartedUnits: make([]int, len(change.Departed)),
 	}
 	for i, u := range change.Departed {
@@ -645,22 +774,15 @@ func (w *relationUnitsWatcher) relationUnitsChangeEvent(
 		event.DepartedUnits[i] = num
 	}
 
-	if len(change.Changed) > 0 {
-		// For changed units, we publish the current settings values.
-		relationUnits := make([]params.RelationUnit, len(change.Changed))
-		for i, changedName := range changedUnitNames {
-			relationUnits[i] = params.RelationUnit{
-				Relation: w.relationTag.String(),
-				Unit:     names.NewUnitTag(changedName).String(),
-			}
-		}
-		results, err := w.facade.RelationUnitSettings(relationUnits)
+	if len(changedUnitNames) > 0 {
+		// For changed units, we publish/consume the current settings values.
+		results, err := w.unitSettingsFunc(changedUnitNames)
 		if err != nil {
 			return nil, errors.Annotate(err, "fetching relation units settings")
 		}
 		for i, result := range results {
 			if result.Error != nil {
-				return nil, errors.Annotatef(result.Error, "fetching relation unit settings for %v", relationUnits[i].Unit)
+				return nil, errors.Annotatef(result.Error, "fetching relation unit settings for %v", changedUnitNames[i])
 			}
 		}
 		for i, result := range results {

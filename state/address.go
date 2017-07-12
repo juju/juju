@@ -4,8 +4,10 @@
 package state
 
 import (
+	"fmt"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -13,35 +15,32 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 )
 
 // controllerAddresses returns the list of internal addresses of the state
 // server machines.
 func (st *State) controllerAddresses() ([]string, error) {
-	ssState := st
-	model, err := st.ControllerModel()
+	cinfo, err := st.ControllerInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if st.ModelTag() != model.ModelTag() {
-		// We are not using the controller model, so get one.
-		logger.Debugf("getting a controller state connection, current env: %s", st.ModelTag())
-		ssState, err = st.ForModel(model.ModelTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer ssState.Close()
-		logger.Debugf("ssState env: %s", ssState.ModelTag())
+
+	var machines mongo.Collection
+	var closer SessionCloser
+	if st.ModelTag() == cinfo.ModelTag {
+		machines, closer = st.db().GetCollection(machinesC)
+	} else {
+		machines, closer = st.db().GetCollectionFor(cinfo.ModelTag.Id(), machinesC)
 	}
+	defer closer()
 
 	type addressMachine struct {
 		Addresses []address
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	machines, closer := ssState.db().GetCollection(machinesC)
-	defer closer()
 	err = machines.Find(bson.D{{"jobs", JobManageModel}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
@@ -123,7 +122,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 		}
 		return []txn.Op{op}, nil
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
 	logger.Debugf("setting API hostPorts: %v", netHostsPorts)
@@ -283,7 +282,46 @@ func addressesEqual(a, b []network.Address) bool {
 	return reflect.DeepEqual(a, b)
 }
 
+func dupeAndSort(a [][]network.HostPort) [][]network.HostPort {
+	var result [][]network.HostPort
+
+	for _, val := range a {
+		var inner []network.HostPort
+		for _, hp := range val {
+			inner = append(inner, hp)
+		}
+		network.SortHostPorts(inner)
+		result = append(result, inner)
+	}
+	sort.Sort(hostsPortsSlice(result))
+	return result
+}
+
+type hostsPortsSlice [][]network.HostPort
+
+func (hp hostsPortsSlice) Len() int      { return len(hp) }
+func (hp hostsPortsSlice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
+func (hp hostsPortsSlice) Less(i, j int) bool {
+	lhs := (hostPortsSlice)(hp[i]).String()
+	rhs := (hostPortsSlice)(hp[j]).String()
+	return lhs < rhs
+}
+
+type hostPortsSlice []network.HostPort
+
+func (hp hostPortsSlice) String() string {
+	var result string
+	for _, val := range hp {
+		result += fmt.Sprintf("%s-%d ", val.Address, val.Port)
+	}
+	return result
+}
+
 // hostsPortsEqual checks that two arrays of network hostports are equal.
 func hostsPortsEqual(a, b [][]network.HostPort) bool {
-	return reflect.DeepEqual(a, b)
+	// Make a copy of all the values so we don't mutate the args in order
+	// to determine if they are the same while we mutate the slice to order them.
+	aPrime := dupeAndSort(a)
+	bPrime := dupeAndSort(b)
+	return reflect.DeepEqual(aPrime, bPrime)
 }

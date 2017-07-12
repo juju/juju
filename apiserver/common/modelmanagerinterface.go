@@ -53,6 +53,7 @@ type ModelManagerBackend interface {
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
+	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
 	ReloadSpaces(environ environs.Environ) error
@@ -213,4 +214,27 @@ func (st modelManagerStateShim) AllApplications() ([]Application, error) {
 		all[i] = applicationShim{a}
 	}
 	return all, nil
+}
+
+// BackendPool provides access to a pool of ModelManagerBackends.
+type BackendPool interface {
+	Get(modelUUID string) (ModelManagerBackend, func(), error)
+}
+
+// NewBackendPool returns a BackendPool wrapping the passed StatePool.
+func NewBackendPool(pool *state.StatePool) BackendPool {
+	return &statePoolShim{pool: pool}
+}
+
+type statePoolShim struct {
+	pool *state.StatePool
+}
+
+// Get implements BackendPool.
+func (p *statePoolShim) Get(modelUUID string) (ModelManagerBackend, func(), error) {
+	st, releaser, err := p.pool.Get(modelUUID)
+	closer := func() {
+		releaser()
+	}
+	return NewModelManagerBackend(st), closer, err
 }

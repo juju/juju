@@ -101,39 +101,6 @@ func (s *statusHistoryPrunerSuite) TestModelConfigChange(c *gc.C) {
 	s.assertWorkerCallsPrune(c, facade, clock, 4)
 }
 
-type mockTimer struct {
-	period chan time.Duration
-	c      chan time.Time
-}
-
-func (t *mockTimer) Reset(d time.Duration) bool {
-	select {
-	case t.period <- d:
-	case <-time.After(coretesting.LongWait):
-		panic("timed out waiting for timer to reset")
-	}
-	return true
-}
-
-func (t *mockTimer) CountDown() <-chan time.Time {
-	return t.c
-}
-
-func (t *mockTimer) fire() error {
-	select {
-	case t.c <- time.Time{}:
-	case <-time.After(coretesting.LongWait):
-		return errors.New("timed out waiting for pruner to run")
-	}
-	return nil
-}
-
-func newMockTimer() *mockTimer {
-	return &mockTimer{period: make(chan time.Duration, 1),
-		c: make(chan time.Time),
-	}
-}
-
 type fakeFacade struct {
 	pruned         chan pruneParams
 	changesWatcher *mockNotifyWatcher

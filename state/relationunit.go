@@ -116,7 +116,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		ops = append(ops, createSettingsOp(settingsC, ruKey, settings))
 	} else {
 		var rop txn.Op
-		rop, settingsChanged, err = replaceSettingsOp(ru.st, settingsC, ruKey, settings)
+		rop, settingsChanged, err = replaceSettingsOp(ru.st.db(), settingsC, ruKey, settings)
 		if err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := ru.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
@@ -227,7 +227,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-		_, ops, err := application.addUnitOps(unitName, nil)
+		_, ops, err := application.addUnitOps(unitName, AddUnitParams{}, nil)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err
@@ -259,7 +259,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
-	return ru.st.runTransaction(ops)
+	return ru.st.db().RunTransaction(ops)
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -338,10 +338,66 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err := ru.st.run(buildTxn); err != nil {
+	if err := ru.st.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "cannot leave scope for %s", desc)
 	}
 	return nil
+}
+
+// Valid returns whether this RelationUnit is one that can actually
+// exist in the relation. For container-scoped relations, RUs can be
+// created for subordinate units whose principal unit isn't a member
+// of the relation. There are too many places that rely on being able
+// to construct a nonsensical RU to query InScope or Joined, so we
+// allow them to be constructed but they will always return false for
+// Valid.
+// TODO(babbageclunk): unpick the reliance on creating invalid RUs.
+func (ru *RelationUnit) Valid() (bool, error) {
+	if ru.endpoint.Scope != charm.ScopeContainer || ru.isPrincipal {
+		return true, nil
+	}
+	// A subordinate container-scoped relation unit is valid if:
+	// the other end of the relation is also a subordinate charm
+	// or its principal unit is also a member of the relation.
+	appName, err := names.UnitApplication(ru.unitName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	var otherAppName string
+	for _, ep := range ru.relation.Endpoints() {
+		if ep.ApplicationName != appName {
+			otherAppName = ep.ApplicationName
+		}
+	}
+	if otherAppName == "" {
+		return false, errors.Errorf("couldn't find other endpoint")
+	}
+	otherApp, err := ru.st.Application(otherAppName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if !otherApp.IsPrincipal() {
+		return true, nil
+	}
+
+	unit, err := ru.st.Unit(ru.unitName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// No need to check the flag here - we know we're subordinate.
+	pName, _ := unit.PrincipalName()
+	principalAppName, err := names.UnitApplication(pName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// If the other application is a principal, only allow it if it's in the relation.
+	_, err = ru.relation.Endpoint(principalAppName)
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
 }
 
 // InScope returns whether the relation unit has entered scope and not left it.
@@ -386,7 +442,7 @@ func watchRelationScope(
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	return readSettings(ru.st, settingsC, ru.key())
+	return readSettings(ru.st.db(), settingsC, ru.key())
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -405,7 +461,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	node, err := readSettings(ru.st, settingsC, key)
+	node, err := readSettings(ru.st.db(), settingsC, key)
 	if err != nil {
 		return nil, err
 	}

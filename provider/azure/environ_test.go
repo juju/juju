@@ -44,7 +44,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -124,8 +123,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		RetryClock: &gitjujutesting.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
 		},
-		RandomWindowsAdminPassword:        func() string { return "sorandom" },
-		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
+		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 
 	s.controllerUUID = testing.ControllerTag.Id()
@@ -360,10 +358,6 @@ func (s *environSuite) networkInterfacesSender(nics ...network.Interface) *azure
 
 func (s *environSuite) publicIPAddressesSender(pips ...network.PublicIPAddress) *azuretesting.MockSender {
 	return s.makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{Value: &pips})
-}
-
-func (s *environSuite) virtualMachinesSender(vms ...compute.VirtualMachine) *azuretesting.MockSender {
-	return s.makeSender(".*/virtualMachines", compute.VirtualMachineListResult{Value: &vms})
 }
 
 func (s *environSuite) vmSizesSender() *azuretesting.MockSender {

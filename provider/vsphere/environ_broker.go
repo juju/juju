@@ -188,6 +188,7 @@ func (env *sessionEnviron) newRawInstance(
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
 		ExternalNetwork:        externalNetwork,
+		Datastore:              env.ecfg.datastore(),
 		UpdateProgress:         updateProgress,
 		UpdateProgressInterval: updateProgressInterval,
 		Clock: clock.WallClock,

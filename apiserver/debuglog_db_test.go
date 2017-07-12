@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -26,8 +27,8 @@ var _ = gc.Suite(&debugLogDBSuite{})
 
 func (s *debugLogDBSuite) TestBadParams(c *gc.C) {
 	reader := s.openWebsocket(c, url.Values{"maxLines": {"foo"}})
-	assertJSONError(c, reader, `maxLines value "foo" is not a valid unsigned number`)
-	assertWebsocketClosed(c, reader)
+	websockettest.AssertJSONError(c, reader, `maxLines value "foo" is not a valid unsigned number`)
+	websockettest.AssertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogDBSuite) TestWithHTTP(c *gc.C) {
@@ -49,8 +50,8 @@ func (s *debugLogDBSuite) TestNoAuth(c *gc.C) {
 	conn := s.dialWebsocketInternal(c, nil, nil)
 	defer conn.Close()
 
-	assertJSONError(c, conn, "no credentials provided")
-	assertWebsocketClosed(c, conn)
+	websockettest.AssertJSONError(c, conn, "no credentials provided")
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
@@ -59,8 +60,8 @@ func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
 	conn := s.dialWebsocketInternal(c, nil, header)
 	defer conn.Close()
 
-	assertJSONError(c, conn, "tag kind unit not valid")
-	assertWebsocketClosed(c, conn)
+	websockettest.AssertJSONError(c, conn, "tag kind unit not valid")
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 var noResultsPlease = url.Values{"maxLines": {"0"}, "noTail": {"true"}}
@@ -74,7 +75,7 @@ func (s *debugLogDBSuite) TestUserLoginsAccepted(c *gc.C) {
 	conn := s.dialWebsocketInternal(c, noResultsPlease, header)
 	defer conn.Close()
 
-	result := readJSONErrorLine(c, conn)
+	result := websockettest.ReadJSONErrorLine(c, conn)
 	c.Assert(result.Error, gc.IsNil)
 }
 
@@ -87,21 +88,12 @@ func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {
 	conn := s.dialWebsocketInternal(c, noResultsPlease, header)
 	defer conn.Close()
 
-	result := readJSONErrorLine(c, conn)
+	result := websockettest.ReadJSONErrorLine(c, conn)
 	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *debugLogDBSuite) openWebsocket(c *gc.C, values url.Values) *websocket.Conn {
 	conn := s.dialWebsocket(c, values)
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return conn
-}
-
-func (s *debugLogDBSuite) openWebsocketCustomPath(c *gc.C, path string) *websocket.Conn {
-	server := s.logURL(c, "wss", nil)
-	server.Path = path
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	conn := dialWebsocketFromURL(c, server.String(), header)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return conn
 }

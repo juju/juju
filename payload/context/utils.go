@@ -12,6 +12,19 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
+type componentHookFunction func() (Component, error)
+
+func componentHookContext(ctx HookContext) componentHookFunction {
+	return func() (Component, error) {
+		compCtx, err := ContextComponent(ctx)
+		if err != nil {
+			// The component wasn't tracked properly.
+			return nil, errors.Trace(err)
+		}
+		return compCtx, nil
+	}
+}
+
 func readMetadata(ctx *cmd.Context) (*charm.Meta, error) {
 	filename := filepath.Join(ctx.Dir, "metadata.yaml")
 	file, err := os.Open(filename)

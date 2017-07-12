@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-querystring/query"
-	"github.com/gorilla/websocket"
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -52,7 +53,7 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
 	stub.CheckCall(c, 1, "getStart", "spam")
-	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
+	stub.CheckCall(c, 2, "newTailer", state.LogTailerParams{
 		StartTime:    time.Unix(10, 0),
 		InitialLines: 100,
 	})
@@ -90,7 +91,7 @@ func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
 
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
 	stub.CheckCall(c, 1, "getStart", "spam")
-	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
+	stub.CheckCall(c, 2, "newTailer", state.LogTailerParams{
 		StartTime: now.Add(-2 * time.Hour),
 	})
 }
@@ -162,9 +163,9 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		defer close(serverDone)
 		defer conn.Close()
 
-		sendInitialErrorV0(conn, nil)
+		conn.SendInitialErrorV0(nil)
 		handler := &logStreamRequestHandler{
-			conn:   conn,
+			conn:   conn.Conn,
 			req:    req,
 			tailer: tailer,
 		}
@@ -198,10 +199,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		}
 
 		c.Logf("client stopped: %v", err)
-		if websocket.IsCloseError(err,
-			websocket.CloseNormalClosure,
-			websocket.CloseGoingAway,
-			websocket.CloseNoStatusReceived) {
+		if gorillaws.IsCloseError(err,
+			gorillaws.CloseNormalClosure,
+			gorillaws.CloseGoingAway,
+			gorillaws.CloseNoStatusReceived) {
 			return // this is fine
 		}
 		if _, ok := err.(*net.OpError); ok {
@@ -253,14 +254,15 @@ type stubSource struct {
 	ReturnNewTailer state.LogTailer
 }
 
-func (s *stubSource) newSource(req *http.Request) (logStreamSource, closerFunc, error) {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
 	s.stub.AddCall("newSource", req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	closer := func() {
+	closer := func() bool {
 		s.stub.AddCall("close")
+		return false
 	}
 	return s, closer, nil
 }
@@ -274,7 +276,7 @@ func (s *stubSource) getStart(sink string) (time.Time, error) {
 	return time.Unix(s.ReturnGetStart, 0), nil
 }
 
-func (s *stubSource) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
+func (s *stubSource) newTailer(args state.LogTailerParams) (state.LogTailer, error) {
 	s.stub.AddCall("newTailer", args)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -322,10 +324,10 @@ type testStreamHandler struct {
 }
 
 func (h *testStreamHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	websocketServer(w, req, h.handler)
+	websocket.Serve(w, req, h.handler)
 }
 
-func newWebsocketServer(c *gc.C, h func(*websocket.Conn)) *websocket.Conn {
+func newWebsocketServer(c *gc.C, h func(*websocket.Conn)) *gorillaws.Conn {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	port := listener.Addr().(*net.TCPAddr).Port
@@ -335,9 +337,9 @@ func newWebsocketServer(c *gc.C, h func(*websocket.Conn)) *websocket.Conn {
 	return newWebsocketClient(c, port)
 }
 
-func newWebsocketClient(c *gc.C, port int) *websocket.Conn {
+func newWebsocketClient(c *gc.C, port int) *gorillaws.Conn {
 	address := fmt.Sprintf("ws://localhost:%d/", port)
-	client, _, err := websocket.DefaultDialer.Dial(address, nil)
+	client, _, err := gorillaws.DefaultDialer.Dial(address, nil)
 	if err == nil {
 		return client
 	}
@@ -350,7 +352,7 @@ func newWebsocketClient(c *gc.C, port int) *websocket.Conn {
 		case <-time.After(coretesting.ShortWait):
 		}
 
-		client, _, err = websocket.DefaultDialer.Dial(address, nil)
+		client, _, err = gorillaws.DefaultDialer.Dial(address, nil)
 		if err != nil {
 			c.Logf("failed attempt to connect to %s", address)
 			continue

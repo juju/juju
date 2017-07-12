@@ -225,6 +225,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
+	case state.IsStorageAttachedError(err):
+		code = params.CodeStorageAttached
 	case isUnknownModelError(err):
 		code = params.CodeModelNotFound
 	case errors.IsNotSupported(err):
@@ -321,6 +323,8 @@ func RestoreError(err error) error {
 	case params.IsCodeMachineHasAttachedStorage(err):
 		// TODO(ericsnow) Handle state.HasAttachmentsError here.
 		// ...by parsing msg?
+		return err
+	case params.IsCodeStorageAttached(err):
 		return err
 	case params.IsCodeNotSupported(err):
 		return errors.NewNotSupported(nil, msg)

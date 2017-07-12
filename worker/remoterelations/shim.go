@@ -11,11 +11,18 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/worker/apicaller"
 )
 
 func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {
 	facade := remoterelations.NewClient(apiCaller)
+	return facade, nil
+}
+
+func NewRemoteModelRelationsFacade(apiCaller base.APICallCloser) (RemoteModelRelationsFacade, error) {
+	facade := crossmodelrelations.NewClient(apiCaller)
 	return facade, nil
 }
 
@@ -27,34 +34,33 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// relationChangePublisherForModelFunc returns a function that
-// can be used be construct instances which publish remote relation
+// remoteRelationsFacadeForModelFunc returns a function that
+// can be used to construct instances which manage remote relation
 // changes for a given model.
 
-// For now we use a facade on the same controller, but in future this
-// may evolve into a REST caller.
-func relationChangePublisherForModelFunc(
-	apiConnForModelFunc func(string) (api.Connection, error),
-) func(string) (RemoteRelationChangePublisherCloser, error) {
-	return func(modelUUID string) (RemoteRelationChangePublisherCloser, error) {
-		conn, err := apiConnForModelFunc(modelUUID)
+// For now we use a facade, but in future this may evolve into a REST caller.
+func remoteRelationsFacadeForModelFunc(
+	connectionFunc apicaller.NewExternalControllerConnectionFunc,
+) newRemoteRelationsFacadeFunc {
+	return func(apiInfo *api.Info) (RemoteModelRelationsFacadeCloser, error) {
+		conn, err := connectionFunc(apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		facade, err := NewRemoteRelationsFacade(conn)
+		facade, err := NewRemoteModelRelationsFacade(conn)
 		if err != nil {
 			conn.Close()
 			return nil, errors.Trace(err)
 		}
-		return &publisherCloser{facade, conn}, nil
+		return &remoteModelRelationsFacadeCloser{facade, conn}, nil
 	}
 }
 
-type publisherCloser struct {
-	RemoteRelationChangePublisher
+type remoteModelRelationsFacadeCloser struct {
+	RemoteModelRelationsFacade
 	conn io.Closer
 }
 
-func (p *publisherCloser) Close() error {
+func (p *remoteModelRelationsFacadeCloser) Close() error {
 	return p.conn.Close()
 }

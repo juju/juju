@@ -72,7 +72,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	nameToLower := strings.ToLower(name)
 
-	dateCreated := st.NowToTheSecond()
+	dateCreated := st.nowToTheSecond()
 	user := &User{
 		st: st,
 		doc: userDoc{
@@ -108,7 +108,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		defaultControllerPermission)
 	ops = append(ops, controllerUserOps...)
 
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.Errorf("username unavailable")
 	}
@@ -149,7 +149,7 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		}}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string, dateCreated time.Time) []txn.Op {
@@ -335,7 +335,7 @@ func (u *User) UserTag() names.UserTag {
 // normal case, the LastLogin is the last time that the user connected through
 // the API server.
 func (u *User) LastLogin() (time.Time, error) {
-	lastLogins, closer := u.st.getRawCollection(userLastLoginC)
+	lastLogins, closer := u.st.db().GetRawCollection(userLastLoginC)
 	defer closer()
 
 	var lastLogin userLastLoginDoc
@@ -348,14 +348,6 @@ func (u *User) LastLogin() (time.Time, error) {
 	}
 
 	return lastLogin.LastLogin.UTC(), nil
-}
-
-// NowToTheSecond returns the current time in UTC to the nearest second. We use
-// this for a time source that is not more precise than we can handle. When
-// serializing time in and out of mongo, we lose enough precision that it's
-// misleading to store any more than precision to the second.
-func (st *State) NowToTheSecond() time.Time {
-	return st.clock.Now().Round(time.Second).UTC()
 }
 
 // NeverLoggedInError is used to indicate that a user has never logged in.
@@ -392,7 +384,7 @@ func (u *User) UpdateLastLogin() (err error) {
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
 		ModelUUID: u.st.ModelUUID(),
-		LastLogin: u.st.NowToTheSecond(),
+		LastLogin: u.st.nowToTheSecond(),
 	}
 
 	_, err = lastLoginsW.UpsertId(lastLogin.DocID, lastLogin)
@@ -440,7 +432,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 		Assert: txn.DocExists,
 		Update: update,
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set password of user %q", u.Name())
 	}
 	u.doc.PasswordHash = pwHash
@@ -506,7 +498,7 @@ func (u *User) setDeactivated(value bool) error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			err = fmt.Errorf("user no longer exists")
 		}

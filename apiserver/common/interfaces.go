@@ -48,15 +48,6 @@ func AuthAlways() GetAuthFunc {
 	}
 }
 
-// AuthNever returns an authentication function that never returns true.
-func AuthNever() GetAuthFunc {
-	return func() (AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return false
-		}, nil
-	}
-}
-
 // AuthFuncForTag returns an authentication function that always returns true iff it is passed a specific tag.
 func AuthFuncForTag(valid names.Tag) GetAuthFunc {
 	return func() (AuthFunc, error) {

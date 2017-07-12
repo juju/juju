@@ -133,7 +133,7 @@ func (r *Relation) Destroy() (err error) {
 		}
 		return ops, nil
 	}
-	return rel.st.run(buildTxn)
+	return rel.st.db().Run(buildTxn)
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and
@@ -198,6 +198,9 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 			}
 			ops = append(ops, epOps...)
 		}
+	}
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		ops = append(ops, removeRelationIngressNetworksOps(r.st, r.doc.Key)...)
 	}
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
@@ -301,7 +304,8 @@ func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("application %q is not a member of %q", applicationname, r)
+	msg := fmt.Sprintf("application %q is not a member of %q", applicationname, r)
+	return Endpoint{}, errors.NewNotFound(nil, msg)
 }
 
 // Endpoints returns the endpoints for the relation.

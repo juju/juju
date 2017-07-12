@@ -55,6 +55,15 @@ type DialOpts struct {
 	// mgo.Session after a successful dial but before DialWithInfo
 	// returns to its caller.
 	PostDial func(*mgo.Session) error
+
+	// PostDialServer, if non-nil, is called by DialWithInfo after
+	// dialing a MongoDB server connection, successfully or not.
+	// The address dialed and amount of time taken are included,
+	// as well as the error if any.
+	PostDialServer func(addr string, _ time.Duration, _ error)
+
+	// PoolLimit defines the per-server socket pool limit
+	PoolLimit int
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -135,7 +144,15 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
 	}
 
-	dial := func(server *mgo.ServerAddr) (net.Conn, error) {
+	dial := func(server *mgo.ServerAddr) (_ net.Conn, err error) {
+		if opts.PostDialServer != nil {
+			before := time.Now()
+			defer func() {
+				taken := time.Now().Sub(before)
+				opts.PostDialServer(server.String(), taken, err)
+			}()
+		}
+
 		addr := server.TCPAddr().String()
 		c, err := net.DialTimeout("tcp", addr, opts.Timeout)
 		if err != nil {
@@ -162,6 +179,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		Timeout:    opts.Timeout,
 		DialServer: dial,
 		Direct:     opts.Direct,
+		PoolLimit:  opts.PoolLimit,
 	}, nil
 }
 

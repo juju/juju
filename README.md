@@ -22,6 +22,24 @@ stable PPA, `https://launchpad.net/~juju/+archive/stable`, and can be installed 
     sudo apt-add-repository ppa:juju/stable
     sudo apt-get update
     sudo apt-get install juju
+    
+Installing Go
+--------------
+
+`Juju's` source code currently depends on Go 1.8. One of the easiest ways
+to install golang is from a snap. You may need to first install
+the [snap client](https://snapcraft.io/docs/core/install). Installing the golang
+snap package is then as easy as
+
+    snap install go --classic
+
+You can read about the "classic" confinement policy [here](https://insights.ubuntu.com/2017/01/09/how-to-snap-introducing-classic-confinement/)
+
+If you want to use `apt`, then you can add the [juju-golang PPA](https://launchpad.net/~juju/+archive/ubuntu/golang) and then run the following
+
+    sudo apt install golang-1.8
+
+Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 
 Setting GOPATH
 --------------
@@ -156,8 +174,3 @@ To enable strict mode, the following bugs need to be resolved, and the snap upda
  * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
  * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
  * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
-
-Needed for confinement
-----------------------
- * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
- * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)

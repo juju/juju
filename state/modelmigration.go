@@ -277,7 +277,7 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 
 // SetPhase implements ModelMigration.
 func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
-	now := mig.st.clock.Now().UnixNano()
+	now := mig.st.clock().Now().UnixNano()
 
 	phase, err := mig.Phase()
 	if err != nil {
@@ -341,7 +341,7 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 		Assert: bson.M{"phase": mig.statusDoc.Phase},
 	})
 
-	if err := mig.st.runTransaction(ops); err == txn.ErrAborted {
+	if err := mig.st.db().RunTransaction(ops); err == txn.ErrAborted {
 		return errors.New("phase already changed")
 	} else if err != nil {
 		return errors.Annotate(err, "failed to update phase")
@@ -378,11 +378,11 @@ func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg str
 		Updated:    now,
 	}
 
-	ops, err := statusSetOps(st, doc, globalKey)
+	ops, err := statusSetOps(st.db(), doc, globalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	probablyUpdateStatusHistory(st, globalKey, doc)
+	probablyUpdateStatusHistory(st.db(), globalKey, doc)
 	return ops, nil
 }
 
@@ -393,7 +393,7 @@ func (mig *modelMigration) SetStatusMessage(text string) error {
 		return errors.Trace(err)
 	}
 
-	ops, err := migStatusHistoryAndOps(mig.st, phase, mig.st.clock.Now().UnixNano(), text)
+	ops, err := migStatusHistoryAndOps(mig.st, phase, mig.st.clock().Now().UnixNano(), text)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -404,7 +404,7 @@ func (mig *modelMigration) SetStatusMessage(text string) error {
 		Update: bson.M{"$set": bson.M{"status-message": text}},
 		Assert: txn.DocExists,
 	})
-	if err := mig.st.runTransaction(ops); err != nil {
+	if err := mig.st.db().RunTransaction(ops); err != nil {
 		return errors.Annotate(err, "failed to set migration status")
 	}
 	mig.statusDoc.StatusMessage = text
@@ -423,7 +423,7 @@ func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Pha
 		MigrationId: mig.Id(),
 		Phase:       phase.String(),
 		EntityKey:   globalKey,
-		Time:        mig.st.clock.Now().UnixNano(),
+		Time:        mig.st.clock().Now().UnixNano(),
 		Success:     success,
 	}
 	ops := []txn.Op{{
@@ -432,7 +432,7 @@ func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Pha
 		Insert: doc,
 		Assert: txn.DocMissing,
 	}}
-	err = mig.st.runTransaction(ops)
+	err = mig.st.db().RunTransaction(ops)
 	if errors.Cause(err) == txn.ErrAborted {
 		coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
 		defer closer()
@@ -621,7 +621,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 		return nil, errors.Trace(err)
 	}
 
-	now := st.clock.Now().UnixNano()
+	now := st.clock().Now().UnixNano()
 	modelUUID := st.ModelUUID()
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc
@@ -652,7 +652,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.Trace(err)
 		}
 
-		attempt, err := st.sequence("modelmigration")
+		attempt, err := sequence(st, "modelmigration")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -705,7 +705,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 		}...)
 		return ops, nil
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create migration")
 	}
 

@@ -5,7 +5,6 @@ package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
@@ -27,7 +26,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
 	ops := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)
-	c.Assert(ops[0].TargetVersion, gc.Equals, version.MustParse("2.2-beta3"))
+	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
 	c.Assert(ops[0].Steps, gc.HasLen, 2)
 	c.Assert(ops[0].Steps[0].Description(), gc.Equals, "Update ExtraConfig properties with standard Juju tags")
 	c.Assert(ops[0].Steps[1].Description(), gc.Equals, "Move VMs into controller/model folders")

@@ -20,7 +20,7 @@ type DataStore interface {
 	SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error
 }
 
-// LatestCharmHandler implements apiserver/charmrevisionupdater.LatestCharmHandler.
+// LatestCharmHandler implements apiserver/facades/controller/charmrevisionupdater.LatestCharmHandler.
 type LatestCharmHandler struct {
 	store DataStore
 }
@@ -33,7 +33,7 @@ func NewLatestCharmHandler(store DataStore) *LatestCharmHandler {
 	}
 }
 
-// HandleLatest implements apiserver/charmrevisionupdater.LatestCharmHandler
+// HandleLatest implements apiserver/facades/controller/charmrevisionupdater.LatestCharmHandler
 // by storing the charm's resources in state.
 func (handler LatestCharmHandler) HandleLatest(applicationID names.ApplicationTag, info charmstore.CharmInfo) error {
 	if err := handler.store.SetCharmStoreResources(applicationID.Id(), info.LatestResources, info.Timestamp); err != nil {

@@ -120,7 +120,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st, settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
+	settings, err := readSettings(u.st.db(), settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (u *Unit) Life() Life {
 // the charm (eg, the version of postgresql that is running, as
 // opposed to the version of the postgresql charm).
 func (u *Unit) WorkloadVersion() (string, error) {
-	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	status, err := getStatus(u.st.db(), u.globalWorkloadVersionKey(), "workload")
 	if errors.IsNotFound(err) {
 		return "", nil
 	} else if err != nil {
@@ -211,8 +211,8 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// Store in status rather than an attribute of the unit doc - we
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
-	now := u.st.clock.Now()
-	return setStatus(u.st, setStatusParams{
+	now := u.st.clock().Now()
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
 		status:    status.Active,
@@ -252,7 +252,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}
 	u.doc.Tools = tools
@@ -277,19 +277,12 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-	err := u.st.runTransaction(ops)
+	err := u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, ErrDead))
 	}
 	u.doc.PasswordHash = passwordHash
 	return nil
-}
-
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func (u *Unit) getPasswordHash() string {
-	return u.doc.PasswordHash
 }
 
 // PasswordValid returns whether the given password is valid
@@ -334,9 +327,9 @@ func (u *Unit) Destroy() (err error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	if err = unit.st.run(buildTxn); err == nil {
+	if err = unit.st.db().Run(buildTxn); err == nil {
 		if historyErr := unit.eraseHistory(); historyErr != nil {
-			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), err)
+			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), historyErr)
 		}
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
@@ -406,7 +399,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// If so then we can't set directly to dead.
 	isAssigned := u.doc.MachineId != ""
 	agentStatusDocId := u.globalAgentKey()
-	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
+	agentStatusInfo, agentErr := getStatus(u.st.db(), agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
@@ -598,7 +591,7 @@ func (u *Unit) EnsureDead() (err error) {
 		Assert: assert,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := u.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if notDead, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
@@ -667,7 +660,7 @@ func (u *Unit) Remove() (err error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	return unit.st.run(buildTxn)
+	return unit.st.db().Run(buildTxn)
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -857,7 +850,7 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 // representing past statuses for this unit.
 func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        u.st,
+		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
 	}
@@ -874,12 +867,12 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade) as on unitagent, this transformation does not belong here.
 	// For now, pretend we're always reading the unit status.
-	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
+	info, err := getStatus(u.st.db(), u.globalAgentKey(), "unit")
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
 	if info.Status != status.Error {
-		info, err = getStatus(u.st, u.globalKey(), "unit")
+		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
 			return status.StatusInfo{}, err
 		}
@@ -896,13 +889,13 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(unitStatus.Status) {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
 		status:    unitStatus.Status,
 		message:   unitStatus.Message,
 		rawData:   unitStatus.Data,
-		updated:   unitStatus.Since,
+		updated:   timeOrNow(unitStatus.Since, u.st.clock()),
 	})
 }
 
@@ -1142,7 +1135,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 		return ops, nil
 	}
-	err := u.st.run(buildTxn)
+	err := u.st.db().Run(buildTxn)
 	if err == nil {
 		u.doc.CharmURL = curl
 	}
@@ -1204,12 +1197,17 @@ func (u *Unit) UnitTag() names.UnitTag {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// These should really only be used in the test suite.
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	pwatcher := u.st.workers.presenceWatcher()
 	pwatcher.Watch(u.globalAgentKey(), ch)
 	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
+	pingBatcher := u.st.getPingBatcher()
+	if err := pingBatcher.Sync(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1230,11 +1228,15 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
+	recorder := u.st.getPingBatcher()
+	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey(),
+		func() presence.PingRecorder { return u.st.getPingBatcher() })
 	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	return p, nil
 }
 
@@ -1293,7 +1295,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		}
 		return u.assignToMachineOps(m, unused)
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -1718,7 +1720,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		if errors.Cause(err) == machineNotCleanErr {
 			// The clean machine was used before we got a chance
 			// to use it so just stick the unit on a new machine.
@@ -1776,7 +1778,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -2128,7 +2130,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (*Machine, erro
 		m, ops, err = u.assignToCleanMaybeEmptyMachineOps(requireEmpty)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -2286,7 +2288,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
 		})
 	}
-	err = u.st.runTransaction(ops)
+	err = u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
@@ -2419,7 +2421,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
 	}}
-	if err := u.st.runTransaction(ops); err == nil {
+	if err := u.st.db().RunTransaction(ops); err == nil {
 		u.doc.Resolved = mode
 		return nil
 	} else if err != txn.ErrAborted {
@@ -2442,7 +2444,7 @@ func (u *Unit) ClearResolved() error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.runTransaction(ops)
+	err := u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
 	}
@@ -2525,7 +2527,7 @@ type HistoryGetter struct {
 // StatusHistory implements status.StatusHistoryGetter.
 func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        g.st,
+		db:        g.st.db(),
 		globalKey: g.globalKey,
 		filter:    filter,
 	}

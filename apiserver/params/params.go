@@ -384,6 +384,7 @@ type AddApplicationUnits struct {
 	ApplicationName string                `json:"application"`
 	NumUnits        int                   `json:"num-units"`
 	Placement       []*instance.Placement `json:"placement"`
+	AttachStorage   []string              `json:"attach-storage,omitempty"`
 }
 
 // DestroyApplicationUnits holds parameters for the DestroyUnits call.
@@ -989,4 +990,12 @@ type DestroyUnitInfo struct {
 	// DestroyedStorage is the tags of storage instances that will be
 	// destroyed as a result of destroying the unit.
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+}
+
+// DumpModelRequest wraps the request for a dump-model call.
+// A simplified dump will not contain a complete export, but instead
+// a reduced set that is determined by the server.
+type DumpModelRequest struct {
+	Entities   []Entity `json:"entities"`
+	Simplified bool     `json:"simplified"`
 }

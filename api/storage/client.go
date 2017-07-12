@@ -179,20 +179,33 @@ func (c *Client) Attach(unitId string, storageIds []string) ([]params.ErrorResul
 }
 
 // Destroy destroys specified storage entities.
-func (c *Client) Destroy(storageIds []string) ([]params.ErrorResult, error) {
-	results := params.ErrorResults{}
-	entities := make([]params.Entity, len(storageIds))
-	for i, id := range storageIds {
+func (c *Client) Destroy(storageIds []string, destroyAttached bool) ([]params.ErrorResult, error) {
+	for _, id := range storageIds {
 		if !names.IsValidStorage(id) {
 			return nil, errors.NotValidf("storage ID %q", id)
 		}
-		entities[i] = params.Entity{Tag: names.NewStorageTag(id).String()}
 	}
-	if err := c.facade.FacadeCall(
-		"Destroy",
-		params.Entities{Entities: entities},
-		&results,
-	); err != nil {
+	results := params.ErrorResults{}
+	var args interface{}
+	if c.BestAPIVersion() <= 3 {
+		// In version 3, destroyAttached is ignored; removing
+		// storage always causes detachment.
+		entities := make([]params.Entity, len(storageIds))
+		for i, id := range storageIds {
+			entities[i].Tag = names.NewStorageTag(id).String()
+		}
+		args = params.Entities{entities}
+	} else {
+		storage := make([]params.DestroyStorageInstance, len(storageIds))
+		for i, id := range storageIds {
+			storage[i] = params.DestroyStorageInstance{
+				Tag:             names.NewStorageTag(id).String(),
+				DestroyAttached: destroyAttached,
+			}
+		}
+		args = params.DestroyStorage{storage}
+	}
+	if err := c.facade.FacadeCall("Destroy", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {

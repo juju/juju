@@ -683,12 +683,6 @@ func gibToMib(g uint64) uint64 {
 	return g * 1024
 }
 
-// osDiskVhdRoot returns the URL to the blob container in which we store the
-// VHDs for OS disks for the environment.
-func osDiskVhdRoot(storageAccount *armstorage.Account) string {
-	return blobContainerURL(storageAccount, osDiskVHDContainer)
-}
-
 // dataDiskVhdRoot returns the URL to the blob container in which we store the
 // VHDs for data disks for the environment.
 func dataDiskVhdRoot(storageAccount *armstorage.Account) string {

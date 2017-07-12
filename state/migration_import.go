@@ -68,11 +68,12 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		CloudName:     model.Cloud(),
-		CloudRegion:   model.CloudRegion(),
-		Config:        cfg,
-		Owner:         model.Owner(),
-		MigrationMode: MigrationModeImporting,
+		CloudName:      model.Cloud(),
+		CloudRegion:    model.CloudRegion(),
+		Config:         cfg,
+		Owner:          model.Owner(),
+		MigrationMode:  MigrationModeImporting,
+		EnvironVersion: model.EnvironVersion(),
 
 		// NOTE(axw) we create the model without any storage
 		// pools. We'll need to import the storage pools from
@@ -208,7 +209,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	if model.MeterStatus().Code() != MeterNotAvailable.String() {
+	if MeterStatusFromString(model.MeterStatus().Code()).String() != MeterNotAvailable.String() {
 		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -316,7 +317,7 @@ func (i *importer) modelUsers() error {
 			permission.Access(user.Access()))...,
 		)
 	}
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	// Now set their last connection times.
@@ -396,12 +397,12 @@ func (i *importer) machine(m description.Machine) error {
 	if parentId := ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
 			// Update containers record for host machine.
-			i.st.addChildToContainerRefOp(parentId, mdoc.Id),
+			addChildToContainerRefOp(i.st, parentId, mdoc.Id),
 		)
 	}
 	// insertNewContainerRefOp adds an empty doc into the containerRefsC
 	// collection for the machine being added.
-	prereqOps = append(prereqOps, i.st.insertNewContainerRefOp(mdoc.Id))
+	prereqOps = append(prereqOps, insertNewContainerRefOp(i.st, mdoc.Id))
 
 	// 4. gather prereqs and machine op, run ops.
 	ops := append(prereqOps, machineOp)
@@ -409,7 +410,7 @@ func (i *importer) machine(m description.Machine) error {
 	// 5. add any ops that we may need to add the opened ports information.
 	ops = append(ops, i.machinePortsOps(m)...)
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -761,7 +762,7 @@ func (i *importer) application(a description.Application) error {
 
 	ops = append(ops, i.appResourceOps(a)...)
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -923,10 +924,10 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	// in the imported model, we put them in the database.
 	if cons := u.Constraints(); cons != nil {
 		agentGlobalKey := unitAgentGlobalKey(u.Name())
-		ops = append(ops, createConstraintsOp(i.st, agentGlobalKey, i.constraints(cons)))
+		ops = append(ops, createConstraintsOp(agentGlobalKey, i.constraints(cons)))
 	}
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		i.logger.Debugf("failed ops: %#v", ops)
 		return errors.Trace(err)
 	}
@@ -1107,7 +1108,7 @@ func (i *importer) relation(rel description.Relation) error {
 		}
 	}
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1177,7 +1178,7 @@ func (i *importer) linklayerdevices() error {
 		ops = append(ops, incrementDeviceNumChildrenOp(parentDocID))
 
 	}
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	i.logger.Debugf("importing linklayerdevices succeeded")
@@ -1227,7 +1228,7 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 		id := network.Id(providerID)
 		ops = append(ops, i.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1278,7 +1279,7 @@ func (i *importer) addSubnet(args SubnetInfo) error {
 		}
 		return ops, nil
 	}
-	err := i.st.run(buildTxn)
+	err := i.st.db().Run(buildTxn)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1332,7 +1333,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		id := network.Id(providerID)
 		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
 	}
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1427,7 +1428,7 @@ func (i *importer) addAction(action description.Action) error {
 		Insert: notificationDoc,
 	}}
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1568,7 +1569,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	}
 	ops = append(ops, incRefOp)
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1691,7 +1692,7 @@ func (i *importer) addVolume(volume description.Volume) error {
 		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
 	}
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1783,7 +1784,7 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))
 	}
 
-	if err := i.st.runTransaction(ops); err != nil {
+	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 

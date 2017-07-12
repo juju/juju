@@ -176,7 +176,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
+	service := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 

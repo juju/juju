@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/go-autorest/autorest/mocks"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
@@ -42,10 +40,9 @@ var _ = gc.Suite(&instanceSuite{})
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                            &s.sender,
-		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
-		RandomWindowsAdminPassword:        func() string { return "sorandom" },
-		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
+		Sender:                     &s.sender,
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.sender = nil
@@ -74,15 +71,6 @@ func makeDeployment(name string) resources.DeploymentExtended {
 		Properties: &resources.DeploymentPropertiesExtended{
 			ProvisioningState: to.StringPtr("Succeeded"),
 			Dependencies:      &dependencies,
-		},
-	}
-}
-
-func makeVirtualMachine(name string) compute.VirtualMachine {
-	return compute.VirtualMachine{
-		Name: to.StringPtr(name),
-		Properties: &compute.VirtualMachineProperties{
-			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}
 }

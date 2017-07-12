@@ -99,10 +99,10 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
-	// Create two services, relate them, and add one unit to each - a
+	// Create two applications, relate them, and add one unit to each - a
 	// principal and a subordinate.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -164,8 +164,8 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
-	// Create a service, deploy a unit of it on the machine.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	// Create an application, deploy a unit of it on the machine.
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	principal, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = principal.AssignToMachine(s.rawMachine)

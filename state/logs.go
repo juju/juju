@@ -216,20 +216,49 @@ func NewDbLogger(st ModelSessioner) *DbLogger {
 	}
 }
 
-// Log writes a log message to the database.
-func (logger *DbLogger) Log(t time.Time, entity string, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
+// Log writes log messages to the database. Log records
+// are written to the database in bulk; callers should
+// buffer log records to and call Log with a batch to
+// minimise database writes.
+//
+// The ModelUUID and ID fields of records are ignored;
+// DbLogger is scoped to a single model, and ID is
+// controlled by the DbLogger code.
+func (logger *DbLogger) Log(records []LogRecord) error {
+	for _, r := range records {
+		if err := validateInputLogRecord(r); err != nil {
+			return errors.Annotate(err, "validating input log record")
+		}
+	}
+	bulk := logger.logsColl.Bulk()
+	for _, r := range records {
+		var versionString string
+		if r.Version != version.Zero {
+			versionString = r.Version.String()
+		}
+		bulk.Insert(&logDoc{
+			// TODO(axw) Use a controller-global int
+			// sequence for Id, so we can order by
+			// insertion.
+			Id:       bson.NewObjectId(),
+			Time:     r.Time.UnixNano(),
+			Entity:   r.Entity.String(),
+			Version:  versionString,
+			Module:   r.Module,
+			Location: r.Location,
+			Level:    int(r.Level),
+			Message:  r.Message,
+		})
+	}
+	_, err := bulk.Run()
+	return errors.Annotatef(err, "inserting %d log record(s)", len(records))
+}
 
-	unixEpochNanoUTC := t.UnixNano()
-	return logger.logsColl.Insert(&logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     unixEpochNanoUTC,
-		Entity:   entity,
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
-	})
+func validateInputLogRecord(r LogRecord) error {
+	if r.Entity == nil {
+		return errors.NotValidf("missing Entity")
+	}
+	return nil
 }
 
 // Close cleans up resources used by the DbLogger instance.
@@ -237,41 +266,6 @@ func (logger *DbLogger) Close() {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
-}
-
-// EntityDbLogger writes log records about one entity.
-type EntityDbLogger struct {
-	DbLogger
-	entity  string
-	version string
-}
-
-// NewEntityDbLogger returns an EntityDbLogger instance which is used
-// to write logs to the database.
-func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
-	dbLogger := NewDbLogger(st)
-	return &EntityDbLogger{
-		DbLogger: *dbLogger,
-		entity:   entity.String(),
-		version:  ver.String(),
-	}
-}
-
-// Log writes a log message to the database.
-func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
-
-	unixEpochNanoUTC := t.UnixNano()
-	return logger.logsColl.Insert(&logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     unixEpochNanoUTC,
-		Entity:   logger.entity,
-		Version:  logger.version,
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
-	})
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
@@ -362,7 +356,7 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error) {
+func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
@@ -388,7 +382,7 @@ type logTailer struct {
 	modelUUID       string
 	session         *mgo.Session
 	logsColl        *mgo.Collection
-	params          *LogTailerParams
+	params          LogTailerParams
 	logCh           chan *LogRecord
 	lastID          int64
 	lastTime        time.Time
@@ -418,17 +412,19 @@ func (t *logTailer) Err() error {
 }
 
 func (t *logTailer) loop() error {
+	// NOTE: don't trace or annotate the errors returned
+	// from this method as the error may be tomb.ErrDying, and
+	// the tomb code is sensitive about equality.
 	err := t.processCollection()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	if t.params.NoTail {
 		return nil
 	}
 
-	err = t.tailOplog()
-	return errors.Trace(err)
+	return t.tailOplog()
 }
 
 func (t *logTailer) processReversed(query *mgo.Query) error {
@@ -445,7 +441,7 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 		return errors.Errorf("too many lines requested (%d) maximum is %d",
 			t.params.InitialLines, maxInitialLines)
 	}
-	query.Sort("-e", "-t", "-_id")
+	query.Sort("-t", "-_id")
 	query.Limit(t.params.InitialLines)
 	iter := query.Iter()
 	queue := make([]logDoc, t.params.InitialLines)
@@ -505,21 +501,42 @@ func (t *logTailer) processCollection() error {
 	// Important: it is critical that the sort index includes _id,
 	// otherwise MongoDB won't use the index, which risks hitting
 	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
+	//
+	// If we get a deserialisation error, write out the first failure,
+	// but don't write out any additional errors until we either hit
+	// a good value, or end the method.
+	deserialisationFailures := 0
 	iter := query.Sort("t", "_id").Iter()
 	for iter.Next(&doc) {
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
-			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+			if deserialisationFailures == 0 {
+				logger.Warningf("log deserialization failed (possible DB corruption), %v", err)
+			}
+			// Add the id to the recentIds so we don't try to look at it again
+			// during the oplog traversal.
+			t.recentIds.Add(doc.Id)
+			deserialisationFailures++
+			continue
+		} else {
+			if deserialisationFailures > 1 {
+				logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+			}
+			deserialisationFailures = 0
 		}
 		select {
 		case <-t.tomb.Dying():
-			return errors.Trace(tomb.ErrDying)
+			return tomb.ErrDying
 		case t.logCh <- rec:
 			t.lastID = rec.ID
 			t.lastTime = rec.Time
 			t.recentIds.Add(doc.Id)
 		}
 	}
+	if deserialisationFailures > 1 {
+		logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+	}
+
 	return errors.Trace(iter.Close())
 }
 
@@ -544,14 +561,22 @@ func (t *logTailer) tailOplog() error {
 	logger.Tracef("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
 		recentIds.Length(), t.lastTime, minOplogTs)
 
+	// If we get a deserialisation error, write out the first failure,
+	// but don't write out any additional errors until we either hit
+	// a good value, or end the method.
+	deserialisationFailures := 0
 	skipCount := 0
 	for {
 		select {
 		case <-t.tomb.Dying():
-			return errors.Trace(tomb.ErrDying)
+			return tomb.ErrDying
 		case oplogDoc, ok := <-oplogTailer.Out():
 			if !ok {
 				return errors.Annotate(oplogTailer.Err(), "oplog tailer died")
+			}
+			if oplogDoc.Operation != "i" {
+				// We only care about inserts.
+				continue
 			}
 
 			doc := new(logDoc)
@@ -570,18 +595,27 @@ func (t *logTailer) tailOplog() error {
 			}
 			rec, err := logDocToRecord(t.modelUUID, doc)
 			if err != nil {
-				return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+				if deserialisationFailures == 0 {
+					logger.Warningf("log deserialization failed (possible DB corruption), %v", err)
+				}
+				deserialisationFailures++
+				continue
+			} else {
+				if deserialisationFailures > 1 {
+					logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+				}
+				deserialisationFailures = 0
 			}
 			select {
 			case <-t.tomb.Dying():
-				return errors.Trace(tomb.ErrDying)
+				return tomb.ErrDying
 			case t.logCh <- rec:
 			}
 		}
 	}
 }
 
-func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})

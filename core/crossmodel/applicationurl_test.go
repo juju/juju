@@ -169,3 +169,13 @@ func (s *ApplicationURLSuite) TestMakeURL(c *gc.C) {
 	url = crossmodel.MakeURL("user", "model", "app", "ctrl")
 	c.Assert(url, gc.Equals, "ctrl:user/model.app")
 }
+
+func (s *ApplicationURLSuite) TestAsLocal(c *gc.C) {
+	url, err := crossmodel.ParseApplicationURL("source:model.application:endpoint")
+	c.Assert(err, jc.ErrorIsNil)
+	expected, err := crossmodel.ParseApplicationURL("model.application:endpoint")
+	c.Assert(err, jc.ErrorIsNil)
+	original := *url
+	c.Assert(url.AsLocal(), gc.DeepEquals, expected)
+	c.Assert(*url, gc.DeepEquals, original)
+}

@@ -4,7 +4,6 @@
 package manual
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -101,6 +100,11 @@ func (p ManualProvider) PrepareConfig(args environs.PrepareConfigParams) (*confi
 	return args.Config.Apply(envConfig.attrs)
 }
 
+// Version is part of the EnvironProvider interface.
+func (ManualProvider) Version() int {
+	return 0
+}
+
 func (p ManualProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
@@ -137,13 +141,6 @@ func (p ManualProvider) open(host, user string, cfg *environConfig) (environs.En
 		return nil, err
 	}
 	return env, nil
-}
-
-func checkImmutableString(cfg, old *environConfig, key string) error {
-	if old.attrs[key] != cfg.attrs[key] {
-		return fmt.Errorf("cannot change %s from %q to %q", key, old.attrs[key], cfg.attrs[key])
-	}
-	return nil
 }
 
 func (p ManualProvider) validate(cfg, old *config.Config) (*environConfig, error) {

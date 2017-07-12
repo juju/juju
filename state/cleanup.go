@@ -128,7 +128,7 @@ func (st *State) Cleanup() (err error) {
 			Id:     doc.DocID,
 			Remove: true,
 		}}
-		if err := st.runTransaction(ops); err != nil {
+		if err := st.db().RunTransaction(ops); err != nil {
 			return errors.Annotate(err, "cannot remove empty cleanup document")
 		}
 	}
@@ -217,26 +217,8 @@ func (st *State) cleanupStorageForDyingModel() (err error) {
 		return errors.Trace(err)
 	}
 	for _, s := range storage {
-		err := st.DestroyStorageInstance(s.StorageTag())
-		if errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-// cleanupFilesystemsForDyingModel sets all persistent filesystems to
-// Dying, if they are not already Dying or Dead. It's expected to be used
-// when a model is destroyed.
-func (st *State) cleanupFilesystemsForDyingModel() (err error) {
-	filesystems, err := st.AllFilesystems()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, fs := range filesystems {
-		err := st.DestroyFilesystem(fs.FilesystemTag())
+		const destroyAttached = true
+		err := st.DestroyStorageInstance(s.StorageTag(), destroyAttached)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -498,7 +480,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	if err != nil {
 		return err
 	}
-	return st.runTransaction(removePortsOps)
+	return st.db().RunTransaction(removePortsOps)
 
 	// Note that we do *not* remove the machine entirely: we leave it for the
 	// provisioner to clean up, so that we don't end up with an unreferenced

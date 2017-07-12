@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // worstCase is used for timeouts when timing out
@@ -186,24 +187,6 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	}
 	content := fmt.Sprintf(hook, filepath.Base(path))
 	ctx.writeExplicitHook(c, path, content)
-}
-
-func (ctx *context) writeActions(c *gc.C, path string, names []string) {
-	for _, name := range names {
-		ctx.writeAction(c, path, name)
-	}
-}
-
-func (ctx *context) writeMetricsYaml(c *gc.C, path string) {
-	metricsYamlPath := filepath.Join(path, "metrics.yaml")
-	var metricsYamlFull []byte = []byte(`
-metrics:
-  pings:
-    type: gauge
-    description: sample metric
-`)
-	err := ioutil.WriteFile(metricsYamlPath, []byte(metricsYamlFull), 0755)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ctx *context) writeAction(c *gc.C, path, name string) {
@@ -361,10 +344,6 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, addCharm{dir, curl(s.revision)})
 }
 
-func (s createCharm) charmURL() string {
-	return curl(s.revision).String()
-}
-
 type addCharm struct {
 	dir  *corecharm.CharmDir
 	curl *corecharm.URL
@@ -402,24 +381,24 @@ func (s serveCharm) step(c *gc.C, ctx *context) {
 	}
 }
 
-type createServiceAndUnit struct {
-	serviceName string
-	storage     map[string]state.StorageConstraints
+type createApplicationAndUnit struct {
+	applicationName string
+	storage         map[string]state.StorageConstraints
 }
 
-func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
-	if csau.serviceName == "" {
-		csau.serviceName = "u"
+func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
+	if csau.applicationName == "" {
+		csau.applicationName = "u"
 	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, jc.ErrorIsNil)
-	svc := ctx.s.AddTestingServiceWithStorage(c, csau.serviceName, sch, csau.storage)
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	app := ctx.s.AddTestingApplicationWithStorage(c, csau.applicationName, sch, csau.storage)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
 	assertAssignUnit(c, ctx.st, unit)
-	ctx.svc = svc
+	ctx.svc = app
 	ctx.unit = unit
 
 	ctx.apiLogin(c)
@@ -433,7 +412,7 @@ type createUniter struct {
 
 func (s createUniter) step(c *gc.C, ctx *context) {
 	step(c, ctx, ensureStateWorker{})
-	step(c, ctx, createServiceAndUnit{})
+	step(c, ctx, createApplicationAndUnit{})
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
@@ -510,7 +489,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
 		MachineLockName:      hookExecutionLockName(),
-		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
+		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
 		TranslateResolverErr: s.translateResolverErr,
 		Observer:             ctx,
@@ -1134,7 +1113,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 		panic("don't add two relations!")
 	}
 	if ctx.relatedSvc == nil {
-		ctx.relatedSvc = ctx.s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
+		ctx.relatedSvc = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints("u", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1228,7 +1207,7 @@ type addSubordinateRelation struct {
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 	if _, err := ctx.st.Application("logging"); errors.IsNotFound(err) {
-		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
+		ctx.s.AddTestingApplication(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1806,9 +1785,19 @@ func (t *manualTicker) Tick() error {
 	return nil
 }
 
+type dummyWaiter struct {
+	c chan time.Time
+}
+
+func (w dummyWaiter) After() <-chan time.Time {
+	return w.c
+}
+
 // ReturnTimer can be used to replace the update status signal generator.
-func (t *manualTicker) ReturnTimer() <-chan time.Time {
-	return t.c
+func (t *manualTicker) ReturnTimer() remotestate.UpdateStatusTimerFunc {
+	return func(_ time.Duration) remotestate.Waiter {
+		return dummyWaiter{t.c}
+	}
 }
 
 func newManualTicker() *manualTicker {

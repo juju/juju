@@ -222,7 +222,7 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}
 	if url.Source != "" {
-		return params.ConsumeOfferDetails{}, errors.NotSupportedf("query for non-local application offers")
+		return params.ConsumeOfferDetails{}, errors.NotSupportedf("query for application offers on another controller")
 	}
 
 	found := params.ConsumeOfferDetailsResults{}
@@ -242,7 +242,8 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 		return params.ConsumeOfferDetails{}, errors.Trace(theOne.Error)
 	}
 	return params.ConsumeOfferDetails{
-		Offer:    theOne.Offer,
-		Macaroon: theOne.Macaroon,
+		Offer:          theOne.Offer,
+		Macaroon:       theOne.Macaroon,
+		ControllerInfo: theOne.ControllerInfo,
 	}, nil
 }

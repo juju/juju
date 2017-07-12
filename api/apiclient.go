@@ -185,7 +185,13 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	if opts.Clock == nil {
 		opts.Clock = clock.WallClock
 	}
-	dialResult, err := dialAPI(info, opts)
+	ctx := context.TODO()
+	if opts.Timeout > 0 {
+		ctx1, cancel := utils.ContextWithTimeout(ctx, opts.Clock, opts.Timeout)
+		defer cancel()
+		ctx = ctx1
+	}
+	dialResult, err := dialAPI(ctx, info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -240,7 +246,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		modelTag:     info.ModelTag,
 	}
 	if !info.SkipLogin {
-		if err := st.Login(info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
+		if err := loginWithContext(ctx, st, info); err != nil {
 			dialResult.conn.Close()
 			return nil, errors.Trace(err)
 		}
@@ -261,23 +267,21 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	return st, nil
 }
 
-type NewConnectionForModelFunc func(*Info) (func(string) (Connection, error), error)
-
-// NewConnectionForModel returns a function which returns a model API
-// connection for a specified model UUID, based on the specified api info.
-// Currently, such a connection will always be to a single controller.
-func NewConnectionForModel(apiInfo *Info) (func(string) (Connection, error), error) {
-	return func(modelUUID string) (Connection, error) {
-		apiInfo.ModelTag = names.NewModelTag(modelUUID)
-		conn, err := Open(apiInfo, DialOpts{
-			Timeout:    time.Second,
-			RetryDelay: 200 * time.Millisecond,
-		})
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to open API to model %s", modelUUID)
-		}
-		return conn, nil
-	}, nil
+// loginWithContext wraps st.Login with code that terminates
+// if the context is cancelled.
+// TODO(rogpeppe) pass Context into Login (and all API calls) so
+// that this becomes unnecessary.
+func loginWithContext(ctx context.Context, st *state, info *Info) error {
+	result := make(chan error, 1)
+	go func() {
+		result <- st.Login(info.Tag, info.Password, info.Nonce, info.Macaroons)
+	}()
+	select {
+	case err := <-result:
+		return errors.Trace(err)
+	case <-ctx.Done():
+		return errors.Annotatef(ctx.Err(), "cannot log in")
+	}
 }
 
 // hostSwitchingTransport provides an http.RoundTripper
@@ -549,7 +553,7 @@ type dialOpts struct {
 // connection wins.
 //
 // It also returns the TLS configuration that it has derived from the Info.
-func dialAPI(info *Info, opts0 DialOpts) (*dialResult, error) {
+func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no API addresses to connect to")
 	}
@@ -578,18 +582,14 @@ func dialAPI(info *Info, opts0 DialOpts) (*dialResult, error) {
 	if opts.DNSCache == nil {
 		opts.DNSCache = nopDNSCache{}
 	}
-	// TODO(rogpeppe) Pass a context with an existing deadline into dialAPI.
-	// We're avoiding that for the moment because it will break
-	// lots of tests that rely on passing a zero timeout into
-	// DialOpts.
-	ctx := context.TODO()
-	opts.deadline = opts.Clock.Now().Add(opts.Timeout)
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	path, err := apiPath(info.ModelTag, "/api")
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if opts.DialTimeout > 0 {
+		ctx1, cancel := utils.ContextWithTimeout(ctx, opts.Clock, opts.DialTimeout)
+		defer cancel()
+		ctx = ctx1
 	}
 	dialInfo, err := dialWebsocketMulti(ctx, info.Addrs, path, opts)
 	if err != nil {
@@ -605,13 +605,22 @@ func dialAPI(info *Info, opts0 DialOpts) (*dialResult, error) {
 // is used only for TLS verification when tlsConfig.ServerName
 // is empty.
 func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+	url, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// TODO(rogpeppe) We'd like to set Deadline here
 	// but that would break lots of tests that rely on
 	// setting a zero timeout.
 	netDialer := net.Dialer{}
 	dialer := &websocket.Dialer{
 		NetDial: func(netw, addr string) (net.Conn, error) {
-			return netDialer.DialContext(ctx, netw, ipAddr)
+			if addr == url.Host {
+				// Use pre-resolved IP address. The address
+				// may be different if a proxy is in use.
+				addr = ipAddr
+			}
+			return netDialer.DialContext(ctx, netw, addr)
 		},
 		Proxy:           proxy.DefaultConfig.GetProxy,
 		TLSClientConfig: tlsConfig,
@@ -741,15 +750,23 @@ func recordTryError(try *parallel.Try, err error) {
 	})
 }
 
+var oneAttempt = retry.LimitCount(1, retry.Regular{
+	Min: 1,
+})
+
 // startDialWebsocket starts websocket connection to a single address
 // on the given try instance.
 func startDialWebsocket(ctx context.Context, try *parallel.Try, ipAddr, addr, path string, opts dialOpts) error {
-	openAttempt := retry.Regular{
-		Total: opts.Timeout,
-		Delay: opts.RetryDelay,
-	}
-	if openAttempt.Min == 0 && openAttempt.Delay > 0 {
-		openAttempt.Min = int(openAttempt.Total / openAttempt.Delay)
+	var openAttempt retry.Strategy
+	if opts.RetryDelay > 0 {
+		openAttempt = retry.Regular{
+			Total: opts.Timeout,
+			Delay: opts.RetryDelay,
+			Min:   int(opts.Timeout / opts.RetryDelay),
+		}
+	} else {
+		// Zero retry delay implies exactly one try.
+		openAttempt = oneAttempt
 	}
 	d := dialer{
 		ctx:         ctx,

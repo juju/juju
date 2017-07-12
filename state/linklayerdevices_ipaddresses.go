@@ -216,7 +216,7 @@ func (addr *Address) Remove() (err error) {
 		op := addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID())
 		ops = append(ops, op)
 	}
-	return addr.st.runTransaction(ops)
+	return addr.st.db().RunTransaction(ops)
 }
 
 // removeIPAddressDocOpOp returns an operation to remove the ipAddressDoc

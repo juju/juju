@@ -95,7 +95,7 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 		}}
 		return aa, nil
 	}
-	if err := r.st.run(ops); err != nil {
+	if err := r.st.db().Run(ops); err != nil {
 		// Where error is AlreadyExists, we still return the
 		// token so that a second api call is not required by
 		// the caller to get the token.
@@ -116,7 +116,7 @@ func (r *RemoteEntities) ImportRemoteEntity(
 		return errors.NotValidf("empty token for %v in model %v", entity.Id(), sourceModel.Id())
 	}
 	ops := r.importRemoteEntityOps(sourceModel, entity, token)
-	err := r.st.runTransaction(ops)
+	err := r.st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		return errors.AlreadyExistsf(
 			"reference to %s in %s",
@@ -170,7 +170,7 @@ func (r *RemoteEntities) RemoveRemoteEntity(
 		}
 		return ops, nil
 	}
-	return r.st.run(ops)
+	return r.st.db().Run(ops)
 }
 
 // removeRemoteEntityOp returns the txn.Op to remove the remote entity

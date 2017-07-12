@@ -125,13 +125,14 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	p(values...)
 
 	if len(fs.RemoteApplications) > 0 {
-		outputHeaders("SAAS name", "Status", "Store", "URL")
+		outputHeaders("SAAS", "Status", "Store", "URL")
 		for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
 			app := fs.RemoteApplications[appName]
 			var store, urlPath string
 			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
 			if err == nil {
 				store = url.Source
+				url.Source = ""
 				urlPath = url.Path()
 				if store == "" {
 					store = "local"

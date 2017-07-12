@@ -239,6 +239,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	expectedCons := bootstrapCons
 	expectedCons.Mem = intPtr(3584)
 	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, expectedCons)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerModelEnvironVersion, gc.Equals, 123)
 }
 
 func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupportedArches(c *gc.C) {
@@ -1341,6 +1342,18 @@ func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error)
 	v := constraints.NewValidator()
 	v.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64})
 	return v, nil
+}
+
+func (e *bootstrapEnviron) Provider() environs.EnvironProvider {
+	return bootstrapEnvironProvider{}
+}
+
+type bootstrapEnvironProvider struct {
+	environs.EnvironProvider
+}
+
+func (p bootstrapEnvironProvider) Version() int {
+	return 123
 }
 
 type bootstrapEnvironWithRegion struct {

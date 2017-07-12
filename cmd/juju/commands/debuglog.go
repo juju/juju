@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/ansiterm"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
 	"github.com/mattn/go-isatty"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,10 +42,8 @@ Each log line is emitted in this format:
 The "entity" is the source of the message: a machine or unit. The names for
 machines and units can be seen in the output of `[1:] + "`juju status`" + `.
 
-The '--include' and '--exclude' options filter by entity. A unit entity is
-identified by prefixing 'unit-' to its corresponding unit name and replacing
-the slash with a dash. A machine entity is identified by prefixing 'machine-'
-to its corresponding machine id.
+The '--include' and '--exclude' options filter by entity. The entity can be
+a machine, unit, or application.
 
 The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
@@ -183,7 +183,41 @@ func (c *debugLogCommand) Init(args []string) error {
 	if c.ms {
 		c.format = c.format + ".000"
 	}
+	c.params.IncludeEntity = c.processEntities(c.params.IncludeEntity)
+	c.params.ExcludeEntity = c.processEntities(c.params.ExcludeEntity)
 	return cmd.CheckEmpty(args)
+}
+
+func (c *debugLogCommand) processEntities(entities []string) []string {
+	if entities == nil {
+		return nil
+	}
+	result := make([]string, len(entities))
+	for i, entity := range entities {
+		// A stringified unit or machine tag never match their "IsValid"
+		// function from names, so if the string value passed in is a valid
+		// machine or unit, then convert here.
+		if names.IsValidMachine(entity) {
+			entity = names.NewMachineTag(entity).String()
+		} else if names.IsValidUnit(entity) {
+			entity = names.NewUnitTag(entity).String()
+		} else {
+			// Now we want to deal with a special case. Both stringified
+			// machine tags and stringified units are valid application names.
+			// So here we use special knowledge about how tags are serialized to
+			// be able to give a better user experience.  If the user asks for
+			// --include nova-compute, we should give all nova-compute units.
+			if strings.HasPrefix(entity, names.UnitTagKind+"-") ||
+				strings.HasPrefix(entity, names.MachineTagKind+"-") {
+				// no-op pass through
+			} else if names.IsValidApplication(entity) {
+				// Assume that the entity refers to an application.
+				entity = names.UnitTagKind + "-" + entity + "-*"
+			}
+		}
+		result[i] = entity
+	}
+	return result
 }
 
 type DebugLogAPI interface {

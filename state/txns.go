@@ -12,8 +12,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, error) {
-	collection, closer := st.database.GetCollection(collectionName)
+func readTxnRevno(db Database, collectionName string, id interface{}) (int64, error) {
+	collection, closer := db.GetCollection(collectionName)
 	defer closer()
 	query := collection.FindId(id).Select(bson.D{{"txn-revno", 1}})
 	var result struct {
@@ -23,24 +23,8 @@ func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, err
 	return result.TxnRevno, errors.Trace(err)
 }
 
-func (st *State) runTransaction(ops []txn.Op) error {
-	return st.database.RunTransaction(ops)
-}
-
-func (st *State) runTransactionFor(modelUUID string, ops []txn.Op) error {
-	return st.database.RunTransactionFor(modelUUID, ops)
-}
-
 func (st *State) runRawTransaction(ops []txn.Op) error {
 	return st.database.RunRawTransaction(ops)
-}
-
-func (st *State) run(transactions jujutxn.TransactionSource) error {
-	return st.database.Run(transactions)
-}
-
-func (st *State) runForModel(modelUUID string, transactions jujutxn.TransactionSource) error {
-	return st.database.RunFor(modelUUID, transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.

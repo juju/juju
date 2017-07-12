@@ -31,6 +31,7 @@ const (
 
 type apiserverBaseSuite struct {
 	statetesting.StateSuite
+	pool *state.StatePool
 }
 
 func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
@@ -40,27 +41,29 @@ func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetPassword(ownerPassword)
 	c.Assert(err, jc.ErrorIsNil)
+	s.pool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	machineTag := names.NewMachineTag("0")
 	return apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         machineTag,
-		LogDir:      c.MkDir(),
-		Hub:         centralhub.New(machineTag),
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(s.State),
+		Clock:           clock.WallClock,
+		Cert:            coretesting.ServerCert,
+		Key:             coretesting.ServerKey,
+		Tag:             machineTag,
+		LogDir:          c.MkDir(),
+		Hub:             centralhub.New(machineTag),
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	}
 }
 
 func (s *apiserverBaseSuite) newServerNoCleanup(c *gc.C, config apiserver.ServerConfig) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, config)
+	srv, err := apiserver.NewServer(s.pool, listener, config)
 	c.Assert(err, jc.ErrorIsNil)
 	return srv
 }

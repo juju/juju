@@ -42,7 +42,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "riak")
-	s.svc = s.AddTestingService(c, "u", ch)
+	s.svc = s.AddTestingApplication(c, "u", ch)
 	rels, err := s.svc.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)

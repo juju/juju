@@ -6,9 +6,7 @@ package storage
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/resolver"
 )
 
 type State interface {
@@ -40,8 +38,4 @@ func ReadAllStateFiles(dirPath string) (map[names.StorageTag]State, error) {
 		states[tag] = f
 	}
 	return states, nil
-}
-
-func SetStorageLife(resolver resolver.Resolver, life map[names.StorageTag]params.Life) {
-	resolver.(*storageResolver).life = life
 }

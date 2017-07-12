@@ -81,20 +81,6 @@ func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error 
 	})
 }
 
-// StateServingInfoSetter trivially wraps an Agent to implement
-// worker/certupdater/SetStateServingInfo.
-type StateServingInfoSetter struct {
-	Agent
-}
-
-// SetStateServingInfo is the SetStateServingInfo interface.
-func (s StateServingInfoSetter) SetStateServingInfo(info params.StateServingInfo) error {
-	return s.ChangeConfig(func(c ConfigSetter) error {
-		c.SetStateServingInfo(info)
-		return nil
-	})
-}
-
 // Paths holds the directory paths used by the agent.
 type Paths struct {
 	// DataDir is the data directory where each agent has a subdirectory
@@ -167,6 +153,29 @@ const (
 	AgentServiceName  = "AGENT_SERVICE_NAME"
 	MongoOplogSize    = "MONGO_OPLOG_SIZE"
 	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
+
+	AgentLoginRateLimit  = "AGENT_LOGIN_RATE_LIMIT"
+	AgentLoginMinPause   = "AGENT_LOGIN_MIN_PAUSE"
+	AgentLoginMaxPause   = "AGENT_LOGIN_MAX_PAUSE"
+	AgentLoginRetryPause = "AGENT_LOGIN_RETRY_PAUSE"
+
+	AgentConnMinPause       = "AGENT_CONN_MIN_PAUSE"
+	AgentConnMaxPause       = "AGENT_CONN_MAX_PAUSE"
+	AgentConnLowerThreshold = "AGENT_CONN_LOWER_THRESHOLD"
+	AgentConnUpperThreshold = "AGENT_CONN_UPPER_THRESHOLD"
+	AgentConnLookbackWindow = "AGENT_CONN_LOOKBACK_WINDOW"
+
+	MgoStatsEnabled = "MGO_STATS_ENABLED"
+
+	// LoggingOverride will set the logging for this agent to the value
+	// specified. Model configuration will be ignored and this value takes
+	// precidence for the agent.
+	LoggingOverride = "LOGGING_OVERRIDE"
+
+	LogSinkDBLoggerBufferSize    = "LOGSINK_DBLOGGER_BUFFER_SIZE"
+	LogSinkDBLoggerFlushInterval = "LOGSINK_DBLOGGER_FLUSH_INTERVAL"
+	LogSinkRateLimitBurst        = "LOGSINK_RATELIMIT_BURST"
+	LogSinkRateLimitRefill       = "LOGSINK_RATELIMIT_REFILL"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -554,7 +563,7 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
-	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
+	logger.Debugf("API server address details %q written to agent config as %q", servers, addrs)
 }
 
 func (c *configInternal) SetCACert(cert string) {
@@ -773,16 +782,13 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
-		addrInAddrs := false
+		newAddrs := []string{localAPIAddr}
 		for _, addr := range addrs {
-			if addr == localAPIAddr {
-				addrInAddrs = true
-				break
+			if addr != localAPIAddr {
+				newAddrs = append(newAddrs, addr)
 			}
 		}
-		if !addrInAddrs {
-			addrs = append(addrs, localAPIAddr)
-		}
+		addrs = newAddrs
 	}
 	return &api.Info{
 		Addrs:    addrs,

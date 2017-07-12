@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -123,6 +124,29 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
+}
+
+func (s *MachineSuite) TestLoggingOverride(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	agentConf := FakeAgentConfig{
+		values: map[string]string{agent.LoggingOverride: "test=trace"},
+	}
+	logger := s.newBufferedLogWriter()
+
+	a := NewMachineAgentCmd(
+		ctx,
+		NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
+		agentConf,
+		agentConf,
+	)
+	// little hack to set the data that Init expects to already be set
+	a.(*machineAgentCmd).machineId = "42"
+
+	err := a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	test := loggo.GetLogger("test")
+	c.Assert(test.LogLevel(), gc.Equals, loggo.TRACE)
 }
 
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
@@ -249,10 +273,10 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// check that unassigned units don't trigger any deployments.
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	u0, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u0, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	u1, err := svc.AddUnit(state.AddUnitParams{})
+	u1, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx.waitDeployed(c)
@@ -340,16 +364,16 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 
 	// Create an exposed service, and add a unit.
 	charm := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "test-service", charm)
-	err := svc.SetExposed()
+	app := s.AddTestingApplication(c, "test-service", charm)
+	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// It should be allocated to a machine, which should then be provisioned.
-	c.Logf("application %q added with 1 unit, waiting for unit %q's machine to be started...", svc.Name(), unit.Name())
+	c.Logf("application %q added with 1 unit, waiting for unit %q's machine to be started...", app.Name(), unit.Name())
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 	c.Logf("machine hosting unit %q started, waiting for the unit to be deployed...", unit.Name())
 	s.waitProvisioned(c, unit)
@@ -394,8 +418,8 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 	// Add one unit to a service;
 	charm := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "test-service", charm)
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "test-service", charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -692,11 +716,11 @@ func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
-		// Create a service and unit, and destroy the service.
-		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-		unit, err := service.AddUnit(state.AddUnitParams{})
+		// Create an application and unit, and destroy the app.
+		app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = service.Destroy()
+		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check the unit was not yet removed.
@@ -732,7 +756,7 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
-		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		service := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 		err := service.SetMinUnits(1)
 		c.Assert(err, jc.ErrorIsNil)
 		w := service.Watch()
@@ -803,7 +827,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	_, done := s.waitForOpenState(c, a)
 
 	// Symlinks should have been created
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range jujudSymlinks {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
 	}
@@ -823,9 +847,8 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	defer a.Stop()
 
 	// Pre-create the symlinks, but pointing to the incorrect location.
-	links := []string{jujuRun, jujuDumpLogs}
 	a.rootDir = c.MkDir()
-	for _, link := range links {
+	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
 		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
@@ -835,7 +858,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	_, done := s.waitForOpenState(c, a)
 
 	// juju-run symlink should have been recreated.
-	for _, link := range links {
+	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
 		c.Assert(err, jc.ErrorIsNil)
@@ -853,9 +876,8 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// juju-run and juju-dumplogs symlinks should have been removed on
-	// termination.
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	// juju-* symlinks should have been removed on termination.
+	for _, link := range []string{jujuRun, jujuDumpLogs, jujuIntrospect} {
 		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}

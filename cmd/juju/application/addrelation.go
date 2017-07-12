@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
@@ -91,7 +90,7 @@ type applicationAddRelationAPI interface {
 	// CHECK
 	BestAPIVersion() int
 	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
-	Consume(params.ApplicationOffer, string, *macaroon.Macaroon) (string, error)
+	Consume(crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
 func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, error) {
@@ -106,16 +105,20 @@ func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, err
 	return application.NewClient(root), nil
 }
 
-func (c *addRelationCommand) getOffersAPI() (applicationConsumeDetailsAPI, error) {
+func (c *addRelationCommand) getOffersAPI(url *crossmodel.ApplicationURL) (applicationConsumeDetailsAPI, error) {
 	if c.consumeDetailsAPI != nil {
 		return c.consumeDetailsAPI, nil
 	}
 
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return nil, errors.Trace(err)
+	if url.Source == "" {
+		var err error
+		controllerName, err := c.ControllerName()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		url.Source = controllerName
 	}
-	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), controllerName, "")
+	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), url.Source, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -143,11 +146,17 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	if params.IsCodeUnauthorized(err) {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
+	if params.IsCodeAlreadyExists(err) {
+		// It's not a real error, mention about it, log it and move along
+		logger.Infof("%s", err)
+		ctx.Infof("%s", err)
+		err = nil
+	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelationAPI) error {
-	sourceClient, err := c.getOffersAPI()
+	sourceClient, err := c.getOffersAPI(c.remoteEndpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -155,14 +164,38 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 
 	// Get the details of the remote offer - this will fail with a permission
 	// error if the user isn't authorised to consume the offer.
-	consumeDetails, err := sourceClient.GetConsumeDetails(c.remoteEndpoint.String())
+	consumeDetails, err := sourceClient.GetConsumeDetails(c.remoteEndpoint.AsLocal().String())
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Parse the offer details URL and add the source controller so
+	// things like status can show the original source of the offer.
+	offerURL, err := crossmodel.ParseApplicationURL(consumeDetails.Offer.OfferURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerURL.Source = c.remoteEndpoint.Source
+	consumeDetails.Offer.OfferURL = offerURL.String()
 
 	// Consume is idempotent so even if the offer has been consumed previously,
 	// it's safe to do so again.
-	_, err = targetClient.Consume(*consumeDetails.Offer, c.remoteEndpoint.ApplicationName, consumeDetails.Macaroon)
+	arg := crossmodel.ConsumeApplicationArgs{
+		ApplicationOffer: *consumeDetails.Offer,
+		ApplicationAlias: c.remoteEndpoint.ApplicationName,
+		Macaroon:         consumeDetails.Macaroon,
+	}
+	if consumeDetails.ControllerInfo != nil {
+		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		arg.ControllerInfo = &crossmodel.ControllerInfo{
+			ControllerTag: controllerTag,
+			Addrs:         consumeDetails.ControllerInfo.Addrs,
+			CACert:        consumeDetails.ControllerInfo.CACert,
+		}
+	}
+	_, err = targetClient.Consume(arg)
 	return errors.Trace(err)
 }
 

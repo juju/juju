@@ -56,14 +56,6 @@ var (
 	}
 )
 
-// AllJobs returns all supported machine jobs.
-func AllJobs() []MachineJob {
-	return []MachineJob{
-		JobHostUnits,
-		JobManageModel,
-	}
-}
-
 // ToParams returns the job as multiwatcher.MachineJob.
 func (job MachineJob) ToParams() multiwatcher.MachineJob {
 	if jujuJob, ok := jobNames[job]; ok {
@@ -299,7 +291,7 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.HasVote = hasVote
@@ -315,7 +307,7 @@ func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
 		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.StopMongoUntilVersion = v.String()
@@ -438,13 +430,6 @@ func (m *Machine) setPasswordHash(passwordHash string) error {
 	return nil
 }
 
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func (m *Machine) getPasswordHash() string {
-	return m.doc.PasswordHash
-}
-
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
@@ -468,7 +453,7 @@ func (m *Machine) ForceDestroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := m.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := m.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return errors.Trace(err)
 	}
 	return nil
@@ -740,7 +725,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		op.Assert = advanceAsserts
 		return []txn.Op{op, cleanupOp}, nil
 	}
-	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
+	if err = m.st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
 	return err
@@ -841,12 +826,12 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeStatusOp(m.st, m.globalInstanceKey()),
-		removeConstraintsOp(m.st, m.globalKey()),
+		removeConstraintsOp(m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
-		removeSSHHostKeyOp(m.st, m.globalKey()),
+		removeSSHHostKeyOp(m.globalKey()),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
@@ -902,7 +887,7 @@ func (m *Machine) Remove() (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -927,12 +912,17 @@ func (m *Machine) AgentPresence() (bool, error) {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// These should really only be used in the test suite.
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	pwatcher := m.st.workers.presenceWatcher()
 	pwatcher.Watch(m.globalKey(), ch)
 	defer pwatcher.Unwatch(m.globalKey(), ch)
+	pingBatcher := m.st.getPingBatcher()
+	if err := pingBatcher.Sync(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -953,11 +943,15 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey())
+	recorder := m.st.getPingBatcher()
+	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey(),
+		func() presence.PingRecorder { return m.st.getPingBatcher() })
 	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	// We preform a manual sync here so that the
 	// presence pinger has the most up-to-date information when it
 	// starts. This ensures that commands run immediately after bootstrap
@@ -987,7 +981,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st, m.globalInstanceKey(), "instance")
+	machineStatus, err := getStatus(m.st.db(), m.globalInstanceKey(), "instance")
 	if err != nil {
 		logger.Warningf("error when retrieving instance status for machine: %s, %v", m.Id(), err)
 		return status.StatusInfo{}, err
@@ -997,13 +991,13 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "instance",
 		globalKey: m.globalInstanceKey(),
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   sInfo.Since,
+		updated:   timeOrNow(sInfo.Since, m.st.clock()),
 	})
 
 }
@@ -1015,7 +1009,7 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 // this juju machine is deployed.
 func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalInstanceKey(),
 		filter:    filter,
 	}
@@ -1179,7 +1173,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		},
 	}
 
-	if err = m.st.runTransaction(ops); err == nil {
+	if err = m.st.db().RunTransaction(ops); err == nil {
 		m.doc.Nonce = nonce
 		return nil
 	} else if err != txn.ErrAborted {
@@ -1506,7 +1500,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		ops = append(ops, setPublicAddressOps...)
 		return ops, nil
 	}
-	err = m.st.run(buildTxn)
+	err = m.st.db().Run(buildTxn)
 	if err == txn.ErrAborted {
 		return ErrDead
 	} else if err != nil {
@@ -1578,7 +1572,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		return err
 	}
 
-	ops = append(ops, setConstraintsOp(m.st, m.globalKey(), mcons))
+	ops = append(ops, setConstraintsOp(m.globalKey(), mcons))
 	// make multiple attempts to push the ErrExcessiveContention case out of the
 	// realm of plausibility: it implies local state indicating unprovisioned,
 	// and remote state indicating provisioned (reasonable); but which changes
@@ -1600,12 +1594,12 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // Status returns the status of the machine.
 func (m *Machine) Status() (status.StatusInfo, error) {
-	mStatus, err := getStatus(m.st, m.globalKey(), "machine")
+	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
 	if err != nil {
 		return mStatus, err
 	}
@@ -1634,13 +1628,13 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	default:
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   statusInfo.Since,
+		updated:   timeOrNow(statusInfo.Since, m.st.clock()),
 	})
 }
 
@@ -1649,7 +1643,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 // representing past statuses for this machine.
 func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalKey(),
 		filter:    filter,
 	}
@@ -1714,7 +1708,7 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 				}}},
 		},
 	}
-	if err = m.st.runTransaction(ops); err != nil {
+	if err = m.st.db().RunTransaction(ops); err != nil {
 		err = onAbort(err, ErrDead)
 		logger.Errorf("cannot update supported containers of machine %v: %v", m, err)
 		return err
@@ -1747,7 +1741,7 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			if statusInfo.Status == status.Pending {
 				containerType := ContainerTypeFromId(containerId)
-				now := m.st.clock.Now()
+				now := m.st.clock().Now()
 				s := status.StatusInfo{
 					Status:  status.Error,
 					Message: "unsupported container",

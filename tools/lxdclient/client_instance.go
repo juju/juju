@@ -6,7 +6,6 @@
 package lxdclient
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -48,16 +47,6 @@ type rawInstanceClient interface {
 type instanceClient struct {
 	raw    rawInstanceClient
 	remote string
-}
-
-func deviceProperties(device Device) []string {
-	var props []string
-
-	for k, v := range device {
-		props = append(props, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	return props
 }
 
 func (client *instanceClient) addInstance(spec InstanceSpec) error {

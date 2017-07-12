@@ -88,10 +88,10 @@ func assertNoChange(c *gc.C, watch <-chan presence.Change) {
 	}
 }
 
-func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
-	alive, err := w.Alive("a")
+func assertAlive(c *gc.C, w *presence.Watcher, key string, expAlive bool) {
+	realAlive, err := w.Alive(key)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, alive)
+	c.Assert(realAlive, gc.Equals, expAlive)
 }
 
 // assertStopped stops a worker and waits until it reports stopped.
@@ -121,6 +121,10 @@ func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
 	}
 }
 
+func (s *PresenceSuite) getDirectRecorder() presence.PingRecorder {
+	return presence.DirectRecordFunc(s.presence)
+}
+
 func (s *PresenceSuite) TestAliveError(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	c.Assert(w.Stop(), gc.IsNil)
@@ -133,8 +137,8 @@ func (s *PresenceSuite) TestAliveError(c *gc.C) {
 
 func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	pa := presence.NewPinger(s.presence, s.modelTag, "a")
-	pb := presence.NewPinger(s.presence, s.modelTag, "b")
+	pa := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
+	pb := presence.NewPinger(s.presence, s.modelTag, "b", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, pa)
 	defer assertStopped(c, pb)
@@ -171,7 +175,7 @@ func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	assertNoChange(c, cha)
 	pa.KillForTesting()
 	w.Sync()
-	pa = presence.NewPinger(s.presence, s.modelTag, "a")
+	pa = presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	pa.Start()
 	w.StartSync()
 	assertNoChange(c, cha)
@@ -219,7 +223,7 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 
 	c.Logf("Starting %d pingers...", N)
 	for i := 0; i < N; i++ {
-		p := presence.NewPinger(s.presence, s.modelTag, strconv.Itoa(i))
+		p := presence.NewPinger(s.presence, s.modelTag, strconv.Itoa(i), s.getDirectRecorder)
 		c.Assert(p.Start(), gc.IsNil)
 		ps = append(ps, p)
 	}
@@ -247,7 +251,7 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 
 func (s *PresenceSuite) TestExpiry(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -280,7 +284,7 @@ func (s *PresenceSuite) TestWatchPeriod(c *gc.C) {
 	presence.RealTimeSlot()
 
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -325,7 +329,7 @@ func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 }
 
 func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	c.Assert(p.Start(), gc.IsNil)
 	defer assertStopped(c, p)
 
@@ -379,8 +383,8 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	presence.RealTimeSlot()
 
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p1 := presence.NewPinger(s.presence, s.modelTag, "a")
-	p2 := presence.NewPinger(s.presence, s.modelTag, "a")
+	p1 := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
+	p2 := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p1)
 	defer assertStopped(c, p2)
@@ -410,7 +414,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 
 func (s *PresenceSuite) TestStartSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -439,7 +443,7 @@ func (s *PresenceSuite) TestStartSync(c *gc.C) {
 
 func (s *PresenceSuite) TestSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -526,7 +530,7 @@ func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence
 	modelTag := newModelTag(c)
 
 	w := presence.NewWatcher(s.presence, modelTag)
-	p := presence.NewPinger(s.presence, modelTag, key)
+	p := presence.NewPinger(s.presence, modelTag, key, s.getDirectRecorder)
 
 	ch := make(chan presence.Change)
 	w.Watch(key, ch)
@@ -548,7 +552,7 @@ func (s *PresenceSuite) TestRemovePresenceForModel(c *gc.C) {
 
 	// Start a pinger in this model
 	w1 := presence.NewWatcher(s.presence, s.modelTag)
-	p1 := presence.NewPinger(s.presence, s.modelTag, key)
+	p1 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
 	ch1 := make(chan presence.Change)
 	w1.Watch(key, ch1)
 	assertChange(c, ch1, presence.Change{key, false})
@@ -561,7 +565,7 @@ func (s *PresenceSuite) TestRemovePresenceForModel(c *gc.C) {
 	// Start a second model and pinger with the same key
 	modelTag2 := newModelTag(c)
 	w2 := presence.NewWatcher(s.presence, modelTag2)
-	p2 := presence.NewPinger(s.presence, modelTag2, key)
+	p2 := presence.NewPinger(s.presence, modelTag2, key, s.getDirectRecorder)
 	ch2 := make(chan presence.Change)
 	w2.Watch(key, ch2)
 	assertChange(c, ch2, presence.Change{key, false})

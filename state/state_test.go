@@ -90,6 +90,20 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestOpenController(c *gc.C) {
+	controller, err := state.OpenController(s.testOpenParams())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controller.Close(), gc.IsNil)
+}
+
+func (s *StateSuite) TestOpenControllerTwice(c *gc.C) {
+	for i := 0; i < 2; i++ {
+		controller, err := state.OpenController(s.testOpenParams())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(controller.Close(), gc.IsNil)
+	}
+}
+
 func (s *StateSuite) TestIsController(c *gc.C) {
 	c.Assert(s.State.IsController(), jc.IsTrue)
 	st2 := s.Factory.MakeModel(c, nil)
@@ -147,13 +161,7 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.OpenParams{
-			Clock:              clock.WallClock,
-			ControllerTag:      s.State.ControllerTag(),
-			ControllerModelTag: s.modelTag,
-			MongoInfo:          statetesting.NewMongoInfo(),
-			MongoDialOpts:      mongotest.DialOpts(),
-		})
+		st, err := state.Open(s.testOpenParams())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
@@ -161,14 +169,9 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 
 func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
-	tag := names.NewModelTag(uuid.String())
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: tag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
+	params := s.testOpenParams()
+	params.ControllerModelTag = names.NewModelTag(uuid.String())
+	st, err := state.Open(params)
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
@@ -177,13 +180,7 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
+	st, err := state.Open(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -396,7 +393,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "applications",
 			getWatcher: func(st *state.State) interface{} {
-				return st.WatchServices()
+				return st.WatchApplications()
 			},
 			triggerEvent: func(st *state.State) {
 				f := factory.NewFactory(st)
@@ -452,6 +449,28 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				eps, err := st.InferEndpoints("wordpress", "mysql")
 				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "relation ingress networks",
+			getWatcher: func(st *state.State) interface{} {
+				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
+				eps, err := st.InferEndpoints("wordpress", "mysql")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := st.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+				return rel.WatchRelationIngressNetworks()
+			},
+			triggerEvent: func(st *state.State) {
+				relIngress := state.NewRelationIngressNetworks(st)
+				_, err := relIngress.Save("wordpress:db mysql:database", []string{"1.2.3.4/32", "4.3.2.1/16"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -564,7 +583,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "settings",
 			getWatcher: func(st *state.State) interface{} {
-				return st.WatchServices()
+				return st.WatchApplications()
 			},
 			setUpState: func(st *state.State) bool {
 				f := factory.NewFactory(st)
@@ -1372,13 +1391,13 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 	const numRelations = 32
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	_, err = mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpressCharm := s.AddTestingCharm(c, "wordpress")
 	for i := 0; i < numRelations; i++ {
 		applicationname := fmt.Sprintf("wordpress%d", i)
-		wordpress := s.AddTestingService(c, applicationname, wordpressCharm)
+		wordpress := s.AddTestingApplication(c, applicationname, wordpressCharm)
 		_, err = wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		eps, err := s.State.InferEndpoints(applicationname, "mysql")
@@ -1502,7 +1521,7 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	s.AddTestingService(c, "s0", charm)
+	s.AddTestingApplication(c, "s0", charm)
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s0", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s0": application already exists`)
 }
@@ -1513,7 +1532,7 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 	// there is no conflict initially but a local service is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.AddTestingService(c, "s1", charm)
+		s.AddTestingApplication(c, "s1", charm)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": application already exists`)
@@ -1521,7 +1540,7 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationEnvironmentDyingAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	s.AddTestingService(c, "s0", charm)
+	s.AddTestingApplication(c, "s0", charm)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that services cannot be added if the model is initially
@@ -1704,27 +1723,27 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 
 func (s *StateSuite) TestAllApplications(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	services, err := s.State.AllApplications()
+	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(services), gc.Equals, 0)
+	c.Assert(len(applications), gc.Equals, 0)
 
-	// Check that after adding services the result is ok.
+	// Check that after adding applications the result is ok.
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
-	services, err = s.State.AllApplications()
+	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(services), gc.Equals, 1)
+	c.Assert(len(applications), gc.Equals, 1)
 
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
-	services, err = s.State.AllApplications()
+	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(services, gc.HasLen, 2)
+	c.Assert(applications, gc.HasLen, 2)
 
 	// Check the returned service, order is defined by sorted keys.
-	names := make([]string, len(services))
-	for i, svc := range services {
-		names[i] = svc.Name()
+	names := make([]string, len(applications))
+	for i, app := range applications {
+		names[i] = app.Name()
 	}
 	sort.Strings(names)
 	c.Assert(names[0], gc.Equals, "mysql")
@@ -1913,15 +1932,15 @@ var inferEndpointsTests = []struct {
 }
 
 func (s *StateSuite) TestInferEndpoints(c *gc.C) {
-	s.AddTestingService(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
-	s.AddTestingService(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	loggingCh := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "lg", loggingCh)
-	s.AddTestingService(c, "lg2", loggingCh)
+	s.AddTestingApplication(c, "lg", loggingCh)
+	s.AddTestingApplication(c, "lg2", loggingCh)
 	riak := s.AddTestingCharm(c, "riak")
-	s.AddTestingService(c, "rk1", riak)
-	s.AddTestingService(c, "rk2", riak)
-	s.AddTestingService(c, "lg-p", s.AddTestingCharm(c, "logging-principal"))
+	s.AddTestingApplication(c, "rk1", riak)
+	s.AddTestingApplication(c, "rk2", riak)
+	s.AddTestingApplication(c, "lg-p", s.AddTestingCharm(c, "logging-principal"))
 
 	for i, t := range inferEndpointsTests {
 		c.Logf("test %d: %s", i, t.summary)
@@ -1995,7 +2014,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	// Add a service so Destroy doesn't advance to Dead.
-	svc := factory.NewFactory(st1).MakeApplication(c, nil)
+	app := factory.NewFactory(st1).MakeApplication(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Destroy()
@@ -2018,7 +2037,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
 	// Progress dying to dead, alive to dying; and see changes reported.
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2038,7 +2057,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	svc := factory.NewFactory(st1).MakeApplication(c, nil)
+	app := factory.NewFactory(st1).MakeApplication(c, nil)
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
@@ -2051,7 +2070,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2061,25 +2080,25 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
-	// Alive service...
+func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
+	// Alive application...
 	dummyCharm := s.AddTestingCharm(c, "dummy")
-	alive := s.AddTestingService(c, "service0", dummyCharm)
+	alive := s.AddTestingApplication(c, "service0", dummyCharm)
 
-	// Dying service...
-	dying := s.AddTestingService(c, "service1", dummyCharm)
+	// Dying application...
+	dying := s.AddTestingApplication(c, "service1", dummyCharm)
 	keepDying, err := dying.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Dead service (actually, gone, Dead == removed in this case).
-	gone := s.AddTestingService(c, "service2", dummyCharm)
+	// Dead application (actually, gone, Dead == removed in this case).
+	gone := s.AddTestingApplication(c, "service2", dummyCharm)
 	err = gone.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except gone are reported in initial event.
-	w := s.State.WatchServices()
+	w := s.State.WatchApplications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(alive.Name(), dying.Name())
@@ -2094,16 +2113,16 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
+func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	// Initial event is empty when no services.
-	w := s.State.WatchServices()
+	w := s.State.WatchApplications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
 	// Add a service: reported.
-	service := s.AddTestingService(c, "application", s.AddTestingCharm(c, "dummy"))
+	service := s.AddTestingApplication(c, "application", s.AddTestingCharm(c, "dummy"))
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 
@@ -2125,7 +2144,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
+func (s *StateSuite) TestWatchApplicationsDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.lifecycleWatcher,
 	// which is also used by:
 	//     State.WatchModels
@@ -2133,7 +2152,7 @@ func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 	//     Application.WatchRelations
 	//     Machine.WatchContainers
 	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		w := st.WatchServices()
+		w := st.WatchApplications()
 		<-w.Changes()
 		return w
 	})
@@ -2785,14 +2804,14 @@ func writeLogs(c *gc.C, st *state.State, n int) {
 	dbLogger := state.NewDbLogger(st)
 	defer dbLogger.Close()
 	for i := 0; i < n; i++ {
-		err := dbLogger.Log(
-			time.Now(),
-			"van occupanther",
-			"chasing after deer",
-			"in a log house",
-			loggo.INFO,
-			"why are your fingers like that of a hedge in winter?",
-		)
+		err := dbLogger.Log([]state.LogRecord{{
+			Time:     time.Now(),
+			Entity:   names.NewApplicationTag("van-occupanther"),
+			Module:   "chasing after deer",
+			Location: "in a log house",
+			Level:    loggo.INFO,
+			Message:  "why are your fingers like that of a hedge in winter?",
+		}})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -2863,7 +2882,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm1, jc.DeepEquals, charm2)
 
-	wordpress1 := s.AddTestingService(c, "wordpress", charm1)
+	wordpress1 := s.AddTestingApplication(c, "wordpress", charm1)
 	wordpress2, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress1, jc.DeepEquals, wordpress2)
@@ -2874,7 +2893,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit1, jc.DeepEquals, unit2)
 
-	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2920,15 +2939,10 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoInfo:          info,
-		MongoDialOpts: mongo.DialOpts{
-			Timeout: 1 * time.Millisecond,
-		},
-	})
+	params := s.testOpenParams()
+	params.MongoInfo.Addrs = []string{"0.1.2.3:1234"}
+	params.MongoDialOpts.Timeout = time.Millisecond
+	st, err := state.Open(params)
 	if err == nil {
 		st.Close()
 	}
@@ -2942,21 +2956,14 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoInfo:          info,
-		MongoDialOpts: mongo.DialOpts{
-			Timeout: 1 * time.Millisecond,
-		},
-	})
-
+	params := s.testOpenParams()
+	params.MongoInfo.Addrs = []string{"0.1.2.3:1234"}
+	params.MongoDialOpts.Timeout = time.Millisecond
+	st, err := state.Open(params)
 	if err == nil {
 		st.Close()
 	}
 	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
-	// tryOpenState should have delayed for at least retryDelay
 	if t1 := time.Since(t0); t1 < retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
 	}
@@ -3046,14 +3053,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "eric"})
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "ser-vice2")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -3110,16 +3117,16 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseApplicationTag(c *gc.C) {
-	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, svc.Tag())
+	app := s.AddTestingApplication(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, app.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "applications")
-	c.Assert(id, gc.Equals, state.DocID(s.State, svc.Name()))
+	c.Assert(id, gc.Equals, state.DocID(s.State, app.Name()))
 }
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {
-	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "service2", s.AddTestingCharm(c, "dummy"))
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, u.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3128,8 +3135,8 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {
-	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "service2", s.AddTestingCharm(c, "dummy"))
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3166,13 +3173,13 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Set up two relations for later use, check no events.
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	relM, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "varnish", s.AddTestingCharm(c, "varnish"))
+	s.AddTestingApplication(c, "varnish", s.AddTestingCharm(c, "varnish"))
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err = s.State.InferEndpoints("wordpress", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
@@ -3218,10 +3225,10 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Create two peer relations by creating their services.
-	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
+	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
 	_, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
-	allHooks := s.AddTestingService(c, "all-hooks", s.AddTestingCharm(c, "all-hooks"))
+	allHooks := s.AddTestingApplication(c, "all-hooks", s.AddTestingCharm(c, "all-hooks"))
 	_, err = allHooks.Endpoint("self")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3248,9 +3255,9 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set up services for later use.
-	wordpress := s.AddTestingService(c,
+	wordpress := s.AddTestingApplication(c,
 		"wordpress", s.AddTestingCharm(c, "wordpress"))
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	wordpressName := wordpress.Name()
 
 	// Add service units for later use.
@@ -3370,7 +3377,7 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	app := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Add a remote relation, single change should occur.
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
@@ -3384,8 +3391,8 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 
 func (s *StateSuite) TestWatchRemoteRelationsIgnoresLocal(c *gc.C) {
 	// Set up a non-remote relation to ensure it is properly filtered out.
-	s.AddTestingService(c, "wplocal", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "mysqllocal", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wplocal", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "mysqllocal", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wplocal", "mysqllocal")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
@@ -3527,7 +3534,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 
-	// Add a service and 4 units: one with a different version, one
+	// Add a application and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
 	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
@@ -3796,13 +3803,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
+	st, err := state.Open(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4451,7 +4452,7 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 }
 
 func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
-	t := s.State.NowToTheSecond()
+	t := state.NowToTheSecond(s.State)
 	rounded := t.Round(time.Second)
 	c.Assert(t, gc.DeepEquals, rounded)
 }
@@ -4538,23 +4539,18 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 		return recordedCalls[:]
 	}
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
-		RunTransactionObserver: func(dbName, modelUUID string, ops []mgotxn.Op, err error) {
-			mu.Lock()
-			defer mu.Unlock()
-			recordedCalls = append(recordedCalls, args{
-				dbName:    dbName,
-				modelUUID: modelUUID,
-				ops:       ops,
-				err:       err,
-			})
-		},
-	})
+	params := s.testOpenParams()
+	params.RunTransactionObserver = func(dbName, modelUUID string, ops []mgotxn.Op, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		recordedCalls = append(recordedCalls, args{
+			dbName:    dbName,
+			modelUUID: modelUUID,
+			ops:       ops,
+			err:       err,
+		})
+	}
+	st, err := state.Open(params)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4624,7 +4620,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	}
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -4643,6 +4639,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+	defer ctlr.Close()
 
 	// Check that we can SetAdminMongoPassword to nothing when there's
 	// no password currently set.
@@ -4670,4 +4667,68 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	// this test, but they couldn't be made to work with 3.2.
 	err = tryOpenState(st.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) setUpWatchIngressScenario(c *gc.C) *state.Relation {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", SourceModel: s.State.ModelTag(),
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	f := factory.NewFactory(s.State)
+	wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	return rel
+}
+
+func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
+	rel := s.setUpWatchIngressScenario(c)
+	// Check initial event.
+	w := rel.WatchRelationIngressNetworks()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Initial ingress network creation.
+	relIngress := state.NewRelationIngressNetworks(s.State)
+	_, err := relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("1.2.3.4/32", "4.3.2.1/16")
+	wc.AssertNoChange()
+
+	// Update value.
+	_, err = relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("1.2.3.4/32")
+	wc.AssertNoChange()
+
+	// Same value.
+	_, err = relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Delete relation.
+	state.RemoveRelation(c, rel)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) testOpenParams() state.OpenParams {
+	return state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	}
 }

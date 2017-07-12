@@ -35,7 +35,7 @@ func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUU
 		return errors.Trace(err)
 	}
 	op := updatePermissionOp(modelKey(modelUUID), userGlobalKey, access)
-	err := st.runTransactionFor(modelUUID, []txn.Op{op})
+	err := st.db().RunTransactionFor(modelUUID, []txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -45,7 +45,7 @@ func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUU
 // LastModelConnection returns when this User last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
 func (st *State) LastModelConnection(user names.UserTag) (time.Time, error) {
-	lastConnections, closer := st.getRawCollection(modelUserLastConnectionC)
+	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
 	defer closer()
 
 	username := user.Id()
@@ -79,7 +79,7 @@ func IsNeverConnectedError(err error) bool {
 
 // UpdateLastModelConnection updates the last connection time of the model user.
 func (st *State) UpdateLastModelConnection(user names.UserTag) error {
-	return st.updateLastModelConnection(user, st.NowToTheSecond())
+	return st.updateLastModelConnection(user, st.nowToTheSecond())
 }
 
 func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) error {
@@ -160,7 +160,7 @@ func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
 // removeModelUser removes a user from the database.
 func (st *State) removeModelUser(user names.UserTag) error {
 	ops := removeModelUserOps(st.ModelUUID(), user)
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Id()))
 	}
@@ -180,7 +180,9 @@ type UserModel struct {
 // LastConnection returns the last time the user has connected to the
 // model.
 func (e *UserModel) LastConnection() (time.Time, error) {
-	lastConnections, lastConnCloser := e.st.getRawCollection(modelUserLastConnectionC)
+	db, dbCloser := e.modelDatabase()
+	defer dbCloser()
+	lastConnections, lastConnCloser := db.GetRawCollection(modelUserLastConnectionC)
 	defer lastConnCloser()
 
 	lastConnDoc := modelUserLastConnectionDoc{}
@@ -224,7 +226,7 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	// the models that a particular user can see is to look through the
 	// model user collection. A raw collection is required to support
 	// queries across multiple models.
-	modelUsers, userCloser := st.getRawCollection(modelUsersC)
+	modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
 	defer userCloser()
 
 	var userSlice []userAccessDoc

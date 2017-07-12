@@ -115,6 +115,14 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
 }
 
+func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrentExplicit(c *gc.C) {
+	s.store.CurrentControllerName = "old"
+	s.addController(c, "new")
+	context, err := s.run(c, "new:")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
+}
+
 func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
 	s.store.CurrentControllerName = "same"
 	s.addController(c, "same")
@@ -166,6 +174,38 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 		{"SetCurrentController", []interface{}{"new"}},
 	})
 	c.Assert(s.store.Models["new"].CurrentModel, gc.Equals, "admin/mymodel")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModel(c *gc.C) {
+	s.store.CurrentControllerName = "old"
+	s.addController(c, "new")
+	s.addController(c, "old")
+	s.store.Models["new"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}, "admin/old": {}},
+	}
+	s.store.Models["old"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/somemodel": {}},
+	}
+	_, err := s.run(c, "new:mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	context, err := s.run(c, "old")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "new:admin/mymodel -> old (controller)\n")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModelExplicitModel(c *gc.C) {
+	s.store.CurrentControllerName = "old"
+	s.addController(c, "new")
+	s.addController(c, "old")
+	s.store.Models["new"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}, "admin/old": {}},
+	}
+	s.store.Models["old"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/somemodel": {}},
+	}
+	_, err := s.run(c, "new:mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	context, err := s.run(c, ":old")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "new:admin/mymodel -> new:admin/old\n")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(c *gc.C) {

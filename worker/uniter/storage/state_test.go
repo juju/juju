@@ -30,11 +30,6 @@ func writeFile(c *gc.C, path string, content string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertFileNotExist(c *gc.C, path string) {
-	_, err := os.Stat(path)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
 func (s *stateSuite) TestReadAllStateFiles(c *gc.C) {
 	dir := c.MkDir()
 	writeFile(c, filepath.Join(dir, "data-0"), "attached: true")
@@ -58,17 +53,20 @@ func (s *stateSuite) TestReadAllStateFiles(c *gc.C) {
 func (s *stateSuite) TestReadAllStateFilesJunk(c *gc.C) {
 	dir := c.MkDir()
 	writeFile(c, filepath.Join(dir, "data-0"), "attached: true")
-	// data-extra-1 is not a valid storage ID, so it will
+	writeFile(c, filepath.Join(dir, "data-hyphen-1"), "attached: true")
+	// data_underscore-2 is not a valid storage ID, so it will
 	// be ignored by ReadAllStateFiles.
-	writeFile(c, filepath.Join(dir, "data-extra-1"), "attached: false")
+	writeFile(c, filepath.Join(dir, "data_underscore-2"), "attached: false")
 	// subdirs are ignored.
 	err := os.Mkdir(filepath.Join(dir, "data-1"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
 	states, err := storage.ReadAllStateFiles(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(states, gc.HasLen, 1)
+	c.Assert(states, gc.HasLen, 2)
 	_, ok := states[names.NewStorageTag("data/0")]
+	c.Assert(ok, jc.IsTrue)
+	_, ok = states[names.NewStorageTag("data-hyphen/1")]
 	c.Assert(ok, jc.IsTrue)
 }
 

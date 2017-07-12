@@ -518,7 +518,7 @@ func (st *State) DetachFilesystem(machine names.MachineTag, filesystem names.Fil
 		ops := detachFilesystemOps(machine, filesystem)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func (st *State) filesystemVolumeAttachment(m names.MachineTag, f names.FilesystemTag) (VolumeAttachment, error) {
@@ -592,7 +592,7 @@ func (st *State) RemoveFilesystemAttachment(machine names.MachineTag, filesystem
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeFilesystemAttachmentOps(st *State, m names.MachineTag, f *filesystem) ([]txn.Op, error) {
@@ -656,7 +656,7 @@ func (st *State) DestroyFilesystem(tag names.FilesystemTag) (err error) {
 		}}}
 		return destroyFilesystemOps(st, filesystem, hasNoStorageAssignment)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.Op, error) {
@@ -735,7 +735,7 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 		}
 		return removeFilesystemOps(st, filesystem, isDeadDoc)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) ([]txn.Op, error) {
@@ -791,8 +791,8 @@ func ParseFilesystemAttachmentId(id string) (names.MachineTag, names.FilesystemT
 // If the machine ID supplied is non-empty, the
 // filesystem ID will incorporate it as the
 // filesystem's machine scope.
-func newFilesystemId(st *State, machineId string) (string, error) {
-	seq, err := st.sequence("filesystem")
+func newFilesystemId(mb modelBackend, machineId string) (string, error) {
+	seq, err := sequence(mb, "filesystem")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -853,7 +853,7 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 
 	status := statusDoc{
 		Status:  status.Pending,
-		Updated: st.clock.Now().UnixNano(),
+		Updated: st.clock().Now().UnixNano(),
 	}
 	doc := filesystemDoc{
 		FilesystemId: filesystemId,
@@ -879,6 +879,7 @@ func (st *State) newFilesystemOps(doc filesystemDoc, status statusDoc) []txn.Op 
 			Assert: txn.DocMissing,
 			Insert: &doc,
 		},
+		addModelFilesystemRefOp(st, doc.FilesystemId),
 	}
 }
 
@@ -1012,7 +1013,7 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 		ops := setFilesystemInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func validateFilesystemInfoChange(newInfo, oldInfo FilesystemInfo) error {
@@ -1087,7 +1088,7 @@ func (st *State) SetFilesystemAttachmentInfo(
 		ops := setFilesystemAttachmentInfoOps(machineTag, filesystemTag, info, unsetParams)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func setFilesystemAttachmentInfoOps(
@@ -1255,7 +1256,7 @@ func filesystemGlobalKey(name string) string {
 
 // FilesystemStatus returns the status of the specified filesystem.
 func (st *State) FilesystemStatus(tag names.FilesystemTag) (status.StatusInfo, error) {
-	return getStatus(st, filesystemGlobalKey(tag.Id()), "filesystem")
+	return getStatus(st.db(), filesystemGlobalKey(tag.Id()), "filesystem")
 }
 
 // SetFilesystemStatus sets the status of the specified filesystem.
@@ -1281,12 +1282,12 @@ func (st *State) SetFilesystemStatus(tag names.FilesystemTag, fsStatus status.St
 	default:
 		return errors.Errorf("cannot set invalid status %q", fsStatus)
 	}
-	return setStatus(st, setStatusParams{
+	return setStatus(st.db(), setStatusParams{
 		badge:     "filesystem",
 		globalKey: filesystemGlobalKey(tag.Id()),
 		status:    fsStatus,
 		message:   info,
 		rawData:   data,
-		updated:   updated,
+		updated:   timeOrNow(updated, st.clock()),
 	})
 }

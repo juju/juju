@@ -42,9 +42,9 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	s.actionlessCharm = s.AddTestingCharm(c, "actionless")
 
-	s.service = s.AddTestingService(c, "dummy", s.charm)
+	s.service = s.AddTestingApplication(c, "dummy", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.actionlessService = s.AddTestingService(c, "actionless", s.actionlessCharm)
+	s.actionlessService = s.AddTestingApplication(c, "actionless", s.actionlessCharm)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sURL, _ := s.service.CharmURL()
@@ -131,7 +131,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		expectedErr: "validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
 	}} {
 		c.Logf("Test %d: should %s", i, t.should)
-		before := s.State.NowToTheSecond()
+		before := state.NowToTheSecond(s.State)
 		later := before.Add(testing.LongWait)
 
 		// Copy params over into empty premade map for comparison later
@@ -161,7 +161,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 			// Enqueued time should be within a reasonable time of the beginning
 			// of the test
-			now := s.State.NowToTheSecond()
+			now := state.NowToTheSecond(s.State)
 			c.Check(action.Enqueued(), jc.TimeBetween(before, now))
 			c.Check(action.Enqueued(), jc.TimeBetween(before, later))
 			continue
@@ -275,15 +275,15 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 
 		// Add a testing service
 		ch := s.AddActionsCharm(c, freeCharms[name], schema, 1)
-		svc := s.AddTestingService(c, svcName, ch)
+		app := s.AddTestingApplication(c, svcName, ch)
 
 		// Get its charm URL
-		sURL, _ := svc.CharmURL()
+		sURL, _ := app.CharmURL()
 		c.Assert(sURL, gc.NotNil)
 
 		// Add a unit
 		var err error
-		u, err := svc.AddUnit(state.AddUnitParams{})
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(u.Series(), gc.Equals, "quantal")
 		err = u.SetCharmURL(sURL)
@@ -531,8 +531,8 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	// clients of it's initial state
 
 	// preamble
-	svc := s.AddTestingService(c, "dummy3", s.charm)
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "dummy3", s.charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.State.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -743,8 +743,8 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 }
 
 func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
-	svc := s.AddTestingService(c, "dummy2", s.charm)
-	u, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "dummy2", s.charm)
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := u.WatchActionNotifications()

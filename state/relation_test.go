@@ -20,13 +20,13 @@ type RelationSuite struct {
 var _ = gc.Suite(&RelationSuite{})
 
 func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
-	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
+	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -80,10 +80,10 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	expect, err := s.State.AddRelation(wordpressEP, mysqlEP)
@@ -131,10 +131,10 @@ func (s *RelationSuite) TestRetrieveNotFound(c *gc.C) {
 
 func (s *RelationSuite) TestAddRelation(c *gc.C) {
 	// Add a relation.
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
@@ -152,10 +152,10 @@ func (s *RelationSuite) TestAddRelation(c *gc.C) {
 }
 
 func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddSeriesCharm(c, "mysql", "otherseries"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddSeriesCharm(c, "mysql", "otherseries"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
@@ -166,10 +166,10 @@ func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *gc.C) {
 
 func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 	// Add a relation.
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	logging := s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
@@ -190,10 +190,10 @@ func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 }
 
 func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	logging := s.AddTestingService(c, "logging", s.AddSeriesCharm(c, "logging", "otherseries"))
+	logging := s.AddTestingApplication(c, "logging", s.AddSeriesCharm(c, "logging", "otherseries"))
 	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
@@ -201,11 +201,11 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 }
 
 func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressSubEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 	wordpressSubEP.Scope = charm.ScopeContainer
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -218,10 +218,10 @@ func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {
 
 func (s *RelationSuite) TestAddContainerRelationWithTwoSubordinates(c *gc.C) {
 	loggingCharm := s.AddTestingCharm(c, "logging")
-	logging1 := s.AddTestingService(c, "logging1", loggingCharm)
+	logging1 := s.AddTestingApplication(c, "logging1", loggingCharm)
 	logging1EP, err := logging1.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	logging2 := s.AddTestingService(c, "logging2", loggingCharm)
+	logging2 := s.AddTestingApplication(c, "logging2", loggingCharm)
 	logging2EP, err := logging2.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -234,8 +234,8 @@ func (s *RelationSuite) TestAddContainerRelationWithTwoSubordinates(c *gc.C) {
 }
 
 func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -264,7 +264,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	// Check that a peer relation cannot be destroyed directly.
 	riakch := s.AddTestingCharm(c, "riak")
-	riak := s.AddTestingService(c, "riak", riakch)
+	riak := s.AddTestingApplication(c, "riak", riakch)
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel := assertOneRelation(c, riak, 0, riakEP)
@@ -281,7 +281,7 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 
 	// Create a new service (and hence a new relation in the background); check
 	// that refreshing the old one does not accidentally get the new one.
-	newriak := s.AddTestingService(c, "riak", riakch)
+	newriak := s.AddTestingApplication(c, "riak", riakch)
 	assertOneRelation(c, newriak, 1, riakEP)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -304,7 +304,7 @@ func (s *RelationSuite) TestIsCrossModelYup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wordpressEP, err := rwordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
@@ -316,10 +316,10 @@ func (s *RelationSuite) TestIsCrossModelYup(c *gc.C) {
 }
 
 func (s *RelationSuite) TestIsCrossModelNope(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
@@ -358,4 +358,38 @@ func assertOneRelation(c *gc.C, srv *state.Application, relId int, endpoints ...
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{expectEp})
 	return rel
+}
+
+func (s *RelationSuite) TestRemoveAlsoDeletesIngressNetworks(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relIngress := state.NewRelationIngressNetworks(s.State)
+	_, err = relIngress.Save(relation.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	state.RemoveRelation(c, relation)
+	_, err = state.IngressNetworks(relation)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags( /*none*/ )
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RemoveRelation(c, relation)
+	_, err = s.State.KeyRelation(relation.Tag().Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

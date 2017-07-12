@@ -43,10 +43,10 @@ func (s *BundlesDirSuite) TearDownSuite(c *gc.C) {
 func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	// Add a charm, service and unit to login to the API with.
+	// Add a charm, application and unit to login to the API with.
 	charm := s.AddTestingCharm(c, "wordpress")
-	service := s.AddTestingService(c, "wordpress", charm)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

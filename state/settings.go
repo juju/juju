@@ -93,8 +93,7 @@ func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i]
 // A Settings manages changes to settings as a delta in memory and merges
 // them back in the database when explicitly requested.
 type Settings struct {
-	backend    modelBackend
-	db         Database // For convenience
+	db         Database
 	collection string
 	key        string
 
@@ -230,10 +229,9 @@ func (s *Settings) Write() ([]ItemChange, error) {
 	return changes, nil
 }
 
-func newSettings(backend modelBackend, collection, key string) *Settings {
+func newSettings(db Database, collection, key string) *Settings {
 	return &Settings{
-		backend:    backend,
-		db:         backend.db(),
+		db:         db,
 		collection: collection,
 		key:        key,
 		core:       make(map[string]interface{}),
@@ -267,7 +265,7 @@ func copyMap(in map[string]interface{}, replace func(string) string) (out map[st
 
 // Read (re)reads the node data into c.
 func (s *Settings) Read() error {
-	doc, err := readSettingsDoc(s.backend, s.collection, s.key)
+	doc, err := readSettingsDoc(s.db, s.collection, s.key)
 	if errors.IsNotFound(err) {
 		s.disk = nil
 		s.core = make(map[string]interface{})
@@ -283,9 +281,9 @@ func (s *Settings) Read() error {
 }
 
 // readSettingsDoc reads the settings doc with the given key.
-func readSettingsDoc(st modelBackend, collection, key string) (*settingsDoc, error) {
+func readSettingsDoc(db Database, collection, key string) (*settingsDoc, error) {
 	var doc settingsDoc
-	if err := readSettingsDocInto(st, collection, key, &doc); err != nil {
+	if err := readSettingsDocInto(db, collection, key, &doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &doc, nil
@@ -293,8 +291,8 @@ func readSettingsDoc(st modelBackend, collection, key string) (*settingsDoc, err
 
 // readSettingsDocInto reads the settings doc with the given key
 // into the provided output structure.
-func readSettingsDocInto(st modelBackend, collection, key string, out interface{}) error {
-	settings, closer := st.db().GetCollection(collection)
+func readSettingsDocInto(db Database, collection, key string, out interface{}) error {
+	settings, closer := db.GetCollection(collection)
 	defer closer()
 
 	err := settings.FindId(key).One(out)
@@ -306,12 +304,12 @@ func readSettingsDocInto(st modelBackend, collection, key string, out interface{
 
 // ReadSettings returns the settings for the given key.
 func (st *State) ReadSettings(collection, key string) (*Settings, error) {
-	return readSettings(st, collection, key)
+	return readSettings(st.db(), collection, key)
 }
 
 // readSettings returns the Settings for key.
-func readSettings(backend modelBackend, collection, key string) (*Settings, error) {
-	s := newSettings(backend, collection, key)
+func readSettings(db Database, collection, key string) (*Settings, error) {
+	s := newSettings(db, collection, key)
 	if err := s.Read(); err != nil {
 		return nil, err
 	}
@@ -333,8 +331,8 @@ func createSettingsOp(collection, key string, values map[string]interface{}) txn
 }
 
 // createSettings writes an initial config node.
-func createSettings(backend modelBackend, collection, key string, values map[string]interface{}) (*Settings, error) {
-	s := newSettings(backend, collection, key)
+func createSettings(db Database, collection, key string, values map[string]interface{}) (*Settings, error) {
+	s := newSettings(db, collection, key)
 	s.core = copyMap(values, nil)
 	ops := []txn.Op{createSettingsOp(collection, key, values)}
 	err := s.db.RunTransaction(ops)
@@ -348,8 +346,8 @@ func createSettings(backend modelBackend, collection, key string, values map[str
 }
 
 // removeSettings removes the Settings for key.
-func removeSettings(backend modelBackend, collection, key string) error {
-	err := backend.db().RunTransaction([]txn.Op{removeSettingsOp(collection, key)})
+func removeSettings(db Database, collection, key string) error {
+	err := db.RunTransaction([]txn.Op{removeSettingsOp(collection, key)})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("settings")
 	} else if err != nil {
@@ -388,8 +386,8 @@ func listSettings(backend modelBackend, collection, keyPrefix string) (map[strin
 // replaces it with the supplied values, and a function that should be called on
 // txn failure to determine whether this operation failed (due to a concurrent
 // settings change).
-func replaceSettingsOp(backend modelBackend, collection, key string, values map[string]interface{}) (txn.Op, func() (bool, error), error) {
-	s, err := readSettings(backend, collection, key)
+func replaceSettingsOp(db Database, collection, key string, values map[string]interface{}) (txn.Op, func() (bool, error), error) {
+	s, err := readSettings(db, collection, key)
 	if err != nil {
 		return txn.Op{}, nil, err
 	}
@@ -403,7 +401,7 @@ func replaceSettingsOp(backend modelBackend, collection, key string, values map[
 	op := s.assertUnchangedOp()
 	op.Update = setUnsetUpdateSettings(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {
-		latest, err := readSettings(backend, collection, key)
+		latest, err := readSettings(db, collection, key)
 		if err != nil {
 			return false, err
 		}
@@ -460,13 +458,13 @@ func NewStateSettings(backend *State) *StateSettings {
 
 // CreateSettings exposes createSettings on state for use outside the state package.
 func (s *StateSettings) CreateSettings(key string, settings map[string]interface{}) error {
-	_, err := createSettings(s.backend, s.collection, key, settings)
+	_, err := createSettings(s.backend.db(), s.collection, key, settings)
 	return err
 }
 
 // ReadSettings exposes readSettings on state for use outside the state package.
 func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error) {
-	if settings, err := readSettings(s.backend, s.collection, key); err != nil {
+	if settings, err := readSettings(s.backend.db(), s.collection, key); err != nil {
 		return nil, err
 	} else {
 		return settings.Map(), nil
@@ -475,7 +473,7 @@ func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error)
 
 // RemoveSettings exposes removeSettings on state for use outside the state package.
 func (s *StateSettings) RemoveSettings(key string) error {
-	return removeSettings(s.backend, s.collection, key)
+	return removeSettings(s.backend.db(), s.collection, key)
 }
 
 // ListSettings exposes listSettings on state for use outside the state package.

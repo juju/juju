@@ -60,7 +60,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.machine = nil
 
 	ch := s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingService(c, "u", ch)
+	s.service = s.AddTestingApplication(c, "u", ch)
 	s.unit = s.AddUnit(c, s.service)
 
 	storageData0 := names.NewStorageTag("data/0")
@@ -119,7 +119,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ContextSuite) AddContextRelation(c *gc.C, name string) {
-	s.AddTestingService(c, name, s.relch)
+	s.AddTestingApplication(c, name, s.relch)
 	eps, err := s.State.InferEndpoints("u", name)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)

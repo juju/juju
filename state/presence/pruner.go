@@ -32,6 +32,8 @@ type Pruner struct {
 
 // iterKeys is returns an iterator of Keys from this modelUUID and which Sequences
 // are used to represent them.
+// It only returns sequences that have more than one sequence associated with the same
+// being (as beings with a single sequence will never be pruned).
 func (p *Pruner) iterKeys() *mgo.Iter {
 	thisModelRegex := bson.M{"_id": bson.M{"$regex": bson.RegEx{"^" + p.modelUUID, ""}}}
 	pipe := p.beingsC.Pipe([]bson.M{
@@ -98,7 +100,6 @@ func (p *Pruner) removeOldPings() error {
 
 func (p *Pruner) removeUnusedBeings() error {
 	var keyInfo collapsedBeingsInfo
-	// var seqSet map[int64]struct{}
 	seqSet, err := p.findActiveSeqs()
 	if err != nil {
 		return err
@@ -145,13 +146,13 @@ func (p *Pruner) removeUnusedBeings() error {
 }
 
 func (p *Pruner) findActiveSeqs() (map[int64]struct{}, error) {
-	// Note: another option is to find all existing pings instead of just
-	// the current most-active pings based on time slots. "anything not pruned"
-	infos, err := lookupPings(p.pingsC, p.modelUUID, time.Now(), p.delta)
+	// After pruning old pings, we now track all sequences which are still alive.
+	var infos []pingInfo
+	err := p.pingsC.Find(nil).All(&infos)
 	if err != nil {
 		return nil, err
 	}
-	maps := make([]map[string]int64, len(infos)*2)
+	maps := make([]map[string]int64, 0, len(infos)*2)
 	for _, ping := range infos {
 		maps = append(maps, ping.Alive)
 		maps = append(maps, ping.Dead)

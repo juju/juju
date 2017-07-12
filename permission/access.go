@@ -3,10 +3,7 @@
 
 package permission
 
-import (
-	"github.com/juju/errors"
-	"github.com/juju/schema"
-)
+import "github.com/juju/errors"
 
 // Access represents a level of access.
 type Access string
@@ -185,25 +182,4 @@ func (a Access) GreaterOfferAccessThan(access Access) bool {
 		return false
 	}
 	return v1 > v2
-}
-
-// accessField returns a Checker that accepts a string value only
-// and returns a valid Access or an error.
-func accessField() schema.Checker {
-	return accessC{}
-}
-
-type accessC struct{}
-
-func (c accessC) Coerce(v interface{}, path []string) (interface{}, error) {
-	s := schema.String()
-	in, err := s.Coerce(v, path)
-	if err != nil {
-		return nil, err
-	}
-	access := Access(in.(string))
-	if err := access.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return access, nil
 }

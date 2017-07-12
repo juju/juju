@@ -97,7 +97,7 @@ func (s *Subnet) EnsureDead() (err error) {
 		Assert: isAliveDoc,
 	}}
 
-	txnErr := s.st.runTransaction(ops)
+	txnErr := s.st.db().RunTransaction(ops)
 	if txnErr == nil {
 		s.doc.Life = Dead
 		return nil
@@ -126,7 +126,7 @@ func (s *Subnet) Remove() (err error) {
 		ops = append(ops, op)
 	}
 
-	txnErr := s.st.runTransaction(ops)
+	txnErr := s.st.db().RunTransaction(ops)
 	if txnErr == nil {
 		return nil
 	}
@@ -230,7 +230,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		}
 		return ops, nil
 	}
-	err = st.run(buildTxn)
+	err = st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

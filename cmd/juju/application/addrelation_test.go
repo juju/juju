@@ -11,10 +11,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	jtesting "github.com/juju/juju/testing"
 )
 
@@ -112,7 +112,7 @@ func (s mockAddAPI) BestAPIVersion() int {
 	return 2
 }
 
-func (mockAddAPI) Consume(params.ApplicationOffer, string, *macaroon.Macaroon) (string, error) {
+func (mockAddAPI) Consume(crossmodel.ConsumeApplicationArgs) (string, error) {
 	return "", errors.New("unexpected method call: Consume")
 }
 

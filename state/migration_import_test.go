@@ -108,6 +108,10 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	environVersion := 123
+	err = original.SetEnvironVersion(environVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.State.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -124,6 +128,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+	c.Assert(newModel.EnvironVersion(), gc.Equals, environVersion)
 	s.assertAnnotations(c, newSt, newModel)
 
 	statusInfo, err := newModel.Status()
@@ -218,7 +223,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	err := s.State.RemoveUserAccess(s.Owner, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	lastConnection := s.State.NowToTheSecond()
+	lastConnection := state.NowToTheSecond(s.State)
 
 	bravo := s.newModelUser(c, "bravo@external", false, lastConnection)
 	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
@@ -266,6 +271,21 @@ func (s *MigrationImportSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ms.Code.String(), gc.Equals, "RED")
 	c.Assert(ms.Info, gc.Equals, "info message")
+}
+
+func (s *MigrationImportSuite) TestMeterStatusNotAvailable(c *gc.C) {
+	newModel, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		c.Log(desc["meter-status"])
+		desc["meter-status"].(map[interface{}]interface{})["code"] = ""
+	})
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "NOT AVAILABLE")
+	c.Assert(ms.Info, gc.Equals, "")
+	ms, err := newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "NOT AVAILABLE")
+	c.Assert(ms.Info, gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
@@ -641,8 +661,8 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Val
 }
 
 func (s *MigrationImportSuite) TestRelations(c *gc.C) {
-	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -681,7 +701,7 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	// Endpoint bindings need both valid charms, applications, and spaces.
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
-	state.AddTestingServiceWithBindings(
+	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": "one"})
 

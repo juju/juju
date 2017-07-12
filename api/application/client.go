@@ -12,12 +12,12 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -108,8 +108,13 @@ type DeployArgs struct {
 // it. Placement directives, if provided, specify the machine on which the charm
 // is deployed.
 func (c *Client) Deploy(args DeployArgs) error {
-	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
-		return errors.New("cannot attach existing storage when more than one unit is requested")
+	if len(args.AttachStorage) > 0 {
+		if args.NumUnits != 1 {
+			return errors.New("cannot attach existing storage when more than one unit is requested")
+		}
+		if c.BestAPIVersion() < 5 {
+			return errors.New("this juju controller does not support AttachStorage")
+		}
 	}
 	attachStorage := make([]string, len(args.AttachStorage))
 	for i, id := range args.AttachStorage {
@@ -236,16 +241,50 @@ func (c *Client) Update(args params.ApplicationUpdate) error {
 	return c.facade.FacadeCall("Update", args, nil)
 }
 
+// AddUnitsParams contains parameters for the AddUnits API method.
+type AddUnitsParams struct {
+	// ApplicationName is the name of the application to which units
+	// will be added.
+	ApplicationName string
+
+	// NumUnits is the number of units to deploy.
+	NumUnits int
+
+	// Placement directives on where the machines for the unit must be
+	// created.
+	Placement []*instance.Placement
+
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
+}
+
 // AddUnits adds a given number of units to an application using the specified
 // placement directives to assign units to machines.
-func (c *Client) AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	args := params.AddApplicationUnits{
-		ApplicationName: application,
-		NumUnits:        numUnits,
-		Placement:       placement,
+func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
+	if len(args.AttachStorage) > 0 {
+		if args.NumUnits != 1 {
+			return nil, errors.New("cannot attach existing storage when more than one unit is requested")
+		}
+		if c.BestAPIVersion() < 5 {
+			return nil, errors.New("this juju controller does not support AttachStorage")
+		}
+	}
+	attachStorage := make([]string, len(args.AttachStorage))
+	for i, id := range args.AttachStorage {
+		if !names.IsValidStorage(id) {
+			return nil, errors.NotValidf("storage ID %q", id)
+		}
+		attachStorage[i] = names.NewStorageTag(id).String()
 	}
 	results := new(params.AddApplicationUnitsResults)
-	err := c.facade.FacadeCall("AddUnits", args, results)
+	err := c.facade.FacadeCall("AddUnits", params.AddApplicationUnits{
+		ApplicationName: args.ApplicationName,
+		NumUnits:        args.NumUnits,
+		Placement:       args.Placement,
+		AttachStorage:   attachStorage,
+	}, results)
 	return results.Units, err
 }
 
@@ -425,14 +464,21 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 }
 
 // Consume adds a remote application to the model.
-func (c *Client) Consume(offer params.ApplicationOffer, alias string, macaroon *macaroon.Macaroon) (string, error) {
+func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
 	var consumeRes params.ErrorResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationAlias: alias,
-			ApplicationOffer: offer,
-			Macaroon:         macaroon,
+			ApplicationOffer: arg.ApplicationOffer,
+			ApplicationAlias: arg.ApplicationAlias,
+			Macaroon:         arg.Macaroon,
 		}},
+	}
+	if arg.ControllerInfo != nil {
+		args.Args[0].ControllerInfo = &params.ExternalControllerInfo{
+			ControllerTag: arg.ControllerInfo.ControllerTag.String(),
+			Addrs:         arg.ControllerInfo.Addrs,
+			CACert:        arg.ControllerInfo.CACert,
+		}
 	}
 	err := c.facade.FacadeCall("Consume", args, &consumeRes)
 	if err != nil {
@@ -444,9 +490,9 @@ func (c *Client) Consume(offer params.ApplicationOffer, alias string, macaroon *
 	if err := consumeRes.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	localName := offer.OfferName
-	if alias != "" {
-		localName = alias
+	localName := arg.ApplicationOffer.OfferName
+	if arg.ApplicationAlias != "" {
+		localName = arg.ApplicationAlias
 	}
 	return localName, nil
 }

@@ -45,8 +45,8 @@ func (s *findSuite) TestFindNoArgs(c *gc.C) {
 		c,
 		[]string{},
 		`
-URL                   Access   Interfaces
-fred/test.hosted-db2  consume  http:db2, http:log
+Store   URL                   Access   Interfaces
+master  fred/test.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -54,10 +54,6 @@ fred/test.hosted-db2  consume  http:db2, http:log
 
 func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
 	s.assertFindError(c, []string{"url", "--url", "urlparam"}, ".*URL term cannot be specified twice.*")
-}
-
-func (s *findSuite) TestFindDifferentController(c *gc.C) {
-	s.assertFindError(c, []string{"different:user/model.offer"}, `finding endpoints from another controller "different" not supported`)
 }
 
 func (s *findSuite) TestNoResults(c *gc.C) {
@@ -88,8 +84,8 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--url", "fred/model.hosted-db2"},
 		`
-URL                    Access   Interfaces
-fred/model.hosted-db2  consume  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -110,8 +106,8 @@ func (s *findSuite) TestEndpointFilter(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--url", "fred/model", "--endpoint", "db", "--interface", "mysql"},
 		`
-URL                    Access   Interfaces
-fred/model.hosted-db2  consume  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -128,7 +124,7 @@ func (s *findSuite) TestFindYaml(c *gc.C) {
 		c,
 		[]string{"fred/model.hosted-db2", "--format", "yaml"},
 		`
-fred/model.hosted-db2:
+master:fred/model.hosted-db2:
   access: consume
   endpoints:
     db2:
@@ -147,8 +143,22 @@ func (s *findSuite) TestFindTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.hosted-db2", "--format", "tabular"},
 		`
-URL                    Access   Interfaces
-fred/model.hosted-db2  consume  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
+
+`[1:],
+	)
+}
+
+func (s *findSuite) TestFindDifferentController(c *gc.C) {
+	s.mockAPI.expectedModelName = "model"
+	s.mockAPI.controllerName = "different"
+	s.assertFind(
+		c,
+		[]string{"fred/model.hosted-db2", "--format", "tabular"},
+		`
+Store      URL                    Access   Interfaces
+different  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -169,6 +179,7 @@ func (s *findSuite) assertFindError(c *gc.C, args []string, expected string) {
 
 type mockFindAPI struct {
 	c                 *gc.C
+	controllerName    string
 	msg, offerName    string
 	expectedModelName string
 	expectedFilter    *jujucrossmodel.ApplicationOfferFilter
@@ -191,8 +202,13 @@ func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.Application
 	if s.results != nil {
 		return s.results, nil
 	}
+	store := s.controllerName
+	if store == "" {
+		store = "master"
+	}
+	offerURL := fmt.Sprintf("%s:fred/%s.%s", store, s.expectedModelName, s.offerName)
 	return []params.ApplicationOffer{{
-		OfferURL:  fmt.Sprintf("fred/%s.%s", s.expectedModelName, s.offerName),
+		OfferURL:  offerURL,
 		OfferName: s.offerName,
 		Endpoints: []params.RemoteEndpoint{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},

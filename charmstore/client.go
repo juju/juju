@@ -127,19 +127,6 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) 
 	return results, nil
 }
 
-func (c Client) latestRevisions(channel csparams.Channel, cid CharmID, metadata map[string][]string) (CharmRevision, error) {
-	if err := c.jar.Activate(cid.URL); err != nil {
-		return CharmRevision{}, errors.Trace(err)
-	}
-	defer c.jar.Deactivate()
-	revisions, err := c.csWrapper.Latest(cid.Channel, []*charm.URL{cid.URL}, metadata)
-	if err != nil {
-		return CharmRevision{}, errors.Trace(err)
-	}
-	rev := revisions[0]
-	return CharmRevision{Revision: rev.Revision, Err: rev.Err}, nil
-}
-
 // ResourceRequest is the data needed to request a resource from the charmstore.
 type ResourceRequest struct {
 	// Charm is the URL of the charm for which we're requesting a resource.

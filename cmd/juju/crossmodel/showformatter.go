@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 const (
@@ -37,10 +38,16 @@ func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowOfferedA
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
 
-	w.Println("URL", "Access", "Description", "Endpoint", "Interface", "Role")
+	w.Println("Store", "URL", "Access", "Description", "Endpoint", "Interface", "Role")
 
-	for name, one := range all {
-		offerName := name
+	for urlStr, one := range all {
+		url, err := crossmodel.ParseApplicationURL(urlStr)
+		if err != nil {
+			return err
+		}
+		store := url.Source
+		url.Source = ""
+		offerURL := url.String()
 		offerAccess := one.Access
 		offerDesc := one.Description
 
@@ -63,9 +70,10 @@ func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowOfferedA
 		for i := 0; i < maxIterations; i++ {
 			descLine := descAt(descLines, i)
 			name, endpoint := endpointAt(one.Endpoints, names, i)
-			w.Println(offerName, offerAccess, descLine, name, endpoint.Interface, endpoint.Role)
+			w.Println(store, offerURL, offerAccess, descLine, name, endpoint.Interface, endpoint.Role)
 			// Only print once.
-			offerName = ""
+			store = ""
+			offerURL = ""
 			offerAccess = ""
 		}
 	}

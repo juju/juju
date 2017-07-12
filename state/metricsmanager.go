@@ -78,7 +78,7 @@ func (st *State) newMetricsManager() (*MetricsManager, error) {
 			Insert: mm.doc,
 		}}, nil
 	}
-	err := st.run(buildTxn)
+	err := st.db().Run(buildTxn)
 	if err != nil {
 		return nil, onAbort(err, errors.NotFoundf("metrics manager"))
 	}
@@ -105,7 +105,7 @@ func (m *MetricsManager) updateMetricsManager(update bson.M) error {
 		Assert: txn.DocExists,
 		Update: update,
 	}}
-	err := m.st.runTransaction(ops)
+	err := m.st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NotFoundf("metrics manager")
 	}
@@ -160,7 +160,7 @@ func (m *MetricsManager) IncrementConsecutiveErrors() error {
 }
 
 func (m *MetricsManager) gracePeriodExceeded() bool {
-	now := m.st.clock.Now()
+	now := m.st.clock().Now()
 	t := m.LastSuccessfulSend().Add(m.GracePeriod())
 	return t.Before(now) || t.Equal(now)
 }

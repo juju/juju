@@ -53,12 +53,6 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 	return p, nil
 }
 
-// PortRangeFromNetworkPortRange constructs a state.PortRange from the
-// given unitName and network.PortRange.
-func PortRangeFromNetworkPortRange(unitName string, portRange network.PortRange) (PortRange, error) {
-	return NewPortRange(unitName, portRange.FromPort, portRange.ToPort, portRange.Protocol)
-}
-
 // Validate checks if the port range is valid.
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
@@ -159,11 +153,6 @@ func (p *Ports) String() string {
 	return fmt.Sprintf("ports for machine %q, subnet %q", p.doc.MachineID, p.doc.SubnetID)
 }
 
-// globalKey returns the id of the ports document.
-func (p *Ports) globalKey() string {
-	return portsGlobalKey(p.doc.MachineID, p.doc.SubnetID)
-}
-
 // portsGlobalKey returns the global database key for the opened ports
 // document for the given machine and subnet.
 func portsGlobalKey(machineID, subnetID string) string {
@@ -243,7 +232,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		return ops, nil
 	}
 	// Run the transaction using the state transaction runner.
-	if err = p.st.run(buildTxn); err != nil {
+	if err = p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	// Mark object as created.
@@ -314,7 +303,7 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 			return setPortsDocOps(p.st, ports.doc, assert, newPorts...), nil
 		}
 	}
-	if err = p.st.run(buildTxn); err != nil {
+	if err = p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	p.doc.Ports = newPorts
@@ -376,7 +365,7 @@ func (p *Ports) Remove() error {
 		}
 		return ports.removeOps(), nil
 	}
-	return p.st.run(buildTxn)
+	return p.st.db().Run(buildTxn)
 }
 
 // OpenedPorts returns this machine ports document for the given subnetID.

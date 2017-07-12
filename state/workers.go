@@ -22,6 +22,7 @@ const (
 	singularWorker        = "singular"
 	allManagerWorker      = "allmanager"
 	allModelManagerWorker = "allmodelmanager"
+	pingBatcherWorker     = "pingbatcher"
 )
 
 // workers runs the workers that a State instance requires.
@@ -32,6 +33,8 @@ type workers struct {
 	*worker.Runner
 }
 
+const pingFlushInterval = time.Second
+
 func newWorkers(st *State) (*workers, error) {
 	ws := &workers{
 		state: st,
@@ -40,7 +43,7 @@ func newWorkers(st *State) (*workers, error) {
 			// Logger: loggo.GetLogger(logger.Name() + ".workers"),
 			IsFatal:      func(err error) bool { return err == jworker.ErrRestartAgent },
 			RestartDelay: time.Second,
-			Clock:        st.clock,
+			Clock:        st.clock(),
 		}),
 	}
 	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
@@ -48,6 +51,9 @@ func newWorkers(st *State) (*workers, error) {
 	})
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.ModelTag()), nil
+	})
+	ws.StartWorker(pingBatcherWorker, func() (worker.Worker, error) {
+		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
 	})
 	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
 		client, err := st.getLeadershipLeaseClient()
@@ -57,7 +63,7 @@ func newWorkers(st *State) (*workers, error) {
 		manager, err := lease.NewManager(lease.ManagerConfig{
 			Secretary: leadershipSecretary{},
 			Client:    client,
-			Clock:     ws.state.clock,
+			Clock:     ws.state.clock(),
 			MaxSleep:  time.Minute,
 		})
 		if err != nil {
@@ -73,7 +79,7 @@ func newWorkers(st *State) (*workers, error) {
 		manager, err := lease.NewManager(lease.ManagerConfig{
 			Secretary: singularSecretary{st.ModelUUID()},
 			Client:    client,
-			Clock:     st.clock,
+			Clock:     st.clock(),
 			MaxSleep:  time.Minute,
 		})
 		if err != nil {
@@ -98,6 +104,14 @@ func (ws *workers) presenceWatcher() *presence.Watcher {
 		return presence.NewDeadWatcher(errors.Trace(err))
 	}
 	return w.(*presence.Watcher)
+}
+
+func (ws *workers) pingBatcherWorker() *presence.PingBatcher {
+	w, err := ws.Worker(pingBatcherWorker, nil)
+	if err != nil {
+		return presence.NewDeadPingBatcher(errors.Trace(err))
+	}
+	return w.(*presence.PingBatcher)
 }
 
 func (ws *workers) leadershipManager() *lease.Manager {

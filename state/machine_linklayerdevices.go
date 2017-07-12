@@ -113,7 +113,7 @@ func (m *Machine) RemoveAllLinkLayerDevices() error {
 		return errors.Trace(err)
 	}
 
-	return m.st.runTransaction(ops)
+	return m.st.db().RunTransaction(ops)
 }
 
 func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
@@ -229,7 +229,7 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 		return append(ops, setDevicesOps...), nil
 	}
-	if err := m.st.run(buildTxn); err != nil {
+	if err := m.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -651,7 +651,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		}
 		return append(ops, setAddressesOps...), nil
 	}
-	if err := m.st.run(buildTxn); err != nil {
+	if err := m.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -853,7 +853,7 @@ func (m *Machine) RemoveAllAddresses() error {
 		return errors.Trace(err)
 	}
 
-	return m.st.runTransaction(ops)
+	return m.st.db().RunTransaction(ops)
 }
 
 func (m *Machine) removeAllAddressesOps() ([]txn.Op, error) {

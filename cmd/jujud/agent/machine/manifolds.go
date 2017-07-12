@@ -23,7 +23,6 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -89,6 +88,10 @@ type ManifoldsConfig struct {
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
 
+	// OpenController is function used by the controller manifold to
+	// create a *state.Controller.
+	OpenController func(coreagent.Config) (*state.Controller, error)
+
 	// OpenState is function used by the state manifold to create a
 	// *state.State.
 	OpenState func(coreagent.Config) (*state.State, error)
@@ -124,10 +127,6 @@ type ManifoldsConfig struct {
 	// tests can be run without waiting for the 5s watcher refresh time to which we would
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
-
-	// NewEnvironFunc is a function opens a provider "environment"
-	// (typically environs.New).
-	NewEnvironFunc environs.NewEnvironFunc
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
@@ -232,6 +231,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Reporter:       config.PubSubReporter,
 		}),
 
+		/* TODO(menn0) - this is currently unused, pending further
+		 * refactoring in the state package.
+
+			// The controller manifold creates a *state.Controller and
+			// makes it available to other manifolds. It pings the MongoDB
+			// session regularly and will die if pings fail.
+			controllerName: workercontroller.Manifold(workercontroller.ManifoldConfig{
+				AgentName:              agentName,
+				StateConfigWatcherName: stateConfigWatcherName,
+				OpenController:         config.OpenController,
+			}),
+		*/
+
 		// The state manifold creates a *state.State and makes it
 		// available to other manifolds. It pings the mongodb session
 		// regularly and will die if pings fail.
@@ -322,7 +334,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
-			NewEnvironFunc:       config.NewEnvironFunc,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -516,6 +527,7 @@ const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
+	controllerName         = "controller"
 	stateName              = "state"
 	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"

@@ -65,11 +65,13 @@ func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
 		"max-logs-size": maxCollectionMB,
 	}
 
-	s.state = statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
+	var ctlr *state.Controller
+	ctlr, s.state = statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
 		Owner:            names.NewLocalUserTag("test-admin"),
 		Clock:            jujutesting.NewClock(testing.NonZeroTime()),
 		ControllerConfig: controllerConfig,
 	})
+	ctlr.Close()
 	s.AddCleanup(func(*gc.C) { s.state.Close() })
 	s.logsColl = s.state.MongoSession().DB("logs").C("logs." + s.state.ModelUUID())
 }
@@ -140,11 +142,19 @@ func (s *suite) TestPrunesLogsBySize(c *gc.C) {
 }
 
 func (s *suite) addLogs(c *gc.C, t0 time.Time, text string, count int) {
-	dbLogger := state.NewEntityDbLogger(s.state, names.NewMachineTag("0"), version.Current)
+	dbLogger := state.NewDbLogger(s.state)
 	defer dbLogger.Close()
 
 	for offset := 0; offset < count; offset++ {
 		t := t0.Add(-time.Duration(offset) * time.Second)
-		dbLogger.Log(t, "some.module", "foo.go:42", loggo.INFO, text)
+		dbLogger.Log([]state.LogRecord{{
+			Time:     t,
+			Entity:   names.NewMachineTag("0"),
+			Version:  version.Current,
+			Module:   "some.module",
+			Location: "foo.go:42",
+			Level:    loggo.INFO,
+			Message:  text,
+		}})
 	}
 }

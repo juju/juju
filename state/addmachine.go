@@ -177,7 +177,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	}
 	ops = append(ops, ssOps...)
 	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
 			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
@@ -190,7 +190,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	ops = append([]txn.Op{assertModelActiveOp(st.ModelUUID())}, ops...)
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
 			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
@@ -277,7 +277,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			return nil, nil, err
 		}
 	}
-	seq, err := st.sequence("machine")
+	seq, err := sequence(st, "machine")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -287,7 +287,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, errors.Trace(err)
 	}
 	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
-	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
+	prereqOps = append(prereqOps, insertNewContainerRefOp(st, mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
 			C:      instanceDataC,
@@ -367,9 +367,9 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 	prereqOps = append(prereqOps,
 		// Update containers record for host machine.
-		st.addChildToContainerRefOp(parentId, mdoc.Id),
+		addChildToContainerRefOp(st, parentId, mdoc.Id),
 		// Create a containers reference document for the container itself.
-		st.insertNewContainerRefOp(mdoc.Id),
+		insertNewContainerRefOp(st, mdoc.Id),
 	)
 	return mdoc, append(prereqOps, machineOp), nil
 }
@@ -377,7 +377,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 // newContainerId returns a new id for a machine within the machine
 // with id parentId and the given container type.
 func (st *State) newContainerId(parentId string, containerType instance.ContainerType) (string, error) {
-	seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", parentId, containerType))
+	seq, err := sequence(st, fmt.Sprintf("machine%s%sContainer", parentId, containerType))
 	if err != nil {
 		return "", err
 	}
@@ -392,7 +392,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
-	seq, err := st.sequence("machine")
+	seq, err := sequence(st, "machine")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -440,9 +440,9 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	prereqOps = append(prereqOps, parentPrereqOps...)
 	prereqOps = append(prereqOps,
 		// The host machine doesn't exist yet, create a new containers record.
-		st.insertNewContainerRefOp(mdoc.Id),
+		insertNewContainerRefOp(st, mdoc.Id),
 		// Create a containers reference document for the container itself.
-		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
+		insertNewContainerRefOp(st, parentDoc.Id, mdoc.Id),
 	)
 	return mdoc, append(prereqOps, parentOp, machineOp), nil
 }
@@ -507,7 +507,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // into the database, based on the given template. Only the constraints are
 // taken from the template.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
-	now := st.clock.Now()
+	now := st.clock().Now()
 	machineStatusDoc := statusDoc{
 		Status:    status.Pending,
 		ModelUUID: st.ModelUUID(),
@@ -549,8 +549,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// history entry. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(st, machineGlobalKey(mdoc.Id), machineStatusDoc)
-	probablyUpdateStatusHistory(st, machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc)
+	probablyUpdateStatusHistory(st.db(), machineGlobalKey(mdoc.Id), machineStatusDoc)
+	probablyUpdateStatusHistory(st.db(), machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc)
 	return prereqOps, machineOp, nil
 }
 
@@ -566,7 +566,7 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceS
 	globalInstanceKey := machineGlobalInstanceKey(mdoc.Id)
 
 	prereqOps = []txn.Op{
-		createConstraintsOp(st, globalKey, cons),
+		createConstraintsOp(globalKey, cons),
 		createStatusOp(st, globalKey, machineStatusDoc),
 		createStatusOp(st, globalInstanceKey, instanceStatusDoc),
 		createMachineBlockDevicesOp(mdoc.Id),
@@ -862,7 +862,7 @@ func (st *State) EnableHA(
 		ops, change, err = st.enableHAIntentionOps(intent, currentInfo, cons, series)
 		return ops, err
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		err = errors.Annotate(err, "failed to create new controller machines")
 		return ControllersChanges{}, err
 	}
@@ -902,27 +902,28 @@ func (st *State) enableHAIntentionOps(
 	}
 	// Use any placement directives that have been provided
 	// when adding new machines, until the directives have
-	// been all used up. Set up a helper function to do the
-	// work required.
+	// been all used up. Ignore constraints for provided machines.
+	// Set up a helper function to do the work required.
 	placementCount := 0
-	getPlacement := func() string {
+	getPlacementConstraints := func() (string, constraints.Value) {
 		if placementCount >= len(intent.placement) {
-			return ""
+			return "", cons
 		}
 		result := intent.placement[placementCount]
 		placementCount++
-		return result
+		return result, constraints.Value{}
 	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
+		placement, constraints := getPlacementConstraints()
 		template := MachineTemplate{
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageModel,
 			},
-			Constraints: cons,
-			Placement:   getPlacement(),
+			Constraints: constraints,
+			Placement:   placement,
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {

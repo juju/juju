@@ -501,7 +501,7 @@ func (st *State) DetachVolume(machine names.MachineTag, volume names.VolumeTag) 
 		}
 		return detachVolumeOps(machine, volume), nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func (st *State) volumeFilesystemAttachment(machine names.MachineTag, volume names.VolumeTag) (FilesystemAttachment, error) {
@@ -545,7 +545,7 @@ func (st *State) RemoveVolumeAttachment(machine names.MachineTag, volume names.V
 		}
 		return removeVolumeAttachmentOps(machine, v), nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
@@ -657,7 +657,7 @@ func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 		}}}
 		return destroyVolumeOps(st, volume, hasNoStorageAssignment)
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func destroyVolumeOps(st *State, v *volume, extraAssert bson.D) ([]txn.Op, error) {
@@ -732,7 +732,7 @@ func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 			removeStatusOp(st, volumeGlobalKey(tag.Id())),
 		}, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // newVolumeName returns a unique volume name.
@@ -740,7 +740,7 @@ func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 // volume ID will incorporate it as the volume's
 // machine scope.
 func newVolumeName(st *State, machineId string) (string, error) {
-	seq, err := st.sequence("volume")
+	seq, err := sequence(st, "volume")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -775,7 +775,7 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	}
 	status := statusDoc{
 		Status:  status.Pending,
-		Updated: st.clock.Now().UnixNano(),
+		Updated: st.clock().Now().UnixNano(),
 	}
 	doc := volumeDoc{
 		Name:      name,
@@ -952,7 +952,7 @@ func (st *State) setVolumeAttachmentInfo(
 		)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func setVolumeAttachmentInfoOps(machine names.MachineTag, volume names.VolumeTag, info VolumeAttachmentInfo, unsetParams bool) []txn.Op {
@@ -1019,7 +1019,7 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		ops = append(ops, setVolumeInfoOps(tag, info, unsetParams)...)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func validateVolumeInfoChange(newInfo, oldInfo VolumeInfo) error {
@@ -1071,7 +1071,7 @@ func volumeGlobalKey(name string) string {
 
 // VolumeStatus returns the status of the specified volume.
 func (st *State) VolumeStatus(tag names.VolumeTag) (status.StatusInfo, error) {
-	return getStatus(st, volumeGlobalKey(tag.Id()), "volume")
+	return getStatus(st.db(), volumeGlobalKey(tag.Id()), "volume")
 }
 
 // SetVolumeStatus sets the status of the specified volume.
@@ -1097,12 +1097,12 @@ func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status
 	default:
 		return errors.Errorf("cannot set invalid status %q", volumeStatus)
 	}
-	return setStatus(st, setStatusParams{
+	return setStatus(st.db(), setStatusParams{
 		badge:     "volume",
 		globalKey: volumeGlobalKey(tag.Id()),
 		status:    volumeStatus,
 		message:   info,
 		rawData:   data,
-		updated:   updated,
+		updated:   timeOrNow(updated, st.clock()),
 	})
 }

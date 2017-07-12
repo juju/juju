@@ -34,8 +34,12 @@ func (f *ConfigFlag) Set(s string) error {
 		return nil
 	}
 	var value interface{}
-	if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
-		return errors.Trace(err)
+	if fields[1] == "" {
+		value = ""
+	} else {
+		if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	if f.attrs == nil {
 		f.attrs = make(map[string]interface{})

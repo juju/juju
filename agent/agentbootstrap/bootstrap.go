@@ -106,7 +106,7 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Owner:                   adminUser,
@@ -116,6 +116,7 @@ func InitializeState(
 			CloudRegion:             args.ControllerCloudRegion,
 			CloudCredential:         cloudCredentialTag,
 			StorageProviderRegistry: args.StorageProviderRegistry,
+			EnvironVersion:          args.ControllerModelEnvironVersion,
 		},
 		Cloud:                     args.ControllerCloud,
 		CloudCredentials:          cloudCredentials,
@@ -135,6 +136,7 @@ func InitializeState(
 			st.Close()
 		}
 	}()
+	ctlr.Close()
 	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
@@ -206,6 +208,7 @@ func InitializeState(
 		CloudRegion:             args.ControllerCloudRegion,
 		CloudCredential:         cloudCredentialTag,
 		StorageProviderRegistry: args.StorageProviderRegistry,
+		EnvironVersion:          hostedModelEnv.Provider().Version(),
 	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")

@@ -35,8 +35,8 @@ type deployerSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	machine     *state.Machine
-	service0    *state.Application
-	service1    *state.Application
+	app0        *state.Application
+	app1        *state.Application
 	principal   *state.Unit
 	subordinate *state.Unit
 
@@ -51,16 +51,16 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create the needed services and relate them.
-	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	// Create the needed applications and relate them.
+	s.app0 = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.app1 = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create principal and subordinate units and assign them.
-	s.principal, err = s.service0.AddUnit(state.AddUnitParams{})
+	s.principal, err = s.app0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +139,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 	// First create a new machine and deploy another unit there.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	principal1, err := s.service0.AddUnit(state.AddUnitParams{})
+	principal1, err := s.app0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = principal1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)

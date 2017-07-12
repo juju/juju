@@ -9,8 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
@@ -27,6 +29,7 @@ type mockRelationsFacade struct {
 	relations                          map[string]*mockRelation
 	relationsEndpoints                 map[string]*relationEndpointInfo
 	relationsUnitsWatchers             map[string]*mockRelationUnitsWatcher
+	controllerInfo                     map[string]*api.Info
 }
 
 func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
@@ -38,12 +41,8 @@ func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
 		remoteApplicationsWatcher:          newMockStringsWatcher(),
 		remoteApplicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 		relationsUnitsWatchers:             make(map[string]*mockRelationUnitsWatcher),
+		controllerInfo:                     make(map[string]*api.Info),
 	}
-}
-
-func (m *mockRelationsFacade) Close() error {
-	m.stub.MethodCall(m, "Close")
-	return nil
 }
 
 func (m *mockRelationsFacade) WatchRemoteApplications() (watcher.StringsWatcher, error) {
@@ -160,34 +159,15 @@ func (m *mockRelationsFacade) RelationUnitSettings(relationUnits []params.Relati
 	return result, nil
 }
 
-func (m *mockRelationsFacade) PublishLocalRelationChange(change params.RemoteRelationChangeEvent) error {
-	m.stub.MethodCall(m, "PublishLocalRelationChange", change)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *mockRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
-	m.stub.MethodCall(m, "RegisterRemoteRelations", relations)
-	if err := m.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	result := make([]params.RemoteEntityIdResult, len(relations))
-	for i, rel := range relations {
-		result[i].Result = &params.RemoteEntityId{
-			ModelUUID: "source-model-uuid",
-			Token:     "token-" + rel.OfferName,
-		}
-	}
-	return result, nil
-}
-
 func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.RemoteApplicationResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "RemoteApplications", names)
 	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	mac, err := macaroon.New(nil, "test", "")
+	if err != nil {
 		return nil, err
 	}
 	result := make([]params.RemoteApplicationResult, len(names))
@@ -201,6 +181,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 					Status:     app.status,
 					ModelUUID:  app.modelUUID,
 					Registered: app.registered,
+					Macaroon:   mac,
 				},
 			}
 		} else {
@@ -253,6 +234,99 @@ func (m *mockRelationsFacade) WatchLocalRelationUnits(relationKey string) (watch
 	}
 	m.relationsUnitsWatchers[relationKey] = newMockRelationUnitsWatcher()
 	return m.relationsUnitsWatchers[relationKey], nil
+}
+
+func (m *mockRelationsFacade) ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error {
+	m.stub.MethodCall(m, "ConsumeRemoteRelationChange", change)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+	m.stub.MethodCall(m, "ControllerAPIInfoForModel", modelUUID)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.controllerInfo[modelUUID], nil
+}
+
+type mockRemoteRelationsFacade struct {
+	mu   sync.Mutex
+	stub *testing.Stub
+	remoterelations.RemoteModelRelationsFacadeCloser
+	relationsUnitsWatchers map[string]*mockRelationUnitsWatcher
+}
+
+func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade {
+	return &mockRemoteRelationsFacade{
+		stub: stub,
+		relationsUnitsWatchers: make(map[string]*mockRelationUnitsWatcher),
+	}
+}
+
+func (m *mockRemoteRelationsFacade) Close() error {
+	m.stub.MethodCall(m, "Close")
+	return nil
+}
+
+func (m *mockRemoteRelationsFacade) PublishRelationChange(change params.RemoteRelationChangeEvent) error {
+	m.stub.MethodCall(m, "PublishRelationChange", change)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
+	m.stub.MethodCall(m, "RegisterRemoteRelations", relations)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	result := make([]params.RemoteEntityIdResult, len(relations))
+	for i, rel := range relations {
+		result[i].Result = &params.RemoteEntityId{
+			ModelUUID: "source-model-uuid",
+			Token:     "token-" + rel.OfferName,
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRemoteRelationsFacade) relationsUnitsWatcher(key string) (*mockRelationUnitsWatcher, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	w, ok := m.relationsUnitsWatchers[key]
+	return w, ok
+}
+
+func (m *mockRemoteRelationsFacade) WatchRelationUnits(relationId params.RemoteEntityId) (watcher.RelationUnitsWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchRelationUnits", relationId.Token)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	m.relationsUnitsWatchers[relationId.Token] = newMockRelationUnitsWatcher()
+	return m.relationsUnitsWatchers[relationId.Token], nil
+}
+
+// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
+func (m *mockRemoteRelationsFacade) RelationUnitSettings(relationUnits []params.RemoteRelationUnit) ([]params.SettingsResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "RelationUnitSettings", relationUnits)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	result := make([]params.SettingsResult, len(relationUnits))
+	for i := range relationUnits {
+		result[i].Settings = map[string]string{
+			"foo": "bar",
+		}
+	}
+	return result, nil
 }
 
 type mockWatcher struct {

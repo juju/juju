@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -82,16 +83,16 @@ func (s *logtransferSuite) dialWebsocketInternal(c *gc.C, header http.Header) *w
 func (s *logtransferSuite) TestRejectsMissingModelHeader(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, `unknown model: ""`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: unknown model: ""`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsBadMigratingModelUUID(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	header.Add(params.MigrationModelHTTPHeader, "does-not-exist")
 	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, `unknown model: "does-not-exist"`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: unknown model: "does-not-exist"`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
@@ -101,45 +102,45 @@ func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
 	url.RawQuery = query.Encode()
 	conn := dialWebsocketFromURL(c, url.String(), s.makeAuthHeader())
 	defer conn.Close()
-	assertJSONError(c, conn, `^invalid jujuclientversion "blah".*`)
-	assertWebsocketClosed(c, conn)
+	websockettest.AssertJSONError(c, conn, `^initialising migration logsink session: invalid jujuclientversion "blah".*`)
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *logtransferSuite) TestRejectsMachineLogins(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.machinePassword)
 	header.Add(params.MachineNonceHeader, "nonce")
 	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, `tag kind machine not valid`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: tag kind machine not valid`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsBadPasword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), "wrong")
 	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
 	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, "invalid entity name or password")
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, "initialising migration logsink session: invalid entity name or password")
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRequiresSuperUser(c *gc.C) {
 	s.setUserAccess(c, permission.AddModelAccess)
 	ws := s.dialWebsocketInternal(c, s.makeAuthHeader())
-	assertJSONError(c, ws, `not a controller admin`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: not a controller admin`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRequiresMigrationModeNone(c *gc.C) {
 	s.setMigrationMode(c, state.MigrationModeImporting)
 	ws := s.dialWebsocket(c)
-	assertJSONError(c, ws, `model migration mode is "importing" instead of ""`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: model migration mode is "importing" instead of ""`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestLogging(c *gc.C) {
 	conn := s.dialWebsocket(c)
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
 	err := conn.WriteJSON(&params.LogRecord{
@@ -216,7 +217,7 @@ func (s *logtransferSuite) TestTracksLastSentLogTime(c *gc.C) {
 	conn := s.dialWebsocket(c)
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "migration-logtransfer")
 	defer tracker.Close()

@@ -107,7 +107,7 @@ func (s *binaryStorageSuite) TestToolsStorageParamsControllerModel(c *gc.C) {
 }
 
 func (s *binaryStorageSuite) TestToolsStorageParamsHostedModel(c *gc.C) {
-	s.testStorageParams(c, "toolsmetadata", []string{s.State.ModelUUID(), s.modelUUID}, s.st.ToolsStorage)
+	s.testStorageParams(c, "toolsmetadata", []string{s.modelUUID, s.State.ModelUUID()}, s.st.ToolsStorage)
 }
 
 func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {

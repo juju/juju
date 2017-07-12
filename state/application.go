@@ -159,7 +159,7 @@ func (a *Application) Destroy() (err error) {
 		}
 		return nil, jujutxn.ErrTransientFailure
 	}
-	return a.st.run(buildTxn)
+	return a.st.db().Run(buildTxn)
 }
 
 // destroyOps returns the operations required to destroy the application. If it
@@ -197,7 +197,6 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
-	// TODO(ericsnow) Use a generic registry instead.
 	resOps, err := removeResourcesOps(a.st, a.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -292,7 +291,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	globalKey := a.globalKey()
 	ops = append(ops,
 		removeEndpointBindingsOp(globalKey),
-		removeConstraintsOp(a.st, globalKey),
+		removeConstraintsOp(globalKey),
 		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
@@ -327,7 +326,7 @@ func (a *Application) setExposed(exposed bool) (err error) {
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
-	if err := a.st.runTransaction(ops); err != nil {
+	if err := a.st.db().RunTransaction(ops); err != nil {
 		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, errNotAlive))
 	}
 	a.doc.Exposed = exposed
@@ -575,7 +574,7 @@ func (a *Application) changeCharmOps(
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldSettings, err := readSettings(a.st, settingsC, a.settingsKey())
+	oldSettings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err == nil {
 		// Filter the old settings through to get the new settings.
 		newSettings = ch.Config().FilterSettings(oldSettings.Map())
@@ -592,14 +591,14 @@ func (a *Application) changeCharmOps(
 	// Create or replace application settings.
 	var settingsOp txn.Op
 	newSettingsKey := applicationSettingsKey(a.doc.Name, ch.URL())
-	if _, err := readSettings(a.st, settingsC, newSettingsKey); errors.IsNotFound(err) {
+	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else {
 		// Settings exist, just replace them with the new ones.
-		settingsOp, _, err = replaceSettingsOp(a.st, settingsC, newSettingsKey, newSettings)
+		settingsOp, _, err = replaceSettingsOp(a.st.db(), settingsC, newSettingsKey, newSettings)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -996,7 +995,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 		return ops, nil
 	}
-	if err := a.st.run(buildTxn); err != nil {
+	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
 	a.doc.CharmURL = cfg.Charm.URL()
@@ -1030,7 +1029,7 @@ func (a *Application) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (a *Application) newUnitName() (string, error) {
-	unitSeq, err := a.st.sequence(a.Tag().String())
+	unitSeq, err := sequence(a.st, a.Tag().String())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1044,7 +1043,11 @@ func (a *Application) newUnitName() (string, error) {
 // application will be assigned to a given principal. The asserts param can be used
 // to include additional assertions for the application document.  This method
 // assumes that the application already exists in the db.
-func (a *Application) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
+func (a *Application) addUnitOps(
+	principalName string,
+	args AddUnitParams,
+	asserts bson.D,
+) (string, []txn.Op, error) {
 	var cons constraints.Value
 	if !a.doc.Subordinate {
 		scons, err := a.Constraints()
@@ -1063,12 +1066,12 @@ func (a *Application) addUnitOps(principalName string, asserts bson.D) (string, 
 	if err != nil {
 		return "", nil, err
 	}
-	args := applicationAddUnitOpsArgs{
+	names, ops, err := a.addUnitOpsWithCons(applicationAddUnitOpsArgs{
 		cons:          cons,
 		principalName: principalName,
 		storageCons:   storageCons,
-	}
-	names, ops, err := a.addUnitOpsWithCons(args)
+		attachStorage: args.AttachStorage,
+	})
 	if err != nil {
 		return names, ops, err
 	}
@@ -1207,7 +1210,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
-	now := a.st.clock.Now()
+	now := a.st.clock().Now()
 	agentStatusDoc := statusDoc{
 		Status:  status.Allocating,
 		Updated: now.UnixNano(),
@@ -1245,16 +1248,16 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
 	} else {
-		ops = append(ops, createConstraintsOp(a.st, agentGlobalKey, args.cons))
+		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(a.st, globalKey, unitStatusDoc)
-	probablyUpdateStatusHistory(a.st, agentGlobalKey, agentStatusDoc)
-	probablyUpdateStatusHistory(a.st, globalWorkloadVersionKey(name), workloadVersionDoc)
+	probablyUpdateStatusHistory(a.st.db(), globalKey, unitStatusDoc)
+	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
+	probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 
@@ -1272,17 +1275,20 @@ func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 }
 
 // AddUnitParams contains parameters for the Application.AddUnit method.
-type AddUnitParams struct{}
+type AddUnitParams struct {
+	// AttachStorage identifies storage instances to attach to the unit.
+	AttachStorage []names.StorageTag
+}
 
 // AddUnit adds a new principal unit to the application.
 func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", a)
-	name, ops, err := a.addUnitOps("", nil)
+	name, ops, err := a.addUnitOps("", args, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := a.st.runTransaction(ops); err == txn.ErrAborted {
+	if err := a.st.db().RunTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(a.st, applicationsC, a.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
@@ -1330,7 +1336,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
-		removeConstraintsOp(a.st, u.globalAgentKey()),
+		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
@@ -1437,7 +1443,7 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 // ConfigSettings returns the raw user configuration for the application's charm.
 // Unset values are omitted.
 func (a *Application) ConfigSettings() (charm.Settings, error) {
-	settings, err := readSettings(a.st, settingsC, a.settingsKey())
+	settings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
 		return nil, err
 	}
@@ -1459,7 +1465,7 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(a.st, settingsC, a.settingsKey())
+	node, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
 		return err
 	}
@@ -1481,7 +1487,7 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
-	doc, err := readSettingsDoc(a.st, settingsC, leadershipSettingsKey(a.doc.Name))
+	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
 	if errors.IsNotFound(err) {
 		return nil, errors.NotFoundf("application")
 	} else if err != nil {
@@ -1543,7 +1549,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// Read the current document state so we can abort if there's
 		// no actual change; and the version number so we can assert
 		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(a.st, settingsC, key)
+		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
 		if errors.IsNotFound(err) {
 			return nil, errors.NotFoundf("application")
 		} else if err != nil {
@@ -1559,7 +1565,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 			Update: update,
 		}}, nil
 	}
-	return a.st.run(buildTxnWithLeadership(buildTxn, token))
+	return a.st.db().Run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")
@@ -1593,8 +1599,8 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 		Id:     a.doc.DocID,
 		Assert: isAliveDoc,
 	}}
-	ops = append(ops, setConstraintsOp(a.st, a.globalKey(), cons))
-	return onAbort(a.st.runTransaction(ops), errNotAlive)
+	ops = append(ops, setConstraintsOp(a.globalKey(), cons))
+	return onAbort(a.st.db().RunTransaction(ops), errNotAlive)
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
@@ -1657,7 +1663,7 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 		}
 		return ops, nil
 	}
-	if err := a.st.run(buildTxn); err != nil {
+	if err := a.st.db().Run(buildTxn); err != nil {
 		if err == errNotAlive {
 			return errors.New("cannot update metric credentials: application " + err.Error())
 		}
@@ -1708,7 +1714,7 @@ func (a *Application) Status() (status.StatusInfo, error) {
 			return a.deriveStatus(units)
 		}
 	}
-	return getStatus(a.st, a.globalKey(), "application")
+	return getStatus(a.st.db(), a.globalKey(), "application")
 }
 
 // SetStatus sets the status for the application.
@@ -1716,13 +1722,13 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(a.st, setStatusParams{
+	return setStatus(a.st.db(), setStatusParams{
 		badge:     "application",
 		globalKey: a.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   statusInfo.Since,
+		updated:   timeOrNow(statusInfo.Since, a.st.clock()),
 	})
 }
 
@@ -1731,7 +1737,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 // representing past statuses for this application.
 func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        a.st,
+		db:        a.st.db(),
 		globalKey: a.globalKey(),
 		filter:    filter,
 	}
@@ -1806,8 +1812,8 @@ type addApplicationOpsArgs struct {
 // applications collection, along with all the associated expected other application
 // entries. This method is used by both the *State.AddApplication method and the
 // migration import code.
-func addApplicationOps(st *State, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
-	charmRefOps, err := appCharmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
+func addApplicationOps(mb modelBackend, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
+	charmRefOps, err := appCharmIncRefOps(mb, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1818,12 +1824,12 @@ func addApplicationOps(st *State, app *Application, args addApplicationOpsArgs) 
 	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
-		createConstraintsOp(st, globalKey, args.constraints),
+		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
 		createSettingsOp(settingsC, settingsKey, args.settings),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
-		createStatusOp(st, globalKey, args.statusDoc),
-		addModelApplicationRefOp(st, app.Name()),
+		createStatusOp(mb, globalKey, args.statusDoc),
+		addModelApplicationRefOp(mb, app.Name()),
 	}
 	ops = append(ops, charmRefOps...)
 	ops = append(ops, txn.Op{

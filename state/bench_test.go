@@ -28,10 +28,10 @@ func (*BenchmarkSuite) BenchmarkAddUnit(c *gc.C) {
 	s.SetUpTest(c)
 	defer s.TearDownTest(c)
 	charm := s.AddTestingCharm(c, "wordpress")
-	svc := s.AddTestingService(c, "wordpress", charm)
+	app := s.AddTestingApplication(c, "wordpress", charm)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		_, err := svc.AddUnit(state.AddUnitParams{})
+		_, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -43,10 +43,10 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *gc.C) {
 	s.SetUpTest(c)
 	defer s.TearDownTest(c)
 	charm := s.AddTestingCharm(c, "wordpress")
-	svc := s.AddTestingService(c, "wordpress", charm)
+	app := s.AddTestingApplication(c, "wordpress", charm)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		unit, err := svc.AddUnit(state.AddUnitParams{})
+		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(unit, state.AssignClean)
 		c.Assert(err, jc.ErrorIsNil)
@@ -79,10 +79,10 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 		}
 	}
 	charm := s.AddTestingCharm(c, "wordpress")
-	svc := s.AddTestingService(c, "wordpress", charm)
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	serviceCharmURL, _ := svc.CharmURL()
+	serviceCharmURL, _ := app.CharmURL()
 	err = unit.SetCharmURL(serviceCharmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
@@ -113,10 +113,10 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	defer s.TearDownTest(c)
 	oldTime := time.Now().Add(-(state.CleanupAge))
 	charm := s.AddTestingCharm(c, "wordpress")
-	svc := s.AddTestingService(c, "wordpress", charm)
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	serviceCharmURL, _ := svc.CharmURL()
+	serviceCharmURL, _ := app.CharmURL()
 	err = unit.SetCharmURL(serviceCharmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()

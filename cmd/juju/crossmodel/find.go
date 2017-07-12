@@ -39,6 +39,7 @@ type findCommand struct {
 	RemoteEndpointsCommandBase
 
 	url            string
+	source         string
 	modelOwnerName string
 	modelName      string
 	offerName      string
@@ -46,15 +47,15 @@ type findCommand struct {
 	endpoint       string
 
 	out        cmd.Output
-	newAPIFunc func() (FindAPI, error)
+	newAPIFunc func(string) (FindAPI, error)
 }
 
 // NewFindEndpointsCommand constructs command that
 // allows to find offered application endpoints.
 func NewFindEndpointsCommand() cmd.Command {
 	findCmd := &findCommand{}
-	findCmd.newAPIFunc = func() (FindAPI, error) {
-		return findCmd.NewRemoteEndpointsAPI()
+	findCmd.newAPIFunc = func(controllerName string) (FindAPI, error) {
+		return findCmd.NewRemoteEndpointsAPI(controllerName)
 	}
 	return modelcmd.WrapController(findCmd)
 }
@@ -101,7 +102,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	if err := c.validateOrSetURL(); err != nil {
 		return errors.Trace(err)
 	}
-	api, err := c.newAPIFunc()
+	api, err := c.newAPIFunc(c.source)
 	if err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertFoundOffers(found...)
+	output, err := convertFoundOffers(c.source, found...)
 	if err != nil {
 		return err
 	}
@@ -142,11 +143,17 @@ func (c *findCommand) validateOrSetURL() error {
 	}
 	if c.url == "" {
 		c.url = controllerName + ":"
+		c.source = controllerName
 		return nil
 	}
 	urlParts, err := crossmodel.ParseApplicationURLParts(c.url)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if urlParts.Source != "" {
+		c.source = urlParts.Source
+	} else {
+		c.source = controllerName
 	}
 	user := urlParts.User
 	if user == "" {
@@ -159,9 +166,6 @@ func (c *findCommand) validateOrSetURL() error {
 	c.modelOwnerName = user
 	c.modelName = urlParts.ModelName
 	c.offerName = urlParts.ApplicationName
-	if urlParts.Source != "" && urlParts.Source != controllerName {
-		return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
-	}
 	return nil
 }
 
@@ -183,17 +187,24 @@ type ApplicationOfferResult struct {
 
 // convertFoundOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted applications.
-func convertFoundOffers(services ...params.ApplicationOffer) (map[string]ApplicationOfferResult, error) {
-	if len(services) == 0 {
+func convertFoundOffers(store string, offers ...params.ApplicationOffer) (map[string]ApplicationOfferResult, error) {
+	if len(offers) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]ApplicationOfferResult, len(services))
-	for _, one := range services {
+	output := make(map[string]ApplicationOfferResult, len(offers))
+	for _, one := range offers {
 		app := ApplicationOfferResult{
 			Access:    one.Access,
 			Endpoints: convertRemoteEndpoints(one.Endpoints...),
 		}
-		output[one.OfferURL] = app
+		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
+		if err != nil {
+			return nil, err
+		}
+		if url.Source == "" {
+			url.Source = store
+		}
+		output[url.String()] = app
 	}
 	return output, nil
 }

@@ -189,6 +189,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		applicationOffersC,
 		tokensC,
 		remoteEntitiesC,
+		externalControllersC,
+		relationIngressC,
 	)
 
 	envCollections := set.NewStrings()
@@ -228,6 +230,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"LatestAvailableTools",
 		"SLA",
 		"MeterStatus",
+		"EnvironVersion",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }

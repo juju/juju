@@ -210,8 +210,8 @@ type storageAttachmentDoc struct {
 // newStorageInstanceId returns a unique storage instance name. The name
 // incorporates the storage name as defined in the charm storage metadata,
 // and a unique sequence number.
-func newStorageInstanceId(st *State, store string) (string, error) {
-	seq, err := st.sequence("stores")
+func newStorageInstanceId(mb modelBackend, store string) (string, error) {
+	seq, err := sequence(mb, "stores")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -271,10 +271,29 @@ func (st *State) storageInstances(query bson.D) (storageInstances []*storageInst
 	return storageInstances, nil
 }
 
-// DestroyStorageInstance ensures that the storage instance and all its
-// attachments will be removed at some point; if the storage instance has
-// no attachments, it will be removed immediately.
-func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
+type storageAttachedError struct {
+	error
+}
+
+// IsStorageAttachedError reports whether or not the given error was caused
+// by an operation on storage that should not be, but is, attached.
+func IsStorageAttachedError(err error) bool {
+	_, ok := errors.Cause(err).(storageAttachedError)
+	return ok
+}
+
+// DestroyStorageInstance ensures that the storage instance will be removed at
+// some point.
+//
+// If the "destroyAttached" is true, then DestroyStorageInstance will destroy
+// any attachments first; if there are no attachments, then the storage instance
+// is removed immediately. If "destroyAttached" is instead false and there are
+// existing storage attachments, then DestroyStorageInstance will return an error
+// satisfying IsStorageAttachedError.
+func (st *State) DestroyStorageInstance(
+	tag names.StorageTag,
+	destroyAttached bool,
+) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageInstance(tag)
@@ -284,7 +303,7 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch ops, err := st.destroyStorageInstanceOps(s); err {
+		switch ops, err := st.destroyStorageInstanceOps(s, destroyAttached); err {
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
 		case nil:
@@ -293,10 +312,13 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
-func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error) {
+func (st *State) destroyStorageInstanceOps(
+	s *storageInstance,
+	destroyAttached bool,
+) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
@@ -306,6 +328,11 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
 		return removeStorageInstanceOps(s, assert)
+	}
+	if !destroyAttached {
+		// There are storage attachments, and we've been instructed
+		// not to destroy them.
+		return nil, storageAttachedError{errors.New("storage is attached")}
 	}
 
 	// Check that removing the storage from its owner (if any) is permitted.
@@ -522,8 +549,8 @@ func validateStorageCountChange(
 // count for a storage instance for a given application or unit. This
 // should be called when creating a shared storage instance, or when
 // attaching a non-shared storage instance to a unit.
-func increfEntityStorageOp(st *State, owner names.Tag, storageName string, n int) (txn.Op, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+func increfEntityStorageOp(mb modelBackend, owner names.Tag, storageName string, n int) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, n)
@@ -534,8 +561,8 @@ func increfEntityStorageOp(st *State, owner names.Tag, storageName string, n int
 // count for a storage instance from a given application or unit. This
 // should be called when removing a shared storage instance, or when
 // detaching a non-shared storage instance from a unit.
-func decrefEntityStorageOp(st *State, owner names.Tag, storageName string) (txn.Op, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+func decrefEntityStorageOp(mb modelBackend, owner names.Tag, storageName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageRefcountKey)
@@ -880,7 +907,7 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		ops = append(ops, u.assertCharmOps(ch)...)
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // attachStorageOps returns txn.Ops to attach a storage instance to the
@@ -998,7 +1025,7 @@ func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 // DetachStorage ensures that the storage attachment will be
@@ -1113,7 +1140,7 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		}
 		return append(ops, detachStorageOps(storage, unit)...), nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
@@ -1189,7 +1216,7 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func removeStorageAttachmentOps(
@@ -1805,7 +1832,7 @@ func (st *State) AddStorageForUnit(
 		}
 		return st.addStorageForUnitOps(u, name, cons)
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "adding %q storage to %s", name, u)
 	}
 	return nil
@@ -1835,19 +1862,39 @@ func (st *State) addStorageForUnitOps(
 	}
 	ops := u.assertCharmOps(ch)
 
-	// Populate missing configuration parameters with default values.
-	modelConfig, err := st.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	completeCons, err := storageConstraintsWithDefaults(
-		modelConfig,
-		charmStorageMeta,
-		storageName,
-		cons,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if cons.Pool == "" || cons.Size == 0 {
+		// Either pool or size, or both, were not specified. Take the
+		// values from the unit's recorded storage constraints.
+		allCons, err := u.StorageConstraints()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if uCons, ok := allCons[storageName]; ok {
+			if cons.Pool == "" {
+				cons.Pool = uCons.Pool
+			}
+			if cons.Size == 0 {
+				cons.Size = uCons.Size
+			}
+		}
+
+		// Populate missing configuration parameters with defaults.
+		if cons.Pool == "" || cons.Size == 0 {
+			modelConfig, err := st.ModelConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			completeCons, err := storageConstraintsWithDefaults(
+				modelConfig,
+				charmStorageMeta,
+				storageName,
+				cons,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cons = completeCons
+		}
 	}
 
 	// This can happen for charm stores that specify instances range from 0,
@@ -1857,7 +1904,7 @@ func (st *State) addStorageForUnitOps(
 		return nil, errors.NotValidf("adding storage where instance count is 0")
 	}
 
-	addUnitStorageOps, err := st.addUnitStorageOps(charmMeta, u, storageName, completeCons, -1)
+	addUnitStorageOps, err := st.addUnitStorageOps(charmMeta, u, storageName, cons, -1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -19,7 +20,7 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 
-	NewAPIConnForModel       api.NewConnectionForModelFunc
+	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade func(base.APICaller) (RemoteRelationsFacade, error)
 	NewWorker                func(Config) (worker.Worker, error)
 }
@@ -32,8 +33,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
-	if config.NewAPIConnForModel == nil {
-		return errors.NotValidf("nil NewAPIConnForModel")
+	if config.NewControllerConnection == nil {
+		return errors.NotValidf("nil NewControllerConnection")
 	}
 	if config.NewRemoteRelationsFacade == nil {
 		return errors.NotValidf("nil NewRemoteRelationsFacade")
@@ -63,20 +64,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	agentConf := agent.CurrentConfig()
-	apiInfo, ok := agentConf.APIInfo()
-	if !ok {
-		return nil, errors.New("no API connection details")
-	}
-	apiConnForModelFunc, err := config.NewAPIConnForModel(apiInfo)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := config.NewWorker(Config{
 		ModelUUID:                agent.CurrentConfig().Model().Id(),
 		RelationsFacade:          facade,
-		NewPublisherForModelFunc: relationChangePublisherForModelFunc(apiConnForModelFunc),
+		NewRemoteModelFacadeFunc: remoteRelationsFacadeForModelFunc(config.NewControllerConnection),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

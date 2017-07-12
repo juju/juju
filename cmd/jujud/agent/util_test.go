@@ -373,82 +373,6 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 	}
 }
 
-// waitForWorkers waits for a given worker to be started, returning all
-// workers started while waiting.
-func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string {
-	var seen []string
-	seenTargets := make(map[string]bool)
-	numSeenTargets := 0
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case workerName := <-r.startC:
-			c.Logf("worker %q started; workers seen so far: %+v (len: %d, len(targets): %d)", workerName, seen, len(seen), len(targets))
-			if seenTargets[workerName] == true {
-				c.Fatal("worker started twice: " + workerName)
-			}
-			seenTargets[workerName] = true
-			numSeenTargets++
-			seen = append(seen, workerName)
-			if numSeenTargets == len(targets) {
-				c.Logf("all expected target workers started: %+v", seen)
-				return seen
-			}
-			c.Logf("still waiting for workers %+v to start; numSeenTargets=%d", targets, numSeenTargets)
-		case <-timeout:
-			c.Fatalf("timed out waiting for %v", targets)
-		}
-	}
-}
-
-type mockMetricAPI struct {
-	stop          chan struct{}
-	cleanUpCalled chan struct{}
-	sendCalled    chan struct{}
-}
-
-func newMockMetricAPI() *mockMetricAPI {
-	return &mockMetricAPI{
-		stop:          make(chan struct{}),
-		cleanUpCalled: make(chan struct{}),
-		sendCalled:    make(chan struct{}),
-	}
-}
-
-func (m *mockMetricAPI) CleanupOldMetrics() error {
-	go func() {
-		select {
-		case m.cleanUpCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendMetrics() error {
-	go func() {
-		select {
-		case m.sendCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendCalled() <-chan struct{} {
-	return m.sendCalled
-}
-
-func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
-	return m.cleanUpCalled
-}
-
-func (m *mockMetricAPI) Stop() {
-	close(m.stop)
-}
-
 type mockLoopDeviceManager struct {
 	detachLoopDevicesArgRootfs string
 	detachLoopDevicesArgPrefix string
@@ -531,6 +455,7 @@ func newDummyWorker() worker.Worker {
 
 type FakeConfig struct {
 	agent.ConfigSetter
+	values map[string]string
 }
 
 func (FakeConfig) LogDir() string {
@@ -541,14 +466,22 @@ func (FakeConfig) Tag() names.Tag {
 	return names.NewMachineTag("42")
 }
 
+func (f FakeConfig) Value(key string) string {
+	if f.values == nil {
+		return ""
+	}
+	return f.values[key]
+}
+
 type FakeAgentConfig struct {
 	AgentConf
+	values map[string]string
 }
 
 func (FakeAgentConfig) ReadConfig(string) error { return nil }
 
-func (FakeAgentConfig) CurrentConfig() agent.Config {
-	return FakeConfig{}
+func (a FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{values: a.values}
 }
 
 func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {

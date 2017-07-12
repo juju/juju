@@ -79,7 +79,7 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	clock                  clock.Clock
+	stateClock             clock.Clock
 	modelTag               names.ModelTag
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
@@ -140,6 +140,7 @@ func (st *State) IsController() bool {
 func (st *State) ControllerUUID() string {
 	return st.controllerTag.Id()
 }
+
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }
@@ -201,7 +202,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			Id:     modelUUID,
 			Assert: modelAssertion,
 		}}, ops...)
-		err = st.runTransaction(ops)
+		err = st.db().RunTransaction(ops)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -231,7 +232,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = st.runTransaction(ops)
+	err = st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -260,7 +261,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())
 	}
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 // removeAllInCollectionRaw removes all the documents from the given
@@ -305,7 +306,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
+		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.stateClock,
 		st.runTransactionObserver,
 	)
 	if err != nil {
@@ -412,7 +413,7 @@ func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 		Namespace:    applicationLeadershipNamespace,
 		Collection:   leasesC,
 		Mongo:        &environMongo{st},
-		Clock:        st.clock,
+		Clock:        st.stateClock,
 		MonotonicNow: monotonic.Now,
 	})
 	if err != nil {
@@ -427,7 +428,7 @@ func (st *State) getSingularLeaseClient() (lease.Client, error) {
 		Namespace:    singularControllerNamespace,
 		Collection:   leasesC,
 		Mongo:        &environMongo{st},
-		Clock:        st.clock,
+		Clock:        st.stateClock,
 		MonotonicNow: monotonic.Now,
 	})
 	if err != nil {
@@ -493,6 +494,12 @@ func (st *State) EnsureModelRemoved() error {
 // which is needed to interact with the state/presence package.
 func (st *State) getPresenceCollection() *mgo.Collection {
 	return st.session.DB(presenceDB).C(presenceC)
+}
+
+// getPingBatcher returns the implementation of how we serialize Ping requests
+// for agents to the database.
+func (st *State) getPingBatcher() *presence.PingBatcher {
+	return st.workers.pingBatcherWorker()
 }
 
 // getTxnLogCollection returns the raw mongodb txns collection, which is
@@ -654,7 +661,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, settingsC, modelGlobalKey)
+		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -692,7 +699,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
+	if err = st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		// Although there is a small chance of a race here, try to
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
@@ -936,7 +943,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, rel := range peers {
-		relId, err := st.sequence("relation")
+		relId, err := sequence(st, "relation")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1174,7 +1181,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		ModelUUID:  st.ModelUUID(),
 		Status:     status.Waiting,
 		StatusInfo: status.MessageWaitForMachine,
-		Updated:    st.clock.Now().UnixNano(),
+		Updated:    st.clock().Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense.
@@ -1269,9 +1276,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return ops, nil
 	}
 	// At the last moment before inserting the application, prime status history.
-	probablyUpdateStatusHistory(st, app.globalKey(), statusDoc)
+	probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
 
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.
 		if err = app.Refresh(); err != nil {
 			return nil, errors.Trace(err)
@@ -1741,9 +1748,6 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			} else {
 				localSvc := svc.(*Application)
 				if localSvc.doc.Subordinate {
-					if remoteRelation {
-						return nil, errors.Errorf("cannot relate subordinate %q to remote application", localSvc.Name())
-					}
 					subordinateCount++
 				}
 				series[localSvc.doc.Series] = true
@@ -1773,7 +1777,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		// an operation to create the relation document.
 		if id == -1 {
 			var err error
-			if id, err = st.sequence("relation"); err != nil {
+			if id, err = sequence(st, "relation"); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -1794,7 +1798,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		})
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, errors.Trace(err)
@@ -1944,6 +1948,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.workers.txnLogWatcher().StartSync()
+	st.workers.pingBatcherWorker().Sync()
 	st.workers.presenceWatcher().Sync()
 }
 
@@ -2077,24 +2082,8 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set state serving info")
-	}
-	return nil
-}
-
-// SetSystemIdentity sets the system identity value in the database
-// if and only iff it is empty.
-func SetSystemIdentity(st *State, identity string) error {
-	ops := []txn.Op{{
-		C:      controllersC,
-		Id:     stateServingInfoKey,
-		Assert: bson.D{{"systemidentity", ""}},
-		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
-	}}
-
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }
@@ -2150,7 +2139,7 @@ func (st *State) setMongoSpaceName(mongoSpaceName network.SpaceName) error {
 		}},
 	}}
 
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
@@ -2160,7 +2149,7 @@ func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
 		Update: bson.D{{"$set", bson.D{{"mongo-space-state", mongoSpaceState}}}},
 	}}
 
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
@@ -2275,7 +2264,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	st.clock = clock
+	st.stateClock = clock
 	err = st.start(st.controllerTag)
 	if err != nil {
 		return errors.Trace(err)

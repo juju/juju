@@ -6,6 +6,7 @@ package storage
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
@@ -16,7 +17,7 @@ import (
 // used to remove storage from the model.
 func NewRemoveStorageCommandWithAPI() cmd.Command {
 	cmd := &removeStorageCommand{}
-	cmd.newEntityDestroyerCloser = func() (EntityDestroyerCloser, error) {
+	cmd.newStorageDestroyerCloser = func() (StorageDestroyerCloser, error) {
 		return cmd.NewStorageAPI()
 	}
 	return modelcmd.Wrap(cmd)
@@ -24,9 +25,9 @@ func NewRemoveStorageCommandWithAPI() cmd.Command {
 
 // NewRemoveStorageCommand returns a command
 // used to remove storage from the model.
-func NewRemoveStorageCommand(new NewEntityDestroyerCloserFunc) cmd.Command {
+func NewRemoveStorageCommand(new NewStorageDestroyerCloserFunc) cmd.Command {
 	cmd := &removeStorageCommand{}
-	cmd.newEntityDestroyerCloser = new
+	cmd.newStorageDestroyerCloser = new
 	return modelcmd.Wrap(cmd)
 }
 
@@ -34,6 +35,10 @@ const (
 	removeStorageCommandDoc = `
 Removes storage from the model. Specify one or more
 storage IDs, as output by "juju storage".
+
+By default, remove-storage will fail if the storage
+is attached to any units. To override this behaviour,
+you can use "juju remove-storage --force".
 
 Examples:
     juju remove-storage pgdata/0
@@ -43,8 +48,9 @@ Examples:
 
 type removeStorageCommand struct {
 	StorageCommandBase
-	newEntityDestroyerCloser NewEntityDestroyerCloserFunc
-	storageIds               []string
+	newStorageDestroyerCloser NewStorageDestroyerCloserFunc
+	storageIds                []string
+	force                     bool
 }
 
 // Info implements Command.Info.
@@ -55,6 +61,11 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 		Doc:     removeStorageCommandDoc,
 		Args:    removeStorageCommandArgs,
 	}
+}
+
+func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.StorageCommandBase.SetFlags(f)
+	f.BoolVar(&c.force, "force", false, "Remove storage even if it is currently attached")
 }
 
 // Init implements Command.Init.
@@ -68,13 +79,13 @@ func (c *removeStorageCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
-	destroyer, err := c.newEntityDestroyerCloser()
+	destroyer, err := c.newStorageDestroyerCloser()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer destroyer.Close()
 
-	results, err := destroyer.Destroy(c.storageIds)
+	results, err := destroyer.Destroy(c.storageIds, c.force)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "remove storage")
@@ -87,11 +98,21 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	anyFailed := false
+	anyAttached := false
 	for i, result := range results {
 		if result.Error != nil {
 			ctx.Infof("failed to remove %s: %s", c.storageIds[i], result.Error)
+			if params.IsCodeStorageAttached(result.Error) {
+				anyAttached = true
+			}
 			anyFailed = true
 		}
+	}
+	if anyAttached {
+		ctx.Infof(`
+Use the --force flag to remove attached storage, or use
+"juju detach-storage" to explicitly detach the storage
+before removing.`)
 	}
 	if anyFailed {
 		return cmd.ErrSilent
@@ -99,18 +120,18 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-// NewEntityDestroyerCloserFunc is the type of a function that returns an
-// EntityDestroyerCloser.
-type NewEntityDestroyerCloserFunc func() (EntityDestroyerCloser, error)
+// NewStorageDestroyerCloserFunc is the type of a function that returns an
+// StorageDestroyerCloser.
+type NewStorageDestroyerCloserFunc func() (StorageDestroyerCloser, error)
 
-// EntityDestroyerCloser extends EntityDestroyer with a Closer method.
-type EntityDestroyerCloser interface {
-	EntityDestroyer
+// StorageDestroyerCloser extends StorageDestroyer with a Closer method.
+type StorageDestroyerCloser interface {
+	StorageDestroyer
 	Close() error
 }
 
-// EntityDestroyer defines an interface for destroying storage instances
+// StorageDestroyer defines an interface for destroying storage instances
 // with the specified IDs.
-type EntityDestroyer interface {
-	Destroy([]string) ([]params.ErrorResult, error)
+type StorageDestroyer interface {
+	Destroy(storageIds []string, destroyAttached bool) ([]params.ErrorResult, error)
 }

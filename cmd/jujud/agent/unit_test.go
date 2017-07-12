@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -67,7 +68,7 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 // It returns the assigned machine, new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Config, *tools.Tools) {
 	machine := s.Factory.MakeMachine(c, nil)
-	app := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		Machine:     machine,
@@ -93,16 +94,19 @@ func (s *UnitSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
+	s.primeAgent(c)
+	// Now init actually reads the agent configuration file.
+	// So use the prime agent call which installs a wordpress unit.
 	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmdtesting.InitCommand(a, []string{
-		"--data-dir", "jd",
-		"--unit-name", "w0rd-pre55/1",
+		"--data-dir", s.DataDir(),
+		"--unit-name", "wordpress/0",
 		"--log-to-stderr",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(a.AgentConf.DataDir(), gc.Equals, "jd")
-	c.Check(a.UnitName, gc.Equals, "w0rd-pre55/1")
+	c.Check(a.AgentConf.DataDir(), gc.Equals, s.DataDir())
+	c.Check(a.UnitName, gc.Equals, "wordpress/0")
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
@@ -334,6 +338,26 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *UnitSuite) TestLoggingOverride(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+	agentConf := FakeAgentConfig{
+		values: map[string]string{agent.LoggingOverride: "test=trace"},
+	}
+
+	a := UnitAgent{
+		AgentConf: agentConf,
+		ctx:       ctx,
+		UnitName:  "mysql/25",
+	}
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	test := loggo.GetLogger("test")
+	c.Assert(test.LogLevel(), gc.Equals, loggo.TRACE)
 }
 
 func (s *UnitSuite) TestUseLumberjack(c *gc.C) {

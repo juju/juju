@@ -4,42 +4,53 @@ package model
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/keyvalues"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
 )
 
 const (
-	modelConfigSummary = "Displays or sets configuration values on a model."
-	modelConfigHelpDoc = `
+	modelConfigSummary        = "Displays or sets configuration values on a model."
+	modelConfigHelpDocPartOne = `
 By default, all configuration (keys, source, and values) for the current model
 are displayed.
 
 Supplying one key name returns only the value for the key. Supplying key=value
 will set the supplied key to the supplied value, this can be repeated for
-multiple keys.
-
-Examples
+multiple keys. You can also specify a yaml file containing key values.
+`
+	modelConfigHelpDocKeys = `
+The following keys are available:
+`
+	modelConfigHelpDocPartTwo = `
+Examples:
     juju model-config default-series
     juju model-config -m mycontroller:mymodel
     juju model-config ftp-proxy=10.0.0.1:8000
+    juju model-config ftp-proxy=10.0.0.1:8000 path/to/file.yaml
+    juju model-config path/to/file.yaml
     juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-config --reset default-series test-mode
 
 See also:
     models
     model-defaults
+    show-cloud
+    controller-config
 `
 )
 
@@ -57,11 +68,11 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action    func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys      []string
-	reset     []string // Holds the keys to be reset until parsed.
-	resetKeys []string // Holds the keys to be reset once parsed.
-	values    attributes
+	action     func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys       []string
+	reset      []string // Holds the keys to be reset until parsed.
+	resetKeys  []string // Holds the keys to be reset once parsed.
+	setOptions common.ConfigFlag
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -75,12 +86,25 @@ type configCommandAPI interface {
 
 // Info implements part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	info := &cmd.Info{
 		Args:    "[<model-key>[<=value>] ...]",
-		Doc:     modelConfigHelpDoc,
 		Name:    "model-config",
 		Purpose: modelConfigSummary,
 	}
+	if details, err := c.modelConfigDetails(); err == nil {
+		if output, err := formatGlobalModelConfigDetails(details); err == nil {
+			info.Doc = fmt.Sprintf("%s%s\n%s%s",
+				modelConfigHelpDocPartOne,
+				modelConfigHelpDocKeys,
+				output,
+				modelConfigHelpDocPartTwo)
+			return info
+		}
+	}
+	info.Doc = fmt.Sprintf("%s%s",
+		modelConfigHelpDocPartOne,
+		modelConfigHelpDocPartTwo)
+	return info
 }
 
 // SetFlags implements part of the cmd.Command interface.
@@ -127,7 +151,9 @@ func (c *configCommand) handleZeroArgs() error {
 
 // handleOneArg handles the case where there is one positional arg.
 func (c *configCommand) handleOneArg(arg string) error {
-	if strings.Contains(arg, "=") {
+	// We may have a single config.yaml file
+	_, err := os.Stat(arg)
+	if err == nil || strings.Contains(arg, "=") {
 		return c.parseSetKeys([]string{arg})
 	}
 	// If we are not setting a value, then we are retrieving one so we need to
@@ -144,12 +170,15 @@ func (c *configCommand) handleOneArg(arg string) error {
 
 // handleArgs handles the case where there's more than one positional arg.
 func (c *configCommand) handleArgs(args []string) error {
-	err := c.parseSetKeys(args)
-	if err != nil {
-		if !strings.Contains(strings.Join(args, " "), "=") {
+	if err := c.parseSetKeys(args); err != nil {
+		return errors.Trace(err)
+	}
+	for _, arg := range args {
+		// We may have a config.yaml file.
+		_, err := os.Stat(arg)
+		if err != nil && !strings.Contains(arg, "=") {
 			return errors.New("can only retrieve a single value, or all values")
 		}
-		return errors.Trace(err)
 	}
 	return nil
 }
@@ -157,25 +186,11 @@ func (c *configCommand) handleArgs(args []string) error {
 // parseSetKeys iterates over the args and make sure that the key=value pairs
 // are valid. It also checks that the same key isn't being reset.
 func (c *configCommand) parseSetKeys(args []string) error {
-	options, err := keyvalues.Parse(args, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	c.values = make(attributes)
-	for k, v := range options {
-		if k == config.AgentVersionKey {
-			return errors.Errorf(`agent-version must be set via "upgrade-juju"`)
-		}
-		c.values[k] = v
-	}
-
-	for _, k := range c.resetKeys {
-		if _, ok := c.values[k]; ok {
-			return errors.Errorf(
-				"key %q cannot be both set and reset in the same command", k)
+	for _, arg := range args {
+		if err := c.setOptions.Set(arg); err != nil {
+			return errors.Trace(err)
 		}
 	}
-
 	c.action = c.setConfig
 	return nil
 }
@@ -247,7 +262,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 // reset unsets the keys provided to the command.
 func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method
-	if err := c.verifyKnownKeys(client); err != nil {
+	if err := c.verifyKnownKeys(client, c.resetKeys); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -256,18 +271,31 @@ func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) e
 
 // set sets the provided key/value pairs on the model.
 func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
-	// ctx unused in this method.
-	envAttrs, err := client.ModelGet()
+	attrs, err := c.setOptions.ReadAttrs(ctx)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	for key := range c.values {
-		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %q is not defined in the current model configuration: possible misspelling", key)
+	var keys []string
+	values := make(attributes)
+	for k, v := range attrs {
+		if k == config.AgentVersionKey {
+			return errors.Errorf(`"agent-version"" must be set via "upgrade-juju"`)
 		}
-
+		values[k] = v
+		keys = append(keys, k)
 	}
-	return block.ProcessBlockedError(client.ModelSet(c.values), block.BlockChange)
+
+	for _, k := range c.resetKeys {
+		if _, ok := values[k]; ok {
+			return errors.Errorf(
+				"key %q cannot be both set and reset in the same command", k)
+		}
+	}
+
+	if err := c.verifyKnownKeys(client, keys); err != nil {
+		return errors.Trace(err)
+	}
+	return block.ProcessBlockedError(client.ModelSet(values), block.BlockChange)
 }
 
 // get writes the value of a single key or the full output for the model to the cmd.Context.
@@ -280,7 +308,7 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	for attrName := range attrs {
 		// We don't want model attributes included, these are available
 		// via show-model.
-		if c.isModelAttrbute(attrName) {
+		if c.isModelAttribute(attrName) {
 			delete(attrs, attrName)
 		}
 	}
@@ -313,17 +341,13 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
-func (c *configCommand) verifyKnownKeys(client configCommandAPI) error {
+func (c *configCommand) verifyKnownKeys(client configCommandAPI, keys []string) error {
 	known, err := client.ModelGet()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	allKeys := c.resetKeys[:]
-	for k := range c.values {
-		allKeys = append(allKeys, k)
-	}
-
+	allKeys := keys[:]
 	for _, key := range allKeys {
 		// check if the key exists in the known config
 		// and warn the user if the key is not defined
@@ -337,7 +361,7 @@ func (c *configCommand) verifyKnownKeys(client configCommandAPI) error {
 
 // isModelAttribute returns if the supplied attribute is a valid model
 // attribute.
-func (c *configCommand) isModelAttrbute(attr string) bool {
+func (c *configCommand) isModelAttribute(attr string) bool {
 	switch attr {
 	case config.NameKey, config.TypeKey, config.UUIDKey:
 		return true
@@ -377,4 +401,35 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 
 	tw.Flush()
 	return nil
+}
+
+// modelConfigDetails gets ModelDetails when a model is not available
+// to use.
+func (c *configCommand) modelConfigDetails() (map[string]interface{}, error) {
+
+	defaultSchema, err := config.Schema(nil)
+	if err != nil {
+		return nil, err
+	}
+	specifics := make(map[string]interface{})
+	for key, attr := range defaultSchema {
+		if attr.Secret || c.isModelAttribute(key) ||
+			attr.Group != environschema.EnvironGroup {
+			continue
+		}
+		specifics[key] = common.PrintConfigSchema{
+			Description: attr.Description,
+			Type:        fmt.Sprintf("%s", attr.Type),
+		}
+	}
+	return specifics, nil
+}
+
+func formatGlobalModelConfigDetails(values interface{}) (string, error) {
+	out := &bytes.Buffer{}
+	err := cmd.FormatSmart(out, values)
+	if err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }

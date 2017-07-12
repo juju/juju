@@ -134,7 +134,7 @@ func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 	var wrong int
 	err := s.manifold.Output(w, &wrong)
 	c.Check(wrong, gc.Equals, 0)
-	c.Check(err, gc.ErrorMatches, `out should be \*state.State; got .+`)
+	c.Check(err, gc.ErrorMatches, `out should be \*StateTracker; got .+`)
 }
 
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {

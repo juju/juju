@@ -24,7 +24,8 @@ type dumpCommand struct {
 	out cmd.Output
 	api DumpModelAPI
 
-	model string
+	model      string
+	simplified bool
 }
 
 const dumpModelHelpDoc = `
@@ -54,6 +55,7 @@ func (c *dumpCommand) Info() *cmd.Info {
 func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	f.BoolVar(&c.simplified, "simplified", false, "Dump a simplified partial model")
 }
 
 // Init implements Command.
@@ -68,7 +70,7 @@ func (c *dumpCommand) Init(args []string) error {
 // DumpModelAPI specifies the used function calls of the ModelManager.
 type DumpModelAPI interface {
 	Close() error
-	DumpModel(names.ModelTag) (map[string]interface{}, error)
+	DumpModel(names.ModelTag, bool) (map[string]interface{}, error)
 }
 
 func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
@@ -104,7 +106,7 @@ func (c *dumpCommand) Run(ctx *cmd.Context) error {
 	}
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	results, err := client.DumpModel(modelTag)
+	results, err := client.DumpModel(modelTag, c.simplified)
 	if err != nil {
 		return err
 	}

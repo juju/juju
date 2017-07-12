@@ -93,7 +93,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	}
 	controllerCfg := testing.FakeControllerConfig()
 
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -120,7 +120,11 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
+
 	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.openState(c, modelTag)
@@ -186,7 +190,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/borken")
-	_, err := state.Initialize(state.InitializeParams{
+	_, _, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -223,7 +227,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -245,12 +249,16 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
+
 	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
-	controllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	controllerInheritedConfig, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
@@ -292,17 +300,19 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,
 	}
-	st, err := state.Initialize(args)
+	ctlr, st, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = st.Close()
 	c.Check(err, jc.ErrorIsNil)
 
-	st, err = state.Initialize(args)
+	err = ctlr.Close()
+	c.Check(err, jc.ErrorIsNil)
+
+	ctlr, st, err = state.Initialize(args)
 	c.Check(err, gc.ErrorMatches, "already initialized")
-	if !c.Check(st, gc.IsNil) {
-		err = st.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}
+	c.Check(ctlr, gc.IsNil)
+	c.Check(st, gc.IsNil)
 }
 
 func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
@@ -352,13 +362,14 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 		MongoInfo:     statetesting.NewMongoInfo(),
 		MongoDialOpts: mongotest.DialOpts(),
 	}
-	_, err = state.Initialize(args)
+	_, _, err = state.Initialize(args)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	args.ControllerModelArgs.Config = good
-	st, err := state.Initialize(args)
+	ctlr, st, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
+	ctlr.Close()
 
 	s.openState(c, st.ModelTag())
 	err = s.State.UpdateModelConfig(update, remove)
@@ -405,7 +416,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	for _, badAttrName := range badAttrNames {
 		badAttrs := map[string]interface{}{badAttrName: "foo"}
 		args.ControllerInheritedConfig = badAttrs
-		_, err := state.Initialize(args)
+		_, _, err := state.Initialize(args)
 		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}
 }
@@ -426,7 +437,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -448,15 +459,19 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
+
 	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
 	for k := range regionInheritedConfigIn {
 		// Query for config for each region
-		regionInheritedConfig, err := state.ReadSettings(
-			s.State, state.GlobalSettingsC,
+		regionInheritedConfig, err := s.State.ReadSettings(
+			state.GlobalSettingsC,
 			"dummy#"+k)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(
@@ -484,7 +499,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -507,7 +522,11 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
+
 	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.openState(c, modelTag)
@@ -538,7 +557,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -561,7 +580,11 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
+
 	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.openState(c, modelTag)

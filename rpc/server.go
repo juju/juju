@@ -6,6 +6,8 @@ package rpc
 import (
 	"io"
 	"reflect"
+	"runtime/debug"
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -489,7 +491,16 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 
 // runRequest runs the given request and sends the reply.
 func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, observer Observer) {
+	// If the request causes a panic, ensure we log that before closing the connection.
+	defer func() {
+		if panicResult := recover(); panicResult != nil {
+			logger.Criticalf(
+				"panic running request %+v with arg %+v: %v\n%v", req, arg, panicResult, string(debug.Stack()))
+			conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), observer)
+		}
+	}()
 	defer conn.srvPending.Done()
+
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), observer)
@@ -510,7 +521,15 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, o
 		conn.sending.Unlock()
 	}
 	if err != nil {
-		logger.Errorf("error writing response: %v", err)
+		// If the message failed due to the other end closing the socket, that
+		// is expected when an agent restarts so no need to log an  error.
+		// The error type here is errors.errorString so all we can do is a match
+		// on the error string content.
+		msg := err.Error()
+		if !strings.Contains(msg, "websocket: close sent") &&
+			!strings.Contains(msg, "write: broken pipe") {
+			logger.Errorf("error writing response: %T %+v", err, err)
+		}
 	}
 }
 

@@ -123,7 +123,7 @@ type Watcher struct {
 	pending []event
 
 	// request is used to deliver requests from the public API into
-	// the the gorotuine loop.
+	// the the goroutine loop.
 	request chan interface{}
 
 	// syncDone contains pending done channels from sync requests.
@@ -137,6 +137,10 @@ type Watcher struct {
 	// syncsSinceLastPrune is a counter that tracks how long it has been
 	// since we've run a prune on the Beings and Pings collections.
 	syncsSinceLastPrune int
+}
+
+func (w Watcher) String() string {
+	return fmt.Sprintf("presence.Watcher(%s)", w.modelUUID)
 }
 
 type event struct {
@@ -459,11 +463,9 @@ func decompressPings(maps []map[string]int64) ([]int64, error) {
 	if len(maps) == 0 {
 		return nil, nil
 	}
-	// First step, merge the two value structures together.
-	// Every ping has a bit field in an int64. However, we can bitwise-or them
-	// and preserve the logic about what is actually alive in either set.
-	// It also means we have to convert the base from hex half as often,
-	// and things that ping 2x don't have to be parsed 2x.
+	// First step, merge all value structures together.
+	// Every ping has a bit field in an int64. However, bitwise-or preserves
+	// everything that was ever alive without having to decode them multiple times.
 	baseToBits := make(map[string]int64, len(maps[0]))
 	for i := range maps {
 		for hexbase, bits := range maps[i] {
@@ -660,28 +662,34 @@ func (w *Watcher) sync() error {
 // Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
-	modelUUID string
-	mu        sync.Mutex
-	tomb      tomb.Tomb
-	base      *mgo.Collection
-	pings     *mgo.Collection
-	started   bool
-	beingKey  string
-	beingSeq  int64
-	fieldKey  string // hex(beingKey / 63)
-	fieldBit  uint64 // 1 << (beingKey%63)
-	lastSlot  int64
-	delta     time.Duration
+	modelUUID    string
+	mu           sync.Mutex
+	tomb         tomb.Tomb
+	base         *mgo.Collection
+	pings        *mgo.Collection
+	started      bool
+	beingKey     string
+	beingSeq     int64
+	fieldKey     string // hex(beingKey / 63)
+	fieldBit     uint64 // 1 << (beingKey%63)
+	lastSlot     int64
+	delta        time.Duration
+	recorderFunc func() PingRecorder
+}
+
+type PingRecorder interface {
+	Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error
 }
 
 // NewPinger returns a new Pinger to report that key is alive.
 // It starts reporting after Start is called.
-func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string) *Pinger {
+func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string, recorderFunc func() PingRecorder) *Pinger {
 	return &Pinger{
-		base:      base,
-		pings:     pingsC(base),
-		beingKey:  key,
-		modelUUID: modelTag.Id(),
+		base:         base,
+		pings:        pingsC(base),
+		beingKey:     key,
+		modelUUID:    modelTag.Id(),
+		recorderFunc: recorderFunc,
 	}
 }
 
@@ -857,9 +865,9 @@ func (p *Pinger) ping() (err error) {
 			err = fmt.Errorf("%v", v)
 		}
 	}()
-	session := p.pings.Database.Session.Copy()
-	defer session.Close()
 	if p.delta == 0 {
+		session := p.pings.Database.Session.Copy()
+		defer session.Close()
 		base := p.base.With(session)
 		delta, err := clockDelta(base)
 		if err != nil {
@@ -875,13 +883,7 @@ func (p *Pinger) ping() (err error) {
 		return nil
 	}
 	p.lastSlot = slot
-	pings := p.pings.With(session)
-	_, err = pings.UpsertId(
-		docIDInt64(p.modelUUID, slot),
-		bson.D{
-			{"$set", bson.D{{"slot", slot}}},
-			{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}},
-		})
+	p.recorderFunc().Ping(p.modelUUID, slot, p.fieldKey, p.fieldBit)
 	return errors.Trace(err)
 }
 

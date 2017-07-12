@@ -4,7 +4,6 @@
 package application
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -105,11 +104,6 @@ func (*CmdSuite) TestUnexposeCommandInitWithMissingArgs(c *gc.C) {
 	cmd.SetClientStore(NewMockStore())
 	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
-}
-
-func initRemoveUnitCommand(args ...string) (cmd.Command, error) {
-	com := NewRemoveUnitCommand()
-	return com, cmdtesting.InitCommand(com, args)
 }
 
 func (*CmdSuite) TestRemoveUnitCommandInitMissingArgs(c *gc.C) {

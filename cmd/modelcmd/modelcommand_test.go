@@ -15,7 +15,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
@@ -198,12 +200,6 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-type closer struct{}
-
-func (*closer) Close() error {
-	return nil
-}
-
 var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
@@ -211,6 +207,7 @@ type macaroonLoginSuite struct {
 	store          *jujuclient.MemStore
 	controllerName string
 	modelName      string
+	apiOpen        api.OpenFunc
 }
 
 const testUser = "testuser@somewhere"
@@ -239,6 +236,12 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 		Models: map[string]jujuclient.ModelDetails{
 			s.modelName: {modelTag.Id()},
 		},
+	}
+	s.apiOpen = func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+		mac, err := macaroon.New(nil, "test", "")
+		c.Assert(err, jc.ErrorIsNil)
+		info.Macaroons = []macaroon.Slice{{mac}}
+		return api.Open(info, dialOpts)
 	}
 }
 
@@ -270,6 +273,7 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 	}
 
 	cmd := s.newModelCommandBase()
+	cmd.SetAPIOpen(s.apiOpen)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*", gc.Commentf("%s", errors.Details(err)))
 }
@@ -280,6 +284,7 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 	}
 
 	cmd := s.newModelCommandBase()
+	cmd.SetAPIOpen(s.apiOpen)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)", gc.Commentf("details: %s", errors.Details(err)))
 }

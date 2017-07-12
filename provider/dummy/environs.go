@@ -538,17 +538,17 @@ var _ config.ConfigSchemaSource = (*environProvider)(nil)
 
 // ConfigSchema returns extra config attributes specific
 // to this provider only.
-func (p environProvider) ConfigSchema() schema.Fields {
+func (p *environProvider) ConfigSchema() schema.Fields {
 	return configFields
 }
 
 // ConfigDefaults returns the default values for the
 // provider specific config attributes.
-func (p environProvider) ConfigDefaults() schema.Defaults {
+func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+func (*environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.EmptyAuthType: {},
 		cloud.UserPassAuthType: {
@@ -599,6 +599,11 @@ func (e *environ) state() (*environState, error) {
 	return state, nil
 }
 
+// Version is part of the EnvironProvider interface.
+func (*environProvider) Version() int {
+	return 0
+}
+
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -621,12 +626,12 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
 // this provider does not support custom clouds, this always returns nil.
-func (p environProvider) CloudSchema() *jsonschema.Schema {
+func (p *environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -771,7 +776,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			// the password in the info structure is empty, so the admin
 			// user is constructed with an empty password here.
 			// It is set just below.
-			st, err := state.Initialize(state.InitializeParams{
+			ctlr, st, err := state.Initialize(state.InitializeParams{
 				Clock:            clock.WallClock,
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
@@ -792,21 +797,27 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			if err != nil {
 				return err
 			}
+			ctlr.Close()
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
+				st.Close()
 				return err
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
+				st.Close()
 				return err
 			}
 			// We log this out for test purposes only. No one in real life can use
@@ -815,17 +826,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
-			estate.apiStatePool = state.NewStatePool(st)
-
+			statePool := state.NewStatePool(st)
 			machineTag := names.NewMachineTag("0")
-			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
+			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
 				Clock:       clock.WallClock,
 				Cert:        testing.ServerCert,
 				Key:         testing.ServerKey,
 				Tag:         machineTag,
 				DataDir:     DataDir,
 				LogDir:      LogDir,
-				StatePool:   estate.apiStatePool,
 				Hub:         centralhub.New(machineTag),
 				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
@@ -835,11 +844,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 						io.WriteString(w, "gazing")
 					}))
 				},
+				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 			})
 			if err != nil {
+				statePool.Close()
+				st.Close()
 				panic(err)
 			}
 			estate.apiState = st
+			estate.apiStatePool = statePool
 		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil

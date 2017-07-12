@@ -327,9 +327,9 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
-// WatchServices returns a StringsWatcher that notifies of changes to
+// WatchApplications returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the model.
-func (st *State) WatchServices() StringsWatcher {
+func (st *State) WatchApplications() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
 
@@ -994,7 +994,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
-	if err := readSettingsDocInto(w.backend, settingsC, key, &doc); err != nil {
+	if err := readSettingsDocInto(w.backend.db(), settingsC, key, &doc); err != nil {
 		return -1, err
 	}
 	setRelationUnitChangeVersion(changes, key, doc.Version)
@@ -1349,8 +1349,8 @@ func (u *Unit) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to a model.
-func (e *Model) Watch() NotifyWatcher {
-	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
+func (m *Model) Watch() NotifyWatcher {
+	return newEntityWatcher(m.globalState, modelsC, m.doc.UUID)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade
@@ -2726,5 +2726,131 @@ func isLocalID(st modelBackend) func(interface{}) bool {
 		}
 		_, err := st.strictLocalID(key)
 		return err == nil
+	}
+}
+
+// relationIngressWatcher notifies of changes in the
+// relationIngress collection.
+type relationIngressWatcher struct {
+	commonWatcher
+	key         string
+	filter      func(key interface{}) bool
+	knownTxnRev int64
+	knownCidrs  set.Strings
+	out         chan []string
+}
+
+var _ Watcher = (*relationIngressWatcher)(nil)
+
+// WatchRelationIngressNetworks starts and returns a StringsWatcher notifying
+// of changes to the relationIngress collection for the relation.
+func (r *Relation) WatchRelationIngressNetworks() StringsWatcher {
+	return newrelationIngressWatcher(r.st, r.Tag().Id())
+}
+
+func newrelationIngressWatcher(st modelBackend, relationKey string) StringsWatcher {
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return k == relationKey
+	}
+	w := &relationIngressWatcher{
+		commonWatcher: newCommonWatcher(st),
+		key:           relationKey,
+		filter:        filter,
+		knownCidrs:    set.NewStrings(),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+
+	return w
+}
+
+// Changes returns the event channel for watching changes
+// to a relation's ingress networks.
+func (w *relationIngressWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *relationIngressWatcher) loadCIDRs() (bool, error) {
+	coll, closer := w.db.GetCollection(relationIngressC)
+	defer closer()
+
+	var doc struct {
+		TxnRevno int64    `bson:"txn-revno"`
+		Id       string   `bson:"_id"`
+		CIDRs    []string `bson:"cidrs"`
+	}
+	err := coll.FindId(w.key).One(&doc)
+	if err == mgo.ErrNotFound {
+		// Record deleted.
+		changed := w.knownCidrs.Size() > 0
+		w.knownCidrs = set.NewStrings()
+		return changed, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+
+	}
+	cidrs := w.knownCidrs
+	if doc.TxnRevno == -1 {
+		// Record deleted.
+		cidrs = set.NewStrings()
+	}
+	if doc.TxnRevno > w.knownTxnRev {
+		cidrs = set.NewStrings(doc.CIDRs...)
+	}
+	w.knownTxnRev = doc.TxnRevno
+	changed := !cidrs.Difference(w.knownCidrs).IsEmpty() || !w.knownCidrs.Difference(cidrs).IsEmpty()
+	w.knownCidrs = cidrs
+	return changed, nil
+}
+
+func (w *relationIngressWatcher) loop() error {
+	in := make(chan watcher.Change)
+	w.watcher.WatchCollectionWithFilter(relationIngressC, in, w.filter)
+	defer w.watcher.UnwatchCollection(relationIngressC, in)
+
+	var (
+		sentInitial bool
+		changed     bool
+		out         chan<- []string
+		err         error
+	)
+	if _, err = w.loadCIDRs(); err != nil {
+		logger.Criticalf(err.Error())
+		return errors.Trace(err)
+	}
+	for {
+		if !sentInitial || changed {
+			changed = false
+			out = w.out
+		}
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case _, ok := <-in:
+			if !ok {
+				return tomb.ErrDying
+			}
+			if changed, err = w.loadCIDRs(); err != nil {
+				return errors.Trace(err)
+			}
+		case out <- w.knownCidrs.Values():
+			out = nil
+			sentInitial = true
+		}
+		if w.knownTxnRev == -1 {
+			// Record deleted
+			return tomb.ErrDying
+		}
 	}
 }

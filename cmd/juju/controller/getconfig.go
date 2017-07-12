@@ -36,6 +36,10 @@ const getControllerHelpDoc = `
 By default, all configuration (keys and values) for the controller are
 displayed if a key is not specified.
 
+The controller configuration is set during bootstrap, available keys
+and values can be found here:
+  https://jujucharms.com/docs/stable/controllers-config
+
 Examples:
 
     juju controller-config
@@ -44,6 +48,8 @@ Examples:
 
 See also:
     controllers
+    model-config
+    show-cloud
 `
 
 func (c *getConfigCommand) Info() *cmd.Info {

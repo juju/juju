@@ -113,7 +113,7 @@ func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.Appl
 // Remove deletes the application offer for offerName immediately.
 func (s *applicationOffers) Remove(offerName string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)
-	err = s.st.runTransaction(s.removeOps(offerName))
+	err = s.st.db().RunTransaction(s.removeOps(offerName))
 	if err == txn.ErrAborted {
 		// Already deleted.
 		return nil
@@ -200,7 +200,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 		}
 		return ops, nil
 	}
-	err = s.st.run(buildTxn)
+	err = s.st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -269,16 +269,16 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 		}
 		return ops, nil
 	}
-	err = s.st.run(buildTxn)
+	err = s.st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return s.makeApplicationOffer(doc)
 }
 
-func (s *applicationOffers) makeApplicationOfferDoc(st *State, uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
+func (s *applicationOffers) makeApplicationOfferDoc(mb modelBackend, uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
 	doc := applicationOfferDoc{
-		DocID:                  st.docID(offer.OfferName),
+		DocID:                  mb.docID(offer.OfferName),
 		OfferUUID:              uuid,
 		OfferName:              offer.OfferName,
 		ApplicationName:        offer.ApplicationName,

@@ -149,7 +149,7 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		return errors.Trace(err)
 	}
 	info.Constraints = c
-	modelStatus, err := getStatus(st, modelGlobalKey, "model")
+	modelStatus, err := getStatus(st.db(), modelGlobalKey, "model")
 	if e.isNotFoundAndModelDead(err) {
 		// Treat it as if the model is removed.
 		return e.removed(store, e.UUID, e.UUID, st)
@@ -347,7 +347,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		// so fetch the associated unit status and opened ports.
 		unitStatus, agentStatus, err := unitAndAgentStatus(st, u.Name)
 		if err != nil {
-			return errors.Annotatef(err, "reading unit and agent status for %q", u.Name)
+			return errors.Annotatef(err, "cannot retrieve unit and agent status for %q", u.Name)
 		}
 		// Unit and workload status.
 		info.WorkloadStatus = multiwatcher.NewStatusInfo(unitStatus, nil)
@@ -375,7 +375,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 	}
 	publicAddress, privateAddress, err := getUnitAddresses(st, u.Name)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "cannot get addresses for %q", u.Name)
 	}
 	info.PublicAddress = publicAddress
 	info.PrivateAddress = privateAddress
@@ -446,7 +446,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 		info.Constraints = c
 		needConfig = true
-		applicationStatus, err := getStatus(st, key, "application")
+		applicationStatus, err := getStatus(st.db(), key, "application")
 		if err != nil {
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
@@ -463,7 +463,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 			// Not sure how status can even return NotFound as it is created
 			// with the application initially. For now, we'll log the error as per
 			// the above and return Unknown.
-			now := st.clock.Now()
+			now := st.clock().Now()
 			info.Status = multiwatcher.StatusInfo{
 				Current: status.Unknown,
 				Since:   &now,
@@ -474,6 +474,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		// The entry already exists, so preserve the current status.
 		oldInfo := oldInfo.(*multiwatcher.ApplicationInfo)
 		info.Constraints = oldInfo.Constraints
+		info.WorkloadVersion = oldInfo.WorkloadVersion
 		if info.CharmURL == oldInfo.CharmURL {
 			// The charm URL remains the same - we can continue to
 			// use the same config settings.
@@ -485,7 +486,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 	}
 	if needConfig {
-		doc, err := readSettingsDoc(st, settingsC, applicationSettingsKey(app.Name, app.CharmURL))
+		doc, err := readSettingsDoc(st.db(), settingsC, applicationSettingsKey(app.Name, app.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -530,7 +531,7 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 		logger.Debugf("new remote application %q added to backing state", app.Name)
 		// Fetch the status.
 		key := remoteApplicationGlobalKey(app.Name)
-		serviceStatus, err := getStatus(st, key, "remote application")
+		serviceStatus, err := getStatus(st.db(), key, "remote application")
 		if err != nil {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
 		}
@@ -787,7 +788,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo := *info
 		// Get the unit's current recorded status from state.
 		// It's needed to reset the unit status when a unit comes off error.
-		statusInfo, err := getStatus(st, unitGlobalKey(newInfo.Name), "unit")
+		statusInfo, err := getStatus(st.db(), unitGlobalKey(newInfo.Name), "unit")
 		if err != nil {
 			return err
 		}
@@ -841,8 +842,13 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		}
 	}
 
-	// A change in a unit's status might also affect it's application.
-	application, err := st.Application(newInfo.Application)
+	// Retrieve the unit.
+	unit, err := st.Unit(newInfo.Name)
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve unit %q", newInfo.Name)
+	}
+	// A change in a unit's status might also affect its application.
+	application, err := unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -860,6 +866,12 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	}
 	newApplicationInfo := *applicationInfo.(*multiwatcher.ApplicationInfo)
 	newApplicationInfo.Status = multiwatcher.NewStatusInfo(status, nil)
+	workloadVersion, err := unit.WorkloadVersion()
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve workload version for %q", unit.Name())
+	} else if workloadVersion != "" {
+		newApplicationInfo.WorkloadVersion = workloadVersion
+	}
 	store.Update(&newApplicationInfo)
 	return nil
 }
@@ -1330,11 +1342,11 @@ func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 }
 
 func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(m *Model, all *multiwatcherStore) error {
-	st, err := b.st.ForModel(m.ModelTag())
+	st, releaser, err := b.stPool.Get(m.UUID())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer st.Close()
+	defer releaser()
 
 	err = loadAllWatcherEntities(st, b.collectionByName, all)
 	if err != nil {
@@ -1399,7 +1411,7 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func(), error) {
+func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, StatePoolReleaser, error) {
 	st, releaser, err := b.stPool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

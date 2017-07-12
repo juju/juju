@@ -5,13 +5,11 @@ package util
 
 import (
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/series"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
@@ -231,36 +229,6 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		MemoryProfile: agentConfig.MongoMemoryProfile(),
 	}
 	return params, nil
-}
-
-// NewCloseWorker returns a task that wraps the given task,
-// closing the given closer when it finishes.
-func NewCloseWorker(logger loggo.Logger, worker worker.Worker, closer io.Closer) worker.Worker {
-	return &CloseWorker{
-		worker: worker,
-		closer: closer,
-		logger: logger,
-	}
-}
-
-// CloseWorker is a worker which closes the given closer when finished
-// with a task.
-type CloseWorker struct {
-	worker worker.Worker
-	closer io.Closer
-	logger loggo.Logger
-}
-
-func (c *CloseWorker) Kill() {
-	c.worker.Kill()
-}
-
-func (c *CloseWorker) Wait() error {
-	err := c.worker.Wait()
-	if err := c.closer.Close(); err != nil {
-		c.logger.Errorf("closeWorker: close error: %v", err)
-	}
-	return err
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

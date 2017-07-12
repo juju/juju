@@ -66,11 +66,11 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.machine = nil
 
 	sch := s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingService(c, "u", sch)
+	s.service = s.AddTestingApplication(c, "u", sch)
 	s.unit = s.AddUnit(c, s.service)
 
 	s.meteredCharm = s.AddTestingCharm(c, "metered")
-	meteredService := s.AddTestingService(c, "m", s.meteredCharm)
+	meteredService := s.AddTestingApplication(c, "m", s.meteredCharm)
 	meteredUnit := s.addUnit(c, meteredService)
 	err = meteredUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -161,7 +161,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit 
 }
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
-	s.AddTestingService(c, name, s.relch)
+	s.AddTestingApplication(c, name, s.relch)
 	eps, err := s.State.InferEndpoints("u", name)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -350,28 +350,6 @@ func (s *BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
 
 func (s *BlockHelper) Close() {
 	s.blockClient.Close()
-}
-
-// StubMetricsRecorder implements the MetricsRecorder interface.
-type StubMetricsRecorder struct {
-	*jujutesting.Stub
-}
-
-// AddMetric implements the MetricsRecorder interface.
-func (s StubMetricsRecorder) AddMetric(key, value string, created time.Time) error {
-	s.AddCall("AddMetric", key, value, created)
-	return nil
-}
-
-func (mr *StubMetricsRecorder) IsDeclaredMetric(key string) bool {
-	mr.MethodCall(mr, "IsDeclaredMetric", key)
-	return true
-}
-
-// Close implements the MetricsRecorder interface.
-func (s StubMetricsRecorder) Close() error {
-	s.AddCall("Close")
-	return nil
 }
 
 // MockEnvPaths implements Paths for tests that don't need to actually touch

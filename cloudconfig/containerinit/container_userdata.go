@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloudconfig"
@@ -22,8 +21,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 )
 
 var (
@@ -275,103 +272,6 @@ func CloudInitUserData(
 		return nil, errors.Trace(err)
 	}
 	return data, nil
-}
-
-// TemplateUserData returns a minimal user data necessary for the template.
-// This should have the authorized keys, base packages, the cloud archive if
-// necessary,  initial apt proxy config, and it should do the apt-get
-// update/upgrade initially.
-func TemplateUserData(
-	series string,
-	authorizedKeys string,
-	aptProxy proxy.Settings,
-	aptMirror string,
-	enablePackageUpdates bool,
-	enableOSUpgrades bool,
-	networkConfig *container.NetworkConfig,
-) ([]byte, error) {
-	var config cloudinit.CloudConfig
-	var err error
-	if networkConfig != nil {
-		config, err = newCloudInitConfigWithNetworks(series, networkConfig)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		config, err = cloudinit.New(series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	cloudconfig.SetUbuntuUser(config, authorizedKeys)
-	config.AddScripts(
-		"set -xe", // ensure we run all the scripts or abort.
-	)
-	// For LTS series which need support for the cloud-tools archive,
-	// we need to enable apt-get update regardless of the environ
-	// setting, otherwise provisioning will fail.
-	if series == "precise" && !enablePackageUpdates {
-		logger.Infof("series %q requires cloud-tools archive: enabling updates", series)
-		enablePackageUpdates = true
-	}
-
-	if enablePackageUpdates && config.RequiresCloudArchiveCloudTools() {
-		config.AddCloudArchiveCloudTools()
-	}
-	config.AddPackageCommands(aptProxy, aptMirror, enablePackageUpdates, enableOSUpgrades)
-
-	initSystem, err := service.VersionInitSystem(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cmds, err := shutdownInitCommands(initSystem, series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	config.AddScripts(strings.Join(cmds, "\n"))
-
-	data, err := config.RenderYAML()
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func shutdownInitCommands(initSystem, series string) ([]string, error) {
-	shutdownCmd := "/sbin/shutdown -h now"
-	name := "juju-template-restart"
-	desc := "juju shutdown job"
-
-	execStart := shutdownCmd
-
-	conf := common.Conf{
-		Desc:         desc,
-		Transient:    true,
-		AfterStopped: "cloud-final",
-		ExecStart:    execStart,
-	}
-	// systemd uses targets for synchronization of services
-	if initSystem == service.InitSystemSystemd {
-		conf.AfterStopped = "cloud-config.target"
-	}
-
-	svc, err := service.NewService(name, conf, series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cmds, err := svc.InstallCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	startCommands, err := svc.StartCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cmds = append(cmds, startCommands...)
-
-	return cmds, nil
 }
 
 // Note: we sleep to mitigate against LP #1337873 and LP #1269921.

@@ -13,12 +13,16 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/crossmodelrelations"
 	apifirewaller "github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/api/remotefirewaller"
 	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -42,11 +46,11 @@ type firewallerBaseSuite struct {
 	controllerMachine  *state.Machine
 	controllerPassword string
 
-	st               api.Connection
-	firewaller       *apifirewaller.State
-	remoteRelations  *remoterelations.Client
-	remotefirewaller *remotefirewaller.Client
-	mockClock        *mockClock
+	st                   api.Connection
+	firewaller           *apifirewaller.State
+	remoteRelations      *remoterelations.Client
+	crossmodelFirewaller *crossmodelrelations.Client
+	mockClock            *mockClock
 }
 
 func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
@@ -204,8 +208,8 @@ func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
-		NewRemoteFirewallerAPIFunc: func(modelUUID string) (firewaller.RemoteFirewallerAPICloser, error) {
-			return s.remotefirewaller, nil
+		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+			return s.crossmodelFirewaller, nil
 		},
 		Clock: s.mockClock,
 	}
@@ -223,7 +227,7 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
@@ -244,7 +248,7 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
@@ -273,7 +277,7 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -284,7 +288,7 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app2 := s.AddTestingService(c, "mysql", s.charm)
+	app2 := s.AddTestingApplication(c, "mysql", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,7 +321,7 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	// add a unit but don't start its instance yet.
@@ -345,7 +349,7 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -376,7 +380,7 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
@@ -408,7 +412,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -436,7 +440,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
@@ -462,7 +466,7 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -494,7 +498,7 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -531,7 +535,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -558,7 +562,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -567,7 +571,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app2 := s.AddTestingService(c, "mysql", s.charm)
+	app2 := s.AddTestingApplication(c, "mysql", s.charm)
 	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -606,7 +610,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -640,7 +644,7 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -671,7 +675,7 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
@@ -702,101 +706,181 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, expectedCIDRS []string) {
-	// Set up another model to host one side of a remote relation.
-	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
-	defer otherState.Close()
-
-	// Create the consuming side.
-	otherFactory := factory.NewFactory(otherState)
-	ch := otherFactory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wp := otherFactory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
-
-	// Create an api connection to the other model.
-	apiInfo := s.APIInfo(c)
-	apiInfo.ModelTag = otherState.ModelTag()
-	apiInfo.Tag = s.controllerMachine.Tag()
-	apiInfo.Password = s.controllerPassword
-	apiInfo.Nonce = "fake_nonce"
-	apiCaller, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiCaller.Close()
-
-	// Use the other model api connection to create the remote firewaller facade
-	s.remotefirewaller = remotefirewaller.NewClient(apiCaller)
-	c.Assert(s.remotefirewaller, gc.NotNil)
-
-	// Create the firewaller facade on the offering model.
-	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
-
-	// Set up the offering model - create the remote app and relation.
-	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "wordpress", SourceModel: otherState.ModelTag(),
-		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "requirer", Scope: "global"}},
+func (s *InstanceModeSuite) TestRemoteRelationRequirerRole(c *gc.C) {
+	// Set up the consuming model - create the local app.
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	// Set up the consuming model - create the remote app.
+	offeringModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	appToken := utils.MustNewUUID().String()
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", SourceModel: offeringModelTag,
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	// Create the external controller info.
+	ec := state.NewExternalControllers(s.State)
+	_, err = ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Addrs:         []string{"1.2.3.4:1234"},
+		CACert:        coretesting.CACert}, offeringModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	published := make(chan bool)
+	var relToken string
+	var ingressRequired bool
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "PublishIngressNetworkChanges")
+		expected := params.IngressNetworksChanges{
+			Changes: []params.IngressNetworksChangeEvent{{
+				RelationId:      params.RemoteEntityId{ModelUUID: s.State.ModelUUID(), Token: relToken},
+				ApplicationId:   params.RemoteEntityId{ModelUUID: offeringModelTag.Id(), Token: appToken},
+				Networks:        []string{"10.0.0.4/32"},
+				IngressRequired: ingressRequired,
+			}},
+		}
+		expected.Changes[0].IngressRequired = ingressRequired
+		if !ingressRequired {
+			expected.Changes[0].Networks = []string{}
+		}
+		c.Check(arg, gc.DeepEquals, expected)
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		published <- true
+		return nil
+	})
+
+	s.crossmodelFirewaller = crossmodelrelations.NewClient(apiCaller)
+	c.Assert(s.crossmodelFirewaller, gc.NotNil)
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
 
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u, m := s.addUnit(c, mysql)
-	err = u.OpenPort("tcp", 3306)
-	c.Assert(err, jc.ErrorIsNil)
-	inst := s.startInstance(c, m)
-
-	// Export the relation so the firewaller knows it's ready to be processed.
+	// Export the relation details so the firewaller knows it's ready to be processed.
 	re := s.State.RemoteEntities()
-	token, err := re.ExportLocalEntity(rel.Tag())
+	relToken, err = re.ExportLocalEntity(rel.Tag())
 	c.Assert(err, jc.ErrorIsNil)
+	err = re.ImportRemoteEntity(offeringModelTag, app.Tag(), appToken)
+	c.Assert(err, jc.ErrorIsNil)
+	ingressRequired = true
 
-	// Set up the remote relation in the consuming model.
-	_, err = otherState.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: otherState.ModelTag(),
-		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
-	})
-	eps, err = otherState.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	otherRel, err := otherState.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	re = otherState.RemoteEntities()
-	err = re.ImportRemoteEntity(s.State.ModelTag(), otherRel.Tag(), token)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We should not have opened any ports yet - no unit has entered scope.
-	s.assertPorts(c, inst, m.Id(), nil)
+	// We should not have published any ingress events yet - no unit has entered scope.
+	select {
+	case <-time.After(coretesting.ShortWait):
+	case <-published:
+		c.Fatal("unexpected ingress change to be published")
+	}
 
 	// Add a public address to the consuming unit so the firewaller can use it.
-	wpm := otherFactory.MakeMachine(c, &factory.MachineParams{
+	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Addresses: []network.Address{network.NewAddress("10.0.0.4")},
 	})
-	wpu := otherFactory.MakeUnit(c, &factory.UnitParams{Application: wp, Machine: wpm})
+	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	relUnit, err := otherRel.Unit(wpu)
+	err = u.AssignToMachine(wpm)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
-	// This will trigger the firewaller.
-	err = relUnit.EnterScope(map[string]interface{}{})
+	// This will trigger the firewaller to publish the changes.
+	err = ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on enter scope")
+	case <-published:
+	}
+
+	// Check the relation ready poll time is as expected.
+	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+
+	// Change should be sent when unit leaves scope.
+	ingressRequired = false
+	err = ru.LeaveScope()
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on leave scope")
+	case <-published:
+	}
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationProviderRole(c *gc.C) {
+	// Set up the offering model - create the local app.
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	u, m := s.addUnit(c, mysql)
+	inst := s.startInstance(c, m)
+	err := u.OpenPort("tcp", 3306)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set up the offering model - create the remote app.
+	consumingModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	relToken := utils.MustNewUUID().String()
+	appToken := utils.MustNewUUID().String()
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "wordpress", SourceModel: consumingModelTag,
+		Endpoints: []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the firewaller facade on the offering model.
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Export the relation details so the firewaller knows it's ready to be processed.
+	re := s.State.RemoteEntities()
+	err = re.ImportRemoteEntity(consumingModelTag, rel.Tag(), relToken)
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.ImportRemoteEntity(consumingModelTag, app.Tag(), appToken)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No port changes yet.
+	s.assertPorts(c, inst, m.Id(), nil)
+
+	// Save a new ingress network against the relation.
+	rin := state.NewRelationIngressNetworks(s.State)
+	_, err = rin.Save(rel.Tag().Id(), []string{"10.0.0.4/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	//Ports opened.
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, expectedCIDRS...),
+		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
 	})
 
 	// Check the relation ready poll time is as expected.
 	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
 
-	// Ports should be closed when unit leaves scope.
-	err = relUnit.LeaveScope()
+	// Change should be sent when ingress networks disappear.
+	_, err = rin.Save(rel.Tag().Id(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
-}
 
-func (s *InstanceModeSuite) TestRemoteRelation(c *gc.C) {
-	s.assertRemoteRelation(c, []string{"10.0.0.4/32"})
+	_, err = rin.Save(rel.Tag().Id(), []string{"10.0.0.4/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+	})
+
+	// And again when relation is destroyed.
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), nil)
 }
 
 type GlobalModeSuite struct {
@@ -821,8 +905,8 @@ func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
-		NewRemoteFirewallerAPIFunc: func(modelUUID string) (firewaller.RemoteFirewallerAPICloser, error) {
-			return s.remotefirewaller, nil
+		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+			return s.crossmodelFirewaller, nil
 		},
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
@@ -840,7 +924,7 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -851,7 +935,7 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app2 := s.AddTestingService(c, "moinmoin", s.charm)
+	app2 := s.AddTestingApplication(c, "moinmoin", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
@@ -892,7 +976,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.startInstance(c, m)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
@@ -918,7 +1002,7 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	// Start firewaller and open ports.
 	fw := s.newFirewaller(c)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -957,7 +1041,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	// Start firewaller and open ports.
 	fw := s.newFirewaller(c)
 
-	app := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -991,7 +1075,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	// Start firewaller and open ports.
 	fw := s.newFirewaller(c)
 
-	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1011,7 +1095,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	err = worker.Stop(fw)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app2 := s.AddTestingService(c, "moinmoin", s.charm)
+	app2 := s.AddTestingApplication(c, "moinmoin", s.charm)
 	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1068,8 +1152,8 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
-		NewRemoteFirewallerAPIFunc: func(modelUUID string) (firewaller.RemoteFirewallerAPICloser, error) {
-			return s.remotefirewaller, nil
+		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+			return s.crossmodelFirewaller, nil
 		},
 	}
 	_, err := firewaller.NewFirewaller(cfg)

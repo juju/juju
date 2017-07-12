@@ -20,15 +20,15 @@ type sequenceDoc struct {
 
 // sequence safely increments a database backed sequence, returning
 // the next value.
-func (st *State) sequence(name string) (int, error) {
-	sequences, closer := st.db().GetCollection(sequenceC)
+func sequence(mb modelBackend, name string) (int, error) {
+	sequences, closer := mb.db().GetCollection(sequenceC)
 	defer closer()
 	query := sequences.FindId(name)
 	inc := mgo.Change{
 		Update: bson.M{
 			"$set": bson.M{
 				"name":       name,
-				"model-uuid": st.ModelUUID(),
+				"model-uuid": mb.modelUUID(),
 			},
 			"$inc": bson.M{"counter": 1},
 		},
@@ -54,10 +54,10 @@ func (st *State) sequence(name string) (int, error) {
 //
 // `sequence` is more efficient than `sequenceWithMin` and should be
 // preferred if there is no minimum value requirement.
-func (st *State) sequenceWithMin(name string, minVal int) (int, error) {
-	sequences, closer := st.getRawCollection(sequenceC)
+func sequenceWithMin(mb modelBackend, name string, minVal int) (int, error) {
+	sequences, closer := mb.db().GetRawCollection(sequenceC)
 	defer closer()
-	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
+	updater := newDbSeqUpdater(sequences, mb.modelUUID(), name)
 	return updateSeqWithMin(updater, minVal)
 }
 

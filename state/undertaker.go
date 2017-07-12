@@ -46,13 +46,13 @@ func (st *State) ProcessDyingModel() (err error) {
 			Assert: isDyingDoc,
 			Update: bson.M{"$set": bson.M{
 				"life":          Dead,
-				"time-of-death": st.NowToTheSecond(),
+				"time-of-death": st.nowToTheSecond(),
 			}},
 		}}
 		return ops, nil
 	}
 
-	if err = st.run(buildTxn); err != nil {
+	if err = st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

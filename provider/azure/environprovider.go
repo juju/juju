@@ -12,8 +12,16 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
+)
+
+const (
+	// provider version 1 introduces the "common" deployment,
+	// which contains common resources such as the virtual
+	// network and network security group.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
 )
 
 // Logger for the Azure provider.
@@ -45,10 +53,11 @@ type ProviderConfig struct {
 	// key pair for provisioning Linux machines.
 	GenerateSSHKey func(comment string) (private, public string, _ error)
 
-	// InteractiveCreateServicePrincipal is a function used to
-	// interactively create/update service principals with
-	// password credentials.
-	InteractiveCreateServicePrincipal azureauth.InteractiveCreateServicePrincipalFunc
+	// ServicePrincipalCreator is the interface used to create service principals.
+	ServicePrincipalCreator ServicePrincipalCreator
+
+	// AzureCLI is the interface the to Azure CLI (az) command.
+	AzureCLI AzureCLI
 }
 
 // Validate validates the Azure provider configuration.
@@ -65,8 +74,11 @@ func (cfg ProviderConfig) Validate() error {
 	if cfg.GenerateSSHKey == nil {
 		return errors.NotValidf("nil GenerateSSHKey")
 	}
-	if cfg.InteractiveCreateServicePrincipal == nil {
-		return errors.NotValidf("nil InteractiveCreateServicePrincipal")
+	if cfg.ServicePrincipalCreator == nil {
+		return errors.NotValidf("nil ServicePrincipalCreator")
+	}
+	if cfg.AzureCLI == nil {
+		return errors.NotValidf("nil AzureCLI")
 	}
 	return nil
 }
@@ -84,12 +96,16 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 	}
 	return &azureEnvironProvider{
 		environProviderCredentials: environProviderCredentials{
-			sender:                            config.Sender,
-			requestInspector:                  config.RequestInspector,
-			interactiveCreateServicePrincipal: config.InteractiveCreateServicePrincipal,
+			servicePrincipalCreator: config.ServicePrincipalCreator,
+			azureCLI:                config.AzureCLI,
 		},
 		config: config,
 	}, nil
+}
+
+// Version is part of the EnvironProvider interface.
+func (prov *azureEnvironProvider) Version() int {
+	return currentProviderVersion
 }
 
 // Open is part of the EnvironProvider interface.

@@ -9,19 +9,19 @@ endif
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
-ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
-	GO_C := golang-1.8
-	INSTALL_FLAGS :=
-else
-	GO_C := gccgo-4.9  gccgo-go
-	INSTALL_FLAGS := -gccgoflags=-static-libgo
-endif
-
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
 	TEST_TIMEOUT := 2400s
 else
 	TEST_TIMEOUT := 1500s
+endif
+
+ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
+	GO_C = golang-1.8
+	INSTALL_FLAGS =
+else
+	GO_C = gccgo-4.9  gccgo-go
+	INSTALL_FLAGS = -gccgoflags=-static-libgo
 endif
 
 define DEPENDENCIES
@@ -31,7 +31,6 @@ define DEPENDENCIES
   distro-info-data
   git
   zip
-  $(GO_C)
 endef
 
 default: build
@@ -98,7 +97,6 @@ rebuild-dependencies.tsv: godeps
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
 	@echo Adding juju PPAs for golang and juju
-	@sudo apt-add-repository --yes ppa:juju/golang
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 	@echo Installing dependencies
@@ -126,8 +124,16 @@ GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/...
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
+install-go:
+	@echo Adding juju PPAs for golang and juju
+	@sudo apt-add-repository -y ppa:juju/golang
+	@sudo apt-get update
+	@echo Installing $(GO_C)
+	@sudo apt-get -y install $(GO_C)
+
 .PHONY: build check install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps
+.PHONY: install-go

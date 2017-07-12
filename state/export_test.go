@@ -58,7 +58,6 @@ var (
 	AddVolumeOps                         = (*State).addVolumeOps
 	CombineMeterStatus                   = combineMeterStatus
 	ApplicationGlobalKey                 = applicationGlobalKey
-	ReadSettings                         = readSettings
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
 	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
@@ -168,23 +167,23 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingService(c, st, "", name, ch, nil, nil)
+func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
+	return addTestingApplication(c, st, "", name, ch, nil, nil)
 }
 
-func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
-	return addTestingService(c, st, series, name, ch, nil, nil)
+func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+	return addTestingApplication(c, st, series, name, ch, nil, nil)
 }
 
-func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
-	return addTestingService(c, st, "", name, ch, nil, storage)
+func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	return addTestingApplication(c, st, "", name, ch, nil, storage)
 }
 
-func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingService(c, st, "", name, ch, bindings, nil)
+func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingApplication(c, st, "", name, ch, bindings, nil)
 }
 
-func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
+func addTestingApplication(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
 	app, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
@@ -231,36 +230,6 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	return sch
 }
 
-// SetCharmBundleURL sets the deprecated bundleurl field in the
-// charm document for the charm with the specified URL.
-func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
-	ops := []txn.Op{{
-		C:      charmsC,
-		Id:     st.docID(curl.String()),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
-	}}
-	err := st.runTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func SetPasswordHash(e Authenticator, passwordHash string) error {
-	type hasSetPasswordHash interface {
-		setPasswordHash(string) error
-	}
-	return e.(hasSetPasswordHash).setPasswordHash(passwordHash)
-}
-
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func GetPasswordHash(e Authenticator) string {
-	type hasGetPasswordHash interface {
-		getPasswordHash() string
-	}
-	return e.(hasGetPasswordHash).getPasswordHash()
-}
-
 func init() {
 	txnLogSize = txnLogSizeTests
 }
@@ -296,8 +265,12 @@ func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interfac
 	return st.tagToCollectionAndId(tag)
 }
 
+func NowToTheSecond(st *State) time.Time {
+	return st.nowToTheSecond()
+}
+
 func RunTransaction(st *State, ops []txn.Op) error {
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 // Return the PasswordSalt that goes along with the PasswordHash
@@ -367,7 +340,7 @@ func GetCollection(st *State, name string) (mongo.Collection, func()) {
 }
 
 func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
-	return st.getRawCollection(name)
+	return st.db().GetRawCollection(name)
 }
 
 func HasRawAccess(collectionName string) bool {
@@ -385,15 +358,15 @@ func MultiEnvCollections() []string {
 }
 
 func Sequence(st *State, name string) (int, error) {
-	return st.sequence(name)
+	return sequence(st, name)
 }
 
 func SequenceWithMin(st *State, name string, minVal int) (int, error) {
-	return st.sequenceWithMin(name, minVal)
+	return sequenceWithMin(st, name, minVal)
 }
 
 func SequenceEnsure(st *State, name string, nextVal int) error {
-	sequences, closer := st.getRawCollection(sequenceC)
+	sequences, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
 	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
 	return updater.ensure(nextVal)
@@ -405,7 +378,7 @@ func SetModelLifeDead(st *State, modelUUID string) error {
 		Id:     modelUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 func HostedModelCount(c *gc.C, st *State) int {
@@ -513,7 +486,7 @@ func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
 	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
-	txnError := app.st.runTransaction([]txn.Op{removeOp})
+	txnError := app.st.db().RunTransaction([]txn.Op{removeOp})
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -555,7 +528,7 @@ func ResetMigrationMode(c *gc.C, st *State) {
 			"$set": bson.M{"migration-mode": MigrationModeNone},
 		},
 	}}
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -601,10 +574,10 @@ func PrimeUnitStatusHistory(
 	}
 
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
-		return statusSetOps(unit.st, doc, globalKey)
+		return statusSetOps(unit.st.db(), doc, globalKey)
 	}
 
-	err := unit.st.run(buildTxn)
+	err := unit.st.db().Run(buildTxn)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -669,13 +642,13 @@ func AssertNoCleanups(c *gc.C, st *State) {
 // GetApplicationSettings allows access to settings collection for a
 // given application.
 func GetApplicationSettings(st *State, app *Application) *Settings {
-	return newSettings(st, settingsC, app.settingsKey())
+	return newSettings(st.db(), settingsC, app.settingsKey())
 }
 
 // GetControllerSettings allows access to settings collection for
 // the controller.
 func GetControllerSettings(st *State) *Settings {
-	return newSettings(st, controllersC, controllerSettingsGlobalKey)
+	return newSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 }
 
 // NewSLALevel returns a new SLA level.
@@ -685,4 +658,20 @@ func NewSLALevel(level string) (slaLevel, error) {
 
 func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
+}
+
+func RemoveRelation(c *gc.C, rel *Relation) {
+	ops, err := rel.removeOps("", "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.st.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func IngressNetworks(rel *Relation) ([]string, error) {
+	relIngress := NewRelationIngressNetworks(rel.st)
+	doc, err := relIngress.ingressNetworks(rel.Tag().Id())
+	if err != nil {
+		return nil, err
+	}
+	return doc.CIDRS, nil
 }

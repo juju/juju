@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
+	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 )
 
 type uploadSuite struct {

@@ -176,17 +176,18 @@ func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
 // ApplicationInfo holds the information about an application that is tracked
 // by multiwatcherStore.
 type ApplicationInfo struct {
-	ModelUUID   string                 `json:"model-uuid"`
-	Name        string                 `json:"name"`
-	Exposed     bool                   `json:"exposed"`
-	CharmURL    string                 `json:"charm-url"`
-	OwnerTag    string                 `json:"owner-tag"`
-	Life        Life                   `json:"life"`
-	MinUnits    int                    `json:"min-units"`
-	Constraints constraints.Value      `json:"constraints"`
-	Config      map[string]interface{} `json:"config,omitempty"`
-	Subordinate bool                   `json:"subordinate"`
-	Status      StatusInfo             `json:"status"`
+	ModelUUID       string                 `json:"model-uuid"`
+	Name            string                 `json:"name"`
+	Exposed         bool                   `json:"exposed"`
+	CharmURL        string                 `json:"charm-url"`
+	OwnerTag        string                 `json:"owner-tag"`
+	Life            Life                   `json:"life"`
+	MinUnits        int                    `json:"min-units"`
+	Constraints     constraints.Value      `json:"constraints"`
+	Config          map[string]interface{} `json:"config,omitempty"`
+	Subordinate     bool                   `json:"subordinate"`
+	Status          StatusInfo             `json:"status"`
+	WorkloadVersion string                 `json:"workload-version"`
 }
 
 // EntityId returns a unique identifier for an application across

@@ -250,6 +250,18 @@ type ControllerConfigResult struct {
 	Config ControllerConfig `json:"config"`
 }
 
+// ControllerAPIInfoResult holds controller api address details.
+type ControllerAPIInfoResult struct {
+	Addresses []string `json:"addresses"`
+	CACert    string   `json:"cacert"`
+	Error     *Error   `json:"error,omitempty"`
+}
+
+// ControllerAPIInfoResults holds controller api address details results.
+type ControllerAPIInfoResults struct {
+	Results []ControllerAPIInfoResult `json:"results"`
+}
+
 // RelationUnit holds a relation and a unit tag.
 type RelationUnit struct {
 	Relation string `json:"relation"`
@@ -294,9 +306,26 @@ type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }
 
+// RelationResults holds the result of an API call that returns
+// information about multiple relations.
+type RelationResults struct {
+	Results []RelationResult `json:"results"`
+}
+
 // RelationResult returns information about a single relation,
 // or an error.
 type RelationResult struct {
+	Error            *Error                `json:"error,omitempty"`
+	Life             Life                  `json:"life"`
+	Id               int                   `json:"id"`
+	Key              string                `json:"key"`
+	Endpoint         multiwatcher.Endpoint `json:"endpoint"`
+	OtherApplication string                `json:"other-application,omitempty"`
+}
+
+// RelationResultV5 returns information about a single relation,
+// or an error, but doesn't include the other application name.
+type RelationResultV5 struct {
 	Error    *Error                `json:"error,omitempty"`
 	Life     Life                  `json:"life"`
 	Id       int                   `json:"id"`
@@ -304,10 +333,10 @@ type RelationResult struct {
 	Endpoint multiwatcher.Endpoint `json:"endpoint"`
 }
 
-// RelationResults holds the result of an API call that returns
-// information about multiple relations.
-type RelationResults struct {
-	Results []RelationResult `json:"results"`
+// RelationResultsV5 holds the result of an API call that returns
+// information about multiple V5 relations.
+type RelationResultsV5 struct {
+	Results []RelationResultV5 `json:"results"`
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.
@@ -430,6 +459,23 @@ type VersionResult struct {
 // VersionResults is a list of versions for the requested entities.
 type VersionResults struct {
 	Results []VersionResult `json:"results"`
+}
+
+// SetModelEnvironVersions holds the tags and associated environ versions
+// of a collection of models.
+type SetModelEnvironVersions struct {
+	Models []SetModelEnvironVersion `json:"models,omitempty"`
+}
+
+// SetModelEnvironVersions holds the tag and associated environ version
+// of a model.
+type SetModelEnvironVersion struct {
+	// ModelTag is the string representation of a model tag, which
+	// should be parseable using names.ParseModelTag.
+	ModelTag string `json:"model-tag"`
+
+	// Version is the environ version to set for the model.
+	Version int `json:"version"`
 }
 
 // ToolsResult holds the tools and possibly error for a given

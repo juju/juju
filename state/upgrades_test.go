@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -30,7 +29,7 @@ type upgradesSuite struct {
 var _ = gc.Suite(&upgradesSuite{})
 
 func (s *upgradesSuite) TestStripLocalUserDomainCredentials(c *gc.C) {
-	coll, closer := s.state.getRawCollection(cloudCredentialsC)
+	coll, closer := s.state.db().GetRawCollection(cloudCredentialsC)
 	defer closer()
 	err := coll.Insert(
 		cloudCredentialDoc{
@@ -73,7 +72,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainCredentials(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
-	coll, closer := s.state.getRawCollection(modelsC)
+	coll, closer := s.state.db().GetRawCollection(modelsC)
 	defer closer()
 
 	var initialModels []bson.M
@@ -90,6 +89,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 			Cloud:           "cloud-aws",
 			CloudRegion:     "us-west-1",
 			CloudCredential: "aws#fred@local#default",
+			EnvironVersion:  0,
 		},
 		modelDoc{
 			UUID:            "0000-dead-beaf-0002",
@@ -99,6 +99,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 			Cloud:           "cloud-aws",
 			CloudRegion:     "us-west-1",
 			CloudCredential: "aws#mary@external#default",
+			EnvironVersion:  0,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,6 +121,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"migration-mode":   "",
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
+		"environ-version":  0,
 	}, {
 		"_id":              "0000-dead-beaf-0002",
 		"owner":            "user-mary@external",
@@ -132,6 +134,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"migration-mode":   "",
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
+		"environ-version":  0,
 	},
 		initialModel,
 	}
@@ -140,7 +143,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainModelNames(c *gc.C) {
-	coll, closer := s.state.getRawCollection(usermodelnameC)
+	coll, closer := s.state.db().GetRawCollection(usermodelnameC)
 	defer closer()
 
 	err := coll.Insert(
@@ -169,7 +172,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModelUser(c *gc.C) {
 }
 
 func (s *upgradesSuite) assertStripLocalUserDomainUserAccess(c *gc.C, collName string) {
-	coll, closer := s.state.getRawCollection(collName)
+	coll, closer := s.state.db().GetRawCollection(collName)
 	defer closer()
 
 	var initialUsers []bson.M
@@ -227,7 +230,7 @@ func (s *upgradesSuite) assertStripLocalUserDomainUserAccess(c *gc.C, collName s
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
-	coll, closer := s.state.getRawCollection(permissionsC)
+	coll, closer := s.state.db().GetRawCollection(permissionsC)
 	defer closer()
 
 	var initialPermissions []bson.M
@@ -273,7 +276,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainLastConnection(c *gc.C) {
-	coll, closer := s.state.getRawCollection(modelUserLastConnectionC)
+	coll, closer := s.state.db().GetRawCollection(modelUserLastConnectionC)
 	defer closer()
 
 	now := time.Now()
@@ -340,7 +343,7 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, 
 }
 
 func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
-	coll, closer := s.state.getRawCollection(permissionsC)
+	coll, closer := s.state.db().GetRawCollection(permissionsC)
 	defer closer()
 
 	var initialPermissions []bson.M
@@ -386,7 +389,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
-	coll, closer := s.state.getRawCollection(migrationsC)
+	coll, closer := s.state.db().GetRawCollection(migrationsC)
 	defer closer()
 
 	err := coll.Insert(
@@ -434,7 +437,7 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 		}
 	}
 
-	charms, closer := s.state.getRawCollection(charmsC)
+	charms, closer := s.state.db().GetRawCollection(charmsC)
 	defer closer()
 	err := charms.Insert(
 		mkInput(uuid0, "local:trusty/bar-2", Alive),
@@ -447,7 +450,7 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	sequences, closer := s.state.getRawCollection(sequenceC)
+	sequences, closer := s.state.db().GetRawCollection(sequenceC)
 	defer closer()
 
 	mkExpected := func(uuid, urlBase string, counter int) bson.M {
@@ -488,23 +491,10 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 	})
 }
 
-func hasIndex(coll *mgo.Collection, key []string) (bool, error) {
-	indexes, err := coll.Indexes()
-	if err != nil {
-		return false, err
-	}
-	for _, index := range indexes {
-		if reflect.DeepEqual(index.Key, key) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
-	cloudColl, cloudCloser := s.state.getRawCollection(cloudsC)
+	cloudColl, cloudCloser := s.state.db().GetRawCollection(cloudsC)
 	defer cloudCloser()
-	cloudCredColl, cloudCredCloser := s.state.getRawCollection(cloudCredentialsC)
+	cloudCredColl, cloudCredCloser := s.state.db().GetRawCollection(cloudCredentialsC)
 	defer cloudCredCloser()
 
 	_, err := cloudColl.RemoveAll(nil)
@@ -576,9 +566,9 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
-	cloudColl, cloudCloser := s.state.getRawCollection(cloudsC)
+	cloudColl, cloudCloser := s.state.db().GetRawCollection(cloudsC)
 	defer cloudCloser()
-	cloudCredColl, cloudCredCloser := s.state.getRawCollection(cloudCredentialsC)
+	cloudCredColl, cloudCredCloser := s.state.db().GetRawCollection(cloudCredentialsC)
 	defer cloudCredCloser()
 
 	_, err := cloudColl.RemoveAll(nil)
@@ -678,7 +668,7 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestUpgradeNoProxy(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -720,14 +710,14 @@ func (s *upgradesSuite) TestUpgradeNoProxy(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
-	volumesColl, volumesCloser := s.state.getRawCollection(volumesC)
+	volumesColl, volumesCloser := s.state.db().GetRawCollection(volumesC)
 	defer volumesCloser()
-	volumeAttachmentsColl, volumeAttachmentsCloser := s.state.getRawCollection(volumeAttachmentsC)
+	volumeAttachmentsColl, volumeAttachmentsCloser := s.state.db().GetRawCollection(volumeAttachmentsC)
 	defer volumeAttachmentsCloser()
 
-	filesystemsColl, filesystemsCloser := s.state.getRawCollection(filesystemsC)
+	filesystemsColl, filesystemsCloser := s.state.db().GetRawCollection(filesystemsC)
 	defer filesystemsCloser()
-	filesystemAttachmentsColl, filesystemAttachmentsCloser := s.state.getRawCollection(filesystemAttachmentsC)
+	filesystemAttachmentsColl, filesystemAttachmentsCloser := s.state.db().GetRawCollection(filesystemAttachmentsC)
 	defer filesystemAttachmentsCloser()
 
 	uuid := s.state.ModelUUID()
@@ -850,7 +840,7 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -907,7 +897,7 @@ func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -947,7 +937,7 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(
 }
 
 func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(controllersC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1001,7 +991,7 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr testing.Attrs) *Sta
 }
 
 func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1055,16 +1045,78 @@ func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// One model has a valid setting that is not default.
+	m1 := s.makeModel(c, "m1", testing.Attrs{
+		"update-status-hook-interval": "20m",
+	})
+	defer m1.Close()
+
+	// This model is missing a setting entirely.
+	m2 := s.makeModel(c, "m2", testing.Attrs{})
+	defer m2.Close()
+	// We remove the 'update-status-hook-interval' value to
+	// represent an old-style model that needs updating.
+	settingsKey := m2.ModelUUID() + ":e"
+	err = settingsColl.UpdateId(settingsKey,
+		bson.M{"$unset": bson.M{"settings.update-status-hook-interval": ""}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// And something that isn't model settings
+	err = settingsColl.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg1, err := m1.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected1 := cfg1.AllAttrs()
+	expected1["resource-tags"] = ""
+
+	cfg2, err := m2.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected2 := cfg2.AllAttrs()
+	expected2["update-status-hook-interval"] = "5m"
+	expected2["resource-tags"] = ""
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	s.assertUpgradedData(c, AddUpdateStatusHookSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
 func (s *upgradesSuite) TestAddStorageInstanceConstraints(c *gc.C) {
-	storageInstancesColl, storageInstancesCloser := s.state.getRawCollection(storageInstancesC)
+	storageInstancesColl, storageInstancesCloser := s.state.db().GetRawCollection(storageInstancesC)
 	defer storageInstancesCloser()
-	storageConstraintsColl, storageConstraintsCloser := s.state.getRawCollection(storageConstraintsC)
+	storageConstraintsColl, storageConstraintsCloser := s.state.db().GetRawCollection(storageConstraintsC)
 	defer storageConstraintsCloser()
-	volumesColl, volumesCloser := s.state.getRawCollection(volumesC)
+	volumesColl, volumesCloser := s.state.db().GetRawCollection(volumesC)
 	defer volumesCloser()
-	filesystemsColl, filesystemsCloser := s.state.getRawCollection(filesystemsC)
+	filesystemsColl, filesystemsCloser := s.state.db().GetRawCollection(filesystemsC)
 	defer filesystemsCloser()
-	unitsColl, unitsCloser := s.state.getRawCollection(unitsC)
+	unitsColl, unitsCloser := s.state.db().GetRawCollection(unitsC)
 	defer unitsCloser()
 
 	uuid := s.state.ModelUUID()
@@ -1426,4 +1478,330 @@ func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 
 	err = SplitLogCollections(s.state)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
+	relations, rCloser := s.state.db().GetRawCollection(relationsC)
+	defer rCloser()
+	scopes, sCloser := s.state.db().GetRawCollection(relationScopesC)
+	defer sCloser()
+	applications, aCloser := s.state.db().GetRawCollection(applicationsC)
+	defer aCloser()
+
+	// Use the non-controller model to ensure we can run the function
+	// across multiple models.
+	otherState := s.makeModel(c, "crack-up", testing.Attrs{})
+	defer otherState.Close()
+
+	uuid := otherState.ModelUUID()
+
+	err := relations.Insert(bson.M{
+		"_id":        uuid + ":min:juju-info nrpe:general-info",
+		"key":        "min:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         4,
+		"endpoints": []bson.M{{
+			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, {
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 6,
+	}, bson.M{
+		"_id":        uuid + ":ntp:ntp-peers",
+		"key":        "ntp:ntp-peers",
+		"model-uuid": uuid,
+		"id":         3,
+		"endpoints": []bson.M{{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "ntp-peers",
+				"role":      "peer",
+				"interface": "ntp",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "global",
+			},
+		}},
+		"unitcount": 2,
+	}, bson.M{
+		"_id":        uuid + ":ntp:juju-info nrpe:general-info",
+		"key":        "ntp:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         5,
+		"endpoints": []bson.M{{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, {
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = scopes.Insert(bson.M{
+		"_id":        uuid + ":r#4#min/0#provider#min/0",
+		"key":        "r#4#min/0#provider#min/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/0#requirer#nrpe/0",
+		"key":        "r#4#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/1#provider#min/1",
+		"key":        "r#4#min/1#provider#min/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min/1#requirer#nrpe/1",
+		"key":        "r#4#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min2/0#requirer#nrpe/2",
+		"key":        "r#4#min2/0#requirer#nrpe/2",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#4#min2/1#requirer#nrpe/3",
+		"key":        "r#4#min2/1#requirer#nrpe/3",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#3#peer#ntp/0",
+		"key":        "r#3#peer#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#3#peer#ntp/1",
+		"key":        "r#3#peer#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/0#provider#ntp/0",
+		"key":        "r#5#min/0#provider#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/0#requirer#nrpe/0",
+		"key":        "r#5#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/1#provider#ntp/1",
+		"key":        "r#5#min/1#provider#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, bson.M{
+		"_id":        uuid + ":r#5#min/1#requirer#nrpe/1",
+		"key":        "r#5#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = applications.Insert(bson.M{
+		"_id":         uuid + ":min",
+		"name":        "min",
+		"model-uuid":  uuid,
+		"subordinate": false,
+	}, bson.M{
+		"_id":         uuid + ":ntp",
+		"name":        "ntp",
+		"model-uuid":  uuid,
+		"subordinate": true,
+	}, bson.M{
+		"_id":         uuid + ":nrpe",
+		"name":        "nrpe",
+		"model-uuid":  uuid,
+		"subordinate": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedRelations := []bson.M{{
+		"_id":        uuid + ":min:juju-info nrpe:general-info",
+		"key":        "min:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         4,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "min",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, bson.M{
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
+	}, {
+		"_id":        uuid + ":ntp:juju-info nrpe:general-info",
+		"key":        "ntp:juju-info nrpe:general-info",
+		"model-uuid": uuid,
+		"id":         5,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "juju-info",
+				"role":      "provider",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     0,
+				"scope":     "container",
+			},
+		}, bson.M{
+			"applicationname": "nrpe",
+			"relation": bson.M{
+				"name":      "general-info",
+				"role":      "requirer",
+				"interface": "juju-info",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "container",
+			},
+		}},
+		"unitcount": 4,
+	}, {
+		"_id":        uuid + ":ntp:ntp-peers",
+		"key":        "ntp:ntp-peers",
+		"model-uuid": uuid,
+		"id":         3,
+		"endpoints": []interface{}{bson.M{
+			"applicationname": "ntp",
+			"relation": bson.M{
+				"name":      "ntp-peers",
+				"role":      "peer",
+				"interface": "ntp",
+				"optional":  false,
+				"limit":     1,
+				"scope":     "global",
+			},
+		}},
+		"unitcount": 2,
+	}}
+	expectedScopes := []bson.M{{
+		"_id":        uuid + ":r#3#peer#ntp/0",
+		"key":        "r#3#peer#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#3#peer#ntp/1",
+		"key":        "r#3#peer#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/0#provider#min/0",
+		"key":        "r#4#min/0#provider#min/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/0#requirer#nrpe/0",
+		"key":        "r#4#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/1#provider#min/1",
+		"key":        "r#4#min/1#provider#min/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#4#min/1#requirer#nrpe/1",
+		"key":        "r#4#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/0#provider#ntp/0",
+		"key":        "r#5#min/0#provider#ntp/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/0#requirer#nrpe/0",
+		"key":        "r#5#min/0#requirer#nrpe/0",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/1#provider#ntp/1",
+		"key":        "r#5#min/1#provider#ntp/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}, {
+		"_id":        uuid + ":r#5#min/1#requirer#nrpe/1",
+		"key":        "r#5#min/1#requirer#nrpe/1",
+		"model-uuid": uuid,
+		"departing":  false,
+	}}
+	s.assertUpgradedData(c, CorrectRelationUnitCounts,
+		expectUpgradedData{relations, expectedRelations},
+		expectUpgradedData{scopes, expectedScopes},
+	)
+}
+
+func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
+	models, closer := s.state.db().GetRawCollection(modelsC)
+	defer closer()
+
+	err := models.RemoveId(s.state.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = models.Insert(bson.M{
+		"_id": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	}, bson.M{
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"environ-version": 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedModels := []bson.M{{
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"environ-version": 0,
+	}, {
+		"_id":             "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"environ-version": 1,
+	}}
+	s.assertUpgradedData(c, AddModelEnvironVersion,
+		expectUpgradedData{models, expectedModels},
+	)
 }

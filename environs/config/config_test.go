@@ -732,15 +732,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 }
 
-func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
-	value, ok := test.attrs[name].(int)
-	if !ok || value == 0 {
-		c.Assert(actual, gc.Equals, time.Duration(defaultInSeconds)*time.Second)
-	} else {
-		c.Assert(actual, gc.Equals, time.Duration(value)*time.Second)
-	}
-}
-
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by gitjujutesting.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
@@ -1119,6 +1110,25 @@ func (s *ConfigSuite) TestStatusHistoryConfigValues(c *gc.C) {
 	})
 	c.Assert(cfg.MaxStatusHistoryAge(), gc.Equals, 96*time.Hour)
 	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(8192))
+}
+
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigDefault(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 5*time.Minute)
+}
+
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigValue(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"update-status-hook-interval": "30m",
+	})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 30*time.Minute)
+}
+
+func (s *ConfigSuite) TestEgressCidrs(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"egress-cidrs": "10.0.0.1/32, 192.168.1.1/16",
+	})
+	c.Assert(cfg.EgressCidrs(), gc.DeepEquals, []string{"10.0.0.1/32", "192.168.1.1/16"})
 }
 
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {

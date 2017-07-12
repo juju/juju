@@ -370,6 +370,23 @@ func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabi
 	c.Assert(createVMArgs2.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
+func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
+	cfg := s.env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"datastore": "datastore0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.env.StartInstance(s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	call := s.client.Calls()[1]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.Datastore, gc.Equals, "datastore0")
+}
+
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	err := s.env.StopInstances("vm-0", "vm-1")
 	c.Assert(err, jc.ErrorIsNil)

@@ -44,6 +44,10 @@ func (s *relationSuite) TestIdAndTag(c *gc.C) {
 	c.Assert(s.apiRelation.Tag(), gc.Equals, s.stateRelation.Tag().(names.RelationTag))
 }
 
+func (s *relationSuite) TestOtherApplication(c *gc.C) {
+	c.Assert(s.apiRelation.OtherApplication(), gc.Equals, "mysql")
+}
+
 func (s *relationSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
 

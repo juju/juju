@@ -18,6 +18,13 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.vmware")
 
+const (
+	// provider version 1 organises VMs into folders.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
+)
+
 type environProvider struct {
 	environProviderCredentials
 	dial           DialFunc
@@ -48,6 +55,11 @@ func NewEnvironProvider(config EnvironProviderConfig) environs.EnvironProvider {
 		ovaCacheDir:    config.OVACacheDir,
 		ovaCacheLocker: config.OVACacheLocker,
 	}
+}
+
+// Version implements environs.EnvironProvider.
+func (p *environProvider) Version() int {
+	return currentProviderVersion
 }
 
 // Open implements environs.EnvironProvider.
@@ -145,15 +157,14 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 // Validate implements environs.EnvironProvider.
 func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if old == nil {
-		ecfg, err := newValidConfig(cfg, configDefaults)
+		ecfg, err := newValidConfig(cfg)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid config")
 		}
 		return ecfg.Config, nil
 	}
 
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(old, nil)
+	ecfg, err := newValidConfig(old)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}

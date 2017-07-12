@@ -19,53 +19,62 @@ import (
 
 type registerSuite struct {
 	testing.IsolationSuite
+
+	hookCtx *stubRegisterContext
+	command RegisterCmd
 }
 
 var _ = gc.Suite(&registerSuite{})
 
-func (registerSuite) TestInitNilArgs(c *gc.C) {
-	r := RegisterCmd{}
-	err := r.Init(nil)
+func (s *registerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.hookCtx = &stubRegisterContext{}
+
+	s.command = RegisterCmd{
+		hookContextFunc: func() (Component, error) {
+			return s.hookCtx, nil
+		},
+	}
+}
+
+func (s *registerSuite) TestInitNilArgs(c *gc.C) {
+	err := s.command.Init(nil)
 	c.Assert(err, gc.NotNil)
 }
 
-func (registerSuite) TestInitTooFewArgs(c *gc.C) {
-	r := RegisterCmd{}
-	err := r.Init([]string{"foo", "bar"})
+func (s *registerSuite) TestInitTooFewArgs(c *gc.C) {
+	err := s.command.Init([]string{"foo", "bar"})
 	c.Assert(err, gc.NotNil)
 }
 
-func (registerSuite) TestInit(c *gc.C) {
-	r := RegisterCmd{}
-	err := r.Init([]string{"type", "class", "id"})
+func (s *registerSuite) TestInit(c *gc.C) {
+	err := s.command.Init([]string{"type", "class", "id"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.typ, gc.Equals, "type")
-	c.Assert(r.class, gc.Equals, "class")
-	c.Assert(r.id, gc.Equals, "id")
-	c.Assert(r.labels, gc.HasLen, 0)
+	c.Assert(s.command.typ, gc.Equals, "type")
+	c.Assert(s.command.class, gc.Equals, "class")
+	c.Assert(s.command.id, gc.Equals, "id")
+	c.Assert(s.command.labels, gc.HasLen, 0)
 }
 
-func (registerSuite) TestInitWithLabels(c *gc.C) {
-	r := RegisterCmd{}
-	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
+func (s *registerSuite) TestInitWithLabels(c *gc.C) {
+	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.typ, gc.Equals, "type")
-	c.Assert(r.class, gc.Equals, "class")
-	c.Assert(r.id, gc.Equals, "id")
-	c.Assert(r.labels, gc.DeepEquals, []string{"tag1", "tag 2"})
+	c.Assert(s.command.typ, gc.Equals, "type")
+	c.Assert(s.command.class, gc.Equals, "class")
+	c.Assert(s.command.id, gc.Equals, "id")
+	c.Assert(s.command.labels, gc.DeepEquals, []string{"tag1", "tag 2"})
 }
 
-func (registerSuite) TestRun(c *gc.C) {
-	f := &stubRegisterContext{}
-	r := RegisterCmd{hctx: f}
-	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
+func (s *registerSuite) TestRun(c *gc.C) {
+	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := setupMetadata(c)
-	err = r.Run(ctx)
+	err = s.command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(f.flushed, jc.IsTrue)
-	c.Check(f.payload, jc.DeepEquals, payload.Payload{
+	c.Check(s.hookCtx.flushed, jc.IsTrue)
+	c.Check(s.hookCtx.payload, jc.DeepEquals, payload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "class",
 			Type: "type",
@@ -78,47 +87,41 @@ func (registerSuite) TestRun(c *gc.C) {
 	// TODO (natefinch): we need to do something with the labels
 }
 
-func (registerSuite) TestRunUnknownClass(c *gc.C) {
-	f := &stubRegisterContext{}
-	r := RegisterCmd{hctx: f}
-	err := r.Init([]string{"type", "badclass", "id"})
+func (s *registerSuite) TestRunUnknownClass(c *gc.C) {
+	err := s.command.Init([]string{"type", "badclass", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := setupMetadata(c)
-	err = r.Run(ctx)
+	err = s.command.Run(ctx)
 	c.Assert(err, gc.ErrorMatches, "payload \"badclass\" not found in metadata.yaml")
 }
 
-func (registerSuite) TestRunUnknownType(c *gc.C) {
-	f := &stubRegisterContext{}
-	r := RegisterCmd{hctx: f}
-	err := r.Init([]string{"badtype", "class", "id"})
+func (s *registerSuite) TestRunUnknownType(c *gc.C) {
+	err := s.command.Init([]string{"badtype", "class", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := setupMetadata(c)
-	err = r.Run(ctx)
+	err = s.command.Run(ctx)
 	c.Assert(err, gc.ErrorMatches, "incorrect type \"badtype\" for payload \"class\", expected \"type\"")
 }
 
-func (registerSuite) TestRunTrackErr(c *gc.C) {
-	f := &stubRegisterContext{trackerr: errors.Errorf("boo")}
-	r := RegisterCmd{hctx: f}
-	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
+func (s *registerSuite) TestRunTrackErr(c *gc.C) {
+	s.hookCtx.trackerr = errors.Errorf("boo")
+	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := setupMetadata(c)
-	err = r.Run(ctx)
+	err = s.command.Run(ctx)
 	c.Assert(err, gc.ErrorMatches, "boo")
 }
 
-func (registerSuite) TestRunFlushErr(c *gc.C) {
-	f := &stubRegisterContext{flusherr: errors.Errorf("boo")}
-	r := RegisterCmd{hctx: f}
-	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
+func (s *registerSuite) TestRunFlushErr(c *gc.C) {
+	s.hookCtx.flusherr = errors.Errorf("boo")
+	err := s.command.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := setupMetadata(c)
-	err = r.Run(ctx)
+	err = s.command.Run(ctx)
 	c.Assert(err, gc.ErrorMatches, "boo")
 }
 

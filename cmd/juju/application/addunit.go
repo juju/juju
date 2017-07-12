@@ -79,16 +79,23 @@ type UnitCommandBase struct {
 	// Placement is the result of parsing the PlacementSpec arg value.
 	Placement []*instance.Placement
 	NumUnits  int
+	// AttachStorage is a list of storage IDs, identifying storage to
+	// attach to the unit created by deploy.
+	AttachStorage []string
 }
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine and/or container to deploy the unit in (bypasses constraints)")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
 	if c.NumUnits < 1 {
 		return errors.New("--num-units must be a positive integer")
+	}
+	if len(c.AttachStorage) > 0 && c.NumUnits != 1 {
+		return errors.New("--attach-storage cannot be used with -n")
 	}
 	if c.PlacementSpec != "" {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
@@ -165,9 +172,10 @@ func (c *addUnitCommand) Init(args []string) error {
 // serviceAddUnitAPI defines the methods on the client API
 // that the application add-unit command calls.
 type serviceAddUnitAPI interface {
+	BestAPIVersion() int
 	Close() error
 	ModelUUID() string
-	AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error)
+	AddUnits(application.AddUnitsParams) ([]string, error)
 }
 
 func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
@@ -190,13 +198,24 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
+	if len(c.AttachStorage) > 0 && apiclient.BestAPIVersion() < 5 {
+		// AddUnitsPArams.AttachStorage is only supported from
+		// Application API version 5 and onwards.
+		return errors.New("this juju controller does not support --attach-storage")
+	}
+
 	for i, p := range c.Placement {
 		if p.Scope == "model-uuid" {
 			p.Scope = apiclient.ModelUUID()
 		}
 		c.Placement[i] = p
 	}
-	_, err = apiclient.AddUnits(c.ApplicationName, c.NumUnits, c.Placement)
+	_, err = apiclient.AddUnits(application.AddUnitsParams{
+		ApplicationName: c.ApplicationName,
+		NumUnits:        c.NumUnits,
+		Placement:       c.Placement,
+		AttachStorage:   c.AttachStorage,
+	})
 	if params.IsCodeUnauthorized(err) {
 		common.PermissionsMessage(ctx.Stderr, "add a unit")
 	}
