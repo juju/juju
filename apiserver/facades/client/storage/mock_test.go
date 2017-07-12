@@ -62,7 +62,7 @@ type mockState struct {
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
-	destroyStorageInstance              func(names.StorageTag) error
+	destroyStorageInstance              func(names.StorageTag, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
 	detachStorage                       func(names.StorageTag, names.UnitTag) error
 }
@@ -178,8 +178,8 @@ func (st *mockState) DetachStorage(storage names.StorageTag, unit names.UnitTag)
 	return st.detachStorage(storage, unit)
 }
 
-func (st *mockState) DestroyStorageInstance(tag names.StorageTag) error {
-	return st.destroyStorageInstance(tag)
+func (st *mockState) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool) error {
+	return st.destroyStorageInstance(tag, destroyAttached)
 }
 
 func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {

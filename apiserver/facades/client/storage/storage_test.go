@@ -324,25 +324,51 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 }
 
 func (s *storageSuite) TestDestroy(c *gc.C) {
-	results, err := s.api.Destroy(params.Entities{Entities: []params.Entity{
+	results, err := s.api.Destroy(params.DestroyStorage{[]params.DestroyStorageInstance{
+		{Tag: "storage-foo-0"},
+		{Tag: "storage-foo-1", DestroyAttached: true},
+		{Tag: "volume-0"},
+		{Tag: "filesystem-1-2"},
+		{Tag: "machine-0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{Message: "cannae do it"}},
+		{Error: &params.Error{Message: "cannae do it"}},
+		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"filesystem-1-2" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"machine-0" is not a valid storage tag`}},
+	})
+	s.stub.CheckCallNames(c,
+		getBlockForTypeCall, // Remove
+		getBlockForTypeCall, // Change
+		destroyStorageInstanceCall,
+		destroyStorageInstanceCall,
+	)
+	s.stub.CheckCall(c, 2, destroyStorageInstanceCall, names.NewStorageTag("foo/0"), false)
+	s.stub.CheckCall(c, 3, destroyStorageInstanceCall, names.NewStorageTag("foo/1"), true)
+}
+
+func (s *storageSuite) TestDestroyV3(c *gc.C) {
+	results, err := s.apiv3.Destroy(params.Entities{[]params.Entity{
 		{Tag: "storage-foo-0"},
 		{Tag: "volume-0"},
 		{Tag: "filesystem-1-2"},
 		{Tag: "machine-0"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{Message: "cannae do it"}},
-		{Error: &params.Error{Message: `tag kind "volume" not valid`}},
-		{Error: &params.Error{Message: `tag kind "filesystem" not valid`}},
-		{Error: &params.Error{Message: `tag kind "machine" not valid`}},
+		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"filesystem-1-2" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"machine-0" is not a valid storage tag`}},
 	})
-	s.assertCalls(c, []string{
+	s.stub.CheckCallNames(c,
 		getBlockForTypeCall, // Remove
 		getBlockForTypeCall, // Change
 		destroyStorageInstanceCall,
-	})
+	)
+	s.stub.CheckCall(c, 2, destroyStorageInstanceCall, names.NewStorageTag("foo/0"), true)
 }
 
 func (s *storageSuite) TestDetach(c *gc.C) {

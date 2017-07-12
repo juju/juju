@@ -271,10 +271,29 @@ func (st *State) storageInstances(query bson.D) (storageInstances []*storageInst
 	return storageInstances, nil
 }
 
-// DestroyStorageInstance ensures that the storage instance and all its
-// attachments will be removed at some point; if the storage instance has
-// no attachments, it will be removed immediately.
-func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
+type storageAttachedError struct {
+	error
+}
+
+// IsStorageAttachedError reports whether or not the given error was caused
+// by an operation on storage that should not be, but is, attached.
+func IsStorageAttachedError(err error) bool {
+	_, ok := errors.Cause(err).(storageAttachedError)
+	return ok
+}
+
+// DestroyStorageInstance ensures that the storage instance will be removed at
+// some point.
+//
+// If the "destroyAttached" is true, then DestroyStorageInstance will destroy
+// any attachments first; if there are no attachments, then the storage instance
+// is removed immediately. If "destroyAttached" is instead false and there are
+// existing storage attachments, then DestroyStorageInstance will return an error
+// satisfying IsStorageAttachedError.
+func (st *State) DestroyStorageInstance(
+	tag names.StorageTag,
+	destroyAttached bool,
+) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageInstance(tag)
@@ -284,7 +303,7 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch ops, err := st.destroyStorageInstanceOps(s); err {
+		switch ops, err := st.destroyStorageInstanceOps(s, destroyAttached); err {
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
 		case nil:
@@ -296,7 +315,10 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 	return st.db().Run(buildTxn)
 }
 
-func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error) {
+func (st *State) destroyStorageInstanceOps(
+	s *storageInstance,
+	destroyAttached bool,
+) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
@@ -306,6 +328,11 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
 		return removeStorageInstanceOps(s, assert)
+	}
+	if !destroyAttached {
+		// There are storage attachments, and we've been instructed
+		// not to destroy them.
+		return nil, storageAttachedError{errors.New("storage is attached")}
 	}
 
 	// Check that removing the storage from its owner (if any) is permitted.

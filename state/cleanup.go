@@ -217,7 +217,8 @@ func (st *State) cleanupStorageForDyingModel() (err error) {
 		return errors.Trace(err)
 	}
 	for _, s := range storage {
-		err := st.DestroyStorageInstance(s.StorageTag())
+		const destroyAttached = true
+		err := st.DestroyStorageInstance(s.StorageTag(), destroyAttached)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {

@@ -19,19 +19,34 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-// NewFacade provides the signature required for facade registration.
-func NewFacade(
+// NewFacadeV4 provides the signature required for facade registration.
+func NewFacadeV4(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-) (*API, error) {
+) (*APIv4, error) {
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environ")
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewAPI(getState(st), registry, pm, resources, authorizer)
+	return NewAPIv4(getState(st), registry, pm, resources, authorizer)
+}
+
+// NewFacadeV3 provides the signature required for facade registration.
+func NewFacadeV3(
+	st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*APIv3, error) {
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting environ")
+	}
+	registry := stateenvirons.NewStorageProviderRegistry(env)
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	return NewAPIv3(getState(st), registry, pm, resources, authorizer)
 }
 
 type storageAccess interface {
@@ -119,7 +134,7 @@ type storageAccess interface {
 	DetachStorage(names.StorageTag, names.UnitTag) error
 
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
-	DestroyStorageInstance(names.StorageTag) error
+	DestroyStorageInstance(names.StorageTag, bool) error
 
 	// UnitStorageAttachments returns the storage attachments for the
 	// identified unit.

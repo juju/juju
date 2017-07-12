@@ -628,7 +628,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
 	// destroy storage instance and run cleanups
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	si, err = s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)

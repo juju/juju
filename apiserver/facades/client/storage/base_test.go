@@ -25,7 +25,8 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	api   *storage.API
+	api   *storage.APIv4
+	apiv3 *storage.APIv3
 	state *mockState
 
 	storageTag      names.StorageTag
@@ -60,7 +61,9 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.poolManager = s.constructPoolManager()
 
 	var err error
-	s.api, err = storage.NewAPI(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.api, err = storage.NewAPIv4(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.apiv3, err = storage.NewAPIv3(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -263,8 +266,8 @@ func (s *baseStorageSuite) constructState() *mockState {
 				names.ReadableString(unit),
 			)
 		},
-		destroyStorageInstance: func(tag names.StorageTag) error {
-			s.stub.AddCall(destroyStorageInstanceCall)
+		destroyStorageInstance: func(tag names.StorageTag, destroyAttached bool) error {
+			s.stub.AddCall(destroyStorageInstanceCall, tag, destroyAttached)
 			return errors.New("cannae do it")
 		},
 	}

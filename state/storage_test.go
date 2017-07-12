@@ -647,7 +647,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
@@ -663,7 +663,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 	// when the last attachment is removed.
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	si, err := s.State.StorageInstance(storageTag)
@@ -962,7 +962,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 	// Destroying the instance should check that there are no concurrent
 	// changes to the storage instance's attachments, and recompute
 	// operations if there are.
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exists := s.storageInstanceExists(c, storageTag)
@@ -975,7 +975,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	destroy := func() {
@@ -1015,7 +1015,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 		// Concurrently mark the storage instance as Dying,
 		// so that it will be removed when the last attachment
 		// is removed.
-		err := s.State.DestroyStorageInstance(storageTag)
+		err := s.State.DestroyStorageInstance(storageTag, true)
 		c.Assert(err, jc.ErrorIsNil)
 	}, nil).Check()
 
@@ -1034,11 +1034,11 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.DestroyStorageInstance(storageTag)
+		err := s.State.DestroyStorageInstance(storageTag, true)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	si, err := s.State.StorageInstance(storageTag)
@@ -1047,9 +1047,17 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
-	err := s.State.DestroyStorageInstance(names.NewStorageTag("foo/0"))
+	err := s.State.DestroyStorageInstance(names.NewStorageTag("foo/0"), true)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "foo/0": storage instance "foo/0" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
+	_, _, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+
+	err := s.State.DestroyStorageInstance(storageTag, false)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "data/0": storage is attached`)
+	c.Assert(err, jc.Satisfies, state.IsStorageAttachedError)
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {

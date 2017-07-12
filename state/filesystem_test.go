@@ -574,7 +574,7 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.DetachStorage(storageTag, unitTag)
 	c.Assert(err, jc.ErrorIsNil)
