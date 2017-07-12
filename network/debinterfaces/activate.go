@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/utils/scriptrunner"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"github.com/pkg/errors"
@@ -131,7 +132,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	if params.DryRun {
 		environ = append(environ, "DRYRUN=echo")
 	}
-	result, err := runCommand(cmd, environ, params.Clock, params.Timeout)
+	result, err := scriptrunner.RunCommand(cmd, environ, params.Clock, params.Timeout)
 
 	activationResult := ActivationResult{
 		Stderr: result.Stderr,

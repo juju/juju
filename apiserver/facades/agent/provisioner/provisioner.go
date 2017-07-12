@@ -844,6 +844,7 @@ func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int
 			params.DeviceBridgeInfo{
 				HostDeviceName: bridgeInfo.DeviceName,
 				BridgeName:     bridgeInfo.BridgeName,
+				MACAddress:     bridgeInfo.MACAddress,
 			})
 	}
 	return nil
