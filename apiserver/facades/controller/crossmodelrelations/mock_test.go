@@ -5,11 +5,15 @@ package crossmodelrelations_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
@@ -42,6 +46,10 @@ func (st *mockState) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]
 
 func (st *mockState) ModelUUID() string {
 	return coretesting.ModelTag.Id()
+}
+
+func (st *mockState) Model() (crossmodelrelations.Model, error) {
+	return &mockModel{}, nil
 }
 
 func (st *mockState) AddRelation(eps ...state.Endpoint) (common.Relation, error) {
@@ -136,6 +144,17 @@ func (st *mockState) Application(id string) (common.Application, error) {
 		return nil, errors.NotFoundf("application %q", id)
 	}
 	return a, nil
+}
+
+type mockModel struct {
+}
+
+func (m *mockModel) Name() string {
+	return "prod"
+}
+
+func (m *mockModel) Owner() names.UserTag {
+	return names.NewUserTag("fred")
 }
 
 type mockRelation struct {
@@ -275,4 +294,46 @@ func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) erro
 		u.settings[k] = v
 	}
 	return nil
+}
+
+type mockBakeryService struct {
+	testing.Stub
+	authentication.BakeryService
+	caveats map[string][]checkers.Caveat
+}
+
+func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+	s.MethodCall(s, "NewMacaroon", id, key, caveats)
+	s.caveats[id] = caveats
+	return macaroon.New(nil, id, "")
+}
+
+func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkers.Checker) (map[string]string, error) {
+	if len(ms[0]) == 0 {
+		return nil, errors.New("no macaroons")
+	}
+	caveats := s.caveats[ms[0][0].Id()]
+	declared := make(map[string]string)
+	for _, cav := range caveats {
+		name, rest, err := checkers.ParseCaveat(cav.Condition)
+		if err != nil {
+			continue
+		}
+		if name != checkers.CondDeclared {
+			continue
+		}
+		parts := strings.SplitN(rest, " ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key, val := parts[0], parts[1]
+		declared[key] = val
+	}
+
+	for k, v := range assert {
+		if declared[k] != v {
+			return nil, errors.New("validation error")
+		}
+	}
+	return declared, nil
 }

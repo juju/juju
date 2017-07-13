@@ -33,6 +33,7 @@ var _ = gc.Suite(&applicationOffersSuite{})
 
 func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+	s.bakery = &mockBakeryService{}
 	s.applicationOffers = &stubApplicationOffers{}
 	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
 		return s.applicationOffers
@@ -46,7 +47,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources,
+		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.bakery,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -909,6 +910,7 @@ var _ = gc.Suite(&consumeSuite{})
 
 func (s *consumeSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+	s.bakery = &mockBakeryService{}
 	getApplicationOffers := func(st interface{}) jujucrossmodel.ApplicationOffers {
 		return &mockApplicationOffers{st: st.(*mockState)}
 	}
@@ -921,7 +923,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources,
+		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.bakery,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -993,8 +995,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 		Addrs:         []string{"192.168.1.1:17070"},
 		CACert:        testing.CACert,
 	})
-	// TODO(wallyworld)
-	c.Assert(results.Results[0].Macaroon, gc.IsNil)
+	c.Assert(results.Results[0].Macaroon.Id(), gc.Equals, "")
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {

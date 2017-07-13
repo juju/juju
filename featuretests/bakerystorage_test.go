@@ -8,6 +8,7 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon.v1"
@@ -41,6 +42,7 @@ func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 		GetCollection: func() (mongo.Collection, func()) {
 			return mongo.CollectionFromName(s.db, s.coll.Name)
 		},
+		Clock: clock.WallClock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if enableExpiry {

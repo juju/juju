@@ -279,16 +279,23 @@ func (m *mockRemoteRelationsFacade) PublishRelationChange(change params.RemoteRe
 	return nil
 }
 
-func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
+func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
 	m.stub.MethodCall(m, "RegisterRemoteRelations", relations)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	result := make([]params.RemoteEntityIdResult, len(relations))
+	result := make([]params.RegisterRemoteRelationResult, len(relations))
+	mac, err := macaroon.New(nil, "apimac", "")
+	if err != nil {
+		return nil, err
+	}
 	for i, rel := range relations {
-		result[i].Result = &params.RemoteEntityId{
-			ModelUUID: "source-model-uuid",
-			Token:     "token-" + rel.OfferName,
+		result[i].Result = &params.RemoteRelationDetails{
+			RemoteEntityId: params.RemoteEntityId{
+				ModelUUID: "source-model-uuid",
+				Token:     "token-" + rel.OfferName,
+			},
+			Macaroon: mac,
 		}
 	}
 	return result, nil
@@ -301,15 +308,15 @@ func (m *mockRemoteRelationsFacade) relationsUnitsWatcher(key string) (*mockRela
 	return w, ok
 }
 
-func (m *mockRemoteRelationsFacade) WatchRelationUnits(relationId params.RemoteEntityId) (watcher.RelationUnitsWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchRelationUnits(arg params.RemoteRelationArg) (watcher.RelationUnitsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.stub.MethodCall(m, "WatchRelationUnits", relationId.Token)
+	m.stub.MethodCall(m, "WatchRelationUnits", arg.Token, arg.Macaroons)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	m.relationsUnitsWatchers[relationId.Token] = newMockRelationUnitsWatcher()
-	return m.relationsUnitsWatchers[relationId.Token], nil
+	m.relationsUnitsWatchers[arg.Token] = newMockRelationUnitsWatcher()
+	return m.relationsUnitsWatchers[arg.Token], nil
 }
 
 // RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.

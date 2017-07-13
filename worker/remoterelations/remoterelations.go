@@ -33,9 +33,9 @@ type RemoteModelRelationsFacadeCloser interface {
 // model hosting the remote application involved in the relation, and also watches
 // for remote relation changes which are then pushed to the local model.
 type RemoteModelRelationsFacade interface {
-	// RegisterRemoteRelation sets up the remote model to participate
+	// RegisterRemoteRelations sets up the remote model to participate
 	// in the specified relations.
-	RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error)
+	RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)
 
 	// PublishRelationChange publishes relation changes to the
 	// model hosting the remote application involved in the relation.
@@ -43,7 +43,7 @@ type RemoteModelRelationsFacade interface {
 
 	// WatchRelationUnits returns a watcher that notifies of changes to the
 	// units in the remote model for the relation with the given remote id.
-	WatchRelationUnits(params.RemoteEntityId) (watcher.RelationUnitsWatcher, error)
+	WatchRelationUnits(params.RemoteRelationArg) (watcher.RelationUnitsWatcher, error)
 
 	// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
 	RelationUnitSettings([]params.RemoteRelationUnit) ([]params.SettingsResult, error)
@@ -415,7 +415,7 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 			RelationId:    remoteId,
 			Life:          params.Dead,
 			ApplicationId: w.relationInfo.localApplicationId,
-			Macaroon:      w.macaroon,
+			Macaroons:     macaroon.Slice{w.macaroon},
 		}
 		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
 			return errors.Annotatef(err, "publishing relation departed %+v to remote model %v", change, w.remoteModelUUID)
@@ -543,7 +543,10 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 	}
 
 	// Start a watcher to track changes to the units in the relation in the remote model.
-	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationUnits(relationId)
+	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationUnits(params.RemoteRelationArg{
+		RemoteEntityId: relationId,
+		Macaroons:      macaroon.Slice{w.macaroon},
+	})
 	if err != nil {
 		return errors.Annotatef(
 			err, "watching remote side of application %v and relation %v",
@@ -558,6 +561,7 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 			relationUnits[i] = params.RemoteRelationUnit{
 				RelationId: relationId,
 				Unit:       names.NewUnitTag(changedName).String(),
+				Macaroons:  macaroon.Slice{w.macaroon},
 			}
 		}
 		return w.remoteModelFacade.RelationUnitSettings(relationUnits)
@@ -614,28 +618,34 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 
 	// This data goes to the remote model so we map local info
 	// from this model to the remote arg values and visa versa.
-	arg := params.RegisterRemoteRelation{
+	arg := params.RegisterRemoteRelationArg{
 		ApplicationId:     localApplicationId,
 		RelationId:        relationId,
 		RemoteEndpoint:    w.relationInfo.localEndpoint,
 		OfferName:         w.relationInfo.remoteApplicationOfferName,
 		LocalEndpointName: w.relationInfo.remoteEndpointName,
-		Macaroon:          w.macaroon,
+		Macaroons:         macaroon.Slice{w.macaroon},
 	}
-	remoteAppIds, err := w.remoteModelFacade.RegisterRemoteRelations(arg)
+	remoteRelation, err := w.remoteModelFacade.RegisterRemoteRelations(arg)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
 	// remoteAppIds is a slice but there's only one item
 	// as we currently only register one remote application
-	if err := remoteAppIds[0].Error; err != nil {
+	if err := remoteRelation[0].Error; err != nil {
 		return fail(errors.Trace(err))
 	}
 	if err := results[0].Error; err != nil && !params.IsCodeAlreadyExists(err) {
 		return fail(errors.Annotatef(err, "registering relation %v", relationTag))
 	}
 	// Import the application id from the offering model.
-	offeringRemoteAppId = *remoteAppIds[0].Result
+	registerResult := *remoteRelation[0].Result
+	offeringRemoteAppId = params.RemoteEntityId{
+		ModelUUID: registerResult.ModelUUID,
+		Token:     registerResult.Token,
+	}
+	// We have a new macaroon attenuated to the relation.
+	w.macaroon = registerResult.Macaroon
 	logger.Debugf("import remote application token %v from %v for %v",
 		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationName)
 	err = w.localModelFacade.ImportRemoteEntity(
@@ -763,7 +773,7 @@ func (w *relationUnitsWorker) relationUnitsChangeEvent(
 		RelationId:    w.remoteRelationId,
 		Life:          params.Alive,
 		ApplicationId: w.applicationId,
-		Macaroon:      w.macaroon,
+		Macaroons:     macaroon.Slice{w.macaroon},
 		DepartedUnits: make([]int, len(change.Departed)),
 	}
 	for i, u := range change.Departed {
