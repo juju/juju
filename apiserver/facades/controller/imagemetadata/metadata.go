@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -29,7 +28,6 @@ var logger = loggo.GetLogger("juju.apiserver.imagemetadata")
 type API struct {
 	metadata   metadataAccess
 	newEnviron func() (environs.Environ, error)
-	authorizer facade.Authorizer
 }
 
 // createAPI returns a new image metadata API facade.
@@ -39,14 +37,13 @@ func createAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthClient() && !authorizer.AuthController() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 
 	return &API{
 		metadata:   st,
 		newEnviron: newEnviron,
-		authorizer: authorizer,
 	}, nil
 }
 
@@ -65,15 +62,6 @@ func NewAPI(
 // UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
-	if api.authorizer.AuthClient() {
-		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.metadata.ControllerTag())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !admin {
-			return common.ServerError(common.ErrPerm)
-		}
-	}
 	return api.retrievePublished()
 }
 

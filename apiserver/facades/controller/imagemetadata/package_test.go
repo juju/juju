@@ -72,18 +72,14 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 		modelConfig: func() (*config.Config, error) {
 			return cfg, nil
 		},
-		controllerTag: func() names.ControllerTag {
-			return names.NewControllerTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
-		},
 	}
 }
 
 type mockState struct {
 	*gitjujutesting.Stub
 
-	saveMetadata  func(m []cloudimagemetadata.Metadata) error
-	modelConfig   func() (*config.Config, error)
-	controllerTag func() names.ControllerTag
+	saveMetadata func(m []cloudimagemetadata.Metadata) error
+	modelConfig  func() (*config.Config, error)
 }
 
 func (st *mockState) SaveMetadata(m []cloudimagemetadata.Metadata) error {
@@ -94,11 +90,6 @@ func (st *mockState) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 func (st *mockState) ModelConfig() (*config.Config, error) {
 	st.Stub.MethodCall(st, modelConfig)
 	return st.modelConfig()
-}
-
-func (st *mockState) ControllerTag() names.ControllerTag {
-	st.Stub.MethodCall(st, "ControllerTag")
-	return st.controllerTag()
 }
 
 func testConfig(c *gc.C) *config.Config {
