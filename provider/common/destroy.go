@@ -47,6 +47,10 @@ func destroyInstances(env environs.Environ) error {
 	}
 }
 
+// TODO(axw) we should just make it Environ.Destroy's responsibility
+// to destroy persistent storage. Trying to include it in the storage
+// source abstraction doesn't work well with dynamic, non-persistent
+// storage like tmpfs, rootfs, etc.
 func destroyStorage(env environs.Environ) error {
 	logger.Infof("destroying storage")
 	storageProviderTypes, err := env.StorageProviderTypes()
@@ -64,36 +68,28 @@ func destroyStorage(env environs.Environ) error {
 		if storageProvider.Scope() != storage.ScopeEnviron {
 			continue
 		}
-		if err := destroyVolumes(storageProviderType, storageProvider); err != nil {
+		storageConfig, err := storage.NewConfig(
+			string(storageProviderType),
+			storageProviderType,
+			map[string]interface{}{},
+		)
+		if err != nil {
 			return errors.Trace(err)
 		}
-		// TODO(axw) destroy env-level filesystems when we have them.
+		if storageProvider.Supports(storage.StorageKindBlock) {
+			volumeSource, err := storageProvider.VolumeSource(storageConfig)
+			if err != nil {
+				return errors.Annotate(err, "getting volume source")
+			}
+			if err := destroyVolumes(volumeSource); err != nil {
+				return errors.Trace(err)
+			}
+		}
 	}
 	return nil
 }
 
-func destroyVolumes(
-	storageProviderType storage.ProviderType,
-	storageProvider storage.Provider,
-) error {
-	if !storageProvider.Supports(storage.StorageKindBlock) {
-		return nil
-	}
-
-	storageConfig, err := storage.NewConfig(
-		string(storageProviderType),
-		storageProviderType,
-		map[string]interface{}{},
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	volumeSource, err := storageProvider.VolumeSource(storageConfig)
-	if err != nil {
-		return errors.Annotate(err, "getting volume source")
-	}
-
+func destroyVolumes(volumeSource storage.VolumeSource) error {
 	volumeIds, err := volumeSource.ListVolumes()
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")

@@ -306,13 +306,6 @@ type CreateFilesystemsResult struct {
 	Error      error
 }
 
-// DescribeFilesystemsResult contains the result of a FilesystemSource.DescribeFilesystems call
-// for one filesystem. Filesystem should only be used if Error is nil.
-type DescribeFilesystemsResult struct {
-	FilesystemInfo *FilesystemInfo
-	Error          error
-}
-
 // AttachFilesystemsResult contains the result of a FilesystemSource.AttachFilesystems call
 // for one filesystem. FilesystemAttachment should only be used if Error is nil.
 type AttachFilesystemsResult struct {

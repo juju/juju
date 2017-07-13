@@ -5,19 +5,16 @@ package lxd
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
-	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools/lxdclient"
@@ -27,14 +24,20 @@ const (
 	lxdStorageProviderType = "lxd"
 
 	// attrLXDStorageDriver is the attribute name for the
-	// storage pool's LXD storage driver. This is the only
-	// predefined storage attribute; all others are passed
-	// on to LXD directly.
+	// storage pool's LXD storage driver. This and "lxd-pool"
+	// are the only predefined storage attributes; all others
+	// are passed on to LXD directly.
 	attrLXDStorageDriver = "driver"
+
+	// attrLXDStoragePool is the attribute name for the
+	// storage pool's corresponding LXD storage pool name.
+	// If this is not provided, the LXD storage pool name
+	// will be set to "juju".
+	attrLXDStoragePool = "lxd-pool"
 )
 
 func (env *environ) storageSupported() bool {
-	return featureflag.Enabled(feature.LXDStorage) && env.raw.StorageSupported()
+	return env.raw.StorageSupported()
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
@@ -69,46 +72,66 @@ var lxdStorageConfigFields = schema.Fields{
 		schema.Const("btrfs"),
 		schema.Const("lvm"),
 	),
-	// TODO(axw) copy the rest of the schema from LXD code.
-	// Ideally LXD would export the schema over the API, and
-	// we would expose it.
+	attrLXDStoragePool: schema.String(),
 }
 
 var lxdStorageConfigChecker = schema.FieldMap(
 	lxdStorageConfigFields,
 	schema.Defaults{
 		attrLXDStorageDriver: "dir",
+		attrLXDStoragePool:   schema.Omit,
 	},
 )
 
 type lxdStorageConfig struct {
-	pool   string
-	driver string
+	lxdPool string
+	driver  string
+	attrs   map[string]string
 }
 
-func newLXDStorageConfig(pool string, attrs map[string]interface{}) (*lxdStorageConfig, error) {
+func newLXDStorageConfig(attrs map[string]interface{}) (*lxdStorageConfig, error) {
 	coerced, err := lxdStorageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating Azure storage config")
 	}
 	attrs = coerced.(map[string]interface{})
+
 	driver := attrs[attrLXDStorageDriver].(string)
+	lxdPool, _ := attrs[attrLXDStoragePool].(string)
+	delete(attrs, attrLXDStorageDriver)
+	delete(attrs, attrLXDStoragePool)
+
+	var stringAttrs map[string]string
+	if len(attrs) > 0 {
+		stringAttrs = make(map[string]string)
+		for k, v := range attrs {
+			if vString, ok := v.(string); ok {
+				stringAttrs[k] = vString
+			} else {
+				stringAttrs[k] = fmt.Sprint(v)
+			}
+		}
+	}
+
+	if lxdPool == "" {
+		lxdPool = "juju"
+	}
+
 	lxdStorageConfig := &lxdStorageConfig{
-		// TODO(axw) the LXD pool name should probably come from
-		// an attribute of the Juju storage pool, rather than the
-		// Juju storage pool name directly.
-		pool:   pool,
-		driver: driver,
-		// TODO(axw) other things
+		lxdPool: lxdPool,
+		driver:  driver,
+		attrs:   stringAttrs,
 	}
 	return lxdStorageConfig, nil
 }
 
 // ValidateConfig is part of the Provider interface.
 func (e *lxdStorageProvider) ValidateConfig(cfg *storage.Config) error {
-	_, err := newLXDStorageConfig(cfg.Name(), cfg.Attrs())
-	// TODO(axw) sanity check values.
-	return errors.Trace(err)
+	lxdStorageConfig, err := newLXDStorageConfig(cfg.Attrs())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return ensureLXDStoragePool(e.env, lxdStorageConfig)
 }
 
 // Supports is part of the Provider interface.
@@ -128,9 +151,10 @@ func (e *lxdStorageProvider) Dynamic() bool {
 
 // DefaultPools is part of the Provider interface.
 func (e *lxdStorageProvider) DefaultPools() []*storage.Config {
-	// TODO(axw) other ones
 	zfsPool, _ := storage.NewConfig("lxd-zfs", lxdStorageProviderType, map[string]interface{}{
 		attrLXDStorageDriver: "zfs",
+		attrLXDStoragePool:   "juju-zfs",
+		"zfs.pool_name":      "juju-lxd",
 	})
 	return []*storage.Config{zfsPool}
 }
@@ -142,16 +166,46 @@ func (e *lxdStorageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSo
 
 // FilesystemSource is part of the Provider interface.
 func (e *lxdStorageProvider) FilesystemSource(cfg *storage.Config) (storage.FilesystemSource, error) {
-	lxdStorageConfig, err := newLXDStorageConfig(cfg.Name(), cfg.Attrs())
-	if err != nil {
-		return nil, errors.Trace(err)
+	return &lxdFilesystemSource{e.env}, nil
+}
+
+func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
+	createErr := env.raw.CreateStoragePool(cfg.lxdPool, cfg.driver, cfg.attrs)
+	if createErr == nil {
+		return nil
 	}
-	return &lxdFilesystemSource{e.env, lxdStorageConfig}, nil
+	// There's no specific error to check for, so we just assume
+	// that the error is due to the pool already existing, and
+	// verify that. If it doesn't exist, return the original
+	// CreateStoragePool error.
+
+	pool, err := env.raw.StoragePool(cfg.lxdPool)
+	if errors.IsNotFound(err) {
+		return errors.Annotatef(createErr, "creating LXD storage pool %q", cfg.lxdPool)
+	} else if err != nil {
+		return errors.Annotatef(createErr, "getting storage pool %q", cfg.lxdPool)
+	}
+	// The storage pool already exists: check that the existing pool's
+	// driver and config match what we want.
+	if pool.Driver != cfg.driver {
+		return errors.Errorf(
+			`LXD storage pool %q exists, with conflicting driver %q. Specify an alternative pool name via the "lxd-pool" attribute.`,
+			pool.Name, pool.Driver,
+		)
+	}
+	for k, v := range cfg.attrs {
+		if haveV, ok := pool.Config[k]; !ok || haveV != v {
+			return errors.Errorf(
+				`LXD storage pool %q exists, with conflicting config attribute %q=%q. Specify an alternative pool name via the "lxd-pool" attribute.`,
+				pool.Name, k, haveV,
+			)
+		}
+	}
+	return nil
 }
 
 type lxdFilesystemSource struct {
 	env *environ
-	cfg *lxdStorageConfig
 }
 
 // CreateFilesystems is specified on the storage.FilesystemSource interface.
@@ -176,28 +230,36 @@ func (s *lxdFilesystemSource) createFilesystem(
 	arg storage.FilesystemParams,
 ) (*storage.Filesystem, error) {
 
-	// TODO(axw) the filesystem ID needs to be something
-	// unique, since the storage pool could potentially be
-	// used by something other than Juju.
-	volumeName := arg.Tag.String()
-	filesystemId := fmt.Sprintf("%s:%s", s.cfg.pool, volumeName)
-
-	config := map[string]string{
-	// TODO(axw) for the "dir" driver, the size attribute is rejected
-	// by LXD. Ideally LXD would be able to tell us the total size of
-	// the filesystem on which the directory was created, though.
-	//"size": ...,
+	cfg, err := newLXDStorageConfig(arg.Attributes)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	if err := ensureLXDStoragePool(s.env, cfg); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// The filesystem ID needs to be something unique, since there
+	// could be multiple models creating volumes within the same
+	// LXD storage pool.
+	volumeName := s.env.namespace.Value(arg.Tag.String())
+	filesystemId := makeFilesystemId(cfg, volumeName)
+
+	config := map[string]string{}
 	for k, v := range arg.ResourceTags {
 		config["user."+k] = v
 	}
-
-	// TODO(axw) ensure pool exists
-
-	if err := s.env.raw.VolumeCreate(s.cfg.pool, volumeName, config); err != nil {
-		return nil, errors.Trace(err)
+	switch cfg.driver {
+	case "dir":
+		// NOTE(axw) for the "dir" driver, the size attribute is rejected
+		// by LXD. Ideally LXD would be able to tell us the total size of
+		// the filesystem on which the directory was created, though.
+	default:
+		config["size"] = fmt.Sprintf("%dMB", arg.Size)
 	}
-	// TODO(axw) handle BadRequest, checking if the volume already exists.
+
+	if err := s.env.raw.VolumeCreate(cfg.lxdPool, volumeName, config); err != nil {
+		return nil, errors.Annotate(err, "creating volume")
+	}
 
 	filesystem := storage.Filesystem{
 		arg.Tag,
@@ -210,58 +272,58 @@ func (s *lxdFilesystemSource) createFilesystem(
 	return &filesystem, nil
 }
 
-func (s *lxdFilesystemSource) filesystemId(v api.StorageVolume) string {
-	return fmt.Sprintf("%s:%s", s.cfg.pool, v.Name)
+func makeFilesystemId(cfg *lxdStorageConfig, volumeName string) string {
+	// We need to include the LXD pool name in the filesystem ID,
+	// so that we can map it back to a volume.
+	return fmt.Sprintf("%s:%s", cfg.lxdPool, volumeName)
 }
 
 // parseFilesystemId parses the given filesystem ID, returning the underlying
-// LXD volume name for this source's LXD storage pool.
-func (s *lxdFilesystemSource) parseFilesystemId(id string) (string, error) {
-	prefix := s.cfg.pool + ":"
-	if !strings.HasPrefix(id, prefix) {
-		return "", errors.NotValidf("filesystem ID %q", id)
+// LXD storage pool name and volume name.
+func parseFilesystemId(id string) (lxdName, volumeName string, _ error) {
+	fields := strings.SplitN(id, ":", 2)
+	if len(fields) < 2 {
+		return "", "", errors.NotValidf("filesystem ID %q", id)
 	}
-	return id[len(prefix):], nil
+	return fields[0], fields[1], nil
 }
 
-// ListFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) ListFilesystems() ([]string, error) {
-	volumes, err := s.env.raw.VolumeList(s.cfg.pool)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ids := make([]string, len(volumes))
-	for i, v := range volumes {
-		// TODO(axw) filter volumes?
-		ids[i] = s.filesystemId(v)
-	}
-	return ids, nil
+func destroyControllerFilesystems(env *environ, controllerUUID string) error {
+	return destroyFilesystems(env, func(v api.StorageVolume) bool {
+		return v.Config["user."+tags.JujuController] == env.Config().UUID()
+	})
 }
 
-// DescribeFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) DescribeFilesystems(filesystemIds []string) ([]storage.DescribeFilesystemsResult, error) {
-	volumes, err := s.env.raw.VolumeList(s.cfg.pool)
+func destroyModelFilesystems(env *environ) error {
+	return destroyFilesystems(env, func(v api.StorageVolume) bool {
+		return v.Config["user."+tags.JujuModel] == env.Config().UUID()
+	})
+}
+
+func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error {
+	pools, err := env.raw.StoragePools()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Annotate(err, "listing LXD storage pools")
 	}
-	results := make([]storage.DescribeFilesystemsResult, len(filesystemIds))
-	for i, id := range filesystemIds {
-		var found bool
-		for _, v := range volumes {
-			if id != s.filesystemId(v) {
+	for _, pool := range pools {
+		volumes, err := env.raw.VolumeList(pool.Name)
+		if err != nil {
+			return errors.Annotatef(err, "listing volumes in LXD storage pool %q", pool)
+		}
+		for _, volume := range volumes {
+			if !match(volume) {
 				continue
 			}
-			// TODO(axw) extract size from properties
-			results[i].FilesystemInfo = &storage.FilesystemInfo{
-				FilesystemId: id,
+			if err := env.raw.VolumeDelete(pool.Name, volume.Name); err != nil {
+				return errors.Annotatef(
+					err,
+					"deleting volume %q in LXD storage pool %q",
+					volume.Name, pool,
+				)
 			}
-			found = true
-		}
-		if !found {
-			results[i].Error = errors.NotFoundf("filesystem %q", id)
 		}
 	}
-	return results, nil
+	return nil
 }
 
 // DestroyFilesystems is specified on the storage.FilesystemSource interface.
@@ -274,12 +336,12 @@ func (s *lxdFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]erro
 }
 
 func (s *lxdFilesystemSource) destroyFilesystem(filesystemId string) error {
-	volumeName, err := s.parseFilesystemId(filesystemId)
+	poolName, volumeName, err := parseFilesystemId(filesystemId)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.env.raw.VolumeDelete(s.cfg.pool, volumeName)
-	if err != nil && err != lxd.LXDErrors[http.StatusNotFound] {
+	err = s.env.raw.VolumeDelete(poolName, volumeName)
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 	return nil
@@ -344,7 +406,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 		return nil, errors.NotFoundf("instance %q", arg.InstanceId)
 	}
 
-	volumeName, err := s.parseFilesystemId(arg.FilesystemId)
+	poolName, volumeName, err := parseFilesystemId(arg.FilesystemId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -355,7 +417,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 		disk := lxdclient.DiskDevice{
 			Path:     arg.Path,
 			Source:   volumeName,
-			Pool:     s.cfg.pool,
+			Pool:     poolName,
 			ReadOnly: arg.ReadOnly,
 		}
 		if err := s.env.raw.AttachDisk(inst.raw.Name, deviceName, disk); err != nil {
