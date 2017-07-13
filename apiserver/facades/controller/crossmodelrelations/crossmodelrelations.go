@@ -5,12 +5,19 @@ package crossmodelrelations
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon.v1"
 
+	"fmt"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
@@ -27,14 +34,20 @@ type CrossModelRelationsAPI struct {
 	st         CrossModelRelationsState
 	resources  facade.Resources
 	authorizer facade.Authorizer
+
+	bakery authentication.BakeryService
 }
 
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
+	bakery, err := commoncrossmodel.NewBakery(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewCrossModelRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		ctx.Resources(), ctx.Auth(),
+		ctx.Resources(), ctx.Auth(), bakery,
 	)
 }
 
@@ -43,12 +56,13 @@ func NewCrossModelRelationsAPI(
 	st CrossModelRelationsState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	bakery authentication.BakeryService,
 ) (*CrossModelRelationsAPI, error) {
-	// TODO(wallyworld) - auth based on macaroons.
 	return &CrossModelRelationsAPI{
 		st:         st,
 		resources:  resources,
 		authorizer: authorizer,
+		bakery:     bakery,
 	}, nil
 }
 
@@ -61,7 +75,21 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		if err := commoncrossmodel.PublishRelationChange(api.st, change); err != nil {
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(change.RelationId.ModelUUID), change.RelationId.Token)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationId, api.st.ModelUUID())
+				continue
+			}
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := commoncrossmodel.PublishRelationChange(api.st, relationTag, change); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -69,27 +97,43 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 	return results, nil
 }
 
-// RegisterRemoteRelations sets up the model to participate
+func (api *CrossModelRelationsAPI) checkMacaroons(mac macaroon.Slice, requiredValues map[string]string) error {
+	_, err := api.bakery.CheckAny([]macaroon.Slice{mac}, requiredValues, checkers.TimeBefore)
+	if err != nil {
+		if _, ok := errgo.Cause(err).(*bakery.VerificationError); ok {
+			logger.Debugf("macaroon verification failed: %+v", err)
+			return common.ErrPerm
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
+func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.Tag, mac macaroon.Slice) error {
+	return api.checkMacaroons(mac, map[string]string{
+		"source-model-uuid": api.st.ModelUUID(),
+		"relation-key":      relationTag.Id(),
+	})
+}
+
+// RegisterRemoteRelationArgs sets up the model to participate
 // in the specified relations. This operation is idempotent.
 func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
-	relations params.RegisterRemoteRelations,
-) (params.RemoteEntityIdResults, error) {
-	results := params.RemoteEntityIdResults{
-		Results: make([]params.RemoteEntityIdResult, len(relations.Relations)),
+	relations params.RegisterRemoteRelationArgs,
+) (params.RegisterRemoteRelationResults, error) {
+	results := params.RegisterRemoteRelationResults{
+		Results: make([]params.RegisterRemoteRelationResult, len(relations.Relations)),
 	}
 	for i, relation := range relations.Relations {
-		// TODO(wallyworld) - check macaroon
-		if id, err := api.registerRemoteRelation(relation); err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		} else {
-			results.Results[i].Result = id
-		}
+		id, err := api.registerRemoteRelation(relation)
+		results.Results[i].Result = id
+		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelation) (*params.RemoteEntityId, error) {
+func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
 	logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
@@ -104,8 +148,22 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	if len(appOffers) == 0 {
 		return nil, errors.NotFoundf("application offer %v", relation.OfferName)
 	}
-	localApplicationName := appOffers[0].ApplicationName
 
+	// Check that the supplied macaroon allows access.
+	appOffer := appOffers[0]
+	model, err := api.st.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "loading model")
+	}
+	offerURL := crossmodel.MakeURL(model.Owner().Name(), model.Name(), relation.OfferName, "")
+	if err := api.checkMacaroons(relation.Macaroons, map[string]string{
+		"source-model-uuid": api.st.ModelUUID(),
+		"offer-url":         offerURL,
+	}); err != nil {
+		return nil, err
+	}
+
+	localApplicationName := appOffer.ApplicationName
 	localApp, err := api.st.Application(localApplicationName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferName)
@@ -194,22 +252,42 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		return nil, errors.Annotatef(err, "exporting local application %v", localApplicationName)
 	}
 	logger.Debugf("local application %v from model %v exported with token %v ", localApplicationName, api.st.ModelUUID(), token)
-	return &params.RemoteEntityId{
-		ModelUUID: api.st.ModelUUID(),
-		Token:     token,
+
+	// Mint a new macaroon attenuated to the actual relation.
+	// TODO(wallyworld) - wind back expiry time and add refresh
+	modelTag := names.NewModelTag(api.st.ModelUUID())
+	relationMacaroon, err := api.bakery.NewMacaroon(fmt.Sprintf("%v %v", modelTag, localRel.Tag()), nil,
+		[]checkers.Caveat{
+			checkers.TimeBeforeCaveat(time.Now().Add(365 * 24 * time.Hour)),
+			checkers.DeclaredCaveat("source-model-uuid", api.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", localRel.Tag().Id()),
+		})
+	if err != nil {
+		return nil, errors.Annotate(err, "creating relation macaroon")
+	}
+	return &params.RemoteRelationDetails{
+		RemoteEntityId: params.RemoteEntityId{
+			ModelUUID: api.st.ModelUUID(),
+			Token:     token,
+		},
+		Macaroon: relationMacaroon,
 	}, nil
 }
 
 // WatchRelationUnits starts a RelationUnitsWatcher for watching the
 // relation units involved in each specified relation, and returns the
 // watcher IDs and initial values, or an error if the relation units could not be watched.
-func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteEntities params.RemoteEntities) (params.RelationUnitsWatchResults, error) {
+func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteRelationArgs params.RemoteRelationArgs) (params.RelationUnitsWatchResults, error) {
 	results := params.RelationUnitsWatchResults{
-		Results: make([]params.RelationUnitsWatchResult, len(remoteEntities.Entities)),
+		Results: make([]params.RelationUnitsWatchResult, len(remoteRelationArgs.Args)),
 	}
-	for i, arg := range remoteEntities.Entities {
+	for i, arg := range remoteRelationArgs.Args {
 		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(arg.ModelUUID), arg.Token)
 		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -240,6 +318,10 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
 
 		ru := params.RelationUnit{
 			Relation: relationTag.String(),
@@ -264,7 +346,19 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		if err := commoncrossmodel.PublishIngressNetworkChange(api.st, change); err != nil {
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(change.RelationId.ModelUUID), change.RelationId.Token)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+
+		// TODO(wallyworld) - firewaller worker needs to use macaroon
+		//if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
+		//	results.Results[i].Error = common.ServerError(err)
+		//	continue
+		//}
+		if err := commoncrossmodel.PublishIngressNetworkChange(api.st, relationTag, change); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

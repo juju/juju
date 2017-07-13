@@ -404,7 +404,15 @@ func (api *RemoteRelationsAPI) ConsumeRemoteRelationChange(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		if err := commoncrossmodel.PublishRelationChange(api.st, change); err != nil {
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(change.RelationId.ModelUUID), change.RelationId.Token)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := commoncrossmodel.PublishRelationChange(api.st, relationTag, change); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

@@ -4,6 +4,8 @@
 package crossmodelrelations
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
@@ -16,6 +18,9 @@ type CrossModelRelationsState interface {
 
 	// ListOffers returns the application offers matching any one of the filter terms.
 	ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error)
+
+	// Model returns the model entity.
+	Model() (Model, error)
 }
 
 type stateShim struct {
@@ -26,4 +31,13 @@ type stateShim struct {
 func (st stateShim) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
 	oa := state.NewApplicationOffers(st.st)
 	return oa.ListOffers(filter...)
+}
+
+type Model interface {
+	Name() string
+	Owner() names.UserTag
+}
+
+func (st stateShim) Model() (Model, error) {
+	return st.st.Model()
 }

@@ -37,7 +37,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	var err error
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, nil, s.mockState, s.mockStatePool, s.authorizer, resources,
+		getApplicationOffers, nil, s.mockState, s.mockStatePool, s.authorizer, resources, &mockBakeryService{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

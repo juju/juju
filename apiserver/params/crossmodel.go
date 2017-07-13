@@ -322,8 +322,8 @@ type RemoteRelationChangeEvent struct {
 	// the relation since the last change.
 	DepartedUnits []int `json:"departed-units,omitempty"`
 
-	// Macaroon is used for authentication.
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
 // IngressNetworksChanges holds a set of IngressNetworksChangeEvent structures.
@@ -345,12 +345,12 @@ type IngressNetworksChangeEvent struct {
 	// ingress should be disabled.
 	IngressRequired bool `json:"ingress-required"`
 
-	// Macaroon is used for authentication.
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
-// RegisterRemoteRelation holds attributes used to register a remote relation.
-type RegisterRemoteRelation struct {
+// RegisterRemoteRelationArg holds attributes used to register a remote relation.
+type RegisterRemoteRelationArg struct {
 	// ApplicationId is the application id on the remote model.
 	ApplicationId RemoteEntityId `json:"application-id"`
 
@@ -370,13 +370,42 @@ type RegisterRemoteRelation struct {
 	// LocalEndpointName is the name of the endpoint in the local model.
 	LocalEndpointName string `json:"local-endpoint-name"`
 
-	// Macaroon is used for authentication.
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
-// RegisterRemoteRelations holds args used to add remote relations.
-type RegisterRemoteRelations struct {
-	Relations []RegisterRemoteRelation `json:"relations"`
+// RegisterRemoteRelationArgs holds args used to add remote relations.
+type RegisterRemoteRelationArgs struct {
+	Relations []RegisterRemoteRelationArg `json:"relations"`
+}
+
+// RemoteRelationDetails holds the details of the
+// newly registered remote relation.
+type RemoteRelationDetails struct {
+	RemoteEntityId
+	Macaroon *macaroon.Macaroon `json:"macaroon"`
+}
+
+// RemoteEntityIdResult holds a remote entity id and an error.
+type RegisterRemoteRelationResult struct {
+	Result *RemoteRelationDetails `json:"result,omitempty"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
+// RemoteRemoteRelationResults has a set of remote relation results.
+type RegisterRemoteRelationResults struct {
+	Results []RegisterRemoteRelationResult `json:"results,omitempty"`
+}
+
+// RemoteRelationArg holds a remote relation id and macaroon.
+type RemoteRelationArg struct {
+	RemoteEntityId
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+}
+
+// RemoteRelationArgs holds arguments to an API call dealing with remote relations.
+type RemoteRelationArgs struct {
+	Args []RemoteRelationArg `json:"args"`
 }
 
 // RemoteApplicationInfo has attributes for a remote application.
@@ -436,6 +465,7 @@ type RemoteEntities struct {
 type RemoteRelationUnit struct {
 	RelationId RemoteEntityId `json:"relation"`
 	Unit       string         `json:"unit"`
+	Macaroons  macaroon.Slice `json:"macaroons,omitempty"`
 }
 
 // RemoteRelationUnits identifies multiple remote relation units.

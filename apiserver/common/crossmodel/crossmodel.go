@@ -17,18 +17,8 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.common.crossmodel")
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(backend Backend, change params.RemoteRelationChangeEvent) error {
-	logger.Debugf("publish into model %v change: %+v", backend.ModelUUID(), change)
-
-	relationTag, err := getRemoteEntityTag(backend, change.RelationId)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Debugf("not found relation tag %+v in model %v, exit early", change.RelationId, backend.ModelUUID())
-			return nil
-		}
-		return errors.Trace(err)
-	}
-	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+func PublishRelationChange(backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
+	logger.Debugf("publish into model %v change for %v: %+v", backend.ModelUUID(), relationTag, change)
 
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
@@ -184,14 +174,8 @@ func RelationUnitSettings(backend Backend, ru params.RelationUnit) (params.Setti
 }
 
 // PublishIngressNetworkChange saves the specified ingress networks for a relation.
-func PublishIngressNetworkChange(backend Backend, change params.IngressNetworksChangeEvent) error {
-	logger.Debugf("publish into model %v network change: %+v", backend.ModelUUID(), change)
-
-	relationTag, err := getRemoteEntityTag(backend, change.RelationId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change params.IngressNetworksChangeEvent) error {
+	logger.Debugf("publish into model %v network change for %v: %+v", backend.ModelUUID(), relationTag, change)
 
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())

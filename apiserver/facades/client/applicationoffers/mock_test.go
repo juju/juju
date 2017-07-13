@@ -11,7 +11,10 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -395,4 +398,14 @@ func (st *mockStatePool) Get(modelUUID string) (applicationoffers.Backend, func(
 		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
 	}
 	return backend, func() {}, nil
+}
+
+type mockBakeryService struct {
+	authentication.BakeryService
+	jtesting.Stub
+}
+
+func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+	s.MethodCall(s, "NewMacaroon", id, key, caveats)
+	return macaroon.New(nil, id, "")
 }

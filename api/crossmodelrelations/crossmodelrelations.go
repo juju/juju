@@ -60,11 +60,11 @@ func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChange
 	return results.OneError()
 }
 
-// RegisterRemoteRelation sets up the remote model to participate
+// RegisterRemoteRelations sets up the remote model to participate
 // in the specified relations.
-func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
-	args := params.RegisterRemoteRelations{Relations: relations}
-	var results params.RemoteEntityIdResults
+func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
+	args := params.RegisterRemoteRelationArgs{Relations: relations}
+	var results params.RegisterRemoteRelationResults
 	err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,8 +77,8 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 
 // WatchRelationUnits returns a watcher that notifies of changes to the
 // units in the remote model for the relation with the given remote id.
-func (c *Client) WatchRelationUnits(remoteRelationId params.RemoteEntityId) (watcher.RelationUnitsWatcher, error) {
-	args := params.RemoteEntities{Entities: []params.RemoteEntityId{remoteRelationId}}
+func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteRelationArg) (watcher.RelationUnitsWatcher, error) {
+	args := params.RemoteRelationArgs{Args: []params.RemoteRelationArg{remoteRelationArg}}
 	var results params.RelationUnitsWatchResults
 	err := c.facade.FacadeCall("WatchRelationUnits", args, &results)
 	if err != nil {

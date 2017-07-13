@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/mgo.v2"
 
@@ -23,12 +24,18 @@ type Config struct {
 	// GetCollection returns a mongo.Collection and a function that
 	// will close any associated resources.
 	GetCollection func() (collection mongo.Collection, closer func())
+
+	// Clock is used to lookup time.Now().
+	Clock clock.Clock
 }
 
 // Validate validates the configuration.
 func (c Config) Validate() error {
 	if c.GetCollection == nil {
 		return errors.NotValidf("nil GetCollection")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -41,6 +48,10 @@ type ExpirableStorage interface {
 	// ExpireAt returns a new ExpirableStorage that will expire
 	// added items at the specified time.
 	ExpireAt(time.Time) ExpirableStorage
+
+	// ExpireAfter returns a new ExpirableStorage that will expire
+	// added items after the specified duration.
+	ExpireAfter(time.Duration) ExpirableStorage
 }
 
 // New returns an implementation of bakery.Storage
@@ -50,7 +61,7 @@ func New(config Config) (ExpirableStorage, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating config")
 	}
-	return &storage{config, time.Time{}}, nil
+	return &storage{config: config, expireAt: time.Time{}}, nil
 }
 
 // MongoIndexes returns the indexes to apply to the MongoDB collection.

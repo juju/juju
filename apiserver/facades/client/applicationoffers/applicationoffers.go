@@ -5,13 +5,17 @@ package applicationoffers
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -30,6 +34,8 @@ type OffersAPI struct {
 	BaseAPI
 	*common.APIAddresser
 	dataDir string
+
+	bakery authentication.BakeryService
 }
 
 // createAPI returns a new application offers OffersAPI facade.
@@ -40,6 +46,7 @@ func createOffersAPI(
 	statePool StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
+	bakery authentication.BakeryService,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -48,6 +55,7 @@ func createOffersAPI(
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
 		dataDir:      dataDir.String(),
+		bakery:       bakery,
 		APIAddresser: common.NewAPIAddresser(backend, resources),
 		BaseAPI: BaseAPI{
 			Authorizer:           authorizer,
@@ -76,11 +84,17 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		return env, nil
 	}
 
+	bakery, err := commoncrossmodel.NewBakery(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,
 		GetStateAccess(ctx.State()),
-		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources())
+		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources(),
+		bakery,
+	)
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.
@@ -417,11 +431,28 @@ func (api *OffersAPI) GetConsumeDetails(args params.ApplicationURLs) (params.Con
 	}
 
 	for i, result := range offers.Results {
-		results[i].Offer = result.Result
+		offer := result.Result
+		results[i].Offer = offer
 		results[i].Error = result.Error
 		if result.Error == nil {
+			sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
+			if err != nil {
+				results[i].Error = common.ServerError(err)
+				continue
+			}
 			results[i].ControllerInfo = controllerInfo
-			// TODO(Wallyworld) - add macaroon
+			// TODO(wallyworld) - wind back expiry time and add refresh
+			offerMacaroon, err := api.bakery.NewMacaroon("", nil,
+				[]checkers.Caveat{
+					checkers.TimeBeforeCaveat(time.Now().Add(365 * 24 * time.Hour)),
+					checkers.DeclaredCaveat("source-model-uuid", sourceModelTag.Id()),
+					checkers.DeclaredCaveat("offer-url", offer.OfferURL),
+				})
+			if err != nil {
+				results[i].Error = common.ServerError(err)
+				continue
+			}
+			results[i].Macaroon = offerMacaroon
 		}
 	}
 	consumeResults.Results = results

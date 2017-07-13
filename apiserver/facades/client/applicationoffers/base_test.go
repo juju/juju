@@ -35,6 +35,7 @@ type baseSuite struct {
 	mockState         *mockState
 	mockStatePool     *mockStatePool
 	env               *mockEnviron
+	bakery            *mockBakeryService
 	applicationOffers *stubApplicationOffers
 }
 

@@ -153,12 +153,13 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 
 	mac, err := macaroon.New(nil, "test", "")
 	c.Assert(err, jc.ErrorIsNil)
+	apiMac, err := macaroon.New(nil, "apimac", "")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), names.NewRelationTag("db2:db django:db")}}},
-		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelation{{
+		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
 			ApplicationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-django"},
 			RelationId:    params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
 			RemoteEndpoint: params.RemoteEndpoint{
@@ -170,11 +171,11 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 			},
 			OfferName:         "offer-db2",
 			LocalEndpointName: "data",
-			Macaroon:          mac,
+			Macaroons:         macaroon.Slice{mac},
 		}}}},
 		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-offer-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
-		{"WatchRelationUnits", []interface{}{"token-db2:db django:db"}},
+		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
@@ -226,7 +227,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 		}
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, "apimac", "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -241,7 +242,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-db2:db django:db"},
-				Macaroon: mac,
+				Macaroons: macaroon.Slice{mac},
 			},
 		}},
 	}
@@ -265,7 +266,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 		}
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, "apimac", "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -280,7 +281,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-db2:db django:db"},
-				Macaroon: mac,
+				Macaroons: macaroon.Slice{mac},
 			},
 		}},
 	}
@@ -298,7 +299,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 		Departed: []string{"unit/2"},
 	}
 
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, "apimac", "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"RelationUnitSettings", []interface{}{
@@ -319,7 +320,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 					Settings: map[string]interface{}{"foo": "bar"},
 				}},
 				DepartedUnits: []int{2},
-				Macaroon:      mac,
+				Macaroons:     macaroon.Slice{mac},
 			},
 		}},
 	}
@@ -337,13 +338,14 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 		Departed: []string{"unit/2"},
 	}
 
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, "apimac", "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"RelationUnitSettings", []interface{}{
 			[]params.RemoteRelationUnit{{
 				RelationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
-				Unit:       "unit-unit-1"}}}},
+				Unit:       "unit-unit-1",
+				Macaroons:  macaroon.Slice{mac}}}}},
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life: params.Alive,
@@ -358,7 +360,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 					Settings: map[string]interface{}{"foo": "bar"},
 				}},
 				DepartedUnits: []int{2},
-				Macaroon:      mac,
+				Macaroons:     macaroon.Slice{mac},
 			},
 		}},
 	}
