@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package imagemetadata_test
+package imagemetadatamanager_test
 
 import (
 	stdtesting "testing"
@@ -12,11 +12,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/client/imagemetadata"
+	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -31,7 +33,7 @@ type baseImageMetadataSuite struct {
 	resources  *common.Resources
 	authorizer testing.FakeAuthorizer
 
-	api   *imagemetadata.API
+	api   *imagemetadatamanager.API
 	state *mockState
 }
 
@@ -48,7 +50,7 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.state = s.constructState(testConfig(c))
 
 	var err error
-	s.api, err = imagemetadata.CreateAPI(s.state, func() (environs.Environ, error) {
+	s.api, err = imagemetadatamanager.CreateAPI(s.state, func() (environs.Environ, error) {
 		return &mockEnviron{}, nil
 	}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +64,7 @@ const (
 	findMetadata   = "findMetadata"
 	saveMetadata   = "saveMetadata"
 	deleteMetadata = "deleteMetadata"
-	environConfig  = "environConfig"
+	modelConfig    = "modelConfig"
 )
 
 func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
@@ -112,7 +114,7 @@ func (st *mockState) DeleteMetadata(imageId string) error {
 }
 
 func (st *mockState) ModelConfig() (*config.Config, error) {
-	st.Stub.MethodCall(st, environConfig)
+	st.Stub.MethodCall(st, modelConfig)
 	return st.environConfig()
 }
 
@@ -127,4 +129,33 @@ func testConfig(c *gc.C) *config.Config {
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
+}
+
+// mockEnviron is an environment without networking support.
+type mockEnviron struct {
+	environs.Environ
+}
+
+func (e mockEnviron) Config() *config.Config {
+	cfg, err := config.New(config.NoDefaults, mockConfig())
+	if err != nil {
+		panic("invalid configuration for testing")
+	}
+	return cfg
+}
+
+// Region is specified in the HasRegion interface.
+func (e *mockEnviron) Region() (simplestreams.CloudSpec, error) {
+	return simplestreams.CloudSpec{
+		Region:   "dummy_region",
+		Endpoint: "https://anywhere",
+	}, nil
+}
+
+// mockConfig returns a configuration for the usage of the
+// mock provider below.
+func mockConfig() coretesting.Attrs {
+	return dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "mock",
+	})
 }

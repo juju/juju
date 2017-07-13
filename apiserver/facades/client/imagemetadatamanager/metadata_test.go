@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package imagemetadata_test
+package imagemetadatamanager_test
 
 import (
 	"github.com/juju/errors"
@@ -135,7 +135,7 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, "ControllerTag", environConfig, saveMetadata, saveMetadata)
+	s.assertCalls(c, "ControllerTag", modelConfig, saveMetadata, saveMetadata)
 }
 
 func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {

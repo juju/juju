@@ -161,7 +161,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
-	s.state.environConfig = func() (*config.Config, error) {
+	s.state.modelConfig = func() (*config.Config, error) {
 		return config.New(config.UseDefaults, dummy.SampleConfig())
 	}
 
@@ -269,7 +269,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 
 	// testingEnvConfig prepares an environment configuration using
 	// mock provider which impelements simplestreams.HasRegion interface.
-	s.state.environConfig = func() (*config.Config, error) {
+	s.state.modelConfig = func() (*config.Config, error) {
 		return s.env.Config(), nil
 	}
 
@@ -282,7 +282,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, "ControllerTag", environConfig, saveMetadata)
+	s.assertCalls(c, "ControllerTag", modelConfig, saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
@@ -398,7 +398,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	err = s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, "ControllerTag", environConfig, saveMetadata, environConfig, saveMetadata)
+	s.assertCalls(c, "ControllerTag", modelConfig, saveMetadata, modelConfig, saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 

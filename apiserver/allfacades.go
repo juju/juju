@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
+	"github.com/juju/juju/apiserver/facades/agent/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
 	loggerapi "github.com/juju/juju/apiserver/facades/agent/logger"
@@ -48,7 +49,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/controller"       // ModelUser Admin (although some methods check for read only)
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/imagemetadata"
+	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
@@ -139,7 +140,12 @@ func AllFacades() *facade.Registry {
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
-	reg("ImageMetadata", 2, imagemetadata.NewAPI)
+	reg("ImageMetadata", 3, imagemetadata.NewAPI)
+
+	if featureflag.Enabled(feature.ImageMetadata) {
+		reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
+	}
+
 	reg("InstancePoller", 3, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
