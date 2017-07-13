@@ -24,15 +24,9 @@ var _ = gc.Suite(&imageMetadataSuite{})
 
 func (s *imageMetadataSuite) SetUpTest(c *gc.C) {
 	mCfg := testConfig(c)
-
 	s.st = &mockState{
-		Stub: testing.Stub{},
-		saveMetadata: func(m []cloudimagemetadata.Metadata) error {
-			return nil
-		},
-		modelCfg: func() (*config.Config, error) {
-			return mCfg, nil
-		},
+		Stub:     &testing.Stub{},
+		modelCfg: mCfg,
 	}
 }
 
@@ -40,24 +34,25 @@ func (s *imageMetadataSuite) TestSaveEmpty(c *gc.C) {
 	errs, err := imagecommon.Save(s.st, params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 0)
-	s.st.CheckCallNames(c, []string{}...)
+	s.st.CheckCallNames(c, []string{}...) // Nothing was called
 }
 
 func (s *imageMetadataSuite) TestSaveModelCfgFailed(c *gc.C) {
 	m := params.CloudImageMetadata{
 		Source: "custom",
 	}
-	msg := "save error"
-
-	s.st.modelCfg = func() (*config.Config, error) {
-		return nil, errors.New(msg)
-	}
-
-	errs, err := imagecommon.Save(s.st, params.MetadataSaveParams{
+	ms := params.MetadataSaveParams{
 		Metadata: []params.CloudImageMetadataList{{
 			Metadata: []params.CloudImageMetadata{m},
 		}},
-	})
+	}
+
+	msg := "save error"
+	s.st.SetErrors(
+		errors.New(msg), // ModelConfig
+	)
+
+	errs, err := imagecommon.Save(s.st, ms)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(errs, gc.IsNil)
 	s.st.CheckCallNames(c, "ModelConfig")
@@ -67,52 +62,59 @@ func (s *imageMetadataSuite) TestSave(c *gc.C) {
 	m := params.CloudImageMetadata{
 		Source: "custom",
 	}
-	msg := "save error"
-
-	saveCalls := 0
-	s.st.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
-		saveCalls += 1
-		c.Assert(m, gc.HasLen, saveCalls)
-		// TODO (anastasiamac 2016-08-24) This is a check for a band-aid solution.
-		// Once correct value is read from simplestreams, this needs to go.
-		// Bug# 1616295
-		// Ensure empty stream is changed to release
-		c.Assert(m[0].Stream, gc.DeepEquals, "released")
-		if saveCalls == 1 {
-			// don't err on first call
-			return nil
-		}
-		return errors.New(msg)
-	}
-
-	errs, err := imagecommon.Save(s.st, params.MetadataSaveParams{
+	ms := params.MetadataSaveParams{
 		Metadata: []params.CloudImageMetadataList{{
 			Metadata: []params.CloudImageMetadata{m},
 		}, {
 			Metadata: []params.CloudImageMetadata{m, m},
 		}},
-	})
+	}
+
+	msg := "save error"
+	s.st.SetErrors(
+		nil,             // ModelConfig
+		nil,             // Save (1st call)
+		errors.New(msg), // Save (2nd call)
+	)
+
+	errs, err := imagecommon.Save(s.st, ms)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 2)
 	c.Assert(errs[0].Error, gc.IsNil)
 	c.Assert(errs[1].Error, gc.ErrorMatches, msg)
-	s.st.CheckCallNames(c, "ModelConfig", "SaveMetadata", "SaveMetadata")
+
+	// TODO (anastasiamac 2016-08-24) This is a check for a band-aid solution.
+	// Once correct value is read from simplestreams, this "adjustment" needs to go.
+	// Bug# 1616295
+	m.Stream = "released"
+
+	expectedMetadata1 := imagecommon.ParseMetadataListFromParams(params.CloudImageMetadataList{
+		Metadata: []params.CloudImageMetadata{m},
+	}, nil)
+	expectedMetadata2 := imagecommon.ParseMetadataListFromParams(params.CloudImageMetadataList{
+		Metadata: []params.CloudImageMetadata{m, m},
+	}, nil)
+
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"ModelConfig", nil},
+		{"SaveMetadata", []interface{}{expectedMetadata1}},
+		{"SaveMetadata", []interface{}{expectedMetadata2}},
+	})
 }
 
 type mockState struct {
-	testing.Stub
-	saveMetadata func(m []cloudimagemetadata.Metadata) error
-	modelCfg     func() (*config.Config, error)
+	*testing.Stub
+	modelCfg *config.Config
 }
 
 func (s *mockState) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 	s.MethodCall(s, "SaveMetadata", m)
-	return s.saveMetadata(m)
+	return s.NextErr()
 }
 
 func (s *mockState) ModelConfig() (*config.Config, error) {
 	s.MethodCall(s, "ModelConfig")
-	return s.modelCfg()
+	return s.modelCfg, s.NextErr()
 }
 
 func testConfig(c *gc.C) *config.Config {
