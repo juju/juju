@@ -21,7 +21,7 @@ type facadeVersionSuite struct {
 var _ = gc.Suite(&facadeVersionSuite{})
 
 func (s *facadeVersionSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
+	s.SetInitialFeatureFlags(feature.CrossModelRelations, feature.ImageMetadata)
 	s.BaseSuite.SetUpTest(c)
 }
 

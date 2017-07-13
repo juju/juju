@@ -8,8 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/imagemetadata"
+	"github.com/juju/juju/api/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/rpc"
@@ -17,12 +18,13 @@ import (
 
 type cloudImageMetadataSuite struct {
 	testing.JujuConnSuite
-	client *imagemetadata.Client
+	client *imagemetadatamanager.Client
 }
 
 func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.ImageMetadata)
 	s.JujuConnSuite.SetUpTest(c)
-	s.client = imagemetadata.NewClient(s.APIState)
+	s.client = imagemetadatamanager.NewClient(s.APIState)
 	c.Assert(s.client, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
 		s.client.ClientFacade.Close()
