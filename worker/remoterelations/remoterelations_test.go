@@ -154,11 +154,12 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	mac, err := macaroon.New(nil, "test", "")
 	c.Assert(err, jc.ErrorIsNil)
 	apiMac, err := macaroon.New(nil, "apimac", "")
+	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
 		{"ExportEntities", []interface{}{
-			[]names.Tag{names.NewApplicationTag("django"), names.NewRelationTag("db2:db django:db")}}},
+			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
 		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
 			ApplicationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-django"},
 			RelationId:    params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
@@ -173,6 +174,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
 		}}}},
+		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-offer-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},

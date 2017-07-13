@@ -250,6 +250,20 @@ func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
 	})
 }
 
+func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
+	mac, err := macaroon.New(nil, "id", "")
+	c.Assert(err, jc.ErrorIsNil)
+	relTag := names.NewRelationTag("mysql:db wordpress:db")
+	result, err := s.api.SaveMacaroons(params.EntityMacaroonArgs{
+		Args: []params.EntityMacaroonArg{{Tag: relTag.String(), Macaroon: mac}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"SaveMacaroon", []interface{}{relTag, mac.Id()}},
+	})
+}
+
 func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"

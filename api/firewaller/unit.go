@@ -12,7 +12,7 @@ import (
 
 // Unit represents a juju unit as seen by a firewaller worker.
 type Unit struct {
-	st   *State
+	st   *Client
 	tag  names.UnitTag
 	life params.Life
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -35,6 +36,7 @@ type mockState struct {
 	testing.Stub
 	modelUUID      string
 	remoteEntities map[names.Tag]string
+	macaroons      map[names.Tag]*macaroon.Macaroon
 	applications   map[string]*mockApplication
 	units          map[string]*mockUnit
 	machines       map[string]*mockMachine
@@ -53,6 +55,7 @@ func newMockState(modelUUID string) *mockState {
 		units:          make(map[string]*mockUnit),
 		machines:       make(map[string]*mockMachine),
 		remoteEntities: make(map[names.Tag]string),
+		macaroons:      make(map[names.Tag]*macaroon.Macaroon),
 		controllerInfo: make(map[string]*mockControllerInfo),
 		subnetsWatcher: newMockStringsWatcher(),
 		modelWatcher:   newMockNotifyWatcher(),
@@ -78,6 +81,18 @@ func (st *mockState) ControllerInfo(modelUUID string) ([]string, string, error) 
 	} else {
 		return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
 	}
+}
+
+func (st *mockState) GetMacaroon(model names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error) {
+	st.MethodCall(st, "GetMacaroon", model, entity)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	mac, ok := st.macaroons[entity]
+	if !ok {
+		return nil, errors.NotFoundf("macaroon for %v", entity)
+	}
+	return mac, nil
 }
 
 func (st *mockState) ModelUUID() string {

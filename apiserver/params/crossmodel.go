@@ -246,6 +246,17 @@ type RemoteEntityArg struct {
 	Token string `json:"token,omitempty"`
 }
 
+// EntityMacaroonArgs holds the arguments to a SaveMacaroons API call.
+type EntityMacaroonArgs struct {
+	Args []EntityMacaroonArg
+}
+
+// EntityMacaroonArg holds a macaroon and entity which we want to save.
+type EntityMacaroonArg struct {
+	Macaroon *macaroon.Macaroon `json:"macaroon"`
+	Tag      string             `json:"tag"`
+}
+
 // RemoteApplicationResult holds a remote application and an error.
 type RemoteApplicationResult struct {
 	Result *RemoteApplication `json:"result,omitempty"`

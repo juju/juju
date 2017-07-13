@@ -15,7 +15,7 @@ import (
 
 // Service represents the state of a service.
 type Application struct {
-	st   *State
+	st   *Client
 	tag  names.ApplicationTag
 	life params.Life
 }

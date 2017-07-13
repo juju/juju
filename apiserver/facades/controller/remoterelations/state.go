@@ -6,6 +6,7 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/state"
@@ -35,6 +36,9 @@ type RemoteRelationsState interface {
 	// GetToken returns the token associated with the entity with the given tag
 	// and model.
 	GetToken(names.ModelTag, names.Tag) (string, error)
+
+	// SaveMacaroon saves the given macaroon for the specified entity.
+	SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error
 }
 
 type stateShim struct {
@@ -50,6 +54,11 @@ func (st stateShim) RemoveRemoteEntity(model names.ModelTag, entity names.Tag) e
 func (st stateShim) GetToken(model names.ModelTag, entity names.Tag) (string, error) {
 	r := st.st.RemoteEntities()
 	return r.GetToken(model, entity)
+}
+
+func (st stateShim) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+	r := st.st.RemoteEntities()
+	return r.SaveMacaroon(entity, mac)
 }
 
 func (st stateShim) WatchRemoteApplications() state.StringsWatcher {

@@ -55,6 +55,9 @@ type RemoteRelationsFacade interface {
 	// with the specified opaque token.
 	ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error
 
+	// SaveMacaroon saves the macaroon for the entity.
+	SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error
+
 	// ExportEntities allocates unique, remote entity IDs for the
 	// given entities in the local model.
 	ExportEntities([]names.Tag) ([]params.RemoteEntityIdResult, error)
@@ -646,6 +649,11 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	}
 	// We have a new macaroon attenuated to the relation.
 	w.macaroon = registerResult.Macaroon
+	if err := w.localModelFacade.SaveMacaroon(relationTag, w.macaroon); err != nil {
+		return fail(errors.Annotatef(
+			err, "saving macaroon for %v", relationTag))
+	}
+
 	logger.Debugf("import remote application token %v from %v for %v",
 		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationName)
 	err = w.localModelFacade.ImportRemoteEntity(

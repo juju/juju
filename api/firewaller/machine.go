@@ -17,7 +17,7 @@ import (
 
 // Machine represents a juju machine as seen by the firewaller worker.
 type Machine struct {
-	st   *State
+	st   *Client
 	tag  names.MachineTag
 	life params.Life
 }

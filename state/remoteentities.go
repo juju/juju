@@ -4,10 +4,12 @@
 package state
 
 import (
+	"encoding/json"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -22,6 +24,7 @@ type remoteEntityDoc struct {
 	SourceModelUUID string `bson:"source-model-uuid"`
 	EntityTag       string `bson:"entity"`
 	Token           string `bson:"token"`
+	Macaroon        string `bson:"macaroon,omitempty"`
 }
 
 type tokenDoc struct {
@@ -208,6 +211,67 @@ func (r *RemoteEntities) GetToken(sourceModel names.ModelTag, entity names.Tag) 
 		)
 	}
 	return doc.Token, nil
+}
+
+// GetMacaroon returns the macaroon associated with the entity with the given tag
+// and model.
+func (r *RemoteEntities) GetMacaroon(sourceModel names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error) {
+	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
+	defer closer()
+
+	var doc remoteEntityDoc
+	err := remoteEntities.FindId(r.docID(sourceModel, entity)).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf(
+			"macaroon for %s in %s",
+			names.ReadableString(entity),
+			names.ReadableString(sourceModel),
+		)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(
+			err, "reading macaroon for %s in %s",
+			names.ReadableString(entity),
+			names.ReadableString(sourceModel),
+		)
+	}
+	if doc.Macaroon == "" {
+		return nil, nil
+	}
+	var mac macaroon.Macaroon
+	if err := json.Unmarshal([]byte(doc.Macaroon), &mac); err != nil {
+		return nil, errors.Annotatef(
+			err, "unmarshalling macaroon for %s in %s",
+			names.ReadableString(entity),
+			names.ReadableString(sourceModel),
+		)
+	}
+	return &mac, nil
+}
+
+// SaveMacaroon saves the given macaroon for the specified entity.
+func (r *RemoteEntities) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+	sourceModel := r.st.ModelTag()
+	var macJSON string
+	if mac != nil {
+		b, err := json.Marshal(mac)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		macJSON = string(b)
+	}
+	ops := func(attempt int) ([]txn.Op, error) {
+		aa := []txn.Op{{
+			C:      remoteEntitiesC,
+			Id:     r.docID(sourceModel, entity),
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{"macaroon", macJSON}}},
+			},
+		}}
+		return aa, nil
+	}
+	return r.st.db().Run(ops)
 }
 
 // GetRemoteEntity returns the tag of the entity associated with the given
