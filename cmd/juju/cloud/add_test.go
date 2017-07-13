@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
@@ -69,6 +70,16 @@ func (s *addSuite) TestAddBadArgs(c *gc.C) {
 }
 
 var (
+	homeStackYamlFile = `
+        clouds:
+          homestack:
+            type: openstack
+            auth-types: [access-key]
+            endpoint: "http://homestack"
+            regions:
+              london:
+                endpoint: "http://london/1.0"`
+
 	homestackCloud = cloudfile.Cloud{
 		Name:      "homestack",
 		Type:      "openstack",
@@ -81,10 +92,26 @@ var (
 			},
 		},
 	}
+
+	localhostYamlFile = `
+        clouds:
+          localhost:
+            type: lxd`
+
 	localhostCloud = cloudfile.Cloud{
 		Name: "localhost",
 		Type: "lxd",
 	}
+
+	awsYamlFile = `
+        clouds:
+          aws:
+            type: ec2
+            auth-types: [access-key]
+            regions:
+              us-east-1:
+                endpoint: "https://us-east-1.aws.amazon.com/v1.2/"`
+
 	awsCloud = cloudfile.Cloud{
 		Name:      "aws",
 		Type:      "ec2",
@@ -96,6 +123,13 @@ var (
 			},
 		},
 	}
+	garageMaasYamlFile = `
+        clouds:
+          garage-maas:
+            type: maas
+            auth-types: [oauth1]
+            endpoint: "http://garagemaas"`
+
 	garageMAASCloud = cloudfile.Cloud{
 		Name:      "garage-maas",
 		Type:      "maas",
@@ -148,83 +182,134 @@ func (*addSuite) TestAddBadCloudName(c *gc.C) {
 
 func (*addSuite) TestAddExisting(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(homestackMetadata(), nil)
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
-	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
 
-	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", "fake.yaml")
+	cloudFile := prepareTestCloudYaml(c, homeStackYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(mockCloud, nil)
+
+	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, `"homestack" already exists; use --replace to replace this existing cloud`)
 }
 
 func (*addSuite) TestAddExistingReplace(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(homestackMetadata(), nil)
-	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
-	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", homestackMetadata()).Returns(nil)
 
-	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", "fake.yaml", "--replace")
+	cloudFile := prepareTestCloudYaml(c, homeStackYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+	fake.Call("PersonalCloudMetadata").Returns(mockCloud, nil)
+	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+
+	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", cloudFile.Name(), "--replace")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
 func (*addSuite) TestAddExistingPublic(c *gc.C) {
+	cloudFile := prepareTestCloudYaml(c, awsYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(awsMetadata(), nil)
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(awsMetadata(), false, nil)
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(mockCloud, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 
-	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", "fake.yaml")
+	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, `"aws" is the name of a public cloud; use --replace to override this definition`)
 }
 
 func (*addSuite) TestAddExistingBuiltin(c *gc.C) {
+	cloudFile := prepareTestCloudYaml(c, localhostYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(localhostMetadata(), nil)
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 
-	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "localhost", "fake.yaml")
+	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "localhost", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, `"localhost" is the name of a built-in cloud; use --replace to override this definition`)
 }
 
 func (*addSuite) TestAddExistingPublicReplace(c *gc.C) {
-	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(awsMetadata(), nil)
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(awsMetadata(), false, nil)
-	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
-	writeCall := fake.Call("WritePersonalCloudMetadata", awsMetadata()).Returns(nil)
+	cloudFile := prepareTestCloudYaml(c, awsYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
 
-	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", "fake.yaml", "--replace")
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fake := newFakeCloudMetadataStore()
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(mockCloud, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
+	writeCall := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+
+	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", cloudFile.Name(), "--replace")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(writeCall(), gc.Equals, 1)
 }
 
 func (*addSuite) TestAddNew(c *gc.C) {
+	cloudFile := prepareTestCloudYaml(c, garageMaasYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(garageMAASMetadata(), nil)
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
-	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", garageMAASMetadata()).Returns(nil)
+	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
 
-	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "garage-maas", "fake.yaml")
+	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "garage-maas", cloudFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
 func (*addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
-	fakeCloud := cloudfile.Cloud{
-		Name:      "garage-maas",
-		Type:      "maas",
-		AuthTypes: []cloudfile.AuthType{"oauth1", "user-pass"},
-		Endpoint:  "http://garagemaas",
-	}
-	fileClouds := map[string]cloudfile.Cloud{"fakecloud": fakeCloud}
-	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(fileClouds, nil)
+	fakeCloudYamlFile := `
+        clouds:
+          fakecloud:
+            type: maas
+            auth-types: [oauth1, user-pass]
+            endpoint: "http://garagemaas"`
 
-	_, err := cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", "fake.yaml")
+	cloudFile := prepareTestCloudYaml(c, fakeCloudYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+
+	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth type "user-pass" not supported`))
 }
 
@@ -564,4 +649,97 @@ func (*addSuite) TestSpecifyingCloudFileThroughFlagAndArgument_Errors(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
 	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
 	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with flag and argument")
+}
+
+func (*addSuite) TestValidateGoodCloudFile(c *gc.C) {
+	data := `
+clouds:
+  foundations:
+    type: maas
+    auth-types: [oauth1]
+    endpoint: "http://10.245.31.100/MAAS"`
+
+	cloudFile := prepareTestCloudYaml(c, data)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	var logWriter loggo.TestWriter
+	writerName := "add_cloud_tests_writer"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fake := newFakeCloudMetadataStore()
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+
+	command := cloud.NewAddCloudCommand(fake)
+
+	_, err = cmdtesting.RunCommand(c, command, "foundations", cloudFile.Name())
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{})
+}
+
+func (*addSuite) TestValidateBadCloudFile(c *gc.C) {
+	data := `
+clouds:
+  foundations:
+    type: maas
+    auth-typs: [oauth1]
+    endpoint: "http://10.245.31.100/MAAS"`
+
+	cloudFile := prepareTestCloudYaml(c, data)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := cloudfile.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fake := newFakeCloudMetadataStore()
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+
+	command := cloud.NewAddCloudCommand(fake)
+
+	var logWriter loggo.TestWriter
+	writerName := "add_cloud_tests_writer"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
+	_, err = cmdtesting.RunCommand(c, command, "foundations", cloudFile.Name())
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		jc.SimpleMessage{
+			Level:   loggo.WARNING,
+			Message: `property "auth-typs" is invalid. Perhaps you mean "auth-types".`,
+		},
+	})
+}
+
+func prepareTestCloudYaml(c *gc.C, data string) *os.File {
+	cloudFile, err := ioutil.TempFile("", "cloudFile")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ioutil.WriteFile(cloudFile.Name(), []byte(data), 0644)
+	if err != nil {
+		cloudFile.Close()
+		os.Remove(cloudFile.Name())
+		c.Fatal(err.Error())
+	}
+
+	return cloudFile
 }
