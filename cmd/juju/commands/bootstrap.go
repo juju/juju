@@ -897,6 +897,19 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 		inheritedControllerAttrs[k] = v
 	}
+	// Region config values, for the region to be bootstrapped, from clouds.yaml
+	// override what is in the cloud config.
+	for k, v := range cloud.RegionConfig[c.Region] {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			bootstrapConfigAttrs[k] = v
+			continue
+		case controller.ControllerOnlyAttribute(k):
+			controllerConfigAttrs[k] = v
+			continue
+		}
+		inheritedControllerAttrs[k] = v
+	}
 	// Model defaults are added to the inherited controller attributes.
 	// Any command line set model defaults override what is in the cloud config.
 	for k, v := range modelDefaultConfigAttrs {

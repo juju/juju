@@ -707,6 +707,42 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
 	})
 }
 
+func (s *BootstrapSuite) TestBootstrapRegionConfigAttributesOverCloudConfig(c *gc.C) {
+	/* Test that cloud config attributes are overwritten by region config
+	   attributes by setting both to something different in the config setup.
+	   Only the region config values should be found */
+	s.patchVersionAndSeries(c, "raring")
+
+	bootstrapCmd := bootstrapCommand{Region: "region-2"}
+	ctx := cmdtesting.Context(c)
+
+	// The OpenStack provider has a config attribute of network we can use.
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	// First test that the network is set to the cloud config value
+	key := "network"
+	testCloud, err := cloud.CloudByName("dummy-cloud-with-region-config")
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: "cloud-network"},
+		"inheritedControllerAttrs": {key: "cloud-network"},
+		"userConfigAttrs":          {},
+	})
+
+	// Second test that network in the region config overwrites the cloud config network value.
+	bootstrapCmd = bootstrapCommand{Region: "region-1"}
+	testCloud, err = cloud.CloudByName("dummy-cloud-with-region-config")
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: "region-network"},
+		"inheritedControllerAttrs": {key: "region-network"},
+		"userConfigAttrs":          {},
+	})
+}
+
 func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 	/* Test that defaults are overwritten by CLI passed attributes by setting
 	   the inherited attribute enable-os-upgrade to true in the cloud
@@ -1667,6 +1703,7 @@ rackspace
 localhost                                    
 dummy-cloud                     joe          home
 dummy-cloud-with-config                      
+dummy-cloud-with-region-config               
 dummy-cloud-without-regions                  
 many-credentials-no-auth-types               
 
@@ -1821,6 +1858,16 @@ clouds:
             broken: Bootstrap
             controller: not-a-bool
             use-floating-ip: true
+    dummy-cloud-with-region-config:
+        type: dummy
+        regions:
+            region-1:
+            region-2:
+        config:
+            network: cloud-network
+        region-config:
+            region-1:
+                network: region-network
     many-credentials-no-auth-types:
         type: many-credentials
 `[1:]), 0644)
