@@ -38,7 +38,7 @@ func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		clouds[tag] = cloudFromParams(tag.Id(), cloud)
+		clouds[tag] = params.CloudFromParams(tag.Id(), cloud)
 	}
 	return clouds, nil
 }
@@ -56,32 +56,7 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if results.Results[0].Error != nil {
 		return jujucloud.Cloud{}, results.Results[0].Error
 	}
-	return cloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
-}
-
-func cloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
-	authTypes := make([]jujucloud.AuthType, len(p.AuthTypes))
-	for i, authType := range p.AuthTypes {
-		authTypes[i] = jujucloud.AuthType(authType)
-	}
-	regions := make([]jujucloud.Region, len(p.Regions))
-	for i, region := range p.Regions {
-		regions[i] = jujucloud.Region{
-			Name:             region.Name,
-			Endpoint:         region.Endpoint,
-			IdentityEndpoint: region.IdentityEndpoint,
-			StorageEndpoint:  region.StorageEndpoint,
-		}
-	}
-	return jujucloud.Cloud{
-		Name:             cloudName,
-		Type:             p.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         p.Endpoint,
-		IdentityEndpoint: p.IdentityEndpoint,
-		StorageEndpoint:  p.StorageEndpoint,
-		Regions:          regions,
-	}
+	return params.CloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
 }
 
 // DefaultCloud returns the tag of the cloud that models will be

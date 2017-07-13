@@ -132,6 +132,9 @@ func AllFacades() *facade.Registry {
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
 	reg("Client", 1, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacade)
+	if featureflag.Enabled(feature.CAAS) {
+		reg("Cloud", 2, cloud.NewFacadeV2)
+	}
 	reg("Controller", 3, controller.NewControllerAPI)
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
