@@ -328,7 +328,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &gitjujutesting.Stub{}
 	s.Client = &StubClient{
-		Stub: s.Stub,
+		Stub:               s.Stub,
+		StorageIsSupported: true,
 		Server: &api.Server{
 			ServerPut: api.ServerPut{
 				Config: map[string]interface{}{},
@@ -599,6 +600,30 @@ func (conn *StubClient) RemoveDevice(container, device string) error {
 func (conn *StubClient) StorageSupported() bool {
 	conn.AddCall("StorageSupported")
 	return conn.StorageIsSupported
+}
+
+func (conn *StubClient) StoragePool(name string) (api.StoragePool, error) {
+	conn.AddCall("StoragePool", name)
+	return api.StoragePool{
+		Name:   name,
+		Driver: "dir",
+	}, conn.NextErr()
+}
+
+func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
+	conn.AddCall("StoragePools")
+	return []api.StoragePool{{
+		Name:   "juju",
+		Driver: "dir",
+	}, {
+		Name:   "juju-zfs",
+		Driver: "zfs",
+	}}, conn.NextErr()
+}
+
+func (conn *StubClient) CreateStoragePool(name, driver string, attrs map[string]string) error {
+	conn.AddCall("CreateStoragePool", name, driver, attrs)
+	return conn.NextErr()
 }
 
 func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {

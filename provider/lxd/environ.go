@@ -168,6 +168,11 @@ func (env *environ) Destroy() error {
 	if err := env.base.DestroyEnv(); err != nil {
 		return errors.Trace(err)
 	}
+	if env.storageSupported() {
+		if err := destroyModelFilesystems(env); err != nil {
+			return errors.Annotate(err, "destroying LXD filesystems for model")
+		}
+	}
 	return nil
 }
 
@@ -178,6 +183,11 @@ func (env *environ) DestroyController(controllerUUID string) error {
 	}
 	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
 		return errors.Trace(err)
+	}
+	if env.storageSupported() {
+		if err := destroyControllerFilesystems(env, controllerUUID); err != nil {
+			return errors.Annotate(err, "destroying LXD filesystems for controller")
+		}
 	}
 	return nil
 }

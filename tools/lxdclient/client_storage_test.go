@@ -6,9 +6,12 @@
 package lxdclient_test
 
 import (
+	"net/http"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -79,6 +82,14 @@ func (s *StorageClientSuite) TestVolumeDeleteError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "burp")
 }
 
+func (s *StorageClientSuite) TestVolumeDeleteNotFound(c *gc.C) {
+	s.raw.SetErrors(lxd.LXDErrors[http.StatusNotFound])
+	client := lxdclient.NewStorageClient(s.raw, true)
+	err := client.VolumeDelete("pool", "volume")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `volume "volume" in pool "pool" not found`)
+}
+
 func (s *StorageClientSuite) TestVolumeList(c *gc.C) {
 	client := lxdclient.NewStorageClient(s.raw, true)
 	s.raw.volumes = []api.StorageVolume{{
@@ -106,6 +117,63 @@ func (s *StorageClientSuite) TestVolumeListError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "burp")
 }
 
+func (s *StorageClientSuite) TestStoragePool(c *gc.C) {
+	client := lxdclient.NewStorageClient(s.raw, true)
+	_, err := client.StoragePool("pool")
+	c.Assert(err, jc.ErrorIsNil)
+	s.raw.CheckCalls(c, []testing.StubCall{{"StoragePoolGet", []interface{}{"pool"}}})
+}
+
+func (s *StorageClientSuite) TestStoragePoolError(c *gc.C) {
+	s.raw.SetErrors(errors.New("burp"))
+	client := lxdclient.NewStorageClient(s.raw, true)
+	_, err := client.StoragePool("pool")
+	c.Assert(err, gc.ErrorMatches, `getting storage pool "pool": burp`)
+}
+
+func (s *StorageClientSuite) TestStoragePoolNotFound(c *gc.C) {
+	s.raw.SetErrors(lxd.LXDErrors[http.StatusNotFound])
+	client := lxdclient.NewStorageClient(s.raw, true)
+	_, err := client.StoragePool("pool")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `storage pool "pool" not found`)
+}
+
+func (s *StorageClientSuite) TestStoragePools(c *gc.C) {
+	client := lxdclient.NewStorageClient(s.raw, true)
+	_, err := client.StoragePools()
+	c.Assert(err, jc.ErrorIsNil)
+	s.raw.CheckCalls(c, []testing.StubCall{{"ListStoragePools", nil}})
+}
+
+func (s *StorageClientSuite) TestStoragePoolsError(c *gc.C) {
+	s.raw.SetErrors(errors.New("burp"))
+	client := lxdclient.NewStorageClient(s.raw, true)
+	_, err := client.StoragePools()
+	c.Assert(err, gc.ErrorMatches, "listing storage pools: burp")
+}
+
+func (s *StorageClientSuite) TestCreateStoragePool(c *gc.C) {
+	client := lxdclient.NewStorageClient(s.raw, true)
+	attrs := map[string]string{
+		"a": "b",
+		"c": "d",
+	}
+	err := client.CreateStoragePool("name", "driver", attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.raw.CheckCalls(c, []testing.StubCall{{
+		"StoragePoolCreate",
+		[]interface{}{"name", "driver", attrs},
+	}})
+}
+
+func (s *StorageClientSuite) TestCreateStoragePoolError(c *gc.C) {
+	s.raw.SetErrors(errors.New("burp"))
+	client := lxdclient.NewStorageClient(s.raw, true)
+	err := client.CreateStoragePool("name", "driver", nil)
+	c.Assert(err, gc.ErrorMatches, `creating storage pool "name": burp`)
+}
+
 type mockRawStorageClient struct {
 	testing.Stub
 	volumes []api.StorageVolume
@@ -127,4 +195,19 @@ func (c *mockRawStorageClient) StoragePoolVolumesList(pool string) ([]api.Storag
 		return nil, err
 	}
 	return c.volumes, nil
+}
+
+func (c *mockRawStorageClient) ListStoragePools() ([]api.StoragePool, error) {
+	c.MethodCall(c, "ListStoragePools")
+	return []api.StoragePool{}, c.NextErr()
+}
+
+func (c *mockRawStorageClient) StoragePoolGet(name string) (api.StoragePool, error) {
+	c.MethodCall(c, "StoragePoolGet", name)
+	return api.StoragePool{}, c.NextErr()
+}
+
+func (c *mockRawStorageClient) StoragePoolCreate(name, driver string, attrs map[string]string) error {
+	c.MethodCall(c, "StoragePoolCreate", name, driver, attrs)
+	return c.NextErr()
 }

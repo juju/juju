@@ -61,6 +61,11 @@ type lxdImages interface {
 
 type lxdStorage interface {
 	StorageSupported() bool
+
+	StoragePool(name string) (lxdapi.StoragePool, error)
+	StoragePools() ([]lxdapi.StoragePool, error)
+	CreateStoragePool(name, driver string, attrs map[string]string) error
+
 	VolumeCreate(pool, volume string, config map[string]string) error
 	VolumeDelete(pool, volume string) error
 	VolumeList(pool string) ([]lxdapi.StorageVolume, error)
