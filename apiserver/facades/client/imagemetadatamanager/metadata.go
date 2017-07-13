@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/stateenvirons"
@@ -36,6 +37,13 @@ func createAPI(
 	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+	admin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	if !admin {
 		return nil, common.ErrPerm
 	}
 

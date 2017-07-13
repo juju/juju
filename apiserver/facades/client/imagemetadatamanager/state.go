@@ -4,6 +4,8 @@
 package imagemetadatamanager
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -14,6 +16,7 @@ type metadataAccess interface {
 	SaveMetadata([]cloudimagemetadata.Metadata) error
 	DeleteMetadata(imageId string) error
 	ModelConfig() (*config.Config, error)
+	ControllerTag() names.ControllerTag
 }
 
 type Model interface {

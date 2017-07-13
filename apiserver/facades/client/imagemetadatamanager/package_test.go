@@ -65,6 +65,7 @@ const (
 	saveMetadata   = "saveMetadata"
 	deleteMetadata = "deleteMetadata"
 	modelConfig    = "modelConfig"
+	controllerTag  = "controllerTag"
 )
 
 func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
@@ -82,6 +83,9 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 		modelConfig: func() (*config.Config, error) {
 			return cfg, nil
 		},
+		controllerTag: func() names.ControllerTag {
+			return names.NewControllerTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+		},
 	}
 }
 
@@ -92,6 +96,7 @@ type mockState struct {
 	saveMetadata   func(m []cloudimagemetadata.Metadata) error
 	deleteMetadata func(imageId string) error
 	modelConfig    func() (*config.Config, error)
+	controllerTag  func() names.ControllerTag
 }
 
 func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
@@ -112,6 +117,11 @@ func (st *mockState) DeleteMetadata(imageId string) error {
 func (st *mockState) ModelConfig() (*config.Config, error) {
 	st.Stub.MethodCall(st, modelConfig)
 	return st.modelConfig()
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	st.Stub.MethodCall(st, controllerTag)
+	return st.controllerTag()
 }
 
 func testConfig(c *gc.C) *config.Config {
