@@ -183,7 +183,7 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer devices to machine %q", m.doc.Id)
 
 	if len(devicesArgs) == 0 {
-		logger.Warningf("no device addresses to set")
+		logger.Debugf("no device addresses to set")
 		return nil
 	}
 
@@ -607,7 +607,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
 
 	if len(devicesAddresses) == 0 {
-		logger.Warningf("no device addresses to set")
+		logger.Debugf("no device addresses to set")
 		return nil
 	}
 

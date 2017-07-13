@@ -5,6 +5,7 @@ package cloud
 
 import (
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"strings"
 
@@ -126,6 +127,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.CloudFile == "" {
 		return c.runInteractive(ctxt)
 	}
+
 	specifiedClouds, err := c.cloudMetadataStore.ParseCloudMetadataFile(c.CloudFile)
 	if err != nil {
 		return err
@@ -139,8 +141,12 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	// first validate cloud input
-	if err = cloud.ValidateCloudSet([]byte(c.CloudFile)); err != nil {
-		ctxt.Warningf("%s", err.Error())
+	data, err := ioutil.ReadFile(c.CloudFile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = cloud.ValidateCloudSet([]byte(data)); err != nil {
+		ctxt.Warningf(err.Error())
 	}
 
 	// validate cloud data
