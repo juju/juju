@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
@@ -175,4 +176,19 @@ func (s *RemoteFirewallerSuite) TestControllerAPIInfoForModels(c *gc.C) {
 	c.Assert(result.Results[0].Addresses, jc.SameContents, []string{"1.2.3.4/32"})
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].CACert, gc.Equals, coretesting.CACert)
+}
+
+func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
+	mac, err := macaroon.New(nil, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	entity := names.NewRelationTag("mysql:db wordpress:db")
+	s.st.macaroons[entity] = mac
+	result, err := s.api.MacaroonForRelations(
+		params.Entities{Entities: []params.Entity{{
+			Tag: entity.String(),
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Result, jc.DeepEquals, mac)
 }

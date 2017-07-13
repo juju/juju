@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -47,7 +48,7 @@ type firewallerBaseSuite struct {
 	controllerPassword string
 
 	st                   api.Connection
-	firewaller           *apifirewaller.State
+	firewaller           *apifirewaller.Client
 	remoteRelations      *remoterelations.Client
 	crossmodelFirewaller *crossmodelrelations.Client
 	mockClock            *mockClock
@@ -97,7 +98,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	c.Assert(s.st, gc.NotNil)
 
 	// Create the API facades.
-	s.firewaller = apifirewaller.NewState(s.st)
+	s.firewaller = apifirewaller.NewClient(s.st)
 	c.Assert(s.firewaller, gc.NotNil)
 	s.remoteRelations = remoterelations.NewClient(s.st)
 	c.Assert(s.remoteRelations, gc.NotNil)
@@ -725,6 +726,8 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRole(c *gc.C) {
 		CACert:        coretesting.CACert}, offeringModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
+	mac, err := macaroon.New(nil, "apimac", "")
+	c.Assert(err, jc.ErrorIsNil)
 	published := make(chan bool)
 	var relToken string
 	var ingressRequired bool
@@ -739,6 +742,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRole(c *gc.C) {
 				ApplicationId:   params.RemoteEntityId{ModelUUID: offeringModelTag.Id(), Token: appToken},
 				Networks:        []string{"10.0.0.4/32"},
 				IngressRequired: ingressRequired,
+				Macaroons:       macaroon.Slice{mac},
 			}},
 		}
 		expected.Changes[0].IngressRequired = ingressRequired
@@ -769,6 +773,8 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRole(c *gc.C) {
 	// Export the relation details so the firewaller knows it's ready to be processed.
 	re := s.State.RemoteEntities()
 	relToken, err = re.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.SaveMacaroon(rel.Tag(), mac)
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.ImportRemoteEntity(offeringModelTag, app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)

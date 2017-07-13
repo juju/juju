@@ -123,18 +123,17 @@ func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.Rem
 
 func (m *mockRelationsFacade) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
 	m.stub.MethodCall(m, "ImportRemoteEntity", sourceModelUUID, entity, token)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return m.stub.NextErr()
+}
+
+func (m *mockRelationsFacade) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+	m.stub.MethodCall(m, "SaveMacaroon", entity, mac)
+	return m.stub.NextErr()
 }
 
 func (m *mockRelationsFacade) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
 	m.stub.MethodCall(m, "RemoveRemoteEntity", sourceModelUUID, entity)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return m.stub.NextErr()
 }
 
 func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {

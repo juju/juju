@@ -125,7 +125,7 @@ func (api *RemoteRelationsAPI) removeRemoteEntity(arg params.RemoteEntityArg) er
 	return api.st.RemoveRemoteEntity(modelTag, entityTag)
 }
 
-// GetToken returns the token associated with the entity with the given tag for the current model.
+// GetTokens returns the token associated with the entities with the given tags for the given models.
 func (api *RemoteRelationsAPI) GetTokens(args params.GetTokenArgs) (params.StringResults, error) {
 	results := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
@@ -146,6 +146,23 @@ func (api *RemoteRelationsAPI) GetTokens(args params.GetTokenArgs) (params.Strin
 			results.Results[i].Error = common.ServerError(err)
 		}
 		results.Results[i].Result = token
+	}
+	return results, nil
+}
+
+// SaveMacaroons saves the macaroons for the given entities.
+func (api *RemoteRelationsAPI) SaveMacaroons(args params.EntityMacaroonArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		entityTag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = api.st.SaveMacaroon(entityTag, arg.Macaroon)
+		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }

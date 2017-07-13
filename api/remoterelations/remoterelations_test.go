@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/remoterelations"
@@ -443,6 +444,32 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModel(c *gc.C) {
 	})
 	client := remoterelations.NewClient(apiCaller)
 	_, err := client.ControllerAPIInfoForModel(coretesting.ModelTag.Id())
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *remoteRelationsSuite) TestSaveMacaroon(c *gc.C) {
+	rel := names.NewRelationTag("mysql:db wordpress:db")
+	mac, err := macaroon.New(nil, "", "")
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "RemoteRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SaveMacaroons")
+		c.Assert(arg, gc.DeepEquals, params.EntityMacaroonArgs{Args: []params.EntityMacaroonArg{
+			{Tag: rel.String(), Macaroon: mac}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := remoterelations.NewClient(apiCaller)
+	err = client.SaveMacaroon(rel, mac)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

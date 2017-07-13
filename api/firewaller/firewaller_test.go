@@ -31,7 +31,7 @@ type firewallerSuite struct {
 	units       []*state.Unit
 	relations   []*state.Relation
 
-	firewaller *firewaller.State
+	firewaller *firewaller.Client
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -83,7 +83,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the firewaller API facade.
-	s.firewaller = firewaller.NewState(s.st)
+	s.firewaller = firewaller.NewClient(s.st)
 	c.Assert(s.firewaller, gc.NotNil)
 }
 
@@ -105,7 +105,7 @@ func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 		callCount++
 		return nil
 	})
-	client := firewaller.NewState(apiCaller)
+	client := firewaller.NewClient(apiCaller)
 	_, err := client.WatchEgressAddressesForRelation(relationTag)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
@@ -129,7 +129,7 @@ func (s *firewallerSuite) TestWatchInressAddressesForRelation(c *gc.C) {
 		callCount++
 		return nil
 	})
-	client := firewaller.NewState(apiCaller)
+	client := firewaller.NewClient(apiCaller)
 	_, err := client.WatchIngressAddressesForRelation(relationTag)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
@@ -152,8 +152,32 @@ func (s *firewallerSuite) TestControllerAPIInfoForModel(c *gc.C) {
 		callCount++
 		return nil
 	})
-	client := firewaller.NewState(apiCaller)
+	client := firewaller.NewClient(apiCaller)
 	_, err := client.ControllerAPIInfoForModel(coretesting.ModelTag.Id())
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestMacaroonForRelation(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "MacaroonForRelations")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{
+			{Tag: names.NewRelationTag("mysql:db wordpress:db").String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.MacaroonResults{})
+		*(result.(*params.MacaroonResults)) = params.MacaroonResults{
+			Results: []params.MacaroonResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := firewaller.NewClient(apiCaller)
+	_, err := client.MacaroonForRelation("mysql:db wordpress:db")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

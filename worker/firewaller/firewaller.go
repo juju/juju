@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/firewaller"
@@ -39,6 +40,7 @@ type FirewallerAPI interface {
 	WatchEgressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
 	WatchIngressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
+	MacaroonForRelation(relationKey string) (*macaroon.Macaroon, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
@@ -325,6 +327,10 @@ func (fw *Firewaller) publishNetworkChanged(change *remoteRelationNetworkChange)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get api info for model %v", relData.remoteModelUUID)
 	}
+	mac, err := fw.firewallerApi.MacaroonForRelation(relData.tag.Id())
+	if err != nil {
+		return errors.Annotatef(err, "cannot get macaroon for %v", relData.tag.Id())
+	}
 	remoteModelAPI, err := fw.newRemoteFirewallerAPIFunc(apiInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot open facade to remote model to publish network change")
@@ -335,7 +341,7 @@ func (fw *Firewaller) publishNetworkChanged(change *remoteRelationNetworkChange)
 		ApplicationId:   *relData.remoteApplicationId,
 		Networks:        change.networks.Values(),
 		IngressRequired: change.ingressRequired,
-		// TODO(wallyworld) - add macaroon
+		Macaroons:       macaroon.Slice{mac},
 	}
 	err = remoteModelAPI.PublishIngressNetworkChange(event)
 	if errors.IsNotFound(err) {
