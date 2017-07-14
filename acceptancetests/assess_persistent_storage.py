@@ -188,7 +188,6 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
     # Run juju remove-application dummy-storage
     app_removal_output = client.get_juju_output(
         'remove-application', charm_name, '--show-log', include_e=False, merge_stderr=True)
-    ipdb.set_trace()
     # pre-set the result to FAILED
     remove_app_output_check = 'FAILED'
     remove_single_fs_output_check = 'FAILED'
@@ -223,6 +222,63 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
     else:
         log.info('Detach single block device storage output check: {}'.format(
             detach_single_blk_output_check))
+    # storage status change after remove-application takes some time.
+    # from experiments even 30 seconds is not enough.
+    time.sleep(60)
+    # check the real status of storage after remove-application
+    storage_output = json.loads(
+        client.get_juju_output('storage', '--format', 'json', include_e=False))
+    storage_list = storage_output['storage'].keys()
+    if len(storage_list) != 1:
+        log.error('\n'.join(storage_list))
+        raise JujuAssertionError(
+            'Unexpected number of storage unit(s). '\
+            'Found: {}\nExpected: 1\ntest terminated.'.format(
+            str(len(storage_list))))
+    elif single_fs_id in storage_list:
+        raise JujuAssertionError(
+            '{} should be removed along with remove-application.'.format(
+            single_fs_id))
+    elif single_blk_id not in storage_list:
+        raise JujuAssertionError(
+            '{} missing from storage list after remove-application.'.format(
+            single_blk_id))
+    else:
+        log.info(
+            'Check existence of persistent storage {} '\
+            'after remove-application: PASSED'.format(single_blk_id))
+    pool_storage = storage_output['volumes']['0']['storage']
+    storage_status = storage_output['volumes']['0']['status']['current']
+    if pool_storage != single_blk_id:
+        raise JujuAssertionError(
+            '{} missing from volumes.'.format(single_blk_id))
+    elif storage_status != 'detached':
+        raise JujuAssertionError(
+            'Incorrect status for {}. '\
+            'Found: {}\nExpected: detached'.format(
+            single_blk_id, storage_status))
+    else:
+        log.info(
+            'Check status of persistent storage {} '\
+            'after remove-application: PASSED'.format(single_blk_id))
+    return single_blk_id
+
+
+def assess_deploy_charm_with_existing_storage(client):
+    """This function tests charm deploy with an existing detached storage.
+
+       Steps taken to the test:
+       - Run assess_charm_removal_single_block_and_filesystem_storage(client)
+       - Deploy charm dummy-storage with existing detached storage single_blk_id
+       - Check charm status, should be active once the deploy is completed.
+       - Check storage status, single_blk_id should show as attached
+
+       :param client: ModelClient object to deploy the charm on.
+    """
+    # ipdb.set_trace()
+    charm_name = 'dummy-storage'
+    single_blk_id = \
+        assess_charm_removal_single_block_and_filesystem_storage(client)
 
 
 def assess_storage_remove_single_storage(client, storage_type):
