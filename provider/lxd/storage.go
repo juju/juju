@@ -156,7 +156,19 @@ func (e *lxdStorageProvider) DefaultPools() []*storage.Config {
 		attrLXDStoragePool:   "juju-zfs",
 		"zfs.pool_name":      "juju-lxd",
 	})
-	return []*storage.Config{zfsPool}
+	btrfsPool, _ := storage.NewConfig("lxd-btrfs", lxdStorageProviderType, map[string]interface{}{
+		attrLXDStorageDriver: "btrfs",
+		attrLXDStoragePool:   "juju-btrfs",
+	})
+
+	var pools []*storage.Config
+	if e.ValidateConfig(zfsPool) == nil {
+		pools = append(pools, zfsPool)
+	}
+	if e.ValidateConfig(btrfsPool) == nil {
+		pools = append(pools, btrfsPool)
+	}
+	return pools
 }
 
 // VolumeSource is part of the Provider interface.

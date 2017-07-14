@@ -52,6 +52,25 @@ func (s *storageSuite) TestStorageProviderTypes(c *gc.C) {
 	c.Assert(types, jc.DeepEquals, []storage.ProviderType{"lxd"})
 }
 
+func (s *storageSuite) TestStorageDefaultPools(c *gc.C) {
+	pools := s.provider.DefaultPools()
+	c.Assert(pools, gc.HasLen, 2)
+	c.Assert(pools[0].Name(), gc.Equals, "lxd-zfs")
+	c.Assert(pools[1].Name(), gc.Equals, "lxd-btrfs")
+	s.Stub.CheckCallNames(c, "CreateStoragePool", "CreateStoragePool")
+}
+
+func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
+	s.Stub.SetErrors(
+		errors.New("no zfs for you"),
+		errors.NotFoundf("zfs storage pool"),
+	)
+	pools := s.provider.DefaultPools()
+	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
+	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "CreateStoragePool")
+}
+
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
 	_, err := s.provider.VolumeSource(nil)
 	c.Assert(err, gc.ErrorMatches, "volumes not supported")
