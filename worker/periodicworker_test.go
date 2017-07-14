@@ -6,6 +6,8 @@ package worker
 import (
 	"time"
 
+	jtesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
@@ -38,6 +40,75 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 	}
 	w.Kill()
 	c.Assert(w.Wait(), gc.Equals, testError)
+	select {
+	case <-funcHasRun:
+		c.Fatalf("After the kill we don't expect anymore calls to the function")
+	case <-time.After(defaultFireOnceWait):
+	}
+}
+
+type testNextPeriod struct {
+	jtesting.Stub
+}
+
+func (t *testNextPeriod) nextPeriod(period time.Duration, jitter float64) time.Duration {
+	t.MethodCall(t, "nextPeriod", period, jitter)
+	return period
+}
+
+func (s *periodicWorkerSuite) TestNextPeriod(c *gc.C) {
+	for i := 0; i < 100; i++ {
+		p := nextPeriod(time.Second, 0.1)
+		c.Assert(p.Seconds()/time.Second.Seconds() <= 1.1, jc.IsTrue)
+		c.Assert(p.Seconds()/time.Second.Seconds() >= 0.9, jc.IsTrue)
+	}
+}
+
+func (s *periodicWorkerSuite) TestNextPeriodWithoutJitter(c *gc.C) {
+	for i := 0; i < 100; i++ {
+		p := nextPeriod(time.Second, 0)
+		c.Assert(p, gc.DeepEquals, time.Second)
+	}
+}
+
+func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
+	funcHasRun := make(chan struct{}, 1)
+	doWork := func(_ <-chan struct{}) error {
+		funcHasRun <- struct{}{}
+		return nil
+	}
+
+	tPeriod := &testNextPeriod{}
+	cleanup := jtesting.PatchValue(&nextPeriod, tPeriod.nextPeriod)
+	defer cleanup()
+
+	w := NewPeriodicWorker(doWork, testing.ShortWait, NewTimer, Jitter(0.2))
+	defer func() { c.Assert(worker.Stop(w), gc.Equals, nil) }()
+
+	select {
+	case <-funcHasRun:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("The doWork function should have been called by now")
+	}
+
+	tPeriod.CheckCalls(c, []jtesting.StubCall{{
+		FuncName: "nextPeriod",
+		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+	}})
+	tPeriod.ResetCalls()
+
+	select {
+	case <-funcHasRun:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("The doWork function should have been called by now")
+	}
+	tPeriod.CheckCalls(c, []jtesting.StubCall{{
+		FuncName: "nextPeriod",
+		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+	}})
+	w.Kill()
+	c.Assert(w.Wait(), gc.Equals, nil)
+
 	select {
 	case <-funcHasRun:
 		c.Fatalf("After the kill we don't expect anymore calls to the function")
