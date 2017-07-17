@@ -6,6 +6,7 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/juju/errors"
@@ -485,6 +486,32 @@ func (ru *RelationUnit) SettingsAddress() (network.Address, error) {
 		return unit.PrivateAddress()
 	}
 
+	// If there's egress cidr's defined, we'll use that value.
+	// TODO(wallyworld) - this is an interim measure until network-get is updated.
+	// It's needed for postgresql which uses the value to set up the hba file.
+	// This substitution is only applicable where the user has set the ingress-cidrs
+	// model attribute, which is only relevant in the consuming model.
+	cfg, err := ru.st.ModelConfig()
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+	cidrs := cfg.EgressCidrs()
+	if len(cidrs) > 0 {
+		ip, _, err := net.ParseCIDR(cidrs[0])
+		if err != nil {
+			return network.Address{}, errors.Trace(err)
+		}
+		addrType := network.IPv4Address
+		if ip4 := ip.To4(); ip4 == nil {
+			addrType = network.IPv6Address
+		}
+		address := network.Address{
+			Value: ip.String(),
+			Type:  addrType,
+			Scope: network.ScopePublic,
+		}
+		return address, nil
+	}
 	address, err := unit.PublicAddress()
 	if err != nil {
 		// TODO(wallyworld) - it's ok to return a private address sometimes
