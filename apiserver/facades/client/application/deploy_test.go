@@ -404,6 +404,24 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }
 
+func (s *DeployLocalSuite) TestDeployDevelopment(c *gc.C) {
+	var f fakeDeployer
+
+	_, err := application.DeployApplication(&f,
+		application.DeployApplicationParams{
+			ApplicationName: "bob",
+			Charm:           s.charm,
+			NumUnits:        4,
+			Development:     true,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.NumUnits, gc.Equals, 4)
+	c.Assert(f.args.Development, jc.IsTrue)
+}
+
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	var f fakeDeployer
 	serviceCons := constraints.MustParse("cores=2")

@@ -37,7 +37,8 @@ type DeployApplicationParams struct {
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
-	Resources map[string]string
+	Resources   map[string]string
+	Development bool
 }
 
 type ApplicationDeployer interface {
@@ -82,6 +83,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		Placement:        args.Placement,
 		Resources:        args.Resources,
 		EndpointBindings: effectiveBindings,
+		Development:      args.Development,
 	}
 
 	if !args.Charm.Meta().Subordinate {

@@ -262,6 +262,7 @@ func deployApplication(
 		AttachStorage:    attachStorage,
 		EndpointBindings: args.EndpointBindings,
 		Resources:        args.Resources,
+		Development:      args.Development,
 	})
 	return errors.Trace(err)
 }

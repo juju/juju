@@ -103,6 +103,9 @@ type DeployArgs struct {
 	// value being the unique ID of a pre-uploaded resources in
 	// storage.
 	Resources map[string]string
+
+	// Development signals if the application is to be deployed in development mode.
+	Development bool
 }
 
 // Deploy obtains the charm, either locally or from the charm store, and deploys
@@ -138,6 +141,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			AttachStorage:    attachStorage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,
+			Development:      args.Development,
 		}},
 	}
 	var results params.ErrorResults

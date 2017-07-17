@@ -94,6 +94,58 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
 				c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
 				c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+				c.Assert(app.Development, jc.IsFalse)
+				result := response.(*params.ErrorResults)
+				result.Results = make([]params.ErrorResult, 1)
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	args := application.DeployArgs{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("trusty/a-charm-1"),
+		},
+		ApplicationName:  "serviceA",
+		Series:           "series",
+		NumUnits:         1,
+		ConfigYAML:       "configYAML",
+		Cons:             constraints.MustParse("mem=4G"),
+		Placement:        []*instance.Placement{{"scope", "directive"}},
+		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		AttachStorage:    []string{"data/0"},
+		Resources:        map[string]string{"foo": "bar"},
+		EndpointBindings: map[string]string{"foo": "bar"},
+	}
+	err := client.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDeployDevelopment(c *gc.C) {
+	var called bool
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				called = true
+				c.Assert(request, gc.Equals, "Deploy")
+				args, ok := a.(params.ApplicationsDeploy)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args.Applications, gc.HasLen, 1)
+				app := args.Applications[0]
+				c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
+				c.Assert(app.ApplicationName, gc.Equals, "serviceA")
+				c.Assert(app.Series, gc.Equals, "series")
+				c.Assert(app.NumUnits, gc.Equals, 1)
+				c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
+				c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
+				c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+				c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
+				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+				c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
+				c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+				c.Assert(app.Development, jc.IsTrue)
 
 				result := response.(*params.ErrorResults)
 				result.Results = make([]params.ErrorResult, 1)
@@ -117,6 +169,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
+		Development:      true,
 	}
 	err := client.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)

@@ -50,6 +50,7 @@ type applicationDoc struct {
 	MinUnits             int        `bson:"minunits"`
 	TxnRevno             int64      `bson:"txn-revno"`
 	MetricCredentials    []byte     `bson:"metric-credentials"`
+	IsDevMode            bool       `bson:"is-dev-mode"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -58,6 +59,11 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 		doc: *doc,
 	}
 	return app
+}
+
+// IsDevMode returns true when the application is deployed in development mode.
+func (a *Application) IsDevMode() bool {
+	return a.doc.IsDevMode
 }
 
 // IsRemote returns false for a local application.
