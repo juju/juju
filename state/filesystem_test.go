@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 )
 
 type FilesystemStateSuite struct {
@@ -1121,6 +1122,110 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentLocationConflict(c *gc.C)
 			`validating filesystem mount points: `+
 			`mount point "/srv" for filesystem 0/0 contains `+
 			`mount point "/srv/within" for "data" storage`)
+}
+
+func (s *FilesystemStateSuite) TestImportFilesystem(c *gc.C) {
+	fsInfoIn := state.FilesystemInfo{
+		Pool:         "modelscoped",
+		Size:         123,
+		FilesystemId: "foo",
+	}
+	storageTag, err := s.State.ImportFilesystem(fsInfoIn, nil, "pgdata")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageTag, gc.Equals, names.NewStorageTag("pgdata/0"))
+
+	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	fsInfoOut, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fsInfoOut, jc.DeepEquals, fsInfoIn)
+
+	fsStatus, err := filesystem.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fsStatus.Status, gc.Equals, status.Detached)
+}
+
+func (s *FilesystemStateSuite) TestImportFilesystemEmptyFilesystemId(c *gc.C) {
+	fsInfoIn := state.FilesystemInfo{
+		Pool: "modelscoped",
+		Size: 123,
+	}
+	_, err := s.State.ImportFilesystem(fsInfoIn, nil, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: empty filesystem ID not valid")
+}
+
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
+	fsInfoIn := state.FilesystemInfo{
+		Pool: "modelscoped-block",
+		Size: 123,
+	}
+	volInfoIn := state.VolumeInfo{
+		Pool:     "modelscoped-block",
+		Size:     123,
+		VolumeId: "foo",
+	}
+	storageTag, err := s.State.ImportFilesystem(fsInfoIn, &volInfoIn, "pgdata")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageTag, gc.Equals, names.NewStorageTag("pgdata/0"))
+
+	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	fsInfoOut, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	fsInfoIn.FilesystemId = "filesystem-0" // set by ImportFilesystem
+	c.Assert(fsInfoOut, jc.DeepEquals, fsInfoIn)
+
+	fsStatus, err := filesystem.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fsStatus.Status, gc.Equals, status.Detached)
+
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volInfoOut, err := volume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volInfoOut, jc.DeepEquals, volInfoIn)
+
+	volStatus, err := volume.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volStatus.Status, gc.Equals, status.Detached)
+}
+
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBackedVolumeInfoMissing(c *gc.C) {
+	fsInfo := state.FilesystemInfo{
+		Pool:         "modelscoped-block",
+		Size:         123,
+		FilesystemId: "foo",
+	}
+	_, err := s.State.ImportFilesystem(fsInfo, nil, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: backing volume info missing")
+}
+
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBackedFilesystemIdSupplied(c *gc.C) {
+	fsInfo := state.FilesystemInfo{
+		Pool:         "modelscoped-block",
+		Size:         123,
+		FilesystemId: "foo",
+	}
+	volInfo := state.VolumeInfo{
+		Pool:     "modelscoped-block",
+		Size:     123,
+		VolumeId: "foo",
+	}
+	_, err := s.State.ImportFilesystem(fsInfo, &volInfo, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: non-empty filesystem ID with backing volume not valid")
+}
+
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBackedEmptyVolumeId(c *gc.C) {
+	fsInfo := state.FilesystemInfo{
+		Pool: "modelscoped-block",
+		Size: 123,
+	}
+	volInfo := state.VolumeInfo{
+		Pool: "modelscoped-block",
+		Size: 123,
+	}
+	_, err := s.State.ImportFilesystem(fsInfo, &volInfo, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: empty backing volume ID not valid")
 }
 
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
