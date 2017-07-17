@@ -708,6 +708,48 @@ func (s *ebsSuite) testDetachVolumesDetachedState(c *gc.C, errorCode string) {
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
 
+func (s *ebsSuite) TestImportVolume(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	c.Assert(vs, gc.Implements, new(storage.VolumeImporter))
+
+	resp, err := s.srv.client.CreateVolume(awsec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "us-east-1a",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	volInfo, err := vs.(storage.VolumeImporter).ImportVolume(resp.Id, map[string]string{
+		"foo": "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volInfo, jc.DeepEquals, storage.VolumeInfo{
+		VolumeId:   resp.Id,
+		Size:       1024,
+		Persistent: true,
+	})
+
+	volumes, err := s.srv.client.Volumes([]string{resp.Id}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes.Volumes, gc.HasLen, 1)
+	c.Assert(volumes.Volumes[0].Tags, jc.DeepEquals, []awsec2.Tag{
+		{"foo", "bar"},
+	})
+}
+
+func (s *ebsSuite) TestImportVolumeInUse(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	c.Assert(vs, gc.Implements, new(storage.VolumeImporter))
+
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	_, err := vs.AttachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volId := params[0].VolumeId
+	_, err = vs.(storage.VolumeImporter).ImportVolume(volId, map[string]string{})
+	c.Assert(err, gc.ErrorMatches, `cannot import volume with status "in-use"`)
+}
+
 type blockDeviceMappingSuite struct {
 	testing.BaseSuite
 }

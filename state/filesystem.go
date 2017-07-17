@@ -136,6 +136,17 @@ type FilesystemParams struct {
 	// that the filesystem is to be assigned to.
 	storage names.StorageTag
 
+	// filesystemId, if non-empty, is the provider-allocated unique ID
+	// of the filesystem. This will be unspecified for filesystems backed
+	// by volumes. This is only set when creating a filesystem entity
+	// for an existing, non-volume backed, filesystem.
+	filesystemId string
+
+	// volumeInfo, if non-empty, is the information for an already
+	// provisioned backing volume. This is only set when creating a
+	// filesystem entity for an existing volume backed filesystem.
+	volumeInfo *VolumeInfo
+
 	Pool string `bson:"pool"`
 	Size uint64 `bson:"size"`
 }
@@ -146,8 +157,8 @@ type FilesystemInfo struct {
 	Pool string `bson:"pool"`
 
 	// FilesystemId is the provider-allocated unique ID of the
-	// filesystem. This will be unspecified for filesystems
-	// backed by volumes.
+	// filesystem. This will be the string representation of
+	// the filesystem tag for filesystems backed by volumes.
 	FilesystemId string `bson:"filesystemid"`
 }
 
@@ -769,6 +780,86 @@ func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) (
 	return ops, nil
 }
 
+// ImportFilesystem imports an existing, already-provisioned
+// filesystem into the model. The model will start out with
+// the status "detached". The filesystem and associated backing
+// volume (if any) will be associated with the given storage
+// name, with the allocated storage tag being returned.
+func (st *State) ImportFilesystem(
+	info FilesystemInfo,
+	backingVolume *VolumeInfo,
+	storageName string,
+) (_ names.StorageTag, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot import filesystem")
+	if info.Pool == "" {
+		return names.StorageTag{}, errors.NotValidf("empty pool name")
+	}
+	if backingVolume == nil {
+		if info.FilesystemId == "" {
+			return names.StorageTag{}, errors.NotValidf("empty filesystem ID")
+		}
+	} else {
+		if info.FilesystemId != "" {
+			return names.StorageTag{}, errors.NotValidf("non-empty filesystem ID with backing volume")
+		}
+		if backingVolume.VolumeId == "" {
+			return names.StorageTag{}, errors.NotValidf("empty backing volume ID")
+		}
+		if backingVolume.Pool != info.Pool {
+			return names.StorageTag{}, errors.Errorf(
+				"volume pool %q does not match filesystem pool %q",
+				backingVolume.Pool, info.Pool,
+			)
+		}
+		if backingVolume.Size != info.Size {
+			return names.StorageTag{}, errors.Errorf(
+				"volume size %d does not match filesystem size %d",
+				backingVolume.Size, info.Size,
+			)
+		}
+	}
+	storageId, err := newStorageInstanceId(st, storageName)
+	if err != nil {
+		return names.StorageTag{}, errors.Trace(err)
+	}
+	storageTag := names.NewStorageTag(storageId)
+	fsOps, _, volumeTag, err := st.addFilesystemOps(
+		FilesystemParams{
+			Pool:         info.Pool,
+			Size:         info.Size,
+			filesystemId: info.FilesystemId,
+			volumeInfo:   backingVolume,
+			storage:      storageTag,
+		},
+		"", // no machine ID
+	)
+	if err != nil {
+		return names.StorageTag{}, errors.Trace(err)
+	}
+	if volumeTag != (names.VolumeTag{}) && backingVolume == nil {
+		return names.StorageTag{}, errors.Errorf("backing volume info missing")
+	}
+	ops := []txn.Op{{
+		C:      storageInstancesC,
+		Id:     storageId,
+		Assert: txn.DocMissing,
+		Insert: &storageInstanceDoc{
+			Id:          storageId,
+			Kind:        StorageKindFilesystem,
+			StorageName: storageName,
+			Constraints: storageInstanceConstraints{
+				Pool: info.Pool,
+				Size: info.Size,
+			},
+		},
+	}}
+	ops = append(ops, fsOps...)
+	if err := st.db().RunTransaction(ops); err != nil {
+		return names.StorageTag{}, errors.Trace(err)
+	}
+	return storageTag, nil
+}
+
 // filesystemAttachmentId returns a filesystem attachment document ID,
 // given the corresponding filesystem name and machine ID.
 func filesystemAttachmentId(machineId, filesystemId string) string {
@@ -838,8 +929,14 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 	}
 	if !provider.Supports(storage.StorageKindFilesystem) {
 		var volumeOps []txn.Op
+		if params.volumeInfo != nil {
+			// The filesystem ID for volume-backed filesystems
+			// is the string representation of the filesystem tag.
+			params.filesystemId = filesystemTag.String()
+		}
 		volumeParams := VolumeParams{
 			params.storage,
+			params.volumeInfo,
 			params.Pool,
 			params.Size,
 		}
@@ -849,9 +946,13 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 		}
 		volumeId = volumeTag.Id()
 		ops = append(ops, volumeOps...)
+	} else {
+		if params.volumeInfo != nil {
+			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Errorf("unexpected volume info")
+		}
 	}
 
-	status := statusDoc{
+	statusDoc := statusDoc{
 		Status:  status.Pending,
 		Updated: st.clock().Now().UnixNano(),
 	}
@@ -859,14 +960,26 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 		FilesystemId: filesystemId,
 		VolumeId:     volumeId,
 		StorageId:    params.storage.Id(),
-		Params:       &params,
-		// Every filesystem is created with one attachment.
-		AttachmentCount: 1,
+	}
+	if params.filesystemId != "" {
+		// We're importing an already provisioned filesystem into the
+		// model. Set provisioned info rather than params, and set the
+		// status to "detached".
+		statusDoc.Status = status.Detached
+		doc.Info = &FilesystemInfo{
+			Size:         params.Size,
+			Pool:         params.Pool,
+			FilesystemId: params.filesystemId,
+		}
+	} else {
+		// Every new filesystem is created with one attachment.
+		doc.Params = &params
+		doc.AttachmentCount = 1
 	}
 	if !detachable {
 		doc.MachineId = origMachineId
 	}
-	ops = append(ops, st.newFilesystemOps(doc, status)...)
+	ops = append(ops, st.newFilesystemOps(doc, statusDoc)...)
 	return ops, filesystemTag, volumeTag, nil
 }
 

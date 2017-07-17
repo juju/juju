@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type mockPoolManager struct {
@@ -65,6 +66,7 @@ type mockState struct {
 	destroyStorageInstance              func(names.StorageTag, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
 	detachStorage                       func(names.StorageTag, names.UnitTag) error
+	importFilesystem                    func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -113,6 +115,10 @@ func (st *mockState) WatchVolumeAttachment(mtag names.MachineTag, v names.Volume
 
 func (st *mockState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
 	return st.watchBlockDevices(mtag)
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	return testing.ControllerTag
 }
 
 func (st *mockState) ModelName() (string, error) {
@@ -184,6 +190,10 @@ func (st *mockState) DestroyStorageInstance(tag names.StorageTag, destroyAttache
 
 func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
 	panic("should not be called")
+}
+
+func (st *mockState) ImportFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, s string) (names.StorageTag, error) {
+	return st.importFilesystem(f, v, s)
 }
 
 type mockVolume struct {

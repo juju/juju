@@ -119,6 +119,11 @@ type VolumeParams struct {
 	// that the volume is to be assigned to.
 	storage names.StorageTag
 
+	// volumeInfo, if non-empty, is the information for an already
+	// provisioned volume. This is only set when creating a volume
+	// entity for an existing volume.
+	volumeInfo *VolumeInfo
+
 	Pool string `bson:"pool"`
 	Size uint64 `bson:"size"`
 }
@@ -773,21 +778,29 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
-	status := statusDoc{
+	statusDoc := statusDoc{
 		Status:  status.Pending,
 		Updated: st.clock().Now().UnixNano(),
 	}
 	doc := volumeDoc{
 		Name:      name,
 		StorageId: params.storage.Id(),
-		Params:    &params,
-		// Every volume is created with one attachment.
-		AttachmentCount: 1,
+	}
+	if params.volumeInfo != nil {
+		// We're importing an already provisioned volume into the
+		// model. Set provisioned info rather than params, and set
+		// the status to "detached".
+		statusDoc.Status = status.Detached
+		doc.Info = params.volumeInfo
+	} else {
+		// Every new volume is created with one attachment.
+		doc.Params = &params
+		doc.AttachmentCount = 1
 	}
 	if !detachable {
 		doc.MachineId = origMachineId
 	}
-	return st.newVolumeOps(doc, status), names.NewVolumeTag(name), nil
+	return st.newVolumeOps(doc, statusDoc), names.NewVolumeTag(name), nil
 }
 
 func (st *State) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {

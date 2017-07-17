@@ -844,6 +844,30 @@ func detachVolumes(client *ec2.EC2, attachParams []storage.VolumeAttachmentParam
 	return results, nil
 }
 
+// ImportVolume is specified on the storage.VolumeImporter interface.
+func (v *ebsVolumeSource) ImportVolume(volumeId string, tags map[string]string) (storage.VolumeInfo, error) {
+	resp, err := v.env.ec2.Volumes([]string{volumeId}, nil)
+	if err != nil {
+		// TODO(axw) check for "not found" response, massage error message?
+		return storage.VolumeInfo{}, err
+	}
+	if len(resp.Volumes) != 1 {
+		return storage.VolumeInfo{}, errors.Errorf("expected 1 volume result, got %d", len(resp.Volumes))
+	}
+	vol := resp.Volumes[0]
+	if vol.Status != volumeStatusAvailable {
+		return storage.VolumeInfo{}, errors.Errorf("cannot import volume with status %q", vol.Status)
+	}
+	if err := tagResources(v.env.ec2, tags, volumeId); err != nil {
+		return storage.VolumeInfo{}, errors.Annotate(err, "tagging volume")
+	}
+	return storage.VolumeInfo{
+		VolumeId:   volumeId,
+		Size:       gibToMib(uint64(vol.Size)),
+		Persistent: true,
+	}, nil
+}
+
 var errTooManyVolumes = errors.New("too many EBS volumes to attach")
 
 // blockDeviceNamer returns a function that cycles through block device names.

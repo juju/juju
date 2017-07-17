@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -890,4 +891,125 @@ func (a *APIv3) Attach(args params.StorageAttachmentIds) (params.ErrorResults, e
 
 func (a *APIv3) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
 	return a.storage.AttachStorage(storageTag, unitTag)
+}
+
+// Import imports existing storage into the model.
+// A "CHANGE" block can block this operation.
+func (a *APIv4) Import(args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ImportStorageResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.ImportStorageResults{}, errors.Trace(err)
+	}
+
+	results := make([]params.ImportStorageResult, len(args.Storage))
+	for i, arg := range args.Storage {
+		details, err := a.importStorage(arg)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Result = details
+	}
+	return params.ImportStorageResults{Results: results}, nil
+}
+
+func (a *APIv4) importStorage(arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
+	if arg.Kind != params.StorageKindFilesystem {
+		// TODO(axw) implement support for volumes.
+		return nil, errors.NotSupportedf("storage kind %q", arg.Kind.String())
+	}
+	if !storage.IsValidPoolName(arg.Pool) {
+		return nil, errors.NotValidf("pool name %q", arg.Pool)
+	}
+
+	cfg, err := a.poolManager.Get(arg.Pool)
+	if errors.IsNotFound(err) {
+		cfg, err = storage.NewConfig(
+			arg.Pool,
+			storage.ProviderType(arg.Pool),
+			map[string]interface{}{},
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := a.registry.StorageProvider(cfg.Provider())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return a.importFilesystem(arg, provider, cfg)
+}
+
+func (a *APIv4) importFilesystem(
+	arg params.ImportStorageParams,
+	provider storage.Provider,
+	cfg *storage.Config,
+) (*params.ImportStorageDetails, error) {
+	resourceTags := map[string]string{
+		tags.JujuModel:      a.storage.ModelTag().Id(),
+		tags.JujuController: a.storage.ControllerTag().Id(),
+	}
+	var volumeInfo *state.VolumeInfo
+	filesystemInfo := state.FilesystemInfo{Pool: arg.Pool}
+
+	// If the storage provider supports filesystems, import the filesystem,
+	// otherwise import a volume which will back a filesystem.
+	if provider.Supports(storage.StorageKindFilesystem) {
+		filesystemSource, err := provider.FilesystemSource(cfg)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		filesystemImporter, ok := filesystemSource.(storage.FilesystemImporter)
+		if !ok {
+			return nil, errors.NotSupportedf(
+				"importing filesystem with storage provider %q",
+				cfg.Provider(),
+			)
+		}
+		info, err := filesystemImporter.ImportFilesystem(arg.ProviderId, resourceTags)
+		if err != nil {
+			return nil, errors.Annotate(err, "importing filesystem")
+		}
+		filesystemInfo.FilesystemId = arg.ProviderId
+		filesystemInfo.Size = info.Size
+	} else {
+		volumeSource, err := provider.VolumeSource(cfg)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		volumeImporter, ok := volumeSource.(storage.VolumeImporter)
+		if !ok {
+			return nil, errors.NotSupportedf(
+				"importing volume with storage provider %q",
+				cfg.Provider(),
+			)
+		}
+		info, err := volumeImporter.ImportVolume(arg.ProviderId, resourceTags)
+		if err != nil {
+			return nil, errors.Annotate(err, "importing volume")
+		}
+		volumeInfo = &state.VolumeInfo{
+			HardwareId: info.HardwareId,
+			WWN:        info.WWN,
+			Size:       info.Size,
+			Pool:       arg.Pool,
+			VolumeId:   info.VolumeId,
+			Persistent: info.Persistent,
+		}
+		filesystemInfo.Size = info.Size
+	}
+
+	storageTag, err := a.storage.ImportFilesystem(filesystemInfo, volumeInfo, arg.StorageName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &params.ImportStorageDetails{
+		StorageTag: storageTag.String(),
+	}, nil
 }

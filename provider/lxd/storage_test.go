@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -173,7 +174,7 @@ func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
-	c.Assert(results[0], gc.ErrorMatches, `filesystem ID "filesystem-0" not valid`)
+	c.Assert(results[0], gc.ErrorMatches, `invalid filesystem ID "filesystem-0"; expected ID in format <lxd-pool>:<volume-name>`)
 	c.Assert(results[1], jc.ErrorIsNil)
 	c.Assert(results[2], gc.ErrorMatches, "boom")
 
@@ -318,4 +319,44 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	}, {
 		"RemoveDevice", []interface{}{"inst-0", "filesystem-0"},
 	}})
+}
+
+func (s *storageSuite) TestImportFilesystem(c *gc.C) {
+	source := s.filesystemSource(c, "pool")
+	c.Assert(source, gc.Implements, new(storage.FilesystemImporter))
+	importer := source.(storage.FilesystemImporter)
+
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"foo": []api.StorageVolume{{
+			StorageVolumePut: api.StorageVolumePut{
+				Name: "bar",
+				Config: map[string]string{
+					"size": "10GB",
+				},
+			},
+		}},
+	}
+
+	info, err := importer.ImportFilesystem("foo:bar", map[string]string{
+		"baz": "qux",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{
+		FilesystemId: "foo:bar",
+		Size:         10 * 1024,
+	})
+
+	update := api.StorageVolume{
+		StorageVolumePut: api.StorageVolumePut{
+			Name: "bar",
+			Config: map[string]string{
+				"size":     "10GB",
+				"user.baz": "qux",
+			},
+		},
+	}
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"Volume", []interface{}{"foo", "bar"}},
+		{"VolumeUpdate", []interface{}{"foo", "bar", update}},
+	})
 }
