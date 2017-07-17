@@ -747,3 +747,45 @@ type DestroyStorageInstance struct {
 	// is false, then the storage must already be detached.
 	DestroyAttached bool `json:"destroy-attached,bool"`
 }
+
+// BulkImportStorageParams contains the parameters for importing a collection
+// of storage entities.
+type BulkImportStorageParams struct {
+	Storage []ImportStorageParams `json:"storage"`
+}
+
+// ImportStorageParams contains the parameters for importing a storage entity.
+type ImportStorageParams struct {
+	// Kind is the kind of the storage entity to import.
+	Kind StorageKind `json:"kind"`
+
+	// Pool is the name of the storage pool into which the storage is to
+	// be imported.
+	Pool string `json:"pool"`
+
+	// ProviderId is the storage provider's unique ID for the storage,
+	// e.g. the EBS volume ID.
+	ProviderId string `json:"provider-id"`
+
+	// StorageName is the name of the storage to assign to the entity.
+	StorageName string `json:"storage-name"`
+}
+
+// ImportStorageResults contains the results of importing a collection of
+// storage entities.
+type ImportStorageResults struct {
+	Results []ImportStorageResult `json:"results"`
+}
+
+// ImportStorageResult contains the result of importing a storage entity.
+type ImportStorageResult struct {
+	Result *ImportStorageDetails `json:"result,omitempty"`
+	Error  *Error                `json:"error,omitempty"`
+}
+
+// ImportStorageDetails contains the details of an imported storage entity.
+type ImportStorageDetails struct {
+	// StorageTag contains the string representation of the storage tag
+	// assigned to the imported storage entity.
+	StorageTag string `json:"storage-tag"`
+}
