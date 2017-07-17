@@ -20,6 +20,8 @@ type rawStorageClient interface {
 
 	StoragePoolVolumeTypeCreate(pool string, volume string, volumeType string, config map[string]string) error
 	StoragePoolVolumeTypeDelete(pool string, volume string, volumeType string) error
+	StoragePoolVolumeTypeGet(pool string, volume string, volumeType string) (api.StorageVolume, error)
+	StoragePoolVolumeTypePut(pool string, volume string, volumeType string, update api.StorageVolume) error
 	StoragePoolVolumesList(pool string) ([]api.StorageVolume, error)
 }
 
@@ -33,12 +35,35 @@ func (c *storageClient) StorageSupported() bool {
 	return c.supported
 }
 
+// Volume creates a volume in a storage pool.
+func (c *storageClient) Volume(pool, volumeName string) (api.StorageVolume, error) {
+	if !c.supported {
+		return api.StorageVolume{}, errors.NotSupportedf("storage API on this remote")
+	}
+	volume, err := c.raw.StoragePoolVolumeTypeGet(pool, volumeName, "custom")
+	if err != nil {
+		if err == lxd.LXDErrors[http.StatusNotFound] {
+			return volume, errors.NotFoundf("volume %q in pool %q", volumeName, pool)
+		}
+		return api.StorageVolume{}, errors.Trace(err)
+	}
+	return volume, nil
+}
+
 // VolumeCreate creates a volume in a storage pool.
 func (c *storageClient) VolumeCreate(pool, volume string, config map[string]string) error {
 	if !c.supported {
 		return errors.NotSupportedf("storage API on this remote")
 	}
 	return c.raw.StoragePoolVolumeTypeCreate(pool, volume, "custom", config)
+}
+
+// VolumeUpdate updates a volume in a storage pool.
+func (c *storageClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
+	if !c.supported {
+		return errors.NotSupportedf("storage API on this remote")
+	}
+	return c.raw.StoragePoolVolumeTypePut(pool, volume, "custom", update)
 }
 
 // VolumeDelete deletes a volume from a storage pool.

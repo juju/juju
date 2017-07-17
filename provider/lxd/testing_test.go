@@ -636,12 +636,30 @@ func (conn *StubClient) VolumeDelete(pool, volume string) error {
 	return conn.NextErr()
 }
 
+func (conn *StubClient) Volume(pool, volume string) (api.StorageVolume, error) {
+	conn.AddCall("Volume", pool, volume)
+	if err := conn.NextErr(); err != nil {
+		return api.StorageVolume{}, err
+	}
+	for _, v := range conn.Volumes[pool] {
+		if v.Name == volume {
+			return v, nil
+		}
+	}
+	return api.StorageVolume{}, errors.NotFoundf("volume %q in pool %q", volume, pool)
+}
+
 func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
 	conn.AddCall("VolumeList", pool)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 	return conn.Volumes[pool], nil
+}
+
+func (conn *StubClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
+	conn.AddCall("VolumeUpdate", pool, volume, update)
+	return conn.NextErr()
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

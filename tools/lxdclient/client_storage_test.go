@@ -117,6 +117,42 @@ func (s *StorageClientSuite) TestVolumeListError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "burp")
 }
 
+func (s *StorageClientSuite) TestVolume(c *gc.C) {
+	client := lxdclient.NewStorageClient(s.raw, true)
+	volume, err := client.Volume("pool", "volume")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volume.Name, gc.Equals, "volume")
+	s.raw.CheckCallNames(c, "StoragePoolVolumeTypeGet")
+	s.raw.CheckCall(c, 0, "StoragePoolVolumeTypeGet", "pool", "volume", "custom")
+}
+
+func (s *StorageClientSuite) TestVolumeError(c *gc.C) {
+	s.raw.SetErrors(errors.New("burp"))
+	client := lxdclient.NewStorageClient(s.raw, true)
+	_, err := client.Volume("pool", "volume")
+	c.Assert(err, gc.ErrorMatches, "burp")
+}
+
+func (s *StorageClientSuite) TestVolumeUpdate(c *gc.C) {
+	client := lxdclient.NewStorageClient(s.raw, true)
+	volume := api.StorageVolume{
+		StorageVolumePut: api.StorageVolumePut{
+			Name: "volume",
+		},
+	}
+	err := client.VolumeUpdate("pool", "volume", volume)
+	c.Assert(err, jc.ErrorIsNil)
+	s.raw.CheckCallNames(c, "StoragePoolVolumeTypePut")
+	s.raw.CheckCall(c, 0, "StoragePoolVolumeTypePut", "pool", "volume", "custom", volume)
+}
+
+func (s *StorageClientSuite) TestVolumeUpdateError(c *gc.C) {
+	s.raw.SetErrors(errors.New("burp"))
+	client := lxdclient.NewStorageClient(s.raw, true)
+	err := client.VolumeUpdate("pool", "volume", api.StorageVolume{})
+	c.Assert(err, gc.ErrorMatches, "burp")
+}
+
 func (s *StorageClientSuite) TestStoragePool(c *gc.C) {
 	client := lxdclient.NewStorageClient(s.raw, true)
 	_, err := client.StoragePool("pool")
@@ -186,6 +222,20 @@ func (c *mockRawStorageClient) StoragePoolVolumeTypeCreate(pool string, volume s
 
 func (c *mockRawStorageClient) StoragePoolVolumeTypeDelete(pool string, volume string, volumeType string) error {
 	c.MethodCall(c, "StoragePoolVolumeTypeDelete", pool, volume, volumeType)
+	return c.NextErr()
+}
+
+func (c *mockRawStorageClient) StoragePoolVolumeTypeGet(pool, volume, volumeType string) (api.StorageVolume, error) {
+	c.MethodCall(c, "StoragePoolVolumeTypeGet", pool, volume, volumeType)
+	return api.StorageVolume{
+		StorageVolumePut: api.StorageVolumePut{
+			Name: volume,
+		},
+	}, c.NextErr()
+}
+
+func (c *mockRawStorageClient) StoragePoolVolumeTypePut(pool, volume, volumeType string, update api.StorageVolume) error {
+	c.MethodCall(c, "StoragePoolVolumeTypePut", pool, volume, volumeType, update)
 	return c.NextErr()
 }
 

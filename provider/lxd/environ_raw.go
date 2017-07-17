@@ -66,8 +66,10 @@ type lxdStorage interface {
 	StoragePools() ([]lxdapi.StoragePool, error)
 	CreateStoragePool(name, driver string, attrs map[string]string) error
 
+	Volume(pool, volume string) (lxdapi.StorageVolume, error)
 	VolumeCreate(pool, volume string, config map[string]string) error
 	VolumeDelete(pool, volume string) error
+	VolumeUpdate(pool, volume string, update lxdapi.StorageVolume) error
 	VolumeList(pool string) ([]lxdapi.StorageVolume, error)
 }
 

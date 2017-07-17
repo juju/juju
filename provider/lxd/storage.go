@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/set"
+	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/names.v2"
 
@@ -280,10 +281,12 @@ func makeFilesystemId(cfg *lxdStorageConfig, volumeName string) string {
 
 // parseFilesystemId parses the given filesystem ID, returning the underlying
 // LXD storage pool name and volume name.
-func parseFilesystemId(id string) (lxdName, volumeName string, _ error) {
+func parseFilesystemId(id string) (lxdPool, volumeName string, _ error) {
 	fields := strings.SplitN(id, ":", 2)
 	if len(fields) < 2 {
-		return "", "", errors.NotValidf("filesystem ID %q", id)
+		return "", "", errors.Errorf(
+			"invalid filesystem ID %q; expected ID in format <lxd-pool>:<volume-name>", id,
+		)
 	}
 	return fields[0], fields[1], nil
 }
@@ -487,4 +490,59 @@ func (s *lxdFilesystemSource) detachFilesystem(
 		return nil
 	}
 	return s.env.raw.RemoveDevice(inst.raw.Name, deviceName)
+}
+
+// ImportFilesystem is part of the storage.FilesystemImporter interface.
+func (s *lxdFilesystemSource) ImportFilesystem(
+	filesystemId string,
+	tags map[string]string,
+) (storage.FilesystemInfo, error) {
+	lxdPool, volumeName, err := parseFilesystemId(filesystemId)
+	if err != nil {
+		return storage.FilesystemInfo{}, errors.Trace(err)
+	}
+	volume, err := s.env.raw.Volume(lxdPool, volumeName)
+	if err != nil {
+		return storage.FilesystemInfo{}, errors.Trace(err)
+	}
+	if len(volume.UsedBy) > 0 {
+		return storage.FilesystemInfo{}, errors.Errorf(
+			"filesystem %q is in use by %d containers, cannot import",
+			filesystemId, len(volume.UsedBy),
+		)
+	}
+
+	// NOTE(axw) not all drivers support specifying a volume size.
+	// If we can't find a size config attribute, we have to make
+	// up a number since the model will not allow a size of zero.
+	// We use the magic number 999GiB to indicate that it's unknown.
+	size := uint64(999 * 1024) // 999GiB
+	if sizeString := volume.Config["size"]; sizeString != "" {
+		n, err := shared.ParseByteSizeString(sizeString)
+		if err != nil {
+			return storage.FilesystemInfo{}, errors.Annotate(err, "parsing size")
+		}
+		// ParseByteSizeString returns bytes, we want MiB.
+		size = uint64(n / (1024 * 1024))
+	}
+
+	if len(tags) > 0 {
+		// Update the volume's user-data with the given tags. This will
+		// include updating the model and controller UUIDs, so that the
+		// storage is associated with this controller and model.
+		if volume.Config == nil {
+			volume.Config = make(map[string]string)
+		}
+		for k, v := range tags {
+			volume.Config["user."+k] = v
+		}
+		if err := s.env.raw.VolumeUpdate(lxdPool, volumeName, volume); err != nil {
+			return storage.FilesystemInfo{}, errors.Annotate(err, "tagging volume")
+		}
+	}
+
+	return storage.FilesystemInfo{
+		FilesystemId: filesystemId,
+		Size:         size,
+	}, nil
 }
