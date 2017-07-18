@@ -190,7 +190,7 @@ func (s *CloudCredentialsSuite) TestRemoveCredentialsInUse(c *gc.C) {
 
 	// Try to remove the cloud credential nicely. Can't because a model is using it.
 	err = s.State.RemoveCloudCredential(tag, false)
-	c.Assert(err, gc.ErrorMatches, ".*refcount changed.*")
+	c.Assert(err, gc.ErrorMatches, "removing cloud credential: cannot remove cloud credential \"cloudcred-dummy_bob_bobcred1\", still in use by 1 models: refcount changed")
 
 	// Check it. Still there.
 	_, err = s.State.CloudCredential(tag)

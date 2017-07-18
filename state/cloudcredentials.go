@@ -136,7 +136,15 @@ func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag, force bool)
 			refcounts, closer := st.db().GetCollection(globalrefcountsC)
 			defer closer()
 			refOp, err := nsRefcounts.RemoveOp(refcounts, cloudCredKey, 0)
-			if err != nil {
+			if errors.Cause(err) == errRefcountChanged {
+				_, nmodels, currentOpErr := nsRefcounts.CurrentOp(refcounts, cloudCredKey)
+				if currentOpErr != nil {
+					logger.Errorf("failed to read cloud credential model refcount: %v", err)
+					return nil, errors.Annotatef(err, "cannot remove cloud credential %q, may still be in use", tag)
+				}
+				return nil, errors.Annotatef(err, "cannot remove cloud credential %q, still in use by %d models",
+					tag, nmodels)
+			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, refOp)
@@ -292,17 +300,9 @@ func cloudCredentialDecRefOps(st modelBackend, tag names.CloudCredentialTag) ([]
 	defer closer()
 
 	refKey := cloudCredentialGlobalKey(tag)
-	assertOp, n, err := nsRefcounts.CurrentOp(refcounts, refKey)
+	op, err := nsRefcounts.AliveDecRefOp(refcounts, refKey)
 	if err != nil {
 		return nil, errors.Annotate(err, "decrement cloudcredentials reference")
 	}
-	ops := []txn.Op{assertOp}
-	if n > 0 {
-		op, err := nsRefcounts.AliveDecRefOp(refcounts, refKey)
-		if err != nil {
-			return nil, errors.Annotate(err, "decrement cloudcredentials reference")
-		}
-		ops = append(ops, op)
-	}
-	return ops, nil
+	return []txn.Op{op}, nil
 }
