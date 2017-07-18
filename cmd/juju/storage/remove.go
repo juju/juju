@@ -17,7 +17,7 @@ import (
 // used to remove storage from the model.
 func NewRemoveStorageCommandWithAPI() cmd.Command {
 	cmd := &removeStorageCommand{}
-	cmd.newStorageDestroyerCloser = func() (StorageDestroyerCloser, error) {
+	cmd.newStorageRemoverCloser = func() (StorageRemoverCloser, error) {
 		return cmd.NewStorageAPI()
 	}
 	return modelcmd.Wrap(cmd)
@@ -25,9 +25,9 @@ func NewRemoveStorageCommandWithAPI() cmd.Command {
 
 // NewRemoveStorageCommand returns a command
 // used to remove storage from the model.
-func NewRemoveStorageCommand(new NewStorageDestroyerCloserFunc) cmd.Command {
+func NewRemoveStorageCommand(new NewStorageRemoverCloserFunc) cmd.Command {
 	cmd := &removeStorageCommand{}
-	cmd.newStorageDestroyerCloser = new
+	cmd.newStorageRemoverCloser = new
 	return modelcmd.Wrap(cmd)
 }
 
@@ -41,16 +41,25 @@ is attached to any units. To override this behaviour,
 you can use "juju remove-storage --force".
 
 Examples:
+    # Remove the detached storage pgdata/0.
     juju remove-storage pgdata/0
+
+    # Remove the possibly attached storage pgdata/0.
+    juju remove-storage --force pgdata/0
+
+    # Remove the storage pgdata/0, without destroying
+    # the corresponding cloud storage.
+    juju remove-storage --no-destroy pgdata/0
 `
 	removeStorageCommandArgs = `<storage> [<storage> ...]`
 )
 
 type removeStorageCommand struct {
 	StorageCommandBase
-	newStorageDestroyerCloser NewStorageDestroyerCloserFunc
-	storageIds                []string
-	force                     bool
+	newStorageRemoverCloser NewStorageRemoverCloserFunc
+	storageIds              []string
+	force                   bool
+	noDestroy               bool
 }
 
 // Info implements Command.Info.
@@ -66,6 +75,7 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "Remove storage even if it is currently attached")
+	f.BoolVar(&c.noDestroy, "no-destroy", false, "Remove the storage without destroying it")
 }
 
 // Init implements Command.Init.
@@ -79,13 +89,15 @@ func (c *removeStorageCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
-	destroyer, err := c.newStorageDestroyerCloser()
+	remover, err := c.newStorageRemoverCloser()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer destroyer.Close()
+	defer remover.Close()
 
-	results, err := destroyer.Destroy(c.storageIds, c.force)
+	destroyAttachments := c.force
+	destroyStorage := !c.noDestroy
+	results, err := remover.Remove(c.storageIds, destroyAttachments, destroyStorage)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "remove storage")
@@ -120,18 +132,21 @@ before removing.`)
 	return nil
 }
 
-// NewStorageDestroyerCloserFunc is the type of a function that returns an
-// StorageDestroyerCloser.
-type NewStorageDestroyerCloserFunc func() (StorageDestroyerCloser, error)
+// NewStorageRemoverCloserFunc is the type of a function that returns an
+// StorageRemoverCloser.
+type NewStorageRemoverCloserFunc func() (StorageRemoverCloser, error)
 
-// StorageDestroyerCloser extends StorageDestroyer with a Closer method.
-type StorageDestroyerCloser interface {
-	StorageDestroyer
+// StorageRemoverCloser extends StorageRemover with a Closer method.
+type StorageRemoverCloser interface {
+	StorageRemover
 	Close() error
 }
 
-// StorageDestroyer defines an interface for destroying storage instances
+// StorageRemover defines an interface for destroying storage instances
 // with the specified IDs.
-type StorageDestroyer interface {
-	Destroy(storageIds []string, destroyAttached bool) ([]params.ErrorResult, error)
+type StorageRemover interface {
+	Remove(
+		storageIds []string,
+		destroyAttachments, destroyStorage bool,
+	) ([]params.ErrorResult, error)
 }

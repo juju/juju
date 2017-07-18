@@ -780,28 +780,25 @@ type StoragesAddParams struct {
 	Storages []StorageAddParams `json:"storages"`
 }
 
-// DestroyStorage holds the parameters for destroying storage.
-type DestroyStorage struct {
-	Storage []DestroyStorageInstance `json:"storage"`
+// RemoveStorage holds the parameters for removing storage from the model.
+type RemoveStorage struct {
+	Storage []RemoveStorageInstance `json:"storage"`
 }
 
-// DestroyStorage holds the parameters for destroying a storage instance.
-type DestroyStorageInstance struct {
+// RemoveStorageInstance holds the parameters for removing a storage instance.
+type RemoveStorageInstance struct {
 	// Tag is the tag of the storage instance to be destroyed.
 	Tag string `json:"tag"`
 
-	// DestroyAttached controls whether or not the storage attachments
+	// DestroyAttachments controls whether or not the storage attachments
 	// will be destroyed automatically. If DestroyAttachments is false,
 	// then the storage must already be detached.
-	//
-	// TODO(axw) rename to DestroyAttachments, json:"destroy-attachments".
-	DestroyAttached bool `json:"destroy-attached,omitempty"`
+	DestroyAttachments bool `json:"destroy-attachments,omitempty"`
 
-	// ReleaseStorage controls whether or not the associated
-	// cloud storage is destroyed. If ReleaseStorage is true,
-	// then the cloud storage will not be destroyed, otherwise
-	// it will be.
-	ReleaseStorage bool `json:"release-storage,omitempty"`
+	// DestroyStorage controls whether or not the associated cloud storage
+	// is destroyed. If DestroyStorage is true, the cloud storage will be
+	// destroyed; otherwise it will only be released from Juju's control.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
 }
 
 // BulkImportStorageParams contains the parameters for importing a collection

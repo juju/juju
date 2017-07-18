@@ -748,29 +748,31 @@ func (a *APIv3) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, e
 // Destroy sets the specified storage entities to Dying, unless they are
 // already Dying or Dead.
 func (a *APIv3) Destroy(args params.Entities) (params.ErrorResults, error) {
-	v4Args := params.DestroyStorage{
-		Storage: make([]params.DestroyStorageInstance, len(args.Entities)),
+	v4Args := params.RemoveStorage{
+		Storage: make([]params.RemoveStorageInstance, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		v4Args.Storage[i] = params.DestroyStorageInstance{
+		v4Args.Storage[i] = params.RemoveStorageInstance{
 			Tag: arg.Tag,
 			// The v3 behaviour was to detach the storage
 			// at the same time as marking the storage Dying.
-			DestroyAttached: true,
+			DestroyAttachments: true,
+			DestroyStorage:     true,
 		}
 	}
-	return a.destroy(v4Args)
+	return a.remove(v4Args)
 }
 
-// Destroy sets the specified storage entities to Dying, unless they are
+// Remove sets the specified storage entities to Dying, unless they are
 // already Dying or Dead, such that the storage will eventually be removed
 // from the model. If the arguments specify that the storage should be
-// *released*, then it will be removed from the model non-destructively.
-func (a *APIv4) Destroy(args params.DestroyStorage) (params.ErrorResults, error) {
-	return a.destroy(args)
+// destroyed, then the associated cloud storage will be destroyed first;
+// otherwise it will only be released from Juju's control.
+func (a *APIv4) Remove(args params.RemoveStorage) (params.ErrorResults, error) {
+	return a.remove(args)
 }
 
-func (a *APIv3) destroy(args params.DestroyStorage) (params.ErrorResults, error) {
+func (a *APIv3) remove(args params.RemoveStorage) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -787,12 +789,12 @@ func (a *APIv3) destroy(args params.DestroyStorage) (params.ErrorResults, error)
 			result[i].Error = common.ServerError(err)
 			continue
 		}
-		destroy := a.storage.DestroyStorageInstance
-		if arg.ReleaseStorage {
-			destroy = a.storage.ReleaseStorageInstance
+		remove := a.storage.DestroyStorageInstance
+		if !arg.DestroyStorage {
+			remove = a.storage.ReleaseStorageInstance
 		}
 		result[i].Error = common.ServerError(
-			destroy(tag, arg.DestroyAttached),
+			remove(tag, arg.DestroyAttachments),
 		)
 	}
 	return params.ErrorResults{result}, nil
@@ -1019,3 +1021,10 @@ func (a *APIv4) importFilesystem(
 		StorageTag: storageTag.String(),
 	}, nil
 }
+
+// Mask out old methods from the new API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+
+// Destroy was dropped in V4, replaced with Remove.
+func (*APIv4) Destroy(_, _ struct{}) {}

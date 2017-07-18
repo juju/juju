@@ -326,11 +326,11 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
 }
 
-func (s *storageSuite) TestDestroy(c *gc.C) {
-	results, err := s.api.Destroy(params.DestroyStorage{[]params.DestroyStorageInstance{
-		{Tag: "storage-foo-0"},
-		{Tag: "storage-foo-1", DestroyAttached: true},
-		{Tag: "storage-foo-1", DestroyAttached: true, ReleaseStorage: true},
+func (s *storageSuite) TestRemove(c *gc.C) {
+	results, err := s.api.Remove(params.RemoveStorage{[]params.RemoveStorageInstance{
+		{Tag: "storage-foo-0", DestroyStorage: true},
+		{Tag: "storage-foo-1", DestroyAttachments: true, DestroyStorage: true},
+		{Tag: "storage-foo-1", DestroyAttachments: true, DestroyStorage: false},
 		{Tag: "volume-0"},
 		{Tag: "filesystem-1-2"},
 		{Tag: "machine-0"},
