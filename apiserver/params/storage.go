@@ -218,6 +218,19 @@ type VolumeParams struct {
 	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
 }
 
+// DestroyVolumeParams holds the parameters for destroying a storage volume.
+type DestroyVolumeParams struct {
+	// Provider is the storage provider that manages the volume.
+	Provider string `json:"provider"`
+
+	// VolumeId is the storage provider's unique ID for the volume.
+	VolumeId string `json:"volume-id"`
+
+	// Release controls whether the volume should be completely
+	// destroyed, or merely released from Juju's management.
+	Release bool `json:"release,omitempty"`
+}
+
 // VolumeAttachmentParams holds the parameters for creating a volume
 // attachment.
 type VolumeAttachmentParams struct {
@@ -274,6 +287,17 @@ type VolumeParamsResult struct {
 // VolumeParamsResults holds provisioning parameters for multiple volumes.
 type VolumeParamsResults struct {
 	Results []VolumeParamsResult `json:"results,omitempty"`
+}
+
+// DestroyVolumeParamsResults holds parameters for destroying a volume.
+type DestroyVolumeParamsResult struct {
+	Result DestroyVolumeParams `json:"result"`
+	Error  *Error              `json:"error,omitempty"`
+}
+
+// DestroyVolumeParamsResults holds parameters for destroying multiple volumes.
+type DestroyVolumeParamsResults struct {
+	Results []DestroyVolumeParamsResult `json:"results,omitempty"`
 }
 
 // VolumeAttachmentParamsResults holds provisioning parameters for a volume
@@ -342,6 +366,19 @@ type FilesystemParams struct {
 	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
 }
 
+// DestroyFilesystemParams holds the parameters for destroying a filesystem.
+type DestroyFilesystemParams struct {
+	// Provider is the storage provider that manages the filesystem.
+	Provider string `json:"provider"`
+
+	// FilesystemId is the storage provider's unique ID for the filesystem.
+	FilesystemId string `json:"filesystem-id"`
+
+	// Release controls whether the filesystem should be completely
+	// destroyed, or merely released from Juju's management.
+	Release bool `json:"release,omitempty"`
+}
+
 // FilesystemAttachmentParams holds the parameters for creating a filesystem
 // attachment.
 type FilesystemAttachmentParams struct {
@@ -386,6 +423,17 @@ type FilesystemParamsResult struct {
 // FilesystemParamsResults holds provisioning parameters for multiple filesystems.
 type FilesystemParamsResults struct {
 	Results []FilesystemParamsResult `json:"results,omitempty"`
+}
+
+// DestroyFilesystemParamsResults holds parameters for destroying a filesystem.
+type DestroyFilesystemParamsResult struct {
+	Result DestroyFilesystemParams `json:"result"`
+	Error  *Error                  `json:"error,omitempty"`
+}
+
+// DestroyFilesystemParamsResults holds parameters for destroying multiple filesystems.
+type DestroyFilesystemParamsResults struct {
+	Results []DestroyFilesystemParamsResult `json:"results,omitempty"`
 }
 
 // FilesystemAttachmentParamsResults holds provisioning parameters for a filesystem
@@ -742,10 +790,18 @@ type DestroyStorageInstance struct {
 	// Tag is the tag of the storage instance to be destroyed.
 	Tag string `json:"tag"`
 
-	// DestroyAttached controls whether or not the storage will be
-	// destroyed if it is currently attached. If destroy-attached
-	// is false, then the storage must already be detached.
-	DestroyAttached bool `json:"destroy-attached,bool"`
+	// DestroyAttached controls whether or not the storage attachments
+	// will be destroyed automatically. If DestroyAttachments is false,
+	// then the storage must already be detached.
+	//
+	// TODO(axw) rename to DestroyAttachments, json:"destroy-attachments".
+	DestroyAttached bool `json:"destroy-attached,omitempty"`
+
+	// ReleaseStorage controls whether or not the associated
+	// cloud storage is destroyed. If ReleaseStorage is true,
+	// then the cloud storage will not be destroyed, otherwise
+	// it will be.
+	ReleaseStorage bool `json:"release-storage,omitempty"`
 }
 
 // BulkImportStorageParams contains the parameters for importing a collection

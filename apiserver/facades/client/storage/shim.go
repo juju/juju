@@ -139,6 +139,9 @@ type storageAccess interface {
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
 	DestroyStorageInstance(names.StorageTag, bool) error
 
+	// ReleaseStorageInstance releases the storage instance with the specified tag.
+	ReleaseStorageInstance(names.StorageTag, bool) error
+
 	// UnitStorageAttachments returns the storage attachments for the
 	// identified unit.
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)

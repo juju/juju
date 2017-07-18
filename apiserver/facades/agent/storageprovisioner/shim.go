@@ -21,15 +21,24 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-// NewFacade provides the signature required for facade registration.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPI, error) {
+// NewFacadeV3 provides the signature required for facade registration.
+func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPIv3, error) {
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environ")
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewStorageProvisionerAPI(stateShim{st}, resources, authorizer, registry, pm)
+	return NewStorageProvisionerAPIv3(stateShim{st}, resources, authorizer, registry, pm)
+}
+
+// NewFacadeV4 provides the signature required for facade registration.
+func NewFacadeV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPIv4, error) {
+	v3, err := NewFacadeV3(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewStorageProvisionerAPIv4(v3), nil
 }
 
 type Backend interface {
