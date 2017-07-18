@@ -190,7 +190,18 @@ func (api *API) Export() (params.SerializedModel, error) {
 // Reap removes all documents for the model associated with the API
 // connection.
 func (api *API) Reap() error {
-	return api.backend.RemoveExportingModelDocs()
+	migration, err := api.backend.LatestMigration()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = api.backend.RemoveExportingModelDocs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// We need to mark the migration as complete here, since removing
+	// the model might kill the worker before it has a chance to set
+	// the phase itself.
+	return errors.Trace(migration.SetPhase(coremigration.DONE))
 }
 
 // WatchMinionReports sets up a watcher which reports when a report

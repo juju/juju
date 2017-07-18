@@ -303,12 +303,20 @@ func (s *Suite) TestExport(c *gc.C) {
 
 func (s *Suite) TestReap(c *gc.C) {
 	api := s.mustMakeAPI(c)
+	s.backend.migration = &stubMigration{}
 
 	err := api.Reap()
 	c.Check(err, jc.ErrorIsNil)
+	// Reaping should set the migration phase to DONE - otherwise
+	// there's a race between the migrationmaster worker updating the
+	// phase and being stopped because the model's gone. This leaves
+	// the migration as active in the source controller, which will
+	// prevent the model from being migrated back.
 	s.backend.stub.CheckCalls(c, []testing.StubCall{
+		{"LatestMigration", []interface{}{}},
 		{"RemoveExportingModelDocs", []interface{}{}},
 	})
+	c.Assert(s.backend.migration.phaseSet, gc.Equals, coremigration.DONE)
 }
 
 func (s *Suite) TestReapError(c *gc.C) {

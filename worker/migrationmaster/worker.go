@@ -571,6 +571,10 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
 	w.setInfoStatus("successful, removing model from source controller")
+	// NOTE(babbageclunk): Calling Reap will set the migration phase
+	// to DONE if successful - this avoids a race where this worker is
+	// killed by the model going away before it can update the phase
+	// itself.
 	err := w.config.Facade.Reap()
 	if err != nil {
 		w.setErrorStatus("removing exported model failed: %s", err.Error())
