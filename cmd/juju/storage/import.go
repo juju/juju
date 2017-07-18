@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	apistorage "github.com/juju/juju/api/storage"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/storage"
@@ -44,8 +43,7 @@ type NewStorageImporterFunc func(*StorageCommandBase) (StorageImporter, error)
 // NewStorageImporter returns a new StorageImporter,
 // given a StorageCommandBase.
 func NewStorageImporter(cmd *StorageCommandBase) (StorageImporter, error) {
-	api, err := cmd.NewStorageAPI()
-	return apiStorageImporter{api}, err
+	return cmd.NewStorageAPI()
 }
 
 const (
@@ -153,14 +151,4 @@ type StorageImporter interface {
 		kind storage.StorageKind,
 		storagePool, storageProviderId, storageName string,
 	) (names.StorageTag, error)
-}
-
-type apiStorageImporter struct {
-	*apistorage.Client
-}
-
-func (a apiStorageImporter) ImportStorage(
-	kind storage.StorageKind, storagePool, storageProviderId, storageName string,
-) (names.StorageTag, error) {
-	return a.Import(kind, storagePool, storageProviderId, storageName)
 }
