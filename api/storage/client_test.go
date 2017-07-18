@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -770,4 +771,64 @@ func (s *storageMockSuite) TestAttachArityMismatch(c *gc.C) {
 	client := storage.NewClient(apiCaller)
 	_, err := client.Attach("foo/0", []string{"bar/1", "baz/2"})
 	c.Check(err, gc.ErrorMatches, `expected 2 result\(s\), got 3`)
+}
+
+func (s *storageMockSuite) TestImport(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Import")
+			c.Check(a, jc.DeepEquals, params.BulkImportStorageParams{[]params.ImportStorageParams{{
+				Kind:        params.StorageKindBlock,
+				Pool:        "foo",
+				ProviderId:  "bar",
+				StorageName: "baz",
+			}}})
+			c.Assert(result, gc.FitsTypeOf, &params.ImportStorageResults{})
+			results := result.(*params.ImportStorageResults)
+			results.Results = []params.ImportStorageResult{{
+				Result: &params.ImportStorageDetails{
+					StorageTag: "storage-qux-0",
+				},
+			}}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	storageTag, err := client.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageTag, gc.Equals, names.NewStorageTag("qux/0"))
+}
+
+func (s *storageMockSuite) TestImportError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, result interface{}) error {
+			results := result.(*params.ImportStorageResults)
+			results.Results = []params.ImportStorageResult{{
+				Error: &params.Error{Message: "qux"},
+			}}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	_, err := client.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
+	c.Check(err, gc.ErrorMatches, "qux")
+}
+
+func (s *storageMockSuite) TestImportArityMismatch(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, result interface{}) error {
+			results := result.(*params.ImportStorageResults)
+			results.Results = []params.ImportStorageResult{{}, {}}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	_, err := client.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
+	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }

@@ -143,8 +143,8 @@ type storageAccess interface {
 	// identified unit.
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 
-	// ImportFilesystem imports an existing filesystem into the model.
-	ImportFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
+	// AddExistingFilesystem imports an existing filesystem into the model.
+	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
 var getState = func(st *state.State) storageAccess {
