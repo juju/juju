@@ -259,6 +259,10 @@ func (v *volumeSource) DestroyVolumes(volNames []string) ([]error, error) {
 	return results, nil
 }
 
+func (v *volumeSource) ReleaseVolumes(volNames []string) ([]error, error) {
+	return nil, errors.NotImplementedf("ReleaseVolumes")
+}
+
 func parseVolumeId(volName string) (string, string, error) {
 	idRest := strings.SplitN(volName, "--", 2)
 	if len(idRest) != 2 {

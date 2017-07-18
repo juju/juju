@@ -362,6 +362,37 @@ func (s *lxdFilesystemSource) destroyFilesystem(filesystemId string) error {
 	return nil
 }
 
+// ReleaseFilesystems is specified on the storage.FilesystemSource interface.
+func (s *lxdFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+	results := make([]error, len(filesystemIds))
+	for i, filesystemId := range filesystemIds {
+		results[i] = s.releaseFilesystem(filesystemId)
+	}
+	return results, nil
+}
+
+func (s *lxdFilesystemSource) releaseFilesystem(filesystemId string) error {
+	poolName, volumeName, err := parseFilesystemId(filesystemId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	volume, err := s.env.raw.Volume(poolName, volumeName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if volume.Config != nil {
+		delete(volume.Config, "user."+tags.JujuModel)
+		delete(volume.Config, "user."+tags.JujuController)
+		if err := s.env.raw.VolumeUpdate(poolName, volumeName, volume); err != nil {
+			return errors.Annotatef(
+				err, "removing tags from volume %q in pool %q",
+				volumeName, poolName,
+			)
+		}
+	}
+	return nil
+}
+
 // ValidateFilesystemParams is specified on the storage.FilesystemSource interface.
 func (s *lxdFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
 	// TODO(axw) sanity check params

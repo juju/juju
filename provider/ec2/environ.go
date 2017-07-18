@@ -1254,7 +1254,7 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
-	errs := destroyVolumes(e.ec2, volIds)
+	errs := foreachVolume(e.ec2, volIds, destroyVolume)
 	for i, err := range errs {
 		if err == nil {
 			continue

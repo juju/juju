@@ -157,6 +157,11 @@ func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error)
 	return results, nil
 }
 
+// ReleaseVolumes is defined on the VolumeSource interface.
+func (lvs *loopVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+	return make([]error, len(volumeIds)), nil
+}
+
 func (lvs *loopVolumeSource) destroyVolume(volumeId string) error {
 	tag, err := names.ParseVolumeTag(volumeId)
 	if err != nil {

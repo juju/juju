@@ -322,6 +322,11 @@ func (s *oracleVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
 	return results, nil
 }
 
+// ReleaseVolumes is specified on the storage.VolumeSource interface.
+func (s *oracleVolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
+	return nil, errors.NotImplementedf("ReleaseVolumes")
+}
+
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	size := mibToGib(params.Size)

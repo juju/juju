@@ -156,6 +156,11 @@ func (s *tmpfsFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]er
 	return make([]error, len(filesystemIds)), nil
 }
 
+// ReleaseFilesystems is defined on the FilesystemSource interface.
+func (s *tmpfsFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+	return make([]error, len(filesystemIds)), nil
+}
+
 // AttachFilesystems is defined on the FilesystemSource interface.
 func (s *tmpfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))

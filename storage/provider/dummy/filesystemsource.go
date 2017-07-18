@@ -18,6 +18,7 @@ type FilesystemSource struct {
 
 	CreateFilesystemsFunc        func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
 	DestroyFilesystemsFunc       func([]string) ([]error, error)
+	ReleaseFilesystemsFunc       func([]string) ([]error, error)
 	ValidateFilesystemParamsFunc func(storage.FilesystemParams) error
 	AttachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
 	DetachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]error, error)
@@ -39,6 +40,15 @@ func (s *FilesystemSource) DestroyFilesystems(volIds []string) ([]error, error) 
 		return s.DestroyFilesystemsFunc(volIds)
 	}
 	return nil, errors.NotImplementedf("DestroyFilesystems")
+}
+
+// ReleaseFilesystems is defined on storage.FilesystemSource.
+func (s *FilesystemSource) ReleaseFilesystems(volIds []string) ([]error, error) {
+	s.MethodCall(s, "ReleaseFilesystems", volIds)
+	if s.ReleaseFilesystemsFunc != nil {
+		return s.ReleaseFilesystemsFunc(volIds)
+	}
+	return nil, errors.NotImplementedf("ReleaseFilesystems")
 }
 
 // ValidateFilesystemParams is defined on storage.FilesystemSource.

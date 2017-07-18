@@ -102,6 +102,10 @@ type VolumeSource interface {
 	// volume IDs.
 	DestroyVolumes(volIds []string) ([]error, error)
 
+	// ReleaseVolumes releases the volumes with the specified provider
+	// volume IDs from the model/controller.
+	ReleaseVolumes(volIds []string) ([]error, error)
+
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.
 	ValidateVolumeParams(params VolumeParams) error
@@ -141,6 +145,10 @@ type FilesystemSource interface {
 	// DestroyFilesystems destroys the filesystems with the specified
 	// providerd filesystem IDs.
 	DestroyFilesystems(fsIds []string) ([]error, error)
+
+	// ReleaseFilesystems releases the filesystems with the specified provider
+	// filesystem IDs from the model/controller.
+	ReleaseFilesystems(volIds []string) ([]error, error)
 
 	// AttachFilesystems attaches filesystems to machines.
 	//

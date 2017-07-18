@@ -285,6 +285,11 @@ func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error)
 	return destroyVolumes(s.storageAdapter, volumeIds), nil
 }
 
+// ReleaseVolumes implements storage.VolumeSource.
+func (s *cinderVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+	return nil, errors.NotImplementedf("ReleaseVolumes")
+}
+
 func destroyVolumes(storageAdapter OpenstackStorage, volumeIds []string) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volumeIds))
