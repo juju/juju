@@ -156,7 +156,7 @@ func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCr
 
 func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
-		return errors.NotImplementedf("AddCloud() (need v2+)")
+		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
 	}
 	args := params.CloudToParams(cloud)
 	err := c.facade.FacadeCall("AddCloud", args, nil)
