@@ -49,6 +49,10 @@ type Volume interface {
 
 	// Detachable reports whether or not the volume is detachable.
 	Detachable() bool
+
+	// Releasing reports whether or not the volume is to be released
+	// from the model when it is Dying/Dead.
+	Releasing() bool
 }
 
 // VolumeAttachment describes an attachment of a volume to a machine.
@@ -89,6 +93,7 @@ type volumeDoc struct {
 	Name            string        `bson:"name"`
 	ModelUUID       string        `bson:"model-uuid"`
 	Life            Life          `bson:"life"`
+	Releasing       bool          `bson:"releasing,omitempty"`
 	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
 	Info            *VolumeInfo   `bson:"info,omitempty"`
@@ -200,6 +205,11 @@ func (v *volume) Params() (VolumeParams, bool) {
 		return VolumeParams{}, false
 	}
 	return *v.doc.Params, true
+}
+
+// Releasing is required to imeplement Volume.
+func (v *volume) Releasing() bool {
+	return v.doc.Releasing
 }
 
 // Status is required to implement StatusGetter.
@@ -660,28 +670,34 @@ func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 			{{"storageid", ""}},
 			{{"storageid", bson.D{{"$exists", false}}}},
 		}}}
-		return destroyVolumeOps(st, volume, hasNoStorageAssignment)
+		return destroyVolumeOps(st, volume, false, hasNoStorageAssignment)
 	}
 	return st.db().Run(buildTxn)
 }
 
-func destroyVolumeOps(st *State, v *volume, extraAssert bson.D) ([]txn.Op, error) {
+func destroyVolumeOps(st *State, v *volume, release bool, extraAssert bson.D) ([]txn.Op, error) {
 	baseAssert := append(isAliveDoc, extraAssert...)
+	setFields := bson.D{}
+	if release {
+		setFields = append(setFields, bson.DocElem{"releasing", true})
+	}
 	if v.doc.AttachmentCount == 0 {
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
+		setFields = append(setFields, bson.DocElem{"life", Dead})
 		return []txn.Op{{
 			C:      volumesC,
 			Id:     v.doc.Name,
 			Assert: append(hasNoAttachments, baseAssert...),
-			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+			Update: bson.D{{"$set", setFields}},
 		}}, nil
 	}
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
+	setFields = append(setFields, bson.DocElem{"life", Dying})
 	ops := []txn.Op{{
 		C:      volumesC,
 		Id:     v.doc.Name,
 		Assert: append(hasAttachments, baseAssert...),
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Update: bson.D{{"$set", setFields}},
 	}}
 	if !v.Detachable() {
 		// This volume cannot be directly detached, so we do not

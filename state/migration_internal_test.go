@@ -683,6 +683,7 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"DocID",
 		"Life",
 		"MachineId", // recreated from pool properties
+		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
 		"Name",
@@ -725,6 +726,7 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"DocID",
 		"Life",
 		"MachineId", // recreated from pool properties
+		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
 		"FilesystemId",
@@ -767,6 +769,7 @@ func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
 		"Id",

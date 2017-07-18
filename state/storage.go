@@ -167,6 +167,7 @@ type storageInstanceDoc struct {
 	Id              string                     `bson:"id"`
 	Kind            StorageKind                `bson:"storagekind"`
 	Life            Life                       `bson:"life"`
+	Releasing       bool                       `bson:"releasing,omitempty"`
 	Owner           string                     `bson:"owner,omitempty"`
 	StorageName     string                     `bson:"storagename"`
 	AttachmentCount int                        `bson:"attachmentcount"`
@@ -283,18 +284,36 @@ func IsStorageAttachedError(err error) bool {
 }
 
 // DestroyStorageInstance ensures that the storage instance will be removed at
-// some point.
+// some point, after the cloud storage resources have been destroyed.
 //
-// If the "destroyAttached" is true, then DestroyStorageInstance will destroy
+// If "destroyAttachments" is true, then DestroyStorageInstance will destroy
 // any attachments first; if there are no attachments, then the storage instance
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then DestroyStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (st *State) DestroyStorageInstance(
-	tag names.StorageTag,
-	destroyAttached bool,
-) (err error) {
+func (st *State) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
+	return st.destroyStorageInstance(tag, destroyAttachments, false)
+}
+
+// ReleaseStorageInstance ensures that the storage instance will be removed at
+// some point, without destroying the cloud storage resources.
+//
+// If "destroyAttachments" is true, then DestroyStorageInstance will destroy
+// any attachments first; if there are no attachments, then the storage instance
+// is removed immediately. If "destroyAttached" is instead false and there are
+// existing storage attachments, then ReleaseStorageInstance will return an error
+// satisfying IsStorageAttachedError.
+func (st *State) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot release storage %q", tag.Id())
+	return st.destroyStorageInstance(tag, destroyAttachments, true)
+}
+
+func (st *State) destroyStorageInstance(
+	tag names.StorageTag,
+	destroyAttachments bool,
+	releaseMachineStorage bool,
+) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageInstance(tag)
 		if errors.IsNotFound(err) && attempt > 0 {
@@ -303,7 +322,9 @@ func (st *State) DestroyStorageInstance(
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch ops, err := st.destroyStorageInstanceOps(s, destroyAttached); err {
+		switch ops, err := st.destroyStorageInstanceOps(
+			s, destroyAttachments, releaseMachineStorage,
+		); err {
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
 		case nil:
@@ -317,7 +338,8 @@ func (st *State) DestroyStorageInstance(
 
 func (st *State) destroyStorageInstanceOps(
 	s *storageInstance,
-	destroyAttached bool,
+	destroyAttachments bool,
+	releaseStorage bool,
 ) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		return nil, errAlreadyDying
@@ -327,9 +349,10 @@ func (st *State) destroyStorageInstanceOps(
 		// remove the storage instance immediately.
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
+		s.doc.Releasing = releaseStorage
 		return removeStorageInstanceOps(s, assert)
 	}
-	if !destroyAttached {
+	if !destroyAttachments {
 		// There are storage attachments, and we've been instructed
 		// not to destroy them.
 		return nil, storageAttachedError{errors.New("storage is attached")}
@@ -357,7 +380,11 @@ func (st *State) destroyStorageInstanceOps(
 		{"life", Alive},
 		{"attachmentcount", bson.D{{"$gt", 0}}},
 	}
-	update := bson.D{{"$set", bson.D{{"life", Dying}}}}
+	setFields := bson.D{{"life", Dying}}
+	if releaseStorage {
+		setFields = append(setFields, bson.DocElem{"releasing", true})
+	}
+	update := bson.D{{"$set", setFields}}
 	ops := []txn.Op{
 		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
 	}
@@ -429,7 +456,7 @@ func removeStorageInstanceOps(
 		ops = append(ops, machineStorageOp(
 			filesystemsC, filesystem.Tag().Id(),
 		))
-		fsOps, err := destroyFilesystemOps(si.st, filesystem, nil)
+		fsOps, err := destroyFilesystemOps(si.st, filesystem, si.doc.Releasing, nil)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -448,7 +475,7 @@ func removeStorageInstanceOps(
 		// this case, we want to destroy only the filesystem; when
 		// the filesystem is removed, the volume will be destroyed.
 		if !haveFilesystem {
-			volOps, err := destroyVolumeOps(si.st, volume, nil)
+			volOps, err := destroyVolumeOps(si.st, volume, si.doc.Releasing, nil)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -64,6 +64,10 @@ type Filesystem interface {
 
 	// Detachable reports whether or not the filesystem is detachable.
 	Detachable() bool
+
+	// Releasing reports whether or not the filesystem is to be released
+	// from the model when it is Dying/Dead.
+	Releasing() bool
 }
 
 // FilesystemAttachment describes an attachment of a filesystem to a machine.
@@ -106,6 +110,7 @@ type filesystemDoc struct {
 	FilesystemId    string            `bson:"filesystemid"`
 	ModelUUID       string            `bson:"model-uuid"`
 	Life            Life              `bson:"life"`
+	Releasing       bool              `bson:"releasing,omitempty"`
 	StorageId       string            `bson:"storageid,omitempty"`
 	VolumeId        string            `bson:"volumeid,omitempty"`
 	AttachmentCount int               `bson:"attachmentcount"`
@@ -240,6 +245,11 @@ func (f *filesystem) Params() (FilesystemParams, bool) {
 		return FilesystemParams{}, false
 	}
 	return *f.doc.Params, true
+}
+
+// Releasing is required to implement Filesystem.
+func (f *filesystem) Releasing() bool {
+	return f.doc.Releasing
 }
 
 // Status is required to implement StatusGetter.
@@ -616,7 +626,7 @@ func removeFilesystemAttachmentOps(st *State, m names.MachineTag, f *filesystem)
 			{"life", Dying},
 			{"attachmentcount", 1},
 		}
-		removeFilesystemOps, err := removeFilesystemOps(st, f, assert)
+		removeFilesystemOps, err := removeFilesystemOps(st, f, f.doc.Releasing, assert)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -666,13 +676,17 @@ func (st *State) DestroyFilesystem(tag names.FilesystemTag) (err error) {
 			{{"storageid", ""}},
 			{{"storageid", bson.D{{"$exists", false}}}},
 		}}}
-		return destroyFilesystemOps(st, filesystem, hasNoStorageAssignment)
+		return destroyFilesystemOps(st, filesystem, false, hasNoStorageAssignment)
 	}
 	return st.db().Run(buildTxn)
 }
 
-func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.Op, error) {
+func destroyFilesystemOps(st *State, f *filesystem, release bool, extraAssert bson.D) ([]txn.Op, error) {
 	baseAssert := append(isAliveDoc, extraAssert...)
+	setFields := bson.D{}
+	if release {
+		setFields = append(setFields, bson.DocElem{"releasing", true})
+	}
 	if f.doc.AttachmentCount == 0 {
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, baseAssert...)
@@ -682,23 +696,25 @@ func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) ([]txn.O
 			// for it. Removing the filesystem will destroy the
 			// backing volume, which effectively destroys the
 			// filesystem contents anyway.
-			return removeFilesystemOps(st, f, assert)
+			return removeFilesystemOps(st, f, release, assert)
 		}
 		// The filesystem is not volume-backed, so leave it to the
 		// storage provisioner to destroy it.
+		setFields = append(setFields, bson.DocElem{"life", Dead})
 		return []txn.Op{{
 			C:      filesystemsC,
 			Id:     f.doc.FilesystemId,
 			Assert: assert,
-			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+			Update: bson.D{{"$set", setFields}},
 		}}, nil
 	}
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
+	setFields = append(setFields, bson.DocElem{"life", Dying})
 	ops := []txn.Op{{
 		C:      filesystemsC,
 		Id:     f.doc.FilesystemId,
 		Assert: append(hasAttachments, baseAssert...),
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Update: bson.D{{"$set", setFields}},
 	}}
 	if !f.Detachable() {
 		// This filesystem cannot be directly detached, so we do
@@ -745,12 +761,12 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 		if filesystem.Life() != Dead {
 			return nil, errors.New("filesystem is not dead")
 		}
-		return removeFilesystemOps(st, filesystem, isDeadDoc)
+		return removeFilesystemOps(st, filesystem, false, isDeadDoc)
 	}
 	return st.db().Run(buildTxn)
 }
 
-func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) ([]txn.Op, error) {
+func removeFilesystemOps(st *State, filesystem Filesystem, release bool, assert interface{}) ([]txn.Op, error) {
 	ops := []txn.Op{
 		{
 			C:      filesystemsC,
@@ -770,7 +786,7 @@ func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) (
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		volOps, err := destroyVolumeOps(st, volume, nil)
+		volOps, err := destroyVolumeOps(st, volume, release, nil)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

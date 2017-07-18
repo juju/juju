@@ -556,6 +556,29 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 	c.Assert(v.Life(), gc.Equals, state.Dying)
 }
 
+func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	volume := s.storageInstanceVolume(c, storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volume.Releasing(), jc.IsFalse)
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.ReleaseStorageInstance(storageTag, true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The volume should should be dying, and releasing.
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Dying)
+	c.Assert(volume.Releasing(), jc.IsTrue)
+}
+
 func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
