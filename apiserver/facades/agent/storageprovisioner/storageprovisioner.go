@@ -657,51 +657,51 @@ func (s *StorageProvisionerAPIv3) VolumeParams(args params.Entities) (params.Vol
 	return results, nil
 }
 
-// DestroyVolumeParams returns the parameters for destroying
-// the volumes with the specified tags.
-func (s *StorageProvisionerAPIv4) DestroyVolumeParams(args params.Entities) (params.DestroyVolumeParamsResults, error) {
+// RemoveVolumeParams returns the parameters for destroying
+// or releasing the volumes with the specified tags.
+func (s *StorageProvisionerAPIv4) RemoveVolumeParams(args params.Entities) (params.RemoveVolumeParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
-		return params.DestroyVolumeParamsResults{}, err
+		return params.RemoveVolumeParamsResults{}, err
 	}
-	results := params.DestroyVolumeParamsResults{
-		Results: make([]params.DestroyVolumeParamsResult, len(args.Entities)),
+	results := params.RemoveVolumeParamsResults{
+		Results: make([]params.RemoveVolumeParamsResult, len(args.Entities)),
 	}
-	one := func(arg params.Entity) (params.DestroyVolumeParams, error) {
+	one := func(arg params.Entity) (params.RemoveVolumeParams, error) {
 		tag, err := names.ParseVolumeTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
-			return params.DestroyVolumeParams{}, common.ErrPerm
+			return params.RemoveVolumeParams{}, common.ErrPerm
 		}
 		volume, err := s.st.Volume(tag)
 		if errors.IsNotFound(err) {
-			return params.DestroyVolumeParams{}, common.ErrPerm
+			return params.RemoveVolumeParams{}, common.ErrPerm
 		} else if err != nil {
-			return params.DestroyVolumeParams{}, err
+			return params.RemoveVolumeParams{}, err
 		}
 		if life := volume.Life(); life != state.Dead {
-			return params.DestroyVolumeParams{}, errors.Errorf(
+			return params.RemoveVolumeParams{}, errors.Errorf(
 				"%s is not dead (%s)",
 				names.ReadableString(tag), life,
 			)
 		}
 		volumeInfo, err := volume.Info()
 		if err != nil {
-			return params.DestroyVolumeParams{}, err
+			return params.RemoveVolumeParams{}, err
 		}
 		provider, _, err := storagecommon.StoragePoolConfig(
 			volumeInfo.Pool, s.poolManager, s.registry,
 		)
 		if err != nil {
-			return params.DestroyVolumeParams{}, err
+			return params.RemoveVolumeParams{}, err
 		}
-		return params.DestroyVolumeParams{
+		return params.RemoveVolumeParams{
 			Provider: string(provider),
 			VolumeId: volumeInfo.VolumeId,
-			Release:  volume.Releasing(),
+			Destroy:  !volume.Releasing(),
 		}, nil
 	}
 	for i, arg := range args.Entities {
-		var result params.DestroyVolumeParamsResult
+		var result params.RemoveVolumeParamsResult
 		volumeParams, err := one(arg)
 		if err != nil {
 			result.Error = common.ServerError(err)
@@ -771,51 +771,51 @@ func (s *StorageProvisionerAPIv3) FilesystemParams(args params.Entities) (params
 	return results, nil
 }
 
-// DestroyFilesystemParams returns the parameters for destroying the
-// filesystems with the specified tags.
-func (s *StorageProvisionerAPIv4) DestroyFilesystemParams(args params.Entities) (params.DestroyFilesystemParamsResults, error) {
+// RemoveFilesystemParams returns the parameters for destroying or
+// releasing the filesystems with the specified tags.
+func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(args params.Entities) (params.RemoveFilesystemParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
-		return params.DestroyFilesystemParamsResults{}, err
+		return params.RemoveFilesystemParamsResults{}, err
 	}
-	results := params.DestroyFilesystemParamsResults{
-		Results: make([]params.DestroyFilesystemParamsResult, len(args.Entities)),
+	results := params.RemoveFilesystemParamsResults{
+		Results: make([]params.RemoveFilesystemParamsResult, len(args.Entities)),
 	}
-	one := func(arg params.Entity) (params.DestroyFilesystemParams, error) {
+	one := func(arg params.Entity) (params.RemoveFilesystemParams, error) {
 		tag, err := names.ParseFilesystemTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
-			return params.DestroyFilesystemParams{}, common.ErrPerm
+			return params.RemoveFilesystemParams{}, common.ErrPerm
 		}
 		filesystem, err := s.st.Filesystem(tag)
 		if errors.IsNotFound(err) {
-			return params.DestroyFilesystemParams{}, common.ErrPerm
+			return params.RemoveFilesystemParams{}, common.ErrPerm
 		} else if err != nil {
-			return params.DestroyFilesystemParams{}, err
+			return params.RemoveFilesystemParams{}, err
 		}
 		if life := filesystem.Life(); life != state.Dead {
-			return params.DestroyFilesystemParams{}, errors.Errorf(
+			return params.RemoveFilesystemParams{}, errors.Errorf(
 				"%s is not dead (%s)",
 				names.ReadableString(tag), life,
 			)
 		}
 		filesystemInfo, err := filesystem.Info()
 		if err != nil {
-			return params.DestroyFilesystemParams{}, err
+			return params.RemoveFilesystemParams{}, err
 		}
 		provider, _, err := storagecommon.StoragePoolConfig(
 			filesystemInfo.Pool, s.poolManager, s.registry,
 		)
 		if err != nil {
-			return params.DestroyFilesystemParams{}, err
+			return params.RemoveFilesystemParams{}, err
 		}
-		return params.DestroyFilesystemParams{
+		return params.RemoveFilesystemParams{
 			Provider:     string(provider),
 			FilesystemId: filesystemInfo.FilesystemId,
-			Release:      filesystem.Releasing(),
+			Destroy:      !filesystem.Releasing(),
 		}, nil
 	}
 	for i, arg := range args.Entities {
-		var result params.DestroyFilesystemParamsResult
+		var result params.RemoveFilesystemParamsResult
 		filesystemParams, err := one(arg)
 		if err != nil {
 			result.Error = common.ServerError(err)

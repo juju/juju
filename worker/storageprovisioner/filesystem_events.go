@@ -226,7 +226,7 @@ func processDeadFilesystems(ctx *context, tags []names.FilesystemTag, filesystem
 	if len(destroy) > 0 {
 		ops := make([]scheduleOp, len(destroy))
 		for i, tag := range destroy {
-			ops[i] = &destroyFilesystemOp{tag: tag}
+			ops[i] = &removeFilesystemOp{tag: tag}
 		}
 		scheduleOperations(ctx, ops...)
 	}
@@ -416,6 +416,22 @@ func filesystemParams(ctx *context, tags []names.FilesystemTag) ([]storage.Files
 			return nil, errors.Annotate(err, "getting filesystem parameters")
 		}
 		allParams[i] = params
+	}
+	return allParams, nil
+}
+
+// removeFilesystemParams obtains the specified filesystems' destruction parameters.
+func removeFilesystemParams(ctx *context, tags []names.FilesystemTag) ([]params.RemoveFilesystemParams, error) {
+	paramsResults, err := ctx.config.Filesystems.RemoveFilesystemParams(tags)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting filesystem params")
+	}
+	allParams := make([]params.RemoveFilesystemParams, len(tags))
+	for i, result := range paramsResults {
+		if result.Error != nil {
+			return nil, errors.Annotate(result.Error, "getting filesystem removal parameters")
+		}
+		allParams[i] = result.Result
 	}
 	return allParams, nil
 }

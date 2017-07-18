@@ -23,6 +23,11 @@ import (
 const attachedVolumeId = "1"
 const needsInstanceVolumeId = "23"
 
+var (
+	releasingVolumeId     = "2"
+	releasingFilesystemId = "2"
+)
+
 var dyingVolumeAttachmentId = params.MachineStorageId{
 	MachineTag:    "machine-0",
 	AttachmentTag: "volume-0",
@@ -169,8 +174,6 @@ func (v *mockVolumeAccessor) VolumeBlockDevices(ids []params.MachineStorageId) (
 func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.VolumeParamsResult, error) {
 	var result []params.VolumeParamsResult
 	for _, tag := range volumes {
-		// Parameters are returned regardless of whether the volume
-		// exists; this is to support destruction.
 		volumeParams := params.VolumeParams{
 			VolumeTag: tag.String(),
 			Size:      1024,
@@ -190,6 +193,26 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 			ReadOnly:   tag.String() == "volume-1",
 		}
 		result = append(result, params.VolumeParamsResult{Result: volumeParams})
+	}
+	return result, nil
+}
+
+func (v *mockVolumeAccessor) RemoveVolumeParams(volumes []names.VolumeTag) ([]params.RemoveVolumeParamsResult, error) {
+	var result []params.RemoveVolumeParamsResult
+	for _, tag := range volumes {
+		v, ok := v.provisionedVolumes[tag.String()]
+		if !ok {
+			result = append(result, params.RemoveVolumeParamsResult{
+				Error: &params.Error{Code: params.CodeNotProvisioned},
+			})
+			continue
+		}
+		volumeParams := params.RemoveVolumeParams{
+			Provider: "dummy",
+			VolumeId: v.Info.VolumeId,
+			Destroy:  tag.Id() != releasingVolumeId,
+		}
+		result = append(result, params.RemoveVolumeParamsResult{Result: volumeParams})
 	}
 	return result, nil
 }
@@ -252,7 +275,7 @@ func (m *mockFilesystemAccessor) provisionFilesystem(tag names.FilesystemTag) pa
 	f := params.Filesystem{
 		FilesystemTag: tag.String(),
 		Info: params.FilesystemInfo{
-			FilesystemId: "vol-" + tag.Id(),
+			FilesystemId: "fs-" + tag.Id(),
 		},
 	}
 	m.provisionedFilesystems[tag.String()] = f
@@ -298,8 +321,6 @@ func (v *mockFilesystemAccessor) FilesystemAttachments(ids []params.MachineStora
 func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.FilesystemTag) ([]params.FilesystemParamsResult, error) {
 	results := make([]params.FilesystemParamsResult, len(filesystems))
 	for i, tag := range filesystems {
-		// Parameters are returned regardless of whether the filesystem
-		// exists; this is to support destruction.
 		filesystemParams := params.FilesystemParams{
 			FilesystemTag: tag.String(),
 			Size:          1024,
@@ -314,6 +335,26 @@ func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.Filesystem
 			filesystemParams.VolumeTag = names.NewVolumeTag(tag.Id()).String()
 		}
 		results[i] = params.FilesystemParamsResult{Result: filesystemParams}
+	}
+	return results, nil
+}
+
+func (v *mockFilesystemAccessor) RemoveFilesystemParams(filesystems []names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error) {
+	results := make([]params.RemoveFilesystemParamsResult, len(filesystems))
+	for i, tag := range filesystems {
+		f, ok := v.provisionedFilesystems[tag.String()]
+		if !ok {
+			results = append(results, params.RemoveFilesystemParamsResult{
+				Error: &params.Error{Code: params.CodeNotProvisioned},
+			})
+			continue
+		}
+		filesystemParams := params.RemoveFilesystemParams{
+			Provider:     "dummy",
+			FilesystemId: f.Info.FilesystemId,
+			Destroy:      tag.Id() != releasingFilesystemId,
+		}
+		results[i] = params.RemoveFilesystemParamsResult{Result: filesystemParams}
 	}
 	return results, nil
 }
@@ -430,7 +471,9 @@ type dummyProvider struct {
 	detachVolumesFunc            func([]storage.VolumeAttachmentParams) ([]error, error)
 	detachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]error, error)
 	destroyVolumesFunc           func([]string) ([]error, error)
+	releaseVolumesFunc           func([]string) ([]error, error)
 	destroyFilesystemsFunc       func([]string) ([]error, error)
+	releaseFilesystemsFunc       func([]string) ([]error, error)
 	validateVolumeParamsFunc     func(storage.VolumeParams) error
 	validateFilesystemParamsFunc func(storage.FilesystemParams) error
 }
@@ -502,6 +545,14 @@ func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]stor
 func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
 	if s.provider.destroyVolumesFunc != nil {
 		return s.provider.destroyVolumesFunc(volumeIds)
+	}
+	return make([]error, len(volumeIds)), nil
+}
+
+// ReleaseVolumes destroys volumes.
+func (s *dummyVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+	if s.provider.releaseVolumesFunc != nil {
+		return s.provider.releaseVolumesFunc(volumeIds)
 	}
 	return make([]error, len(volumeIds)), nil
 }
@@ -578,6 +629,14 @@ func (s *dummyFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]er
 	return make([]error, len(filesystemIds)), nil
 }
 
+// ReleaseFilesystems destroys filesystems.
+func (s *dummyFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+	if s.provider.releaseFilesystemsFunc != nil {
+		return s.provider.releaseFilesystemsFunc(filesystemIds)
+	}
+	return make([]error, len(filesystemIds)), nil
+}
+
 // AttachFilesystems attaches filesystems to machines.
 func (s *dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	if s.provider != nil && s.provider.attachFilesystemsFunc != nil {
@@ -640,6 +699,10 @@ func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.Filesyste
 }
 
 func (s *mockManagedFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+	return make([]error, len(filesystemIds)), nil
+}
+
+func (s *mockManagedFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 

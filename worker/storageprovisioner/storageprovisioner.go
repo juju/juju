@@ -75,6 +75,10 @@ type VolumeAccessor interface {
 	// with the specified tags.
 	VolumeParams([]names.VolumeTag) ([]params.VolumeParamsResult, error)
 
+	// RemoveVolumeParams returns the parameters for destroying or
+	// releasing the volumes with the specified tags.
+	RemoveVolumeParams([]names.VolumeTag) ([]params.RemoveVolumeParamsResult, error)
+
 	// VolumeAttachmentParams returns the parameters for creating the
 	// volume attachments with the specified tags.
 	VolumeAttachmentParams([]params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error)
@@ -108,6 +112,10 @@ type FilesystemAccessor interface {
 	// FilesystemParams returns the parameters for creating the filesystems
 	// with the specified tags.
 	FilesystemParams([]names.FilesystemTag) ([]params.FilesystemParamsResult, error)
+
+	// RemoveFilesystemParams returns the parameters for destroying or
+	// releasing the filesystems with the specified tags.
+	RemoveFilesystemParams([]names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error)
 
 	// FilesystemAttachmentParams returns the parameters for creating the
 	// filesystem attachments with the specified tags.
@@ -337,11 +345,11 @@ func (w *storageProvisioner) loop() error {
 func processSchedule(ctx *context) error {
 	ready := ctx.schedule.Ready(ctx.config.Clock.Now())
 	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
-	destroyVolumeOps := make(map[names.VolumeTag]*destroyVolumeOp)
+	removeVolumeOps := make(map[names.VolumeTag]*removeVolumeOp)
 	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
 	detachVolumeOps := make(map[params.MachineStorageId]*detachVolumeOp)
 	createFilesystemOps := make(map[names.FilesystemTag]*createFilesystemOp)
-	destroyFilesystemOps := make(map[names.FilesystemTag]*destroyFilesystemOp)
+	removeFilesystemOps := make(map[names.FilesystemTag]*removeFilesystemOp)
 	attachFilesystemOps := make(map[params.MachineStorageId]*attachFilesystemOp)
 	detachFilesystemOps := make(map[params.MachineStorageId]*detachFilesystemOp)
 	for _, item := range ready {
@@ -350,25 +358,25 @@ func processSchedule(ctx *context) error {
 		switch op := op.(type) {
 		case *createVolumeOp:
 			createVolumeOps[key.(names.VolumeTag)] = op
-		case *destroyVolumeOp:
-			destroyVolumeOps[key.(names.VolumeTag)] = op
+		case *removeVolumeOp:
+			removeVolumeOps[key.(names.VolumeTag)] = op
 		case *attachVolumeOp:
 			attachVolumeOps[key.(params.MachineStorageId)] = op
 		case *detachVolumeOp:
 			detachVolumeOps[key.(params.MachineStorageId)] = op
 		case *createFilesystemOp:
 			createFilesystemOps[key.(names.FilesystemTag)] = op
-		case *destroyFilesystemOp:
-			destroyFilesystemOps[key.(names.FilesystemTag)] = op
+		case *removeFilesystemOp:
+			removeFilesystemOps[key.(names.FilesystemTag)] = op
 		case *attachFilesystemOp:
 			attachFilesystemOps[key.(params.MachineStorageId)] = op
 		case *detachFilesystemOp:
 			detachFilesystemOps[key.(params.MachineStorageId)] = op
 		}
 	}
-	if len(destroyVolumeOps) > 0 {
-		if err := destroyVolumes(ctx, destroyVolumeOps); err != nil {
-			return errors.Annotate(err, "destroying volumes")
+	if len(removeVolumeOps) > 0 {
+		if err := removeVolumes(ctx, removeVolumeOps); err != nil {
+			return errors.Annotate(err, "removing volumes")
 		}
 	}
 	if len(createVolumeOps) > 0 {
@@ -386,9 +394,9 @@ func processSchedule(ctx *context) error {
 			return errors.Annotate(err, "attaching volumes")
 		}
 	}
-	if len(destroyFilesystemOps) > 0 {
-		if err := destroyFilesystems(ctx, destroyFilesystemOps); err != nil {
-			return errors.Annotate(err, "destroying filesystems")
+	if len(removeFilesystemOps) > 0 {
+		if err := removeFilesystems(ctx, removeFilesystemOps); err != nil {
+			return errors.Annotate(err, "removing filesystems")
 		}
 	}
 	if len(createFilesystemOps) > 0 {
