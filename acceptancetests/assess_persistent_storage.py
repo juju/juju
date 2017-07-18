@@ -11,12 +11,12 @@ import json
 import ipdb
 import logging
 import argparse
-import subprocess
 
 from jujucharm import local_charm_path
 
 from deploy_stack import (
     BootstrapManager,
+    # TODO: for data verification:
     # get_random_string,
     )
 
@@ -28,6 +28,111 @@ from utility import (
 
 __metaclass__ = type
 log = logging.getLogger("assess_persistent_storage")
+
+def get_storage_property(client, storage_id):
+    storage_output = json.loads(
+        client.get_juju_output('storage', '--format', 'json', include_e=False))
+    storage_list = storage_output['storage'].keys()
+    storage_type = storage_output['storage'][storage_id]['kind']
+    persistent_setting = storage_output['storage'][storage_id]['persistent']
+    if storage_type == 'block':
+        pool_storage = storage_output['volumes']['0']['storage']
+        pool_setting = storage_output['volumes']['0']['pool']
+        storage_status = storage_output['volumes']['0']['status']['current']
+    elif storage_type == 'filesystem':
+        pool_storage = storage_output['filesystems']['0/0']['storage']
+        pool_setting = storage_output['filesystems']['0/0']['pool']
+        storage_status = ''
+    else:
+        raise JujuAssertionError(
+            'Incorrect storage type. '\
+            'Found: {}\nExpected: block or filesystem'.format(storage_type))
+    return (
+        storage_list, storage_type,
+        persistent_setting, pool_storage, pool_setting, storage_status)
+
+
+def assert_app_status(client, charm_name, expected):
+    # Run juju status --format json
+    log.info('Checking current status of app {}...'.format(charm_name))
+    status_output = json.loads(
+        client.get_juju_output('status', '--format', 'json', include_e=False))
+    app_status = status_output['applications'][charm_name]['application-status']['current']
+
+    if app_status != expected:
+        raise JujuAssertionError(
+            'App status is incorrect. '\
+            'Found: {}\nExpected: {}\n.'.format(
+            app_status, expected))
+    else:
+        log.info('The current status of app {} is: {}; Expected: {}'.format(
+        charm_name, app_status, expected))
+
+
+def assert_storage_number(storage_list, expected):
+    log.info('Checking total number of storage unit(s)...')
+    found = len(storage_list)
+    if found != expected:
+        raise JujuAssertionError(
+            'Unexpected number of storage unit(s). '\
+            'Found: {}\nExpected: {}\n.'.format(
+            str(found), str(expected)))
+    else:
+        log.info(
+        'Found {} storage unit(s). Expected: {}.'.format(
+        str(found), str(expected)))
+
+
+def assert_single_blk_existence(storage_list, storage_id):
+    log.info(
+        'Checking existence of single block device storage...'.format(storage_id))
+    if storage_id not in storage_list:
+        raise JujuAssertionError(
+            '{} missing from storage list.'.format(storage_id))
+    else:
+        log.info('{} found in storage list'.format(storage_id))
+
+
+def assert_single_blk_removal(storage_list, storage_id):
+    log.info(
+        'Checking removal of single block device storage...'.format(storage_id))
+    if storage_id in storage_list:
+        raise JujuAssertionError(
+            '{} still exists in storage list.'.format(storage_id))
+    else:
+        log.info('{} has been removed from storage list'.format(storage_id))
+
+
+def assert_persistent_setting(storage_id, found, expected):
+    log.info(
+        'Checking persistent setting of storage unit {}...'.format(
+        storage_id))
+    if found != expected:
+        raise JujuAssertionError(
+            'Incorrect value of persistent setting on storage unit {}. '\
+            'Found: {};\nExpected: {}.'.format(storage_id, found, expected))
+    else:
+        log.info(
+            'Persistent setting of storage unit {}, '\
+            'Found: {}; Expected: {}.'.format(storage_id, found, expected))
+
+
+def assert_storage_status(found_id, expected_id, found_status, expected_status):
+    log.info(
+        'Checking the status of storage {} in volumes...'.format(expected_id))
+    if found_id != expected_id:
+        raise JujuAssertionError(
+            '{} missing from volumes.'.format(expected_id))
+    elif found_status != expected_status:
+        raise JujuAssertionError(
+            'Incorrect status for {}. '\
+            'Found: {}\nExpected: {}'.format(
+            found_id, found_status, expected_status))
+    else:
+        log.info(
+            'The current status of storage {} in volumes is: {}\n'\
+            'Expected: {}.'.format(found_id, found_status, expected_status))
+
 
 def assess_charm_deploy_single_block_and_filesystem_storage(client):
     """This function tests charm deployment with a single filesystem
@@ -71,7 +176,7 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
     if app_status != 'active':
         raise JujuAssertionError(
             'App status is incorrect. '\
-            'Found: {}\nExpected: {}\ntest terminated.'.format(
+            'Found: {}\nExpected: {}\n.'.format(
             app_status, 'active'))
     else:
         # Run juju storage --format json
@@ -82,7 +187,7 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
         storage_list = storage_output['storage'].keys()
         if len(storage_list) != 2:
             log.error(
-                '{} storage unit(s) found, should be 2, test terminated.'.format(
+                '{} storage unit(s) found, should be 2.'.format(
                 str(len(storage_list))))
             sys.exit(1)
         else:
@@ -104,11 +209,11 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
                         single_blk_id))
             if single_fs_id == '':
                 log.error(
-                    'Name mismatch on Single filesystem storage, test terminated.')
+                    'Name mismatch on Single filesystem storage.')
                 sys.exit(1)
             elif single_blk_id == '':
                 log.error(
-                    'Name mismatch on Single block device storage, test terminated.')
+                    'Name mismatch on Single block device storage.')
                 sys.exit(1)
             else:
                 log.info('Check name and total number of storage unit: PASSED.')
@@ -122,18 +227,18 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
         if storage_type != 'block':
             log.error(
                 'Incorrect type for single block device storage detected '\
-                '- {}, test terminated.'.format(storage_type))
+                '- {}.'.format(storage_type))
             sys.exit(1)
         # Be careful, the type of persistent_setting's value is boolean.
         # Using != to clearly highlight it here.
         elif persistent_setting != True:
             log.error(
                 'Incorrect value for persistent setting on single block device '\
-                'storage - {}, test terminated.'.format(persistent_setting))
+                'storage - {}.'.format(persistent_setting))
             sys.exit(1)
         elif (pool_storage != single_blk_id) and (pool_setting != 'ebs'):
             log.error('Incorrect volumes detected '\
-            '- {} with {}, test terminated.'.format(
+            '- {} with {}.'.format(
             pool_storage, pool_setting))
             sys.exit(1)
         else:
@@ -148,16 +253,16 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
         if storage_type != 'filesystem':
             log.error(
                 'Incorrect type for single filesystem storage detected '\
-                '- {}, test terminated.'.format(storage_type))
+                '- {}.'.format(storage_type))
             sys.exit(1)
         elif persistent_setting != False:
             log.error(
                 'Incorrect value for persistent setting on single filesystem '\
-                'storage - {}, test terminated.'.format(persistent_setting))
+                'storage - {}.'.format(persistent_setting))
             sys.exit(1)
         elif (pool_storage != single_fs_id) and (pool_setting != 'rootfs'):
             log.error('Incorrect filesystems detected '\
-            '- {} with {}, test terminated.'.format(
+            '- {} with {}.'.format(
             pool_storage, pool_setting))
             sys.exit(1)
         else:
@@ -186,6 +291,8 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
     single_fs_id, single_blk_id = \
         assess_charm_deploy_single_block_and_filesystem_storage(client)
     # Run juju remove-application dummy-storage
+    # Bug 1704105: https://bugs.launchpad.net/juju/+bug/1704105
+    # merge_stderr=True is required
     app_removal_output = client.get_juju_output(
         'remove-application', charm_name, '--show-log', include_e=False, merge_stderr=True)
     # pre-set the result to FAILED
@@ -224,7 +331,7 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
             detach_single_blk_output_check))
     # storage status change after remove-application takes some time.
     # from experiments even 30 seconds is not enough.
-    time.sleep(60)
+    time.sleep(90)
     # check the real status of storage after remove-application
     storage_output = json.loads(
         client.get_juju_output('storage', '--format', 'json', include_e=False))
@@ -233,7 +340,7 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
         log.error('\n'.join(storage_list))
         raise JujuAssertionError(
             'Unexpected number of storage unit(s). '\
-            'Found: {}\nExpected: 1\ntest terminated.'.format(
+            'Found: {}\nExpected: 1\n.'.format(
             str(len(storage_list))))
     elif single_fs_id in storage_list:
         raise JujuAssertionError(
@@ -264,7 +371,7 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
     return single_blk_id
 
 
-def assess_deploy_charm_with_existing_storage(client):
+def assess_deploy_charm_with_existing_storage_and_removal(client):
     """This function tests charm deploy with an existing detached storage.
 
        Steps taken to the test:
@@ -275,135 +382,56 @@ def assess_deploy_charm_with_existing_storage(client):
 
        :param client: ModelClient object to deploy the charm on.
     """
-    # ipdb.set_trace()
-    charm_name = 'dummy-storage'
+
     single_blk_id = \
         assess_charm_removal_single_block_and_filesystem_storage(client)
-
-
-def assess_storage_remove_single_storage(client, storage_type):
-    """remove-storage should fail if deployed charm has one storage only.
-
-       Steps taken to test:
-       - Deploy dummy-storage charm configured with single filesystem.
-       - Get storage list once the charm deployment is done.
-       - Run remove-storage command to remove the only storage.
-       - Test Passed if the remove-storage failed, otherwise Test Failed.
-
-       :param client: ModelClient object to deploy the charm on.
-    """
-
     charm_name = 'dummy-storage'
     charm_path = local_charm_path(
         charm=charm_name, juju_ver=client.version)
-    log.info('{} is going to be deployed with storage type: {}.'.format(
-        charm_name, storage_type))
-    client.deploy(charm_path, storage=storage_type)
+    # Run juju deploy dummy-storage --attach-storage <single_blk_id>
+    # Note: --attach-storage has the issue of Bug 1704105 too:
+    # https://bugs.launchpad.net/juju/+bug/1704105
+    client.get_juju_output(
+        'deploy', charm_path,
+        '--attach-storage', single_blk_id,
+        include_e=False, merge_stderr=True)
     client.wait_for_started()
     client.wait_for_workloads()
+    ipdb.set_trace()
+    assert_app_status(client, charm_name=charm_name, expected='active')
 
-    try:
-        single_storage_name = get_storage_filesystems(
-            client, 'single-fs')[0]
-        log.info(
-            'Single storage ID is {}'.format(single_storage_name))
-    except IndexError:
-        raise JujuAssertionError('Storage was not found, test aborted')
-
-    try:
-        client.juju('remove-storage', single_storage_name)
-        log.info(
-            'Test Failed - remove-storage is expected to fail in single-fs!')
-    except subprocess.CalledProcessError:
-        log.info(
-            'Test Passed - storage cannot be removed if it is the only one.')
-
-    log.info('Test is done, time to clean up.')
-    remove_deployed_charm(client, charm_id=charm_name)
-    log.info('{} has been removed'.format(charm_name))
-
-
-def assess_storage_remove_multi_fs(client):
-    """remove-storage should succeed if deployed charm has multiple storages.
-
-       Steps taken to test:
-       - Deploy dummy-storage charm configured with multiple filesystem.
-       - Get storage list once the charm deployment is done.
-       - Check if the number of storages deployed matches to the spec.
-       - Run remove-storage command to remove one of the storages.
-       - Get storage list again to check if the removed storage still exists.
-       - Test Passed if the removed storage is gone, otherwise Test Failed.
-
-       :param client: ModelClient object to deploy the charm on.
-    """
-    charm_name = 'dummy-storage'
-    charm_path = local_charm_path(
-        charm=charm_name, juju_ver=client.version)
-    storage_number = 2
-    log.info(
-        '{} is going to be deployed with {} storages.'.format(
-        charm_name, str(storage_number)))
-    client.deploy(
-        charm_path,
-        storage='multi-fs=rootfs,{}'.format(str(storage_number)))
-    client.wait_for_started()
-    client.wait_for_workloads()
-
-    try:
-        multi_filesystem_name = get_storage_filesystems(client, 'multi-fs')
-        log.info(
-            'Following filesystems have been found:\n{}'.format(
-            ', '.join(multi_filesystem_name)))
-    except IndexError:
-        raise JujuAssertionError('Storage was not found, test aborted')
-
-    if len(multi_filesystem_name) == storage_number:
-        try:
-            client.juju('remove-storage', multi_filesystem_name[-1])
-            log.info('Command remove-storage has been excuted.')
-        except subprocess.CalledProcessError:
-            log.info('Test Failed - Run command remove-storage failed!')
-    else:
-        log.info('{} deployment failed - '
-                 'the number of storages deployed does not match the spec!'
-                 .format(charm_name))
-
-    # Get file systems after waited 30 seconds
-    time.sleep(30)
-    try:
-        filesystem_remain = get_storage_filesystems(client, 'multi-fs')
-    except subprocess.CalledProcessError:
-        log.info('Get remaining storage list failed!')
-    if multi_filesystem_name[-1] in filesystem_remain:
-        log.info(
-            'Test Failed - {} still exists after remove-storage!'.format(
-            multi_filesystem_name[-1]))
-    else:
-        log.info(
-            'Test Passed - {} has been successfully removed.'.format(
-            multi_filesystem_name[-1]))
-
-    log.info('Test is done, time to clean up.')
-    remove_deployed_charm(client, charm_id=charm_name)
-    log.info('{} has been removed'.format(charm_name))
-
-
-def remove_deployed_charm(client, charm_id):
-    client.remove_service(charm_id)
-    time.sleep(30)
-
-
-def get_storage_filesystems(client, storage_name):
-    """Return storage unit names for a named storage.
-
-    :param client: ModelClient object to query.
-    :param storage_name: Name of storage unit to get filesystem names for.
-    :return: List of filesystem names
-    """
-    all_storage = yaml.safe_load(client.list_storage())['filesystems']
-    return [
-        details['storage'] for unit, details in all_storage.items()
-        if details['storage'].startswith(storage_name)]
+    storage_list,\
+    storage_type,\
+    persistent_setting,\
+    pool_storage,\
+    pool_setting,\
+    storage_status = get_storage_property(client, storage_id=single_blk_id)
+    assert_storage_number(storage_list=storage_list, expected=1)
+    assert_single_blk_existence(
+        storage_list=storage_list, storage_id=single_blk_id)
+    assert_persistent_setting(
+        storage_id=single_blk_id, found=persistent_setting, expected=True)
+    assert_storage_status(
+        found_id=pool_storage, expected_id=single_blk_id,
+        found_status=storage_status, expected_status='attached')
+    # Run juju remove-application dummy-storage
+    client.get_juju_output('remove-application', charm_name, include_e=False)
+    time.sleep(90)
+    # persistent storage single_blk_id should remain after remove-application
+    assert_single_blk_existence(
+        storage_list=storage_list, storage_id=single_blk_id)
+    # Run juju remove-storage <single_blk_id>
+    # Note: remove-storage has the issue of Bug 1704105 too:
+    # https://bugs.launchpad.net/juju/+bug/1704105
+    client.get_juju_output(
+        'remove-storage', single_blk_id, include_e=False, merge_stderr=True)
+    time.sleep(90)
+    # get current storage list
+    # bug here, no JSON object will be returned if no storage exists
+    # fix soon
+    # storage_list = get_storage_property(client, storage_id=single_blk_id)[0]
+    # assert_single_blk_removal(
+    #     storage_list=storage_list, storage_id=single_blk_id)
 
 
 def parse_args(argv):
@@ -415,16 +443,15 @@ def parse_args(argv):
 
 
 def assess_persistent_storage(client):
-    # PR7635 landed later today, brings in persistent storage support on lxd
-    # The storage type for persistent storage on lxd is 'lxd'
+    # PR7635 landed later today, brings persistent storage to lxd
+    # The persistent storage type on lxd is 'lxd'
     # https://github.com/juju/juju/pull/7635
-
     environment = os.getenv('ENV', default='parallel-aws')
     if environment == 'parallel-lxd':
         log.error('TODO: Add persistent storage test on lxd.')
         sys.exit(1)
     else:
-        assess_charm_removal_single_block_and_filesystem_storage(client)
+        assess_deploy_charm_with_existing_storage_and_removal(client)
 
 
 def main(argv=None):
