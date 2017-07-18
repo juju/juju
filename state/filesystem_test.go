@@ -1124,13 +1124,13 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentLocationConflict(c *gc.C)
 			`mount point "/srv/within" for "data" storage`)
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystem(c *gc.C) {
+func (s *FilesystemStateSuite) TestImportFilesystem(c *gc.C) {
 	fsInfoIn := state.FilesystemInfo{
 		Pool:         "modelscoped",
 		Size:         123,
 		FilesystemId: "foo",
 	}
-	storageTag, err := s.State.AddExistingFilesystem(fsInfoIn, nil, "pgdata")
+	storageTag, err := s.State.ImportFilesystem(fsInfoIn, nil, "pgdata")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageTag, gc.Equals, names.NewStorageTag("pgdata/0"))
 
@@ -1145,16 +1145,16 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystem(c *gc.C) {
 	c.Assert(fsStatus.Status, gc.Equals, status.Detached)
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemEmptyFilesystemId(c *gc.C) {
+func (s *FilesystemStateSuite) TestImportFilesystemEmptyFilesystemId(c *gc.C) {
 	fsInfoIn := state.FilesystemInfo{
 		Pool: "modelscoped",
 		Size: 123,
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfoIn, nil, "pgdata")
-	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: empty filesystem ID not valid")
+	_, err := s.State.ImportFilesystem(fsInfoIn, nil, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: empty filesystem ID not valid")
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	fsInfoIn := state.FilesystemInfo{
 		Pool: "modelscoped-block",
 		Size: 123,
@@ -1164,7 +1164,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
 		Size:     123,
 		VolumeId: "foo",
 	}
-	storageTag, err := s.State.AddExistingFilesystem(fsInfoIn, &volInfoIn, "pgdata")
+	storageTag, err := s.State.ImportFilesystem(fsInfoIn, &volInfoIn, "pgdata")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageTag, gc.Equals, names.NewStorageTag("pgdata/0"))
 
@@ -1172,7 +1172,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	fsInfoOut, err := filesystem.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	fsInfoIn.FilesystemId = "filesystem-0" // set by AddExistingFilesystem
+	fsInfoIn.FilesystemId = "filesystem-0" // set by ImportFilesystem
 	c.Assert(fsInfoOut, jc.DeepEquals, fsInfoIn)
 
 	fsStatus, err := filesystem.Status()
@@ -1190,17 +1190,17 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
 	c.Assert(volStatus.Status, gc.Equals, status.Detached)
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedVolumeInfoMissing(c *gc.C) {
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBackedVolumeInfoMissing(c *gc.C) {
 	fsInfo := state.FilesystemInfo{
 		Pool:         "modelscoped-block",
 		Size:         123,
 		FilesystemId: "foo",
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfo, nil, "pgdata")
-	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: backing volume info missing")
+	_, err := s.State.ImportFilesystem(fsInfo, nil, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: backing volume info missing")
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedFilesystemIdSupplied(c *gc.C) {
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBackedFilesystemIdSupplied(c *gc.C) {
 	fsInfo := state.FilesystemInfo{
 		Pool:         "modelscoped-block",
 		Size:         123,
@@ -1211,11 +1211,11 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedFilesystemId
 		Size:     123,
 		VolumeId: "foo",
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfo, &volInfo, "pgdata")
-	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: non-empty filesystem ID with backing volume not valid")
+	_, err := s.State.ImportFilesystem(fsInfo, &volInfo, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: non-empty filesystem ID with backing volume not valid")
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedEmptyVolumeId(c *gc.C) {
+func (s *FilesystemStateSuite) TestImportFilesystemVolumeBackedEmptyVolumeId(c *gc.C) {
 	fsInfo := state.FilesystemInfo{
 		Pool: "modelscoped-block",
 		Size: 123,
@@ -1224,8 +1224,8 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedEmptyVolumeI
 		Pool: "modelscoped-block",
 		Size: 123,
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfo, &volInfo, "pgdata")
-	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: empty backing volume ID not valid")
+	_, err := s.State.ImportFilesystem(fsInfo, &volInfo, "pgdata")
+	c.Assert(err, gc.ErrorMatches, "cannot import filesystem: empty backing volume ID not valid")
 }
 
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {

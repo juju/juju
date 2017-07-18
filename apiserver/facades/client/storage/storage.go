@@ -1005,7 +1005,7 @@ func (a *APIv4) importFilesystem(
 		filesystemInfo.Size = info.Size
 	}
 
-	storageTag, err := a.storage.AddExistingFilesystem(filesystemInfo, volumeInfo, arg.StorageName)
+	storageTag, err := a.storage.ImportFilesystem(filesystemInfo, volumeInfo, arg.StorageName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

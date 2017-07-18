@@ -247,7 +247,7 @@ func (c *Client) Detach(storageIds []string) ([]params.ErrorResult, error) {
 }
 
 // Import imports storage into the model.
-func (c *Client) Import(
+func (c *Client) ImportStorage(
 	kind storage.StorageKind,
 	storagePool string,
 	storageProviderId string,
