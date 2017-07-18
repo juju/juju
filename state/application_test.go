@@ -2981,10 +2981,10 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c 
 func (s *ApplicationSuite) TestAddApplicationInDevMode(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:    "wp",
-		Series:  "",
-		Charm:   ch,
-		DevMode: true,
+		Name:        "wp",
+		Series:      "",
+		Charm:       ch,
+		Development: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.IsDevMode(), jc.IsTrue)

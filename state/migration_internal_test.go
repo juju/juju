@@ -360,6 +360,8 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
+		// IsDevMode signals whether the application is in development mode.
+		"IsDevMode",
 	)
 	migrated := set.NewStrings(
 		"Name",
