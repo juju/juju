@@ -536,7 +536,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
-		{importFilesystemCall, []interface{}{
+		{addExistingFilesystemCall, []interface{}{
 			state.FilesystemInfo{
 				FilesystemId: "foo",
 				Pool:         "radiance",
@@ -585,7 +585,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
-		{importFilesystemCall, []interface{}{
+		{addExistingFilesystemCall, []interface{}{
 			state.FilesystemInfo{
 				Pool: "radiance",
 				Size: 123,

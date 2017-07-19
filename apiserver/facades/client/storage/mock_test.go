@@ -66,7 +66,7 @@ type mockState struct {
 	destroyStorageInstance              func(names.StorageTag, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
 	detachStorage                       func(names.StorageTag, names.UnitTag) error
-	importFilesystem                    func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
+	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -192,8 +192,8 @@ func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageA
 	panic("should not be called")
 }
 
-func (st *mockState) ImportFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, s string) (names.StorageTag, error) {
-	return st.importFilesystem(f, v, s)
+func (st *mockState) AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, s string) (names.StorageTag, error) {
+	return st.addExistingFilesystem(f, v, s)
 }
 
 type mockVolume struct {

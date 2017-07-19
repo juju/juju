@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -780,43 +781,19 @@ func removeFilesystemOps(st *State, filesystem Filesystem, assert interface{}) (
 	return ops, nil
 }
 
-// ImportFilesystem imports an existing, already-provisioned
+// AddExistingFilesystem imports an existing, already-provisioned
 // filesystem into the model. The model will start out with
 // the status "detached". The filesystem and associated backing
 // volume (if any) will be associated with the given storage
 // name, with the allocated storage tag being returned.
-func (st *State) ImportFilesystem(
+func (st *State) AddExistingFilesystem(
 	info FilesystemInfo,
 	backingVolume *VolumeInfo,
 	storageName string,
 ) (_ names.StorageTag, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot import filesystem")
-	if info.Pool == "" {
-		return names.StorageTag{}, errors.NotValidf("empty pool name")
-	}
-	if backingVolume == nil {
-		if info.FilesystemId == "" {
-			return names.StorageTag{}, errors.NotValidf("empty filesystem ID")
-		}
-	} else {
-		if info.FilesystemId != "" {
-			return names.StorageTag{}, errors.NotValidf("non-empty filesystem ID with backing volume")
-		}
-		if backingVolume.VolumeId == "" {
-			return names.StorageTag{}, errors.NotValidf("empty backing volume ID")
-		}
-		if backingVolume.Pool != info.Pool {
-			return names.StorageTag{}, errors.Errorf(
-				"volume pool %q does not match filesystem pool %q",
-				backingVolume.Pool, info.Pool,
-			)
-		}
-		if backingVolume.Size != info.Size {
-			return names.StorageTag{}, errors.Errorf(
-				"volume size %d does not match filesystem size %d",
-				backingVolume.Size, info.Size,
-			)
-		}
+	defer errors.DeferredAnnotatef(&err, "cannot add existing filesystem")
+	if err := validateAddExistingFilesystem(st, info, backingVolume, storageName); err != nil {
+		return names.StorageTag{}, errors.Trace(err)
 	}
 	storageId, err := newStorageInstanceId(st, storageName)
 	if err != nil {
@@ -858,6 +835,60 @@ func (st *State) ImportFilesystem(
 		return names.StorageTag{}, errors.Trace(err)
 	}
 	return storageTag, nil
+}
+
+var storageNameRE = regexp.MustCompile(names.StorageNameSnippet)
+
+func validateAddExistingFilesystem(
+	st *State,
+	info FilesystemInfo,
+	backingVolume *VolumeInfo,
+	storageName string,
+) error {
+	if !storage.IsValidPoolName(info.Pool) {
+		return errors.NotValidf("pool name %q", info.Pool)
+	}
+	if !storageNameRE.MatchString(storageName) {
+		return errors.NotValidf("storage name %q", storageName)
+	}
+	if backingVolume == nil {
+		if info.FilesystemId == "" {
+			return errors.NotValidf("empty filesystem ID")
+		}
+	} else {
+		if info.FilesystemId != "" {
+			return errors.NotValidf("non-empty filesystem ID with backing volume")
+		}
+		if backingVolume.VolumeId == "" {
+			return errors.NotValidf("empty backing volume ID")
+		}
+		if backingVolume.Pool != info.Pool {
+			return errors.Errorf(
+				"volume pool %q does not match filesystem pool %q",
+				backingVolume.Pool, info.Pool,
+			)
+		}
+		if backingVolume.Size != info.Size {
+			return errors.Errorf(
+				"volume size %d does not match filesystem size %d",
+				backingVolume.Size, info.Size,
+			)
+		}
+	}
+	_, provider, err := poolStorageProvider(st, info.Pool)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !provider.Supports(storage.StorageKindFilesystem) {
+		if backingVolume == nil {
+			return errors.New("backing volume info missing")
+		}
+	} else {
+		if backingVolume != nil {
+			return errors.New("unexpected volume info")
+		}
+	}
+	return nil
 }
 
 // filesystemAttachmentId returns a filesystem attachment document ID,
@@ -946,10 +977,6 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 		}
 		volumeId = volumeTag.Id()
 		ops = append(ops, volumeOps...)
-	} else {
-		if params.volumeInfo != nil {
-			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Errorf("unexpected volume info")
-		}
 	}
 
 	statusDoc := statusDoc{
