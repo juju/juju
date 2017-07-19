@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Test for relations between primary and subordinate charms."""
+"""Test relations between primary and subordinates are cleanedup correctly"""
 
 from __future__ import print_function
 
@@ -29,7 +29,7 @@ def assess_primary_sub_relations(client):
 
 
 def ensure_removing_primary_succeeds(client):
-    """Ensure removing primary app with subordinate is successful.
+    """Ensure removing primary app with subordinate relation is successful.
 
     Must be able to remove a primary app (and it's subordinate) if the
     subordinate also has relations to other primary apps.
