@@ -94,7 +94,7 @@ const (
 	attachStorageCall                       = "attachStorage"
 	detachStorageCall                       = "detachStorage"
 	destroyStorageInstanceCall              = "destroyStorageInstance"
-	importFilesystemCall                    = "importFilesystem"
+	addExistingFilesystemCall               = "addExistingFilesystem"
 )
 
 func (s *baseStorageSuite) constructState() *mockState {
@@ -271,8 +271,8 @@ func (s *baseStorageSuite) constructState() *mockState {
 			s.stub.AddCall(destroyStorageInstanceCall, tag, destroyAttached)
 			return errors.New("cannae do it")
 		},
-		importFilesystem: func(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error) {
-			s.stub.AddCall(importFilesystemCall, f, v, storageName)
+		addExistingFilesystem: func(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error) {
+			s.stub.AddCall(addExistingFilesystemCall, f, v, storageName)
 			return s.storageTag, s.stub.NextErr()
 		},
 	}
