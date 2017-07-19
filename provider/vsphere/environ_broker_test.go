@@ -131,6 +131,27 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	})
 }
 
+func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"primary-network":    "foo",
+			"external-network":   "bar",
+			"image-metadata-url": s.imageServer.URL,
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := env.StartInstance(s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	call := s.client.Calls()[1]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.PrimaryNetwork, gc.Equals, "foo")
+	c.Assert(createVMArgs.ExternalNetwork, gc.Equals, "bar")
+}
+
 func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	env, err := s.provider.Open(environs.OpenParams{
 		Cloud: fakeCloudSpec(),
@@ -139,6 +160,7 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 			"image-metadata-url": s.imageServer.URL,
 		}),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err = env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)

@@ -187,6 +187,7 @@ func (env *sessionEnviron) newRawInstance(
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
+		PrimaryNetwork:         env.ecfg.primaryNetwork(),
 		ExternalNetwork:        externalNetwork,
 		Datastore:              env.ecfg.datastore(),
 		UpdateProgress:         updateProgress,
