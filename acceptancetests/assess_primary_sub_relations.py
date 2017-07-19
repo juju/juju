@@ -46,9 +46,9 @@ def ensure_removing_primary_succeeds(client):
     """
     test_model = create_model_with_primary_and_sub_apps(
         client, 'remove-primary')
-    ensure_subordinate_unit_operational(
+    assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-source')
-    ensure_subordinate_unit_operational(
+    assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-sink')
 
     test_model.remove_service('dummy-source')
@@ -56,7 +56,7 @@ def ensure_removing_primary_succeeds(client):
     # dummy-source must be removed
     assert_service_is_removed(test_model, 'dummy-source')
     # But dummy-sink must remain operational.
-    ensure_subordinate_unit_operational(
+    assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-sink')
 
 
@@ -79,9 +79,9 @@ def ensure_removing_relation_removes_sub_unit(client):
     test_model = create_model_with_primary_and_sub_apps(
         client, 'remove-subordinate')
 
-    ensure_subordinate_unit_operational(
+    assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-source')
-    ensure_subordinate_unit_operational(
+    assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-sink')
 
     test_model.juju('remove-relation', ('ntp', 'dummy-source'))
@@ -90,7 +90,7 @@ def ensure_removing_relation_removes_sub_unit(client):
 
     # This subordinate must still remain operational, we didn't remove the
     # relation from dummy-sink.
-    ensure_subordinate_unit_operational(
+    assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-sink')
 
     # We expect this check to fail now as the subordinate app shouldn't be
@@ -98,7 +98,7 @@ def ensure_removing_relation_removes_sub_unit(client):
     # If it doesn't fail then the unit is still operational and that is a fail
     # state.
     try:
-        ensure_subordinate_unit_operational(
+        assert_subordinate_unit_operational(
             test_model, primary_app_name='dummy-source')
     except JujuAssertionError:
         log.info('Subordinate application relation successfully removed.')
@@ -148,7 +148,7 @@ def assert_subordinate_is_removed(
         if not any(subordinate_name in unit for unit in subordinate_names):
             return
         else:
-            time.sleep(1)
+            time.sleep(5)
     raise JujuAssertionError(
         'Subordinate "{}" failed to be removed from "{}" in {} seconds'.format(
             subordinate_name, primary_name, timeout))
@@ -169,10 +169,10 @@ def create_model_with_primary_and_sub_apps(client, model_name):
     return test_model
 
 
-def ensure_subordinate_unit_operational(client, primary_app_name):
+def assert_subordinate_unit_operational(client, primary_app_name):
     """Check status of subordinate charm on host.
 
-    Determine subordinate unit name and run the command 'service status' for it.
+    Determine subordinate unit name and run the command 'service status' for it
 
     :raises JujuAssertionError: When service status exits non-zero.
     """
@@ -199,10 +199,10 @@ def get_subordinate_unit_name(client, primary_app_name):
     return 'jujud-unit-{}'.format(sub_unit_name.replace('/', '-'))
 
 
-def deploy_primary_charm(client, charm_name):
+def deploy_primary_charm(client, charm_name, series='xenial'):
     charm_path = local_charm_path(
-        charm=charm_name, juju_ver=client.version, series='xenial')
-    _, deploy_complete = client.deploy(charm_path, series='xenial')
+        charm=charm_name, juju_ver=client.version, series=series)
+    _, deploy_complete = client.deploy(charm_path, series)
     client.wait_for(deploy_complete)
 
 
