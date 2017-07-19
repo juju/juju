@@ -55,11 +55,6 @@ type AddCaasCommand struct {
 	// Context is the name of the context (k8s) or credential to import
 	Context string
 
-	// // Ping contains the logic for pinging a caas endpoint to know whether or
-	// // not it really has a valid caas of the same type as the provider.  By
-	// // default it just calls the correct provider's Ping method.
-	// Ping func(p environs.EnvironProvider, endpoint string) error
-
 	clientStore        jujuclient.ClientStore
 	cloudMetadataStore CloudMetadataStore
 	newCloudAPI        func(base.APICallCloser) AddCloudAPI
@@ -67,8 +62,6 @@ type AddCaasCommand struct {
 
 // NewAddCaasCommand returns a command to add caas information.
 func NewAddCaasCommand(cloudMetadataStore CloudMetadataStore) *AddCaasCommand {
-	// Ping is provider.Ping except in tests where we don't actually want to
-	// require a valid caas.
 	return &AddCaasCommand{
 		cloudMetadataStore: cloudMetadataStore,
 		newCloudAPI: func(caller base.APICallCloser) AddCloudAPI {
