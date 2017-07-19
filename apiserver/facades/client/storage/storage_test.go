@@ -15,6 +15,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider/dummy"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type storageSuite struct {
@@ -327,12 +330,14 @@ func (s *storageSuite) TestDestroy(c *gc.C) {
 	results, err := s.api.Destroy(params.DestroyStorage{[]params.DestroyStorageInstance{
 		{Tag: "storage-foo-0"},
 		{Tag: "storage-foo-1", DestroyAttached: true},
+		{Tag: "storage-foo-1", DestroyAttached: true, ReleaseStorage: true},
 		{Tag: "volume-0"},
 		{Tag: "filesystem-1-2"},
 		{Tag: "machine-0"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
@@ -344,9 +349,11 @@ func (s *storageSuite) TestDestroy(c *gc.C) {
 		getBlockForTypeCall, // Change
 		destroyStorageInstanceCall,
 		destroyStorageInstanceCall,
+		releaseStorageInstanceCall,
 	)
 	s.stub.CheckCall(c, 2, destroyStorageInstanceCall, names.NewStorageTag("foo/0"), false)
 	s.stub.CheckCall(c, 3, destroyStorageInstanceCall, names.NewStorageTag("foo/1"), true)
+	s.stub.CheckCall(c, 4, releaseStorageInstanceCall, names.NewStorageTag("foo/1"), true)
 }
 
 func (s *storageSuite) TestDestroyV3(c *gc.C) {
@@ -497,4 +504,234 @@ func (s *storageSuite) TestAttach(c *gc.C) {
 		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
 		{attachStorageCall, []interface{}{s.storageTag, s.unitTag}},
 	})
+}
+
+func (s *storageSuite) TestImportFilesystem(c *gc.C) {
+	s.state.modelTag = coretesting.ModelTag
+	filesystemSource := filesystemImporter{&dummy.FilesystemSource{}}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		FilesystemSourceFunc: func(*storage.Config) (storage.FilesystemSource, error) {
+			return filesystemSource, nil
+		},
+	}
+	s.registry.Providers["radiance"] = dummyStorageProvider
+
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{{
+		Result: &params.ImportStorageDetails{
+			StorageTag: "storage-data-0",
+		},
+	}})
+	filesystemSource.CheckCalls(c, []testing.StubCall{
+		{"ImportFilesystem", []interface{}{
+			"foo", map[string]string{
+				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+			},
+		}},
+	})
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{addExistingFilesystemCall, []interface{}{
+			state.FilesystemInfo{
+				FilesystemId: "foo",
+				Pool:         "radiance",
+				Size:         123,
+			},
+			(*state.VolumeInfo)(nil),
+			"pgdata",
+		}},
+	})
+}
+
+func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
+	s.state.modelTag = coretesting.ModelTag
+	volumeSource := volumeImporter{&dummy.VolumeSource{}}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		SupportsFunc: func(kind storage.StorageKind) bool {
+			return kind == storage.StorageKindBlock
+		},
+		VolumeSourceFunc: func(*storage.Config) (storage.VolumeSource, error) {
+			return volumeSource, nil
+		},
+	}
+	s.registry.Providers["radiance"] = dummyStorageProvider
+
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{{
+		Result: &params.ImportStorageDetails{
+			StorageTag: "storage-data-0",
+		},
+	}})
+	volumeSource.CheckCalls(c, []testing.StubCall{
+		{"ImportVolume", []interface{}{
+			"foo", map[string]string{
+				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+			},
+		}},
+	})
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{addExistingFilesystemCall, []interface{}{
+			state.FilesystemInfo{
+				Pool: "radiance",
+				Size: 123,
+			},
+			&state.VolumeInfo{
+				VolumeId:   "foo",
+				Pool:       "radiance",
+				Size:       123,
+				HardwareId: "hw",
+			},
+			"pgdata",
+		}},
+	})
+}
+
+func (s *storageSuite) TestImportFilesystemError(c *gc.C) {
+	filesystemSource := filesystemImporter{&dummy.FilesystemSource{}}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		FilesystemSourceFunc: func(*storage.Config) (storage.FilesystemSource, error) {
+			return filesystemSource, nil
+		},
+	}
+	s.registry.Providers["radiance"] = dummyStorageProvider
+
+	filesystemSource.SetErrors(errors.New("nope"))
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+		{Error: &params.Error{Message: `importing filesystem: nope`}},
+	})
+	filesystemSource.CheckCallNames(c, "ImportFilesystem")
+	s.stub.CheckCallNames(c, getBlockForTypeCall)
+}
+
+func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
+	filesystemSource := &dummy.FilesystemSource{}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		FilesystemSourceFunc: func(*storage.Config) (storage.FilesystemSource, error) {
+			return filesystemSource, nil
+		},
+	}
+	s.registry.Providers["radiance"] = dummyStorageProvider
+
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+		{Error: &params.Error{
+			Message: `importing filesystem with storage provider "radiance" not supported`,
+			Code:    "not supported",
+		}},
+	})
+	filesystemSource.CheckNoCalls(c)
+	s.stub.CheckCallNames(c, getBlockForTypeCall)
+}
+
+func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
+	volumeSource := &dummy.VolumeSource{}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		SupportsFunc: func(kind storage.StorageKind) bool {
+			return kind == storage.StorageKindBlock
+		},
+		VolumeSourceFunc: func(*storage.Config) (storage.VolumeSource, error) {
+			return volumeSource, nil
+		},
+	}
+	s.registry.Providers["radiance"] = dummyStorageProvider
+
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+		{Error: &params.Error{
+			Message: `importing volume with storage provider "radiance" not supported`,
+			Code:    "not supported",
+		}},
+	})
+	volumeSource.CheckNoCalls(c)
+	s.stub.CheckCallNames(c, getBlockForTypeCall)
+}
+
+func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindBlock,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}, {
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "123",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+		{Error: &params.Error{Message: `storage kind "block" not supported`, Code: "not supported"}},
+		{Error: &params.Error{Message: `pool name "123" not valid`}},
+	})
+}
+
+type filesystemImporter struct {
+	*dummy.FilesystemSource
+}
+
+// ImportFilesystem is part of the storage.FilesystemImporter interface.
+func (f filesystemImporter) ImportFilesystem(providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
+	f.MethodCall(f, "ImportFilesystem", providerId, tags)
+	return storage.FilesystemInfo{
+		FilesystemId: providerId,
+		Size:         123,
+	}, f.NextErr()
+}
+
+type volumeImporter struct {
+	*dummy.VolumeSource
+}
+
+// ImportVolume is part of the storage.VolumeImporter interface.
+func (v volumeImporter) ImportVolume(providerId string, tags map[string]string) (storage.VolumeInfo, error) {
+	v.MethodCall(v, "ImportVolume", providerId, tags)
+	return storage.VolumeInfo{
+		VolumeId:   providerId,
+		Size:       123,
+		HardwareId: "hw",
+	}, v.NextErr()
 }

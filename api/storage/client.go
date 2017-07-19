@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/storage"
 )
 
 // Client allows access to the storage API end point.
@@ -243,4 +244,35 @@ func (c *Client) Detach(storageIds []string) ([]params.ErrorResult, error) {
 		)
 	}
 	return results.Results, nil
+}
+
+// Import imports storage into the model.
+func (c *Client) Import(
+	kind storage.StorageKind,
+	storagePool string,
+	storageProviderId string,
+	storageName string,
+) (names.StorageTag, error) {
+	var results params.ImportStorageResults
+	args := params.BulkImportStorageParams{
+		[]params.ImportStorageParams{{
+			StorageName: storageName,
+			Kind:        params.StorageKind(kind),
+			Pool:        storagePool,
+			ProviderId:  storageProviderId,
+		}},
+	}
+	if err := c.facade.FacadeCall("Import", args, &results); err != nil {
+		return names.StorageTag{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return names.StorageTag{}, errors.Errorf(
+			"expected 1 result, got %d",
+			len(results.Results),
+		)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return names.StorageTag{}, err
+	}
+	return names.ParseStorageTag(results.Results[0].Result.StorageTag)
 }

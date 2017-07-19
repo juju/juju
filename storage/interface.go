@@ -160,6 +160,46 @@ type FilesystemSource interface {
 	DetachFilesystems(params []FilesystemAttachmentParams) ([]error, error)
 }
 
+// FilesystemImporter provides an interface for importing filesystems
+// into the controller/model.
+//
+// TODO(axw) make this part of FilesystemSource?
+type FilesystemImporter interface {
+	// ImportFilesystem updates the filesystem with the specified
+	// filesystem provider ID with the given resource tags, so that
+	// it is seen as being managed by this Juju controller/model.
+	// ImportFilesystem returns the filesystem information to store
+	// in the model.
+	//
+	// Implementations of ImportFilesystem should validate that the
+	// filesystem is not in use before allowing the import to proceed.
+	// Once it is imported, it is assumed to be in a detached state.
+	ImportFilesystem(
+		filesystemId string,
+		resourceTags map[string]string,
+	) (FilesystemInfo, error)
+}
+
+// VolumeImporter provides an interface for importing volumes
+// into the controller/model.
+//
+// TODO(axw) make this part of VolumeSource?
+type VolumeImporter interface {
+	// ImportVolume updates the volume with the specified volume
+	// provider ID with the given resource tags, so that it is
+	// seen as being managed by this Juju controller/model.
+	// ImportVolume returns the volume information to store
+	// in the model.
+	//
+	// Implementations of ImportVolume should validate that the
+	// volume is not in use before allowing the import to proceed.
+	// Once it is imported, it is assumed to be in a detached state.
+	ImportVolume(
+		volumeId string,
+		resourceTags map[string]string,
+	) (VolumeInfo, error)
+}
+
 // VolumeParams is a fully specified set of parameters for volume creation,
 // derived from one or more of user-specified storage constraints, a
 // storage pool definition, and charm storage metadata.
@@ -304,13 +344,6 @@ type AttachVolumesResult struct {
 type CreateFilesystemsResult struct {
 	Filesystem *Filesystem
 	Error      error
-}
-
-// DescribeFilesystemsResult contains the result of a FilesystemSource.DescribeFilesystems call
-// for one filesystem. Filesystem should only be used if Error is nil.
-type DescribeFilesystemsResult struct {
-	FilesystemInfo *FilesystemInfo
-	Error          error
 }
 
 // AttachFilesystemsResult contains the result of a FilesystemSource.AttachFilesystems call

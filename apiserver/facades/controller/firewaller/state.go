@@ -6,6 +6,7 @@ package firewaller
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -22,6 +23,8 @@ type State interface {
 	WatchSubnets(func(id interface{}) bool) state.StringsWatcher
 
 	GetRemoteEntity(model names.ModelTag, token string) (names.Tag, error)
+
+	GetMacaroon(model names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error)
 
 	KeyRelation(string) (Relation, error)
 
@@ -48,6 +51,11 @@ type stateShim struct {
 func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.Tag, error) {
 	r := st.State.RemoteEntities()
 	return r.GetRemoteEntity(model, token)
+}
+
+func (st stateShim) GetMacaroon(model names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error) {
+	r := st.State.RemoteEntities()
+	return r.GetMacaroon(model, entity)
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {

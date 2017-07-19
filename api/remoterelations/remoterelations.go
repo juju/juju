@@ -6,6 +6,7 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -86,6 +87,26 @@ func (c *Client) GetToken(sourceModelUUID string, tag names.Tag) (string, error)
 		return "", errors.Trace(result.Error)
 	}
 	return result.Result, nil
+}
+
+// SaveMacaroon saves the macaroon for the entity.
+func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+	args := params.EntityMacaroonArgs{Args: []params.EntityMacaroonArg{
+		{Tag: entity.String(), Macaroon: mac}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SaveMacaroons", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+	return nil
 }
 
 // RemoveRemoteEntity removes the specified entity from the remote entities collection.

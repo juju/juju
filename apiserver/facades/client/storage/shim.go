@@ -89,11 +89,14 @@ type storageAccess interface {
 	// BlockDevices is required for storage functionality.
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
+	// ControllerTag the tag of the controller in which we are operating.
+	ControllerTag() names.ControllerTag
+
+	// ModelTag the tag of the model on which we are operating.
+	ModelTag() names.ModelTag
+
 	// ModelName is required for pool functionality.
 	ModelName() (string, error)
-
-	// ModelTag is required for model permission checking.
-	ModelTag() names.ModelTag
 
 	// AllVolumes is required for volume functionality.
 	AllVolumes() ([]state.Volume, error)
@@ -136,9 +139,15 @@ type storageAccess interface {
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
 	DestroyStorageInstance(names.StorageTag, bool) error
 
+	// ReleaseStorageInstance releases the storage instance with the specified tag.
+	ReleaseStorageInstance(names.StorageTag, bool) error
+
 	// UnitStorageAttachments returns the storage attachments for the
 	// identified unit.
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+
+	// AddExistingFilesystem imports an existing filesystem into the model.
+	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
 var getState = func(st *state.State) storageAccess {

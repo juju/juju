@@ -196,6 +196,12 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon("", nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
@@ -205,7 +211,8 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "uuid",
 					Token:     "token-db2:db django:db"},
-				Networks: []string{"1.2.3.4/32"},
+				Networks:  []string{"1.2.3.4/32"},
+				Macaroons: macaroon.Slice{mac},
 			},
 		},
 	})

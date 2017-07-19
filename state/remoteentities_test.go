@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 )
 
 type RemoteEntitiesSuite struct {
@@ -60,6 +61,26 @@ func (s *RemoteEntitiesSuite) TestGetRemoteEntity(c *gc.C) {
 	expected, err := re.GetRemoteEntity(s.State.ModelTag(), token)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.Equals, expected)
+}
+
+func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
+	entity := names.NewRelationTag("mysql:db wordpress:db")
+	s.assertExportLocalEntity(c, entity)
+
+	re := s.State.RemoteEntities()
+	mac, err := macaroon.New(nil, "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.SaveMacaroon(entity, mac)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	re = anotherState.RemoteEntities()
+	expected, err := re.GetMacaroon(s.State.ModelTag(), entity)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mac, jc.DeepEquals, expected)
 }
 
 func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {

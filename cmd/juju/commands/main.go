@@ -393,6 +393,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(storage.NewRemoveStorageCommandWithAPI())
 	r.Register(storage.NewDetachStorageCommandWithAPI())
 	r.Register(storage.NewAttachStorageCommandWithAPI())
+	r.Register(storage.NewImportFilesystemCommand(storage.NewStorageImporter, nil))
 
 	// Manage spaces
 	r.Register(space.NewAddCommand())

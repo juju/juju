@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -24,9 +25,7 @@ type storageSuite struct {
 var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("lxd-storage")
 	s.BaseSuite.SetUpTest(c)
-	s.Client.StorageIsSupported = true
 
 	provider, err := s.Env.StorageProvider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,11 +51,25 @@ func (s *storageSuite) TestStorageProviderTypes(c *gc.C) {
 	types, err = s.Env.StorageProviderTypes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types, jc.DeepEquals, []storage.ProviderType{"lxd"})
+}
 
-	s.SetFeatureFlags( /*none*/ )
-	types, err = s.Env.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types, gc.HasLen, 0)
+func (s *storageSuite) TestStorageDefaultPools(c *gc.C) {
+	pools := s.provider.DefaultPools()
+	c.Assert(pools, gc.HasLen, 2)
+	c.Assert(pools[0].Name(), gc.Equals, "lxd-zfs")
+	c.Assert(pools[1].Name(), gc.Equals, "lxd-btrfs")
+	s.Stub.CheckCallNames(c, "CreateStoragePool", "CreateStoragePool")
+}
+
+func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
+	s.Stub.SetErrors(
+		errors.New("no zfs for you"),
+		errors.NotFoundf("zfs storage pool"),
+	)
+	pools := s.provider.DefaultPools()
+	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
+	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "CreateStoragePool")
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
@@ -83,13 +96,17 @@ func (s *storageSuite) TestScope(c *gc.C) {
 }
 
 func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
-	source := s.filesystemSource(c, "radiance")
+	source := s.filesystemSource(c, "source")
 	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
 		ResourceTags: map[string]string{
 			"key": "value",
+		},
+		Attributes: map[string]interface{}{
+			"lxd-pool": "radiance",
+			"driver":   "btrfs",
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,34 +116,71 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 		names.NewFilesystemTag("0"),
 		names.VolumeTag{},
 		storage.FilesystemInfo{
-			FilesystemId: "radiance:filesystem-0",
+			FilesystemId: "radiance:juju-f75cba-filesystem-0",
 			Size:         1024,
 		},
 	})
 
-	s.Stub.CheckCallNames(c, "VolumeCreate")
-	s.Stub.CheckCall(c, 0, "VolumeCreate", "radiance", "filesystem-0", map[string]string{
+	s.Stub.CheckCallNames(c, "CreateStoragePool", "VolumeCreate")
+	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "btrfs", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
+		"user.key": "value",
+		"size":     "1024MB",
+	})
+}
+
+func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
+	s.Stub.SetErrors(errors.New("pool already exists"))
+	source := s.filesystemSource(c, "source")
+	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+		Tag:      names.NewFilesystemTag("0"),
+		Provider: "lxd",
+		Size:     1024,
+		ResourceTags: map[string]string{
+			"key": "value",
+		},
+		Attributes: map[string]interface{}{
+			"lxd-pool": "radiance",
+			"driver":   "dir",
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(results[0].Filesystem, jc.DeepEquals, &storage.Filesystem{
+		names.NewFilesystemTag("0"),
+		names.VolumeTag{},
+		storage.FilesystemInfo{
+			FilesystemId: "radiance:juju-f75cba-filesystem-0",
+			Size:         1024,
+		},
+	})
+
+	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "VolumeCreate")
+	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "dir", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "StoragePool", "radiance")
+	s.Stub.CheckCall(c, 2, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 	})
 }
 
 func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	s.Stub.SetErrors(nil, errors.New("boom"))
-	source := s.filesystemSource(c, "pool")
+	source := s.filesystemSource(c, "source")
 	results, err := source.DestroyFilesystems([]string{
-		"notmypool:filesystem-0",
-		"pool:filesystem-0",
-		"pool:filesystem-1",
+		"filesystem-0",
+		"pool0:filesystem-0",
+		"pool1:filesystem-1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
-	c.Assert(results[0], gc.ErrorMatches, `filesystem ID "notmypool:filesystem-0" not valid`)
+	c.Assert(results[0], gc.ErrorMatches, `invalid filesystem ID "filesystem-0"; expected ID in format <lxd-pool>:<volume-name>`)
 	c.Assert(results[1], jc.ErrorIsNil)
 	c.Assert(results[2], gc.ErrorMatches, "boom")
 
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"VolumeDelete", []interface{}{"pool", "filesystem-0"}},
-		{"VolumeDelete", []interface{}{"pool", "filesystem-1"}},
+		{"VolumeDelete", []interface{}{"pool0", "filesystem-0"}},
+		{"VolumeDelete", []interface{}{"pool1", "filesystem-1"}},
 	})
 }
 
@@ -265,4 +319,44 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	}, {
 		"RemoveDevice", []interface{}{"inst-0", "filesystem-0"},
 	}})
+}
+
+func (s *storageSuite) TestImportFilesystem(c *gc.C) {
+	source := s.filesystemSource(c, "pool")
+	c.Assert(source, gc.Implements, new(storage.FilesystemImporter))
+	importer := source.(storage.FilesystemImporter)
+
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"foo": []api.StorageVolume{{
+			StorageVolumePut: api.StorageVolumePut{
+				Name: "bar",
+				Config: map[string]string{
+					"size": "10GB",
+				},
+			},
+		}},
+	}
+
+	info, err := importer.ImportFilesystem("foo:bar", map[string]string{
+		"baz": "qux",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{
+		FilesystemId: "foo:bar",
+		Size:         10 * 1024,
+	})
+
+	update := api.StorageVolume{
+		StorageVolumePut: api.StorageVolumePut{
+			Name: "bar",
+			Config: map[string]string{
+				"size":     "10GB",
+				"user.baz": "qux",
+			},
+		},
+	}
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"Volume", []interface{}{"foo", "bar"}},
+		{"VolumeUpdate", []interface{}{"foo", "bar", update}},
+	})
 }

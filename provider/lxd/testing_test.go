@@ -328,7 +328,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &gitjujutesting.Stub{}
 	s.Client = &StubClient{
-		Stub: s.Stub,
+		Stub:               s.Stub,
+		StorageIsSupported: true,
 		Server: &api.Server{
 			ServerPut: api.ServerPut{
 				Config: map[string]interface{}{},
@@ -601,6 +602,30 @@ func (conn *StubClient) StorageSupported() bool {
 	return conn.StorageIsSupported
 }
 
+func (conn *StubClient) StoragePool(name string) (api.StoragePool, error) {
+	conn.AddCall("StoragePool", name)
+	return api.StoragePool{
+		Name:   name,
+		Driver: "dir",
+	}, conn.NextErr()
+}
+
+func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
+	conn.AddCall("StoragePools")
+	return []api.StoragePool{{
+		Name:   "juju",
+		Driver: "dir",
+	}, {
+		Name:   "juju-zfs",
+		Driver: "zfs",
+	}}, conn.NextErr()
+}
+
+func (conn *StubClient) CreateStoragePool(name, driver string, attrs map[string]string) error {
+	conn.AddCall("CreateStoragePool", name, driver, attrs)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
 	conn.AddCall("VolumeCreate", pool, volume, config)
 	return conn.NextErr()
@@ -611,12 +636,30 @@ func (conn *StubClient) VolumeDelete(pool, volume string) error {
 	return conn.NextErr()
 }
 
+func (conn *StubClient) Volume(pool, volume string) (api.StorageVolume, error) {
+	conn.AddCall("Volume", pool, volume)
+	if err := conn.NextErr(); err != nil {
+		return api.StorageVolume{}, err
+	}
+	for _, v := range conn.Volumes[pool] {
+		if v.Name == volume {
+			return v, nil
+		}
+	}
+	return api.StorageVolume{}, errors.NotFoundf("volume %q in pool %q", volume, pool)
+}
+
 func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
 	conn.AddCall("VolumeList", pool)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 	return conn.Volumes[pool], nil
+}
+
+func (conn *StubClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
+	conn.AddCall("VolumeUpdate", pool, volume, update)
+	return conn.NextErr()
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

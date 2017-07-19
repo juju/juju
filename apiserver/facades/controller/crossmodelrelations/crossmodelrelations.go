@@ -353,11 +353,10 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 		}
 		logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
 
-		// TODO(wallyworld) - firewaller worker needs to use macaroon
-		//if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
-		//	results.Results[i].Error = common.ServerError(err)
-		//	continue
-		//}
+		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
 		if err := commoncrossmodel.PublishIngressNetworkChange(api.st, relationTag, change); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

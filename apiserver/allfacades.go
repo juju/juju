@@ -48,7 +48,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/controller"       // ModelUser Admin (although some methods check for read only)
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/imagemetadata"
+	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
@@ -67,6 +67,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
+	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/apiserver/facades/controller/logfwd"
@@ -142,7 +143,12 @@ func AllFacades() *facade.Registry {
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
-	reg("ImageMetadata", 2, imagemetadata.NewAPI)
+	reg("ImageMetadata", 3, imagemetadata.NewAPI)
+
+	if featureflag.Enabled(feature.ImageMetadata) {
+		reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
+	}
+
 	reg("InstancePoller", 3, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
@@ -207,7 +213,8 @@ func AllFacades() *facade.Registry {
 	reg("Storage", 3, storage.NewFacadeV3)
 	reg("Storage", 4, storage.NewFacadeV4) // changes Destroy() method signature.
 
-	reg("StorageProvisioner", 3, storageprovisioner.NewFacade)
+	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
+	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
 	reg("Subnets", 2, subnets.NewAPI)
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
 	reg("UnitAssigner", 1, unitassigner.New)

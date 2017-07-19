@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type mockPoolManager struct {
@@ -63,8 +64,10 @@ type mockState struct {
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	destroyStorageInstance              func(names.StorageTag, bool) error
+	releaseStorageInstance              func(names.StorageTag, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
 	detachStorage                       func(names.StorageTag, names.UnitTag) error
+	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -113,6 +116,10 @@ func (st *mockState) WatchVolumeAttachment(mtag names.MachineTag, v names.Volume
 
 func (st *mockState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
 	return st.watchBlockDevices(mtag)
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	return testing.ControllerTag
 }
 
 func (st *mockState) ModelName() (string, error) {
@@ -182,8 +189,16 @@ func (st *mockState) DestroyStorageInstance(tag names.StorageTag, destroyAttache
 	return st.destroyStorageInstance(tag, destroyAttached)
 }
 
+func (st *mockState) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool) error {
+	return st.releaseStorageInstance(tag, destroyAttached)
+}
+
 func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
 	panic("should not be called")
+}
+
+func (st *mockState) AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, s string) (names.StorageTag, error) {
+	return st.addExistingFilesystem(f, v, s)
 }
 
 type mockVolume struct {

@@ -21,8 +21,13 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.storageprovisioner")
 
-// StorageProvisionerAPI provides access to the Provisioner API facade.
-type StorageProvisionerAPI struct {
+// StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
+type StorageProvisionerAPIv4 struct {
+	*StorageProvisionerAPIv3
+}
+
+// StorageProvisionerAPIv3 provides the StorageProvisioner API v3 facade.
+type StorageProvisionerAPIv3 struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
 	*common.InstanceIdGetter
@@ -40,14 +45,19 @@ type StorageProvisionerAPI struct {
 	getAttachmentAuthFunc    func() (func(names.MachineTag, names.Tag) bool, error)
 }
 
-// NewStorageProvisionerAPI creates a new server-side StorageProvisionerAPI facade.
-func NewStorageProvisionerAPI(
+// NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v4 facade.
+func NewStorageProvisionerAPIv4(v3 *StorageProvisionerAPIv3) *StorageProvisionerAPIv4 {
+	return &StorageProvisionerAPIv4{v3}
+}
+
+// NewStorageProvisionerAPIv3 creates a new server-side StorageProvisioner v3 facade.
+func NewStorageProvisionerAPIv3(
 	st Backend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
 	poolManager poolmanager.PoolManager,
-) (*StorageProvisionerAPI, error) {
+) (*StorageProvisionerAPIv3, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -177,7 +187,7 @@ func NewStorageProvisionerAPI(
 			return false
 		}, nil
 	}
-	return &StorageProvisionerAPI{
+	return &StorageProvisionerAPIv3{
 		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
@@ -197,7 +207,7 @@ func NewStorageProvisionerAPI(
 }
 
 // WatchBlockDevices watches for changes to the specified machines' block devices.
-func (s *StorageProvisionerAPI) WatchBlockDevices(args params.Entities) (params.NotifyWatchResults, error) {
+func (s *StorageProvisionerAPIv3) WatchBlockDevices(args params.Entities) (params.NotifyWatchResults, error) {
 	canAccess, err := s.getBlockDevicesAuthFunc()
 	if err != nil {
 		return params.NotifyWatchResults{}, common.ServerError(common.ErrPerm)
@@ -233,7 +243,7 @@ func (s *StorageProvisionerAPI) WatchBlockDevices(args params.Entities) (params.
 }
 
 // WatchMachines watches for changes to the specified machines.
-func (s *StorageProvisionerAPI) WatchMachines(args params.Entities) (params.NotifyWatchResults, error) {
+func (s *StorageProvisionerAPIv3) WatchMachines(args params.Entities) (params.NotifyWatchResults, error) {
 	canAccess, err := s.getMachineAuthFunc()
 	if err != nil {
 		return params.NotifyWatchResults{}, common.ServerError(common.ErrPerm)
@@ -273,18 +283,18 @@ func (s *StorageProvisionerAPI) WatchMachines(args params.Entities) (params.Noti
 
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
-func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.StringsWatchResults, error) {
+func (s *StorageProvisionerAPIv3) WatchVolumes(args params.Entities) (params.StringsWatchResults, error) {
 	return s.watchStorageEntities(args, s.st.WatchModelVolumes, s.st.WatchMachineVolumes)
 }
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPI) WatchFilesystems(args params.Entities) (params.StringsWatchResults, error) {
+func (s *StorageProvisionerAPIv3) WatchFilesystems(args params.Entities) (params.StringsWatchResults, error) {
 	w := filesystemwatcher.Watchers{s.st}
 	return s.watchStorageEntities(args, w.WatchModelManagedFilesystems, w.WatchMachineManagedFilesystems)
 }
 
-func (s *StorageProvisionerAPI) watchStorageEntities(
+func (s *StorageProvisionerAPIv3) watchStorageEntities(
 	args params.Entities,
 	watchEnvironStorage func() state.StringsWatcher,
 	watchMachineStorage func(names.MachineTag) state.StringsWatcher,
@@ -328,7 +338,7 @@ func (s *StorageProvisionerAPI) watchStorageEntities(
 
 // WatchVolumeAttachments watches for changes to volume attachments scoped to
 // the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+func (s *StorageProvisionerAPIv3) WatchVolumeAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		args,
 		s.st.WatchModelVolumeAttachments,
@@ -339,7 +349,7 @@ func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (pa
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPI) WatchFilesystemAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+func (s *StorageProvisionerAPIv3) WatchFilesystemAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	w := filesystemwatcher.Watchers{s.st}
 	return s.watchAttachments(
 		args,
@@ -349,7 +359,7 @@ func (s *StorageProvisionerAPI) WatchFilesystemAttachments(args params.Entities)
 	)
 }
 
-func (s *StorageProvisionerAPI) watchAttachments(
+func (s *StorageProvisionerAPIv3) watchAttachments(
 	args params.Entities,
 	watchEnvironAttachments func() state.StringsWatcher,
 	watchMachineAttachments func(names.MachineTag) state.StringsWatcher,
@@ -398,7 +408,7 @@ func (s *StorageProvisionerAPI) watchAttachments(
 }
 
 // Volumes returns details of volumes with the specified tags.
-func (s *StorageProvisionerAPI) Volumes(args params.Entities) (params.VolumeResults, error) {
+func (s *StorageProvisionerAPIv3) Volumes(args params.Entities) (params.VolumeResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
 		return params.VolumeResults{}, common.ServerError(common.ErrPerm)
@@ -433,7 +443,7 @@ func (s *StorageProvisionerAPI) Volumes(args params.Entities) (params.VolumeResu
 }
 
 // Filesystems returns details of filesystems with the specified tags.
-func (s *StorageProvisionerAPI) Filesystems(args params.Entities) (params.FilesystemResults, error) {
+func (s *StorageProvisionerAPIv3) Filesystems(args params.Entities) (params.FilesystemResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
 		return params.FilesystemResults{}, common.ServerError(common.ErrPerm)
@@ -468,7 +478,7 @@ func (s *StorageProvisionerAPI) Filesystems(args params.Entities) (params.Filesy
 }
 
 // VolumeAttachments returns details of volume attachments with the specified IDs.
-func (s *StorageProvisionerAPI) VolumeAttachments(args params.MachineStorageIds) (params.VolumeAttachmentResults, error) {
+func (s *StorageProvisionerAPIv3) VolumeAttachments(args params.MachineStorageIds) (params.VolumeAttachmentResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
 	if err != nil {
 		return params.VolumeAttachmentResults{}, common.ServerError(common.ErrPerm)
@@ -498,7 +508,7 @@ func (s *StorageProvisionerAPI) VolumeAttachments(args params.MachineStorageIds)
 
 // VolumeBlockDevices returns details of the block devices corresponding to the
 // volume attachments with the specified IDs.
-func (s *StorageProvisionerAPI) VolumeBlockDevices(args params.MachineStorageIds) (params.BlockDeviceResults, error) {
+func (s *StorageProvisionerAPIv3) VolumeBlockDevices(args params.MachineStorageIds) (params.BlockDeviceResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
 	if err != nil {
 		return params.BlockDeviceResults{}, common.ServerError(common.ErrPerm)
@@ -527,7 +537,7 @@ func (s *StorageProvisionerAPI) VolumeBlockDevices(args params.MachineStorageIds
 }
 
 // FilesystemAttachments returns details of filesystem attachments with the specified IDs.
-func (s *StorageProvisionerAPI) FilesystemAttachments(args params.MachineStorageIds) (params.FilesystemAttachmentResults, error) {
+func (s *StorageProvisionerAPIv3) FilesystemAttachments(args params.MachineStorageIds) (params.FilesystemAttachmentResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
 	if err != nil {
 		return params.FilesystemAttachmentResults{}, common.ServerError(common.ErrPerm)
@@ -557,7 +567,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachments(args params.MachineStorage
 
 // VolumeParams returns the parameters for creating or destroying
 // the volumes with the specified tags.
-func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.VolumeParamsResults, error) {
+func (s *StorageProvisionerAPIv3) VolumeParams(args params.Entities) (params.VolumeParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
 		return params.VolumeParamsResults{}, err
@@ -647,9 +657,65 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 	return results, nil
 }
 
+// DestroyVolumeParams returns the parameters for destroying
+// the volumes with the specified tags.
+func (s *StorageProvisionerAPIv4) DestroyVolumeParams(args params.Entities) (params.DestroyVolumeParamsResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc()
+	if err != nil {
+		return params.DestroyVolumeParamsResults{}, err
+	}
+	results := params.DestroyVolumeParamsResults{
+		Results: make([]params.DestroyVolumeParamsResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (params.DestroyVolumeParams, error) {
+		tag, err := names.ParseVolumeTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return params.DestroyVolumeParams{}, common.ErrPerm
+		}
+		volume, err := s.st.Volume(tag)
+		if errors.IsNotFound(err) {
+			return params.DestroyVolumeParams{}, common.ErrPerm
+		} else if err != nil {
+			return params.DestroyVolumeParams{}, err
+		}
+		if life := volume.Life(); life != state.Dead {
+			return params.DestroyVolumeParams{}, errors.Errorf(
+				"%s is not dead (%s)",
+				names.ReadableString(tag), life,
+			)
+		}
+		volumeInfo, err := volume.Info()
+		if err != nil {
+			return params.DestroyVolumeParams{}, err
+		}
+		provider, _, err := storagecommon.StoragePoolConfig(
+			volumeInfo.Pool, s.poolManager, s.registry,
+		)
+		if err != nil {
+			return params.DestroyVolumeParams{}, err
+		}
+		return params.DestroyVolumeParams{
+			Provider: string(provider),
+			VolumeId: volumeInfo.VolumeId,
+			Release:  volume.Releasing(),
+		}, nil
+	}
+	for i, arg := range args.Entities {
+		var result params.DestroyVolumeParamsResult
+		volumeParams, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = volumeParams
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // FilesystemParams returns the parameters for creating the filesystems
 // with the specified tags.
-func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.FilesystemParamsResults, error) {
+func (s *StorageProvisionerAPIv3) FilesystemParams(args params.Entities) (params.FilesystemParamsResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
@@ -705,9 +771,65 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 	return results, nil
 }
 
+// DestroyFilesystemParams returns the parameters for destroying the
+// filesystems with the specified tags.
+func (s *StorageProvisionerAPIv4) DestroyFilesystemParams(args params.Entities) (params.DestroyFilesystemParamsResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc()
+	if err != nil {
+		return params.DestroyFilesystemParamsResults{}, err
+	}
+	results := params.DestroyFilesystemParamsResults{
+		Results: make([]params.DestroyFilesystemParamsResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (params.DestroyFilesystemParams, error) {
+		tag, err := names.ParseFilesystemTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return params.DestroyFilesystemParams{}, common.ErrPerm
+		}
+		filesystem, err := s.st.Filesystem(tag)
+		if errors.IsNotFound(err) {
+			return params.DestroyFilesystemParams{}, common.ErrPerm
+		} else if err != nil {
+			return params.DestroyFilesystemParams{}, err
+		}
+		if life := filesystem.Life(); life != state.Dead {
+			return params.DestroyFilesystemParams{}, errors.Errorf(
+				"%s is not dead (%s)",
+				names.ReadableString(tag), life,
+			)
+		}
+		filesystemInfo, err := filesystem.Info()
+		if err != nil {
+			return params.DestroyFilesystemParams{}, err
+		}
+		provider, _, err := storagecommon.StoragePoolConfig(
+			filesystemInfo.Pool, s.poolManager, s.registry,
+		)
+		if err != nil {
+			return params.DestroyFilesystemParams{}, err
+		}
+		return params.DestroyFilesystemParams{
+			Provider:     string(provider),
+			FilesystemId: filesystemInfo.FilesystemId,
+			Release:      filesystem.Releasing(),
+		}, nil
+	}
+	for i, arg := range args.Entities {
+		var result params.DestroyFilesystemParamsResult
+		filesystemParams, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = filesystemParams
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // VolumeAttachmentParams returns the parameters for creating the volume
 // attachments with the specified IDs.
-func (s *StorageProvisionerAPI) VolumeAttachmentParams(
+func (s *StorageProvisionerAPIv3) VolumeAttachmentParams(
 	args params.MachineStorageIds,
 ) (params.VolumeAttachmentParamsResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
@@ -785,7 +907,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 
 // FilesystemAttachmentParams returns the parameters for creating the filesystem
 // attachments with the specified IDs.
-func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
+func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 	args params.MachineStorageIds,
 ) (params.FilesystemAttachmentParamsResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
@@ -868,7 +990,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 	return results, nil
 }
 
-func (s *StorageProvisionerAPI) oneVolumeAttachment(
+func (s *StorageProvisionerAPIv3) oneVolumeAttachment(
 	id params.MachineStorageId, canAccess func(names.MachineTag, names.Tag) bool,
 ) (state.VolumeAttachment, error) {
 	machineTag, err := names.ParseMachineTag(id.MachineTag)
@@ -891,7 +1013,7 @@ func (s *StorageProvisionerAPI) oneVolumeAttachment(
 	return volumeAttachment, nil
 }
 
-func (s *StorageProvisionerAPI) oneVolumeBlockDevice(
+func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 	id params.MachineStorageId, canAccess func(names.MachineTag, names.Tag) bool,
 ) (state.BlockDeviceInfo, error) {
 	volumeAttachment, err := s.oneVolumeAttachment(id, canAccess)
@@ -929,7 +1051,7 @@ func (s *StorageProvisionerAPI) oneVolumeBlockDevice(
 	return *blockDevice, nil
 }
 
-func (s *StorageProvisionerAPI) oneFilesystemAttachment(
+func (s *StorageProvisionerAPIv3) oneFilesystemAttachment(
 	id params.MachineStorageId, canAccess func(names.MachineTag, names.Tag) bool,
 ) (state.FilesystemAttachment, error) {
 	machineTag, err := names.ParseMachineTag(id.MachineTag)
@@ -953,7 +1075,7 @@ func (s *StorageProvisionerAPI) oneFilesystemAttachment(
 }
 
 // SetVolumeInfo records the details of newly provisioned volumes.
-func (s *StorageProvisionerAPI) SetVolumeInfo(args params.Volumes) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPIv3) SetVolumeInfo(args params.Volumes) (params.ErrorResults, error) {
 	canAccessVolume, err := s.getStorageEntityAuthFunc()
 	if err != nil {
 		return params.ErrorResults{}, err
@@ -982,7 +1104,7 @@ func (s *StorageProvisionerAPI) SetVolumeInfo(args params.Volumes) (params.Error
 }
 
 // SetFilesystemInfo records the details of newly provisioned filesystems.
-func (s *StorageProvisionerAPI) SetFilesystemInfo(args params.Filesystems) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPIv3) SetFilesystemInfo(args params.Filesystems) (params.ErrorResults, error) {
 	canAccessFilesystem, err := s.getStorageEntityAuthFunc()
 	if err != nil {
 		return params.ErrorResults{}, err
@@ -1012,7 +1134,7 @@ func (s *StorageProvisionerAPI) SetFilesystemInfo(args params.Filesystems) (para
 
 // SetVolumeAttachmentInfo records the details of newly provisioned volume
 // attachments.
-func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
+func (s *StorageProvisionerAPIv3) SetVolumeAttachmentInfo(
 	args params.VolumeAttachments,
 ) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
@@ -1045,7 +1167,7 @@ func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
 
 // SetFilesystemAttachmentInfo records the details of newly provisioned filesystem
 // attachments.
-func (s *StorageProvisionerAPI) SetFilesystemAttachmentInfo(
+func (s *StorageProvisionerAPIv3) SetFilesystemAttachmentInfo(
 	args params.FilesystemAttachments,
 ) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
@@ -1078,7 +1200,7 @@ func (s *StorageProvisionerAPI) SetFilesystemAttachmentInfo(
 
 // AttachmentLife returns the lifecycle state of each specified machine
 // storage attachment.
-func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (params.LifeResults, error) {
+func (s *StorageProvisionerAPIv3) AttachmentLife(args params.MachineStorageIds) (params.LifeResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
 	if err != nil {
 		return params.LifeResults{}, err
@@ -1122,7 +1244,7 @@ func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (p
 }
 
 // Remove removes volumes and filesystems from state.
-func (s *StorageProvisionerAPI) Remove(args params.Entities) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPIv3) Remove(args params.Entities) (params.ErrorResults, error) {
 	canAccess, err := s.getStorageEntityAuthFunc()
 	if err != nil {
 		return params.ErrorResults{}, err
@@ -1158,7 +1280,7 @@ func (s *StorageProvisionerAPI) Remove(args params.Entities) (params.ErrorResult
 
 // RemoveAttachments removes the specified machine storage attachments
 // from state.
-func (s *StorageProvisionerAPI) RemoveAttachment(args params.MachineStorageIds) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPIv3) RemoveAttachment(args params.MachineStorageIds) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()
 	if err != nil {
 		return params.ErrorResults{}, err

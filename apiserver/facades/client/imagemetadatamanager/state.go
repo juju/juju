@@ -1,17 +1,17 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package imagemetadata
+package imagemetadatamanager
 
 import (
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
-type metadataAcess interface {
+type metadataAccess interface {
 	FindMetadata(cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 	SaveMetadata([]cloudimagemetadata.Metadata) error
 	DeleteMetadata(imageId string) error
@@ -23,7 +23,7 @@ type Model interface {
 	CloudRegion() string
 }
 
-var getState = func(st *state.State) metadataAcess {
+var getState = func(st *state.State) metadataAccess {
 	return stateShim{st}
 }
 

@@ -127,6 +127,11 @@ func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (str
 	return "token-" + entity.String(), nil
 }
 
+func (st *mockState) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+	st.MethodCall(st, "SaveMacaroon", entity, mac.Id())
+	return st.NextErr()
+}
+
 func (st *mockState) KeyRelation(key string) (common.Relation, error) {
 	st.MethodCall(st, "KeyRelation", key)
 	if err := st.NextErr(); err != nil {
