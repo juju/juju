@@ -5,6 +5,7 @@ package worker
 
 import (
 	"errors"
+	"math/rand"
 	"time"
 
 	"gopkg.in/juju/worker.v1"
@@ -16,8 +17,20 @@ import (
 // and that the function was able to stop cleanly
 var ErrKilled = errors.New("worker killed")
 
+// PeriodicWorkerOption is an optional parameter of the NewPeriodicWorker function and can be
+// used to set optional parameters of the new periodic worker.
+type PeriodicWorkerOption func(w *periodicWorker)
+
+// Jitter will introduce a jitter in the worker's period by the specified amount (as percents - i.e. between 0 and 1).
+func Jitter(amount float64) PeriodicWorkerOption {
+	return func(w *periodicWorker) {
+		w.jitter = amount
+	}
+}
+
 // periodicWorker implements the worker returned by NewPeriodicWorker.
 type periodicWorker struct {
+	jitter   float64
 	tomb     tomb.Tomb
 	newTimer NewTimerFunc
 }
@@ -68,8 +81,11 @@ func NewTimer(d time.Duration) PeriodicTimer {
 // sleeping for sleepDuration in between each call, until Kill() is called
 // The stopCh argument will be closed when the worker is killed. The error returned
 // by the doWork function will be returned by the worker's Wait function.
-func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration, timerFunc NewTimerFunc) worker.Worker {
+func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration, timerFunc NewTimerFunc, options ...PeriodicWorkerOption) worker.Worker {
 	w := &periodicWorker{newTimer: timerFunc}
+	for _, option := range options {
+		option(w)
+	}
 	go func() {
 		defer w.tomb.Done()
 		w.tomb.Kill(w.run(call, period))
@@ -92,8 +108,20 @@ func (w *periodicWorker) run(call PeriodicWorkerCall, period time.Duration) erro
 				return err
 			}
 		}
-		timer.Reset(period)
+		timer.Reset(nextPeriod(period, w.jitter))
 	}
+}
+
+var nextPeriod = func(period time.Duration, jitter float64) time.Duration {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	p := period
+	if jitter != 0 {
+		lower := (1.0 - jitter) * float64(period)
+		window := (2.0 * jitter) * float64(period)
+		offset := float64(r.Int63n(int64(window)))
+		p = time.Duration(lower + offset)
+	}
+	return p
 }
 
 // Kill implements Worker.Kill() and will close the channel given to the doWork
