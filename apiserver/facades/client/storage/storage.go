@@ -763,7 +763,9 @@ func (a *APIv3) Destroy(args params.Entities) (params.ErrorResults, error) {
 }
 
 // Destroy sets the specified storage entities to Dying, unless they are
-// already Dying or Dead.
+// already Dying or Dead, such that the storage will eventually be removed
+// from the model. If the arguments specify that the storage should be
+// *released*, then it will be removed from the model non-destructively.
 func (a *APIv4) Destroy(args params.DestroyStorage) (params.ErrorResults, error) {
 	return a.destroy(args)
 }
@@ -785,8 +787,12 @@ func (a *APIv3) destroy(args params.DestroyStorage) (params.ErrorResults, error)
 			result[i].Error = common.ServerError(err)
 			continue
 		}
+		destroy := a.storage.DestroyStorageInstance
+		if arg.ReleaseStorage {
+			destroy = a.storage.ReleaseStorageInstance
+		}
 		result[i].Error = common.ServerError(
-			a.storage.DestroyStorageInstance(tag, arg.DestroyAttached),
+			destroy(tag, arg.DestroyAttached),
 		)
 	}
 	return params.ErrorResults{result}, nil

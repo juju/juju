@@ -64,6 +64,7 @@ type mockState struct {
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	destroyStorageInstance              func(names.StorageTag, bool) error
+	releaseStorageInstance              func(names.StorageTag, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
 	detachStorage                       func(names.StorageTag, names.UnitTag) error
 	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
@@ -186,6 +187,10 @@ func (st *mockState) DetachStorage(storage names.StorageTag, unit names.UnitTag)
 
 func (st *mockState) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool) error {
 	return st.destroyStorageInstance(tag, destroyAttached)
+}
+
+func (st *mockState) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool) error {
+	return st.releaseStorageInstance(tag, destroyAttached)
 }
 
 func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {

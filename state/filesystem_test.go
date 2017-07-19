@@ -604,6 +604,29 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 	c.Assert(v.Life(), gc.Equals, state.Alive)
 }
 
+func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemReleasing(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystem.Releasing(), jc.IsFalse)
+	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), state.FilesystemInfo{FilesystemId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.ReleaseStorageInstance(storageTag, true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The filesystem should should be dying, and releasing.
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(filesystem.Life(), gc.Equals, state.Dying)
+	c.Assert(filesystem.Releasing(), jc.IsTrue)
+}
+
 func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoFilesystemNotProvisioned(c *gc.C) {
 	_, filesystemAttachment, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "rootfs", false)
 	err := s.State.SetFilesystemAttachmentInfo(

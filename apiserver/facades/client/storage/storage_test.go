@@ -330,12 +330,14 @@ func (s *storageSuite) TestDestroy(c *gc.C) {
 	results, err := s.api.Destroy(params.DestroyStorage{[]params.DestroyStorageInstance{
 		{Tag: "storage-foo-0"},
 		{Tag: "storage-foo-1", DestroyAttached: true},
+		{Tag: "storage-foo-1", DestroyAttached: true, ReleaseStorage: true},
 		{Tag: "volume-0"},
 		{Tag: "filesystem-1-2"},
 		{Tag: "machine-0"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: "cannae do it"}},
 		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
@@ -347,9 +349,11 @@ func (s *storageSuite) TestDestroy(c *gc.C) {
 		getBlockForTypeCall, // Change
 		destroyStorageInstanceCall,
 		destroyStorageInstanceCall,
+		releaseStorageInstanceCall,
 	)
 	s.stub.CheckCall(c, 2, destroyStorageInstanceCall, names.NewStorageTag("foo/0"), false)
 	s.stub.CheckCall(c, 3, destroyStorageInstanceCall, names.NewStorageTag("foo/1"), true)
+	s.stub.CheckCall(c, 4, releaseStorageInstanceCall, names.NewStorageTag("foo/1"), true)
 }
 
 func (s *storageSuite) TestDestroyV3(c *gc.C) {
