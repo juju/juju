@@ -342,6 +342,11 @@ func (v *azureVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) 
 	return results, nil
 }
 
+// ReleaseVolumes is specified on the storage.VolumeSource interface.
+func (v *azureVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+	return nil, errors.NotImplementedf("ReleaseVolumes")
+}
+
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	if mibToGib(params.Size) > volumeSizeMaxGiB {

@@ -179,8 +179,9 @@ func (c *Client) Attach(unitId string, storageIds []string) ([]params.ErrorResul
 	return out.Results, nil
 }
 
-// Destroy destroys specified storage entities.
-func (c *Client) Destroy(storageIds []string, destroyAttached bool) ([]params.ErrorResult, error) {
+// Remove removes the specified storage entities from the model,
+// optionally destroying them.
+func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage bool) ([]params.ErrorResult, error) {
 	for _, id := range storageIds {
 		if !names.IsValidStorage(id) {
 			return nil, errors.NotValidf("storage ID %q", id)
@@ -188,7 +189,11 @@ func (c *Client) Destroy(storageIds []string, destroyAttached bool) ([]params.Er
 	}
 	results := params.ErrorResults{}
 	var args interface{}
+	var method string
 	if c.BestAPIVersion() <= 3 {
+		if !destroyStorage {
+			return nil, errors.Errorf("this juju controller does not support non-destructive removal of storage")
+		}
 		// In version 3, destroyAttached is ignored; removing
 		// storage always causes detachment.
 		entities := make([]params.Entity, len(storageIds))
@@ -196,17 +201,20 @@ func (c *Client) Destroy(storageIds []string, destroyAttached bool) ([]params.Er
 			entities[i].Tag = names.NewStorageTag(id).String()
 		}
 		args = params.Entities{entities}
+		method = "Destroy"
 	} else {
-		storage := make([]params.DestroyStorageInstance, len(storageIds))
+		storage := make([]params.RemoveStorageInstance, len(storageIds))
 		for i, id := range storageIds {
-			storage[i] = params.DestroyStorageInstance{
-				Tag:             names.NewStorageTag(id).String(),
-				DestroyAttached: destroyAttached,
+			storage[i] = params.RemoveStorageInstance{
+				Tag:                names.NewStorageTag(id).String(),
+				DestroyAttachments: destroyAttachments,
+				DestroyStorage:     destroyStorage,
 			}
 		}
-		args = params.DestroyStorage{storage}
+		args = params.RemoveStorage{storage}
+		method = "Remove"
 	}
-	if err := c.facade.FacadeCall("Destroy", args, &results); err != nil {
+	if err := c.facade.FacadeCall(method, args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {

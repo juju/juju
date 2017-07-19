@@ -189,15 +189,24 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 	return nil
 }
 
-// destroyVolumes destroys volumes with the specified parameters.
-func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) error {
+// removeVolumes destroys or releases volumes with the specified parameters.
+func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error {
 	tags := make([]names.VolumeTag, 0, len(ops))
 	for tag := range ops {
 		tags = append(tags, tag)
 	}
-	volumeParams, err := volumeParams(ctx, tags)
+	removeVolumeParams, err := removeVolumeParams(ctx, tags)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	volumeParams := make([]storage.VolumeParams, len(tags))
+	removeVolumeParamsByTag := make(map[names.VolumeTag]params.RemoveVolumeParams)
+	for i, args := range removeVolumeParams {
+		removeVolumeParamsByTag[tags[i]] = args
+		volumeParams[i] = storage.VolumeParams{
+			Tag:      tags[i],
+			Provider: storage.ProviderType(args.Provider),
+		}
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
 		ctx.config.StorageDir, volumeParams, ctx.config.Registry,
@@ -208,53 +217,49 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 	var remove []names.Tag
 	var reschedule []scheduleOp
 	var statuses []params.EntityStatusArgs
-	for sourceName, volumeParams := range paramsBySource {
-		logger.Debugf("destroying volumes from %q: %v", sourceName, volumeParams)
-		volumeSource := volumeSources[sourceName]
-		validVolumeParams, validationErrors := validateVolumeParams(volumeSource, volumeParams)
-		for i, err := range validationErrors {
-			if err == nil {
-				continue
-			}
-			statuses = append(statuses, params.EntityStatusArgs{
-				Tag:    volumeParams[i].Tag.String(),
-				Status: status.Error.String(),
-				Info:   err.Error(),
-			})
-			logger.Debugf(
-				"failed to validate parameters for %s: %v",
-				names.ReadableString(volumeParams[i].Tag), err,
-			)
+	removeVolumes := func(tags []names.VolumeTag, ids []string, f func([]string) ([]error, error)) error {
+		if len(ids) == 0 {
+			return nil
 		}
-		volumeParams = validVolumeParams
-		if len(volumeParams) == 0 {
-			continue
-		}
-		volumeIds := make([]string, len(volumeParams))
-		for i, volumeParams := range volumeParams {
-			volume, ok := ctx.volumes[volumeParams.Tag]
-			if !ok {
-				return errors.NotFoundf("volume %s", volumeParams.Tag.Id())
-			}
-			volumeIds[i] = volume.VolumeId
-		}
-		errs, err := volumeSource.DestroyVolumes(volumeIds)
+		errs, err := f(ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		for i, err := range errs {
-			tag := volumeParams[i].Tag
+			tag := tags[i]
 			if err == nil {
 				remove = append(remove, tag)
 				continue
 			}
-			// Failed to destroy volume; reschedule and update status.
+			// Failed to destroy or release volume; reschedule and update status.
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
 				Status: status.Destroying.String(),
 				Info:   err.Error(),
 			})
+		}
+		return nil
+	}
+	for sourceName, volumeParams := range paramsBySource {
+		logger.Debugf("removing volumes from %q: %v", sourceName, volumeParams)
+		volumeSource := volumeSources[sourceName]
+		removeTags := make([]names.VolumeTag, len(volumeParams))
+		removeParams := make([]params.RemoveVolumeParams, len(volumeParams))
+		for i, args := range volumeParams {
+			removeTags[i] = args.Tag
+			removeParams[i] = removeVolumeParamsByTag[args.Tag]
+		}
+		destroyTags, destroyIds, releaseTags, releaseIds := partitionRemoveVolumeParams(removeTags, removeParams)
+		if err := removeVolumes(destroyTags, destroyIds, volumeSource.DestroyVolumes); err != nil {
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if err := removeVolumes(releaseTags, releaseIds, volumeSource.ReleaseVolumes); err != nil {
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	scheduleOperations(ctx, reschedule...)
@@ -263,6 +268,27 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 		return errors.Annotate(err, "removing volumes from state")
 	}
 	return nil
+}
+
+func partitionRemoveVolumeParams(removeTags []names.VolumeTag, removeParams []params.RemoveVolumeParams) (
+	destroyTags []names.VolumeTag, destroyIds []string,
+	releaseTags []names.VolumeTag, releaseIds []string,
+) {
+	destroyTags = make([]names.VolumeTag, 0, len(removeParams))
+	destroyIds = make([]string, 0, len(removeParams))
+	releaseTags = make([]names.VolumeTag, 0, len(removeParams))
+	releaseIds = make([]string, 0, len(removeParams))
+	for i, args := range removeParams {
+		tag := removeTags[i]
+		if args.Destroy {
+			destroyTags = append(destroyTags, tag)
+			destroyIds = append(destroyIds, args.VolumeId)
+		} else {
+			releaseTags = append(releaseTags, tag)
+			releaseIds = append(releaseIds, args.VolumeId)
+		}
+	}
+	return
 }
 
 // detachVolumes destroys volume attachments with the specified parameters.
@@ -463,12 +489,12 @@ func (op *createVolumeOp) key() interface{} {
 	return op.args.Tag
 }
 
-type destroyVolumeOp struct {
+type removeVolumeOp struct {
 	exponentialBackoff
 	tag names.VolumeTag
 }
 
-func (op *destroyVolumeOp) key() interface{} {
+func (op *removeVolumeOp) key() interface{} {
 	return op.tag
 }
 

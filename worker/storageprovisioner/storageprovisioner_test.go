@@ -502,9 +502,8 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
 func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
-	volumeAccessor.provisionedVolumes["volume-3"] = params.Volume{VolumeTag: "volume-3"}
-	volumeAccessor.provisionedVolumes["volume-4"] = params.Volume{
-		VolumeTag: "volume-4",
+	volumeAccessor.provisionedVolumes["volume-3"] = params.Volume{
+		VolumeTag: "volume-3",
 		Info:      params.VolumeInfo{VolumeId: "vol-ume"},
 	}
 
@@ -524,7 +523,7 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 		results := make([]params.LifeResult, len(tags))
 		for i := range results {
 			switch tags[i].String() {
-			case "volume-3", "volume-4":
+			case "volume-3":
 				results[i].Life = params.Dead
 			default:
 				results[i].Life = params.Alive
@@ -579,22 +578,16 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 	c.Assert(createVolumeParams[0].Tag.String(), gc.Equals, "volume-2")
 	c.Assert(validateCalls, gc.Equals, 2)
 
+	// destroying filesystems does not validate parameters
 	volumeAccessor.volumesWatcher.changes <- []string{"3"}
-	waitChannel(c, validated, "waiting for volume parameter validation")
-	assertNoEvent(c, destroyedVolumes, "volume destroyed")
-	c.Assert(validateCalls, gc.Equals, 3)
-
-	// Failure to destroy volume-3 should not block creation of volume-4.
-	volumeAccessor.volumesWatcher.changes <- []string{"4"}
-	waitChannel(c, validated, "waiting for volume parameter validation")
+	assertNoEvent(c, validated, "volume destruction params validated")
 	destroyVolumeParams := waitChannel(c, destroyedVolumes, "volume destroyed").([]string)
 	c.Assert(destroyVolumeParams, jc.DeepEquals, []string{"vol-ume"})
-	c.Assert(validateCalls, gc.Equals, 4)
+	c.Assert(validateCalls, gc.Equals, 2) // no change
 
 	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
 		{Tag: "volume-1", Status: "error", Info: "something is wrong"},
 		{Tag: "volume-2", Status: "attaching"},
-		{Tag: "volume-3", Status: "error", Info: "something is wrong"},
 		// destroyed volumes are removed immediately,
 		// so there is no status update.
 	})
@@ -603,9 +596,8 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
 	filesystemAccessor := newMockFilesystemAccessor()
 	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
-	filesystemAccessor.provisionedFilesystems["filesystem-3"] = params.Filesystem{FilesystemTag: "filesystem-3"}
-	filesystemAccessor.provisionedFilesystems["filesystem-4"] = params.Filesystem{
-		FilesystemTag: "filesystem-4",
+	filesystemAccessor.provisionedFilesystems["filesystem-3"] = params.Filesystem{
+		FilesystemTag: "filesystem-3",
 		Info:          params.FilesystemInfo{FilesystemId: "fs-id"},
 	}
 
@@ -625,7 +617,7 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
 		results := make([]params.LifeResult, len(tags))
 		for i := range results {
 			switch tags[i].String() {
-			case "filesystem-3", "filesystem-4":
+			case "filesystem-3":
 				results[i].Life = params.Dead
 			default:
 				results[i].Life = params.Alive
@@ -680,22 +672,16 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
 	c.Assert(createFilesystemParams[0].Tag.String(), gc.Equals, "filesystem-2")
 	c.Assert(validateCalls, gc.Equals, 2)
 
+	// destroying filesystems does not validate parameters
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"3"}
-	waitChannel(c, validated, "waiting for filesystem parameter validation")
-	assertNoEvent(c, destroyedFilesystems, "filesystem destroyed")
-	c.Assert(validateCalls, gc.Equals, 3)
-
-	// Failure to destroy filesystem-3 should not block creation of filesystem-4.
-	filesystemAccessor.filesystemsWatcher.changes <- []string{"4"}
-	waitChannel(c, validated, "waiting for filesystem parameter validation")
+	assertNoEvent(c, validated, "filesystem destruction params validated")
 	destroyFilesystemParams := waitChannel(c, destroyedFilesystems, "filesystem destroyed").([]string)
 	c.Assert(destroyFilesystemParams, jc.DeepEquals, []string{"fs-id"})
-	c.Assert(validateCalls, gc.Equals, 4)
+	c.Assert(validateCalls, gc.Equals, 2) // no change
 
 	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
 		{Tag: "filesystem-1", Status: "error", Info: "something is wrong"},
 		{Tag: "filesystem-2", Status: "attaching"},
-		{Tag: "filesystem-3", Status: "error", Info: "something is wrong"},
 		// destroyed filesystems are removed immediately,
 		// so there is no status update.
 	})
@@ -1515,11 +1501,13 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
-	provisionedVolume := names.NewVolumeTag("1")
-	unprovisionedVolume := names.NewVolumeTag("2")
+	unprovisionedVolume := names.NewVolumeTag("0")
+	provisionedDestroyVolume := names.NewVolumeTag("1")
+	provisionedReleaseVolume := names.NewVolumeTag("2")
 
 	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionVolume(provisionedVolume)
+	volumeAccessor.provisionVolume(provisionedDestroyVolume)
+	volumeAccessor.provisionVolume(provisionedReleaseVolume)
 
 	life := func(tags []names.Tag) ([]params.LifeResult, error) {
 		results := make([]params.LifeResult, len(tags))
@@ -1532,6 +1520,12 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 	destroyedChan := make(chan interface{}, 1)
 	s.provider.destroyVolumesFunc = func(volumeIds []string) ([]error, error) {
 		destroyedChan <- volumeIds
+		return make([]error, len(volumeIds)), nil
+	}
+
+	releasedChan := make(chan interface{}, 1)
+	s.provider.releaseVolumesFunc = func(volumeIds []string) ([]error, error) {
+		releasedChan <- volumeIds
 		return make([]error, len(volumeIds)), nil
 	}
 
@@ -1554,23 +1548,32 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 	defer worker.Kill()
 
 	volumeAccessor.volumesWatcher.changes <- []string{
-		provisionedVolume.Id(),
 		unprovisionedVolume.Id(),
+		provisionedDestroyVolume.Id(),
+		provisionedReleaseVolume.Id(),
 	}
 
-	// Both volumes should be removed; the provisioned one
-	// should be deprovisioned first.
+	// All volumes should be removed; the provisioned ones
+	// should be destroyed/released first.
 
-	destroyed := waitChannel(c, destroyedChan, "waiting for volume to be deprovisioned")
-	assertNoEvent(c, destroyedChan, "volumes deprovisioned")
+	destroyed := waitChannel(c, destroyedChan, "waiting for volume to be destroyed")
+	assertNoEvent(c, destroyedChan, "volumes destroyed")
 	c.Assert(destroyed, jc.DeepEquals, []string{"vol-1"})
 
+	released := waitChannel(c, releasedChan, "waiting for volume to be released")
+	assertNoEvent(c, releasedChan, "volumes released")
+	c.Assert(released, jc.DeepEquals, []string{"vol-2"})
+
 	var removed []names.Tag
-	for len(removed) < 2 {
+	for len(removed) < 3 {
 		tags := waitChannel(c, removedChan, "waiting for volumes to be removed").([]names.Tag)
 		removed = append(removed, tags...)
 	}
-	c.Assert(removed, jc.SameContents, []names.Tag{provisionedVolume, unprovisionedVolume})
+	c.Assert(removed, jc.SameContents, []names.Tag{
+		unprovisionedVolume,
+		provisionedDestroyVolume,
+		provisionedReleaseVolume,
+	})
 	assertNoEvent(c, removedChan, "volumes removed")
 }
 
@@ -1652,11 +1655,13 @@ func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
-	provisionedFilesystem := names.NewFilesystemTag("1")
-	unprovisionedFilesystem := names.NewFilesystemTag("2")
+	unprovisionedFilesystem := names.NewFilesystemTag("0")
+	provisionedDestroyFilesystem := names.NewFilesystemTag("1")
+	provisionedReleaseFilesystem := names.NewFilesystemTag("2")
 
 	filesystemAccessor := newMockFilesystemAccessor()
-	filesystemAccessor.provisionFilesystem(provisionedFilesystem)
+	filesystemAccessor.provisionFilesystem(provisionedDestroyFilesystem)
+	filesystemAccessor.provisionFilesystem(provisionedReleaseFilesystem)
 
 	life := func(tags []names.Tag) ([]params.LifeResult, error) {
 		results := make([]params.LifeResult, len(tags))
@@ -1664,6 +1669,18 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 			results[i].Life = params.Dead
 		}
 		return results, nil
+	}
+
+	destroyedChan := make(chan interface{}, 1)
+	s.provider.destroyFilesystemsFunc = func(filesystemIds []string) ([]error, error) {
+		destroyedChan <- filesystemIds
+		return make([]error, len(filesystemIds)), nil
+	}
+
+	releasedChan := make(chan interface{}, 1)
+	s.provider.releaseFilesystemsFunc = func(filesystemIds []string) ([]error, error) {
+		releasedChan <- filesystemIds
+		return make([]error, len(filesystemIds)), nil
 	}
 
 	removedChan := make(chan interface{}, 1)
@@ -1685,20 +1702,32 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 	defer worker.Kill()
 
 	filesystemAccessor.filesystemsWatcher.changes <- []string{
-		provisionedFilesystem.Id(),
 		unprovisionedFilesystem.Id(),
+		provisionedDestroyFilesystem.Id(),
+		provisionedReleaseFilesystem.Id(),
 	}
 
-	// Both filesystems should be removed; the provisioned one
-	// *should* be deprovisioned first, but we don't currently
-	// have the ability to do so via the storage provider API.
+	// Both filesystems should be removed; the provisioned ones
+	// should be destroyed/released first.
+
+	destroyed := waitChannel(c, destroyedChan, "waiting for filesystem to be destroyed")
+	assertNoEvent(c, destroyedChan, "filesystems destroyed")
+	c.Assert(destroyed, jc.DeepEquals, []string{"fs-1"})
+
+	released := waitChannel(c, releasedChan, "waiting for filesystem to be released")
+	assertNoEvent(c, releasedChan, "filesystems released")
+	c.Assert(released, jc.DeepEquals, []string{"fs-2"})
 
 	var removed []names.Tag
-	for len(removed) < 2 {
+	for len(removed) < 3 {
 		tags := waitChannel(c, removedChan, "waiting for filesystems to be removed").([]names.Tag)
 		removed = append(removed, tags...)
 	}
-	c.Assert(removed, jc.SameContents, []names.Tag{provisionedFilesystem, unprovisionedFilesystem})
+	c.Assert(removed, jc.SameContents, []names.Tag{
+		unprovisionedFilesystem,
+		provisionedDestroyFilesystem,
+		provisionedReleaseFilesystem,
+	})
 	assertNoEvent(c, removedChan, "filesystems removed")
 }
 

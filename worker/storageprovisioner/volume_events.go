@@ -193,7 +193,7 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 	if len(destroy) > 0 {
 		ops := make([]scheduleOp, len(destroy))
 		for i, tag := range destroy {
-			ops[i] = &destroyVolumeOp{tag: tag}
+			ops[i] = &removeVolumeOp{tag: tag}
 		}
 		scheduleOperations(ctx, ops...)
 	}
@@ -378,6 +378,22 @@ func volumeParams(ctx *context, tags []names.VolumeTag) ([]storage.VolumeParams,
 			return nil, errors.Annotate(err, "getting volume parameters")
 		}
 		allParams[i] = params
+	}
+	return allParams, nil
+}
+
+// removeVolumeParams obtains the specified volumes' destruction parameters.
+func removeVolumeParams(ctx *context, tags []names.VolumeTag) ([]params.RemoveVolumeParams, error) {
+	paramsResults, err := ctx.config.Volumes.RemoveVolumeParams(tags)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting volume params")
+	}
+	allParams := make([]params.RemoveVolumeParams, len(tags))
+	for i, result := range paramsResults {
+		if result.Error != nil {
+			return nil, errors.Annotate(result.Error, "getting volume removal parameters")
+		}
+		allParams[i] = result.Result
 	}
 	return allParams, nil
 }

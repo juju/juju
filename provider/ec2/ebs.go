@@ -445,17 +445,22 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
-	return destroyVolumes(v.env.ec2, volIds), nil
+	return foreachVolume(v.env.ec2, volIds, destroyVolume), nil
 }
 
-func destroyVolumes(client *ec2.EC2, volIds []string) []error {
+// ReleaseVolumes is specified on the storage.VolumeSource interface.
+func (v *ebsVolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
+	return foreachVolume(v.env.ec2, volIds, releaseVolume), nil
+}
+
+func foreachVolume(client *ec2.EC2, volIds []string, f func(*ec2.EC2, string) error) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volIds))
 	results := make([]error, len(volIds))
 	for i, volumeId := range volIds {
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			results[i] = destroyVolume(client, volumeId)
+			results[i] = f(client, volumeId)
 		}(i, volumeId)
 	}
 	wg.Wait()
@@ -482,6 +487,7 @@ func destroyVolume(client *ec2.EC2, volumeId string) (err error) {
 	}()
 
 	logger.Debugf("destroying %q", volumeId)
+
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
 	// in the process of being terminated.
@@ -569,10 +575,41 @@ func destroyVolume(client *ec2.EC2, volumeId string) (err error) {
 		// nothing more to do.
 		return nil
 	}
-	if _, err := client.DeleteVolume(volumeId); err != nil {
-		return errors.Annotatef(err, "destroying %q", volumeId)
+	_, err = client.DeleteVolume(volumeId)
+	return errors.Annotatef(err, "destroying %q", volumeId)
+}
+
+func releaseVolume(client *ec2.EC2, volumeId string) error {
+	logger.Debugf("releasing %q", volumeId)
+	_, err := waitVolume(client, volumeId, destroyVolumeAttempt, func(volume *ec2.Volume) (bool, error) {
+		if volume.Status == volumeStatusAvailable {
+			return true, nil
+		}
+		for _, a := range volume.Attachments {
+			if a.DeleteOnTermination {
+				return false, errors.New("delete-on-termination flag is set")
+			}
+			switch a.Status {
+			case attachmentStatusAttaching, attachmentStatusAttached:
+				return false, errors.New("attachments still active")
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		if err == errWaitVolumeTimeout {
+			return errors.Errorf("timed out waiting for volume %v to become available", volumeId)
+		}
+		return errors.Annotatef(err, "cannot release volume %q", volumeId)
 	}
-	return nil
+	// Releasing the volume just means dropping the
+	// tags that associate it with the model and
+	// controller.
+	tags := map[string]string{
+		tags.JujuModel:      "",
+		tags.JujuController: "",
+	}
+	return errors.Annotate(tagResources(client, tags, volumeId), "tagging volume")
 }
 
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.

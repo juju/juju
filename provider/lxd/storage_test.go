@@ -184,6 +184,63 @@ func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	})
 }
 
+func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
+	s.Stub.SetErrors(nil, nil, nil, errors.New("boom"))
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"foo": []api.StorageVolume{{
+			StorageVolumePut: api.StorageVolumePut{
+				Name: "filesystem-0",
+				Config: map[string]string{
+					"foo": "bar",
+					"user.juju-model-uuid": "baz",
+				},
+			},
+		}, {
+			StorageVolumePut: api.StorageVolumePut{
+				Name: "filesystem-1",
+				Config: map[string]string{
+					"user.juju-controller-uuid": "qux",
+					"user.juju-model-uuid":      "quux",
+				},
+			},
+		}},
+	}
+
+	source := s.filesystemSource(c, "source")
+	results, err := source.ReleaseFilesystems([]string{
+		"filesystem-0",
+		"foo:filesystem-0",
+		"foo:filesystem-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results[0], gc.ErrorMatches, `invalid filesystem ID "filesystem-0"; expected ID in format <lxd-pool>:<volume-name>`)
+	c.Assert(results[1], jc.ErrorIsNil)
+	c.Assert(results[2], gc.ErrorMatches, `removing tags from volume "filesystem-1" in pool "foo": boom`)
+
+	update0 := api.StorageVolume{
+		StorageVolumePut: api.StorageVolumePut{
+			Name: "filesystem-0",
+			Config: map[string]string{
+				"foo": "bar",
+			},
+		},
+	}
+	update1 := api.StorageVolume{
+		StorageVolumePut: api.StorageVolumePut{
+			Name:   "filesystem-1",
+			Config: map[string]string{},
+		},
+	}
+
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"Volume", []interface{}{"foo", "filesystem-0"}},
+		{"VolumeUpdate", []interface{}{"foo", "filesystem-0", update0}},
+		{"Volume", []interface{}{"foo", "filesystem-1"}},
+		{"VolumeUpdate", []interface{}{"foo", "filesystem-1", update1}},
+	})
+}
+
 func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 	raw := s.NewRawInstance(c, "inst-0")
 	raw.Devices = map[string]map[string]string{

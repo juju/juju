@@ -413,12 +413,12 @@ func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
-func (s *provisionerSuite) TestDestroyVolumeParams(c *gc.C) {
+func (s *provisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	s.setupVolumes(c)
 
 	// Deploy an application that will create a storage instance,
 	// so we can release the storage and show the effects on the
-	// DestroyVolumeParams.
+	// RemoveVolumeParams.
 	application := s.factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.factory.MakeCharm(c, &factory.CharmParams{
 			Name: "storage-block",
@@ -473,7 +473,7 @@ func (s *provisionerSuite) TestDestroyVolumeParams(c *gc.C) {
 	err = s.State.RemoveVolumeAttachment(unitMachineTag, storageVolume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.DestroyVolumeParams(params.Entities{
+	results, err := s.api.RemoveVolumeParams(params.Entities{
 		Entities: []params.Entity{
 			{"volume-0-0"},
 			{storageVolume.Tag().String()},
@@ -483,17 +483,18 @@ func (s *provisionerSuite) TestDestroyVolumeParams(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyVolumeParamsResults{
-		Results: []params.DestroyVolumeParamsResult{{
-			Result: params.DestroyVolumeParams{
+	c.Assert(results, jc.DeepEquals, params.RemoveVolumeParamsResults{
+		Results: []params.RemoveVolumeParamsResult{{
+			Result: params.RemoveVolumeParams{
 				Provider: "machinescoped",
 				VolumeId: "abc",
+				Destroy:  true,
 			},
 		}, {
-			Result: params.DestroyVolumeParams{
+			Result: params.RemoveVolumeParams{
 				Provider: "modelscoped",
 				VolumeId: "zing",
-				Release:  true,
+				Destroy:  false,
 			},
 		}, {
 			Error: &params.Error{Message: `volume 1 is not dead (alive)`},
@@ -536,12 +537,12 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestDestroyFilesystemParams(c *gc.C) {
+func (s *provisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	s.setupFilesystems(c)
 
 	// Deploy an application that will create a storage instance,
 	// so we can release the storage and show the effects on the
-	// DestroyFilesystemParams.
+	// RemoveFilesystemParams.
 	application := s.factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.factory.MakeCharm(c, &factory.CharmParams{
 			Name: "storage-filesystem",
@@ -595,7 +596,7 @@ func (s *provisionerSuite) TestDestroyFilesystemParams(c *gc.C) {
 	err = s.State.RemoveFilesystemAttachment(unitMachineTag, storageFilesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.DestroyFilesystemParams(params.Entities{
+	results, err := s.api.RemoveFilesystemParams(params.Entities{
 		Entities: []params.Entity{
 			{"filesystem-0-0"},
 			{storageFilesystem.Tag().String()},
@@ -605,17 +606,18 @@ func (s *provisionerSuite) TestDestroyFilesystemParams(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyFilesystemParamsResults{
-		Results: []params.DestroyFilesystemParamsResult{{
-			Result: params.DestroyFilesystemParams{
+	c.Assert(results, jc.DeepEquals, params.RemoveFilesystemParamsResults{
+		Results: []params.RemoveFilesystemParamsResult{{
+			Result: params.RemoveFilesystemParams{
 				Provider:     "machinescoped",
 				FilesystemId: "abc",
+				Destroy:      true,
 			},
 		}, {
-			Result: params.DestroyFilesystemParams{
+			Result: params.RemoveFilesystemParams{
 				Provider:     "modelscoped",
 				FilesystemId: "zing",
-				Release:      true,
+				Destroy:      false,
 			},
 		}, {
 			Error: &params.Error{Message: `filesystem "1" not provisioned`, Code: "not provisioned"},

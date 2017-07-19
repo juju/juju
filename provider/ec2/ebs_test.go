@@ -338,11 +338,8 @@ func (s *ebsSuite) TestDestroyVolumesNotFoundReturnsNil(c *gc.C) {
 
 func (s *ebsSuite) TestDestroyVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	errs, err := vs.DetachVolumes(params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, jc.DeepEquals, []error{nil})
-	errs, err = vs.DestroyVolumes([]string{"vol-0"})
+	s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	errs, err := vs.DestroyVolumes([]string{"vol-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 
@@ -356,7 +353,9 @@ func (s *ebsSuite) TestDestroyVolumes(c *gc.C) {
 
 func (s *ebsSuite) TestDestroyVolumesStillAttached(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	_, err := vs.AttachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
 	errs, err := vs.DestroyVolumes([]string{"vol-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
@@ -367,6 +366,52 @@ func (s *ebsSuite) TestDestroyVolumesStillAttached(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
+}
+
+func (s *ebsSuite) TestReleaseVolumes(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	errs, err := vs.ReleaseVolumes([]string{"vol-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+
+	ec2Client := ec2.StorageEC2(vs)
+	ec2Vols, err := ec2Client.Volumes([]string{"vol-0"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 1)
+	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
+		{"juju-controller-uuid", ""},
+		{"juju-model-uuid", ""},
+		{"Name", "juju-testenv-volume-0"},
+	})
+}
+
+func (s *ebsSuite) TestReleaseVolumesStillAttached(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	_, err := vs.AttachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+	errs, err := vs.ReleaseVolumes([]string{"vol-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], gc.ErrorMatches, `cannot release volume "vol-0": attachments still active`)
+
+	ec2Client := ec2.StorageEC2(vs)
+	ec2Vols, err := ec2Client.Volumes([]string{"vol-0"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 1)
+	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
+		{"juju-model-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+		{"Name", "juju-testenv-volume-0"},
+	})
+}
+
+func (s *ebsSuite) TestReleaseVolumesNotFound(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	errs, err := vs.ReleaseVolumes([]string{"vol-42"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], gc.ErrorMatches, `cannot release volume "vol-42": vol-42 not found`)
 }
 
 func (s *ebsSuite) TestDescribeVolumes(c *gc.C) {
