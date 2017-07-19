@@ -116,8 +116,9 @@ func (c *AddCaasCommand) Run(ctxt *cmd.Context) error {
 	defer api.Close()
 
 	newCloud := cloud.Cloud{
-		Name: c.CaasName,
-		Type: c.CaasType,
+		Name:      c.CaasName,
+		Type:      c.CaasType,
+		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
