@@ -29,7 +29,7 @@ type CloudV1 interface {
 }
 
 type CloudV2 interface {
-	AddCloud(cloudName string, cloud params.Cloud) error
+	AddCloud(cloudArgs params.AddCloudArgs) error
 }
 
 type CloudAPI struct {
@@ -334,8 +334,8 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 	return results, nil
 }
 
-func (api *CloudAPIV2) AddCloud(cloudName string, cloud params.Cloud) error {
-	err := api.backend.AddCloud(params.CloudFromParams(cloudName, cloud))
+func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
+	err := api.backend.AddCloud(params.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
 	if err != nil {
 		return err
 	}

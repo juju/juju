@@ -25,6 +25,12 @@ type CloudRegion struct {
 	StorageEndpoint  string `json:"storage-endpoint,omitempty"`
 }
 
+// AddCloudArgs holds a cloud to be added with its name
+type AddCloudArgs struct {
+	Cloud Cloud  `json:"cloud"`
+	Name  string `json:"name"`
+}
+
 // CloudResult contains a cloud definition or an error.
 type CloudResult struct {
 	Cloud *Cloud `json:"cloud,omitempty"`

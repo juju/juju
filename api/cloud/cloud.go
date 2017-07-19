@@ -158,7 +158,7 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
 	}
-	args := params.CloudToParams(cloud)
+	args := params.AddCloudArgs{Name: cloud.Name, Cloud: params.CloudToParams(cloud)}
 	err := c.facade.FacadeCall("AddCloud", args, nil)
 	if err != nil {
 		return errors.Trace(err)

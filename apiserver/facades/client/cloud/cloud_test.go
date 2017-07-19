@@ -280,12 +280,14 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 
 func (s *cloudSuite) TestAddCloudInV2(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
-	paramsCloud := params.Cloud{
-		Type:      "fake",
-		AuthTypes: []string{"empty", "userpass"},
-		Endpoint:  "fake-endpoint",
-		Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
-	}
+	paramsCloud := params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:      "fake",
+			AuthTypes: []string{"empty", "userpass"},
+			Endpoint:  "fake-endpoint",
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		}}
 	err := s.apiv2.AddCloud("newcloudname", paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "AddCloud")
