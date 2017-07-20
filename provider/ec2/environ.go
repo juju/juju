@@ -578,13 +578,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			// (we'll just treat this the same way we treat constrained zones
 			// and retry).
 			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
-			logger.Infof(
-				"selected random subnet %q from all matching in zone %q: %v",
-				runArgs.SubnetId, zone, subnetIDsForZone,
-			)
+			logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, zone)
 		case len(subnetIDsForZone) == 1:
 			runArgs.SubnetId = subnetIDsForZone[0]
-			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
+			logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, zone)
 		}
 
 		callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", zone), nil)

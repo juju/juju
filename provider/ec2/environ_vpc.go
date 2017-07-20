@@ -461,11 +461,11 @@ func getVPCSubnetIDsForAvailabilityZone(
 	matchingSubnetIDs := set.NewStrings()
 	for _, subnet := range subnets {
 		if subnet.AvailZone != zoneName {
-			logger.Infof("skipping subnet %q (in VPC %q): not in the chosen AZ %q", subnet.Id, vpcID, zoneName)
+			logger.Debugf("skipping subnet %q (in VPC %q): not in the chosen AZ %q", subnet.Id, vpcID, zoneName)
 			continue
 		}
 		if !allowedSubnets.IsEmpty() && !allowedSubnets.Contains(subnet.Id) {
-			logger.Infof("skipping subnet %q (in VPC %q, AZ %q): not matching spaces constraints", subnet.Id, vpcID, zoneName)
+			logger.Debugf("skipping subnet %q (in VPC %q, AZ %q): not matching spaces constraints", subnet.Id, vpcID, zoneName)
 			continue
 		}
 		matchingSubnetIDs.Add(subnet.Id)
