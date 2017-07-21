@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testing/factory"
@@ -722,6 +723,53 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 	attachment, err := s.State.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
+}
+
+func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
+	app := s.AddTestingService(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	data := "ancient-debris"
+	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
+	resources, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	path := "application-wp/resources/mug"
+	stateStorage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+	closer, _, err := stateStorage.Get(path)
+	c.Assert(err, jc.ErrorIsNil)
+	err = closer.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertCleanupRuns(c)
+
+	_, _, err = stateStorage.Get(path)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
+	app := s.AddTestingService(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	data := "ancient-debris"
+	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
+	resources, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	path := "application-wp/resources/mug"
+	stateStorage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+	err = stateStorage.Remove(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertCleanupRuns(c)
+	// Make sure the cleanup completed successfully.
+	s.assertDoesNotNeedCleanup(c)
 }
 
 func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {
