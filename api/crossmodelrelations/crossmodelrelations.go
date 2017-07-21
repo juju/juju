@@ -108,3 +108,25 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 	}
 	return results.Results, nil
 }
+
+// WatchEgressAddressesForRelation returns a watcher that notifies when addresses,
+// from which connections will originate to the offering side of the relation, change.
+// Each event contains the entire set of addresses which the offering side is required
+// to allow for access to the other side of the relation.
+func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.RemoteRelationArg) (watcher.StringsWatcher, error) {
+	args := params.RemoteRelationArgs{Args: []params.RemoteRelationArg{remoteRelationArg}}
+	var results params.StringsWatchResults
+	err := c.facade.FacadeCall("WatchEgressAddressesForRelations", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}

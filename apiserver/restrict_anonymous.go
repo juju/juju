@@ -16,6 +16,7 @@ import (
 var anonymousFacadeNames = set.NewStrings(
 	"CrossModelRelations",
 	"RelationUnitsWatcher",
+	"StringsWatcher",
 )
 
 func anonymousFacadesOnly(facadeName, _ string) error {

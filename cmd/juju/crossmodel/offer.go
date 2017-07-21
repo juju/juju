@@ -87,9 +87,6 @@ func (c *offerCommand) Init(args []string) error {
 		argCount = 2
 		c.OfferName = args[1]
 	}
-	if c.OfferName == "" {
-		c.OfferName = c.Application
-	}
 	return cmd.CheckEmpty(args[argCount:])
 }
 
@@ -138,6 +135,9 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting model details")
 	}
 
+	if c.OfferName == "" {
+		c.OfferName = c.Application
+	}
 	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
 	results, err := api.Offer(modelDetails.ModelUUID, c.Application, c.Endpoints, c.OfferName, "")
 	if err != nil {

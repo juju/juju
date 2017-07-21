@@ -707,7 +707,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationRequirerRole(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
 	// Set up the consuming model - create the local app.
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Set up the consuming model - create the remote app.
@@ -822,7 +822,88 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRole(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationProviderRole(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C) {
+	// Set up the consuming model - create the local app.
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	// Set up the consuming model - create the remote app.
+	offeringModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	appToken := utils.MustNewUUID().String()
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "wordpress", SourceModel: offeringModelTag,
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "requirer", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Create the external controller info.
+	ec := state.NewExternalControllers(s.State)
+	_, err = ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Addrs:         []string{"1.2.3.4:1234"},
+		CACert:        coretesting.CACert}, offeringModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	mac, err := macaroon.New(nil, "apimac", "")
+	c.Assert(err, jc.ErrorIsNil)
+	watched := make(chan bool)
+	var relToken string
+	callCount := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		switch callCount {
+		case 0:
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(version, gc.Equals, 0)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
+			expected := params.RemoteRelationArgs{
+				Args: []params.RemoteRelationArg{{
+					RemoteEntityId: params.RemoteEntityId{ModelUUID: s.State.ModelUUID(), Token: relToken},
+					Macaroons:      macaroon.Slice{mac},
+				}},
+			}
+			c.Check(arg, gc.DeepEquals, expected)
+			c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+			*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+				Results: []params.StringsWatchResult{{StringsWatcherId: "1"}},
+			}
+			watched <- true
+		default:
+			c.Check(objType, gc.Equals, "StringsWatcher")
+		}
+		callCount++
+		return nil
+	})
+
+	s.crossmodelFirewaller = crossmodelrelations.NewClient(apiCaller)
+	c.Assert(s.crossmodelFirewaller, gc.NotNil)
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Export the relation details so the firewaller knows it's ready to be processed.
+	re := s.State.RemoteEntities()
+	relToken, err = re.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.SaveMacaroon(rel.Tag(), mac)
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.ImportRemoteEntity(offeringModelTag, app.Tag(), appToken)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for watcher call")
+	case <-watched:
+	}
+
+	// Check the relation ready poll time is as expected.
+	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 	// Set up the offering model - create the local app.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, m := s.addUnit(c, mysql)
@@ -835,7 +916,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRole(c *gc.C) {
 	relToken := utils.MustNewUUID().String()
 	appToken := utils.MustNewUUID().String()
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "wordpress", SourceModel: consumingModelTag,
+		Name: "wordpress", SourceModel: consumingModelTag, IsConsumerProxy: true,
 		Endpoints: []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

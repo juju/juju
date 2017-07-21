@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	common "github.com/juju/juju/apiserver/common/crossmodel"
+	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
@@ -144,6 +145,10 @@ func (st *mockState) Application(id string) (common.Application, error) {
 		return nil, errors.NotFoundf("application %q", id)
 	}
 	return a, nil
+}
+
+type mockFirewallState struct {
+	firewall.State
 }
 
 type mockModel struct {
