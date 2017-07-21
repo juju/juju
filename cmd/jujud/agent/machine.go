@@ -1208,6 +1208,7 @@ func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (work
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		InstPollerAggregationDelay:  3 * time.Second,
 		StatusHistoryPrunerInterval: 5 * time.Minute,
+		ActionPrunerInterval:        24 * time.Hour,
 		NewEnvironFunc:              newEnvirons,
 		NewMigrationMaster:          migrationmaster.NewWorker,
 	})

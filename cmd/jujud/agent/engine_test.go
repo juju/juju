@@ -38,6 +38,7 @@ var (
 		"not-dead-flag",
 	}
 	aliveModelWorkers = []string{
+		"action-pruner",
 		"charm-revision-updater",
 		"compute-provisioner",
 		"environ-tracker",
