@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+github-check-merge-juju.yml#!/usr/bin/env python
 """Test migrating models between controllers of increasing versions."""
 
 from __future__ import print_function
@@ -35,12 +35,20 @@ log = logging.getLogger('assess_model_migration_versions')
 
 
 def assess_model_migration_versions(stable_bsm, devel_bsm, args):
+    """Migrates an active model from stable to devel controller (twice).
+
+    Method:
+      - Bootstraps the provided stable controller deploys an active application
+      - Bootstraps a devel controller
+      - Migrates from stable -> devel controller
+      - Asserts the deployed application continues to work
+      - Bootstrap a 2nd devel controller
+      - Migrate from devel -> another-devel
+      - Assert the deployed application continues to work.abs
+    """
     with stable_bsm.booted_context(args.upload_tools):
-        stable_bsm.client.enable_feature('migration')
-        devel_bsm.client.enable_feature('migration')
         devel_bsm.client.env.juju_home = stable_bsm.client.env.juju_home
         with devel_bsm.existing_booted_context(args.upload_tools):
-            # Create model with stuff in it.
             stable_client = stable_bsm.client
             devel_client = devel_bsm.client
             resource_contents = get_random_string()
@@ -50,6 +58,30 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
                 test_stable_model, devel_client)
             assert_model_migrated_successfully(
                 migration_target_client, application, resource_contents)
+
+            # Deploy another devel controller and attempt migration to it.
+            another_bsm = get_new_devel_bootstrap_manager(args, devel_bsm)
+            with another_bsm.existing_booted_context(args.upload_tools):
+                another_migration_client = migrate_model_to_controller(
+                    migration_target_client, another_bsm.client)
+                assert_model_migrated_successfully(
+                    another_migration_client, application, resource_contents)
+
+
+def get_new_devel_bootstrap_manager(args, devel_bsm):
+    """Clone an existing deployed BootstrapManager.
+
+    Makes required changes to BootstrapManager to share values (juju_home etc.)
+    and make any needed unique values unique (log dir, env_name etc.)
+    """
+    new_controller_name = '{}-another'.format(devel_bsm.temp_env_name)
+    new_devel_bsm = BootstrapManager.from_client(
+        args,
+        devel_bsm.client.create_cloned_environment(
+            devel_bsm.client.env.juju_home, new_controller_name))
+    new_devel_bsm.temp_env_name = new_controller_name
+    new_devel_bsm.log_dir = _new_log_dir(devel_bsm.log_dir, 'another')
+    return new_devel_bsm
 
 
 def get_stable_juju(args, stable_juju_bin=None):
@@ -100,7 +132,9 @@ def get_stable_juju(args, stable_juju_bin=None):
 
 
 def assert_stable_juju_suitable_for_testing(stable_bsm, devel_bsm):
-    """Stable juju must be an earlier version than devel."""
+    """Stable juju must be an earlier version than devel & support migration"""
+    stable_bsm.client.enable_feature('migration')
+
     stable_version = get_stripped_version_number(stable_bsm.client.version)
     dev_version = get_stripped_version_number(devel_bsm.client.version)
     try:
