@@ -180,8 +180,10 @@ def assert_subordinate_unit_operational(client, primary_app_name):
     primary_unit = '{}/0'.format(primary_app_name)
     try:
         client.juju(
-            'ssh',
-            (primary_unit, 'sudo', 'service', sub_unit_name, 'status'))
+            'run',
+            (
+                '--unit', primary_unit,
+                'sudo', 'service', sub_unit_name, 'status'))
     except subprocess.CalledProcessError:
         raise JujuAssertionError('Subordinate charm unit not running.')
 
