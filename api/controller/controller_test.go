@@ -27,6 +27,56 @@ type Suite struct {
 
 var _ = gc.Suite(&Suite{})
 
+func (s *Suite) TestDestroyControllerAPIVersion(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{BestVersion: 3}
+	client := controller.NewClient(apiCaller)
+	for _, destroyStorage := range []*bool{nil, new(bool)} {
+		err := client.DestroyController(controller.DestroyControllerParams{
+			DestroyStorage: destroyStorage,
+		})
+		c.Assert(err, gc.ErrorMatches, "this Juju controller requires DestroyStorage to be true")
+	}
+
+}
+
+func (s *Suite) TestDestroyController(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			stub.AddCall(objType+"."+request, arg)
+			return stub.NextErr()
+		},
+	}
+	client := controller.NewClient(apiCaller)
+
+	destroyStorage := true
+	err := client.DestroyController(controller.DestroyControllerParams{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"Controller.DestroyController", []interface{}{params.DestroyControllerArgs{
+			DestroyModels:  true,
+			DestroyStorage: &destroyStorage,
+		}}},
+	})
+}
+
+func (s *Suite) TestDestroyControllerError(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			return errors.New("nope")
+		},
+	}
+	client := controller.NewClient(apiCaller)
+	err := client.DestroyController(controller.DestroyControllerParams{})
+	c.Assert(err, gc.ErrorMatches, "nope")
+}
+
 func (s *Suite) TestInitiateMigration(c *gc.C) {
 	s.checkInitiateMigration(c, makeSpec())
 }
@@ -38,7 +88,7 @@ func (s *Suite) TestInitiateMigrationEmptyCACert(c *gc.C) {
 }
 
 func (s *Suite) checkInitiateMigration(c *gc.C, spec controller.MigrationSpec) {
-	client, stub := makeClient(params.InitiateMigrationResults{
+	client, stub := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
 			MigrationId: "id",
 		}},
@@ -76,7 +126,7 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 }
 
 func (s *Suite) TestInitiateMigrationError(c *gc.C) {
-	client, _ := makeClient(params.InitiateMigrationResults{
+	client, _ := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
 			Error: common.ServerError(errors.New("boom")),
 		}},
@@ -87,7 +137,7 @@ func (s *Suite) TestInitiateMigrationError(c *gc.C) {
 }
 
 func (s *Suite) TestInitiateMigrationResultMismatch(c *gc.C) {
-	client, _ := makeClient(params.InitiateMigrationResults{
+	client, _ := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{
 			{MigrationId: "id"},
 			{MigrationId: "wtf"},
@@ -109,7 +159,7 @@ func (s *Suite) TestInitiateMigrationCallError(c *gc.C) {
 }
 
 func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
-	client, stub := makeClient(params.InitiateMigrationResults{})
+	client, stub := makeInitiateMigrationClient(params.InitiateMigrationResults{})
 	spec := makeSpec()
 	spec.ModelUUID = "not-a-uuid"
 	id, err := client.InitiateMigration(spec)
@@ -186,7 +236,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *gc.C) {
 	c.Assert(third.Error.Error(), gc.Equals, "validating CloudSpec: empty Type not valid")
 }
 
-func makeClient(results params.InitiateMigrationResults) (
+func makeInitiateMigrationClient(results params.InitiateMigrationResults) (
 	*controller.Client, *jujutesting.Stub,
 ) {
 	var stub jujutesting.Stub

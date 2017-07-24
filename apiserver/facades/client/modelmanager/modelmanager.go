@@ -588,7 +588,12 @@ func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResul
 		if err := m.authCheck(model.Owner()); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(common.DestroyModel(m.state, tag))
+		st, releaser, err := m.pool.Get(tag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer releaser()
+		return errors.Trace(common.DestroyModel(st))
 	}
 
 	for i, arg := range args.Entities {

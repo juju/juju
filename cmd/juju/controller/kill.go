@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -125,8 +126,12 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
-	// Attempt to destroy the controller and all environments.
-	err = api.DestroyController(true)
+	// Attempt to destroy the controller and all models and storage.
+	destroyStorage := true
+	err = api.DestroyController(controller.DestroyControllerParams{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s\nDestroying through provider", err)
 		return environs.Destroy(controllerName, controllerEnviron, store)

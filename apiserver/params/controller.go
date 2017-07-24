@@ -9,6 +9,14 @@ type DestroyControllerArgs struct {
 	// should be destroyed as well. If this is not specified, and there are
 	// other hosted models, the destruction of the controller will fail.
 	DestroyModels bool `json:"destroy-models"`
+
+	// DestroyStorage controls whether or not storage in the model (and
+	// hosted models, if DestroyModels is true) should be destroyed.
+	//
+	// This is ternary: nil, false, or true. If nil and there is persistent
+	// storage in the model (or hosted models), an error with the code
+	// params.CodeHasPersistentStorage will be returned.
+	DestroyStorage *bool `json:"destroy-storage,omitempty"`
 }
 
 // ModelBlockInfo holds information about an model and its

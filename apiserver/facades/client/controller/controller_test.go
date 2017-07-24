@@ -37,7 +37,7 @@ type controllerSuite struct {
 	statetesting.StateSuite
 
 	statePool  *state.StatePool
-	controller *controller.ControllerAPI
+	controller *controller.ControllerAPIv4
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 }
@@ -66,7 +66,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controller, err := controller.NewControllerAPI(
+	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.statePool,
@@ -83,7 +83,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.NewControllerAPI(
+	endPoint, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -259,7 +259,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	controller, err := controller.NewControllerAPI(
+	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     st,
 			Resources_: common.NewResources(),
@@ -288,7 +288,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	defer st.Close()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
-	controller, err := controller.NewControllerAPI(
+	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     st,
 			Resources_: common.NewResources(),
@@ -789,7 +789,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPI(
+	endpoint, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,

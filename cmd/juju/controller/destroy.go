@@ -44,7 +44,9 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified controller.
 type destroyCommand struct {
 	destroyCommandBase
-	destroyModels bool
+	destroyModels  bool
+	destroyStorage bool
+	releaseStorage bool
 }
 
 // usageDetails has backticks which we want to keep for markdown processing.
@@ -55,8 +57,24 @@ All models (initial model plus all workload/hosted) associated with the
 controller will first need to be destroyed, either in advance, or by
 specifying `[1:] + "`--destroy-all-models`." + `
 
+If there is persistent storage in any of the models managed by the
+controller, then you must choose to either destroy or release the
+storage, using ` + "`--destroy-storage` or `--release-storage` respectively." + `
+
 Examples:
+    # Destroy the controller and all hosted models. If there is
+    # persistent storage remaining in any of the models, then
+    # this will prompt you to choose to either destroy or release
+    # the storage.
     juju destroy-controller --destroy-all-models mycontroller
+
+    # Destroy the controller and all hosted models, destroying
+    # any remaining persistent storage.
+    juju destroy-controller --destroy-all-models --destroy-storage
+
+    # Destroy the controller and all hosted models, releasing
+    # any remaining persistent storage from Juju's control.
+    juju destroy-controller --destroy-all-models --release-storage
 
 See also: 
     kill-controller
@@ -75,10 +93,11 @@ Continue? (y/N):`[1:]
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
+	BestAPIVersion() int
 	ModelConfig() (map[string]interface{}, error)
 	HostedModelConfigs() ([]controller.HostedConfig, error)
 	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
-	DestroyController(destroyModels bool) error
+	DestroyController(controller.DestroyControllerParams) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
@@ -106,6 +125,16 @@ func (c *destroyCommand) Info() *cmd.Info {
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
 	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
+	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage managed by the controller")
+	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage from management of the controller, without destroying them")
+}
+
+// Init implements Command.Init.
+func (c *destroyCommand) Init(args []string) error {
+	if c.destroyStorage && c.releaseStorage {
+		return errors.New("--destroy-storage and --release-storage cannot both be specified")
+	}
+	return c.destroyCommandBase.Init(args)
 }
 
 // Run implements Command.Run
@@ -129,6 +158,28 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
+	if api.BestAPIVersion() < 4 {
+		// Versions before 4 support only destroying the storage,
+		// and will not raise an error if there is storage in the
+		// controller. Force the user to specify up-front.
+		if c.releaseStorage {
+			return errors.New("this juju controller only supports destroying storage")
+		}
+		if !c.destroyStorage {
+			ctx.Infof(`this juju controller only supports destroying storage
+
+Please run the the command again with --destroy-storage,
+to confirm that you want to destroy the storage along
+with the controller.
+
+If instead you want to keep the storage, you must first
+upgrade the controller.
+
+`)
+			return cmd.ErrSilent
+		}
+	}
+
 	// Obtain controller environ so we can clean up afterwards.
 	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
 	if err != nil {
@@ -139,7 +190,17 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		// Attempt to destroy the controller.
 		ctx.Infof("Destroying controller")
 		var hasHostedModels bool
-		err = api.DestroyController(c.destroyModels)
+		var destroyStorage *bool
+		if c.destroyStorage || c.releaseStorage {
+			// Set destroyStorage to true or false, if
+			// --destroy-storage or --release-storage
+			// is specified, respectively.
+			destroyStorage = &c.destroyStorage
+		}
+		err = api.DestroyController(controller.DestroyControllerParams{
+			DestroyModels:  c.destroyModels,
+			DestroyStorage: destroyStorage,
+		})
 		if err != nil {
 			if params.IsCodeHasHostedModels(err) {
 				hasHostedModels = true
@@ -248,6 +309,10 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if params.IsCodeHasPersistentStorage(destroyErr) {
+		ctx.Infof(destroyControllerStorageMessage, controllerName)
+		return cmd.ErrSilent
+	}
 	logger.Errorf(stdFailureMsg, controllerName)
 	return destroyErr
 }
@@ -271,6 +336,20 @@ If the controller is unusable, then you may run
 to forcibly destroy the controller. Upon doing so, review
 your cloud provider console for any resources that need
 to be cleaned up.
+
+`
+
+const destroyControllerStorageMessage = `cannot destroy controller %q
+
+The controller has storage remaining.
+
+To destroy the storage, run the destroy-controller
+command again with the "--destroy-storage" flag.
+
+To release the storage from Juju's management
+without destroying it, use the "--release-storage"
+flag instead. The storage can then be imported
+into another Juju model.
 
 `
 

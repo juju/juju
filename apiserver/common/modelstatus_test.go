@@ -23,7 +23,7 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPI
+	controller *controller.ControllerAPIv4
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	pool       *state.StatePool
@@ -49,7 +49,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	s.pool = state.NewStatePool(s.State)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 
-	controller, err := controller.NewControllerAPI(
+	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -68,7 +68,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPI(
+	endpoint, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -92,7 +92,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
 	defer st.Close()
-	endpoint, err := controller.NewControllerAPI(
+	endpoint, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
