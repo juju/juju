@@ -288,7 +288,7 @@ func (s *cloudSuite) TestAddCloudInV2(c *gc.C) {
 			Endpoint:  "fake-endpoint",
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
-	err := s.apiv2.AddCloud("newcloudname", paramsCloud)
+	err := s.apiv2.AddCloud(paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "AddCloud")
 	s.backend.CheckCall(c, 0, "AddCloud", cloud.Cloud{
