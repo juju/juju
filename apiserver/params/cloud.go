@@ -3,10 +3,6 @@
 
 package params
 
-import (
-	jujucloud "github.com/juju/juju/cloud"
-)
-
 // Cloud holds information about a cloud.
 type Cloud struct {
 	Type             string        `json:"type"`
@@ -116,53 +112,4 @@ type CloudSpecResult struct {
 // CloudSpecResults contains a set of CloudSpecResults.
 type CloudSpecResults struct {
 	Results []CloudSpecResult `json:"results,omitempty"`
-}
-
-func CloudToParams(cloud jujucloud.Cloud) Cloud {
-	authTypes := make([]string, len(cloud.AuthTypes))
-	for i, authType := range cloud.AuthTypes {
-		authTypes[i] = string(authType)
-	}
-	regions := make([]CloudRegion, len(cloud.Regions))
-	for i, region := range cloud.Regions {
-		regions[i] = CloudRegion{
-			Name:             region.Name,
-			Endpoint:         region.Endpoint,
-			IdentityEndpoint: region.IdentityEndpoint,
-			StorageEndpoint:  region.StorageEndpoint,
-		}
-	}
-	return Cloud{
-		Type:             cloud.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		Regions:          regions,
-	}
-}
-
-func CloudFromParams(cloudName string, p Cloud) jujucloud.Cloud {
-	authTypes := make([]jujucloud.AuthType, len(p.AuthTypes))
-	for i, authType := range p.AuthTypes {
-		authTypes[i] = jujucloud.AuthType(authType)
-	}
-	regions := make([]jujucloud.Region, len(p.Regions))
-	for i, region := range p.Regions {
-		regions[i] = jujucloud.Region{
-			Name:             region.Name,
-			Endpoint:         region.Endpoint,
-			IdentityEndpoint: region.IdentityEndpoint,
-			StorageEndpoint:  region.StorageEndpoint,
-		}
-	}
-	return jujucloud.Cloud{
-		Name:             cloudName,
-		Type:             p.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         p.Endpoint,
-		IdentityEndpoint: p.IdentityEndpoint,
-		StorageEndpoint:  p.StorageEndpoint,
-		Regions:          regions,
-	}
 }

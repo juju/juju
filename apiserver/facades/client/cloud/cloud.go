@@ -105,7 +105,7 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 	}
 	result.Clouds = make(map[string]params.Cloud)
 	for tag, cloud := range clouds {
-		paramsCloud := params.CloudToParams(cloud)
+		paramsCloud := common.CloudToParams(cloud)
 		result.Clouds[tag.String()] = paramsCloud
 	}
 	return result, nil
@@ -125,7 +125,7 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 		if err != nil {
 			return nil, err
 		}
-		paramsCloud := params.CloudToParams(cloud)
+		paramsCloud := common.CloudToParams(cloud)
 		return &paramsCloud, nil
 	}
 	for i, arg := range args.Entities {
@@ -335,7 +335,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 }
 
 func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
-	err := api.backend.AddCloud(params.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
+	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
 	if err != nil {
 		return err
 	}

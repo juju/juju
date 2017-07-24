@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 )
@@ -38,7 +39,7 @@ func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		clouds[tag] = params.CloudFromParams(tag.Id(), cloud)
+		clouds[tag] = common.CloudFromParams(tag.Id(), cloud)
 	}
 	return clouds, nil
 }
@@ -56,7 +57,7 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if results.Results[0].Error != nil {
 		return jujucloud.Cloud{}, results.Results[0].Error
 	}
-	return params.CloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
+	return common.CloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
 }
 
 // DefaultCloud returns the tag of the cloud that models will be
@@ -158,7 +159,7 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
 	}
-	args := params.AddCloudArgs{Name: cloud.Name, Cloud: params.CloudToParams(cloud)}
+	args := params.AddCloudArgs{Name: cloud.Name, Cloud: common.CloudToParams(cloud)}
 	err := c.facade.FacadeCall("AddCloud", args, nil)
 	if err != nil {
 		return errors.Trace(err)
