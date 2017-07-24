@@ -315,6 +315,7 @@ func (s *cloudSuite) TestAddCloudNotInV1API(c *gc.C) {
 }
 
 func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
+	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -322,6 +323,7 @@ func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
+				called = true
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "AddCloud")
@@ -340,4 +342,5 @@ func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
