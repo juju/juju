@@ -31,10 +31,10 @@ type AddCloudAPI interface {
 	AddCloud(cloud.Cloud) error
 }
 
-var usageAddCaasSummary = `
+var usageAddCAASSummary = `
 Adds a CAAS endpoint and credential to Juju from among known types.`[1:]
 
-var usageAddCaasDetails = `
+var usageAddCAASDetails = `
 
 Examples:
     juju add-caas myk8s kubernetes
@@ -42,15 +42,15 @@ Examples:
 See also:
     caas`
 
-// AddCaasCommand is the command that allows you to add a caas and credential
-type AddCaasCommand struct {
+// AddCAASCommand is the command that allows you to add a caas and credential
+type AddCAASCommand struct {
 	modelcmd.ModelCommandBase
 
-	// CaasName is the name of the caas to add.
-	CaasName string
+	// CAASName is the name of the caas to add.
+	CAASName string
 
-	// CaasType is the type of CAAS being added
-	CaasType string
+	// CAASType is the type of CAAS being added
+	CAASType string
 
 	// Context is the name of the context (k8s) or credential to import
 	Context string
@@ -60,9 +60,9 @@ type AddCaasCommand struct {
 	newCloudAPI        func(base.APICallCloser) AddCloudAPI
 }
 
-// NewAddCaasCommand returns a command to add caas information.
-func NewAddCaasCommand(cloudMetadataStore CloudMetadataStore) *AddCaasCommand {
-	return &AddCaasCommand{
+// NewAddCAASCommand returns a command to add caas information.
+func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
+	return &AddCAASCommand{
 		cloudMetadataStore: cloudMetadataStore,
 		newCloudAPI: func(caller base.APICallCloser) AddCloudAPI {
 			return cloudapi.NewClient(caller)
@@ -71,27 +71,27 @@ func NewAddCaasCommand(cloudMetadataStore CloudMetadataStore) *AddCaasCommand {
 }
 
 // Info returns help information about the command.
-func (c *AddCaasCommand) Info() *cmd.Info {
+func (c *AddCAASCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-caas",
 		Args:    "<caas type> <caas name>",
-		Purpose: usageAddCaasSummary,
-		Doc:     usageAddCaasDetails,
+		Purpose: usageAddCAASSummary,
+		Doc:     usageAddCAASDetails,
 	}
 }
 
 // SetFlags initializes the flags supported by the command.
-func (c *AddCaasCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 }
 
 // Init populates the command with the args from the command line.
-func (c *AddCaasCommand) Init(args []string) (err error) {
+func (c *AddCAASCommand) Init(args []string) (err error) {
 	if len(args) > 0 {
-		c.CaasType = args[0]
+		c.CAASType = args[0]
 	}
 	if len(args) > 1 {
-		c.CaasName = args[1]
+		c.CAASName = args[1]
 	}
 	if len(args) > 2 {
 		return cmd.CheckEmpty(args[2:])
@@ -101,7 +101,7 @@ func (c *AddCaasCommand) Init(args []string) (err error) {
 
 // Run executes the add caas command, adding a caas based on a passed-in yaml
 // file or interactive queries.
-func (c *AddCaasCommand) Run(ctxt *cmd.Context) error {
+func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	api, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
@@ -109,8 +109,8 @@ func (c *AddCaasCommand) Run(ctxt *cmd.Context) error {
 	defer api.Close()
 
 	newCloud := cloud.Cloud{
-		Name:      c.CaasName,
-		Type:      c.CaasType,
+		Name:      c.CAASName,
+		Type:      c.CAASType,
 		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
 	}
 
@@ -125,7 +125,7 @@ func (c *AddCaasCommand) Run(ctxt *cmd.Context) error {
 	return nil
 }
 
-func (c *AddCaasCommand) verifyName(name string) error {
+func (c *AddCAASCommand) verifyName(name string) error {
 	public, _, err := c.cloudMetadataStore.PublicCloudMetadata()
 	if err != nil {
 		return err
