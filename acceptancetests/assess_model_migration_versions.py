@@ -1,4 +1,4 @@
-github-check-merge-juju.yml#!/usr/bin/env python
+#!/usr/bin/env python
 """Test migrating models between controllers of increasing versions."""
 
 from __future__ import print_function
