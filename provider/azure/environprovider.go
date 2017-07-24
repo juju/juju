@@ -42,7 +42,12 @@ type ProviderConfig struct {
 	// clients.
 	NewStorageClient azurestorage.NewClientFunc
 
-	// RetryClock is used when retrying API calls due to rate-limiting.
+	// RetryClock is used for retrying some operations, like
+	// waiting for deployments to complete.
+	//
+	// Retries due to rate-limiting are handled by the go-autorest
+	// package, which uses "time" directly. We cannot mock the
+	// waiting in that case.
 	RetryClock clock.Clock
 
 	// RandomWindowsAdminPassword is a function used to generate

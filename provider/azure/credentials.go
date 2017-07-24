@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -214,13 +215,13 @@ func (c environProviderCredentials) azureCLICredential(
 		logger.Debugf("error getting access token: %s", err)
 		return c.deviceCodeCredential(ctx, args, params)
 	}
-	params.GraphAuthorizer = graphToken.Token()
+	params.GraphAuthorizer = autorest.NewBearerAuthorizer(graphToken.Token())
 
 	resourceManagerAuthorizer, err := c.azureCLI.GetAccessToken(params.SubscriptionId, params.ResourceManagerResourceId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get access token for %s", params.SubscriptionId)
 	}
-	params.ResourceManagerAuthorizer = resourceManagerAuthorizer.Token()
+	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(resourceManagerAuthorizer.Token())
 
 	applicationId, password, err := c.servicePrincipalCreator.Create(params)
 	if err != nil {
@@ -250,10 +251,10 @@ func (c environProviderCredentials) accountCredential(
 	applicationId, password, err := c.servicePrincipalCreator.Create(azureauth.ServicePrincipalParams{
 		GraphEndpoint:             cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
 		GraphResourceId:           cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
-		GraphAuthorizer:           graphToken.Token(),
+		GraphAuthorizer:           autorest.NewBearerAuthorizer(graphToken.Token()),
 		ResourceManagerEndpoint:   cloudInfo.Endpoints.ResourceManager,
 		ResourceManagerResourceId: cloudInfo.Endpoints.ResourceManager,
-		ResourceManagerAuthorizer: armToken.Token(),
+		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(armToken.Token()),
 		SubscriptionId:            acc.ID,
 		TenantId:                  graphToken.Tenant,
 	})

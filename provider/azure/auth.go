@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
@@ -22,7 +22,7 @@ type cloudSpecAuth struct {
 	cloud  environs.CloudSpec
 	sender autorest.Sender
 	mu     sync.Mutex
-	token  *azure.ServicePrincipalToken
+	token  *adal.ServicePrincipalToken
 }
 
 // WithAuthorization is part of the autorest.Authorizer interface.
@@ -37,7 +37,8 @@ func (c *cloudSpecAuth) WithAuthorization() autorest.PrepareDecorator {
 			if err != nil {
 				return nil, err
 			}
-			return autorest.CreatePreparer(token.WithAuthorization()).Prepare(r)
+			authorizer := autorest.NewBearerAuthorizer(token)
+			return autorest.CreatePreparer(authorizer.WithAuthorization()).Prepare(r)
 		})
 	}
 }
@@ -50,7 +51,7 @@ func (c *cloudSpecAuth) refresh() error {
 	return token.Refresh()
 }
 
-func (c *cloudSpecAuth) getToken() (*azure.ServicePrincipalToken, error) {
+func (c *cloudSpecAuth) getToken() (*adal.ServicePrincipalToken, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.token != nil {
@@ -66,7 +67,7 @@ func (c *cloudSpecAuth) getToken() (*azure.ServicePrincipalToken, error) {
 
 // AuthToken returns a service principal token, suitable for authorizing
 // Resource Manager API requests, based on the supplied CloudSpec.
-func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.ServicePrincipalToken, error) {
+func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*adal.ServicePrincipalToken, error) {
 	if authType := cloud.Credential.AuthType(); authType != clientCredentialsAuthType {
 		// We currently only support a single auth-type for
 		// non-interactive authentication. Interactive auth
@@ -83,7 +84,7 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 	subscriptionId := credAttrs[credAttrSubscriptionId]
 	appId := credAttrs[credAttrAppId]
 	appPassword := credAttrs[credAttrAppPassword]
-	client := subscriptions.Client{subscriptions.NewWithBaseURI(cloud.Endpoint)}
+	client := subscriptions.GroupClient{subscriptions.NewWithBaseURI(cloud.Endpoint)}
 	useragent.UpdateClient(&client.Client)
 	client.Sender = sender
 	oauthConfig, _, err := azureauth.OAuthConfig(client, cloud.Endpoint, subscriptionId)
@@ -91,7 +92,7 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 		return nil, errors.Trace(err)
 	}
 
-	token, err := azure.NewServicePrincipalToken(
+	token, err := adal.NewServicePrincipalToken(
 		*oauthConfig,
 		appId,
 		appPassword,
@@ -100,7 +101,8 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing service principal token")
 	}
-	tokenClient := autorest.NewClientWithUserAgent(useragent.JujuPrefix())
+	tokenClient := autorest.NewClientWithUserAgent("")
+	useragent.UpdateClient(&tokenClient)
 	tokenClient.Sender = sender
 	token.SetSender(&tokenClient)
 	return token, nil

@@ -18,8 +18,7 @@ import (
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
 const (
@@ -34,10 +33,6 @@ var (
 	utf8BOM = []byte("\ufeff")
 )
 
-func UserAgent() string {
-	return fmt.Sprintf("Juju/%s arm-graphrbac/%s", version.Current, APIVersion)
-}
-
 type ManagementClient struct {
 	autorest.Client
 	BaseURI    string
@@ -45,8 +40,10 @@ type ManagementClient struct {
 }
 
 func NewManagementClient(baseURI string) ManagementClient {
+	client := autorest.NewClientWithUserAgent("arm-graphrbac/" + APIVersion)
+	useragent.UpdateClient(&client)
 	return ManagementClient{
-		Client:     autorest.NewClientWithUserAgent(UserAgent()),
+		Client:     client,
 		BaseURI:    baseURI,
 		APIVersion: APIVersion,
 	}

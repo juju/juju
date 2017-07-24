@@ -6,11 +6,9 @@ package azure
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"strconv"
 
 	"github.com/Azure/azure-sdk-for-go/arm/network"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
@@ -78,31 +76,31 @@ const (
 var (
 	sshSecurityRule = network.SecurityRule{
 		Name: to.StringPtr("SSHInbound"),
-		Properties: &network.SecurityRulePropertiesFormat{
+		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("Allow SSH access to all machines"),
-			Protocol:                 network.TCP,
+			Protocol:                 network.SecurityRuleProtocolTCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
 			DestinationAddressPrefix: to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("22"),
-			Access:                   network.Allow,
+			Access:                   network.SecurityRuleAccessAllow,
 			Priority:                 to.Int32Ptr(securityRuleInternalSSHInbound),
-			Direction:                network.Inbound,
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	}
 
 	apiSecurityRule = network.SecurityRule{
 		Name: to.StringPtr("JujuAPIInbound"),
-		Properties: &network.SecurityRulePropertiesFormat{
+		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("Allow API connections to controller machines"),
-			Protocol:                 network.TCP,
+			Protocol:                 network.SecurityRuleProtocolTCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
 			DestinationAddressPrefix: to.StringPtr(controllerSubnetPrefix),
 			// DestinationPortRange is set by createInternalNetworkSecurityGroup.
-			Access:    network.Allow,
+			Access:    network.SecurityRuleAccessAllow,
 			Priority:  to.Int32Ptr(securityRuleInternalAPIInbound),
-			Direction: network.Inbound,
+			Direction: network.SecurityRuleDirectionInbound,
 		},
 	}
 )
@@ -124,9 +122,9 @@ func networkTemplateResources(
 	securityRules := []network.SecurityRule{sshSecurityRule}
 	if apiPort != -1 {
 		apiSecurityRule := apiSecurityRule
-		properties := *apiSecurityRule.Properties
+		properties := *apiSecurityRule.SecurityRulePropertiesFormat
 		properties.DestinationPortRange = to.StringPtr(fmt.Sprint(apiPort))
-		apiSecurityRule.Properties = &properties
+		apiSecurityRule.SecurityRulePropertiesFormat = &properties
 		securityRules = append(securityRules, apiSecurityRule)
 	}
 	securityRules = append(securityRules, extraRules...)
@@ -137,7 +135,7 @@ func networkTemplateResources(
 	)
 	subnets := []network.Subnet{{
 		Name: to.StringPtr(internalSubnetName),
-		Properties: &network.SubnetPropertiesFormat{
+		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 			AddressPrefix: to.StringPtr(internalSubnetPrefix),
 			NetworkSecurityGroup: &network.SecurityGroup{
 				ID: to.StringPtr(nsgId),
@@ -147,7 +145,7 @@ func networkTemplateResources(
 	if apiPort != -1 {
 		subnets = append(subnets, network.Subnet{
 			Name: to.StringPtr(controllerSubnetName),
-			Properties: &network.SubnetPropertiesFormat{
+			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 				AddressPrefix: to.StringPtr(controllerSubnetPrefix),
 				NetworkSecurityGroup: &network.SecurityGroup{
 					ID: to.StringPtr(nsgId),
@@ -158,7 +156,7 @@ func networkTemplateResources(
 
 	addressPrefixes := []string{internalSubnetPrefix, controllerSubnetPrefix}
 	resources := []armtemplates.Resource{{
-		APIVersion: network.APIVersion,
+		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/networkSecurityGroups",
 		Name:       internalSecurityGroupName,
 		Location:   location,
@@ -167,7 +165,7 @@ func networkTemplateResources(
 			SecurityRules: &securityRules,
 		},
 	}, {
-		APIVersion: network.APIVersion,
+		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/virtualNetworks",
 		Name:       internalNetworkName,
 		Location:   location,
@@ -185,13 +183,13 @@ func networkTemplateResources(
 // nextSecurityRulePriority returns the next available priority in the given
 // security group within a specified range.
 func nextSecurityRulePriority(group network.SecurityGroup, min, max int32) (int32, error) {
-	if group.Properties.SecurityRules == nil {
+	if group.SecurityRules == nil {
 		return min, nil
 	}
 	for p := min; p <= max; p++ {
 		var found bool
-		for _, rule := range *group.Properties.SecurityRules {
-			if to.Int32(rule.Properties.Priority) == p {
+		for _, rule := range *group.SecurityRules {
+			if to.Int32(rule.Priority) == p {
 				found = true
 				break
 			}
@@ -235,23 +233,18 @@ func machineSubnetIP(subnetPrefix, machineId string) (net.IP, error) {
 // satisfying errors.IsNotFound.
 func networkSecurityRules(
 	nsgClient network.SecurityGroupsClient,
-	callAPI callAPIFunc,
 	resourceGroup string,
 ) ([]network.SecurityRule, error) {
-	var nsg network.SecurityGroup
-	if err := callAPI(func() (autorest.Response, error) {
-		var err error
-		nsg, err = nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
-		return nsg.Response, err
-	}); err != nil {
-		if nsg.StatusCode != http.StatusNotFound {
-			return nil, errors.Annotate(err, "querying network security group")
+	nsg, err := nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
+	if err != nil {
+		if isNotFoundResponse(nsg.Response) {
+			return nil, errors.NotFoundf("security group")
 		}
-		return nil, errors.NotFoundf("security group")
+		return nil, errors.Annotate(err, "querying network security group")
 	}
 	var rules []network.SecurityRule
-	if nsg.Properties.SecurityRules != nil {
-		rules = *nsg.Properties.SecurityRules
+	if nsg.SecurityRules != nil {
+		rules = *nsg.SecurityRules
 	}
 	return rules, nil
 }

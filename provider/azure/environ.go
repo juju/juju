@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	internalazureresources "github.com/juju/juju/provider/azure/internal/azureresources"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
@@ -63,6 +64,10 @@ const (
 	// controllerAvailabilitySet is the name of the availability set
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
+
+	computeAPIVersion = "2016-03-30"
+	networkAPIVersion = "2017-03-01"
+	storageAPIVersion = "2016-12-01"
 )
 
 type azureEnviron struct {
@@ -248,14 +253,10 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string, controller boo
 	env.mu.Unlock()
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
-	err := env.callAPI(func() (autorest.Response, error) {
-		group, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.ResourceGroup{
-			Location: to.StringPtr(env.location),
-			Tags:     to.StringMapPtr(tags),
-		})
-		return group.Response, err
-	})
-	if err != nil {
+	if _, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.Group{
+		Location: to.StringPtr(env.location),
+		Tags:     to.StringMapPtr(tags),
+	}); err != nil {
 		return errors.Annotate(err, "creating resource group")
 	}
 
@@ -301,7 +302,6 @@ func (env *azureEnviron) createCommonResourceDeployment(
 	)
 	template := armtemplates.Template{Resources: commonResources}
 	if err := createDeployment(
-		env.callAPI,
 		deploymentsClient,
 		env.resourceGroup,
 		"common", // deployment name
@@ -628,7 +628,7 @@ func (env *azureEnviron) createVirtualMachine(
 			availabilitySetName,
 		)
 		resources = append(resources, armtemplates.Resource{
-			APIVersion: compute.APIVersion,
+			APIVersion: computeAPIVersion,
 			Type:       "Microsoft.Compute/availabilitySets",
 			Name:       availabilitySetName,
 			Location:   env.location,
@@ -643,7 +643,7 @@ func (env *azureEnviron) createVirtualMachine(
 	publicIPAddressName := vmName + "-public-ip"
 	publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: network.APIVersion,
+		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/publicIPAddresses",
 		Name:       publicIPAddressName,
 		Location:   env.location,
@@ -676,7 +676,7 @@ func (env *azureEnviron) createVirtualMachine(
 	nicDependsOn = append(nicDependsOn, publicIPAddressId)
 	ipConfigurations := []network.InterfaceIPConfiguration{{
 		Name: to.StringPtr("primary"),
-		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 			Primary:                   to.BoolPtr(true),
 			PrivateIPAddress:          to.StringPtr(privateIP.String()),
 			PrivateIPAllocationMethod: network.Static,
@@ -687,7 +687,7 @@ func (env *azureEnviron) createVirtualMachine(
 		},
 	}}
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: network.APIVersion,
+		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/networkInterfaces",
 		Name:       nicName,
 		Location:   env.location,
@@ -700,13 +700,13 @@ func (env *azureEnviron) createVirtualMachine(
 
 	nics := []compute.NetworkInterfaceReference{{
 		ID: to.StringPtr(nicId),
-		Properties: &compute.NetworkInterfaceReferenceProperties{
+		NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
 			Primary: to.BoolPtr(true),
 		},
 	}}
 	vmDependsOn = append(vmDependsOn, nicId)
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: compute.APIVersion,
+		APIVersion: computeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
 		Name:       vmName,
 		Location:   env.location,
@@ -738,7 +738,7 @@ func (env *azureEnviron) createVirtualMachine(
 			)
 		}
 		resources = append(resources, armtemplates.Resource{
-			APIVersion: compute.APIVersion,
+			APIVersion: computeAPIVersion,
 			Type:       "Microsoft.Compute/virtualMachines/extensions",
 			Name:       vmName + "/" + extensionName,
 			Location:   env.location,
@@ -758,7 +758,6 @@ func (env *azureEnviron) createVirtualMachine(
 		deploymentsClient.ResponseInspector,
 	)
 	if err := createDeployment(
-		env.callAPI,
 		deploymentsClient,
 		env.resourceGroup,
 		vmName, // deployment name
@@ -799,12 +798,8 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 	// states. The deployment typically takes only around 30 seconds,
 	// but we allow for a longer duration to be defensive.
 	waitDeployment := func() error {
-		var result resources.DeploymentExtended
-		if err := env.callAPI(func() (autorest.Response, error) {
-			var err error
-			result, err = deploymentsClient.Get(env.resourceGroup, "common")
-			return result.Response, err
-		}); err != nil {
+		result, err := deploymentsClient.Get(env.resourceGroup, "common")
+		if err != nil {
 			if result.StatusCode == http.StatusNotFound {
 				// The controller model does not have a "common"
 				// deployment, as its common resources are created
@@ -825,7 +820,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 			// ready for use.
 			return nil
 		}
-		err := errors.Errorf("common resource deployment status is %q", state)
+		err = errors.Errorf("common resource deployment status is %q", state)
 		switch state {
 		case "Canceled", "Failed", "Deleted":
 		default:
@@ -904,7 +899,7 @@ func newStorageProfile(
 
 	osDisksRoot := fmt.Sprintf(
 		`reference(resourceId('Microsoft.Storage/storageAccounts', '%s'), '%s').primaryEndpoints.blob`,
-		storageAccountName, storage.APIVersion,
+		storageAccountName, storageAPIVersion,
 	)
 	osDiskName := vmName
 	osDiskURI := fmt.Sprintf(
@@ -1051,14 +1046,14 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 
 	// List network interfaces and public IP addresses.
 	instanceNics, err := instanceNetworkInterfaces(
-		env.callAPI, env.resourceGroup,
+		env.resourceGroup,
 		network.InterfacesClient{env.network},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	instancePips, err := instancePublicIPAddresses(
-		env.callAPI, env.resourceGroup,
+		env.resourceGroup,
 		network.PublicIPAddressesClient{env.network},
 	)
 	if err != nil {
@@ -1101,12 +1096,8 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 func (env *azureEnviron) cancelDeployment(name string) error {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	logger.Debugf("- canceling deployment %q", name)
-	var cancelResult autorest.Response
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		cancelResult, err = deploymentsClient.Cancel(env.resourceGroup, name)
-		return cancelResult, err
-	}); err != nil {
+	cancelResult, err := deploymentsClient.Cancel(env.resourceGroup, name)
+	if err != nil {
 		if cancelResult.Response != nil {
 			switch cancelResult.StatusCode {
 			case http.StatusNotFound:
@@ -1141,25 +1132,31 @@ func (env *azureEnviron) deleteVirtualMachine(
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	vmName := string(instId)
 
+	// TODO(axw) delete resources concurrently.
+
+	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
-	if err := deleteResource(env.callAPI, vmClient, env.resourceGroup, vmName); err != nil {
-		if !errors.IsNotFound(err) {
-			return errors.Annotate(err, "deleting virtual machine")
+	vmResultCh, errCh := vmClient.Delete(env.resourceGroup, vmName, nil)
+	if result, err := <-vmResultCh, <-errCh; err != nil {
+		if isNotFoundResponse(result.Response) {
+			return errors.NotFoundf("virtual machine %q", vmName)
 		}
+		return errors.Annotate(err, "deleting virtual machine")
 	}
 
 	if maybeStorageClient != nil {
 		logger.Debugf("- deleting OS VHD (%s)", vmName)
 		blobClient := maybeStorageClient.GetBlobService()
-		if _, err := blobClient.DeleteBlobIfExists(osDiskVHDContainer, vmName, nil); err != nil {
-			return errors.Annotate(err, "deleting OS VHD")
-		}
+		vhdContainer := blobClient.GetContainerReference(osDiskVHDContainer)
+		vhdBlob := vhdContainer.Blob(vmName)
+		_, err := vhdBlob.DeleteIfExists(nil)
+		return errors.Annotate(err, "deleting OS VHD")
 	}
 
 	logger.Debugf("- deleting security rules (%s)", vmName)
 	if err := deleteInstanceNetworkSecurityRules(
-		env.resourceGroup, instId, nsgClient,
-		securityRuleClient, env.callAPI,
+		env.resourceGroup, instId,
+		nsgClient, securityRuleClient,
 	); err != nil {
 		return errors.Annotate(err, "deleting network security rules")
 	}
@@ -1168,10 +1165,12 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, nic := range networkInterfaces {
 		nicName := to.String(nic.Name)
 		logger.Tracef("deleting NIC %q", nicName)
-		if err := deleteResource(env.callAPI, nicClient, env.resourceGroup, nicName); err != nil {
-			if !errors.IsNotFound(err) {
-				return errors.Annotate(err, "deleting NIC")
+		resultCh, errCh := nicClient.Delete(env.resourceGroup, nicName, nil)
+		if result, err := <-resultCh, <-errCh; err != nil {
+			if isNotFoundResponse(result) {
+				return errors.NotFoundf("NIC %q", nicName)
 			}
+			return errors.Annotate(err, "deleting NIC")
 		}
 	}
 
@@ -1179,19 +1178,23 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, pip := range publicIPAddresses {
 		pipName := to.String(pip.Name)
 		logger.Tracef("deleting public IP %q", pipName)
-		if err := deleteResource(env.callAPI, pipClient, env.resourceGroup, pipName); err != nil {
-			if !errors.IsNotFound(err) {
-				return errors.Annotate(err, "deleting public IP")
+		resultCh, errCh := pipClient.Delete(env.resourceGroup, pipName, nil)
+		if result, err := <-resultCh, <-errCh; err != nil {
+			if isNotFoundResponse(result) {
+				return errors.NotFoundf("public IP %q", pipName)
 			}
+			return errors.Annotate(err, "deleting public IP")
 		}
 	}
 
 	// The deployment must be deleted last, or we risk leaking resources.
 	logger.Debugf("- deleting deployment (%s)", vmName)
-	if err := deleteResource(env.callAPI, deploymentsClient, env.resourceGroup, vmName); err != nil {
-		if !errors.IsNotFound(err) {
-			return errors.Annotate(err, "deleting deployment")
+	resultCh, errCh := deploymentsClient.Delete(env.resourceGroup, vmName, nil)
+	if result, err := <-resultCh, <-errCh; err != nil {
+		if isNotFoundResponse(result) {
+			return errors.NotFoundf("deployment %q", vmName)
 		}
+		return errors.Annotate(err, "deleting deployment")
 	}
 	return nil
 }
@@ -1247,42 +1250,31 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 		return errors.Trace(err)
 	}
 
-	resourceClient := resources.Client{env.resources}
-	var failed []string
-
-	apiVersions, err := collectAPIVersions(env.callAPI, env.resources)
+	apiVersions, err := collectAPIVersions(resources.ProvidersClient{env.resources})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var res resources.ResourceListResult
-	err = env.callAPI(func() (autorest.Response, error) {
-		var err error
-		res, err = groupClient.ListResources(env.resourceGroup, "", nil)
-		return res.Response, err
-	})
+	resourceClient := resources.GroupClient{env.resources}
+	res, err := groupClient.ListResources(env.resourceGroup, "", "", nil)
 	if err != nil {
 		return errors.Annotate(err, "listing resources")
 	}
+	var failed []string
 	for res.Value != nil {
 		for _, resource := range *res.Value {
-			// We need to set the API version to a value that's
-			// correct for the specific resource type. If we leave it
-			// as the version for the Microsoft.Resources provider we
-			// get NoRegisteredProviderFound errors.
-			resourceClient.APIVersion = apiVersions[to.String(resource.Type)]
-			err := env.updateResourceControllerTag(&resourceClient, resource, controllerUUID)
+			apiVersion := apiVersions[to.String(resource.Type)]
+			err := env.updateResourceControllerTag(
+				internalazureresources.ResourcesClient{&resourceClient},
+				resource, controllerUUID, apiVersion,
+			)
 			if err != nil {
 				name := to.String(resource.Name)
 				logger.Errorf("error updating resource tags for %q: %v", name, err)
 				failed = append(failed, name)
 			}
 		}
-		err = env.callAPI(func() (autorest.Response, error) {
-			var err error
-			res, err = groupClient.ListResourcesNextResults(res)
-			return res.Response, err
-		})
+		res, err = groupClient.ListResourcesNextResults(res)
 		if err != nil {
 			return errors.Annotate(err, "getting next page of resources")
 		}
@@ -1295,18 +1287,15 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 }
 
 func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient, groupName, controllerUUID string) error {
-	var group resources.ResourceGroup
-	err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		group, err = client.Get(groupName)
-		return group.Response, err
-	})
+	group, err := client.Get(groupName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	logger.Debugf("updating resource group %s juju controller uuid to %s",
-		to.String(group.Name), controllerUUID)
+	logger.Debugf(
+		"updating resource group %s juju controller uuid to %s",
+		to.String(group.Name), controllerUUID,
+	)
 	groupTags := toTags(group.Tags)
 	groupTags[tags.JujuController] = controllerUUID
 	group.Tags = to.StringMapPtr(groupTags)
@@ -1316,75 +1305,41 @@ func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient
 		(*group.Properties).ProvisioningState = nil
 	}
 
-	err = env.callAPI(func() (autorest.Response, error) {
-		res, err := client.CreateOrUpdate(groupName, group)
-		return res.Response, err
-	})
+	_, err = client.CreateOrUpdate(groupName, group)
 	return errors.Annotatef(err, "updating controller for resource group %q", groupName)
 }
 
-func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
+func (env *azureEnviron) updateResourceControllerTag(
+	client internalazureresources.ResourcesClient,
+	stubResource resources.GenericResource,
+	controllerUUID string,
+	apiVersion string,
+) error {
 	stubTags := toTags(stubResource.Tags)
 	if stubTags[tags.JujuController] == controllerUUID {
 		// No update needed.
 		return nil
 	}
 
-	namespace, parentPath, subtype, err := splitResourceType(to.String(stubResource.Type))
-	if err != nil {
-		return errors.Annotatef(err, "splitting resource type")
-	}
-
 	// Need to get the resource individually to ensure that the
 	// properties are populated.
-	var resource resources.GenericResource
-	err = env.callAPI(func() (autorest.Response, error) {
-		var err error
-		resource, err = client.Get(
-			env.resourceGroup,
-			namespace,
-			parentPath,
-			subtype,
-			to.String(stubResource.Name),
-		)
-		return resource.Response, err
-	})
+	resource, err := client.GetByID(to.String(stubResource.ID), apiVersion)
 	if err != nil {
 		return errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name))
 	}
 
-	logger.Debugf("updating %s (%s) juju controller uuid to %s",
-		to.String(resource.Name), to.String(resource.Type), controllerUUID)
+	logger.Debugf("updating %s juju controller UUID to %s", to.String(stubResource.ID), controllerUUID)
 	resourceTags := toTags(resource.Tags)
 	resourceTags[tags.JujuController] = controllerUUID
 	resource.Tags = to.StringMapPtr(resourceTags)
-
-	err = env.callAPI(func() (autorest.Response, error) {
-		res, err := client.CreateOrUpdate(
-			env.resourceGroup,
-			namespace,
-			parentPath,
-			subtype,
-			to.String(resource.Name),
-			resource,
-		)
-		return res.Response, err
-	})
+	_, errCh := client.CreateOrUpdateByID(
+		to.String(stubResource.ID),
+		resource,
+		nil, // cancel channel
+		apiVersion,
+	)
+	err = <-errCh
 	return errors.Annotatef(err, "updating controller for %q", to.String(resource.Name))
-}
-
-// splitResourceType breaks the resource type into provider namespace,
-// parent path and subtype so we can pass the components to the
-// resource CreateOrUpdate method.
-func splitResourceType(resourceType string) (string, string, string, error) {
-	parts := strings.Split(resourceType, "/")
-	if len(parts) < 2 {
-		return "", "", "", errors.Errorf("expected at least 2 parts in resource type %q", resourceType)
-	}
-	namespace := parts[0]
-	subtype := parts[len(parts)-1]
-	parentPath := strings.Join(parts[1:len(parts)-1], "/")
-	return namespace, parentPath, subtype, nil
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -1400,13 +1355,9 @@ func (env *azureEnviron) allInstances(
 	controllerOnly bool,
 ) ([]instance.Instance, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
-	var deploymentsResult resources.DeploymentListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		deploymentsResult, err = deploymentsClient.List(resourceGroup, "", nil)
-		return deploymentsResult.Response, err
-	}); err != nil {
-		if deploymentsResult.Response.Response != nil && deploymentsResult.StatusCode == http.StatusNotFound {
+	deploymentsResult, err := deploymentsClient.List(resourceGroup, "", nil)
+	if err != nil {
+		if isNotFoundResponse(deploymentsResult.Response) {
 			// This will occur if the resource group does not
 			// exist, e.g. in a fresh hosted environment.
 			return nil, nil
@@ -1433,7 +1384,6 @@ func (env *azureEnviron) allInstances(
 
 	if len(azureInstances) > 0 && refreshAddresses {
 		if err := setInstanceAddresses(
-			env.callAPI,
 			resourceGroup,
 			network.InterfacesClient{env.network},
 			network.PublicIPAddressesClient{env.network},
@@ -1502,12 +1452,8 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 		tags.JujuController, controllerUUID,
 	)
 	client := resources.GroupsClient{env.resources}
-	var result resources.ResourceGroupListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.List(filter, nil)
-		return result.Response, err
-	}); err != nil {
+	result, err := client.List(filter, nil)
+	if err != nil {
 		return errors.Annotate(err, "listing resource groups")
 	}
 	if result.Value == nil {
@@ -1556,15 +1502,10 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 
 func (env *azureEnviron) deleteResourceGroup(resourceGroup string) error {
 	client := resources.GroupsClient{env.resources}
-	var result autorest.Response
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.Delete(resourceGroup, nil)
-		return result, err
-	}); err != nil {
-		if result.Response == nil || result.StatusCode != http.StatusNotFound {
-			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
-		}
+	resultCh, errCh := client.Delete(resourceGroup, nil)
+	result, err := <-resultCh, <-errCh
+	if err != nil && !isNotFoundResponse(result) {
+		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
 	return nil
 }
@@ -1629,12 +1570,8 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 	location := env.location
 	client := compute.VirtualMachineSizesClient{env.compute}
 
-	var result compute.VirtualMachineSizeListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.List(location)
-		return result.Response, err
-	}); err != nil {
+	result, err := client.List(location)
+	if err != nil {
 		return nil, errors.Annotate(err, "listing VM sizes")
 	}
 	instanceTypes := make(map[string]instances.InstanceType)
@@ -1692,13 +1629,9 @@ func (env *azureEnviron) getStorageAccountLocked(refresh bool) (*storage.Account
 		return env.storageAccount, nil
 	}
 	client := storage.AccountsClient{env.storage}
-	var account storage.Account
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		account, err = client.GetProperties(env.resourceGroup, env.storageAccountName)
-		return account.Response, err
-	}); err != nil {
-		if account.Response.Response != nil && account.Response.StatusCode == http.StatusNotFound {
+	account, err := client.GetProperties(env.resourceGroup, env.storageAccountName)
+	if err != nil {
+		if isNotFoundResponse(account.Response) {
 			return nil, errors.NewNotFound(err, fmt.Sprintf("storage account not found"))
 		}
 		return nil, errors.Annotate(err, "getting storage account")
@@ -1715,12 +1648,7 @@ func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh 
 		return env.storageAccountKey, nil
 	}
 	client := storage.AccountsClient{env.storage}
-	key, err := getStorageAccountKey(
-		env.callAPI,
-		client,
-		env.resourceGroup,
-		accountName,
-	)
+	key, err := getStorageAccountKey(client, env.resourceGroup, accountName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1740,8 +1668,4 @@ func (env *azureEnviron) AgentMirror() (simplestreams.CloudSpec, error) {
 		// data are the storage endpoints.
 		Endpoint: fmt.Sprintf("https://%s/", env.storageEndpoint),
 	}, nil
-}
-
-func (env *azureEnviron) callAPI(f func() (autorest.Response, error)) error {
-	return backoffAPIRequestCaller{env.provider.config.RetryClock}.call(f)
 }

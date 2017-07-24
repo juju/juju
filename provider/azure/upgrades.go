@@ -6,7 +6,6 @@ package azure
 import (
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
@@ -53,9 +52,7 @@ func (step commonDeploymentUpgradeStep) Run() error {
 	// network security group template created in the deployment
 	// below.
 	nsgClient := network.SecurityGroupsClient{env.network}
-	allRules, err := networkSecurityRules(
-		nsgClient, env.callAPI, env.resourceGroup,
-	)
+	allRules, err := networkSecurityRules(nsgClient, env.resourceGroup)
 	if errors.IsNotFound(err) {
 		allRules = nil
 	} else if err != nil {
@@ -82,12 +79,8 @@ func (step commonDeploymentUpgradeStep) Run() error {
 func isControllerEnviron(env *azureEnviron) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
-	var result compute.VirtualMachineListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.List(env.resourceGroup)
-		return result.Response, err
-	}); err != nil {
+	result, err := client.List(env.resourceGroup)
+	if err != nil {
 		return false, errors.Annotate(err, "listing virtual machines")
 	}
 
