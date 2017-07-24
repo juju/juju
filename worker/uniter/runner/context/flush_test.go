@@ -184,7 +184,7 @@ func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 	err := ctx.Flush("test fail run hook", errors.New(msg))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 
-	all, err := s.State.AllStorageInstances()
+	all, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
 }
@@ -203,7 +203,7 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 	err := ctx.Flush("success", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*storage "allecto" not found.*`)
 
-	all, err := s.State.AllStorageInstances()
+	all, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
 }

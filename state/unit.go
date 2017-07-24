@@ -1326,7 +1326,11 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storagePools, err := machineStoragePools(m.st, storageParams)
+	im, err := u.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storagePools, err := machineStoragePools(im, storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1424,7 +1428,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 	if err != nil {
 		return errors.Trace(err)
 	}
-	pools, err := machineStoragePools(m.st, params)
+	pools, err := machineStoragePools(im, params)
 	if err != nil {
 		return err
 	}
@@ -1461,11 +1465,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 
 // machineStoragePools returns the names of storage pools in each of the
 // volume, filesystem and attachments in the machine storage parameters.
-func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
-	im, err := st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func machineStoragePools(im *IAASModel, params *machineStorageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
 		v, err := im.volumeParamsWithDefaults(v.Volume, "")
@@ -1532,15 +1532,19 @@ func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	return validateDynamicStoragePools(m.st, pools)
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return validateDynamicStoragePools(im, pools)
 }
 
 // validateDynamicStoragePools validates that all of the specified storage
 // providers support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicStoragePools(st *State, pools set.Strings) error {
+func validateDynamicStoragePools(im *IAASModel, pools set.Strings) error {
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(st, pool)
+		providerType, provider, err := poolStorageProvider(im, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1825,7 +1829,11 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 }
 
 func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
-	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
+	im, err := u.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageAttachments, err := im.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
@@ -1844,7 +1852,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		storage, err := u.st.storageInstance(storageAttachment.StorageInstance())
+		storage, err := im.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
@@ -2168,6 +2176,12 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return failure(err)
 	}
 
+	im, err := u.st.IAASModel()
+	if err != nil {
+		assignContextf(&err, u.Name(), context)
+		return failure(err)
+	}
+
 	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
@@ -2175,12 +2189,12 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	storagePools, err := machineStoragePools(u.st, storageParams)
+	storagePools, err := machineStoragePools(im, storageParams)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	if err := validateDynamicStoragePools(u.st, storagePools); err != nil {
+	if err := validateDynamicStoragePools(im, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
 			return failure(noCleanMachines)
 		}

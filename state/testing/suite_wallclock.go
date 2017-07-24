@@ -5,6 +5,7 @@ package testing
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -27,6 +28,7 @@ type StateWithWallClockSuite struct {
 	NewPolicy                 state.NewPolicyFunc
 	Controller                *state.Controller
 	State                     *state.State
+	IAASModel                 *state.IAASModel
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
@@ -55,6 +57,11 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 		s.State.Close()
 		s.Controller.Close()
 	})
+
+	im, err := s.State.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	s.IAASModel = im
+
 	s.Factory = factory.NewFactory(s.State)
 }
 

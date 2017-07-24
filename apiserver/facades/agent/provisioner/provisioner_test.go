@@ -41,8 +41,6 @@ func TestPackage(t *stdtesting.T) {
 type provisionerSuite struct {
 	testing.JujuConnSuite
 
-	iaasModel *state.IAASModel
-
 	machines []*state.Machine
 
 	authorizer  apiservertesting.FakeAuthorizer
@@ -61,10 +59,6 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		"image-stream": "daily",
 	}
 	s.JujuConnSuite.SetUpTest(c)
-
-	iaasModel, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.iaasModel = iaasModel
 
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional controller machine.
@@ -1080,13 +1074,13 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Verify the machine with requested volumes was provisioned, and the
 	// volume information recorded in state.
-	volumeAttachments, err := s.iaasModel.MachineVolumeAttachments(volumesMachine.MachineTag())
+	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(volumesMachine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 	volumeAttachmentInfo, err := volumeAttachments[0].Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{DeviceName: "sda"})
-	volume, err := s.iaasModel.Volume(volumeAttachments[0].Volume())
+	volume, err := s.IAASModel.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1094,7 +1088,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Verify the machine without requested volumes still has no volume
 	// attachments recorded in state.
-	volumeAttachments, err = s.iaasModel.MachineVolumeAttachments(s.machines[1].MachineTag())
+	volumeAttachments, err = s.IAASModel.MachineVolumeAttachments(s.machines[1].MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 0)
 }

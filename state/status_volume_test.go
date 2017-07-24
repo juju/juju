@@ -38,10 +38,7 @@ func (s *VolumeStatusSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	volume, err := im.Volume(volumeAttachments[0].Volume())
+	volume, err := s.IAASModel.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine = machine
@@ -128,10 +125,7 @@ func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Statu
 	err := s.volume.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	volume, err := im.Volume(s.volume.VolumeTag())
+	volume, err := s.IAASModel.Volume(s.volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err := volume.Status()
@@ -147,27 +141,21 @@ func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Statu
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = im.DestroyVolume(s.volume.VolumeTag())
+	err := s.IAASModel.DestroyVolume(s.volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c, status.Attaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
-	im, err := s.State.IAASModel()
+	err := s.IAASModel.DestroyVolume(s.volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.IAASModel.DetachVolume(s.machine.MachineTag(), s.volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.IAASModel.RemoveVolumeAttachment(s.machine.MachineTag(), s.volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = im.DestroyVolume(s.volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = im.DetachVolume(s.machine.MachineTag(), s.volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = im.RemoveVolumeAttachment(s.machine.MachineTag(), s.volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	volume, err := im.Volume(s.volume.VolumeTag())
+	volume, err := s.IAASModel.Volume(s.volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volume.Life(), gc.Equals, state.Dead)
 
@@ -206,10 +194,7 @@ func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 }
 
 func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = im.SetVolumeInfo(s.volume.VolumeTag(), state.VolumeInfo{
+	err := s.IAASModel.SetVolumeInfo(s.volume.VolumeTag(), state.VolumeInfo{
 		VolumeId: "vol-ume",
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -146,7 +146,7 @@ func (p *ProvisionerAPI) machineVolumeParams(
 			return nil, nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
 		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
-			volume.StorageInstance, p.st.StorageInstance,
+			volume.StorageInstance, im.StorageInstance,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())

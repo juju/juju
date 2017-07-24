@@ -683,7 +683,6 @@ func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, n
 	return im.addVolumeOps(params, machineId)
 }
 
-// StateFromIAASModel should just be a temporary measure.
-func StateFromIAASModel(im *IAASModel) *State {
-	return im.st
+func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
+	return im.mb
 }

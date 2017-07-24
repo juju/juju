@@ -346,11 +346,11 @@ func (st *State) WatchRemoteApplications() StringsWatcher {
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.
-func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
+func (im *IAASModel) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 	members := bson.D{{"unitid", unit.Id()}}
 	prefix := unitGlobalKey(unit.Id()) + "#"
 	filter := func(id interface{}) bool {
-		k, err := st.strictLocalID(id.(string))
+		k, err := im.mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -360,7 +360,7 @@ func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 		// Transform storage attachment document ID to storage ID.
 		return id[len(prefix):]
 	}
-	return newLifecycleWatcher(st, storageAttachmentsC, members, filter, tr)
+	return newLifecycleWatcher(im.mb, storageAttachmentsC, members, filter, tr)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
@@ -1395,9 +1395,9 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 
 // WatchStorageAttachment returns a watcher for observing changes
 // to a storage attachment.
-func (st *State) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
+func (im *IAASModel) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
 	id := storageAttachmentId(u.Id(), s.Id())
-	return newEntityWatcher(st, storageAttachmentsC, st.docID(id))
+	return newEntityWatcher(im.mb, storageAttachmentsC, im.mb.docID(id))
 }
 
 // WatchVolumeAttachment returns a watcher for observing changes

@@ -36,8 +36,6 @@ import (
 type uniterSuite struct {
 	testing.JujuConnSuite
 
-	iaasModel *state.IAASModel
-
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
 	uniter     *uniter.UniterAPI
@@ -59,10 +57,6 @@ var _ = gc.Suite(&uniterSuite{})
 
 func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	iaasModel, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.iaasModel = iaasModel
 
 	factory := jujufactory.NewFactory(s.State)
 	// Create two machines, two services and add a unit to each service.
@@ -2455,13 +2449,13 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.iaasModel.SetVolumeInfo(
+	err = s.IAASModel.SetVolumeInfo(
 		volumeAttachments[0].Volume(),
 		state.VolumeInfo{VolumeId: "vol-123", Size: 456},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.iaasModel.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machine.MachineTag(),
 		volumeAttachments[0].Volume(),
 		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},

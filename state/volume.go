@@ -460,7 +460,7 @@ func (v *volume) Detachable() bool {
 // pool will create a volume that is not inherently bound to a machine,
 // and therefore can be detached.
 func isDetachableVolumePool(im *IAASModel, pool string) (bool, error) {
-	_, provider, err := poolStorageProvider(im.st, pool)
+	_, provider, err := poolStorageProvider(im, pool)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -851,7 +851,7 @@ func (im *IAASModel) volumeParamsWithDefaults(params VolumeParams, machineId str
 // validateVolumeParams validates the volume parameters, and returns the
 // machine ID to use as the scope in the volume tag.
 func (im *IAASModel) validateVolumeParams(params VolumeParams, machineId string) (maybeMachineId string, _ error) {
-	if err := validateStoragePool(im.st, params.Pool, storage.StorageKindBlock, &machineId); err != nil {
+	if err := validateStoragePool(im, params.Pool, storage.StorageKindBlock, &machineId); err != nil {
 		return "", err
 	}
 	if params.Size == 0 {

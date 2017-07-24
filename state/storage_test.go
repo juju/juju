@@ -27,22 +27,17 @@ import (
 
 type StorageStateSuiteBase struct {
 	ConnSuite
-	im *state.IAASModel
 }
 
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.im = im
 
 	// Create a default pool for block devices.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
 		dummy.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
-	_, err = pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a pool that creates persistent block devices.
@@ -73,9 +68,9 @@ func (s *StorageStateSuiteBase) provisionStorageVolume(c *gc.C, u *state.Unit, s
 	volume := s.storageInstanceVolume(c, storageTag)
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machine.MachineTag(),
 		volume.VolumeTag(),
 		state.VolumeAttachmentInfo{DeviceName: "sdc"},
@@ -225,7 +220,7 @@ func (s *StorageStateSuiteBase) assertVolumeInfo(c *gc.C, tag names.VolumeTag, e
 }
 
 func (s *StorageStateSuiteBase) filesystem(c *gc.C, tag names.FilesystemTag) state.Filesystem {
-	filesystem, err := s.im.Filesystem(tag)
+	filesystem, err := s.IAASModel.Filesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return filesystem
 }
@@ -238,37 +233,37 @@ func (s *StorageStateSuiteBase) filesystemVolume(c *gc.C, tag names.FilesystemTa
 }
 
 func (s *StorageStateSuiteBase) filesystemAttachment(c *gc.C, m names.MachineTag, f names.FilesystemTag) state.FilesystemAttachment {
-	attachment, err := s.im.FilesystemAttachment(m, f)
+	attachment, err := s.IAASModel.FilesystemAttachment(m, f)
 	c.Assert(err, jc.ErrorIsNil)
 	return attachment
 }
 
 func (s *StorageStateSuiteBase) volume(c *gc.C, tag names.VolumeTag) state.Volume {
-	volume, err := s.im.Volume(tag)
+	volume, err := s.IAASModel.Volume(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return volume
 }
 
 func (s *StorageStateSuiteBase) volumeFilesystem(c *gc.C, tag names.VolumeTag) state.Filesystem {
-	filesystem, err := s.im.VolumeFilesystem(tag)
+	filesystem, err := s.IAASModel.VolumeFilesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return filesystem
 }
 
 func (s *StorageStateSuiteBase) volumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) state.VolumeAttachment {
-	attachment, err := s.im.VolumeAttachment(m, v)
+	attachment, err := s.IAASModel.VolumeAttachment(m, v)
 	c.Assert(err, jc.ErrorIsNil)
 	return attachment
 }
 
 func (s *StorageStateSuiteBase) storageInstanceVolume(c *gc.C, tag names.StorageTag) state.Volume {
-	volume, err := s.im.StorageInstanceVolume(tag)
+	volume, err := s.IAASModel.StorageInstanceVolume(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return volume
 }
 
 func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.StorageTag) state.Filesystem {
-	filesystem, err := s.im.StorageInstanceFilesystem(tag)
+	filesystem, err := s.IAASModel.StorageInstanceFilesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	return filesystem
 }
@@ -286,57 +281,57 @@ func (s *StorageStateSuiteBase) obliterateUnit(c *gc.C, tag names.UnitTag) {
 }
 
 func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag) {
-	attachments, err := s.State.UnitStorageAttachments(tag)
+	attachments, err := s.IAASModel.UnitStorageAttachments(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		err = s.State.DetachStorage(a.StorageInstance(), a.Unit())
+		err = s.IAASModel.DetachStorage(a.StorageInstance(), a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
-		if _, err := s.State.StorageAttachment(a.StorageInstance(), a.Unit()); err == nil {
-			err = s.State.RemoveStorageAttachment(a.StorageInstance(), a.Unit())
+		if _, err := s.IAASModel.StorageAttachment(a.StorageInstance(), a.Unit()); err == nil {
+			err = s.IAASModel.RemoveStorageAttachment(a.StorageInstance(), a.Unit())
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 }
 
 func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
-	err := s.im.DestroyVolume(tag)
+	err := s.IAASModel.DestroyVolume(tag)
 	if errors.IsNotFound(err) {
 		return
 	}
-	attachments, err := s.im.VolumeAttachments(tag)
+	attachments, err := s.IAASModel.VolumeAttachments(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
 		s.obliterateVolumeAttachment(c, a.Machine(), a.Volume())
 	}
-	err = s.im.RemoveVolume(tag)
+	err = s.IAASModel.RemoveVolume(tag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) {
-	err := s.im.DetachVolume(m, v)
+	err := s.IAASModel.DetachVolume(m, v)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.RemoveVolumeAttachment(m, v)
+	err = s.IAASModel.RemoveVolumeAttachment(m, v)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuiteBase) obliterateFilesystem(c *gc.C, tag names.FilesystemTag) {
-	err := s.im.DestroyFilesystem(tag)
+	err := s.IAASModel.DestroyFilesystem(tag)
 	if errors.IsNotFound(err) {
 		return
 	}
-	attachments, err := s.im.FilesystemAttachments(tag)
+	attachments, err := s.IAASModel.FilesystemAttachments(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
 		s.obliterateFilesystemAttachment(c, a.Machine(), a.Filesystem())
 	}
-	err = s.im.RemoveFilesystem(tag)
+	err = s.IAASModel.RemoveFilesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuiteBase) obliterateFilesystemAttachment(c *gc.C, m names.MachineTag, f names.FilesystemTag) {
-	err := s.im.DetachFilesystem(m, f)
+	err := s.IAASModel.DetachFilesystem(m, f)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.RemoveFilesystemAttachment(m, f)
+	err = s.IAASModel.RemoveFilesystemAttachment(m, f)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -344,15 +339,15 @@ func (s *StorageStateSuiteBase) obliterateFilesystemAttachment(c *gc.C, m names.
 // and filesystem references corresponds exactly to the volume and filesystem
 // attachments that relate to the machine.
 func assertMachineStorageRefs(c *gc.C, im *state.IAASModel, m names.MachineTag) {
-	st := state.StateFromIAASModel(im)
-	machines, closer := state.GetRawCollection(st, state.MachinesC)
+	mb := state.ModelBackendFromIAASModel(im)
+	machines, closer := state.GetRawCollection(mb, state.MachinesC)
 	defer closer()
 
 	var doc struct {
 		Volumes     []string `bson:"volumes,omitempty"`
 		Filesystems []string `bson:"filesystems,omitempty"`
 	}
-	err := machines.FindId(state.DocID(st, m.Id())).One(&doc)
+	err := machines.FindId(state.DocID(mb, m.Id())).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	have := make(set.Tags)
@@ -384,17 +379,9 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 
 type StorageStateSuite struct {
 	StorageStateSuiteBase
-	im *state.IAASModel
 }
 
 var _ = gc.Suite(&StorageStateSuite{})
-
-func (s *StorageStateSuite) SetUpTest(c *gc.C) {
-	s.StorageStateSuiteBase.SetUpTest(c)
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.im = im
-}
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
@@ -576,12 +563,12 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		storageAttachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+		storageAttachments, err := s.IAASModel.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		count := make(map[string]int)
 		for _, att := range storageAttachments {
 			c.Assert(att.Unit(), gc.Equals, u.UnitTag())
-			storageInstance, err := s.State.StorageInstance(att.StorageInstance())
+			storageInstance, err := s.IAASModel.StorageInstance(att.StorageInstance())
 			c.Assert(err, jc.ErrorIsNil)
 			count[storageInstance.StorageName()]++
 			c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindBlock)
@@ -597,7 +584,7 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 	s.assertStorageUnitsAdded(c)
 
-	all, err := s.State.AllStorageInstances()
+	all, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 6)
 
@@ -617,7 +604,7 @@ func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {
 	s.assertStorageUnitsAdded(c)
 
 	assertAttachments := func(tag names.StorageTag, expect ...names.UnitTag) {
-		attachments, err := s.State.StorageAttachments(tag)
+		attachments, err := s.IAASModel.StorageAttachments(tag)
 		c.Assert(err, jc.ErrorIsNil)
 		units := make([]names.UnitTag, len(attachments))
 		for i, a := range attachments {
@@ -638,7 +625,7 @@ func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestAllStorageInstancesEmpty(c *gc.C) {
-	all, err := s.State.AllStorageInstances()
+	all, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
 }
@@ -658,13 +645,13 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
 	}
 	assertUnitEnsureDeadError()
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
-	err = s.State.DestroyStorageInstance(storageTag, true)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	err = s.IAASModel.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -677,14 +664,14 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 	// when the last attachment is removed.
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageInstance(storageTag, true)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	si, err := s.State.StorageInstance(storageTag)
+	si, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
 
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
@@ -693,7 +680,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "persistent-block")
 
-	si, err := s.State.StorageInstance(storageTag)
+	si, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
@@ -711,10 +698,10 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 	// behind, but will clear the ownership.
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	si, err = s.State.StorageInstance(storageTag)
+	si, err = s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasOwner := si.Owner()
 	c.Assert(hasOwner, jc.IsFalse)
@@ -732,13 +719,13 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now attach the storage to the second unit.
-	err = s.State.AttachStorage(storageTag, u2.UnitTag())
+	err = s.IAASModel.AttachStorage(storageTag, u2.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	storageInstance, err := s.State.StorageInstance(storageTag)
+	storageInstance, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	owner, hasOwner := storageInstance.Owner()
 	c.Assert(hasOwner, jc.IsTrue)
@@ -751,7 +738,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
@@ -764,7 +751,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 
 	// Now attach the storage to the second unit. There should now be a
 	// volume and volume attachment.
-	err = s.State.AttachStorage(storageTag, u2.UnitTag())
+	err = s.IAASModel.AttachStorage(storageTag, u2.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	volume := s.storageInstanceVolume(c, storageTag)
@@ -795,11 +782,11 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 
 	// Detach, but do not destroy, the storage.
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag())
+	err = s.IAASModel.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
@@ -812,7 +799,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 
 	// Now attach the storage to the second unit. This should attach
 	// the existing volume to the unit's machine.
-	err = s.State.AttachStorage(storageTag, u2.UnitTag())
+	err = s.IAASModel.AttachStorage(storageTag, u2.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := u2.AssignedMachineId()
@@ -843,10 +830,10 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttach
 	// Detach, but do not destroy, the storage. Leave the volume attachment
 	// in the model to show that we cannot attach the storage instance to
 	// another unit/machine until it's gone.
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.AttachStorage(storageTag, u2.UnitTag())
+	err = s.IAASModel.AttachStorage(storageTag, u2.UnitTag())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot attach storage data/0 to unit quantal-storage-block/1: volume 0 is attached to machine 0`,
 	)
@@ -856,7 +843,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 
 	// Detach, but do not destroy, the storage.
-	err := s.State.DetachStorage(storageTag, u.UnitTag())
+	err := s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, _, err := app.Charm()
@@ -880,12 +867,12 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 	c.Assert(app2Units, gc.HasLen, 1)
 
 	// The storage instance should be attached to the new application unit.
-	storageInstance, err := s.State.StorageInstance(storageTag)
+	storageInstance, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	owner, hasOwner := storageInstance.Owner()
 	c.Assert(hasOwner, jc.IsTrue)
 	c.Assert(owner, gc.Equals, app2Units[0].UnitTag())
-	storageAttachments, err := s.State.UnitStorageAttachments(app2Units[0].UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(app2Units[0].UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 2)
 }
@@ -918,7 +905,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 		storageTags = append(storageTags, storageTag)
 
 		// Detach, but do not destroy, the storage.
-		err = s.State.DetachStorage(storageTag, u.UnitTag())
+		err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -946,7 +933,7 @@ func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 
 	// Detach, but do not destroy, the storage.
-	err := s.State.DetachStorage(storageTag, u.UnitTag())
+	err := s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a new unit, attaching the existing storage.
@@ -956,7 +943,7 @@ func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance should be attached to the new application unit.
-	storageInstance, err := s.State.StorageInstance(storageTag)
+	storageInstance, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	owner, hasOwner := storageInstance.Owner()
 	c.Assert(hasOwner, jc.IsTrue)
@@ -969,14 +956,14 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.DetachStorage(storageTag, u.UnitTag())
+		err := s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
 	// Destroying the instance should check that there are no concurrent
 	// changes to the storage instance's attachments, and recompute
 	// operations if there are.
-	err = s.State.DestroyStorageInstance(storageTag, true)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exists := s.storageInstanceExists(c, storageTag)
@@ -989,15 +976,15 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageInstance(storageTag, true)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	destroy := func() {
-		err = s.State.DetachStorage(storageTag, u.UnitTag())
+		err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	remove := func() {
-		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+		err = s.IAASModel.RemoveStorageAttachment(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1011,10 +998,10 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
-	err := s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	err := s.IAASModel.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, gc.ErrorMatches, "cannot remove storage attachment data/0:storage-block/0: storage attachment is not dying")
 
-	attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+	attachments, err := s.IAASModel.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].StorageInstance(), gc.Equals, storageTag)
@@ -1029,14 +1016,14 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 		// Concurrently mark the storage instance as Dying,
 		// so that it will be removed when the last attachment
 		// is removed.
-		err := s.State.DestroyStorageInstance(storageTag, true)
+		err := s.IAASModel.DestroyStorageInstance(storageTag, true)
 		c.Assert(err, jc.ErrorIsNil)
 	}, nil).Check()
 
 	// Removing the attachment should check that there are no concurrent
 	// changes to the storage instance's life, and recompute operations
 	// if it does.
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
@@ -1048,20 +1035,20 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.DestroyStorageInstance(storageTag, true)
+		err := s.IAASModel.DestroyStorageInstance(storageTag, true)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.State.DestroyStorageInstance(storageTag, true)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	si, err := s.State.StorageInstance(storageTag)
+	si, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
 }
 
 func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
-	err := s.State.DestroyStorageInstance(names.NewStorageTag("foo/0"), true)
+	err := s.IAASModel.DestroyStorageInstance(names.NewStorageTag("foo/0"), true)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "foo/0": storage instance "foo/0" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1069,7 +1056,7 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
 func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
 	_, _, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
-	err := s.State.DestroyStorageInstance(storageTag, false)
+	err := s.IAASModel.DestroyStorageInstance(storageTag, false)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "data/0": storage is attached`)
 	c.Assert(err, jc.Satisfies, state.IsStorageAttachedError)
 }
@@ -1084,13 +1071,13 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := s.State.WatchStorageAttachments(u.UnitTag())
+	w := s.IAASModel.WatchStorageAttachments(u.UnitTag())
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange("multi1to10/0", "multi1to10/1", "multi2up/2", "multi2up/3")
 	wc.AssertNoChange()
 
-	err = s.State.DetachStorage(names.NewStorageTag("multi1to10/1"), u.UnitTag())
+	err = s.IAASModel.DetachStorage(names.NewStorageTag("multi1to10/1"), u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("multi1to10/1")
 	wc.AssertNoChange()
@@ -1103,18 +1090,18 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	// so that we can observe the progression from Alive->Dying->Dead->removed.
 	s.provisionStorageVolume(c, u, storageTag)
 
-	w := s.State.WatchStorageAttachment(storageTag, u.UnitTag())
+	w := s.IAASModel.WatchStorageAttachment(storageTag, u.UnitTag())
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	err = s.IAASModel.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
@@ -1127,19 +1114,19 @@ func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.DestroyUnitStorageAttachments(u.UnitTag())
+		err := s.IAASModel.DestroyUnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
-		attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+		attachments, err := s.IAASModel.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(attachments, gc.HasLen, 4)
 		for _, a := range attachments {
 			c.Assert(a.Life(), gc.Equals, state.Dying)
-			err := s.State.RemoveStorageAttachment(a.StorageInstance(), u.UnitTag())
+			err := s.IAASModel.RemoveStorageAttachment(a.StorageInstance(), u.UnitTag())
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}).Check()
 
-	err = s.State.DestroyUnitStorageAttachments(u.UnitTag())
+	err = s.IAASModel.DestroyUnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1335,7 +1322,7 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 
 	// The principal unit is not yet assigned to a machine, so there should
 	// be no filesystem associated with the storage instance yet.
-	_, err = s.im.StorageInstanceFilesystem(storageTag)
+	_, err = s.IAASModel.StorageInstanceFilesystem(storageTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Assigning the principal unit to a machine should cause the subordinate

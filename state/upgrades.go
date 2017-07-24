@@ -750,7 +750,7 @@ func addStorageInstanceConstraints(st *State) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	storageInstances, err := st.storageInstances(bson.D{
+	storageInstances, err := im.storageInstances(bson.D{
 		{"constraints", bson.D{{"$exists", false}}},
 	})
 	if err != nil {

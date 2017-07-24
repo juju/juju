@@ -53,9 +53,13 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	export := exporter{
 		st:      st,
+		im:      im,
 		cfg:     cfg,
 		dbModel: dbModel,
 		logger:  loggo.GetLogger("juju.state.export-model"),
@@ -196,6 +200,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 type exporter struct {
 	cfg     ExportConfig
 	st      *State
+	im      *IAASModel
 	dbModel *Model
 	model   description.Model
 	logger  loggo.Logger
@@ -1569,17 +1574,11 @@ func (e *exporter) volumes() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	im, err := e.st.IAASModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	var doc volumeDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		vol := &volume{im, doc}
+		vol := &volume{e.im, doc}
 		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
 			return errors.Trace(err)
 		}
@@ -1684,17 +1683,11 @@ func (e *exporter) filesystems() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	im, err := e.st.IAASModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	var doc filesystemDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		fs := &filesystem{im, doc}
+		fs := &filesystem{e.im, doc}
 		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
 			return errors.Trace(err)
 		}
@@ -1792,12 +1785,11 @@ func (e *exporter) storageInstances() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	var doc storageInstanceDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		instance := &storageInstance{e.st, doc}
+		instance := &storageInstance{e.im, doc}
 		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
 			return errors.Trace(err)
 		}

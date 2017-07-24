@@ -31,7 +31,12 @@ func NewFacadeV4(
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewAPIv4(getState(st), registry, pm, resources, authorizer)
+
+	backend, err := getState(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting backend")
+	}
+	return NewAPIv4(backend, registry, pm, resources, authorizer)
 }
 
 // NewFacadeV3 provides the signature required for facade registration.
@@ -46,7 +51,12 @@ func NewFacadeV3(
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewAPIv3(getState(st), registry, pm, resources, authorizer)
+
+	backend, err := getState(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting backend")
+	}
+	return NewAPIv3(backend, registry, pm, resources, authorizer)
 }
 
 type storageAccess interface {

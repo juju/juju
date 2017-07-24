@@ -71,7 +71,7 @@ func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*count must be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -90,7 +90,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -108,7 +108,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -176,7 +176,7 @@ func (s *unitStorageSuite) createStorageBlock2Unit(c *gc.C) {
 }
 
 func (s *unitStorageSuite) assertStorageCreated(c *gc.C) {
-	all, err := s.State.AllStorageInstances()
+	all, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	s.initialStorageInstancesCount = len(all)
 	s.expectedStorageNames = set.NewStrings()
@@ -225,7 +225,7 @@ func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]pa
 	err := ctx.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, len(cons))
 	s.assertExistingStorage(c, after)

@@ -499,7 +499,7 @@ func (f *filesystem) Detachable() bool {
 // storage pool will create a filesystem that is not inherently
 // bound to a machine, and therefore can be detached.
 func isDetachableFilesystemPool(im *IAASModel, pool string) (bool, error) {
-	_, provider, err := poolStorageProvider(im.st, pool)
+	_, provider, err := poolStorageProvider(im, pool)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -802,21 +802,21 @@ func removeFilesystemOps(im *IAASModel, filesystem Filesystem, release bool, ass
 // the status "detached". The filesystem and associated backing
 // volume (if any) will be associated with the given storage
 // name, with the allocated storage tag being returned.
-func (st *State) AddExistingFilesystem(
+func (im *IAASModel) AddExistingFilesystem(
 	info FilesystemInfo,
 	backingVolume *VolumeInfo,
 	storageName string,
 ) (_ names.StorageTag, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add existing filesystem")
-	if err := validateAddExistingFilesystem(st, info, backingVolume, storageName); err != nil {
+	if err := validateAddExistingFilesystem(im, info, backingVolume, storageName); err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}
-	storageId, err := newStorageInstanceId(st, storageName)
+	storageId, err := newStorageInstanceId(im.mb, storageName)
 	if err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}
 	storageTag := names.NewStorageTag(storageId)
-	fsOps, _, volumeTag, err := st.addFilesystemOps(
+	fsOps, _, volumeTag, err := im.addFilesystemOps(
 		FilesystemParams{
 			Pool:         info.Pool,
 			Size:         info.Size,
@@ -847,7 +847,7 @@ func (st *State) AddExistingFilesystem(
 		},
 	}}
 	ops = append(ops, fsOps...)
-	if err := st.db().RunTransaction(ops); err != nil {
+	if err := im.mb.db().RunTransaction(ops); err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}
 	return storageTag, nil
@@ -856,7 +856,7 @@ func (st *State) AddExistingFilesystem(
 var storageNameRE = regexp.MustCompile(names.StorageNameSnippet)
 
 func validateAddExistingFilesystem(
-	st *State,
+	im *IAASModel,
 	info FilesystemInfo,
 	backingVolume *VolumeInfo,
 	storageName string,
@@ -891,7 +891,7 @@ func validateAddExistingFilesystem(
 			)
 		}
 	}
-	_, provider, err := poolStorageProvider(st, info.Pool)
+	_, provider, err := poolStorageProvider(im, info.Pool)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -971,7 +971,7 @@ func (im *IAASModel) addFilesystemOps(params FilesystemParams, machineId string)
 	var volumeId string
 	var volumeTag names.VolumeTag
 	var ops []txn.Op
-	_, provider, err := poolStorageProvider(im.st, params.Pool)
+	_, provider, err := poolStorageProvider(im, params.Pool)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -1063,7 +1063,7 @@ func (im *IAASModel) filesystemParamsWithDefaults(params FilesystemParams, machi
 // validateFilesystemParams validates the filesystem parameters, and returns the
 // machine ID to use as the scope in the filesystem tag.
 func (im *IAASModel) validateFilesystemParams(params FilesystemParams, machineId string) (maybeMachineId string, _ error) {
-	err := validateStoragePool(im.st, params.Pool, storage.StorageKindFilesystem, &machineId)
+	err := validateStoragePool(im, params.Pool, storage.StorageKindFilesystem, &machineId)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

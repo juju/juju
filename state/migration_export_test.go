@@ -52,7 +52,6 @@ var testAnnotations = map[string]string{
 
 type MigrationBaseSuite struct {
 	ConnWithWallClockSuite
-	im *state.IAASModel
 }
 
 func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
@@ -142,9 +141,6 @@ var _ = gc.Suite(&MigrationExportSuite{})
 func (s *MigrationExportSuite) SetUpTest(c *gc.C) {
 	s.MigrationBaseSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.StrictMigration)
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.im = im
 }
 
 func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, statusVal status.Status) {
@@ -940,13 +936,10 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	})
 	machineTag := machine.MachineTag()
 
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// We know that the first volume is called "0/0" as it is the first volume
 	// (volumes use sequences), and it is bound to machine 0.
 	volTag := names.NewVolumeTag("0/0")
-	err = im.SetVolumeInfo(volTag, state.VolumeInfo{
+	err := s.IAASModel.SetVolumeInfo(volTag, state.VolumeInfo{
 		HardwareId: "magic",
 		WWN:        "drbr",
 		Size:       1500,
@@ -954,7 +947,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = im.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+	err = s.IAASModel.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
 		DeviceName: "device name",
 		DeviceLink: "device link",
 		BusAddress: "bus address",
@@ -1025,12 +1018,12 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	// We know that the first filesystem is called "0/0" as it is the first
 	// filesystem (filesystems use sequences), and it is bound to machine 0.
 	fsTag := names.NewFilesystemTag("0/0")
-	err := s.im.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+	err := s.IAASModel.SetFilesystemInfo(fsTag, state.FilesystemInfo{
 		Size:         1500,
 		FilesystemId: "filesystem id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
+	err = s.IAASModel.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
 		MountPoint: "/mnt/foo",
 		ReadOnly:   true,
 	})

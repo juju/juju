@@ -1029,10 +1029,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
+	im, err := st.IAASModel()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
+	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	storagePools := make(set.Strings)
@@ -1135,7 +1139,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 					// so it cannot be attached.
 					continue
 				}
-				providerType, _, err := poolStorageProvider(st, volumeInfo.Pool)
+				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
 				}

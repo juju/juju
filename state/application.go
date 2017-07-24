@@ -474,6 +474,12 @@ func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 
 func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
 	// Make sure no storage instances are added or removed.
+
+	im, err := a.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var ops []txn.Op
 	for name, oldStorageMeta := range oldMeta.Storage {
 		if _, ok := newMeta.Storage[name]; ok {
@@ -486,7 +492,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 		// are no instances of the store, it can safely be
 		// removed.
 		if oldStorageMeta.Shared {
-			op, n, err := a.st.countEntityStorageInstances(a.Tag(), name)
+			op, n, err := im.countEntityStorageInstances(a.Tag(), name)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -496,7 +502,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 			ops = append(ops, op)
 		} else {
 			for _, u := range units {
-				op, n, err := a.st.countEntityStorageInstances(u.Tag(), name)
+				op, n, err := im.countEntityStorageInstances(u.Tag(), name)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -632,6 +638,10 @@ func (a *Application) changeCharmOps(
 	// constraints, as incompatible charm changes will otherwise yield
 	// confusing error messages that would suggest the user has supplied
 	// invalid constraints.
+	im, err := a.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	oldCharm, _, err := a.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -659,14 +669,14 @@ func (a *Application) changeCharmOps(
 			delete(newStorageConstraints, name)
 		}
 	}
-	if err := addDefaultStorageConstraints(a.st, newStorageConstraints, ch.Meta()); err != nil {
+	if err := addDefaultStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
 		return nil, errors.Annotate(err, "adding default storage constraints")
 	}
-	if err := validateStorageConstraints(a.st, newStorageConstraints, ch.Meta()); err != nil {
+	if err := validateStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
 		return nil, errors.Annotate(err, "validating storage constraints")
 	}
 	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, ch.URL())
-	if _, err := readStorageConstraints(a.st, newStorageConstraintsKey); errors.IsNotFound(err) {
+	if _, err := readStorageConstraints(im.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
 		storageConstraintsOp = createStorageConstraintsOp(
 			newStorageConstraintsKey, newStorageConstraints,
 		)
@@ -791,6 +801,12 @@ func (a *Application) upgradeStorageOps(
 	units []*Unit,
 	allStorageCons map[string]StorageConstraints,
 ) (_ []txn.Op, err error) {
+
+	im, err := a.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// For each store, ensure that every unit has the minimum requirements.
 	// If a unit has an existing store, but its minimum count has been
 	// increased, we only add the shortfall; we do not necessarily add as
@@ -805,7 +821,7 @@ func (a *Application) upgradeStorageOps(
 				// cosntraints.
 				countMin = int(cons.Count)
 			}
-			unitOps, err := a.st.addUnitStorageOps(
+			unitOps, err := im.addUnitStorageOps(
 				meta, u, name, cons, countMin,
 			)
 			if err != nil {
@@ -1116,6 +1132,11 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		return "", nil, err
 	}
 
+	im, err := a.st.IAASModel()
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+
 	// Reduce the count of new storage created for each existing storage
 	// being attached.
 	var storageCons map[string]StorageConstraints
@@ -1154,7 +1175,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		machineAssignable = pu
 	}
 	storageOps, storageCounts, numStorageAttachments, err := createStorageOps(
-		a.st,
+		im,
 		unitTag,
 		charm.Meta(),
 		args.storageCons,
@@ -1165,14 +1186,14 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		return "", nil, errors.Trace(err)
 	}
 	for _, storageTag := range args.attachStorage {
-		si, err := a.st.storageInstance(storageTag)
+		si, err := im.storageInstance(storageTag)
 		if err != nil {
 			return "", nil, errors.Annotatef(
 				err, "attaching %s",
 				names.ReadableString(storageTag),
 			)
 		}
-		ops, err := a.st.attachStorageOps(
+		ops, err := im.attachStorageOps(
 			si,
 			unitTag,
 			a.doc.Series,
@@ -1312,7 +1333,11 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	storageInstanceOps, err := removeStorageInstancesOps(a.st, u.Tag())
+	im, err := a.st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	storageInstanceOps, err := removeStorageInstancesOps(im, u.Tag())
 	if err != nil {
 		return nil, err
 	}

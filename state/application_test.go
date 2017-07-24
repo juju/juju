@@ -2406,7 +2406,7 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the new required storage was added for the unit.
-	attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+	attachments, err := s.IAASModel.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 2)
 }
@@ -2429,7 +2429,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 
 	// Check that new storage was added for the unit, based on the
 	// constraints specified in SetCharmConfig.
-	attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+	attachments, err := s.IAASModel.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 4)
 }

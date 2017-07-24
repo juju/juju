@@ -750,6 +750,9 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	im, err := st.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	machine, err := st.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -760,9 +763,6 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	im, err := st.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystems, err := im.AllFilesystems()

@@ -1007,10 +1007,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	// have been set on the volume params.
 	machineTemplate.Volumes[1].Volume.Pool = "loop"
 
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	volumeAttachments, err := im.MachineVolumeAttachments(m.MachineTag())
+	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 2)
 	if volumeAttachments[0].Volume() == names.NewVolumeTag(m.Id()+"/1") {
@@ -1023,7 +1020,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
 		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
-		volume, err := im.Volume(att.Volume())
+		volume, err := s.IAASModel.Volume(att.Volume())
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = volume.Info()
 		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)

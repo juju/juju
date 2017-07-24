@@ -180,24 +180,24 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageTag := storageAttachments[0].StorageInstance()
 
-	volume, err := s.State.StorageInstanceVolume(storageTag)
+	volume, err := s.IAASModel.StorageInstanceVolume(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeTag := volume.VolumeTag()
 	machineTag := s.machine.MachineTag()
 
-	err = s.State.SetVolumeInfo(
+	err = s.IAASModel.SetVolumeInfo(
 		volumeTag, state.VolumeInfo{
 			VolumeId: "vol-123",
 			Size:     456,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machineTag, volumeTag, state.VolumeAttachmentInfo{
 			DeviceName: "sdb",
 		},

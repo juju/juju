@@ -1024,9 +1024,7 @@ func (s *assignCleanSuite) TestAssignToMachine(c *gc.C) {
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	filesystemAttachments, err := im.MachineFilesystemAttachments(machine.MachineTag())
+	filesystemAttachments, err := s.IAASModel.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, gc.HasLen, 1)
 }
@@ -1052,7 +1050,7 @@ func (s *assignCleanSuite) TestAssignToMachineErrors(c *gc.C) {
 
 func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
@@ -1075,7 +1073,7 @@ func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *
 
 func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
@@ -1096,13 +1094,11 @@ func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.
 	// Check that a volume attachments were added to the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := im.MachineVolumeAttachments(machine.MachineTag())
+	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 
-	volume, err := im.Volume(volumeAttachments[0].Volume())
+	volume, err := s.IAASModel.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	volumeStorageInstance, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)

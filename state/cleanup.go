@@ -212,13 +212,17 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 // cleanupStorageForDyingModel sets all storage to Dying, if they are not
 // already Dying or Dead. It's expected to be used when a model is destroyed.
 func (st *State) cleanupStorageForDyingModel() (err error) {
-	storage, err := st.AllStorageInstances()
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storage, err := im.AllStorageInstances()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, s := range storage {
 		const destroyAttached = true
-		err := st.DestroyStorageInstance(s.StorageTag(), destroyAttached)
+		err := im.DestroyStorageInstance(s.StorageTag(), destroyAttached)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -365,13 +369,17 @@ func (st *State) cleanupDyingUnit(name string) error {
 }
 
 func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
-	storageAttachments, err := st.UnitStorageAttachments(unitTag)
+	im, err := st.IAASModel()
+	if err != nil {
+		return err
+	}
+	storageAttachments, err := im.UnitStorageAttachments(unitTag)
 	if err != nil {
 		return err
 	}
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
-		err := st.DetachStorage(storageTag, unitTag)
+		err := im.DetachStorage(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -380,7 +388,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 		if !remove {
 			continue
 		}
-		err = st.RemoveStorageAttachment(storageTag, unitTag)
+		err = im.RemoveStorageAttachment(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -598,6 +606,10 @@ func (st *State) obliterateUnit(unitName string) error {
 // to the specified storage instance to Dying, if they are not already Dying
 // or Dead. It's expected to be used when a storage instance is destroyed.
 func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	storageTag := names.NewStorageTag(storageId)
 
 	// This won't miss attachments, because a Dying storage instance cannot
@@ -613,7 +625,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error)
 	defer closeIter(iter, &err, "reading storage attachment document")
 	for iter.Next(&doc) {
 		unitTag := names.NewUnitTag(doc.Unit)
-		if err := st.DetachStorage(storageTag, unitTag); err != nil {
+		if err := im.DetachStorage(storageTag, unitTag); err != nil {
 			return errors.Annotate(err, "destroying storage attachment")
 		}
 	}

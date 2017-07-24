@@ -93,6 +93,7 @@ type JujuConnSuite struct {
 
 	ControllerConfig   controller.Config
 	State              *state.State
+	IAASModel          *state.IAASModel
 	Environ            environs.Environ
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
@@ -394,6 +395,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
 	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.IAASModel, err = s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)

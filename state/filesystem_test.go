@@ -17,17 +17,9 @@ import (
 
 type FilesystemStateSuite struct {
 	StorageStateSuiteBase
-	im *state.IAASModel
 }
 
 var _ = gc.Suite(&FilesystemStateSuite{})
-
-func (s *FilesystemStateSuite) SetUpTest(c *gc.C) {
-	s.StorageStateSuiteBase.SetUpTest(c)
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.im = im
-}
 
 func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
@@ -96,10 +88,10 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(scons, gc.DeepEquals, expected)
 
-		storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+		storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(storageAttachments, gc.HasLen, 1)
-		storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
+		storageInstance, err := s.IAASModel.StorageInstance(storageAttachments[0].StorageInstance())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindFilesystem)
 	}
@@ -125,14 +117,14 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystemInfoSet := state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"}
-	err = s.im.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	err = s.IAASModel.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The first call to SetFilesystemInfo takes the pool name from
 	// the params; the second does not, but it must not change
 	// either. Callers are expected to get the existing info and
 	// update it, leaving immutable values intact.
-	err = s.im.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	err = s.IAASModel.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": cannot change pool from "rootfs" to ""`)
 
 	filesystemInfoSet.Pool = "rootfs"
@@ -149,7 +141,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoNoFilesystemId(c *gc.C) {
 	s.assertFilesystemUnprovisioned(c, filesystemTag)
 
 	filesystemInfoSet := state.FilesystemInfo{Size: 123}
-	err = s.im.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	err = s.IAASModel.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": filesystem ID not set`)
 }
 
@@ -179,11 +171,11 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	if withVolume {
 		// Volume must be provisioned before the filesystem.
 		volume := s.filesystemVolume(c, filesystem.FilesystemTag())
-		err := s.im.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+		err := s.IAASModel.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Volume must be attached before the filesystem.
-		err = s.im.SetVolumeAttachmentInfo(
+		err = s.IAASModel.SetVolumeAttachmentInfo(
 			machine.MachineTag(),
 			volume.VolumeTag(),
 			state.VolumeAttachmentInfo{DeviceName: "sdc"},
@@ -192,13 +184,13 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	}
 
 	// Filesystem must be provisioned before it can be attached.
-	err = s.im.SetFilesystemInfo(
+	err = s.IAASModel.SetFilesystemInfo(
 		filesystem.FilesystemTag(),
 		state.FilesystemInfo{FilesystemId: "fs-123"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.im.SetFilesystemAttachmentInfo(
+	err = s.IAASModel.SetFilesystemAttachmentInfo(
 		machine.MachineTag(),
 		filesystem.FilesystemTag(),
 		state.FilesystemAttachmentInfo{MountPoint: "/srv"},
@@ -227,10 +219,10 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineTag := names.NewMachineTag(assignedMachineId)
 
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
+	storageInstance, err := s.IAASModel.StorageInstance(storageAttachments[0].StorageInstance())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindFilesystem)
 
@@ -243,7 +235,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	_, ok := filesystem.Params()
 	c.Assert(ok, jc.IsTrue)
 
-	volume, err := s.im.StorageInstanceVolume(storageInstance.StorageTag())
+	volume, err := s.IAASModel.StorageInstanceVolume(storageInstance.StorageTag())
 	if withVolume {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0"))
@@ -253,7 +245,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 		filesystemVolume, err := filesystem.Volume()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(filesystemVolume, gc.Equals, volume.VolumeTag())
-		_, err = s.im.VolumeAttachment(assignedMachineTag, filesystemVolume)
+		_, err = s.IAASModel.VolumeAttachment(assignedMachineTag, filesystemVolume)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -263,7 +255,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 
 	machine, err := s.State.Machine(assignedMachineId)
 	c.Assert(err, jc.ErrorIsNil)
-	filesystemAttachments, err := s.im.MachineFilesystemAttachments(assignedMachineTag)
+	filesystemAttachments, err := s.IAASModel.MachineFilesystemAttachments(assignedMachineTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, gc.HasLen, 1)
 	c.Assert(filesystemAttachments[0].Filesystem(), gc.Equals, filesystem.FilesystemTag())
@@ -273,9 +265,9 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	_, ok = filesystemAttachments[0].Params()
 	c.Assert(ok, jc.IsTrue)
 
-	assertMachineStorageRefs(c, s.im, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 
-	att, err := s.im.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	att, err := s.IAASModel.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return filesystem, att, machine, storageAttachments[0]
 }
@@ -291,7 +283,7 @@ func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 	filesystemTag := filesystem.FilesystemTag()
 
-	w := s.im.WatchFilesystemAttachment(machineTag, filesystemTag)
+	w := s.IAASModel.WatchFilesystemAttachment(machineTag, filesystemTag)
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
@@ -302,13 +294,13 @@ func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// filesystem attachment will NOT react to filesystem changes
-	err = s.im.SetFilesystemInfo(filesystemTag, state.FilesystemInfo{
+	err = s.IAASModel.SetFilesystemInfo(filesystemTag, state.FilesystemInfo{
 		FilesystemId: "fs-123",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.im.SetFilesystemAttachmentInfo(
+	err = s.IAASModel.SetFilesystemAttachmentInfo(
 		machineTag, filesystemTag, state.FilesystemAttachmentInfo{
 			MountPoint: "/srv",
 		},
@@ -337,14 +329,14 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystemInfo := state.FilesystemInfo{FilesystemId: "fs-123", Size: 456}
-	err = s.im.SetFilesystemInfo(filesystemTag, filesystemInfo)
+	err = s.IAASModel.SetFilesystemInfo(filesystemTag, filesystemInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemInfo.Pool = "rootfs" // taken from params
 	s.assertFilesystemInfo(c, filesystemTag, filesystemInfo)
 	s.assertFilesystemAttachmentUnprovisioned(c, machineTag, filesystemTag)
 
 	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{MountPoint: "/srv"}
-	err = s.im.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
+	err = s.IAASModel.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertFilesystemAttachmentInfo(c, machineTag, filesystemTag, filesystemAttachmentInfo)
 }
@@ -372,7 +364,7 @@ func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 	}
 	u := addUnit()
 
-	w := s.im.WatchModelFilesystems()
+	w := s.IAASModel.WatchModelFilesystems()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0", "1") // initial
@@ -385,19 +377,19 @@ func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemTag := names.NewFilesystemTag("0")
-	removeFilesystemStorageInstance(c, s.im, filesystemTag)
+	removeFilesystemStorageInstance(c, s.IAASModel, filesystemTag)
 
-	err = s.im.DestroyFilesystem(filesystemTag)
+	err = s.IAASModel.DestroyFilesystem(filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0")
 	wc.AssertNoChange()
 
 	machineTag := names.NewMachineTag("0")
-	err = s.im.DetachFilesystem(machineTag, filesystemTag)
+	err = s.IAASModel.DetachFilesystem(machineTag, filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.im.RemoveFilesystemAttachment(machineTag, filesystemTag)
+	err = s.IAASModel.RemoveFilesystemAttachment(machineTag, filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0") // last attachment removed
 	wc.AssertNoChange()
@@ -414,7 +406,7 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 	}
 	u := addUnit()
 
-	w := s.im.WatchModelFilesystemAttachments()
+	w := s.IAASModel.WatchModelFilesystemAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
@@ -427,19 +419,19 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemTag := names.NewFilesystemTag("0")
-	removeFilesystemStorageInstance(c, s.im, filesystemTag)
+	removeFilesystemStorageInstance(c, s.IAASModel, filesystemTag)
 
-	err = s.im.DestroyFilesystem(filesystemTag)
+	err = s.IAASModel.DestroyFilesystem(filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	machineTag := names.NewMachineTag("0")
-	err = s.im.DetachFilesystem(machineTag, filesystemTag)
+	err = s.IAASModel.DetachFilesystem(machineTag, filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0")
 	wc.AssertNoChange()
 
-	err = s.im.RemoveFilesystemAttachment(machineTag, filesystemTag)
+	err = s.IAASModel.RemoveFilesystemAttachment(machineTag, filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0")
 	wc.AssertNoChange()
@@ -456,7 +448,7 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
 	}
 	u := addUnit()
 
-	w := s.im.WatchMachineFilesystems(names.NewMachineTag("0"))
+	w := s.IAASModel.WatchMachineFilesystems(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0/2", "0/3") // initial
@@ -469,25 +461,25 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemTag := names.NewFilesystemTag("0/2")
-	removeFilesystemStorageInstance(c, s.im, filesystemTag)
+	removeFilesystemStorageInstance(c, s.IAASModel, filesystemTag)
 
-	err = s.im.DestroyFilesystem(filesystemTag)
+	err = s.IAASModel.DestroyFilesystem(filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0/2")
 	wc.AssertNoChange()
 
-	attachments, err := s.im.FilesystemAttachments(filesystemTag)
+	attachments, err := s.IAASModel.FilesystemAttachments(filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		err := s.im.DetachFilesystem(a.Machine(), filesystemTag)
+		err := s.IAASModel.DetachFilesystem(a.Machine(), filesystemTag)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.im.RemoveFilesystemAttachment(a.Machine(), filesystemTag)
+		err = s.IAASModel.RemoveFilesystemAttachment(a.Machine(), filesystemTag)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	wc.AssertChangeInSingleEvent("0/2") // Dying -> Dead
 	wc.AssertNoChange()
 
-	err = s.im.RemoveFilesystem(filesystemTag)
+	err = s.IAASModel.RemoveFilesystem(filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	// no more changes after seeing Dead
 	wc.AssertNoChange()
@@ -511,7 +503,7 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
 	}
 	_, m0 := addUnit(nil)
 
-	w := s.im.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
+	w := s.IAASModel.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
@@ -521,19 +513,19 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	err := s.im.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("2"))
+	err := s.IAASModel.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("2"))
 	c.Assert(err, jc.ErrorIsNil)
 	// no change, since we're only interested in attachments of
 	// machine-scoped volumes.
 	wc.AssertNoChange()
 
-	removeFilesystemStorageInstance(c, s.im, names.NewFilesystemTag("0/0"))
-	err = s.im.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	removeFilesystemStorageInstance(c, s.IAASModel, names.NewFilesystemTag("0/0"))
+	err = s.IAASModel.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0/0") // dying
 	wc.AssertNoChange()
 
-	err = s.im.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	err = s.IAASModel.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0/0") // removed
 	wc.AssertNoChange()
@@ -572,7 +564,7 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 	storageTag := storageAttachment.StorageInstance()
 	unitTag := storageAttachment.Unit()
 
-	err := s.im.SetFilesystemAttachmentInfo(
+	err := s.IAASModel.SetFilesystemAttachmentInfo(
 		filesystemAttachment.Machine(),
 		filesystem.FilesystemTag(),
 		state.FilesystemAttachmentInfo{},
@@ -583,9 +575,9 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageInstance(storageTag, true)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachStorage(storageTag, unitTag)
+	err = s.IAASModel.DetachStorage(storageTag, unitTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance and attachment are dying, but not yet
@@ -593,14 +585,14 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 	s.storageInstanceFilesystem(c, storageTag)
 	s.storageInstanceVolume(c, storageTag)
 
-	err = s.State.RemoveStorageAttachment(storageTag, unitTag)
+	err = s.IAASModel.RemoveStorageAttachment(storageTag, unitTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance is now gone; the filesystem should no longer
 	// be assigned to the storage.
-	_, err = s.im.StorageInstanceFilesystem(storageTag)
+	_, err = s.IAASModel.StorageInstanceFilesystem(storageTag)
 	c.Assert(err, gc.ErrorMatches, `filesystem for storage instance "data/0" not found`)
-	_, err = s.im.StorageInstanceVolume(storageTag)
+	_, err = s.IAASModel.StorageInstanceVolume(storageTag)
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
 	// The filesystem and volume should still exist. The filesystem
@@ -619,14 +611,14 @@ func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemReleasing(c *
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystem.Releasing(), jc.IsFalse)
-	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), state.FilesystemInfo{FilesystemId: "vol-123"})
+	err = s.IAASModel.SetFilesystemInfo(filesystem.FilesystemTag(), state.FilesystemInfo{FilesystemId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.ReleaseStorageInstance(storageTag, true)
+	err = s.IAASModel.ReleaseStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The filesystem should should be dying, and releasing.
@@ -637,7 +629,7 @@ func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemReleasing(c *
 
 func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoFilesystemNotProvisioned(c *gc.C) {
 	_, filesystemAttachment, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "rootfs", false)
-	err := s.im.SetFilesystemAttachmentInfo(
+	err := s.IAASModel.SetFilesystemAttachmentInfo(
 		filesystemAttachment.Machine(),
 		filesystemAttachment.Filesystem(),
 		state.FilesystemAttachmentInfo{},
@@ -647,12 +639,12 @@ func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoFilesystemNotProvi
 
 func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoMachineNotProvisioned(c *gc.C) {
 	_, filesystemAttachment, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "rootfs", false)
-	err := s.im.SetFilesystemInfo(
+	err := s.IAASModel.SetFilesystemInfo(
 		filesystemAttachment.Filesystem(),
 		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.SetFilesystemAttachmentInfo(
+	err = s.IAASModel.SetFilesystemAttachmentInfo(
 		filesystemAttachment.Machine(),
 		filesystemAttachment.Filesystem(),
 		state.FilesystemAttachmentInfo{},
@@ -662,7 +654,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoMachineNotProvisio
 
 func (s *FilesystemStateSuite) TestSetFilesystemInfoVolumeAttachmentNotProvisioned(c *gc.C) {
 	filesystem, _, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "modelscoped-block", true)
-	err := s.im.SetFilesystemInfo(
+	err := s.IAASModel.SetFilesystemInfo(
 		filesystem.FilesystemTag(),
 		state.FilesystemInfo{Size: 123, FilesystemId: "fs-id"},
 	)
@@ -679,7 +671,7 @@ func (s *FilesystemStateSuite) TestDestroyFilesystem(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestDestroyFilesystemNotFound(c *gc.C) {
-	err := s.im.DestroyFilesystem(names.NewFilesystemTag("0"))
+	err := s.IAASModel.DestroyFilesystem(names.NewFilesystemTag("0"))
 	c.Assert(err, gc.ErrorMatches, `destroying filesystem 0: filesystem "0" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -694,26 +686,26 @@ func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssigned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 
-	err = s.im.DestroyFilesystem(filesystem.FilesystemTag())
+	err = s.IAASModel.DestroyFilesystem(filesystem.FilesystemTag())
 	c.Assert(err, gc.ErrorMatches, "destroying filesystem 0/0: filesystem is assigned to storage data/0")
 
 	// We must destroy the unit before we can remove the storage.
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, s.State, storageTag)
+	removeStorageInstance(c, s.IAASModel, storageTag)
 	s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dying)
 }
 
 func (s *FilesystemStateSuite) TestDestroyFilesystemNoAttachments(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+		err := s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 		c.Assert(err, jc.ErrorIsNil)
-		assertMachineStorageRefs(c, s.im, machine.MachineTag())
+		assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 	}).Check()
 
 	// There are no more attachments, so the filesystem should
@@ -724,14 +716,14 @@ func (s *FilesystemStateSuite) TestDestroyFilesystemNoAttachments(c *gc.C) {
 func (s *FilesystemStateSuite) TestRemoveFilesystem(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
 	s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dying)
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemove := func() {
-		err = s.im.RemoveFilesystem(filesystem.FilesystemTag())
+		err = s.IAASModel.RemoveFilesystem(filesystem.FilesystemTag())
 		c.Assert(err, jc.ErrorIsNil)
-		_, err = s.im.Filesystem(filesystem.FilesystemTag())
+		_, err = s.IAASModel.Filesystem(filesystem.FilesystemTag())
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 	defer state.SetBeforeHooks(c, s.State, assertRemove).Check()
@@ -756,12 +748,12 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemVolumeBacked(c *gc.C) {
 	// of the filesystem are gone.
 	assertVolumeLife(state.Alive)
 
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	// Likewise for the volume attachment.
 	assertVolumeAttachmentLife(state.Alive)
 
-	err = s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	// Removing the filesystem attachment causes the backing-volume
 	// to be detached.
@@ -769,13 +761,13 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemVolumeBacked(c *gc.C) {
 
 	// Removing the last attachment should cause the filesystem
 	// to be removed, since it is volume-backed and dying.
-	_, err = s.im.Filesystem(filesystem.FilesystemTag())
+	_, err = s.IAASModel.Filesystem(filesystem.FilesystemTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// Removing the filesystem causes the backing-volume to be
 	// destroyed.
 	assertVolumeLife(state.Dying)
 
-	assertMachineStorageRefs(c, s.im, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 }
 
 func (s *FilesystemStateSuite) TestFilesystemVolumeBackedDestroyDetachVolumeFail(c *gc.C) {
@@ -783,47 +775,47 @@ func (s *FilesystemStateSuite) TestFilesystemVolumeBackedDestroyDetachVolumeFail
 	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
 
 	s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dying)
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Can't destroy (detach) volume until the filesystem (attachment) is removed.
-	err = s.im.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err = s.IAASModel.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "detaching volume 0 from machine 0: volume contains attached filesystem")
 	c.Assert(err, jc.Satisfies, state.IsContainsFilesystem)
-	err = s.im.DestroyVolume(volume.VolumeTag())
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "destroying volume 0: volume contains filesystem")
 	c.Assert(err, jc.Satisfies, state.IsContainsFilesystem)
-	assertMachineStorageRefs(c, s.im, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 
-	err = s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.RemoveFilesystem(filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystem(filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.im.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err = s.IAASModel.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.im.DestroyVolume(volume.VolumeTag())
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemNotFound(c *gc.C) {
-	err := s.im.RemoveFilesystem(names.NewFilesystemTag("42"))
+	err := s.IAASModel.RemoveFilesystem(names.NewFilesystemTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemNotDead(c *gc.C) {
 	filesystem, _ := s.setupFilesystemAttachment(c, "rootfs")
-	err := s.im.RemoveFilesystem(filesystem.FilesystemTag())
+	err := s.IAASModel.RemoveFilesystem(filesystem.FilesystemTag())
 	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is not dead")
 	s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dying)
-	err = s.im.RemoveFilesystem(filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystem(filesystem.FilesystemTag())
 	c.Assert(err, gc.ErrorMatches, "removing filesystem 0/0: filesystem is not dead")
 }
 
 func (s *FilesystemStateSuite) TestDetachFilesystem(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 	assertDetach := func() {
-		err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+		err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 		c.Assert(err, jc.ErrorIsNil)
 		attachment := s.filesystemAttachment(c, machine.MachineTag(), filesystem.FilesystemTag())
 		c.Assert(attachment.Life(), gc.Equals, state.Dying)
@@ -835,51 +827,51 @@ func (s *FilesystemStateSuite) TestDetachFilesystem(c *gc.C) {
 func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachment(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The filesystem has no attachments, so it should go straight to Dead.
 	s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dead)
-	assertMachineStorageRefs(c, s.im, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 }
 
 func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachmentConcurrently(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dying)
 	}).Check()
 
-	err = s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	err = s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Last attachment was removed, and the filesystem was (concurrently)
 	// destroyed, so the filesystem should be Dead.
 	filesystem = s.filesystem(c, filesystem.FilesystemTag())
 	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
-	assertMachineStorageRefs(c, s.im, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentNotFound(c *gc.C) {
-	err := s.im.RemoveFilesystemAttachment(names.NewMachineTag("42"), names.NewFilesystemTag("42"))
+	err := s.IAASModel.RemoveFilesystemAttachment(names.NewMachineTag("42"), names.NewFilesystemTag("42"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `removing attachment of filesystem 42 from machine 42: filesystem "42" on machine "42" not found`)
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentConcurrently(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	remove := func() {
-		err := s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+		err := s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 		c.Assert(err, jc.ErrorIsNil)
-		assertMachineStorageRefs(c, s.im, machine.MachineTag())
+		assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 	}
 	defer state.SetBeforeHooks(c, s.State, remove).Check()
 	remove()
@@ -887,7 +879,7 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentConcurrently(c *gc.
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentAlive(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
-	err := s.im.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, gc.ErrorMatches, "removing attachment of filesystem 0/0 from machine 0: filesystem attachment is not dying")
 }
 
@@ -899,10 +891,10 @@ func (s *FilesystemStateSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
 	// Machine is gone: filesystem should be gone too.
-	_, err := s.im.Filesystem(filesystem.FilesystemTag())
+	_, err := s.IAASModel.Filesystem(filesystem.FilesystemTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	attachments, err := s.im.MachineFilesystemAttachments(machine.MachineTag())
+	attachments, err := s.IAASModel.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 0)
 }
@@ -912,7 +904,7 @@ func (s *FilesystemStateSuite) TestFilesystemMachineScoped(c *gc.C) {
 	// instance are bound to the machine.
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
 
-	err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, gc.ErrorMatches, "detaching filesystem 0/0 from machine 0: filesystem is not detachable")
 	err = machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -921,9 +913,9 @@ func (s *FilesystemStateSuite) TestFilesystemMachineScoped(c *gc.C) {
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.im.Filesystem(filesystem.FilesystemTag())
+	_, err = s.IAASModel.Filesystem(filesystem.FilesystemTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.im.FilesystemAttachment(
+	_, err = s.IAASModel.FilesystemAttachment(
 		machine.MachineTag(),
 		filesystem.FilesystemTag(),
 	)
@@ -943,7 +935,7 @@ func (s *FilesystemStateSuite) TestFilesystemRemoveStorageDestroysFilesystem(c *
 	// We must destroy the unit before we can remove the storage.
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, s.State, storageTag)
+	removeStorageInstance(c, s.IAASModel, storageTag)
 	filesystem = s.filesystem(c, filesystem.FilesystemTag())
 	c.Assert(filesystem.Life(), gc.Equals, state.Dying)
 }
@@ -1101,9 +1093,9 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsConcurrentRemove(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.im.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+		err := s.IAASModel.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.im.RemoveFilesystemAttachment(
+		err = s.IAASModel.RemoveFilesystemAttachment(
 			machine.MachineTag(), filesystem.FilesystemTag(),
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1161,11 +1153,11 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystem(c *gc.C) {
 		Size:         123,
 		FilesystemId: "foo",
 	}
-	storageTag, err := s.State.AddExistingFilesystem(fsInfoIn, nil, "pgdata")
+	storageTag, err := s.IAASModel.AddExistingFilesystem(fsInfoIn, nil, "pgdata")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageTag, gc.Equals, names.NewStorageTag("pgdata/0"))
 
-	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	filesystem, err := s.IAASModel.StorageInstanceFilesystem(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	fsInfoOut, err := filesystem.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1181,7 +1173,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemEmptyFilesystemId(c *gc.
 		Pool: "modelscoped",
 		Size: 123,
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfoIn, nil, "pgdata")
+	_, err := s.IAASModel.AddExistingFilesystem(fsInfoIn, nil, "pgdata")
 	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: empty filesystem ID not valid")
 }
 
@@ -1195,11 +1187,11 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
 		Size:     123,
 		VolumeId: "foo",
 	}
-	storageTag, err := s.State.AddExistingFilesystem(fsInfoIn, &volInfoIn, "pgdata")
+	storageTag, err := s.IAASModel.AddExistingFilesystem(fsInfoIn, &volInfoIn, "pgdata")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageTag, gc.Equals, names.NewStorageTag("pgdata/0"))
 
-	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	filesystem, err := s.IAASModel.StorageInstanceFilesystem(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	fsInfoOut, err := filesystem.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1210,7 +1202,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fsStatus.Status, gc.Equals, status.Detached)
 
-	volume, err := s.State.StorageInstanceVolume(storageTag)
+	volume, err := s.IAASModel.StorageInstanceVolume(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	volInfoOut, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1227,7 +1219,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedVolumeInfoMi
 		Size:         123,
 		FilesystemId: "foo",
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfo, nil, "pgdata")
+	_, err := s.IAASModel.AddExistingFilesystem(fsInfo, nil, "pgdata")
 	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: backing volume info missing")
 }
 
@@ -1242,7 +1234,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedFilesystemId
 		Size:     123,
 		VolumeId: "foo",
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfo, &volInfo, "pgdata")
+	_, err := s.IAASModel.AddExistingFilesystem(fsInfo, &volInfo, "pgdata")
 	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: non-empty filesystem ID with backing volume not valid")
 }
 
@@ -1255,7 +1247,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedEmptyVolumeI
 		Pool: "modelscoped-block",
 		Size: 123,
 	}
-	_, err := s.State.AddExistingFilesystem(fsInfo, &volInfo, "pgdata")
+	_, err := s.IAASModel.AddExistingFilesystem(fsInfo, &volInfo, "pgdata")
 	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: empty backing volume ID not valid")
 }
 
@@ -1271,11 +1263,11 @@ func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	attachments, err := s.im.MachineFilesystemAttachments(machine.MachineTag())
+	attachments, err := s.IAASModel.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	assertMachineStorageRefs(c, s.im, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 	return s.filesystem(c, attachments[0].Filesystem()), machine
 }
 
@@ -1284,11 +1276,11 @@ func removeFilesystemStorageInstance(c *gc.C, im *state.IAASModel, filesystemTag
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag, err := filesystem.Storage()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, state.StateFromIAASModel(im), storageTag)
+	removeStorageInstance(c, im, storageTag)
 }
 
 func (s *FilesystemStateSuite) assertDestroyFilesystem(c *gc.C, tag names.FilesystemTag, life state.Life) {
-	err := s.im.DestroyFilesystem(tag)
+	err := s.IAASModel.DestroyFilesystem(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	filesystem := s.filesystem(c, tag)
 	c.Assert(filesystem.Life(), gc.Equals, life)

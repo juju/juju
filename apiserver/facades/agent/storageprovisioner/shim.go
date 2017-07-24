@@ -29,7 +29,12 @@ func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewStorageProvisionerAPIv3(stateShim{st}, resources, authorizer, registry, pm)
+
+	backend, err := NewStateBackend(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting backend")
+	}
+	return NewStorageProvisionerAPIv3(backend, resources, authorizer, registry, pm)
 }
 
 // NewFacadeV4 provides the signature required for facade registration.
