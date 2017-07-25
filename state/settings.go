@@ -452,7 +452,7 @@ type StateSettings struct {
 }
 
 // NewStateSettings creates a StateSettings from a modelBackend (e.g. State).
-func NewStateSettings(backend *State) *StateSettings {
+func NewStateSettings(backend modelBackend) *StateSettings {
 	return &StateSettings{backend, settingsC}
 }
 

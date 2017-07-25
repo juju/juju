@@ -1074,13 +1074,13 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Verify the machine with requested volumes was provisioned, and the
 	// volume information recorded in state.
-	volumeAttachments, err := s.State.MachineVolumeAttachments(volumesMachine.MachineTag())
+	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(volumesMachine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 	volumeAttachmentInfo, err := volumeAttachments[0].Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{DeviceName: "sda"})
-	volume, err := s.State.Volume(volumeAttachments[0].Volume())
+	volume, err := s.IAASModel.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1088,7 +1088,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Verify the machine without requested volumes still has no volume
 	// attachments recorded in state.
-	volumeAttachments, err = s.State.MachineVolumeAttachments(s.machines[1].MachineTag())
+	volumeAttachments, err = s.IAASModel.MachineVolumeAttachments(s.machines[1].MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 0)
 }

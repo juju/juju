@@ -2449,13 +2449,13 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetVolumeInfo(
+	err = s.IAASModel.SetVolumeInfo(
 		volumeAttachments[0].Volume(),
 		state.VolumeInfo{VolumeId: "vol-123", Size: 456},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machine.MachineTag(),
 		volumeAttachments[0].Volume(),
 		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},

@@ -81,7 +81,7 @@ const (
 )
 
 type storageInstance struct {
-	st  *State
+	im  *IAASModel
 	doc storageInstanceDoc
 }
 
@@ -224,16 +224,16 @@ func storageAttachmentId(unit string, storageInstanceId string) string {
 }
 
 // StorageInstance returns the StorageInstance with the specified tag.
-func (st *State) StorageInstance(tag names.StorageTag) (StorageInstance, error) {
-	s, err := st.storageInstance(tag)
+func (im *IAASModel) StorageInstance(tag names.StorageTag) (StorageInstance, error) {
+	s, err := im.storageInstance(tag)
 	return s, err
 }
 
-func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error) {
-	storageInstances, cleanup := st.db().GetCollection(storageInstancesC)
+func (im *IAASModel) storageInstance(tag names.StorageTag) (*storageInstance, error) {
+	storageInstances, cleanup := im.mb.db().GetCollection(storageInstancesC)
 	defer cleanup()
 
-	s := storageInstance{st: st}
+	s := storageInstance{im: im}
 	err := storageInstances.FindId(tag.Id()).One(&s.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("storage instance %q", tag.Id())
@@ -245,8 +245,8 @@ func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error)
 
 // AllStorageInstances lists all storage instances currently in state
 // for this Juju model.
-func (st *State) AllStorageInstances() ([]StorageInstance, error) {
-	storageInstances, err := st.storageInstances(nil)
+func (im *IAASModel) AllStorageInstances() ([]StorageInstance, error) {
+	storageInstances, err := im.storageInstances(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -257,8 +257,8 @@ func (st *State) AllStorageInstances() ([]StorageInstance, error) {
 	return out, nil
 }
 
-func (st *State) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {
-	storageCollection, closer := st.db().GetCollection(storageInstancesC)
+func (im *IAASModel) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {
+	storageCollection, closer := im.mb.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	sdocs := []storageInstanceDoc{}
@@ -267,7 +267,7 @@ func (st *State) storageInstances(query bson.D) (storageInstances []*storageInst
 		return nil, errors.Annotate(err, "cannot get storage instances")
 	}
 	for _, doc := range sdocs {
-		storageInstances = append(storageInstances, &storageInstance{st, doc})
+		storageInstances = append(storageInstances, &storageInstance{im, doc})
 	}
 	return storageInstances, nil
 }
@@ -291,9 +291,9 @@ func IsStorageAttachedError(err error) bool {
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then DestroyStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (st *State) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
+func (im *IAASModel) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
-	return st.destroyStorageInstance(tag, destroyAttachments, false)
+	return im.destroyStorageInstance(tag, destroyAttachments, false)
 }
 
 // ReleaseStorageInstance ensures that the storage instance will be removed at
@@ -304,25 +304,25 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag, destroyAttachments
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then ReleaseStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (st *State) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
+func (im *IAASModel) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release storage %q", tag.Id())
-	return st.destroyStorageInstance(tag, destroyAttachments, true)
+	return im.destroyStorageInstance(tag, destroyAttachments, true)
 }
 
-func (st *State) destroyStorageInstance(
+func (im *IAASModel) destroyStorageInstance(
 	tag names.StorageTag,
 	destroyAttachments bool,
 	releaseMachineStorage bool,
 ) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s, err := st.storageInstance(tag)
+		s, err := im.storageInstance(tag)
 		if errors.IsNotFound(err) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch ops, err := st.destroyStorageInstanceOps(
+		switch ops, err := im.destroyStorageInstanceOps(
 			s, destroyAttachments, releaseMachineStorage,
 		); err {
 		case errAlreadyDying:
@@ -333,10 +333,10 @@ func (st *State) destroyStorageInstance(
 			return nil, errors.Trace(err)
 		}
 	}
-	return st.db().Run(buildTxn)
+	return im.mb.db().Run(buildTxn)
 }
 
-func (st *State) destroyStorageInstanceOps(
+func (im *IAASModel) destroyStorageInstanceOps(
 	s *storageInstance,
 	destroyAttachments bool,
 	releaseStorage bool,
@@ -400,11 +400,7 @@ func (st *State) destroyStorageInstanceOps(
 
 // removeStorageInstanceOps removes the storage instance with the given
 // tag from state, if the specified assertions hold true.
-func removeStorageInstanceOps(
-	si *storageInstance,
-	assert bson.D,
-) ([]txn.Op, error) {
-
+func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, error) {
 	// Remove the storage instance document, ensuring the owner does not
 	// change from what's passed in.
 	owner := si.maybeOwner()
@@ -431,7 +427,7 @@ func removeStorageInstanceOps(
 
 		// Decrement the owner's count for the storage name, freeing
 		// up a slot for a new storage instance to be attached.
-		decrefOp, err := decrefEntityStorageOp(si.st, owner, si.StorageName())
+		decrefOp, err := decrefEntityStorageOp(si.im.mb, owner, si.StorageName())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -451,12 +447,12 @@ func removeStorageInstanceOps(
 	// reference to avoid a dangling pointer while the volume/filesystem
 	// is being destroyed.
 	var haveFilesystem bool
-	filesystem, err := si.st.storageInstanceFilesystem(si.StorageTag())
+	filesystem, err := si.im.storageInstanceFilesystem(si.StorageTag())
 	if err == nil {
 		ops = append(ops, machineStorageOp(
 			filesystemsC, filesystem.Tag().Id(),
 		))
-		fsOps, err := destroyFilesystemOps(si.st, filesystem, si.doc.Releasing, nil)
+		fsOps, err := destroyFilesystemOps(si.im, filesystem, si.doc.Releasing, nil)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -465,7 +461,7 @@ func removeStorageInstanceOps(
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	volume, err := si.st.storageInstanceVolume(si.StorageTag())
+	volume, err := si.im.storageInstanceVolume(si.StorageTag())
 	if err == nil {
 		ops = append(ops, machineStorageOp(
 			volumesC, volume.Tag().Id(),
@@ -475,7 +471,7 @@ func removeStorageInstanceOps(
 		// this case, we want to destroy only the filesystem; when
 		// the filesystem is removed, the volume will be destroyed.
 		if !haveFilesystem {
-			volOps, err := destroyVolumeOps(si.st, volume, si.doc.Releasing, nil)
+			volOps, err := destroyVolumeOps(si.im, volume, si.doc.Releasing, nil)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -493,12 +489,13 @@ func removeStorageInstanceOps(
 // ensure the same in a transaction. If the owner is not alive, then charm
 // storage requirements are ignored.
 func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error) {
+	st := si.im.st
 	var ops []txn.Op
 	var charmMeta *charm.Meta
 	owner := si.maybeOwner()
 	switch owner.Kind() {
 	case names.ApplicationTagKind:
-		app, err := si.st.Application(owner.Id())
+		app, err := st.Application(owner.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -519,7 +516,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 			},
 		})
 	case names.UnitTagKind:
-		u, err := si.st.Unit(owner.Id())
+		u, err := st.Unit(owner.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -544,7 +541,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		)
 	}
 	_, currentCountOp, err := validateStorageCountChange(
-		si.st, owner, si.StorageName(), -1, charmMeta,
+		si.im, owner, si.StorageName(), -1, charmMeta,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -557,11 +554,11 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 // and returns the current storage count, and a txn.Op that ensures the
 // current storage count does not change before the transaction is executed.
 func validateStorageCountChange(
-	st *State, owner names.Tag,
+	im *IAASModel, owner names.Tag,
 	storageName string, n int,
 	charmMeta *charm.Meta,
 ) (current int, _ txn.Op, _ error) {
-	currentCountOp, currentCount, err := st.countEntityStorageInstances(owner, storageName)
+	currentCountOp, currentCount, err := im.countEntityStorageInstances(owner, storageName)
 	if err != nil {
 		return -1, txn.Op{}, errors.Trace(err)
 	}
@@ -629,7 +626,7 @@ type machineAssignable interface {
 // describes the entity's machine assignment. If the entity is assigned
 // to a machine, then machine storage will be created.
 func createStorageOps(
-	st *State,
+	im *IAASModel,
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
@@ -701,7 +698,7 @@ func createStorageOps(
 		instanceCounts[t.storageName] += int(t.cons.Count)
 		for i := uint64(0); i < t.cons.Count; i++ {
 			cons := cons[t.storageName]
-			id, err := newStorageInstanceId(st, t.storageName)
+			id, err := newStorageInstanceId(im.mb, t.storageName)
 			if err != nil {
 				return fail(errors.Annotate(err, "cannot generate storage instance name"))
 			}
@@ -725,8 +722,8 @@ func createStorageOps(
 				if maybeMachineAssignable != nil {
 					var err error
 					machineOps, err = unitAssignedMachineStorageOps(
-						st, unitTag, charmMeta, series,
-						&storageInstance{st, *doc},
+						im, unitTag, charmMeta, series,
+						&storageInstance{im, *doc},
 						maybeMachineAssignable,
 					)
 					if err != nil {
@@ -763,7 +760,7 @@ func createStorageOps(
 // If the unit is not assigned to a machine, then ops will be returned to assert
 // this, and no error will be returned.
 func unitAssignedMachineStorageOps(
-	st *State,
+	im *IAASModel,
 	unitTag names.UnitTag,
 	charmMeta *charm.Meta,
 	series string,
@@ -782,7 +779,7 @@ func unitAssignedMachineStorageOps(
 	}
 
 	storageParams, err := machineStorageParamsForStorageInstance(
-		st, charmMeta, unitTag, series, storage,
+		im.st, charmMeta, unitTag, series, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -790,7 +787,7 @@ func unitAssignedMachineStorageOps(
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
+	storageOps, volumeAttachments, filesystemAttachments, err := im.st.machineStorageOps(
 		&m.doc, storageParams,
 	)
 	if err != nil {
@@ -823,9 +820,9 @@ func createStorageAttachmentOp(storage names.StorageTag, unit names.UnitTag) txn
 
 // StorageAttachments returns the StorageAttachments for the specified storage
 // instance.
-func (st *State) StorageAttachments(storage names.StorageTag) ([]StorageAttachment, error) {
+func (im *IAASModel) StorageAttachments(storage names.StorageTag) ([]StorageAttachment, error) {
 	query := bson.D{{"storageid", storage.Id()}}
-	attachments, err := st.storageAttachments(query)
+	attachments, err := im.storageAttachments(query)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get storage attachments for storage %s", storage.Id())
 	}
@@ -833,17 +830,17 @@ func (st *State) StorageAttachments(storage names.StorageTag) ([]StorageAttachme
 }
 
 // UnitStorageAttachments returns the StorageAttachments for the specified unit.
-func (st *State) UnitStorageAttachments(unit names.UnitTag) ([]StorageAttachment, error) {
+func (im *IAASModel) UnitStorageAttachments(unit names.UnitTag) ([]StorageAttachment, error) {
 	query := bson.D{{"unitid", unit.Id()}}
-	attachments, err := st.storageAttachments(query)
+	attachments, err := im.storageAttachments(query)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get storage attachments for unit %s", unit.Id())
 	}
 	return attachments, nil
 }
 
-func (st *State) storageAttachments(query bson.D) ([]StorageAttachment, error) {
-	coll, closer := st.db().GetCollection(storageAttachmentsC)
+func (im *IAASModel) storageAttachments(query bson.D) ([]StorageAttachment, error) {
+	coll, closer := im.mb.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
 	var docs []storageAttachmentDoc
@@ -858,16 +855,16 @@ func (st *State) storageAttachments(query bson.D) ([]StorageAttachment, error) {
 }
 
 // StorageAttachment returns the StorageAttachment wit hthe specified tags.
-func (st *State) StorageAttachment(storage names.StorageTag, unit names.UnitTag) (StorageAttachment, error) {
-	att, err := st.storageAttachment(storage, unit)
+func (im *IAASModel) StorageAttachment(storage names.StorageTag, unit names.UnitTag) (StorageAttachment, error) {
+	att, err := im.storageAttachment(storage, unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return att, nil
 }
 
-func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag) (*storageAttachment, error) {
-	coll, closer := st.db().GetCollection(storageAttachmentsC)
+func (im *IAASModel) storageAttachment(storage names.StorageTag, unit names.UnitTag) (*storageAttachment, error) {
+	coll, closer := im.mb.db().GetCollection(storageAttachmentsC)
 	defer closer()
 	var s storageAttachment
 	err := coll.FindId(storageAttachmentId(unit.Id(), storage.Id())).One(&s.doc)
@@ -881,18 +878,18 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 
 // AttachStorage attaches storage to a unit, creating and attaching machine
 // storage as necessary.
-func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
+func (im *IAASModel) AttachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err,
 		"cannot attach %s to %s",
 		names.ReadableString(storage),
 		names.ReadableString(unit),
 	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		si, err := st.storageInstance(storage)
+		si, err := im.storageInstance(storage)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		u, err := st.Unit(unit.Id())
+		u, err := im.st.Unit(unit.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -903,7 +900,7 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := st.attachStorageOps(si, u.UnitTag(), u.Series(), ch, u)
+		ops, err := im.attachStorageOps(si, u.UnitTag(), u.Series(), ch, u)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -914,12 +911,12 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 			// Make sure that we *can* assign another storage instance
 			// to the unit.
 			_, currentCountOp, err := validateStorageCountChange(
-				st, u.UnitTag(), si.StorageName(), 1, ch.Meta(),
+				im, u.UnitTag(), si.StorageName(), 1, ch.Meta(),
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			incRefOp, err := increfEntityStorageOp(st, u.UnitTag(), si.StorageName(), 1)
+			incRefOp, err := increfEntityStorageOp(im.mb, u.UnitTag(), si.StorageName(), 1)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -934,7 +931,7 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		ops = append(ops, u.assertCharmOps(ch)...)
 		return ops, nil
 	}
-	return st.db().Run(buildTxn)
+	return im.mb.db().Run(buildTxn)
 }
 
 // attachStorageOps returns txn.Ops to attach a storage instance to the
@@ -943,7 +940,7 @@ func (st *State) AttachStorage(storage names.StorageTag, unit names.UnitTag) (er
 //
 // The caller is responsible for incrementing the storage refcount for
 // the unit/storage name.
-func (st *State) attachStorageOps(
+func (im *IAASModel) attachStorageOps(
 	si *storageInstance,
 	unitTag names.UnitTag,
 	unitSeries string,
@@ -968,7 +965,7 @@ func (st *State) attachStorageOps(
 					names.ReadableString(unitTag),
 				)
 			}
-			if _, err := st.storageAttachment(
+			if _, err := im.storageAttachment(
 				si.StorageTag(),
 				unitTag,
 			); err == nil {
@@ -1018,7 +1015,7 @@ func (st *State) attachStorageOps(
 
 	if maybeMachineAssignable != nil {
 		machineStorageOps, err := unitAssignedMachineStorageOps(
-			st, unitTag, charmMeta, unitSeries, si,
+			im, unitTag, charmMeta, unitSeries, si,
 			maybeMachineAssignable,
 		)
 		if err != nil {
@@ -1031,10 +1028,10 @@ func (st *State) attachStorageOps(
 
 // DetachStorage ensures that the existing storage attachments of
 // the specified unit are removed at some point.
-func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
+func (im *IAASModel) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy unit %s storage attachments", unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		attachments, err := st.UnitStorageAttachments(unit)
+		attachments, err := im.UnitStorageAttachments(unit)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1052,15 +1049,15 @@ func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
 		}
 		return ops, nil
 	}
-	return st.db().Run(buildTxn)
+	return im.mb.db().Run(buildTxn)
 }
 
 // DetachStorage ensures that the storage attachment will be
 // removed at some point.
-func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
+func (im *IAASModel) DetachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s, err := st.storageAttachment(storage, unit)
+		s, err := im.storageAttachment(storage, unit)
 		if errors.IsNotFound(err) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
@@ -1070,7 +1067,7 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		if s.doc.Life == Dying {
 			return nil, jujutxn.ErrNoOperations
 		}
-		si, err := st.storageInstance(storage)
+		si, err := im.storageInstance(storage)
 		if err != nil {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -1100,7 +1097,7 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		// we can short-circuit the removal of the storage attachment.
 		var assert interface{}
 		removeStorageAttachment := true
-		u, err := st.Unit(unit.Id())
+		u, err := im.st.Unit(unit.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1114,7 +1111,7 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 			return nil, errors.Trace(err)
 		} else {
 			machineTag := names.NewMachineTag(machineId)
-			volumeAttachment, filesystemAttachment, err := st.storageMachineAttachment(
+			volumeAttachment, filesystemAttachment, err := im.storageMachineAttachment(
 				si, unit, machineTag,
 			)
 			if err != nil {
@@ -1163,11 +1160,11 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 		}
 		if removeStorageAttachment {
 			// Short-circuit the removal of the storage attachment.
-			return removeStorageAttachmentOps(st, s, si, assert, ops...)
+			return removeStorageAttachmentOps(im, s, si, assert, ops...)
 		}
 		return append(ops, detachStorageOps(storage, unit)...), nil
 	}
-	return st.db().Run(buildTxn)
+	return im.mb.db().Run(buildTxn)
 }
 
 func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
@@ -1180,29 +1177,29 @@ func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
 	return ops
 }
 
-func (st *State) storageMachineAttachment(
+func (im *IAASModel) storageMachineAttachment(
 	si *storageInstance,
 	unitTag names.UnitTag,
 	machineTag names.MachineTag,
 ) (VolumeAttachment, FilesystemAttachment, error) {
 	switch si.Kind() {
 	case StorageKindBlock:
-		volume, err := st.storageInstanceVolume(si.StorageTag())
+		volume, err := im.storageInstanceVolume(si.StorageTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		att, err := st.VolumeAttachment(machineTag, volume.VolumeTag())
+		att, err := im.VolumeAttachment(machineTag, volume.VolumeTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
 		return att, nil, nil
 
 	case StorageKindFilesystem:
-		filesystem, err := st.storageInstanceFilesystem(si.StorageTag())
+		filesystem, err := im.storageInstanceFilesystem(si.StorageTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		att, err := st.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		att, err := im.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -1216,10 +1213,10 @@ func (st *State) storageMachineAttachment(
 // Remove removes the storage attachment from state, and may remove its storage
 // instance as well, if the storage instance is Dying and no other references to
 // it exist. It will fail if the storage attachment is not Dying.
-func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
+func (im *IAASModel) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s, err := st.storageAttachment(storage, unit)
+		s, err := im.storageAttachment(storage, unit)
 		if errors.IsNotFound(err) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
@@ -1229,7 +1226,7 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 		if s.doc.Life != Dying {
 			return nil, errors.New("storage attachment is not dying")
 		}
-		inst, err := st.storageInstance(storage)
+		inst, err := im.storageInstance(storage)
 		if errors.IsNotFound(err) {
 			// This implies that the attachment was removed
 			// after the call to st.storageAttachment.
@@ -1237,17 +1234,17 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := removeStorageAttachmentOps(st, s, inst, bson.D{{"life", Dying}})
+		ops, err := removeStorageAttachmentOps(im, s, inst, bson.D{{"life", Dying}})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return ops, nil
 	}
-	return st.db().Run(buildTxn)
+	return im.mb.db().Run(buildTxn)
 }
 
 func removeStorageAttachmentOps(
-	st *State,
+	im *IAASModel,
 	s *storageAttachment,
 	si *storageInstance,
 	assert interface{},
@@ -1291,7 +1288,7 @@ func removeStorageAttachmentOps(
 			siUpdate = append(siUpdate, bson.DocElem{
 				"$unset", bson.D{{"owner", nil}},
 			})
-			decrefOp, err := decrefEntityStorageOp(st, s.Unit(), si.StorageName())
+			decrefOp, err := decrefEntityStorageOp(im.mb, s.Unit(), si.StorageName())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1327,7 +1324,7 @@ func removeStorageAttachmentOps(
 	// If the storage instance has an associated volume or
 	// filesystem, and the unit is assigned to a machine,
 	// detach the volume/filesystem too.
-	machineOps, err := st.detachStorageMachineAttachmentOps(si, s.Unit())
+	machineOps, err := im.detachStorageMachineAttachmentOps(si, s.Unit())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1336,8 +1333,8 @@ func removeStorageAttachmentOps(
 	return ops, nil
 }
 
-func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag names.UnitTag) ([]txn.Op, error) {
-	unit, err := st.Unit(unitTag.Id())
+func (im *IAASModel) detachStorageMachineAttachmentOps(si *storageInstance, unitTag names.UnitTag) ([]txn.Op, error) {
+	unit, err := im.st.Unit(unitTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1351,7 +1348,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 
 	switch si.Kind() {
 	case StorageKindBlock:
-		volume, err := st.storageInstanceVolume(si.StorageTag())
+		volume, err := im.storageInstanceVolume(si.StorageTag())
 		if errors.IsNotFound(err) {
 			// The volume has already been removed, so must have
 			// already been detached.
@@ -1380,7 +1377,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 			)
 			return nil, nil
 		}
-		att, err := st.VolumeAttachment(machineTag, volume.VolumeTag())
+		att, err := im.VolumeAttachment(machineTag, volume.VolumeTag())
 		if errors.IsNotFound(err) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
@@ -1401,7 +1398,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 		return detachVolumeOps(machineTag, volume.VolumeTag()), nil
 
 	case StorageKindFilesystem:
-		filesystem, err := st.storageInstanceFilesystem(si.StorageTag())
+		filesystem, err := im.storageInstanceFilesystem(si.StorageTag())
 		if errors.IsNotFound(err) {
 			// The filesystem has already been removed, so must
 			// have already been detached.
@@ -1428,7 +1425,7 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 			)
 			return nil, nil
 		}
-		att, err := st.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		att, err := im.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
 		if errors.IsNotFound(err) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
@@ -1455,8 +1452,8 @@ func (st *State) detachStorageMachineAttachmentOps(si *storageInstance, unitTag 
 
 // removeStorageInstancesOps returns the transaction operations to remove all
 // storage instances owned by the specified entity.
-func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
-	coll, closer := st.db().GetCollection(storageInstancesC)
+func removeStorageInstancesOps(im *IAASModel, owner names.Tag) ([]txn.Op, error) {
+	coll, closer := im.mb.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	var docs []storageInstanceDoc
@@ -1466,7 +1463,7 @@ func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
 	}
 	ops := make([]txn.Op, 0, len(docs))
 	for _, doc := range docs {
-		si := &storageInstance{st, doc}
+		si := &storageInstance{im, doc}
 		storageInstanceOps, err := removeStorageInstanceOps(si, nil)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1525,8 +1522,8 @@ func removeStorageConstraintsOp(key string) txn.Op {
 	}
 }
 
-func readStorageConstraints(st *State, key string) (map[string]StorageConstraints, error) {
-	coll, closer := st.db().GetCollection(storageConstraintsC)
+func readStorageConstraints(mb modelBackend, key string) (map[string]StorageConstraints, error) {
+	coll, closer := mb.db().GetCollection(storageConstraintsC)
 	defer closer()
 
 	var doc storageConstraintsDoc
@@ -1551,8 +1548,8 @@ func storageKind(storageType charm.StorageType) storage.StorageKind {
 	return kind
 }
 
-func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	err := validateStorageConstraintsAgainstCharm(st, allCons, charmMeta)
+func validateStorageConstraints(im *IAASModel, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+	err := validateStorageConstraintsAgainstCharm(im, allCons, charmMeta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1567,7 +1564,7 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 }
 
 func validateStorageConstraintsAgainstCharm(
-	st *State,
+	im *IAASModel,
 	allCons map[string]StorageConstraints,
 	charmMeta *charm.Meta,
 ) error {
@@ -1595,7 +1592,7 @@ func validateStorageConstraintsAgainstCharm(
 			)
 		}
 		kind := storageKind(charmStorage.Type)
-		if err := validateStoragePool(st, cons.Pool, kind, nil); err != nil {
+		if err := validateStoragePool(im, cons.Pool, kind, nil); err != nil {
 			return err
 		}
 	}
@@ -1662,12 +1659,12 @@ func validateCharmStorageCount(charmStorage charm.Storage, count uint64) error {
 // the machineId; if the storage is not machine-scoped, then the machineId
 // will be updated to "".
 func validateStoragePool(
-	st *State, poolName string, kind storage.StorageKind, machineId *string,
+	im *IAASModel, poolName string, kind storage.StorageKind, machineId *string,
 ) error {
 	if poolName == "" {
 		return errors.New("pool name is required")
 	}
-	providerType, provider, err := poolStorageProvider(st, poolName)
+	providerType, provider, err := poolStorageProvider(im, poolName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1702,12 +1699,12 @@ func validateStoragePool(
 	return nil
 }
 
-func poolStorageProvider(st *State, poolName string) (storage.ProviderType, storage.Provider, error) {
-	registry, err := st.storageProviderRegistry()
+func poolStorageProvider(im *IAASModel, poolName string) (storage.ProviderType, storage.Provider, error) {
+	registry, err := im.st.storageProviderRegistry()
 	if err != nil {
 		return "", nil, errors.Annotate(err, "getting storage provider registry")
 	}
-	poolManager := poolmanager.New(NewStateSettings(st), registry)
+	poolManager := poolmanager.New(NewStateSettings(im.mb), registry)
 	pool, err := poolManager.Get(poolName)
 	if errors.IsNotFound(err) {
 		// If there's no pool called poolName, maybe a provider type
@@ -1737,8 +1734,8 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no defaul
 
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
-func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	conf, err := st.ModelConfig()
+func addDefaultStorageConstraints(im *IAASModel, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+	conf, err := im.st.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1844,10 +1841,10 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 // for this store. Combination of existing storage instances and
 // anticipated additional storage instances is validated against the
 // store as specified in the charm.
-func (st *State) AddStorageForUnit(
+func (im *IAASModel) AddStorageForUnit(
 	tag names.UnitTag, name string, cons StorageConstraints,
 ) error {
-	u, err := st.Unit(tag.Id())
+	u, err := im.st.Unit(tag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1857,16 +1854,16 @@ func (st *State) AddStorageForUnit(
 				return nil, errors.Trace(err)
 			}
 		}
-		return st.addStorageForUnitOps(u, name, cons)
+		return im.addStorageForUnitOps(u, name, cons)
 	}
-	if err := st.db().Run(buildTxn); err != nil {
+	if err := im.mb.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "adding %q storage to %s", name, u)
 	}
 	return nil
 }
 
 // addStorage adds storage instances to given unit as specified.
-func (st *State) addStorageForUnitOps(
+func (im *IAASModel) addStorageForUnitOps(
 	u *Unit,
 	storageName string,
 	cons StorageConstraints,
@@ -1907,7 +1904,7 @@ func (st *State) addStorageForUnitOps(
 
 		// Populate missing configuration parameters with defaults.
 		if cons.Pool == "" || cons.Size == 0 {
-			modelConfig, err := st.ModelConfig()
+			modelConfig, err := im.st.ModelConfig()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1931,7 +1928,7 @@ func (st *State) addStorageForUnitOps(
 		return nil, errors.NotValidf("adding storage where instance count is 0")
 	}
 
-	addUnitStorageOps, err := st.addUnitStorageOps(charmMeta, u, storageName, cons, -1)
+	addUnitStorageOps, err := im.addUnitStorageOps(charmMeta, u, storageName, cons, -1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1943,7 +1940,7 @@ func (st *State) addStorageForUnitOps(
 // unit. If countMin is non-negative, the Count field of the constraints will
 // be ignored, and as many storage instances as necessary to make up the
 // shortfall will be created.
-func (st *State) addUnitStorageOps(
+func (im *IAASModel) addUnitStorageOps(
 	charmMeta *charm.Meta,
 	u *Unit,
 	storageName string,
@@ -1957,7 +1954,7 @@ func (st *State) addUnitStorageOps(
 		// Validate that the requested number of storage
 		// instances can be added to the unit.
 		currentCount, currentCountOp, err := validateStorageCountChange(
-			st, u.Tag(), storageName, int(cons.Count), charmMeta,
+			im, u.Tag(), storageName, int(cons.Count), charmMeta,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1965,7 +1962,7 @@ func (st *State) addUnitStorageOps(
 		ops = append(ops, currentCountOp)
 		consTotal.Count += uint64(currentCount)
 	} else {
-		currentCountOp, currentCount, err := st.countEntityStorageInstances(u.Tag(), storageName)
+		currentCountOp, currentCount, err := im.countEntityStorageInstances(u.Tag(), storageName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1976,7 +1973,7 @@ func (st *State) addUnitStorageOps(
 		cons.Count = uint64(countMin)
 	}
 
-	if err := validateStorageConstraintsAgainstCharm(st,
+	if err := validateStorageConstraintsAgainstCharm(im,
 		map[string]StorageConstraints{storageName: consTotal},
 		charmMeta,
 	); err != nil {
@@ -1985,7 +1982,7 @@ func (st *State) addUnitStorageOps(
 
 	// Create storage db operations
 	storageOps, storageCounts, _, err := createStorageOps(
-		st,
+		im,
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
@@ -2000,7 +1997,7 @@ func (st *State) addUnitStorageOps(
 	// we don't exceed limits when adding storage, and for
 	// maintaining model integrity during charm upgrades.
 	for name, count := range storageCounts {
-		incRefOp, err := increfEntityStorageOp(st, u.Tag(), name, count)
+		incRefOp, err := increfEntityStorageOp(im.mb, u.Tag(), name, count)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2016,8 +2013,8 @@ func (st *State) addUnitStorageOps(
 	return append(ops, storageOps...), nil
 }
 
-func (st *State) countEntityStorageInstances(owner names.Tag, name string) (txn.Op, int, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+func (im *IAASModel) countEntityStorageInstances(owner names.Tag, name string) (txn.Op, int, error) {
+	refcounts, closer := im.mb.db().GetCollection(refcountsC)
 	defer closer()
 	key := entityStorageRefcountKey(owner, name)
 	return nsRefcounts.CurrentOp(refcounts, key)

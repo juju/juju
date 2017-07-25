@@ -29,7 +29,12 @@ func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewStorageProvisionerAPIv3(stateShim{st}, resources, authorizer, registry, pm)
+
+	backend, err := NewStateBackend(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting backend")
+	}
+	return NewStorageProvisionerAPIv3(backend, resources, authorizer, registry, pm)
 }
 
 // NewFacadeV4 provides the signature required for facade registration.
@@ -84,11 +89,16 @@ type Backend interface {
 
 type stateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
 // NewStateBackend creates a Backend from the given *state.State.
-func NewStateBackend(st *state.State) Backend {
-	return stateShim{st}
+func NewStateBackend(st *state.State) (Backend, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{State: st, IAASModel: im}, nil
 }
 
 func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) {

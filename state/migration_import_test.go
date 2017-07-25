@@ -402,7 +402,9 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	imported, err := newSt.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	devices, err := newSt.BlockDevices(imported.MachineTag())
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	devices, err := newIM.BlockDevices(imported.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
@@ -1017,7 +1019,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		VolumeId:   "volume id",
 		Persistent: true,
 	}
-	err := s.State.SetVolumeInfo(volTag, volInfo)
+	err := s.IAASModel.SetVolumeInfo(volTag, volInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	volAttachmentInfo := state.VolumeAttachmentInfo{
 		DeviceName: "device name",
@@ -1025,12 +1027,14 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		BusAddress: "bus address",
 		ReadOnly:   true,
 	}
-	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
+	err = s.IAASModel.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
 
-	volume, err := newSt.Volume(volTag)
+	volume, err := newIM.Volume(volTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO: check status
@@ -1039,14 +1043,14 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, volInfo)
 
-	attachment, err := newSt.VolumeAttachment(machineTag, volTag)
+	attachment, err := newIM.VolumeAttachment(machineTag, volTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attInfo, err := attachment.Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(attInfo, jc.DeepEquals, volAttachmentInfo)
 
 	volTag = names.NewVolumeTag("0/1")
-	volume, err = newSt.Volume(volTag)
+	volume, err = newIM.Volume(volTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	params, needsProvisioning := volume.Params()
@@ -1054,7 +1058,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	c.Check(params.Pool, gc.Equals, "loop")
 	c.Check(params.Size, gc.Equals, uint64(4000))
 
-	attachment, err = newSt.VolumeAttachment(machineTag, volTag)
+	attachment, err = newIM.VolumeAttachment(machineTag, volTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attParams, needsProvisioning := attachment.Params()
 	c.Check(needsProvisioning, jc.IsTrue)
@@ -1084,18 +1088,20 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 		Pool:         "rootfs",
 		FilesystemId: "filesystem id",
 	}
-	err := s.State.SetFilesystemInfo(fsTag, fsInfo)
+	err := s.IAASModel.SetFilesystemInfo(fsTag, fsInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	fsAttachmentInfo := state.FilesystemAttachmentInfo{
 		MountPoint: "/mnt/foo",
 		ReadOnly:   true,
 	}
-	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, fsAttachmentInfo)
+	err = s.IAASModel.SetFilesystemAttachmentInfo(machineTag, fsTag, fsAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
 
-	filesystem, err := newSt.Filesystem(fsTag)
+	filesystem, err := newIM.Filesystem(fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO: check status
@@ -1104,14 +1110,14 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, fsInfo)
 
-	attachment, err := newSt.FilesystemAttachment(machineTag, fsTag)
+	attachment, err := newIM.FilesystemAttachment(machineTag, fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attInfo, err := attachment.Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(attInfo, jc.DeepEquals, fsAttachmentInfo)
 
 	fsTag = names.NewFilesystemTag("0/1")
-	filesystem, err = newSt.Filesystem(fsTag)
+	filesystem, err = newIM.Filesystem(fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	params, needsProvisioning := filesystem.Params()
@@ -1119,7 +1125,7 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 	c.Check(params.Pool, gc.Equals, "rootfs")
 	c.Check(params.Size, gc.Equals, uint64(4000))
 
-	attachment, err = newSt.FilesystemAttachment(machineTag, fsTag)
+	attachment, err = newIM.FilesystemAttachment(machineTag, fsTag)
 	c.Assert(err, jc.ErrorIsNil)
 	attParams, needsProvisioning := attachment.Params()
 	c.Check(needsProvisioning, jc.IsTrue)
@@ -1128,11 +1134,11 @@ func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 
 func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	app, u, storageTag := s.makeUnitWithStorage(c)
-	original, err := s.State.StorageInstance(storageTag)
+	original, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	originalCount := state.StorageAttachmentCount(original)
 	c.Assert(originalCount, gc.Equals, 1)
-	originalAttachments, err := s.State.StorageAttachments(storageTag)
+	originalAttachments, err := s.IAASModel.StorageAttachments(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(originalAttachments, gc.HasLen, 1)
 	c.Assert(originalAttachments[0].Unit(), gc.Equals, u.UnitTag())
@@ -1149,7 +1155,10 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 		"allecto": {Pool: "loop", Size: 0x400},
 	})
 
-	instance, err := newSt.StorageInstance(storageTag)
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	instance, err := newIM.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(instance.Tag(), gc.Equals, original.Tag())
@@ -1159,7 +1168,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	c.Check(instance.Pool(), gc.Equals, original.Pool())
 	c.Check(state.StorageAttachmentCount(instance), gc.Equals, originalCount)
 
-	attachments, err := newSt.StorageAttachments(storageTag)
+	attachments, err := newIM.StorageAttachments(storageTag)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
 }
@@ -1174,7 +1183,9 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
 			cons["pool"] = "static"
 		}
 	})
-	instance, err := newSt.StorageInstance(storageTag)
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	instance, err := newIM.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance.Pool(), gc.Equals, "static")
 }
@@ -1182,7 +1193,7 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
 func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 	_, u, storageTag0 := s.makeUnitWithStorage(c)
 
-	err := s.State.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
+	err := s.IAASModel.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
 		Count: 3,
 		Size:  1234,
 		Pool:  "modelscoped",
@@ -1228,15 +1239,18 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 		}
 	})
 
-	instance0, err := newSt.StorageInstance(storageTag0)
+	newIM, err := newSt.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	instance0, err := newIM.StorageInstance(storageTag0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance0.Pool(), gc.Equals, "loop")
 
-	instance1, err := newSt.StorageInstance(storageTag1)
+	instance1, err := newIM.StorageInstance(storageTag1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance1.Pool(), gc.Equals, "modelscoped-block")
 
-	instance2, err := newSt.StorageInstance(storageTag2)
+	instance2, err := newIM.StorageInstance(storageTag2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance2.Pool(), gc.Equals, "modelscoped")
 }

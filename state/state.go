@@ -889,9 +889,17 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			return st.Charm(url)
 		}
 	case names.VolumeTag:
-		return st.Volume(tag)
+		im, err := st.IAASModel()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return im.Volume(tag)
 	case names.FilesystemTag:
-		return st.Filesystem(tag)
+		im, err := st.IAASModel()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return im.Filesystem(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -1021,10 +1029,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
+	im, err := st.IAASModel()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
+	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	storagePools := make(set.Strings)
@@ -1109,9 +1121,13 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			// attached. We need to pass them along to precheckInstance, in
 			// case the volumes cannot be attached to a machine with the given
 			// placement directive.
+			im, err := st.IAASModel()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
 			for _, storageTag := range args.AttachStorage {
-				v, err := st.StorageInstanceVolume(storageTag)
+				v, err := im.StorageInstanceVolume(storageTag)
 				if errors.IsNotFound(err) {
 					continue
 				} else if err != nil {
@@ -1123,7 +1139,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 					// so it cannot be attached.
 					continue
 				}
-				providerType, _, err := poolStorageProvider(st, volumeInfo.Pool)
+				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
 				}
@@ -2270,4 +2286,12 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// IAASModel returns an Infrastructure-As-A-Service (IAAS) model.
+func (st *State) IAASModel() (*IAASModel, error) {
+	return &IAASModel{
+		mb: st,
+		st: st,
+	}, nil
 }

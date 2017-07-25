@@ -27,8 +27,12 @@ type MachineManagerAPI struct {
 	check      *common.BlockChecker
 }
 
-var getState = func(st *state.State) stateInterface {
-	return stateShim{st}
+var getState = func(st *state.State) (stateInterface, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{State: st, IAASModel: im}, nil
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -42,11 +46,14 @@ func NewMachineManagerAPI(
 		return nil, common.ErrPerm
 	}
 
-	s := getState(st)
+	ss, err := getState(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting state")
+	}
 	return &MachineManagerAPI{
-		st:         s,
+		st:         ss,
 		authorizer: authorizer,
-		check:      common.NewBlockChecker(s),
+		check:      common.NewBlockChecker(ss),
 	}, nil
 }
 

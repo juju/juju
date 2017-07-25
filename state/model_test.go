@@ -750,6 +750,9 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	im, err := st.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	machine, err := st.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -762,20 +765,20 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystems, err := st.AllFilesystems()
+	filesystems, err := im.AllFilesystems()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystems, gc.HasLen, 1)
 
 	c.Assert(model.Destroy(), jc.ErrorIsNil)
-	err = st.DestroyFilesystem(names.NewFilesystemTag("0"))
+	err = im.DestroyFilesystem(names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.DetachFilesystem(machine.MachineTag(), names.NewFilesystemTag("0"))
+	err = im.DetachFilesystem(machine.MachineTag(), names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0"))
+	err = im.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = im.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = im.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
@@ -793,6 +796,9 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	im, err := st.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	machine, err := st.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -805,14 +811,14 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumes, err := st.AllVolumes()
+	volumes, err := im.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumes, gc.HasLen, 1)
 
 	c.Assert(model.Destroy(), jc.ErrorIsNil)
-	err = st.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = im.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = im.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)

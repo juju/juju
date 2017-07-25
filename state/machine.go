@@ -735,10 +735,14 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 // filesystems attached to the machine, and returns any mgo/txn assertions
 // required to ensure that remains true.
 func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	attachments := make(set.Tags)
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
-		detachable, err := isDetachableVolumeTag(m.st, tag)
+		detachable, err := isDetachableVolumeTag(im, tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -748,7 +752,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	}
 	for _, f := range m.doc.Filesystems {
 		tag := names.NewFilesystemTag(f)
-		detachable, err := isDetachableFilesystemTag(m.st, tag)
+		detachable, err := isDetachableFilesystemTag(im, tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -809,6 +813,10 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 }
 
 func (m *Machine) removeOps() ([]txn.Op, error) {
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if m.doc.Life != Dead {
 		return nil, fmt.Errorf("machine is not dead")
 	}
@@ -845,11 +853,11 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemOps, err := m.st.removeMachineFilesystemsOps(m)
+	filesystemOps, err := im.removeMachineFilesystemsOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeOps, err := m.st.removeMachineVolumesOps(m)
+	volumeOps, err := im.removeMachineVolumesOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1204,12 +1212,17 @@ func (m *Machine) SetInstanceInfo(
 		return errors.Trace(err)
 	}
 
-	// Record volumes and volume attachments, and set the initial
-	// status: attached or attaching.
-	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
+	im, err := m.st.IAASModel()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := setMachineVolumeAttachmentInfo(m.st, m.Id(), volumeAttachments); err != nil {
+
+	// Record volumes and volume attachments, and set the initial
+	// status: attached or attaching.
+	if err := setProvisionedVolumeInfo(im, volumes); err != nil {
+		return errors.Trace(err)
+	}
+	if err := setMachineVolumeAttachmentInfo(im, m.Id(), volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	volumeStatus := make(map[names.VolumeTag]status.Status)
@@ -1220,7 +1233,7 @@ func (m *Machine) SetInstanceInfo(
 		volumeStatus[tag] = status.Attached
 	}
 	for tag, status := range volumeStatus {
-		if err := m.st.SetVolumeStatus(tag, status, "", nil, nil); err != nil {
+		if err := im.SetVolumeStatus(tag, status, "", nil, nil); err != nil {
 			return errors.Annotatef(
 				err, "setting status of %s", names.ReadableString(tag),
 			)
@@ -1764,7 +1777,11 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
-	return m.st.MachineVolumeAttachments(m.MachineTag())
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return im.MachineVolumeAttachments(m.MachineTag())
 }
 
 // AddAction is part of the ActionReceiver interface.

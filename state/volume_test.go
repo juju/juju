@@ -45,10 +45,10 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
+	storageInstance, err := s.IAASModel.StorageInstance(storageAttachments[0].StorageInstance())
 	c.Assert(err, jc.ErrorIsNil)
 
 	volume := s.storageInstanceVolume(c, storageInstance.StorageTag())
@@ -63,7 +63,8 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 
 	machine, err := s.State.Machine(assignedMachineId)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+
+	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 	c.Assert(volumeAttachments[0].Volume(), gc.Equals, volume.VolumeTag())
@@ -73,10 +74,10 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	_, ok = volumeAttachments[0].Params()
 	c.Assert(ok, jc.IsTrue)
 
-	_, err = s.State.VolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	_, err = s.IAASModel.VolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineStorageRefs(c, s.State, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 }
 
 func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
@@ -155,7 +156,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	s.assertVolumeUnprovisioned(c, volumeTag)
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-ume"}
-	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet.Pool = "loop-pool" // taken from params
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
@@ -171,7 +172,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoVolumeId(c *gc.C) {
 	s.assertVolumeUnprovisioned(c, volumeTag)
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
-	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume "0/0": volume ID not set`)
 }
 
@@ -201,7 +202,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
+	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 	volumeTag := volumeAttachments[0].Volume()
@@ -212,7 +213,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 
 	s.assertVolumeUnprovisioned(c, volumeTag)
 	volumeInfoSet := state.VolumeInfo{Size: 123, VolumeId: "vol-ume"}
-	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet.Pool = "loop-pool" // taken from params
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
@@ -226,14 +227,14 @@ func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
 	volumeTag := volume.VolumeTag()
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, VolumeId: "vol-ume"}
-	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The first call to SetVolumeInfo takes the pool name from
 	// the params; the second does not, but it must not change
 	// either. Callers are expected to get the existing info and
 	// update it, leaving immutable values intact.
-	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume "0/0": cannot change pool from "loop-pool" to ""`)
 
 	volumeInfoSet.Pool = "loop-pool"
@@ -251,7 +252,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 
-	w := s.State.WatchVolumeAttachment(machineTag, volumeTag)
+	w := s.IAASModel.WatchVolumeAttachment(machineTag, volumeTag)
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
@@ -262,11 +263,11 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// volume attachment will NOT react to volume changes
-	err = s.State.SetVolumeInfo(volumeTag, state.VolumeInfo{VolumeId: "vol-123"})
+	err = s.IAASModel.SetVolumeInfo(volumeTag, state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.State.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machineTag, volumeTag, state.VolumeAttachmentInfo{
 			DeviceName: "xvdf1",
 		},
@@ -285,7 +286,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchModelVolumes()
+	w := s.IAASModel.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0", "1") // initial
@@ -295,22 +296,22 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	wc.AssertChangeInSingleEvent("4", "5")
 	wc.AssertNoChange()
 
-	volume, err := s.State.Volume(names.NewVolumeTag("0"))
+	volume, err := s.IAASModel.Volume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, s.State, storageTag)
-	err = s.State.DestroyVolume(names.NewVolumeTag("0"))
+	removeStorageInstance(c, s.IAASModel, storageTag)
+	err = s.IAASModel.DestroyVolume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0") // dying
 	wc.AssertNoChange()
 
-	err = s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err = s.IAASModel.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err = s.IAASModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.RemoveVolume(names.NewVolumeTag("0"))
+	err = s.IAASModel.RemoveVolume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0") // removed
 	wc.AssertNoChange()
@@ -326,7 +327,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchModelVolumeAttachments()
+	w := s.IAASModel.WatchModelVolumeAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
@@ -336,12 +337,12 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 	wc.AssertChangeInSingleEvent("1:4", "1:5")
 	wc.AssertNoChange()
 
-	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err := s.IAASModel.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0") // dying
 	wc.AssertNoChange()
 
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err = s.IAASModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0") // removed
 	wc.AssertNoChange()
@@ -357,7 +358,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchMachineVolumes(names.NewMachineTag("0"))
+	w := s.IAASModel.WatchMachineVolumes(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0/0", "0/1") // initial
@@ -367,21 +368,21 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	volume, err := s.State.Volume(names.NewVolumeTag("0/0"))
+	volume, err := s.IAASModel.Volume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, s.State, storageTag)
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	removeStorageInstance(c, s.IAASModel, storageTag)
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0/0") // dying
 	wc.AssertNoChange()
 
-	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.IAASModel.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err = s.IAASModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolume(names.NewVolumeTag("0/0"))
+	err = s.IAASModel.RemoveVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0/0") // removed
 	wc.AssertNoChange()
@@ -405,7 +406,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	}
 	_, m0 := addUnit(nil)
 
-	w := s.State.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
+	w := s.IAASModel.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
@@ -415,19 +416,19 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("2"))
+	err := s.IAASModel.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("2"))
 	c.Assert(err, jc.ErrorIsNil)
 	// no change, since we're only interested in attachments of
 	// machine-scoped volumes.
 	wc.AssertNoChange()
 
-	removeVolumeStorageInstance(c, s.State, names.NewVolumeTag("0/0"))
-	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	removeVolumeStorageInstance(c, s.IAASModel, names.NewVolumeTag("0/0"))
+	err = s.IAASModel.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0/0") // dying
 	wc.AssertNoChange()
 
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err = s.IAASModel.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0/0") // removed
 	wc.AssertNoChange()
@@ -462,7 +463,7 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
 func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
 	_, expected, _ := s.assertCreateVolumes(c)
 
-	volumes, err := s.State.AllVolumes()
+	volumes, err := s.IAASModel.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	tags := make([]names.VolumeTag, len(volumes))
 	for i, v := range volumes {
@@ -484,18 +485,18 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	assertMachineStorageRefs(c, s.State, machine.MachineTag())
+	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 
 	volume1 := s.volume(c, names.NewVolumeTag("0"))
 	volume2 := s.volume(c, names.NewVolumeTag("0/1"))
 	volume3 := s.volume(c, names.NewVolumeTag("2"))
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-1"}
-	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false, VolumeId: "vol-2"}
-	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
 	all = []names.VolumeTag{
@@ -525,30 +526,30 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 		machine := unitMachine(c, s.State, u)
 		err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+		err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.SetVolumeAttachmentInfo(
+		err = s.IAASModel.SetVolumeAttachmentInfo(
 			machine.MachineTag(), volume.VolumeTag(),
 			state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.State.DestroyStorageInstance(storageTag, true)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance and attachment are dying, but not yet
 	// removed from state. The volume should still be assigned.
 	s.storageInstanceVolume(c, storageTag)
 
-	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	err = s.IAASModel.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance is now gone; the volume should no longer
 	// be assigned to the storage.
-	_, err = s.State.StorageInstanceVolume(storageTag)
+	_, err = s.IAASModel.StorageInstanceVolume(storageTag)
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
 	// The volume should still exist, but it should be dying.
@@ -563,14 +564,14 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volume.Releasing(), jc.IsFalse)
-	err = s.State.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.ReleaseStorageInstance(storageTag, true)
+	err = s.IAASModel.ReleaseStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The volume should should be dying, and releasing.
@@ -590,7 +591,7 @@ func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc
 	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
 
-	err = s.State.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machineTag, volumeTag, state.VolumeAttachmentInfo{
 			DeviceName: "xvdf1",
 		},
@@ -601,7 +602,7 @@ func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc
 func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 	volume, _ := s.setupMachineScopedVolumeAttachment(c)
 	assertDestroy := func() {
-		err := s.State.DestroyVolume(volume.VolumeTag())
+		err := s.IAASModel.DestroyVolume(volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
 		volume = s.volume(c, volume.VolumeTag())
 		c.Assert(volume.Life(), gc.Equals, state.Dying)
@@ -611,7 +612,7 @@ func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestDestroyVolumeNotFound(c *gc.C) {
-	err := s.State.DestroyVolume(names.NewVolumeTag("0"))
+	err := s.IAASModel.DestroyVolume(names.NewVolumeTag("0"))
 	c.Assert(err, gc.ErrorMatches, `destroying volume 0: volume "0" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -621,28 +622,27 @@ func (s *VolumeStateSuite) TestDestroyVolumeStorageAssigned(c *gc.C) {
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "destroying volume 0: volume is assigned to storage data/0")
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, s.State, storageTag)
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	removeStorageInstance(c, s.IAASModel, storageTag)
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *VolumeStateSuite) TestDestroyVolumeNoAttachments(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
-
-	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err := s.IAASModel.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+		err := s.IAASModel.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 
@@ -653,14 +653,15 @@ func (s *VolumeStateSuite) TestDestroyVolumeNoAttachments(c *gc.C) {
 
 func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
 	volume, machine := s.setupMachineScopedVolumeAttachment(c)
-	err := s.State.DestroyVolume(volume.VolumeTag())
+
+	err := s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.IAASModel.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemove := func() {
-		err = s.State.RemoveVolume(volume.VolumeTag())
+		err = s.IAASModel.RemoveVolume(volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
-		_, err = s.State.Volume(volume.VolumeTag())
+		_, err = s.IAASModel.Volume(volume.VolumeTag())
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 	defer state.SetBeforeHooks(c, s.State, assertRemove).Check()
@@ -668,24 +669,24 @@ func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeNotFound(c *gc.C) {
-	err := s.State.RemoveVolume(names.NewVolumeTag("42"))
+	err := s.IAASModel.RemoveVolume(names.NewVolumeTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeNotDead(c *gc.C) {
 	volume, _ := s.setupMachineScopedVolumeAttachment(c)
-	err := s.State.RemoveVolume(volume.VolumeTag())
+	err := s.IAASModel.RemoveVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dead")
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolume(volume.VolumeTag())
+	err = s.IAASModel.RemoveVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dead")
 }
 
 func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
 	assertDetach := func() {
-		err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+		err := s.IAASModel.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
 		attachment := s.volumeAttachment(c, machine.MachineTag(), volume.VolumeTag())
 		c.Assert(attachment.Life(), gc.Equals, state.Dying)
@@ -697,15 +698,15 @@ func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveLastVolumeAttachment(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
 
-	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err := s.IAASModel.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dying)
 
-	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.IAASModel.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The volume was Dying when the last attachment was
@@ -717,17 +718,17 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachment(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
 
-	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err := s.IAASModel.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.DestroyVolume(volume.VolumeTag())
+		err := s.IAASModel.DestroyVolume(volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
 		volume := s.volume(c, volume.VolumeTag())
 		c.Assert(volume.Life(), gc.Equals, state.Dying)
 	}).Check()
 
-	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.IAASModel.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Last attachment was removed, and the volume was (concurrently)
@@ -737,19 +738,20 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
-	err := s.State.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"))
+	err := s.IAASModel.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `removing attachment of volume 42 from machine 42: volume "42" on machine "42" not found`)
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
 	volume, machine := s.setupMachineScopedVolumeAttachment(c)
-	err := s.State.DestroyVolume(volume.VolumeTag())
+
+	err := s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	remove := func() {
-		err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+		err := s.IAASModel.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
-		assertMachineStorageRefs(c, s.State, machine.MachineTag())
+		assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 	}
 	defer state.SetBeforeHooks(c, s.State, remove).Check()
 	remove()
@@ -757,7 +759,8 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
 	volume, machine := s.setupMachineScopedVolumeAttachment(c)
-	err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+
+	err := s.IAASModel.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "removing attachment of volume 0/0 from machine 0: volume attachment is not dying")
 }
 
@@ -782,16 +785,16 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-1"}
-	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/1"), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("0/1"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false, VolumeId: "vol-2"}
-	err = s.State.SetVolumeInfo(names.NewVolumeTag("0/3"), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("0/3"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet = state.VolumeInfo{Size: 789, Persistent: false, VolumeId: "vol-3"}
-	err = s.State.SetVolumeInfo(names.NewVolumeTag("4"), volumeInfoSet)
+	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("4"), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	allVolumes, err := s.State.AllVolumes()
+	allVolumes, err := s.IAASModel.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	persistentVolumes := make([]state.Volume, 0, len(allVolumes))
@@ -814,13 +817,13 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
 	// Machine is gone: non-detachable storage should be done too.
-	allVolumes, err = s.State.AllVolumes()
+	allVolumes, err = s.IAASModel.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	// We should only have the persistent volume remaining.
 	c.Assert(allVolumes, gc.HasLen, 1)
 	c.Assert(allVolumes[0].Tag().String(), gc.Equals, "volume-0")
 
-	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	attachments, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 0)
 }
@@ -882,9 +885,9 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	volume := s.volume(c, names.NewVolumeTag("0/0"))
 	c.Assert(volume.Life(), gc.Equals, state.Alive)
 
-	err = s.State.DestroyVolume(volume.VolumeTag())
+	err = s.IAASModel.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.IAASModel.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dead)
@@ -896,7 +899,7 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	volume, err = s.State.Volume(volume.VolumeTag())
+	volume, err = s.IAASModel.Volume(volume.VolumeTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -912,7 +915,7 @@ func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
 	// We must destroy the unit before we can remove the storage.
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, s.State, storageTag)
+	removeStorageInstance(c, s.IAASModel, storageTag)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dying)
 }
@@ -942,31 +945,31 @@ func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C, pool string) (state.Vo
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
-	volume, err := s.State.Volume(volumeAttachments[0].Volume())
+	volume, err := s.IAASModel.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	return volume, machine
 }
 
-func removeVolumeStorageInstance(c *gc.C, st *state.State, volumeTag names.VolumeTag) {
-	volume, err := st.Volume(volumeTag)
+func removeVolumeStorageInstance(c *gc.C, im *state.IAASModel, volumeTag names.VolumeTag) {
+	volume, err := im.Volume(volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
-	removeStorageInstance(c, st, storageTag)
+	removeStorageInstance(c, im, storageTag)
 }
 
-func removeStorageInstance(c *gc.C, st *state.State, storageTag names.StorageTag) {
-	err := st.DestroyStorageInstance(storageTag, true)
+func removeStorageInstance(c *gc.C, im *state.IAASModel, storageTag names.StorageTag) {
+	err := im.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	attachments, err := st.StorageAttachments(storageTag)
+	attachments, err := im.StorageAttachments(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		err = st.DetachStorage(storageTag, a.Unit())
+		err = im.DetachStorage(storageTag, a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	_, err = st.StorageInstance(storageTag)
+	_, err = im.StorageInstance(storageTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -55,7 +55,6 @@ var (
 	ControllerAvailable                  = &controllerAvailable
 	GetOrCreatePorts                     = getOrCreatePorts
 	GetPorts                             = getPorts
-	AddVolumeOps                         = (*State).addVolumeOps
 	CombineMeterStatus                   = combineMeterStatus
 	ApplicationGlobalKey                 = applicationGlobalKey
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
@@ -319,28 +318,28 @@ func UserModelNameIndex(username, modelName string) string {
 	return userModelNameIndex(username, modelName)
 }
 
-func DocID(st *State, id string) string {
-	return st.docID(id)
+func DocID(mb modelBackend, id string) string {
+	return mb.docID(id)
 }
 
-func LocalID(st *State, id string) string {
-	return st.localID(id)
+func LocalID(mb modelBackend, id string) string {
+	return mb.localID(id)
 }
 
-func StrictLocalID(st *State, id string) (string, error) {
-	return st.strictLocalID(id)
+func StrictLocalID(mb modelBackend, id string) (string, error) {
+	return mb.strictLocalID(id)
 }
 
 func GetUnitModelUUID(unit *Unit) string {
 	return unit.doc.ModelUUID
 }
 
-func GetCollection(st *State, name string) (mongo.Collection, func()) {
-	return st.db().GetCollection(name)
+func GetCollection(mb modelBackend, name string) (mongo.Collection, func()) {
+	return mb.db().GetCollection(name)
 }
 
-func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
-	return st.db().GetRawCollection(name)
+func GetRawCollection(mb modelBackend, name string) (*mgo.Collection, func()) {
+	return mb.db().GetRawCollection(name)
 }
 
 func HasRawAccess(collectionName string) bool {
@@ -674,4 +673,16 @@ func IngressNetworks(rel *Relation) ([]string, error) {
 		return nil, err
 	}
 	return doc.CIDRS, nil
+}
+
+func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, names.VolumeTag{}, err
+	}
+	return im.addVolumeOps(params, machineId)
+}
+
+func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
+	return im.mb
 }

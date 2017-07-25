@@ -1005,7 +1005,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision volume-2, so that it is attached rather than created.
-	err = s.State.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
+	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
 		Pool:     "persistent-pool",
 		VolumeId: "vol-ume",
 		Size:     4096,

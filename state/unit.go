@@ -1326,7 +1326,11 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storagePools, err := machineStoragePools(m.st, storageParams)
+	im, err := u.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storagePools, err := machineStoragePools(im, storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1420,7 +1424,11 @@ func validateUnitMachineAssignment(
 // validateDynamicMachineStorageParams validates that the provided machine
 // storage parameters are compatible with the specified machine.
 func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParams) error {
-	pools, err := machineStoragePools(m.st, params)
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	pools, err := machineStoragePools(im, params)
 	if err != nil {
 		return err
 	}
@@ -1429,7 +1437,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 	}
 	// Validate the volume/filesystem attachments for the machine.
 	for volumeTag := range params.volumeAttachments {
-		volume, err := m.st.volumeByTag(volumeTag)
+		volume, err := im.volumeByTag(volumeTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1441,7 +1449,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := m.st.filesystemByTag(filesystemTag)
+		filesystem, err := im.filesystemByTag(filesystemTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1457,24 +1465,24 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 
 // machineStoragePools returns the names of storage pools in each of the
 // volume, filesystem and attachments in the machine storage parameters.
-func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
+func machineStoragePools(im *IAASModel, params *machineStorageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := st.volumeParamsWithDefaults(v.Volume, "")
+		v, err := im.volumeParamsWithDefaults(v.Volume, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := st.filesystemParamsWithDefaults(f.Filesystem, "")
+		f, err := im.filesystemParamsWithDefaults(f.Filesystem, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(f.Pool)
 	}
 	for volumeTag := range params.volumeAttachments {
-		volume, err := st.Volume(volumeTag)
+		volume, err := im.Volume(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1489,7 +1497,7 @@ func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, 
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := st.Filesystem(filesystemTag)
+		filesystem, err := im.Filesystem(filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1524,15 +1532,19 @@ func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	return validateDynamicStoragePools(m.st, pools)
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return validateDynamicStoragePools(im, pools)
 }
 
 // validateDynamicStoragePools validates that all of the specified storage
 // providers support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicStoragePools(st *State, pools set.Strings) error {
+func validateDynamicStoragePools(im *IAASModel, pools set.Strings) error {
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(st, pool)
+		providerType, provider, err := poolStorageProvider(im, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1817,7 +1829,11 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 }
 
 func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
-	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
+	im, err := u.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageAttachments, err := im.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
@@ -1836,7 +1852,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		storage, err := u.st.storageInstance(storageAttachment.StorageInstance())
+		storage, err := im.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
@@ -1885,6 +1901,11 @@ func machineStorageParamsForStorageInstance(
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	switch storage.Kind() {
 	case StorageKindFilesystem:
 		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
@@ -1900,7 +1921,7 @@ func machineStorageParamsForStorageInstance(
 			charmStorage.ReadOnly,
 		}
 		var volumeBacked bool
-		if filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
+		if filesystem, err := im.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
 			// The filesystem already exists, so just attach it.
 			// When creating ops to attach the storage to the
 			// machine, we will check if the attachment already
@@ -1910,7 +1931,7 @@ func machineStorageParamsForStorageInstance(
 				// The storage is not shared, so make sure that it is
 				// not currently attached to any other machine. If it
 				// is, it should be in the process of being detached.
-				existing, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+				existing, err := im.FilesystemAttachments(filesystem.FilesystemTag())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -1950,7 +1971,7 @@ func machineStorageParamsForStorageInstance(
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if volume, err := st.StorageInstanceVolume(storage.StorageTag()); err == nil {
+		if volume, err := im.StorageInstanceVolume(storage.StorageTag()); err == nil {
 			// The volume already exists, so just attach it. When
 			// creating ops to attach the storage to the machine,
 			// we will check if the attachment already exists, and
@@ -1959,7 +1980,7 @@ func machineStorageParamsForStorageInstance(
 				// The storage is not shared, so make sure that it is
 				// not currently attached to any other machine. If it
 				// is, it should be in the process of being detached.
-				existing, err := st.VolumeAttachments(volume.VolumeTag())
+				existing, err := im.VolumeAttachments(volume.VolumeTag())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2155,6 +2176,12 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return failure(err)
 	}
 
+	im, err := u.st.IAASModel()
+	if err != nil {
+		assignContextf(&err, u.Name(), context)
+		return failure(err)
+	}
+
 	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
@@ -2162,12 +2189,12 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	storagePools, err := machineStoragePools(u.st, storageParams)
+	storagePools, err := machineStoragePools(im, storageParams)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	if err := validateDynamicStoragePools(u.st, storagePools); err != nil {
+	if err := validateDynamicStoragePools(im, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
 			return failure(noCleanMachines)
 		}

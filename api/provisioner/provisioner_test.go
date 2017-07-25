@@ -319,7 +319,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
 
 	// Now check volumes and volume attachments.
-	volume, err := s.State.Volume(names.NewVolumeTag("1/0"))
+	volume, err := s.IAASModel.Volume(names.NewVolumeTag("1/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -328,7 +328,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		Pool:     "loop-pool",
 		Size:     124,
 	})
-	stateVolumeAttachments, err := s.State.MachineVolumeAttachments(names.NewMachineTag("1"))
+	stateVolumeAttachments, err := s.IAASModel.MachineVolumeAttachments(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateVolumeAttachments, gc.HasLen, 1)
 	volumeAttachmentInfo, err := stateVolumeAttachments[0].Info()

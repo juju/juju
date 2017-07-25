@@ -31,7 +31,12 @@ func NewFacadeV4(
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewAPIv4(getState(st), registry, pm, resources, authorizer)
+
+	backend, err := getState(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting backend")
+	}
+	return NewAPIv4(backend, registry, pm, resources, authorizer)
 }
 
 // NewFacadeV3 provides the signature required for facade registration.
@@ -46,7 +51,12 @@ func NewFacadeV3(
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
-	return NewAPIv3(getState(st), registry, pm, resources, authorizer)
+
+	backend, err := getState(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting backend")
+	}
+	return NewAPIv3(backend, registry, pm, resources, authorizer)
 }
 
 type storageAccess interface {
@@ -150,12 +160,17 @@ type storageAccess interface {
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
-var getState = func(st *state.State) storageAccess {
-	return stateShim{st}
+var getState = func(st *state.State) (storageAccess, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{State: st, IAASModel: im}, nil
 }
 
 type stateShim struct {
 	*state.State
+	*state.IAASModel
 }
 
 // UnitAssignedMachine returns the tag of the machine that the unit
