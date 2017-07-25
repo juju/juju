@@ -140,7 +140,9 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	if !isAgent(auth) {
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.StringsWatcher)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -15,6 +16,8 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/firewall"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -33,6 +36,8 @@ type crossmodelRelationsSuite struct {
 	st         *mockState
 	bakery     *mockBakeryService
 	api        *crossmodelrelations.CrossModelRelationsAPI
+
+	watchedRelations params.Entities
 }
 
 func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
@@ -48,7 +53,13 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
-	api, err := crossmodelrelations.NewCrossModelRelationsAPI(s.st, s.resources, s.authorizer, s.bakery)
+	fw := &mockFirewallState{}
+	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, relations params.Entities) (params.StringsWatchResults, error) {
+		c.Assert(fw, gc.Equals, fws)
+		s.watchedRelations = relations
+		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil
+	}
+	api, err := crossmodelrelations.NewCrossModelRelationsAPI(s.st, fw, s.resources, s.authorizer, s.bakery, egressAddressWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -222,6 +233,54 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
+	})
+	// TODO(wallyworld) - add mre tests when implementation finished
+}
+
+func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon("", nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	uuid := utils.MustNewUUID().String()
+	args := params.RemoteRelationArgs{
+		Args: []params.RemoteRelationArg{
+			{
+				RemoteEntityId: params.RemoteEntityId{
+					ModelUUID: uuid,
+					Token:     "token-mysql:db django:db"},
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				RemoteEntityId: params.RemoteEntityId{
+					ModelUUID: s.st.ModelUUID(),
+					Token:     "token-db2:db django:db"},
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				RemoteEntityId: params.RemoteEntityId{
+					ModelUUID: uuid,
+					Token:     "token-postgresql:db django:db"},
+				Macaroons: macaroon.Slice{mac},
+			},
+		},
+	}
+	results, err := s.api.WatchEgressAddressesForRelations(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(s.watchedRelations, jc.DeepEquals, params.Entities{
+		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
+	)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(uuid), "token-mysql:db django:db"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(uuid), "token-postgresql:db django:db"}},
 	})
 	// TODO(wallyworld) - add mre tests when implementation finished
 }

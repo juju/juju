@@ -194,3 +194,32 @@ func (s *CrossModelRelationsSuite) TestIngressNetworkChange(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
+
+func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
+	var callCount int
+	remoteRelationId := params.RemoteEntityId{}
+	mac, err := macaroon.New(nil, "", "")
+	relation := params.RemoteRelationArg{
+		RemoteEntityId: remoteRelationId, Macaroons: macaroon.Slice{mac}}
+	c.Check(err, jc.ErrorIsNil)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
+		c.Check(arg, gc.DeepEquals, params.RemoteRelationArgs{
+			Args: []params.RemoteRelationArg{relation}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := crossmodelrelations.NewClient(apiCaller)
+	_, err = client.WatchEgressAddressesForRelation(relation)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}

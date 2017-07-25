@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package firewaller
+package firewall
 
 import (
 	"net"
@@ -16,11 +16,11 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
-// IngressAddressWatcher reports changes to addresses
+// EgressAddressWatcher reports changes to addresses
 // for local units in a given relation.
 // Each event contains the entire set of addresses which
-// are required for ingress for the relation.
-type IngressAddressWatcher struct {
+// are required for ingress on the remote side of the relation.
+type EgressAddressWatcher struct {
 	catacomb catacomb.Catacomb
 
 	backend State
@@ -54,9 +54,9 @@ type machineData struct {
 	worker *machineAddressWorker
 }
 
-// NewIngressAddressWatcher creates an IngressAddressWatcher.
-func NewIngressAddressWatcher(backend State, rel Relation, appName string) (*IngressAddressWatcher, error) {
-	w := &IngressAddressWatcher{
+// NewEgressAddressWatcher creates an EgressAddressWatcher.
+func NewEgressAddressWatcher(backend State, rel Relation, appName string) (*EgressAddressWatcher, error) {
+	w := &EgressAddressWatcher{
 		backend:        backend,
 		appName:        appName,
 		rel:            rel,
@@ -73,7 +73,7 @@ func NewIngressAddressWatcher(backend State, rel Relation, appName string) (*Ing
 	return w, err
 }
 
-func (w *IngressAddressWatcher) initialise() error {
+func (w *EgressAddressWatcher) initialise() error {
 	app, err := w.backend.Application(w.appName)
 	if err != nil {
 		return errors.Trace(err)
@@ -111,7 +111,7 @@ func (w *IngressAddressWatcher) initialise() error {
 	return nil
 }
 
-func (w *IngressAddressWatcher) loop() error {
+func (w *EgressAddressWatcher) loop() error {
 	defer close(w.out)
 	ruw, err := w.rel.WatchUnits(w.appName)
 	if errors.IsNotFound(err) {
@@ -233,7 +233,7 @@ func formatAsCIDR(addresses []string) []string {
 	return result
 }
 
-func (w *IngressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
+func (w *EgressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
 	addr, err := unit.PublicAddress()
 	if errors.IsNotAssigned(err) {
 		logger.Debugf("unit %s is not assigned to a machine, can't get address", unit.Name())
@@ -250,7 +250,7 @@ func (w *IngressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
 	return addr.Value, true, nil
 }
 
-func (w *IngressAddressWatcher) processUnitChanges(c params.RelationUnitsChange) (bool, error) {
+func (w *EgressAddressWatcher) processUnitChanges(c params.RelationUnitsChange) (bool, error) {
 	changed := false
 	for name := range c.Changed {
 
@@ -308,7 +308,7 @@ func (w *IngressAddressWatcher) processUnitChanges(c params.RelationUnitsChange)
 	return changed, nil
 }
 
-func (w *IngressAddressWatcher) trackUnit(unit Unit) error {
+func (w *EgressAddressWatcher) trackUnit(unit Unit) error {
 	machine, err := w.assignedMachine(unit)
 	if errors.IsNotAssigned(err) {
 		logger.Errorf("unit %q entered scope without a machine assigned - addresses will not be tracked", unit)
@@ -341,7 +341,7 @@ func (w *IngressAddressWatcher) trackUnit(unit Unit) error {
 	return nil
 }
 
-func (w *IngressAddressWatcher) untrackUnit(unitName string) error {
+func (w *EgressAddressWatcher) untrackUnit(unitName string) error {
 	machineId, ok := w.unitToMachine[unitName]
 	if !ok {
 		logger.Errorf("missing machine id for unit %q", unitName)
@@ -369,7 +369,7 @@ func (w *IngressAddressWatcher) untrackUnit(unitName string) error {
 	return nil
 }
 
-func (w *IngressAddressWatcher) assignedMachine(unit Unit) (Machine, error) {
+func (w *EgressAddressWatcher) assignedMachine(unit Unit) (Machine, error) {
 	machineId, err := unit.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -381,7 +381,7 @@ func (w *IngressAddressWatcher) assignedMachine(unit Unit) (Machine, error) {
 	return machine, nil
 }
 
-func (w *IngressAddressWatcher) processMachineAddresses(machineId string) (changed bool, err error) {
+func (w *EgressAddressWatcher) processMachineAddresses(machineId string) (changed bool, err error) {
 	mData, ok := w.machines[machineId]
 	if !ok {
 		return false, errors.Errorf("missing machineData for machine %q", machineId)
@@ -408,30 +408,30 @@ func (w *IngressAddressWatcher) processMachineAddresses(machineId string) (chang
 }
 
 // Changes returns the event channel for this watcher.
-func (w *IngressAddressWatcher) Changes() <-chan []string {
+func (w *EgressAddressWatcher) Changes() <-chan []string {
 	return w.out
 }
 
 // Kill asks the watcher to stop without waiting for it do so.
-func (w *IngressAddressWatcher) Kill() {
+func (w *EgressAddressWatcher) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait waits for the watcher to die and returns any
 // error encountered when it was running.
-func (w *IngressAddressWatcher) Wait() error {
+func (w *EgressAddressWatcher) Wait() error {
 	return w.catacomb.Wait()
 }
 
 // Stop kills the watcher, then waits for it to die.
-func (w *IngressAddressWatcher) Stop() error {
+func (w *EgressAddressWatcher) Stop() error {
 	w.Kill()
 	return w.Wait()
 }
 
 // Err returns any error encountered while the watcher
 // has been running.
-func (w *IngressAddressWatcher) Err() error {
+func (w *EgressAddressWatcher) Err() error {
 	return w.catacomb.Err()
 }
 

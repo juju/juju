@@ -4,6 +4,7 @@
 package crossmodelrelations
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,10 +17,10 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
-	"fmt"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
+	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
@@ -29,13 +30,18 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
 
+type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
+
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
 	st         CrossModelRelationsState
+	fw         firewall.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
 
 	bakery authentication.BakeryService
+
+	egressAddressWatcher egressAddressWatcherFunc
 }
 
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
@@ -46,23 +52,32 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		return nil, errors.Trace(err)
 	}
 	return NewCrossModelRelationsAPI(
-		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
+		stateShim{
+			st:      ctx.State(),
+			Backend: commoncrossmodel.GetBackend(ctx.State()),
+		},
+		firewall.StateShim(ctx.State()),
 		ctx.Resources(), ctx.Auth(), bakery,
+		firewall.WatchEgressAddressesForRelations,
 	)
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
 func NewCrossModelRelationsAPI(
 	st CrossModelRelationsState,
+	fw firewall.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	bakery authentication.BakeryService,
+	egressAddressWatcher egressAddressWatcherFunc,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
-		st:         st,
-		resources:  resources,
-		authorizer: authorizer,
-		bakery:     bakery,
+		st:                   st,
+		fw:                   fw,
+		resources:            resources,
+		authorizer:           authorizer,
+		bakery:               bakery,
+		egressAddressWatcher: egressAddressWatcher,
 	}, nil
 }
 
@@ -361,6 +376,41 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
+	}
+	return results, nil
+}
+
+// WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
+// connections will originate for the relation, change.
+// Each event contains the entire set of addresses which are required for ingress for the relation.
+func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelationArgs params.RemoteRelationArgs) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(remoteRelationArgs.Args)),
+	}
+	var relations params.Entities
+	for i, arg := range remoteRelationArgs.Args {
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(arg.ModelUUID), arg.Token)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		relations.Entities = append(relations.Entities, params.Entity{Tag: relationTag.String()})
+	}
+	watchResults, err := api.egressAddressWatcher(api.resources, api.fw, relations)
+	if err != nil {
+		return results, err
+	}
+	index := 0
+	for i, r := range results.Results {
+		if r.Error != nil {
+			continue
+		}
+		results.Results[i] = watchResults.Results[index]
+		index++
 	}
 	return results, nil
 }

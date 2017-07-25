@@ -134,9 +134,9 @@ func (c *Client) Relation(tag names.RelationTag) (*Relation, error) {
 }
 
 // WatchEgressAddressesForRelation returns a watcher that notifies when addresses,
-// from which connections will originate to the offering side of the relation, change.
-// Each event contains the entire set of addresses which the offering side is required
-// to allow for access to the other side of the relation.
+// from which connections will originate to the provider side of the relation, change.
+// Each event contains the entire set of addresses which the provider side is required
+// to allow for access from the other side of the relation.
 func (c *Client) WatchEgressAddressesForRelation(relationTag names.RelationTag) (watcher.StringsWatcher, error) {
 	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
 	var results params.StringsWatchResults
@@ -158,7 +158,7 @@ func (c *Client) WatchEgressAddressesForRelation(relationTag names.RelationTag) 
 // WatchIngressAddressesForRelation returns a watcher that notifies when addresses,
 // from which connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required
-// for ingress into this model from the other (consuming) side of the relation.
+// for ingress into this model from the other requirer side of the relation.
 func (c *Client) WatchIngressAddressesForRelation(relationTag names.RelationTag) (watcher.StringsWatcher, error) {
 	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
 	var results params.StringsWatchResults

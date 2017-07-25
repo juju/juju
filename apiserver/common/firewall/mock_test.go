@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package firewaller_test
+package firewall_test
 
 import (
 	"sync"
@@ -30,12 +30,16 @@ type mockCloudSpecAPI struct {
 }
 
 type mockState struct {
-	firewall.State
+	// TODO - implement when remaining firewaller tests become unit tests
+	state.ModelMachinesWatcher
 
 	testing.Stub
 	modelUUID      string
 	remoteEntities map[names.Tag]string
 	macaroons      map[names.Tag]*macaroon.Macaroon
+	applications   map[string]*mockApplication
+	units          map[string]*mockUnit
+	machines       map[string]*mockMachine
 	relations      map[string]*mockRelation
 	controllerInfo map[string]*mockControllerInfo
 	subnetsWatcher *mockStringsWatcher
@@ -47,6 +51,9 @@ func newMockState(modelUUID string) *mockState {
 	return &mockState{
 		modelUUID:      modelUUID,
 		relations:      make(map[string]*mockRelation),
+		applications:   make(map[string]*mockApplication),
+		units:          make(map[string]*mockUnit),
+		machines:       make(map[string]*mockMachine),
 		remoteEntities: make(map[names.Tag]string),
 		macaroons:      make(map[names.Tag]*macaroon.Macaroon),
 		controllerInfo: make(map[string]*mockControllerInfo),
@@ -90,6 +97,42 @@ func (st *mockState) GetMacaroon(model names.ModelTag, entity names.Tag) (*macar
 
 func (st *mockState) ModelUUID() string {
 	return st.modelUUID
+}
+
+func (st *mockState) Application(id string) (firewall.Application, error) {
+	st.MethodCall(st, "Application", id)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	a, ok := st.applications[id]
+	if !ok {
+		return nil, errors.NotFoundf("application %q", id)
+	}
+	return a, nil
+}
+
+func (st *mockState) Unit(name string) (firewall.Unit, error) {
+	st.MethodCall(st, "Unit", name)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	u, ok := st.units[name]
+	if !ok {
+		return nil, errors.NotFoundf("unit %q", name)
+	}
+	return u, nil
+}
+
+func (st *mockState) Machine(id string) (firewall.Machine, error) {
+	st.MethodCall(st, "Machine", id)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	m, ok := st.machines[id]
+	if !ok {
+		return nil, errors.NotFoundf("machine %q", id)
+	}
+	return m, nil
 }
 
 func (st *mockState) WatchSubnets(func(id interface{}) bool) state.StringsWatcher {
@@ -190,6 +233,19 @@ func newMockApplication(name string) *mockApplication {
 	}
 }
 
+func (a *mockApplication) Name() string {
+	a.MethodCall(a, "Name")
+	return a.name
+}
+
+func (a *mockApplication) AllUnits() (results []firewall.Unit, err error) {
+	a.MethodCall(a, "AllUnits")
+	for _, unit := range a.units {
+		results = append(results, unit)
+	}
+	return results, a.NextErr()
+}
+
 type mockControllerInfo struct {
 	uuid string
 	info crossmodel.ControllerInfo
@@ -227,10 +283,20 @@ func (r *mockRelation) Id() int {
 	return r.id
 }
 
-func (r *mockRelation) WatchRelationIngressNetworks() state.StringsWatcher {
-	w := newMockStringsWatcher()
-	w.changes <- []string{"1.2.3.4/32"}
-	return w
+func (r *mockRelation) Endpoints() []state.Endpoint {
+	r.MethodCall(r, "Endpoints")
+	return r.endpoints
+}
+
+func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWatcher, error) {
+	if r.ruwApp != applicationName {
+		return nil, errors.Errorf("unexpected app %v", applicationName)
+	}
+	return r.ruw, nil
+}
+
+func (r *mockRelation) UnitInScope(u firewall.Unit) (bool, error) {
+	return r.inScope.Contains(u.Name()), nil
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
@@ -327,4 +393,43 @@ func (u *mockUnit) updateAddress(value string) {
 	defer u.mu.Unlock()
 
 	u.publicAddress = network.Address{Value: value}
+}
+
+type mockMachine struct {
+	testing.Stub
+	id      string
+	watcher *mockAddressWatcher
+}
+
+func newMockMachine(id string) *mockMachine {
+	return &mockMachine{
+		id:      id,
+		watcher: newMockAddressWatcher(),
+	}
+}
+
+func (m *mockMachine) Id() string {
+	m.MethodCall(m, "Id")
+	return m.id
+}
+
+func (m *mockMachine) WatchAddresses() state.NotifyWatcher {
+	m.MethodCall(m, "WatchAddresses")
+	return m.watcher
+}
+
+type mockAddressWatcher struct {
+	mockWatcher
+	changes chan struct{}
+}
+
+func newMockAddressWatcher() *mockAddressWatcher {
+	w := &mockAddressWatcher{changes: make(chan struct{}, 1)}
+	go w.doneWhenDying()
+	return w
+}
+
+func (w *mockAddressWatcher) Changes() <-chan struct{} {
+	w.MethodCall(w, "Changes")
+	return w.changes
 }
