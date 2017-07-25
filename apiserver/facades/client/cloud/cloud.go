@@ -18,8 +18,20 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// CloudAPI implements the model manager interface and is
-// the concrete implementation of the api end point.
+type CloudV1 interface {
+	Clouds() (params.CloudsResult, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	DefaultCloud() (params.StringResult, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCredentials(args params.UpdateCloudCredentials) (params.ErrorResults, error)
+	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+}
+
+type CloudV2 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+}
+
 type CloudAPI struct {
 	backend                Backend
 	authorizer             facade.Authorizer
@@ -27,9 +39,22 @@ type CloudAPI struct {
 	getCredentialsAuthFunc common.GetAuthFunc
 }
 
+type CloudAPIV2 struct {
+	CloudAPI
+}
+
+var (
+	_ CloudV1 = (*CloudAPI)(nil)
+	_ CloudV2 = (*CloudAPIV2)(nil)
+)
+
 // NewFacade provides the required signature for facade registration.
 func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
 	return NewCloudAPI(NewStateBackend(st), auth)
+}
+
+func NewFacadeV2(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPIV2, error) {
+	return NewCloudAPIV2(NewStateBackend(st), auth)
 }
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
@@ -61,6 +86,16 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 	}, nil
 }
 
+func NewCloudAPIV2(backend Backend, authorizer facade.Authorizer) (*CloudAPIV2, error) {
+	cloudAPI, err := NewCloudAPI(backend, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV2{
+		CloudAPI: *cloudAPI,
+	}, nil
+}
+
 // Clouds returns the definitions of all clouds supported by the controller.
 func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 	var result params.CloudsResult
@@ -70,7 +105,7 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 	}
 	result.Clouds = make(map[string]params.Cloud)
 	for tag, cloud := range clouds {
-		paramsCloud := cloudToParams(cloud)
+		paramsCloud := common.CloudToParams(cloud)
 		result.Clouds[tag.String()] = paramsCloud
 	}
 	return result, nil
@@ -90,7 +125,7 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 		if err != nil {
 			return nil, err
 		}
-		paramsCloud := cloudToParams(cloud)
+		paramsCloud := common.CloudToParams(cloud)
 		return &paramsCloud, nil
 	}
 	for i, arg := range args.Entities {
@@ -102,30 +137,6 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 		}
 	}
 	return results, nil
-}
-
-func cloudToParams(cloud cloud.Cloud) params.Cloud {
-	authTypes := make([]string, len(cloud.AuthTypes))
-	for i, authType := range cloud.AuthTypes {
-		authTypes[i] = string(authType)
-	}
-	regions := make([]params.CloudRegion, len(cloud.Regions))
-	for i, region := range cloud.Regions {
-		regions[i] = params.CloudRegion{
-			Name:             region.Name,
-			Endpoint:         region.Endpoint,
-			IdentityEndpoint: region.IdentityEndpoint,
-			StorageEndpoint:  region.StorageEndpoint,
-		}
-	}
-	return params.Cloud{
-		Type:             cloud.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		Regions:          regions,
-	}
 }
 
 // DefaultCloud returns the tag of the cloud that models will be
@@ -321,4 +332,12 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 		}
 	}
 	return results, nil
+}
+
+func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
+	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 )
@@ -38,7 +39,7 @@ func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		clouds[tag] = cloudFromParams(tag.Id(), cloud)
+		clouds[tag] = common.CloudFromParams(tag.Id(), cloud)
 	}
 	return clouds, nil
 }
@@ -56,32 +57,7 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if results.Results[0].Error != nil {
 		return jujucloud.Cloud{}, results.Results[0].Error
 	}
-	return cloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
-}
-
-func cloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
-	authTypes := make([]jujucloud.AuthType, len(p.AuthTypes))
-	for i, authType := range p.AuthTypes {
-		authTypes[i] = jujucloud.AuthType(authType)
-	}
-	regions := make([]jujucloud.Region, len(p.Regions))
-	for i, region := range p.Regions {
-		regions[i] = jujucloud.Region{
-			Name:             region.Name,
-			Endpoint:         region.Endpoint,
-			IdentityEndpoint: region.IdentityEndpoint,
-			StorageEndpoint:  region.StorageEndpoint,
-		}
-	}
-	return jujucloud.Cloud{
-		Name:             cloudName,
-		Type:             p.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         p.Endpoint,
-		IdentityEndpoint: p.IdentityEndpoint,
-		StorageEndpoint:  p.StorageEndpoint,
-		Regions:          regions,
-	}
+	return common.CloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
 }
 
 // DefaultCloud returns the tag of the cloud that models will be
@@ -177,4 +153,16 @@ func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCr
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil
+}
+
+func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
+	}
+	args := params.AddCloudArgs{Name: cloud.Name, Cloud: common.CloudToParams(cloud)}
+	err := c.facade.FacadeCall("AddCloud", args, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

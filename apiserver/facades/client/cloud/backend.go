@@ -28,6 +28,8 @@ type Backend interface {
 	GetModel(tag names.ModelTag) (Model, error)
 
 	Close() error
+
+	AddCloud(cloud.Cloud) error
 }
 
 type stateShim struct {

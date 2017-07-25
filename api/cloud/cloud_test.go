@@ -286,3 +286,61 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 		},
 	})
 }
+
+func (s *cloudSuite) TestAddCloudNotInV1API(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "AddCloud")
+				return nil
+			},
+		),
+		BestVersion: 1,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCloud(cloud.Cloud{
+		Name:      "foo",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	})
+
+	c.Assert(err, gc.ErrorMatches, "AddCloud\\(\\).* not implemented")
+}
+
+func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "AddCloud")
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCloud(cloud.Cloud{
+		Name:      "foo",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}

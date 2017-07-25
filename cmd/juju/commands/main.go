@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -443,6 +444,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewAddCredentialCommand())
 	r.Register(cloud.NewRemoveCredentialCommand())
 	r.Register(cloud.NewUpdateCredentialCommand())
+
+	// CAAS commands
+	if featureflag.Enabled(feature.CAAS) {
+		r.Register(modelcmd.Wrap(caas.NewAddCAASCommand(&cloudToCommandAdapter{})))
+	}
 
 	// Juju GUI commands.
 	r.Register(gui.NewGUICommand())

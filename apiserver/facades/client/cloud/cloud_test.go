@@ -23,6 +23,7 @@ type cloudSuite struct {
 	backend    mockBackend
 	authorizer apiservertesting.FakeAuthorizer
 	api        *cloudfacade.CloudAPI
+	apiv2      *cloudfacade.CloudAPIV2
 }
 
 var _ = gc.Suite(&cloudSuite{})
@@ -49,6 +50,8 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.api, err = cloudfacade.NewCloudAPI(&s.backend, &s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.apiv2, err = cloudfacade.NewCloudAPIV2(&s.backend, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -275,6 +278,28 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
+func (s *cloudSuite) TestAddCloudInV2(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	paramsCloud := params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:      "fake",
+			AuthTypes: []string{"empty", "userpass"},
+			Endpoint:  "fake-endpoint",
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		}}
+	err := s.apiv2.AddCloud(paramsCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "AddCloud")
+	s.backend.CheckCall(c, 0, "AddCloud", cloud.Cloud{
+		Name:      "newcloudname",
+		Type:      "fake",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Endpoint:  "fake-endpoint",
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+	})
+}
+
 type mockBackend struct {
 	gitjujutesting.Stub
 	cloud cloud.Cloud
@@ -333,6 +358,11 @@ func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error
 
 func (st *mockBackend) Close() error {
 	st.MethodCall(st, "Close")
+	return st.NextErr()
+}
+
+func (st *mockBackend) AddCloud(cloud cloud.Cloud) error {
+	st.MethodCall(st, "AddCloud", cloud)
 	return st.NextErr()
 }
 
