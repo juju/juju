@@ -26,6 +26,7 @@ from jujucharm import (
 )
 from jujupy import (
     client_from_config,
+    client_for_existing,
     EnvJujuClient1X,
     FakeBackend,
     fake_juju_client,
@@ -570,6 +571,43 @@ class CreateController:
             self.tear_down_client.kill_controller(check=True)
 
 
+class ExistingController:
+    """A Controller strategy where the controller is already present.
+
+    Intended for use with BootstrapManager.
+    """
+
+    def __init__(self, client, tear_down_client, juju_data_dir, env):
+        self.client = client
+        self.client.env.environment = env
+        self.tear_down_client = tear_down_client
+        _, _, self.old_model = client._backend.get_active_model(juju_data_dir)
+
+    def create_initial_model(self, upload_tools, model_name):
+        """Create the initial model."""
+        self.client.add_model(self.client.env)
+
+    def prepare(self):
+        """Prepare client for use by killing the existing controller."""
+        self.tear_down_client.kill_controller()
+
+    def get_hosts(self):
+        """Provide the controller host."""
+        host = get_machine_dns_name(
+            self.client.get_controller_client(), '0')
+        if host is None:
+            raise ValueError('Could not get machine 0 host')
+        return {'0': host}
+
+    def tear_down(self, has_controller):
+        """Tear down via client.tear_down."""
+        if has_controller:
+            self.tear_down_client.tear_down()
+        else:
+            self.tear_down_client.destroy_model()
+        self.tear_down_client.switch(model=self.old_model)
+
+
 class PublicController:
     """A controller strategy where the controller is public.
 
@@ -734,6 +772,27 @@ class BootstrapManager:
             if args.to is not None:
                 client.env.bootstrap_to = args.to
         return cls.from_client(args, client)
+
+    @classmethod
+    def from_existing(cls, args):
+        juju_home = os.environ['JUJU_HOME']
+        env = args.temp_env_name.split('-temp-env')[0]
+        if not args.logs:
+            args.logs = generate_default_clean_dir(args.temp_env_name)
+        client = client_for_existing(args.juju_bin, juju_home)
+        client.env.environment = args.model
+        return cls.from_client_existing(args, client, juju_home, env)
+
+    @classmethod
+    def from_client_existing(cls, args, client, juju_data_dir, env):
+        jes_enabled = client.is_jes_enabled()
+        controller_strategy = ExistingController(
+            client, client, juju_data_dir, env)
+        return cls(
+            args.temp_env_name, client, client, args.bootstrap_host,
+            args.machine, args.series, args.agent_url, args.agent_stream,
+            args.region, args.logs, args.keep_env, permanent=jes_enabled,
+            jes_enabled=jes_enabled, controller_strategy=controller_strategy)
 
     @classmethod
     def from_client(cls, args, client):
@@ -1039,6 +1098,18 @@ class BootstrapManager:
                         bootstrap_series=self.series,
                         **kwargs)
                 with self.runtime_context(machines):
+                    yield machines
+        except LoggedException:
+            sys.exit(1)
+
+    @contextmanager
+    def existing_context(self, upload_tools, env_name, **kwargs):
+        env_name = env_name.split('-temp-env')[0]
+        try:
+            with self.top_context() as machines:
+                with self.runtime_context(machines):
+                    self.controller_strategy.create_initial_model(
+                        upload_tools, env_name)
                     yield machines
         except LoggedException:
             sys.exit(1)

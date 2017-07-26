@@ -5,14 +5,10 @@ from __future__ import print_function
 
 import argparse
 import logging
-import os
 import sys
 
 from deploy_stack import (
     BootstrapManager,
-    )
-from jujupy import (
-    client_for_existing
     )
 from utility import (
     add_basic_testing_arguments,
@@ -28,7 +24,7 @@ log = logging.getLogger("assess_TEMPLATE")
 
 def assess_TEMPLATE(client):
     # Deploy charms, there are several under ./repository
-    client.deploy('local:trusty/my-charm')
+    client.deploy('cs:ubuntu', num=2)
     # Wait for the deployment to finish.
     client.wait_for_started()
     log.info("TODO: Add log line about any test")

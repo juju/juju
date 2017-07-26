@@ -1917,7 +1917,7 @@ class ModelClient:
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
-            self._add_model(env.environment, config_file)
+                self._add_model(env.environment, config_file)
         return model_client
 
     def make_model_config(self):
@@ -1928,6 +1928,7 @@ class ModelClient:
         # Strip unneeded variables.
         return dict((k, v) for k, v in config_dict.items() if k not in {
             'access-key',
+            'api-port',
             'admin-secret',
             'application-id',
             'application-password',
@@ -1944,6 +1945,9 @@ class ModelClient:
             'management-subscription-id',
             'manta-key-id',
             'manta-user',
+            'max-logs-age',
+            'max-logs-size',
+            'max-txn-log-size',
             'name',
             'password',
             'private-key',
@@ -1952,6 +1956,8 @@ class ModelClient:
             'sdc-url',
             'sdc-user',
             'secret-key',
+            'set-numa-control-policy',
+            'state-port',
             'storage-account-name',
             'subscription-id',
             'tenant-id',
@@ -2011,8 +2017,8 @@ class ModelClient:
             region_args = (cloud_region, '--credential', credential_name)
         else:
             region_args = ()
-        self.controller_juju('add-model', (model_name,) + region_args + (
-            '--config', config_file))
+        self.controller_juju('add-model', (model_name,) + region_args +
+                             ('--config', config_file,))
 
     def destroy_model(self):
         exit_status, _ = self.juju(
