@@ -116,6 +116,29 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
 	c.Assert(entity, gc.Equals, expected)
 }
 
+func (s *RemoteEntitiesSuite) TestImportRemoteEntityOverwrites(c *gc.C) {
+	re := s.State.RemoteEntities()
+	entity := names.NewApplicationTag("mysql")
+	token := utils.MustNewUUID().String()
+	err := re.ImportRemoteEntity(s.State.ModelTag(), entity, token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherToken := utils.MustNewUUID().String()
+	err = re.ImportRemoteEntity(s.State.ModelTag(), entity, anotherToken)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	re = anotherState.RemoteEntities()
+	_, err = re.GetRemoteEntity(s.State.ModelTag(), token)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	expected, err := re.GetRemoteEntity(s.State.ModelTag(), anotherToken)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity, gc.Equals, expected)
+}
+
 func (s *RemoteEntitiesSuite) TestImportRemoteEntityEmptyToken(c *gc.C) {
 	re := s.State.RemoteEntities()
 	entity := names.NewApplicationTag("mysql")

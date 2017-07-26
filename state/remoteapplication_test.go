@@ -98,7 +98,7 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 		Name:        "mysql",
 		URL:         "me/model.mysql",
 		SourceModel: s.State.ModelTag(),
-		Token:       "t0",
+		Token:       "app-token",
 		Endpoints:   eps,
 		Spaces:      spaces,
 		Bindings:    bindings,
@@ -210,7 +210,7 @@ func (s *remoteApplicationSuite) TestURL(c *gc.C) {
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql1",
 		SourceModel: s.State.ModelTag(),
-		Token:       "t0",
+		Token:       "app-token",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	url, ok = app.URL()
@@ -395,7 +395,7 @@ func (s *remoteApplicationSuite) TestParamsValidateChecksBindings(c *gc.C) {
 		Name:        "mysql",
 		URL:         "me/model.mysql",
 		SourceModel: s.State.ModelTag(),
-		Token:       "t0",
+		Token:       "app-token",
 		Endpoints:   eps,
 		Spaces:      spaces,
 		Bindings:    bindings,
@@ -708,19 +708,49 @@ func (s *remoteApplicationSuite) TestDestroySimple(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Destroy a local application with no units in relation scope; check application and
+	// Destroy the remote application with no units in relation scope; check application and
 	// unit removed.
-	err = wordpress.Destroy()
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Refresh()
+	err = s.application.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add remote token so we can check it is cleaned up.
+	re := s.State.RemoteEntities()
+	relToken, err := re.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = re.GetToken(s.State.ModelTag(), s.application.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = re.GetToken(s.State.ModelTag(), rel.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = re.GetRemoteEntity(s.State.ModelTag(), "app-token")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = re.GetRemoteEntity(s.State.ModelTag(), relToken)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

@@ -33,7 +33,8 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 
 	// Look up the application on the remote side of this relation
 	// ie from the model which published this change.
-	applicationTag, err := getRemoteEntityTag(backend, change.ApplicationId)
+	applicationTag, err := backend.GetRemoteEntity(
+		names.NewModelTag(change.ApplicationId.ModelUUID), change.ApplicationId.Token)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -108,11 +109,6 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		}
 	}
 	return nil
-}
-
-func getRemoteEntityTag(backend Backend, id params.RemoteEntityId) (names.Tag, error) {
-	modelTag := names.NewModelTag(id.ModelUUID)
-	return backend.GetRemoteEntity(modelTag, id.Token)
 }
 
 // WatchRelationUnits returns a watcher for changes to the units on the specified relation.

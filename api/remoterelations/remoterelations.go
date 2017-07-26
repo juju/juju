@@ -109,26 +109,6 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 	return nil
 }
 
-// RemoveRemoteEntity removes the specified entity from the remote entities collection.
-func (c *Client) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
-	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{
-		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: entity.String()}},
-	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("RemoveRemoteEntities", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
-}
-
 // RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
 func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
 	args := params.RelationUnits{relationUnits}

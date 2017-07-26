@@ -932,7 +932,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 
 	// Export the relation details so the firewaller knows it's ready to be processed.
 	re := s.State.RemoteEntities()
-	err = re.ImportRemoteEntity(consumingModelTag, rel.Tag(), relToken)
+	err = re.ImportRemoteEntity(s.State.ModelTag(), rel.Tag(), relToken)
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.ImportRemoteEntity(consumingModelTag, app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)

@@ -201,6 +201,14 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		ops = append(ops, removeRelationIngressNetworksOps(r.st, r.doc.Key)...)
+		re := r.st.RemoteEntities()
+		modelTag := r.st.modelTag
+		token, err := re.GetToken(modelTag, r.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		tokenOps := re.removeRemoteEntityOps(modelTag, r.Tag(), token)
+		ops = append(ops, tokenOps...)
 	}
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
@@ -265,11 +273,15 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		services, closer := r.st.db().GetCollection(remoteApplicationsC)
 		defer closer()
 
-		svc := &RemoteApplication{st: r.st}
+		app := &RemoteApplication{st: r.st}
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-		if err := services.Find(removable).One(&svc.doc); err == nil {
-			return svc.removeOps(hasLastRef), nil
+		if err := services.Find(removable).One(&app.doc); err == nil {
+			removeOps, err := app.removeOps(hasLastRef)
+			if err != nil {
+				return nil, err
+			}
+			return removeOps, nil
 		} else if err != mgo.ErrNotFound {
 			return nil, err
 		}

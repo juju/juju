@@ -101,30 +101,6 @@ func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.
 	return results, nil
 }
 
-// RemoveRemoteEntities removes the specified entities from the remote entities collection.
-func (api *RemoteRelationsAPI) RemoveRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		err := api.removeRemoteEntity(arg)
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
-}
-
-func (api *RemoteRelationsAPI) removeRemoteEntity(arg params.RemoteEntityArg) error {
-	entityTag, err := names.ParseTag(arg.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelTag, err := names.ParseModelTag(arg.ModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return api.st.RemoveRemoteEntity(modelTag, entityTag)
-}
-
 // GetTokens returns the token associated with the entities with the given tags for the given models.
 func (api *RemoteRelationsAPI) GetTokens(args params.GetTokenArgs) (params.StringResults, error) {
 	results := params.StringResults{
@@ -421,7 +397,7 @@ func (api *RemoteRelationsAPI) ConsumeRemoteRelationChange(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(change.RelationId.ModelUUID), change.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), change.RelationId.Token)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				continue

@@ -90,7 +90,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(change.RelationId.ModelUUID), change.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), change.RelationId.Token)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationId, api.st.ModelUUID())
@@ -253,7 +253,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	logger.Debugf("importing remote relation into model %v", api.st.ModelUUID())
 	logger.Debugf("remote model is %v", remoteModelTag.Id())
 
-	err = api.st.ImportRemoteEntity(remoteModelTag, localRel.Tag(), relation.RelationId.Token)
+	err = api.st.ImportRemoteEntity(names.NewModelTag(api.st.ModelUUID()), localRel.Tag(), relation.RelationId.Token)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
 	}
@@ -297,7 +297,7 @@ func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteRelationArgs params.
 		Results: make([]params.RelationUnitsWatchResult, len(remoteRelationArgs.Args)),
 	}
 	for i, arg := range remoteRelationArgs.Args {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(arg.ModelUUID), arg.Token)
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), arg.Token)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -328,7 +328,7 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
 	}
 	for i, arg := range relationUnits.RelationUnits {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(arg.RelationId.ModelUUID), arg.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), arg.RelationId.Token)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -361,7 +361,7 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(change.RelationId.ModelUUID), change.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), change.RelationId.Token)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -389,7 +389,7 @@ func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelati
 	}
 	var relations params.Entities
 	for i, arg := range remoteRelationArgs.Args {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(arg.ModelUUID), arg.Token)
+		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), arg.Token)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

@@ -5,6 +5,7 @@ package state
 
 import (
 	"encoding/json"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
@@ -54,7 +55,7 @@ func (st *State) RemoteEntities() *RemoteEntities {
 func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 	var token string
 	sourceModel := r.st.ModelTag()
-	ops := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// The entity must not already be exported.
 		var err error
 		token, err = r.GetToken(sourceModel, entity)
@@ -81,7 +82,7 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 			return nil, jujutxn.ErrTransientFailure
 		}
 
-		aa := []txn.Op{{
+		ops := []txn.Op{{
 			C:      tokensC,
 			Id:     token,
 			Assert: txn.DocMissing,
@@ -96,9 +97,9 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 				Token:           token,
 			},
 		}}
-		return aa, nil
+		return ops, nil
 	}
-	if err := r.st.db().Run(ops); err != nil {
+	if err := r.st.db().Run(buildTxn); err != nil {
 		// Where error is AlreadyExists, we still return the
 		// token so that a second api call is not required by
 		// the caller to get the token.
@@ -109,7 +110,7 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 
 // ImportRemoteEntity adds an entity to the remote entities collection
 // with the specified opaque token.
-//
+// If the entity already exists, its token will be overwritten.
 // This method assumes that the provided token is unique within the
 // source model, and does not perform any uniqueness checks on it.
 func (r *RemoteEntities) ImportRemoteEntity(
@@ -118,23 +119,28 @@ func (r *RemoteEntities) ImportRemoteEntity(
 	if token == "" {
 		return errors.NotValidf("empty token for %v in model %v", entity.Id(), sourceModel.Id())
 	}
-	ops := r.importRemoteEntityOps(sourceModel, entity, token)
-	err := r.st.db().RunTransaction(ops)
-	if err == txn.ErrAborted {
-		return errors.AlreadyExistsf(
-			"reference to %s in %s",
-			names.ReadableString(entity),
-			names.ReadableString(sourceModel),
-		)
+	buildTxn := func(int) (ops []txn.Op, _ error) {
+		remoteEntity, err := r.remoteEntityDoc(sourceModel, entity)
+		if err != nil && err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			// Same token already exists.
+			if remoteEntity.Token == token {
+				return nil, jujutxn.ErrNoOperations
+			}
+			// Token already exists, so remove first.
+			ops = append(ops, r.removeRemoteEntityOps(sourceModel, entity, remoteEntity.Token)...)
+		}
+		ops = append(ops, r.importRemoteEntityOps(sourceModel, entity, token)...)
+		return ops, nil
 	}
-	if err != nil {
-		return errors.Annotatef(
-			err, "recording reference to %s in %s",
-			names.ReadableString(entity),
-			names.ReadableString(sourceModel),
-		)
-	}
-	return nil
+	err := r.st.db().Run(buildTxn)
+	return errors.Annotatef(
+		err, "recording reference to %s in %s",
+		names.ReadableString(entity),
+		names.ReadableString(sourceModel),
+	)
 }
 
 func (r *RemoteEntities) importRemoteEntityOps(
@@ -163,29 +169,30 @@ func (r *RemoteEntities) RemoveRemoteEntity(
 			logger.Debugf("remote entity %v from %v in model %v not found", entity, sourceModel, r.st.ModelUUID())
 			return nil, jujutxn.ErrNoOperations
 		}
-		ops := []txn.Op{r.removeRemoteEntityOp(sourceModel, entity)}
-		if sourceModel == r.st.ModelTag() {
-			ops = append(ops, txn.Op{
-				C:      tokensC,
-				Id:     token,
-				Remove: true,
-			})
-		}
+		ops := r.removeRemoteEntityOps(sourceModel, entity, token)
 		return ops, nil
 	}
 	return r.st.db().Run(ops)
 }
 
-// removeRemoteEntityOp returns the txn.Op to remove the remote entity
-// document. It does not remove the token document for exported entities.
-func (r *RemoteEntities) removeRemoteEntityOp(
-	sourceModel names.ModelTag, entity names.Tag,
-) txn.Op {
-	return txn.Op{
+// removeRemoteEntityOpa returns the txn.Ops to remove the remote entity
+// document. It also removes any token document for exported entities.
+func (r *RemoteEntities) removeRemoteEntityOps(
+	sourceModel names.ModelTag, entity names.Tag, token string,
+) []txn.Op {
+	ops := []txn.Op{{
 		C:      remoteEntitiesC,
 		Id:     r.docID(sourceModel, entity),
 		Remove: true,
+	}}
+	if token != "" && sourceModel == r.st.ModelTag() {
+		ops = append(ops, txn.Op{
+			C:      tokensC,
+			Id:     token,
+			Remove: true,
+		})
 	}
+	return ops
 }
 
 // GetToken returns the token associated with the entity with the given tag
@@ -213,14 +220,19 @@ func (r *RemoteEntities) GetToken(sourceModel names.ModelTag, entity names.Tag) 
 	return doc.Token, nil
 }
 
-// GetMacaroon returns the macaroon associated with the entity with the given tag
-// and model.
-func (r *RemoteEntities) GetMacaroon(sourceModel names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error) {
+func (r *RemoteEntities) remoteEntityDoc(sourceModel names.ModelTag, entity names.Tag) (remoteEntityDoc, error) {
 	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
 	defer closer()
 
 	var doc remoteEntityDoc
 	err := remoteEntities.FindId(r.docID(sourceModel, entity)).One(&doc)
+	return doc, err
+}
+
+// GetMacaroon returns the macaroon associated with the entity with the given tag
+// and model.
+func (r *RemoteEntities) GetMacaroon(sourceModel names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error) {
+	doc, err := r.remoteEntityDoc(sourceModel, entity)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf(
 			"macaroon for %s in %s",
