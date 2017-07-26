@@ -131,11 +131,6 @@ func (m *mockRelationsFacade) SaveMacaroon(entity names.Tag, mac *macaroon.Macar
 	return m.stub.NextErr()
 }
 
-func (m *mockRelationsFacade) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
-	m.stub.MethodCall(m, "RemoveRemoteEntity", sourceModelUUID, entity)
-	return m.stub.NextErr()
-}
-
 func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {
 	m.stub.MethodCall(m, "GetToken", modelUUID, entity)
 	if err := m.stub.NextErr(); err != nil {

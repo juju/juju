@@ -66,9 +66,6 @@ type RemoteRelationsFacade interface {
 	// for the specified model.
 	GetToken(string, names.Tag) (string, error)
 
-	// RemoveRemoteEntity removes the specified entity from the remote entities collection.
-	RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error
-
 	// RelationUnitSettings returns the relation unit settings for the
 	// given relation units in the local model.
 	RelationUnitSettings([]params.RelationUnit) ([]params.SettingsResult, error)
@@ -399,7 +396,7 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 	// call from the remote model that may come across at the same time is short circuited.
 	remoteId := relation.localRuw.remoteRelationId
 	relTag := names.NewRelationTag(key)
-	_, err := w.localModelFacade.GetToken(remoteId.ModelUUID, relTag)
+	_, err := w.localModelFacade.GetToken(w.localModelUUID, relTag)
 	if errors.IsNotFound(err) {
 		logger.Debugf("not found token for %v in %v, exit early", key, w.localModelUUID)
 		return nil
@@ -407,16 +404,11 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 		return errors.Trace(err)
 	}
 
-	// We also need to remove the remote entity reference for the relation.
-	if err := w.localModelFacade.RemoveRemoteEntity(remoteId.ModelUUID, relTag); err != nil {
-		return errors.Trace(err)
-	}
-
-	// On the consuming side, inform the remote side the relation has died.
+	// On the consuming side, inform the remote side the relation is dying.
 	if !w.registered {
 		change := params.RemoteRelationChangeEvent{
 			RelationId:    remoteId,
-			Life:          params.Dead,
+			Life:          params.Dying,
 			ApplicationId: w.relationInfo.localApplicationId,
 			Macaroons:     macaroon.Slice{w.macaroon},
 		}
@@ -426,8 +418,6 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 	}
 	// TODO(wallyworld) - on the offering side, ensure the consuming watcher learns about the removal
 	logger.Debugf("remote relation %v removed from remote model", key)
-
-	// TODO(wallyworld) - check that state cleanup worker properly removes the dead relation.
 	return nil
 }
 
@@ -444,16 +434,16 @@ func (w *remoteApplicationWorker) relationChanged(
 	remoteRelation := result.Result
 
 	// If we have previously started the watcher and the
-	// relation is now dead, stop the watcher.
+	// relation is now dying, stop the watcher.
 	if r := relations[key]; r != nil {
 		r.life = remoteRelation.Life
-		if r.life == params.Dead {
+		if r.life == params.Dying {
 			return w.processRelationGone(key, relations)
 		}
 		// Nothing to do, we have previously started the watcher.
 		return nil
 	}
-	if remoteRelation.Life == params.Dead {
+	if remoteRelation.Life != params.Alive {
 		// We haven't started the relation unit watcher so just exit.
 		return nil
 	}
@@ -467,7 +457,7 @@ func (w *remoteApplicationWorker) processNewOfferingRelation(applicationName str
 	// We are on the offering side and the relation has been registered,
 	// so look up the token to use when communicating status.
 	relationTag := names.NewRelationTag(key)
-	token, err := w.localModelFacade.GetToken(w.remoteModelUUID, relationTag)
+	token, err := w.localModelFacade.GetToken(w.localModelUUID, relationTag)
 	if err != nil {
 		return errors.Annotatef(err, "getting token for relation %v from consuming model", relationTag.Id())
 	}

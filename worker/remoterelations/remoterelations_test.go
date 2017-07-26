@@ -208,14 +208,14 @@ func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *gc.C) {
 	c.Check(relWatcher.killed(), jc.IsTrue)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
+func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	// Checks that when a remote relation dies, the relation units
 	// workers are killed.
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ := s.relationsFacade.updateRelationLife("db2:db django:db", params.Dead)
+	unitsWatcher, _ := s.relationsFacade.updateRelationLife("db2:db django:db", params.Dying)
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
@@ -233,11 +233,10 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
-		{"RemoveRemoteEntity", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"GetToken", []interface{}{"local-model-uuid", names.NewRelationTag("db2:db django:db")}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life: params.Dead,
+				Life: params.Dying,
 				ApplicationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-django"},
@@ -272,11 +271,10 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
-		{"RemoveRemoteEntity", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"GetToken", []interface{}{"local-model-uuid", names.NewRelationTag("db2:db django:db")}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life: params.Dead,
+				Life: params.Dying,
 				ApplicationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-django"},
@@ -421,7 +419,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{"remote-model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"GetToken", []interface{}{"local-model-uuid", names.NewRelationTag("db2:db django:db")}},
 		{"GetToken", []interface{}{"local-model-uuid", names.NewApplicationTag("django")}},
 	}
 	s.waitForWorkerStubCalls(c, expected)

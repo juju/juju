@@ -1245,7 +1245,6 @@ type remoteRelationData struct {
 // startRelation creates a new data value for tracking details of the
 // relation and starts watching the related models for subnets added or removed.
 func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.RelationRole) error {
-	var relModelUUID string
 	remoteApps, err := fw.remoteRelationsApi.RemoteApplications([]string{rel.RemoteApplicationName})
 	if err != nil {
 		return errors.Trace(err)
@@ -1277,17 +1276,8 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.Relat
 		return errors.Trace(err)
 	}
 
-	if remoteApps[0].Result.Registered {
-		// Here SourceModelUUID is source model of the offer, which is
-		// the model UUID used to register the relation on the offering side.
-		relModelUUID = rel.SourceModelUUID
-		data.isOffer = true
-	} else {
-		// The consumer side initiates the relation so the model UUID
-		// used to export the relation is that of the consuming side.
-		relModelUUID = fw.modelUUID
-	}
-	return fw.startRelationPoller(relModelUUID, rel.SourceModelUUID, rel.Key, rel.RemoteApplicationName, data.relationReady)
+	data.isOffer = remoteApps[0].Result.Registered
+	return fw.startRelationPoller(rel.SourceModelUUID, rel.Key, rel.RemoteApplicationName, data.relationReady)
 }
 
 // watchLoop watches the relation for networks added or removed.
@@ -1468,17 +1458,6 @@ func (rd *remoteRelationData) Wait() error {
 func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
 	logger.Debugf("forget relation %v", data.tag.Id())
 	delete(fw.relationIngress, data.tag)
-	change := &remoteRelationNetworkChange{
-		relationTag:         data.tag,
-		localApplicationTag: data.localApplicationTag,
-		networks:            make(set.Strings),
-	}
-	if err := fw.publishNetworkChanged(change); err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(wallyworld) - we need to unregister with the remote model
-
 	// Unusually, it's fine to ignore this error, because we know the relation data
 	// is being tracked in fw.catacomb. But we do still want to wait until the
 	// watch loop has stopped before we nuke the last data and return.
@@ -1492,20 +1471,18 @@ type remoteRelationPoller struct {
 	fw             *Firewaller
 	relationTag    names.RelationTag
 	applicationTag names.ApplicationTag
-	relModelUUID   string
 	appModelUUID   string
 	relationReady  chan remoteRelationInfo
 }
 
 // startRelationPoller creates a new worker which waits until a remote
 // relation is registered in both models.
-func (fw *Firewaller) startRelationPoller(relModelUUID, appModelUUID, relationKey, remoteAppName string, relationReady chan remoteRelationInfo) error {
+func (fw *Firewaller) startRelationPoller(appModelUUID, relationKey, remoteAppName string, relationReady chan remoteRelationInfo) error {
 	poller := &remoteRelationPoller{
 		fw:             fw,
 		relationTag:    names.NewRelationTag(relationKey),
 		applicationTag: names.NewApplicationTag(remoteAppName),
 		relationReady:  relationReady,
-		relModelUUID:   relModelUUID,
 		appModelUUID:   appModelUUID,
 	}
 
@@ -1531,11 +1508,11 @@ func (p *remoteRelationPoller) pollLoop() error {
 			return p.catacomb.ErrDying()
 		case <-p.fw.pollClock.After(3 * time.Second):
 			// Relation is exported with the consuming model UUID.
-			relToken, err := p.fw.remoteRelationsApi.GetToken(p.relModelUUID, p.relationTag)
+			relToken, err := p.fw.remoteRelationsApi.GetToken(p.fw.modelUUID, p.relationTag)
 			if err != nil {
 				continue
 			}
-			logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.relModelUUID)
+			logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.fw.modelUUID)
 
 			// Application is exported with the offering model UUID.
 			appToken, err := p.fw.remoteRelationsApi.GetToken(p.appModelUUID, p.applicationTag)
@@ -1545,7 +1522,7 @@ func (p *remoteRelationPoller) pollLoop() error {
 			logger.Debugf("token %v for application id: %v in model %v", appToken, p.applicationTag.Id(), p.appModelUUID)
 
 			// relation and application are ready.
-			remoteRelationId := params.RemoteEntityId{ModelUUID: p.relModelUUID, Token: relToken}
+			remoteRelationId := params.RemoteEntityId{ModelUUID: p.fw.modelUUID, Token: relToken}
 			remoteApplicationId := params.RemoteEntityId{ModelUUID: p.appModelUUID, Token: appToken}
 			releationInfo := remoteRelationInfo{
 				relationId:          remoteRelationId,

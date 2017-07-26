@@ -195,19 +195,6 @@ func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
 	})
 }
 
-func (s *remoteRelationsSuite) TestRemoveRemoteEntities(c *gc.C) {
-	result, err := s.api.RemoveRemoteEntities(params.RemoteEntityArgs{
-		Args: []params.RemoteEntityArg{
-			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django"},
-		}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0], jc.DeepEquals, params.ErrorResult{})
-	s.st.CheckCalls(c, []testing.StubCall{
-		{"RemoveRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}}},
-	})
-}
-
 func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
 	s.st.applications["django"] = newMockApplication("django")
 	result, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})

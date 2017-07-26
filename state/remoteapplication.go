@@ -321,7 +321,11 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 	// removed, the application can also be removed.
 	if s.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
-		return append(ops, s.removeOps(hasLastRefs)...), nil
+		removeOps, err := s.removeOps(hasLastRefs)
+		if err != nil {
+			return nil, err
+		}
+		return append(ops, removeOps...), nil
 	}
 	// In all other cases, application removal will be handled as a consequence
 	// of the removal of the relation referencing it. If any  relations have
@@ -350,8 +354,12 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 
 // removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
-func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
+func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	r := s.st.RemoteEntities()
+	token, err := r.GetToken(s.SourceModel(), s.Tag())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
 	ops := []txn.Op{
 		{
 			C:      remoteApplicationsC,
@@ -360,9 +368,10 @@ func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
 			Remove: true,
 		},
 		removeStatusOp(s.st, s.globalKey()),
-		r.removeRemoteEntityOp(s.SourceModel(), s.Tag()),
 	}
-	return ops
+	tokenOps := r.removeRemoteEntityOps(s.SourceModel(), s.Tag(), token)
+	ops = append(ops, tokenOps...)
+	return ops, nil
 }
 
 // Status returns the status of the remote application.

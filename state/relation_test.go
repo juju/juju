@@ -378,6 +378,28 @@ func (s *RelationSuite) TestRemoveAlsoDeletesIngressNetworks(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *RelationSuite) TestRemoveAlsoDeletesRemoteTokens(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add remote token so we can check it is cleaned up.
+	re := s.State.RemoteEntities()
+	relToken, err := re.ExportLocalEntity(relation.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RemoveRelation(c, relation)
+	_, err = re.GetToken(s.State.ModelTag(), relation.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = re.GetRemoteEntity(s.State.ModelTag(), relToken)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags( /*none*/ )
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))

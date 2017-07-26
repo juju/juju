@@ -103,7 +103,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2"}},
 	})
@@ -231,7 +231,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 	// TODO(wallyworld) - add mre tests when implementation finished
@@ -278,9 +278,9 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(uuid), "token-mysql:db django:db"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-mysql:db django:db"}},
 		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-db2:db django:db"}},
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(uuid), "token-postgresql:db django:db"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-postgresql:db django:db"}},
 	})
 	// TODO(wallyworld) - add mre tests when implementation finished
 }
