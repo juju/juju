@@ -943,13 +943,8 @@ func (m *mockModel) Users() ([]permission.UserAccess, error) {
 	return users, nil
 }
 
-func (m *mockModel) Destroy() error {
-	m.MethodCall(m, "Destroy")
-	return m.NextErr()
-}
-
-func (m *mockModel) DestroyIncludingHosted() error {
-	m.MethodCall(m, "DestroyIncludingHosted")
+func (m *mockModel) Destroy(args state.DestroyModelParams) error {
+	m.MethodCall(m, "Destroy", args)
 	return m.NextErr()
 }
 

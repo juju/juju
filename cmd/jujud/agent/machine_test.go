@@ -1397,7 +1397,7 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 		watch := model.Watch()
 		defer workertest.CleanKill(c, watch)
 
-		err = model.Destroy()
+		err = model.Destroy(state.DestroyModelParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		for {
 			select {

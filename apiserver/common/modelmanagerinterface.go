@@ -84,8 +84,7 @@ type Model interface {
 	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
-	Destroy() error
-	DestroyIncludingHosted() error
+	Destroy(state.DestroyModelParams) error
 	SLALevel() string
 	SLAOwner() string
 	MigrationMode() state.MigrationMode
