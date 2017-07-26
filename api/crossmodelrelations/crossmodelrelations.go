@@ -77,8 +77,8 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 
 // WatchRelationUnits returns a watcher that notifies of changes to the
 // units in the remote model for the relation with the given remote token.
-func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteRelationArg) (watcher.RelationUnitsWatcher, error) {
-	args := params.RemoteRelationArgs{Args: []params.RemoteRelationArg{remoteRelationArg}}
+func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error) {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
 	var results params.RelationUnitsWatchResults
 	err := c.facade.FacadeCall("WatchRelationUnits", args, &results)
 	if err != nil {
@@ -113,8 +113,8 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 // from which connections will originate to the offering side of the relation, change.
 // Each event contains the entire set of addresses which the offering side is required
 // to allow for access to the other side of the relation.
-func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.RemoteRelationArg) (watcher.StringsWatcher, error) {
-	args := params.RemoteRelationArgs{Args: []params.RemoteRelationArg{remoteRelationArg}}
+func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.RemoteEntityArg) (watcher.StringsWatcher, error) {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
 	var results params.StringsWatchResults
 	err := c.facade.FacadeCall("WatchEgressAddressesForRelations", args, &results)
 	if err != nil {

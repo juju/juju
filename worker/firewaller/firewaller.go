@@ -47,7 +47,7 @@ type FirewallerAPI interface {
 // remote offering model to a worker.
 type CrossModelFirewallerFacade interface {
 	PublishIngressNetworkChange(params.IngressNetworksChangeEvent) error
-	WatchEgressAddressesForRelation(details params.RemoteRelationArg) (watcher.StringsWatcher, error)
+	WatchEgressAddressesForRelation(details params.RemoteEntityArg) (watcher.StringsWatcher, error)
 }
 
 // RemoteFirewallerAPICloser implements CrossModelFirewallerFacade
@@ -1394,7 +1394,7 @@ func (rd *remoteRelationData) ingressAddressWatcher() (watcher.StringsWatcher, e
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
 		}
-		arg := params.RemoteRelationArg{
+		arg := params.RemoteEntityArg{
 			Token:     rd.relationToken,
 			Macaroons: macaroon.Slice{mac},
 		}

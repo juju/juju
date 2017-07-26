@@ -43,7 +43,7 @@ type RemoteModelRelationsFacade interface {
 
 	// WatchRelationUnits returns a watcher that notifies of changes to the
 	// units in the remote model for the relation with the given remote token.
-	WatchRelationUnits(details params.RemoteRelationArg) (watcher.RelationUnitsWatcher, error)
+	WatchRelationUnits(arg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error)
 
 	// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
 	RelationUnitSettings([]params.RemoteRelationUnit) ([]params.SettingsResult, error)
@@ -86,8 +86,8 @@ type RemoteRelationsFacade interface {
 	WatchRemoteApplications() (watcher.StringsWatcher, error)
 
 	// WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
-	// each specified application in the local environment, and returns the watcher IDs
-	// and initial values, or an error if the applications' relations could not be
+	// each specified application in the local model, and returns the watcher IDs
+	// and initial values, or an error if the application's relations could not be
 	// watched.
 	WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error)
 
@@ -535,7 +535,7 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 	}
 
 	// Start a watcher to track changes to the units in the relation in the remote model.
-	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationUnits(params.RemoteRelationArg{
+	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationUnits(params.RemoteEntityArg{
 		Token:     relationToken,
 		Macaroons: macaroon.Slice{w.macaroon},
 	})
