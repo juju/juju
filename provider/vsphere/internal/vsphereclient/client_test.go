@@ -223,6 +223,59 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "summary.accessible", Val: true},
 			},
 		}},
+		"network-0": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "Network",
+				Value: "network-0",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "VM Network"},
+			},
+		}},
+		"network-1": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "Network",
+				Value: "network-1",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "zing"},
+			},
+		}},
+		"onetwork-0": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "OpaqueNetwork",
+				Value: "onetwork-0",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "arpa"},
+			},
+		}},
+		"dvportgroup-0": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "DistributedVirtualPortgroup",
+				Value: "dvportgroup-0",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "yoink"},
+				{Name: "config.key", Val: "hole"},
+				{
+					Name: "config.distributedVirtualSwitch",
+					Val: types.ManagedObjectReference{
+						Type:  "DistributedVirtualSwitch",
+						Value: "dvs-0",
+					},
+				},
+			},
+		}},
+		"dvs-0": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "DistributedVirtualSwitch",
+				Value: "dvs-0",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "uuid", Val: "yup"},
+			},
+		}},
 	}
 
 	// Create an HTTP server to receive image uploads.
