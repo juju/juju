@@ -69,7 +69,7 @@ def get_storage_property(client, storage_id):
 
 def assert_app_status(client, charm_name, expected):
     # Run juju status --format json
-    log.info('Checking current status of app {}...'.format(charm_name))
+    log.info('Checking current status of app {}.'.format(charm_name))
     status_output = json.loads(
         client.get_juju_output('status', '--format', 'json', include_e=False))
     app_status = status_output['applications'][charm_name]['application-status']['current']
@@ -85,7 +85,7 @@ def assert_app_status(client, charm_name, expected):
 
 
 def assert_storage_number(storage_list, expected):
-    log.info('Checking total number of storage unit(s)...')
+    log.info('Checking total number of storage unit(s).')
     found = len(storage_list)
     if found != expected:
         raise JujuAssertionError(
@@ -100,7 +100,7 @@ def assert_storage_number(storage_list, expected):
 
 def assert_single_blk_existence(storage_list, storage_id):
     log.info(
-        'Checking existence of single block device storage...'.format(storage_id))
+        'Checking existence of single block device storage.'.format(storage_id))
     if storage_id not in storage_list:
         raise JujuAssertionError(
             '{} missing from storage list.'.format(storage_id))
@@ -110,7 +110,7 @@ def assert_single_blk_existence(storage_list, storage_id):
 
 def assert_single_blk_removal(storage_list, storage_id):
     log.info(
-        'Checking removal of single block device storage...'.format(storage_id))
+        'Checking removal of single block device storage.'.format(storage_id))
     if storage_id in storage_list:
         raise JujuAssertionError(
             '{} still exists in storage list.'.format(storage_id))
@@ -120,7 +120,7 @@ def assert_single_blk_removal(storage_list, storage_id):
 
 def assert_persistent_setting(storage_id, found, expected):
     log.info(
-        'Checking persistent setting of storage unit {}...'.format(
+        'Checking persistent setting of storage unit {}.'.format(
         storage_id))
     if found != expected:
         raise JujuAssertionError(
@@ -134,7 +134,7 @@ def assert_persistent_setting(storage_id, found, expected):
 
 def assert_storage_status(found_id, expected_id, found_status, expected_status):
     log.info(
-        'Checking the status of storage {} in volumes...'.format(expected_id))
+        'Checking the status of storage {} in volumes.'.format(expected_id))
     if found_id != expected_id:
         raise JujuAssertionError(
             '{} missing from volumes.'.format(expected_id))
@@ -231,11 +231,7 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
         '{} is going to be deployed with 1 ebs block storage unit and '\
         '1 rootfs filesystem storage unit.'.format(charm_name))
     # Run juju deploy dummy-storage --storage single-blk=ebs --storage single-fs=rootfs
-    client.get_juju_output(
-        'deploy', charm_path,
-        '--storage', 'single-blk=ebs',
-        '--storage', 'single-fs=rootfs',
-        include_e=False)
+    client.deploy(charm_path, storage=['single-blk=ebs', 'single-fs=rootfs'])
     client.wait_for_started()
     client.wait_for_workloads()
     # check current status of app dummy-storage
@@ -270,11 +266,7 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
     else:
         log.info('Check name and total number of storage unit: PASSED.')
     # check type, persistent setting and pool of single block storage unit
-    storage_list,\
-    storage_type,\
-    persistent_setting,\
-    pool_storage,\
-    pool_setting,\
+    storage_list, storage_type, persistent_setting, pool_storage, pool_setting,\
     storage_status = get_storage_property(client, storage_id=single_blk_id)
     if storage_type != 'block':
         raise JujuAssertionError(
@@ -290,11 +282,7 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
         pool_storage, pool_setting))
     log.info('Check properties of single block device storage unit: PASSED.')
     # check type, persistent setting and pool of single filesystem storage unit
-    storage_list,\
-    storage_type,\
-    persistent_setting,\
-    pool_storage,\
-    pool_setting,\
+    storage_list, storage_type, persistent_setting, pool_storage, pool_setting,\
     storage_status = get_storage_property(client, storage_id=single_fs_id)
     if storage_type != 'filesystem':
         raise JujuAssertionError(
@@ -351,11 +339,7 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
     log.info(
         'Check existence of persistent storage {} '\
         'after remove-application: PASSED'.format(single_blk_id))
-    storage_list,\
-    storage_type,\
-    persistent_setting,\
-    pool_storage,\
-    pool_setting,\
+    storage_list, storage_type, persistent_setting, pool_storage, pool_setting,\
     storage_status = get_storage_property(client, storage_id=single_blk_id)
     assert_storage_status(
         found_id=pool_storage, expected_id=single_blk_id,
@@ -393,11 +377,7 @@ def assess_deploy_charm_with_existing_storage_and_removal(client):
     client.wait_for_started()
     client.wait_for_workloads()
     assert_app_status(client, charm_name=charm_name, expected='active')
-    storage_list,\
-    storage_type,\
-    persistent_setting,\
-    pool_storage,\
-    pool_setting,\
+    storage_list, storage_type, persistent_setting, pool_storage, pool_setting,\
     storage_status = get_storage_property(client, storage_id=single_blk_id)
     assert_storage_number(storage_list=storage_list, expected=1)
     assert_single_blk_existence(
