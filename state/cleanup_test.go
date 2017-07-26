@@ -151,9 +151,11 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 
 	// Destroy the controller and check the model is unaffected, but a
 	// cleanup for the model and applications has been scheduled.
-	controllerEnv, err := s.State.Model()
+	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = controllerEnv.DestroyIncludingHosted()
+	err = controllerModel.Destroy(state.DestroyModelParams{
+		DestroyHostedModels: true,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Two cleanups should be scheduled. One to destroy the hosted
@@ -193,9 +195,9 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy model, check cleanup queued.
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -230,7 +232,7 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	// unaffected, but a cleanup for the application has been scheduled.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	s.assertCleanupRuns(c)

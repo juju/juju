@@ -773,7 +773,7 @@ func (s *MigrationImportSuite) TestDestroyModelWithApplication(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) assertDestroyModelAdvancesLife(c *gc.C, m *state.Model, life state.Life) {
-	err := m.Destroy()
+	err := m.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

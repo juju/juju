@@ -42,18 +42,42 @@ const (
 // removed, but the Prefix field no longer means anything more than
 // "what will be passed to the cleanup func".
 type cleanupDoc struct {
-	DocID  string      `bson:"_id"`
-	Kind   cleanupKind `bson:"kind"`
-	Prefix string      `bson:"prefix"`
+	DocID  string        `bson:"_id"`
+	Kind   cleanupKind   `bson:"kind"`
+	Prefix string        `bson:"prefix"`
+	Args   []*cleanupArg `bson:"args,omitempty"`
+}
+
+type cleanupArg struct {
+	Value interface{}
+}
+
+// GetBSON is part of the bson.Getter interface.
+func (a *cleanupArg) GetBSON() (interface{}, error) {
+	return a.Value, nil
+}
+
+// SetBSON is part of the bson.Setter interface.
+func (a *cleanupArg) SetBSON(raw bson.Raw) error {
+	a.Value = raw
+	return nil
 }
 
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
-func newCleanupOp(kind cleanupKind, prefix string) txn.Op {
+func newCleanupOp(kind cleanupKind, prefix string, args ...interface{}) txn.Op {
+	var cleanupArgs []*cleanupArg
+	if len(args) > 0 {
+		cleanupArgs = make([]*cleanupArg, len(args))
+		for i, arg := range args {
+			cleanupArgs[i] = &cleanupArg{arg}
+		}
+	}
 	doc := &cleanupDoc{
 		DocID:  fmt.Sprint(bson.NewObjectId()),
 		Kind:   kind,
 		Prefix: prefix,
+		Args:   cleanupArgs,
 	}
 	return txn.Op{
 		C:      cleanupsC,
@@ -85,6 +109,10 @@ func (st *State) Cleanup() (err error) {
 	for iter.Next(&doc) {
 		var err error
 		logger.Debugf("running %q cleanup: %q", doc.Kind, doc.Prefix)
+		args := make([]bson.Raw, len(doc.Args))
+		for i, arg := range doc.Args {
+			args[i] = arg.Value.(bson.Raw)
+		}
 		switch doc.Kind {
 		case cleanupRelationSettings:
 			err = st.cleanupRelationSettings(doc.Prefix)
@@ -109,13 +137,13 @@ func (st *State) Cleanup() (err error) {
 		case cleanupAttachmentsForDyingFilesystem:
 			err = st.cleanupAttachmentsForDyingFilesystem(doc.Prefix)
 		case cleanupModelsForDyingController:
-			err = st.cleanupModelsForDyingController()
+			err = st.cleanupModelsForDyingController(args)
 		case cleanupMachinesForDyingModel:
 			err = st.cleanupMachinesForDyingModel()
 		case cleanupResourceBlob:
 			err = st.cleanupResourceBlob(doc.Prefix)
 		case cleanupStorageForDyingModel:
-			err = st.cleanupStorageForDyingModel()
+			err = st.cleanupStorageForDyingModel(args)
 		default:
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -157,13 +185,27 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 // cleanupModelsForDyingController sets all models to dying, if
 // they are not already Dying or Dead. It's expected to be used when a
 // controller is destroyed.
-func (st *State) cleanupModelsForDyingController() (err error) {
+func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err error) {
+	var args DestroyModelParams
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old behaviour.
+		destroyStorage := true
+		args.DestroyStorage = &destroyStorage
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&args); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args")
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+
 	models, err := st.AllModels()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, model := range models {
-		if err := model.Destroy(); err != nil {
+		if err := model.Destroy(args); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -211,18 +253,35 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 
 // cleanupStorageForDyingModel sets all storage to Dying, if they are not
 // already Dying or Dead. It's expected to be used when a model is destroyed.
-func (st *State) cleanupStorageForDyingModel() (err error) {
+func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error) {
 	im, err := st.IAASModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	destroyStorage := im.DestroyStorageInstance
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old
+		// behaviour: destroy the storage.
+	case 1:
+		var destroyStorageFlag bool
+		if err := cleanupArgs[0].Unmarshal(&destroyStorageFlag); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args")
+		}
+		if !destroyStorageFlag {
+			destroyStorage = im.ReleaseStorageInstance
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+
 	storage, err := im.AllStorageInstances()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, s := range storage {
 		const destroyAttached = true
-		err := im.DestroyStorageInstance(s.StorageTag(), destroyAttached)
+		err := destroyStorage(s.StorageTag(), destroyAttached)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -531,7 +590,7 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine volume attachments")
 	}
 	for _, va := range volumeAttachments {
-		if detachable, err := isDetachableVolumeTag(im, va.Volume()); err != nil {
+		if detachable, err := isDetachableVolumeTag(im.mb.db(), va.Volume()); err != nil {
 			return errors.Trace(err)
 		} else if !detachable {
 			// Non-detachable volumes will be removed along with the machine.
@@ -552,7 +611,7 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine filesystem attachments")
 	}
 	for _, fsa := range filesystemAttachments {
-		if detachable, err := isDetachableFilesystemTag(im, fsa.Filesystem()); err != nil {
+		if detachable, err := isDetachableFilesystemTag(im.mb.db(), fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		} else if !detachable {
 			// Non-detachable filesystems will be removed along with the machine.
