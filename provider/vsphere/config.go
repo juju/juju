@@ -12,6 +12,7 @@ import (
 
 // The vmware-specific config keys.
 const (
+	cfgPrimaryNetwork  = "primary-network"
 	cfgExternalNetwork = "external-network"
 	cfgDatastore       = "datastore"
 )
@@ -21,11 +22,13 @@ var (
 	configFields = schema.Fields{
 		cfgExternalNetwork: schema.String(),
 		cfgDatastore:       schema.String(),
+		cfgPrimaryNetwork:  schema.String(),
 	}
 
 	configDefaults = schema.Defaults{
 		cfgExternalNetwork: "",
 		cfgDatastore:       schema.Omit,
+		cfgPrimaryNetwork:  schema.Omit,
 	}
 
 	configRequiredFields  = []string{}
@@ -82,6 +85,11 @@ func (c *environConfig) externalNetwork() string {
 func (c *environConfig) datastore() string {
 	ds, _ := c.attrs[cfgDatastore].(string)
 	return ds
+}
+
+func (c *environConfig) primaryNetwork() string {
+	network, _ := c.attrs[cfgPrimaryNetwork].(string)
+	return network
 }
 
 // validate checks vmware-specific config values.

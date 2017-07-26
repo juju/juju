@@ -64,6 +64,11 @@ type CreateVirtualMachineParams struct {
 	// Constraints contains the resource constraints for the virtual machine.
 	Constraints constraints.Value
 
+	// PrimaryNetwork, if set, is the name of the primary network to which
+	// the VM should be connected. If this is empty, the default will be
+	// used.
+	PrimaryNetwork string
+
 	// ExternalNetwork, if set, is the name of an additional "external"
 	// network to which the VM should be connected.
 	ExternalNetwork string
@@ -217,10 +222,36 @@ func (c *Client) createImportSpec(
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: args.Name,
 		PropertyMapping: []types.KeyValue{
-			types.KeyValue{Key: "user-data", Value: string(args.UserData)},
-			types.KeyValue{Key: "hostname", Value: string(args.Name)},
+			{Key: "user-data", Value: string(args.UserData)},
+			{Key: "hostname", Value: string(args.Name)},
 		},
 	}
+
+	var networks []mo.Network
+	var dvportgroupConfig map[types.ManagedObjectReference]types.DVPortgroupConfigInfo
+	if args.PrimaryNetwork != "" || args.ExternalNetwork != "" {
+		// Fetch the networks available to the compute resource.
+		var err error
+		networks, dvportgroupConfig, err = c.computeResourceNetworks(ctx, args.ComputeResource)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if args.PrimaryNetwork != "" {
+			// The user has specified a network to use. The Ubuntu
+			// OVFs define a network called "VM Network"; map that
+			// to whatever the user specified.
+			network, err := findNetwork(networks, args.PrimaryNetwork)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cisp.NetworkMapping = []types.OvfNetworkMapping{{
+				Name:    "VM Network",
+				Network: network.Reference(),
+			}}
+			c.logger.Debugf("VM configured to use network %q: %+v", args.PrimaryNetwork, network)
+		}
+	}
+
 	ovfManager := object.NewOvfManager(c.client.Client)
 	resourcePool := object.NewReference(c.client.Client, *args.ComputeResource.ResourcePool)
 	datastore, err := c.selectDatastore(ctx, args)
@@ -282,26 +313,16 @@ func (c *Client) createImportSpec(
 		s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{Key: k, Value: v})
 	}
 
-	// Add the external network, if any.
 	if args.ExternalNetwork != "" {
-		s.DeviceChange = append(s.DeviceChange, &types.VirtualDeviceConfigSpec{
-			Operation: types.VirtualDeviceConfigSpecOperationAdd,
-			Device: &types.VirtualE1000{
-				VirtualEthernetCard: types.VirtualEthernetCard{
-					VirtualDevice: types.VirtualDevice{
-						Backing: &types.VirtualEthernetCardNetworkBackingInfo{
-							VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
-								DeviceName: args.ExternalNetwork,
-							},
-						},
-						Connectable: &types.VirtualDeviceConnectInfo{
-							StartConnected:    true,
-							AllowGuestControl: true,
-						},
-					},
-				},
-			},
-		})
+		externalNetwork, err := findNetwork(networks, args.ExternalNetwork)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		device, err := c.addNetworkDevice(ctx, s, externalNetwork, dvportgroupConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "adding external network device")
+		}
+		c.logger.Debugf("external network device: %+v", device)
 	}
 	return spec, nil
 }
@@ -335,6 +356,111 @@ func (c *Client) selectDatastore(
 		}
 	}
 	return nil, errors.New("could not find an accessible datastore")
+}
+
+// addNetworkDevice adds an entry to the VirtualMachineConfigSpec's
+// DeviceChange list, to create a NIC device connecting the machine
+// to the specified network.
+func (c *Client) addNetworkDevice(
+	ctx context.Context,
+	spec *types.VirtualMachineConfigSpec,
+	network *mo.Network,
+	dvportgroupConfig map[types.ManagedObjectReference]types.DVPortgroupConfigInfo,
+) (*types.VirtualVmxnet3, error) {
+	var networkBacking types.BaseVirtualDeviceBackingInfo
+	if dvportgroupConfig, ok := dvportgroupConfig[network.Reference()]; !ok {
+		// It's not a distributed virtual portgroup, so return
+		// a backing info for a plain old network interface.
+		networkBacking = &types.VirtualEthernetCardNetworkBackingInfo{
+			VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
+				DeviceName: network.Name,
+			},
+		}
+	} else {
+		// It's a distributed virtual portgroup, so retrieve the details of
+		// the distributed virtual switch, and return a backing info for
+		// connecting the VM to the portgroup.
+		var dvs mo.DistributedVirtualSwitch
+		if err := c.client.RetrieveOne(
+			ctx, *dvportgroupConfig.DistributedVirtualSwitch, nil, &dvs,
+		); err != nil {
+			return nil, errors.Annotate(err, "retrieving distributed vSwitch details")
+		}
+		networkBacking = &types.VirtualEthernetCardDistributedVirtualPortBackingInfo{
+			Port: types.DistributedVirtualSwitchPortConnection{
+				SwitchUuid:   dvs.Uuid,
+				PortgroupKey: dvportgroupConfig.Key,
+			},
+		}
+	}
+
+	var networkDevice types.VirtualVmxnet3
+	wakeOnLan := true
+	networkDevice.WakeOnLanEnabled = &wakeOnLan
+	networkDevice.Backing = networkBacking
+	networkDevice.Connectable = &types.VirtualDeviceConnectInfo{
+		StartConnected:    true,
+		AllowGuestControl: true,
+	}
+	spec.DeviceChange = append(spec.DeviceChange, &types.VirtualDeviceConfigSpec{
+		Operation: types.VirtualDeviceConfigSpecOperationAdd,
+		Device:    &networkDevice,
+	})
+	return &networkDevice, nil
+}
+
+func findNetwork(networks []mo.Network, name string) (*mo.Network, error) {
+	for _, n := range networks {
+		if n.Name == name {
+			return &n, nil
+		}
+	}
+	return nil, errors.NotFoundf("network %q", name)
+}
+
+// computeResourceNetworks returns the networks available to the compute
+// resource, and the config info for the distributed virtual portgroup
+// networks. Networks are returned with the distributed virtual portgroups
+// first, then standard switch networks, and then finally opaque networks.
+func (c *Client) computeResourceNetworks(
+	ctx context.Context,
+	computeResource *mo.ComputeResource,
+) ([]mo.Network, map[types.ManagedObjectReference]types.DVPortgroupConfigInfo, error) {
+	refsByType := make(map[string][]types.ManagedObjectReference)
+	for _, network := range computeResource.Network {
+		refsByType[network.Type] = append(refsByType[network.Type], network.Reference())
+	}
+	var networks []mo.Network
+	if refs := refsByType["Network"]; len(refs) > 0 {
+		if err := c.client.Retrieve(ctx, refs, nil, &networks); err != nil {
+			return nil, nil, errors.Annotate(err, "retrieving network details")
+		}
+	}
+	var opaqueNetworks []mo.OpaqueNetwork
+	if refs := refsByType["OpaqueNetwork"]; len(refs) > 0 {
+		if err := c.client.Retrieve(ctx, refs, nil, &opaqueNetworks); err != nil {
+			return nil, nil, errors.Annotate(err, "retrieving opaque network details")
+		}
+		for _, on := range opaqueNetworks {
+			networks = append(networks, on.Network)
+		}
+	}
+	var dvportgroups []mo.DistributedVirtualPortgroup
+	var dvportgroupConfig map[types.ManagedObjectReference]types.DVPortgroupConfigInfo
+	if refs := refsByType["DistributedVirtualPortgroup"]; len(refs) > 0 {
+		if err := c.client.Retrieve(ctx, refs, nil, &dvportgroups); err != nil {
+			return nil, nil, errors.Annotate(err, "retrieving distributed virtual portgroup details")
+		}
+		dvportgroupConfig = make(map[types.ManagedObjectReference]types.DVPortgroupConfigInfo)
+		allnetworks := make([]mo.Network, len(dvportgroups)+len(networks))
+		for i, d := range dvportgroups {
+			allnetworks[i] = d.Network
+			dvportgroupConfig[allnetworks[i].Reference()] = d.Config
+		}
+		copy(allnetworks[len(dvportgroups):], networks)
+		networks = allnetworks
+	}
+	return networks, dvportgroupConfig, nil
 }
 
 // uploadImage uploads an image from the given extracted OVA directory

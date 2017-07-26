@@ -79,6 +79,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		testing.StubCall{"CreateImportSpec", []interface{}{
 			"ovf-descriptor",
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
+			baseCisp(),
 		}},
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -87,7 +88,13 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		testing.StubCall{"ImportVApp", nil},
+		testing.StubCall{"ImportVApp", []interface{}{&types.VirtualMachineImportSpec{
+			ConfigSpec: types.VirtualMachineConfigSpec{
+				ExtraConfig: []types.BaseOptionValue{
+					&types.OptionValue{Key: "k", Value: "v"},
+				},
+			},
+		}}},
 		testing.StubCall{"CreatePropertyCollector", nil},
 		testing.StubCall{"CreateFilter", nil},
 		testing.StubCall{"WaitForUpdatesEx", nil},
@@ -119,6 +126,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 	s.roundTripper.CheckCall(
 		c, 1, "CreateImportSpec", "ovf-descriptor",
 		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
+		baseCisp(),
 	)
 }
 
@@ -143,6 +151,131 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "creating import spec: could not find an accessible datastore")
 }
 
+func (s *clientSuite) TestCreateVirtualMachineNetworkSpecified(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.PrimaryNetwork = "yoink"
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cisp := baseCisp()
+	cisp.NetworkMapping = []types.OvfNetworkMapping{{
+		Name: "VM Network",
+		Network: types.ManagedObjectReference{
+			Type:  "DistributedVirtualPortgroup",
+			Value: "dvportgroup-0",
+		},
+	}}
+
+	// When either PrimaryNetwork or ExternalNetwork is specified,
+	// calls to query the networks are added (one per network
+	// type). This bumps the position of CreateImportSpec from
+	// 1 to 4.
+	s.roundTripper.CheckCall(
+		c, 4, "CreateImportSpec", "ovf-descriptor",
+		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
+		cisp,
+	)
+}
+
+func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.PrimaryNetwork = "fourtytwo"
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `creating import spec: network "fourtytwo" not found`)
+}
+
+func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecified(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.ExternalNetwork = "arpa"
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var networkDevice types.VirtualVmxnet3
+	wakeOnLan := true
+	networkDevice.WakeOnLanEnabled = &wakeOnLan
+	networkDevice.Connectable = &types.VirtualDeviceConnectInfo{
+		StartConnected:    true,
+		AllowGuestControl: true,
+	}
+	networkDevice.Backing = &types.VirtualEthernetCardNetworkBackingInfo{
+		VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
+			DeviceName: "arpa",
+		},
+	}
+
+	s.roundTripper.CheckCall(c, 12, "ImportVApp", &types.VirtualMachineImportSpec{
+		ConfigSpec: types.VirtualMachineConfigSpec{
+			ExtraConfig: []types.BaseOptionValue{
+				&types.OptionValue{Key: "k", Value: "v"},
+			},
+			DeviceChange: []types.BaseVirtualDeviceConfigSpec{
+				&types.VirtualDeviceConfigSpec{
+					Operation: "add",
+					Device:    &networkDevice,
+				},
+			},
+		},
+	})
+}
+
+func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecifiedDVPortgroup(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.ExternalNetwork = "yoink"
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var networkDevice types.VirtualVmxnet3
+	wakeOnLan := true
+	networkDevice.WakeOnLanEnabled = &wakeOnLan
+	networkDevice.Connectable = &types.VirtualDeviceConnectInfo{
+		StartConnected:    true,
+		AllowGuestControl: true,
+	}
+	networkDevice.Backing = &types.VirtualEthernetCardDistributedVirtualPortBackingInfo{
+		Port: types.DistributedVirtualSwitchPortConnection{
+			SwitchUuid:   "yup",
+			PortgroupKey: "hole",
+		},
+	}
+
+	retrieveDVSCall := retrievePropertiesStubCall("dvs-0")
+	s.roundTripper.CheckCall(c, 5, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+
+	// When the external network is a distributed virtual portgroup,
+	// we must make an additional RetrieveProperties call to fetch
+	// the DVS's UUID. This bumps the ImportVApp position by one.
+	s.roundTripper.CheckCall(c, 13, "ImportVApp", &types.VirtualMachineImportSpec{
+		ConfigSpec: types.VirtualMachineConfigSpec{
+			ExtraConfig: []types.BaseOptionValue{
+				&types.OptionValue{Key: "k", Value: "v"},
+			},
+			DeviceChange: []types.BaseVirtualDeviceConfigSpec{
+				&types.VirtualDeviceConfigSpec{
+					Operation: "add",
+					Device:    &networkDevice,
+				},
+			},
+		},
+	})
+}
+
+func (s *clientSuite) TestCreateVirtualMachineExternalNetworkNotFound(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.ExternalNetwork = "fourtytwo"
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `creating import spec: network "fourtytwo" not found`)
+}
+
 func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 	ovaDir := makeOvaDir(c)
 	return CreateVirtualMachineParams{
@@ -163,13 +296,35 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 				Type:  "Datastore",
 				Value: "FakeDatastore2",
 			}},
+			Network: []types.ManagedObjectReference{{
+				Type:  "Network",
+				Value: "network-0",
+			}, {
+				Type:  "Network",
+				Value: "network-1",
+			}, {
+				Type:  "OpaqueNetwork",
+				Value: "onetwork-0",
+			}, {
+				Type:  "DistributedVirtualPortgroup",
+				Value: "dvportgroup-0",
+			}},
 		},
 		Metadata:               map[string]string{"k": "v"},
 		Constraints:            constraints.Value{},
-		ExternalNetwork:        "arpa",
 		UpdateProgress:         func(status string) {},
 		UpdateProgressInterval: time.Second,
 		Clock: testing.NewClock(time.Time{}),
+	}
+}
+
+func baseCisp() types.OvfCreateImportSpecParams {
+	return types.OvfCreateImportSpecParams{
+		EntityName: "vm-0",
+		PropertyMapping: []types.KeyValue{
+			{Key: "user-data", Value: "baz"},
+			{Key: "hostname", Value: "vm-0"},
+		},
 	}
 }
 
