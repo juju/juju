@@ -165,33 +165,33 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
 	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
-			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
+			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], jc.DeepEquals, params.ErrorResult{})
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
+		{"ImportRemoteEntity", []interface{}{names.ApplicationTag{Name: "django"}, "token"}},
 	})
 }
 
 func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
 	_, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
-			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
+			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
-			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
+			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
 	c.Assert(result.Results[0].Error.Code, gc.Equals, params.CodeAlreadyExists)
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
-		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
+		{"ImportRemoteEntity", []interface{}{names.ApplicationTag{Name: "django"}, "token"}},
+		{"ImportRemoteEntity", []interface{}{names.ApplicationTag{Name: "django"}, "token"}},
 	})
 }
 
@@ -200,8 +200,8 @@ func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
 	result, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0], jc.DeepEquals, params.RemoteEntityIdResult{
-		Result: &params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "token-django"},
+	c.Assert(result.Results[0], jc.DeepEquals, params.TokenResult{
+		Token: "token-django",
 	})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"ExportLocalEntity", []interface{}{names.ApplicationTag{Name: "django"}}},
@@ -217,8 +217,7 @@ func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
 	c.Assert(result.Results[0].Error.Code, gc.Equals, params.CodeAlreadyExists)
-	c.Assert(result.Results[0].Result, jc.DeepEquals, &params.RemoteEntityId{
-		ModelUUID: coretesting.ModelTag.Id(), Token: "token-django"})
+	c.Assert(result.Results[0].Token, gc.Equals, "token-django")
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"ExportLocalEntity", []interface{}{names.ApplicationTag{Name: "django"}}},
 		{"ExportLocalEntity", []interface{}{names.ApplicationTag{Name: "django"}}},
@@ -228,12 +227,12 @@ func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *gc.C) {
 func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
 	s.st.applications["django"] = newMockApplication("django")
 	result, err := s.api.GetTokens(params.GetTokenArgs{
-		Args: []params.GetTokenArg{{ModelTag: coretesting.ModelTag.String(), Tag: "application-django"}}})
+		Args: []params.GetTokenArg{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], jc.DeepEquals, params.StringResult{Result: "token-application-django"})
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetToken", []interface{}{coretesting.ModelTag, names.NewApplicationTag("django")}},
+		{"GetToken", []interface{}{names.NewApplicationTag("django")}},
 	})
 }
 
@@ -357,16 +356,16 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 
 	_, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
-			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "app-token"},
-			{ModelTag: coretesting.ModelTag.String(), Tag: "relation-db2:db#django:db", Token: "rel-token"},
+			{Tag: "application-django", Token: "app-token"},
+			{Tag: "relation-db2:db#django:db", Token: "rel-token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.ResetCalls()
 
 	change := params.RemoteRelationChangeEvent{
-		RelationId:    params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "rel-token"},
-		ApplicationId: params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "app-token"},
-		Life:          params.Alive,
+		RelationToken:    "rel-token",
+		ApplicationToken: "app-token",
+		Life:             params.Alive,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   0,
 			Settings: map[string]interface{}{"foo": "bar"},
@@ -384,9 +383,9 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	c.Assert(settings, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
 
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "rel-token"}},
+		{"GetRemoteEntity", []interface{}{"rel-token"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "app-token"}},
+		{"GetRemoteEntity", []interface{}{"app-token"}},
 	})
 }
 

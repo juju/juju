@@ -90,16 +90,16 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), change.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationId, api.st.ModelUUID())
+				logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationToken, api.st.ModelUUID())
 				continue
 			}
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+		logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
 		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -208,7 +208,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	// Add the remote application reference. We construct a unique, opaque application name based on the
 	// token passed in from the consuming model. This model, which is offering the application being
 	// related to, does not need to know the name of the consuming application.
-	uniqueRemoteApplicationName := "remote-" + strings.Replace(relation.ApplicationId.Token, "-", "", -1)
+	uniqueRemoteApplicationName := "remote-" + strings.Replace(relation.ApplicationToken, "-", "", -1)
 	remoteEndpoint := state.Endpoint{
 		ApplicationName: uniqueRemoteApplicationName,
 		Relation: charm.Relation{
@@ -220,12 +220,15 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		},
 	}
 
-	remoteModelTag := names.NewModelTag(relation.ApplicationId.ModelUUID)
+	sourceModelTag, err := names.ParseModelTag(relation.SourceModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	_, err = api.st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            uniqueRemoteApplicationName,
 		OfferName:       relation.OfferName,
-		SourceModel:     names.NewModelTag(relation.ApplicationId.ModelUUID),
-		Token:           relation.ApplicationId.Token,
+		SourceModel:     sourceModelTag,
+		Token:           relation.ApplicationToken,
 		Endpoints:       []charm.Relation{remoteEndpoint.Relation},
 		IsConsumerProxy: true,
 	})
@@ -233,7 +236,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
 	}
-	logger.Debugf("added remote application %v to local model with token %v from model %v", uniqueRemoteApplicationName, relation.ApplicationId.Token, remoteModelTag.Id())
+	logger.Debugf("added remote application %v to local model with token %v from model %v", uniqueRemoteApplicationName, relation.ApplicationToken, sourceModelTag.Id())
 
 	// Now add the relation if it doesn't already exist.
 	localRel, err := api.st.EndpointsRelation(*localEndpoint, remoteEndpoint)
@@ -251,13 +254,13 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Ensure we have references recorded.
 	logger.Debugf("importing remote relation into model %v", api.st.ModelUUID())
-	logger.Debugf("remote model is %v", remoteModelTag.Id())
+	logger.Debugf("remote model is %v", sourceModelTag.Id())
 
-	err = api.st.ImportRemoteEntity(names.NewModelTag(api.st.ModelUUID()), localRel.Tag(), relation.RelationId.Token)
+	err = api.st.ImportRemoteEntity(localRel.Tag(), relation.RelationToken)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
 	}
-	logger.Debugf("relation token %v exported for %v ", relation.RelationId.Token, localRel.Tag().Id())
+	logger.Debugf("relation token %v exported for %v ", relation.RelationToken, localRel.Tag().Id())
 
 	// Export the local application from this model so we can tell the caller what the remote id is.
 	// NB we need to export the application last so that everything else is in place when the worker is
@@ -281,11 +284,8 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
 	return &params.RemoteRelationDetails{
-		RemoteEntityId: params.RemoteEntityId{
-			ModelUUID: api.st.ModelUUID(),
-			Token:     token,
-		},
-		Macaroon: relationMacaroon,
+		Token:     token,
+		Macaroons: macaroon.Slice{relationMacaroon},
 	}, nil
 }
 
@@ -297,7 +297,7 @@ func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteRelationArgs params.
 		Results: make([]params.RelationUnitsWatchResult, len(remoteRelationArgs.Args)),
 	}
 	for i, arg := range remoteRelationArgs.Args {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), arg.Token)
+		relationTag, err := api.st.GetRemoteEntity(arg.Token)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -328,7 +328,7 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
 	}
 	for i, arg := range relationUnits.RelationUnits {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), arg.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(arg.RelationToken)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -361,12 +361,12 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), change.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+		logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
 
 		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
 			results.Results[i].Error = common.ServerError(err)
@@ -389,7 +389,7 @@ func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelati
 	}
 	var relations params.Entities
 	for i, arg := range remoteRelationArgs.Args {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), arg.Token)
+		relationTag, err := api.st.GetRemoteEntity(arg.Token)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

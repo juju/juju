@@ -738,11 +738,11 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 		c.Check(request, gc.Equals, "PublishIngressNetworkChanges")
 		expected := params.IngressNetworksChanges{
 			Changes: []params.IngressNetworksChangeEvent{{
-				RelationId:      params.RemoteEntityId{ModelUUID: s.State.ModelUUID(), Token: relToken},
-				ApplicationId:   params.RemoteEntityId{ModelUUID: offeringModelTag.Id(), Token: appToken},
-				Networks:        []string{"10.0.0.4/32"},
-				IngressRequired: ingressRequired,
-				Macaroons:       macaroon.Slice{mac},
+				RelationToken:    relToken,
+				ApplicationToken: appToken,
+				Networks:         []string{"10.0.0.4/32"},
+				IngressRequired:  ingressRequired,
+				Macaroons:        macaroon.Slice{mac},
 			}},
 		}
 		expected.Changes[0].IngressRequired = ingressRequired
@@ -776,7 +776,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.SaveMacaroon(rel.Tag(), mac)
 	c.Assert(err, jc.ErrorIsNil)
-	err = re.ImportRemoteEntity(offeringModelTag, app.Tag(), appToken)
+	err = re.ImportRemoteEntity(app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)
 	ingressRequired = true
 
@@ -855,8 +855,8 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 			c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
 			expected := params.RemoteRelationArgs{
 				Args: []params.RemoteRelationArg{{
-					RemoteEntityId: params.RemoteEntityId{ModelUUID: s.State.ModelUUID(), Token: relToken},
-					Macaroons:      macaroon.Slice{mac},
+					Token:     relToken,
+					Macaroons: macaroon.Slice{mac},
 				}},
 			}
 			c.Check(arg, gc.DeepEquals, expected)
@@ -890,7 +890,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.SaveMacaroon(rel.Tag(), mac)
 	c.Assert(err, jc.ErrorIsNil)
-	err = re.ImportRemoteEntity(offeringModelTag, app.Tag(), appToken)
+	err = re.ImportRemoteEntity(app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -932,9 +932,9 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 
 	// Export the relation details so the firewaller knows it's ready to be processed.
 	re := s.State.RemoteEntities()
-	err = re.ImportRemoteEntity(s.State.ModelTag(), rel.Tag(), relToken)
+	err = re.ImportRemoteEntity(rel.Tag(), relToken)
 	c.Assert(err, jc.ErrorIsNil)
-	err = re.ImportRemoteEntity(consumingModelTag, app.Tag(), appToken)
+	err = re.ImportRemoteEntity(app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// No port changes yet.

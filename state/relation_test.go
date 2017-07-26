@@ -394,9 +394,9 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteTokens(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.RemoveRelation(c, relation)
-	_, err = re.GetToken(s.State.ModelTag(), relation.Tag())
+	_, err = re.GetToken(relation.Tag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = re.GetRemoteEntity(s.State.ModelTag(), relToken)
+	_, err = re.GetRemoteEntity(relToken)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

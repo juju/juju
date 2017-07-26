@@ -76,8 +76,8 @@ func (st *mockState) ControllerInfo(modelUUID string) ([]string, string, error) 
 	}
 }
 
-func (st *mockState) GetMacaroon(model names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error) {
-	st.MethodCall(st, "GetMacaroon", model, entity)
+func (st *mockState) GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error) {
+	st.MethodCall(st, "GetMacaroon", entity)
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}

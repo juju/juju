@@ -431,7 +431,7 @@ func (f *FirewallerAPIV4) MacaroonForRelations(args params.Entities) (params.Mac
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		mac, err := f.st.GetMacaroon(names.NewModelTag(f.st.ModelUUID()), relationTag)
+		mac, err := f.st.GetMacaroon(relationTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

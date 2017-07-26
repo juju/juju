@@ -114,7 +114,7 @@ type ApplicationOfferResult struct {
 
 // ApplicationOffersResults is a result of listing remote application offers.
 type ApplicationOffersResults struct {
-	// Result contains collection of remote application results.
+	// Results contains collection of remote application results.
 	Results []ApplicationOfferResult `json:"results,omitempty"`
 }
 
@@ -145,23 +145,15 @@ type ConsumeApplicationArgs struct {
 	Args []ConsumeApplicationArg `json:"args,omitempty"`
 }
 
-// RemoteEntityId is an identifier for an entity that may be involved in a
-// cross-model relation. This object comprises the UUID of the model to
-// which the entity belongs, and an opaque token that is unique to that model.
-type RemoteEntityId struct {
-	ModelUUID string `json:"model-uuid"`
-	Token     string `json:"token"`
+// TokenResult holds a token and an error.
+type TokenResult struct {
+	Token string `json:"token,omitempty"`
+	Error *Error `json:"error,omitempty"`
 }
 
-// RemoteEntityIdResult holds a remote entity id and an error.
-type RemoteEntityIdResult struct {
-	Result *RemoteEntityId `json:"result,omitempty"`
-	Error  *Error          `json:"error,omitempty"`
-}
-
-// RemoteEntityIdResults has a set of remote entity id results.
-type RemoteEntityIdResults struct {
-	Results []RemoteEntityIdResult `json:"results,omitempty"`
+// TokenResults has a set of token results.
+type TokenResults struct {
+	Results []TokenResult `json:"results,omitempty"`
 }
 
 // RemoteRelation describes the current state of a cross-model relation from
@@ -222,9 +214,6 @@ type GetTokenArgs struct {
 
 // GetTokenArg holds the model and entity for which we want a token.
 type GetTokenArg struct {
-	// ModelTag is the tag of the model hosting the entity.
-	ModelTag string `json:"model-tag"`
-
 	// Tag is the tag of the entity for which we want the token.
 	Tag string `json:"tag"`
 }
@@ -234,11 +223,8 @@ type RemoteEntityArgs struct {
 	Args []RemoteEntityArg
 }
 
-// RemoteEntityArg holds the model, entity and token to be operated on.
+// RemoteEntityArg holds the entity and token to be operated on.
 type RemoteEntityArg struct {
-	// ModelTag is the tag of the model hosting the entity.
-	ModelTag string `json:"model-tag"`
-
 	// Tag is the tag of the entity.
 	Tag string `json:"tag"`
 
@@ -317,14 +303,14 @@ type RemoteRelationUnitChange struct {
 // RemoteRelationChangeEvent is pushed to the remote model to communicate
 // changes to relation units from the local model.
 type RemoteRelationChangeEvent struct {
-	// RelationId is the remote id of the relation.
-	RelationId RemoteEntityId `json:"relation-id"`
+	// RelationToken is the token of the relation.
+	RelationToken string `json:"relation-token"`
+
+	// ApplicationToken is the token of the application.
+	ApplicationToken string `json:"application-token"`
 
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
-
-	// ApplicationId is the application id on the remote model.
-	ApplicationId RemoteEntityId `json:"application-id"`
 
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
@@ -343,11 +329,11 @@ type IngressNetworksChanges struct {
 }
 
 type IngressNetworksChangeEvent struct {
-	// RelationId is the remote id of the relation.
-	RelationId RemoteEntityId `json:"relation-id"`
+	// RelationToken is the token of the relation.
+	RelationToken string `json:"relation-token"`
 
-	// ApplicationId is the application id on the remote model.
-	ApplicationId RemoteEntityId `json:"application-id"`
+	// ApplicationToken is the token of the application.
+	ApplicationToken string `json:"application-token"`
 
 	// Networks are the CIDRs for which ingress is required.
 	Networks []string `json:"networks,omitempty"`
@@ -362,11 +348,14 @@ type IngressNetworksChangeEvent struct {
 
 // RegisterRemoteRelationArg holds attributes used to register a remote relation.
 type RegisterRemoteRelationArg struct {
-	// ApplicationId is the application id on the remote model.
-	ApplicationId RemoteEntityId `json:"application-id"`
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
 
-	// RelationId is the relation id on the remote model.
-	RelationId RemoteEntityId `json:"relation-id"`
+	// SourceModelTag is the tag of the model hosting the application.
+	SourceModelTag string `json:"source-model-tag"`
+
+	// RelationToken is the relation token on the remote model.
+	RelationToken string `json:"relation-token"`
 
 	// RemoteEndpoint contains info about the endpoint in the remote model.
 	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
@@ -390,14 +379,7 @@ type RegisterRemoteRelationArgs struct {
 	Relations []RegisterRemoteRelationArg `json:"relations"`
 }
 
-// RemoteRelationDetails holds the details of the
-// newly registered remote relation.
-type RemoteRelationDetails struct {
-	RemoteEntityId
-	Macaroon *macaroon.Macaroon `json:"macaroon"`
-}
-
-// RemoteEntityIdResult holds a remote entity id and an error.
+// RegisterRemoteRelationResult holds a remote relation details and an error.
 type RegisterRemoteRelationResult struct {
 	Result *RemoteRelationDetails `json:"result,omitempty"`
 	Error  *Error                 `json:"error,omitempty"`
@@ -408,15 +390,21 @@ type RegisterRemoteRelationResults struct {
 	Results []RegisterRemoteRelationResult `json:"results,omitempty"`
 }
 
-// RemoteRelationArg holds a remote relation id and macaroon.
-type RemoteRelationArg struct {
-	RemoteEntityId
+// RemoteRelationDetails holds a remote relation token corresponding macaroons.
+type RemoteRelationDetails struct {
+	Token     string         `json:"relation-token"`
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
 // RemoteRelationArgs holds arguments to an API call dealing with remote relations.
 type RemoteRelationArgs struct {
 	Args []RemoteRelationArg `json:"args"`
+}
+
+// RemoteRelationArg holds a remote relation token corresponding macaroons.
+type RemoteRelationArg struct {
+	Token     string         `json:"relation-token"`
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
 // RemoteApplicationInfo has attributes for a remote application.
@@ -469,14 +457,14 @@ type ConsumeOfferDetailsResults struct {
 
 // RemoteEntities identifies multiple remote entities.
 type RemoteEntities struct {
-	Entities []RemoteEntityId `json:"remote-entities"`
+	Tokens []string `json:"tokens"`
 }
 
-// RelationUnit holds a remote relation id and a unit tag.
+// RelationUnit holds a remote relation token and a unit tag.
 type RemoteRelationUnit struct {
-	RelationId RemoteEntityId `json:"relation"`
-	Unit       string         `json:"unit"`
-	Macaroons  macaroon.Slice `json:"macaroons,omitempty"`
+	RelationToken string         `json:"relation-token"`
+	Unit          string         `json:"unit"`
+	Macaroons     macaroon.Slice `json:"macaroons,omitempty"`
 }
 
 // RemoteRelationUnits identifies multiple remote relation units.

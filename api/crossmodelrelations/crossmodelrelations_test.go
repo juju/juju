@@ -106,7 +106,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationCount(c *gc.C) {
 }
 
 func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
-	remoteRelationId := params.RemoteEntityId{}
+	remoteRelationToken := "token"
 	mac, err := macaroon.New(nil, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
@@ -115,7 +115,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, jc.DeepEquals, params.RemoteRelationArgs{Args: []params.RemoteRelationArg{{
-			RemoteEntityId: remoteRelationId, Macaroons: macaroon.Slice{mac}}}})
+			Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}}})
 		c.Check(request, gc.Equals, "WatchRelationUnits")
 		c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResults{})
 		*(result.(*params.RelationUnitsWatchResults)) = params.RelationUnitsWatchResults{
@@ -128,15 +128,15 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
 	})
 	client := crossmodelrelations.NewClient(apiCaller)
 	_, err = client.WatchRelationUnits(params.RemoteRelationArg{
-		RemoteEntityId: remoteRelationId,
-		Macaroons:      macaroon.Slice{mac},
+		Token:     remoteRelationToken,
+		Macaroons: macaroon.Slice{mac},
 	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
 
 func (s *CrossModelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
-	remoteRelationId := params.RemoteEntityId{}
+	remoteRelationToken := "token"
 	mac, err := macaroon.New(nil, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
@@ -147,7 +147,7 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 		c.Check(request, gc.Equals, "RelationUnitSettings")
 		c.Check(arg, gc.DeepEquals, params.RemoteRelationUnits{
 			RelationUnits: []params.RemoteRelationUnit{{
-				RelationId: remoteRelationId, Unit: "u", Macaroons: macaroon.Slice{mac}}}})
+				RelationToken: remoteRelationToken, Unit: "u", Macaroons: macaroon.Slice{mac}}}})
 		c.Assert(result, gc.FitsTypeOf, &params.SettingsResults{})
 		*(result.(*params.SettingsResults)) = params.SettingsResults{
 			Results: []params.SettingsResult{{
@@ -159,7 +159,7 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	})
 	client := crossmodelrelations.NewClient(apiCaller)
 	result, err := client.RelationUnitSettings([]params.RemoteRelationUnit{
-		{RelationId: remoteRelationId, Unit: "u", Macaroons: macaroon.Slice{mac}}})
+		{RelationToken: remoteRelationToken, Unit: "u", Macaroons: macaroon.Slice{mac}}})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
@@ -197,10 +197,10 @@ func (s *CrossModelRelationsSuite) TestIngressNetworkChange(c *gc.C) {
 
 func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 	var callCount int
-	remoteRelationId := params.RemoteEntityId{}
+	remoteRelationToken := "token"
 	mac, err := macaroon.New(nil, "", "")
 	relation := params.RemoteRelationArg{
-		RemoteEntityId: remoteRelationId, Macaroons: macaroon.Slice{mac}}
+		Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}
 	c.Check(err, jc.ErrorIsNil)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")

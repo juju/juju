@@ -159,7 +159,7 @@ func (s *RemoteApplication) URL() (string, bool) {
 // model to identify the service in future communications.
 func (s *RemoteApplication) Token() (string, error) {
 	r := s.st.RemoteEntities()
-	return r.GetToken(s.SourceModel(), s.Tag())
+	return r.GetToken(s.Tag())
 }
 
 // Tag returns a name identifying the application.
@@ -356,10 +356,6 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 // asserts will be included in the operation on the application document.
 func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	r := s.st.RemoteEntities()
-	token, err := r.GetToken(s.SourceModel(), s.Tag())
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
 	ops := []txn.Op{
 		{
 			C:      remoteApplicationsC,
@@ -369,7 +365,7 @@ func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 		},
 		removeStatusOp(s.st, s.globalKey()),
 	}
-	tokenOps := r.removeRemoteEntityOps(s.SourceModel(), s.Tag(), token)
+	tokenOps := r.removeRemoteEntityOps(s.Tag())
 	ops = append(ops, tokenOps...)
 	return ops, nil
 }
@@ -739,9 +735,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		}
 		// If we know the token, import it.
 		if args.Token != "" {
-			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(
-				args.SourceModel, app.Tag(), args.Token,
-			)
+			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
 			ops = append(ops, importRemoteEntityOps...)
 		}
 		return ops, nil

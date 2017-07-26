@@ -33,12 +33,11 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 
 	// Look up the application on the remote side of this relation
 	// ie from the model which published this change.
-	applicationTag, err := backend.GetRemoteEntity(
-		names.NewModelTag(change.ApplicationId.ModelUUID), change.ApplicationId.Token)
+	applicationTag, err := backend.GetRemoteEntity(change.ApplicationToken)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
+	logger.Debugf("application tag for token %+v is %v", change.ApplicationToken, applicationTag)
 
 	// If the remote model has destroyed the relation, do it here also.
 	if change.Life != params.Alive {
@@ -84,7 +83,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 
 	for _, change := range change.ChangedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), change.UnitId))
-		logger.Debugf("changed unit tag for remote id %v is %v", change.UnitId, unitTag)
+		logger.Debugf("changed unit tag for unit id %v is %v", change.UnitId, unitTag)
 		ru, err := rel.RemoteUnit(unitTag.Id())
 		if err != nil {
 			return errors.Trace(err)

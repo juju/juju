@@ -161,8 +161,9 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
 		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
-			ApplicationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-django"},
-			RelationId:    params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
+			ApplicationToken: "token-django",
+			SourceModelTag:   "model-local-model-uuid",
+			RelationToken:    "token-db2:db django:db",
 			RemoteEndpoint: params.RemoteEndpoint{
 				Name:      "db2",
 				Role:      "requires",
@@ -175,7 +176,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 			Macaroons:         macaroon.Slice{mac},
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
-		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-offer-db2"}},
+		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 	}
@@ -233,17 +234,13 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{"local-model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"GetToken", []interface{}{names.NewRelationTag("db2:db django:db")}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life: params.Dying,
-				ApplicationId: params.RemoteEntityId{
-					ModelUUID: "model-uuid",
-					Token:     "token-django"},
-				RelationId: params.RemoteEntityId{
-					ModelUUID: "model-uuid",
-					Token:     "token-db2:db django:db"},
-				Macaroons: macaroon.Slice{mac},
+				Life:             params.Dying,
+				ApplicationToken: "token-django",
+				RelationToken:    "token-db2:db django:db",
+				Macaroons:        macaroon.Slice{mac},
 			},
 		}},
 	}
@@ -271,17 +268,13 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{"local-model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"GetToken", []interface{}{names.NewRelationTag("db2:db django:db")}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life: params.Dying,
-				ApplicationId: params.RemoteEntityId{
-					ModelUUID: "model-uuid",
-					Token:     "token-django"},
-				RelationId: params.RemoteEntityId{
-					ModelUUID: "model-uuid",
-					Token:     "token-db2:db django:db"},
-				Macaroons: macaroon.Slice{mac},
+				Life:             params.Dying,
+				ApplicationToken: "token-django",
+				RelationToken:    "token-db2:db django:db",
+				Macaroons:        macaroon.Slice{mac},
 			},
 		}},
 	}
@@ -308,13 +301,9 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 				Unit:     "unit-unit-1"}}}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life: params.Alive,
-				ApplicationId: params.RemoteEntityId{
-					ModelUUID: "model-uuid",
-					Token:     "token-django"},
-				RelationId: params.RemoteEntityId{
-					ModelUUID: "model-uuid",
-					Token:     "token-db2:db django:db"},
+				Life:             params.Alive,
+				ApplicationToken: "token-django",
+				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
@@ -343,18 +332,14 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"RelationUnitSettings", []interface{}{
 			[]params.RemoteRelationUnit{{
-				RelationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
-				Unit:       "unit-unit-1",
-				Macaroons:  macaroon.Slice{mac}}}}},
+				RelationToken: "token-db2:db django:db",
+				Unit:          "unit-unit-1",
+				Macaroons:     macaroon.Slice{mac}}}}},
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life: params.Alive,
-				ApplicationId: params.RemoteEntityId{
-					ModelUUID: "source-model-uuid",
-					Token:     "token-offer-db2"},
-				RelationId: params.RemoteEntityId{
-					ModelUUID: "model-uuid",
-					Token:     "token-db2:db django:db"},
+				Life:             params.Alive,
+				ApplicationToken: "token-offer-db2",
+				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
@@ -419,8 +404,8 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{"local-model-uuid", names.NewRelationTag("db2:db django:db")}},
-		{"GetToken", []interface{}{"local-model-uuid", names.NewApplicationTag("django")}},
+		{"GetToken", []interface{}{names.NewRelationTag("db2:db django:db")}},
+		{"GetToken", []interface{}{names.NewApplicationTag("django")}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }

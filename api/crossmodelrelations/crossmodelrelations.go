@@ -76,7 +76,7 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 }
 
 // WatchRelationUnits returns a watcher that notifies of changes to the
-// units in the remote model for the relation with the given remote id.
+// units in the remote model for the relation with the given remote token.
 func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteRelationArg) (watcher.RelationUnitsWatcher, error) {
 	args := params.RemoteRelationArgs{Args: []params.RemoteRelationArg{remoteRelationArg}}
 	var results params.RelationUnitsWatchResults

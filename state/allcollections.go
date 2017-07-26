@@ -427,13 +427,11 @@ func allCollections() collectionSchema {
 			// cross-model relations.
 			remoteEntitiesC: {
 				indexes: []mgo.Index{{
-					Key: []string{"model-uuid", "source-model-uuid", "token"},
+					Key: []string{"model-uuid", "token"},
 				}, {
-					Key: []string{"model-uuid", "source-model-uuid"},
+					Key: []string{"model-uuid"},
 				}},
 			},
-			// tokensC holds unique tokens for the model.
-			tokensC: {},
 			// externalControllersC holds connection information for other
 			// controllers hosting models involved in cross-model relations.
 			externalControllersC: {
@@ -533,7 +531,6 @@ const (
 	applicationOffersC   = "applicationOffers"
 	remoteApplicationsC  = "remoteApplications"
 	remoteEntitiesC      = "remoteEntities"
-	tokensC              = "tokens"
 	externalControllersC = "externalControllers"
 	relationIngressC     = "relationIngress"
 )

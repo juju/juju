@@ -202,12 +202,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		ops = append(ops, removeRelationIngressNetworksOps(r.st, r.doc.Key)...)
 		re := r.st.RemoteEntities()
-		modelTag := r.st.modelTag
-		token, err := re.GetToken(modelTag, r.Tag())
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		tokenOps := re.removeRemoteEntityOps(modelTag, r.Tag(), token)
+		tokenOps := re.removeRemoteEntityOps(r.Tag())
 		ops = append(ops, tokenOps...)
 	}
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))

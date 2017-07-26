@@ -36,9 +36,8 @@ type Backend interface {
 	// with the supplied name (which must be unique across all applications, local and remote).
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 
-	// GetRemoteEntity returns the tag of the entity associated with the given
-	// token and model.
-	GetRemoteEntity(names.ModelTag, string) (names.Tag, error)
+	// GetRemoteEntity returns the tag of the entity associated with the given token.
+	GetRemoteEntity(string) (names.Tag, error)
 
 	// ExportLocalEntity adds an entity to the remote entities collection,
 	// returning an opaque token that uniquely identifies the entity within
@@ -47,7 +46,7 @@ type Backend interface {
 
 	// ImportRemoteEntity adds an entity to the remote entities collection
 	// with the specified opaque token.
-	ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error
+	ImportRemoteEntity(entity names.Tag, token string) error
 
 	// SaveIngressNetworks stores in state the ingress networks for the relation.
 	SaveIngressNetworks(relationKey string, cidrs []string) (RelationIngress, error)

@@ -18,7 +18,7 @@ type State interface {
 
 	ModelUUID() string
 
-	GetMacaroon(model names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error)
+	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 
 	WatchOpenedPorts() state.StringsWatcher
 
@@ -39,9 +39,9 @@ func (st stateShim) ModelUUID() string {
 	return st.st.ModelUUID()
 }
 
-func (st stateShim) GetMacaroon(model names.ModelTag, entity names.Tag) (*macaroon.Macaroon, error) {
+func (st stateShim) GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error) {
 	r := st.st.RemoteEntities()
-	return r.GetMacaroon(model, entity)
+	return r.GetMacaroon(entity)
 }
 
 func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {

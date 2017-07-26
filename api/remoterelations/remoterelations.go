@@ -30,9 +30,9 @@ func NewClient(caller base.APICaller) *Client {
 
 // ImportRemoteEntity adds an entity to the remote entities collection
 // with the specified opaque token.
-func (c *Client) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
+func (c *Client) ImportRemoteEntity(entity names.Tag, token string) error {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{
-		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: entity.String(), Token: token}},
+		{Tag: entity.String(), Token: token}},
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("ImportRemoteEntities", args, &results)
@@ -50,12 +50,12 @@ func (c *Client) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, to
 }
 
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
-func (c *Client) ExportEntities(tags []names.Tag) ([]params.RemoteEntityIdResult, error) {
+func (c *Client) ExportEntities(tags []names.Tag) ([]params.TokenResult, error) {
 	args := params.Entities{Entities: make([]params.Entity, len(tags))}
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	var results params.RemoteEntityIdResults
+	var results params.TokenResults
 	err := c.facade.FacadeCall("ExportEntities", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -67,9 +67,9 @@ func (c *Client) ExportEntities(tags []names.Tag) ([]params.RemoteEntityIdResult
 }
 
 // GetToken returns the token associated with the entity with the given tag for the specified model.
-func (c *Client) GetToken(sourceModelUUID string, tag names.Tag) (string, error) {
+func (c *Client) GetToken(tag names.Tag) (string, error) {
 	args := params.GetTokenArgs{Args: []params.GetTokenArg{
-		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: tag.String()}},
+		{Tag: tag.String()}},
 	}
 	var results params.StringResults
 	err := c.facade.FacadeCall("GetTokens", args, &results)
@@ -82,7 +82,7 @@ func (c *Client) GetToken(sourceModelUUID string, tag names.Tag) (string, error)
 	result := results.Results[0]
 	if result.Error != nil {
 		if params.IsCodeNotFound(result.Error) {
-			return "", errors.NotFoundf("token for %v in model %v", tag, sourceModelUUID)
+			return "", errors.NotFoundf("token for %v", tag)
 		}
 		return "", errors.Trace(result.Error)
 	}
