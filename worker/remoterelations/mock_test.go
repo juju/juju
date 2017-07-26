@@ -104,25 +104,22 @@ func (m *mockRelationsFacade) WatchRemoteApplicationRelations(application string
 	return m.remoteApplicationRelationsWatchers[application], nil
 }
 
-func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.RemoteEntityIdResult, error) {
+func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.TokenResult, error) {
 	m.stub.MethodCall(m, "ExportEntities", entities)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	result := make([]params.RemoteEntityIdResult, len(entities))
+	result := make([]params.TokenResult, len(entities))
 	for i, e := range entities {
-		result[i] = params.RemoteEntityIdResult{
-			Result: &params.RemoteEntityId{
-				ModelUUID: "model-uuid",
-				Token:     "token-" + e.Id(),
-			},
+		result[i] = params.TokenResult{
+			Token: "token-" + e.Id(),
 		}
 	}
 	return result, nil
 }
 
-func (m *mockRelationsFacade) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
-	m.stub.MethodCall(m, "ImportRemoteEntity", sourceModelUUID, entity, token)
+func (m *mockRelationsFacade) ImportRemoteEntity(entity names.Tag, token string) error {
+	m.stub.MethodCall(m, "ImportRemoteEntity", entity, token)
 	return m.stub.NextErr()
 }
 
@@ -131,8 +128,8 @@ func (m *mockRelationsFacade) SaveMacaroon(entity names.Tag, mac *macaroon.Macar
 	return m.stub.NextErr()
 }
 
-func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {
-	m.stub.MethodCall(m, "GetToken", modelUUID, entity)
+func (m *mockRelationsFacade) GetToken(entity names.Tag) (string, error) {
+	m.stub.MethodCall(m, "GetToken", entity)
 	if err := m.stub.NextErr(); err != nil {
 		return "", err
 	}
@@ -285,11 +282,8 @@ func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.
 	}
 	for i, rel := range relations {
 		result[i].Result = &params.RemoteRelationDetails{
-			RemoteEntityId: params.RemoteEntityId{
-				ModelUUID: "source-model-uuid",
-				Token:     "token-" + rel.OfferName,
-			},
-			Macaroon: mac,
+			Token:     "token-" + rel.OfferName,
+			Macaroons: macaroon.Slice{mac},
 		}
 	}
 	return result, nil

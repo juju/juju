@@ -110,9 +110,9 @@ func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "ExportEntities")
 		c.Check(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-foo"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.RemoteEntityIdResults{})
-		*(result.(*params.RemoteEntityIdResults)) = params.RemoteEntityIdResults{
-			Results: []params.RemoteEntityIdResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.TokenResults{})
+		*(result.(*params.TokenResults)) = params.TokenResults{
+			Results: []params.TokenResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -129,8 +129,8 @@ func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestExportEntitiesResultCount(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.RemoteEntityIdResults)) = params.RemoteEntityIdResults{
-			Results: []params.RemoteEntityIdResult{
+		*(result.(*params.TokenResults)) = params.TokenResults{
+			Results: []params.TokenResult{
 				{Error: &params.Error{Message: "FAIL"}},
 				{Error: &params.Error{Message: "FAIL"}},
 			},
@@ -270,7 +270,7 @@ func (s *remoteRelationsSuite) TestGetToken(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetTokens")
 		c.Check(arg, gc.DeepEquals, params.GetTokenArgs{
-			Args: []params.GetTokenArg{{ModelTag: coretesting.ModelTag.String(), Tag: "application-app"}}})
+			Args: []params.GetTokenArg{{Tag: "application-app"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
@@ -281,7 +281,7 @@ func (s *remoteRelationsSuite) TestGetToken(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.GetToken(coretesting.ModelTag.Id(), names.NewApplicationTag("app"))
+	_, err := client.GetToken(names.NewApplicationTag("app"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -297,7 +297,7 @@ func (s *remoteRelationsSuite) TestGetTokenCount(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.GetToken(coretesting.ModelTag.Id(), names.NewApplicationTag("app"))
+	_, err := client.GetToken(names.NewApplicationTag("app"))
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }
 
@@ -309,7 +309,7 @@ func (s *remoteRelationsSuite) TestImportRemoteEntity(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "ImportRemoteEntities")
 		c.Check(arg, gc.DeepEquals, params.RemoteEntityArgs{
-			Args: []params.RemoteEntityArg{{ModelTag: coretesting.ModelTag.String(), Tag: "application-app", Token: "token"}}})
+			Args: []params.RemoteEntityArg{{Tag: "application-app", Token: "token"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
@@ -320,7 +320,7 @@ func (s *remoteRelationsSuite) TestImportRemoteEntity(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.ImportRemoteEntity(coretesting.ModelTag.Id(), names.NewApplicationTag("app"), "token")
+	err := client.ImportRemoteEntity(names.NewApplicationTag("app"), "token")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -336,7 +336,7 @@ func (s *remoteRelationsSuite) TestImportRemoteEntityCount(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.ImportRemoteEntity(coretesting.ModelTag.Id(), names.NewApplicationTag("app"), "token")
+	err := client.ImportRemoteEntity(names.NewApplicationTag("app"), "token")
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }
 

@@ -68,13 +68,15 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (common.Relation, 
 }
 
 func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (common.RemoteApplication, error) {
-	app := &mockRemoteApplication{consumerproxy: params.IsConsumerProxy}
+	app := &mockRemoteApplication{
+		sourceModelUUID: params.SourceModel.Id(),
+		consumerproxy:   params.IsConsumerProxy}
 	st.remoteApplications[params.Name] = app
 	return app, nil
 }
 
-func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error {
-	st.MethodCall(st, "ImportRemoteEntity", sourceModel, entity, token)
+func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {
+	st.MethodCall(st, "ImportRemoteEntity", entity, token)
 	if err := st.NextErr(); err != nil {
 		return err
 	}
@@ -98,8 +100,8 @@ func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	return token, nil
 }
 
-func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
-	st.MethodCall(st, "GetRemoteEntity", sourceModel, token)
+func (st *mockState) GetRemoteEntity(token string) (names.Tag, error) {
+	st.MethodCall(st, "GetRemoteEntity", token)
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
@@ -219,7 +221,8 @@ func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
 type mockRemoteApplication struct {
 	common.RemoteApplication
 	testing.Stub
-	consumerproxy bool
+	consumerproxy   bool
+	sourceModelUUID string
 }
 
 func (r *mockRemoteApplication) IsConsumerProxy() bool {

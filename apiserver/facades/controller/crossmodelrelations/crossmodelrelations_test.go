@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -83,13 +82,9 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
-				Life: params.Alive,
-				ApplicationId: params.RemoteEntityId{
-					ModelUUID: "uuid",
-					Token:     "token-db2"},
-				RelationId: params.RemoteEntityId{
-					ModelUUID: "uuid",
-					Token:     "token-db2:db django:db"},
+				Life:             params.Alive,
+				ApplicationToken: "token-db2",
+				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
@@ -103,9 +98,9 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
-		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2"}},
+		{"GetRemoteEntity", []interface{}{"token-db2"}},
 	})
 	ru1.CheckCalls(c, []testing.StubCall{
 		{"InScope", []interface{}{}},
@@ -135,8 +130,9 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelationArgs{
 		Relations: []params.RegisterRemoteRelationArg{{
-			ApplicationId:     params.RemoteEntityId{ModelUUID: "model-uuid", Token: "app-token"},
-			RelationId:        params.RemoteEntityId{ModelUUID: "model-uuid", Token: "rel-token"},
+			ApplicationToken:  "app-token",
+			SourceModelTag:    coretesting.ModelTag.String(),
+			RelationToken:     "rel-token",
 			RemoteEndpoint:    params.RemoteEndpoint{Name: "remote"},
 			OfferName:         "offered",
 			LocalEndpointName: "local",
@@ -146,10 +142,10 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result.RemoteEntityId, jc.DeepEquals, params.RemoteEntityId{
-		ModelUUID: coretesting.ModelTag.Id(), Token: "token-offeredapp"})
-	c.Check(result.Result.Macaroon.Id(), gc.Equals, "model-deadbeef-0bad-400d-8000-4b1d0d06f00d relation-offeredapp.local#remote-apptoken.remote")
-	cav := s.bakery.caveats[result.Result.Macaroon.Id()]
+	c.Check(result.Result.Token, gc.Equals, "token-offeredapp")
+	c.Check(result.Result.Macaroons, gc.HasLen, 1)
+	c.Check(result.Result.Macaroons[0].Id(), gc.Equals, "model-deadbeef-0bad-400d-8000-4b1d0d06f00d relation-offeredapp.local#remote-apptoken.remote")
+	cav := s.bakery.caveats[result.Result.Macaroons[0].Id()]
 	c.Check(cav, gc.HasLen, 3)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -157,7 +153,8 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
-	c.Check(expectedRemoteApp, jc.DeepEquals, &mockRemoteApplication{consumerproxy: true})
+	c.Check(expectedRemoteApp, jc.DeepEquals, &mockRemoteApplication{
+		sourceModelUUID: coretesting.ModelTag.Id(), consumerproxy: true})
 	expectedRel := s.st.relations["offeredapp:local remote-apptoken:remote"]
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{key: "offeredapp:local remote-apptoken:remote"})
@@ -190,15 +187,15 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.api.RelationUnitSettings(params.RemoteRelationUnits{
 		RelationUnits: []params.RemoteRelationUnit{{
-			RelationId: params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2"},
-			Unit:       "unit-django-0",
-			Macaroons:  macaroon.Slice{mac},
+			RelationToken: "token-db2",
+			Unit:          "unit-django-0",
+			Macaroons:     macaroon.Slice{mac},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.SettingsResult{{Settings: params.Settings{"key": "value"}}})
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "token-db2"}},
+		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 }
@@ -216,14 +213,10 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
-				ApplicationId: params.RemoteEntityId{
-					ModelUUID: "uuid",
-					Token:     "token-db2"},
-				RelationId: params.RemoteEntityId{
-					ModelUUID: "uuid",
-					Token:     "token-db2:db django:db"},
-				Networks:  []string{"1.2.3.4/32"},
-				Macaroons: macaroon.Slice{mac},
+				ApplicationToken: "token-db2",
+				RelationToken:    "token-db2:db django:db",
+				Networks:         []string{"1.2.3.4/32"},
+				Macaroons:        macaroon.Slice{mac},
 			},
 		},
 	})
@@ -231,7 +224,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 	// TODO(wallyworld) - add mre tests when implementation finished
@@ -245,25 +238,18 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	uuid := utils.MustNewUUID().String()
 	args := params.RemoteRelationArgs{
 		Args: []params.RemoteRelationArg{
 			{
-				RemoteEntityId: params.RemoteEntityId{
-					ModelUUID: uuid,
-					Token:     "token-mysql:db django:db"},
+				Token:     "token-mysql:db django:db",
 				Macaroons: macaroon.Slice{mac},
 			},
 			{
-				RemoteEntityId: params.RemoteEntityId{
-					ModelUUID: s.st.ModelUUID(),
-					Token:     "token-db2:db django:db"},
+				Token:     "token-db2:db django:db",
 				Macaroons: macaroon.Slice{mac},
 			},
 			{
-				RemoteEntityId: params.RemoteEntityId{
-					ModelUUID: uuid,
-					Token:     "token-postgresql:db django:db"},
+				Token:     "token-postgresql:db django:db",
 				Macaroons: macaroon.Slice{mac},
 			},
 		},
@@ -278,9 +264,9 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-mysql:db django:db"}},
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-db2:db django:db"}},
-		{"GetRemoteEntity", []interface{}{names.NewModelTag(s.st.ModelUUID()), "token-postgresql:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
 	})
 	// TODO(wallyworld) - add mre tests when implementation finished
 }

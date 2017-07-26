@@ -187,7 +187,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		//Cross Model Relations - TODO
 		remoteApplicationsC,
 		applicationOffersC,
-		tokensC,
 		remoteEntitiesC,
 		externalControllersC,
 		relationIngressC,

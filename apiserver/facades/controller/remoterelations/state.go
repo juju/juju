@@ -31,11 +31,10 @@ type RemoteRelationsState interface {
 	WatchRemoteRelations() state.StringsWatcher
 
 	// RemoveRemoteEntity removes the specified entity from the remote entities collection.
-	RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error
+	RemoveRemoteEntity(entity names.Tag) error
 
-	// GetToken returns the token associated with the entity with the given tag
-	// and model.
-	GetToken(names.ModelTag, names.Tag) (string, error)
+	// GetToken returns the token associated with the entity with the given tag.
+	GetToken(names.Tag) (string, error)
 
 	// SaveMacaroon saves the given macaroon for the specified entity.
 	SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error
@@ -46,14 +45,14 @@ type stateShim struct {
 	st *state.State
 }
 
-func (st stateShim) RemoveRemoteEntity(model names.ModelTag, entity names.Tag) error {
+func (st stateShim) RemoveRemoteEntity(entity names.Tag) error {
 	r := st.st.RemoteEntities()
-	return r.RemoveRemoteEntity(model, entity)
+	return r.RemoveRemoteEntity(entity)
 }
 
-func (st stateShim) GetToken(model names.ModelTag, entity names.Tag) (string, error) {
+func (st stateShim) GetToken(entity names.Tag) (string, error) {
 	r := st.st.RemoteEntities()
-	return r.GetToken(model, entity)
+	return r.GetToken(entity)
 }
 
 func (st stateShim) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {

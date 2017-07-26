@@ -72,8 +72,8 @@ func (st *mockState) AddRelation(eps ...state.Endpoint) (common.Relation, error)
 	return rel, nil
 }
 
-func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error {
-	st.MethodCall(st, "ImportRemoteEntity", sourceModel, entity, token)
+func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {
+	st.MethodCall(st, "ImportRemoteEntity", entity, token)
 	if err := st.NextErr(); err != nil {
 		return err
 	}
@@ -84,8 +84,8 @@ func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names
 	return nil
 }
 
-func (st *mockState) RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error {
-	st.MethodCall(st, "RemoveRemoteEntity", sourceModel, entity)
+func (st *mockState) RemoveRemoteEntity(entity names.Tag) error {
+	st.MethodCall(st, "RemoveRemoteEntity", entity)
 	if err := st.NextErr(); err != nil {
 		return err
 	}
@@ -106,8 +106,8 @@ func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	return token, nil
 }
 
-func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
-	st.MethodCall(st, "GetRemoteEntity", sourceModel, token)
+func (st *mockState) GetRemoteEntity(token string) (names.Tag, error) {
+	st.MethodCall(st, "GetRemoteEntity", token)
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
@@ -119,8 +119,8 @@ func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (
 	return nil, errors.NotFoundf("token %v", token)
 }
 
-func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (string, error) {
-	st.MethodCall(st, "GetToken", sourceModel, entity)
+func (st *mockState) GetToken(entity names.Tag) (string, error) {
+	st.MethodCall(st, "GetToken", entity)
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}

@@ -75,9 +75,9 @@ func (st stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) 
 	return remoteApplicationShim{a}, nil
 }
 
-func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.Tag, error) {
+func (st stateShim) GetRemoteEntity(token string) (names.Tag, error) {
 	r := st.State.RemoteEntities()
-	return r.GetRemoteEntity(model, token)
+	return r.GetRemoteEntity(token)
 }
 
 func (st stateShim) ExportLocalEntity(entity names.Tag) (string, error) {
@@ -85,9 +85,9 @@ func (st stateShim) ExportLocalEntity(entity names.Tag) (string, error) {
 	return r.ExportLocalEntity(entity)
 }
 
-func (st stateShim) ImportRemoteEntity(model names.ModelTag, entity names.Tag, token string) error {
+func (st stateShim) ImportRemoteEntity(entity names.Tag, token string) error {
 	r := st.State.RemoteEntities()
-	return r.ImportRemoteEntity(model, entity, token)
+	return r.ImportRemoteEntity(entity, token)
 }
 
 type RelationIngress state.RelationIngress

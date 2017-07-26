@@ -68,17 +68,13 @@ func (api *RemoteRelationsAPI) importRemoteEntity(arg params.RemoteEntityArg) er
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelTag, err := names.ParseModelTag(arg.ModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return api.st.ImportRemoteEntity(modelTag, entityTag, arg.Token)
+	return api.st.ImportRemoteEntity(entityTag, arg.Token)
 }
 
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
-func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.RemoteEntityIdResults, error) {
-	results := params.RemoteEntityIdResults{
-		Results: make([]params.RemoteEntityIdResult, len(entities.Entities)),
+func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.TokenResults, error) {
+	results := params.TokenResults{
+		Results: make([]params.TokenResult, len(entities.Entities)),
 	}
 	for i, entity := range entities.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -93,10 +89,7 @@ func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.
 				continue
 			}
 		}
-		results.Results[i].Result = &params.RemoteEntityId{
-			ModelUUID: api.st.ModelUUID(),
-			Token:     token,
-		}
+		results.Results[i].Token = token
 	}
 	return results, nil
 }
@@ -112,12 +105,7 @@ func (api *RemoteRelationsAPI) GetTokens(args params.GetTokenArgs) (params.Strin
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		modelTag, err := names.ParseModelTag(arg.ModelTag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		token, err := api.st.GetToken(modelTag, entityTag)
+		token, err := api.st.GetToken(entityTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
@@ -397,7 +385,7 @@ func (api *RemoteRelationsAPI) ConsumeRemoteRelationChange(
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
 	for i, change := range changes.Changes {
-		relationTag, err := api.st.GetRemoteEntity(names.NewModelTag(api.st.ModelUUID()), change.RelationId.Token)
+		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				continue

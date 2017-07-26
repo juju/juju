@@ -739,18 +739,18 @@ func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = re.GetToken(s.State.ModelTag(), s.application.Tag())
+	_, err = re.GetToken(s.application.Tag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = re.GetToken(s.State.ModelTag(), rel.Tag())
+	_, err = re.GetToken(rel.Tag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	_, err = re.GetRemoteEntity(s.State.ModelTag(), "app-token")
+	_, err = re.GetRemoteEntity("app-token")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	_, err = re.GetRemoteEntity(s.State.ModelTag(), relToken)
+	_, err = re.GetRemoteEntity(relToken)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
