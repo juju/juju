@@ -296,7 +296,7 @@ func (m *mockRemoteRelationsFacade) relationsUnitsWatcher(key string) (*mockRela
 	return w, ok
 }
 
-func (m *mockRemoteRelationsFacade) WatchRelationUnits(arg params.RemoteRelationArg) (watcher.RelationUnitsWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchRelationUnits(arg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchRelationUnits", arg.Token, arg.Macaroons)

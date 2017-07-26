@@ -31,7 +31,7 @@ func NewClient(caller base.APICaller) *Client {
 // ImportRemoteEntity adds an entity to the remote entities collection
 // with the specified opaque token.
 func (c *Client) ImportRemoteEntity(entity names.Tag, token string) error {
-	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{
+	args := params.RemoteEntityTokenArgs{Args: []params.RemoteEntityTokenArg{
 		{Tag: entity.String(), Token: token}},
 	}
 	var results params.ErrorResults

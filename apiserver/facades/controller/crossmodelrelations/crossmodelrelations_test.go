@@ -238,8 +238,8 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	args := params.RemoteRelationArgs{
-		Args: []params.RemoteRelationArg{
+	args := params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
 			{
 				Token:     "token-mysql:db django:db",
 				Macaroons: macaroon.Slice{mac},

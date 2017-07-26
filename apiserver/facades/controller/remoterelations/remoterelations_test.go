@@ -163,8 +163,8 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
-	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
-		Args: []params.RemoteEntityArg{
+	result, err := s.api.ImportRemoteEntities(params.RemoteEntityTokenArgs{
+		Args: []params.RemoteEntityTokenArg{
 			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,13 +176,13 @@ func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
-	_, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
-		Args: []params.RemoteEntityArg{
+	_, err := s.api.ImportRemoteEntities(params.RemoteEntityTokenArgs{
+		Args: []params.RemoteEntityTokenArg{
 			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
-		Args: []params.RemoteEntityArg{
+	result, err := s.api.ImportRemoteEntities(params.RemoteEntityTokenArgs{
+		Args: []params.RemoteEntityTokenArg{
 			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -354,8 +354,8 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	remoteApp := newMockRemoteApplication("db2", "url")
 	s.st.remoteApplications["db2"] = remoteApp
 
-	_, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
-		Args: []params.RemoteEntityArg{
+	_, err := s.api.ImportRemoteEntities(params.RemoteEntityTokenArgs{
+		Args: []params.RemoteEntityTokenArg{
 			{Tag: "application-django", Token: "app-token"},
 			{Tag: "relation-db2:db#django:db", Token: "rel-token"},
 		}})

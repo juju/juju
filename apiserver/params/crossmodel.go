@@ -218,13 +218,14 @@ type GetTokenArg struct {
 	Tag string `json:"tag"`
 }
 
-// RemoteEntityArgs holds the arguments to an API call dealing with remote entities.
-type RemoteEntityArgs struct {
-	Args []RemoteEntityArg
+// RemoteEntityTokenArgs holds the arguments to an API call dealing with
+// remote entities and their tokens.
+type RemoteEntityTokenArgs struct {
+	Args []RemoteEntityTokenArg
 }
 
-// RemoteEntityArg holds the entity and token to be operated on.
-type RemoteEntityArg struct {
+// RemoteEntityTokenArg holds the entity and token to be operated on.
+type RemoteEntityTokenArg struct {
 	// Tag is the tag of the entity.
 	Tag string `json:"tag"`
 
@@ -396,13 +397,13 @@ type RemoteRelationDetails struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
-// RemoteRelationArgs holds arguments to an API call dealing with remote relations.
-type RemoteRelationArgs struct {
-	Args []RemoteRelationArg `json:"args"`
+// RemoteEntityArgs holds arguments to an API call dealing with remote relations.
+type RemoteEntityArgs struct {
+	Args []RemoteEntityArg `json:"args"`
 }
 
-// RemoteRelationArg holds a remote relation token corresponding macaroons.
-type RemoteRelationArg struct {
+// RemoteEntityArg holds a remote relation token corresponding macaroons.
+type RemoteEntityArg struct {
 	Token     string         `json:"relation-token"`
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }

@@ -292,7 +292,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 // WatchRelationUnits starts a RelationUnitsWatcher for watching the
 // relation units involved in each specified relation, and returns the
 // watcher IDs and initial values, or an error if the relation units could not be watched.
-func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteRelationArgs params.RemoteRelationArgs) (params.RelationUnitsWatchResults, error) {
+func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteRelationArgs params.RemoteEntityArgs) (params.RelationUnitsWatchResults, error) {
 	results := params.RelationUnitsWatchResults{
 		Results: make([]params.RelationUnitsWatchResult, len(remoteRelationArgs.Args)),
 	}
@@ -383,7 +383,7 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelationArgs params.RemoteRelationArgs) (params.StringsWatchResults, error) {
+func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(remoteRelationArgs.Args)),
 	}

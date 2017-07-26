@@ -853,8 +853,8 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 			c.Check(version, gc.Equals, 0)
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
-			expected := params.RemoteRelationArgs{
-				Args: []params.RemoteRelationArg{{
+			expected := params.RemoteEntityArgs{
+				Args: []params.RemoteEntityArg{{
 					Token:     relToken,
 					Macaroons: macaroon.Slice{mac},
 				}},
