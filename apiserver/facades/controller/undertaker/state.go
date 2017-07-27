@@ -66,8 +66,4 @@ type Model interface {
 
 	// UUID returns the universally unique identifier of the model.
 	UUID() string
-
-	// Destroy sets the model's lifecycle to Dying, preventing
-	// addition of services or machines to state.
-	Destroy() error
 }

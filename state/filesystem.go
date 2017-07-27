@@ -190,7 +190,7 @@ type FilesystemAttachmentParams struct {
 }
 
 // validate validates the contents of the filesystem document.
-func (f *filesystem) validate() error {
+func (f *filesystemDoc) validate() error {
 	return nil
 }
 
@@ -300,9 +300,11 @@ func (im *IAASModel) Filesystem(tag names.FilesystemTag) (Filesystem, error) {
 }
 
 func (im *IAASModel) filesystemByTag(tag names.FilesystemTag) (*filesystem, error) {
-	query := bson.D{{"_id", tag.Id()}}
-	description := fmt.Sprintf("filesystem %q", tag.Id())
-	return im.filesystem(query, description)
+	doc, err := getFilesystemDocByTag(im.mb.db(), tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &filesystem{im, doc}, nil
 }
 
 func (im *IAASModel) storageInstanceFilesystem(tag names.StorageTag) (*filesystem, error) {
@@ -331,40 +333,63 @@ func (im *IAASModel) VolumeFilesystem(tag names.VolumeTag) (Filesystem, error) {
 }
 
 func (im *IAASModel) filesystems(query interface{}) ([]*filesystem, error) {
-	coll, cleanup := im.mb.db().GetCollection(filesystemsC)
-	defer cleanup()
-
-	var fDocs []filesystemDoc
-	err := coll.Find(query).All(&fDocs)
+	fDocs, err := getFilesystemDocs(im.mb.db(), query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	filesystems := make([]*filesystem, len(fDocs))
 	for i, doc := range fDocs {
-		f := &filesystem{im, doc}
-		if err := f.validate(); err != nil {
-			return nil, errors.Annotate(err, "filesystem validation failed")
-		}
-		filesystems[i] = f
+		filesystems[i] = &filesystem{im, doc}
 	}
 	return filesystems, nil
 }
 
 func (im *IAASModel) filesystem(query bson.D, description string) (*filesystem, error) {
-	coll, cleanup := im.mb.db().GetCollection(filesystemsC)
+	doc, err := getFilesystemDoc(im.mb.db(), query, description)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &filesystem{im, doc}, nil
+}
+
+func getFilesystemDocByTag(db Database, tag names.FilesystemTag) (filesystemDoc, error) {
+	query := bson.D{{"_id", tag.Id()}}
+	description := fmt.Sprintf("filesystem %q", tag.Id())
+	return getFilesystemDoc(db, query, description)
+}
+
+func getFilesystemDoc(db Database, query bson.D, description string) (filesystemDoc, error) {
+	coll, cleanup := db.GetCollection(filesystemsC)
 	defer cleanup()
 
-	f := filesystem{im: im}
-	err := coll.Find(query).One(&f.doc)
+	var doc filesystemDoc
+	err := coll.Find(query).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf(description)
+		return doc, errors.NotFoundf(description)
 	} else if err != nil {
-		return nil, errors.Annotate(err, "cannot get filesystem")
+		return doc, errors.Annotate(err, "cannot get filesystem")
 	}
-	if err := f.validate(); err != nil {
-		return nil, errors.Annotate(err, "validating filesystem")
+	if err := doc.validate(); err != nil {
+		return doc, errors.Annotate(err, "validating filesystem")
 	}
-	return &f, nil
+	return doc, nil
+}
+
+func getFilesystemDocs(db Database, query interface{}) ([]filesystemDoc, error) {
+	coll, cleanup := db.GetCollection(filesystemsC)
+	defer cleanup()
+
+	var docs []filesystemDoc
+	err := coll.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, doc := range docs {
+		if err := doc.validate(); err != nil {
+			return nil, errors.Annotate(err, "filesystem validation failed")
+		}
+	}
+	return docs, nil
 }
 
 // FilesystemAttachment returns the FilesystemAttachment corresponding to
@@ -482,12 +507,12 @@ func (im *IAASModel) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, error) {
 
 // isDetachableFilesystemTag reports whether or not the filesystem with the
 // specified tag is detachable.
-func isDetachableFilesystemTag(im *IAASModel, tag names.FilesystemTag) (bool, error) {
-	f, err := im.filesystemByTag(tag)
+func isDetachableFilesystemTag(db Database, tag names.FilesystemTag) (bool, error) {
+	doc, err := getFilesystemDocByTag(db, tag)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return f.Detachable(), nil
+	return doc.MachineId == "", nil
 }
 
 // Detachable reports whether or not the filesystem is detachable.
@@ -530,7 +555,7 @@ func (im *IAASModel) DetachFilesystem(machine names.MachineTag, filesystem names
 		if fsa.Life() != Alive {
 			return nil, jujutxn.ErrNoOperations
 		}
-		detachable, err := isDetachableFilesystemTag(im, filesystem)
+		detachable, err := isDetachableFilesystemTag(im.mb.db(), filesystem)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -603,7 +628,7 @@ func (im *IAASModel) RemoveFilesystemAttachment(machine names.MachineTag, filesy
 			// If the volume is not detachable, we'll just
 			// destroy it along with the filesystem.
 			volume := volumeAttachment.Volume()
-			detachableVolume, err := isDetachableVolumeTag(im, volume)
+			detachableVolume, err := isDetachableVolumeTag(im.mb.db(), volume)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

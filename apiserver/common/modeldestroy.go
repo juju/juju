@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/state"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {
@@ -94,15 +95,14 @@ func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHosted
 		return errors.Trace(err)
 	}
 
-	if destroyHostedModels {
-		if err := model.DestroyIncludingHosted(); err != nil {
-			return err
-		}
-	} else {
-		if err = model.Destroy(); err != nil {
-			return errors.Trace(err)
-		}
+	destroyStorage := true
+	if err := model.Destroy(state.DestroyModelParams{
+		DestroyHostedModels: destroyHostedModels,
+		DestroyStorage:      &destroyStorage,
+	}); err != nil {
+		return errors.Trace(err)
 	}
+
 	err = sendMetrics(st)
 	if err != nil {
 		logger.Errorf("failed to send leftover metrics: %v", err)

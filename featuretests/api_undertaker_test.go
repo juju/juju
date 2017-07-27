@@ -73,11 +73,11 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	err = undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
-	c.Assert(env.Refresh(), jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 
 	err = undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
@@ -115,18 +115,18 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	factory.NewFactory(otherSt).MakeApplication(c, nil)
-	env, err := otherSt.Model()
+	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
-	c.Assert(env.Refresh(), jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 
 	err = otherSt.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(env.Refresh(), jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dead)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dead)
 }
 
 func (s *undertakerSuite) TestWatchModelResources(c *gc.C) {
@@ -150,9 +150,9 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
 	factory.NewFactory(otherSt).MakeApplication(c, nil)
-	env, err := otherSt.Model()
+	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 
 	// Aborts on dying environ.
 	err = undertakerClient.RemoveModel()

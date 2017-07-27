@@ -152,7 +152,7 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	defer st.Close()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.Destroy()
+	err = m.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{

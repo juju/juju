@@ -910,9 +910,9 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -920,13 +920,13 @@ func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(env.Life(), gc.Equals, state.Alive)
-		c.Assert(env.Destroy(), gc.IsNil)
+		c.Assert(model.Life(), gc.Equals, state.Alive)
+		c.Assert(model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
@@ -1479,9 +1479,9 @@ func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// Check that services cannot be added if the model is initially Dying.
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
@@ -1490,9 +1490,9 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// Check that services cannot be added if the model is initially Dying.
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetMigrationMode(state.MigrationModeExporting)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is being migrated`)
@@ -1543,13 +1543,13 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 func (s *StateSuite) TestAddApplicationEnvironmentDyingAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingApplication(c, "s0", charm)
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that services cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(env.Life(), gc.Equals, state.Alive)
-		c.Assert(env.Destroy(), gc.IsNil)
+		c.Assert(model.Life(), gc.Equals, state.Alive)
+		c.Assert(model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
@@ -2019,20 +2019,20 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	app := factory.NewFactory(st1).MakeApplication(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Destroy()
+	err = dying.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an empty model, destroy and remove it; we should
 	// never see it reported.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	env2, err := st2.Model()
+	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env2.Destroy(), jc.ErrorIsNil)
+	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	err = st2.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// All except the removed env are reported in initial event.
+	// All except the removed model are reported in initial event.
 	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
@@ -2043,7 +2043,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
-	err = alive.Destroy()
+	err = alive.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 }
@@ -2060,15 +2060,15 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	app := factory.NewFactory(st1).MakeApplication(c, nil)
-	env, err := st1.Model()
+	model, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(env.UUID())
+	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 
 	// Make it Dying: reported.
-	err = env.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(env.UUID())
+	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
@@ -2078,7 +2078,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(env.UUID())
+	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 }
 
@@ -3070,11 +3070,11 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
 
 	// model tag is dynamically generated
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	findEntityTests = append([]findEntityTest{}, findEntityTests...)
 	findEntityTests = append(findEntityTests, findEntityTest{
-		tag: names.NewModelTag(env.UUID()),
+		tag: names.NewModelTag(model.UUID()),
 	})
 
 	for i, test := range findEntityTests {
@@ -3090,7 +3090,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				// TODO(axw) 2013-12-04 #1257587
 				// We *should* only be able to get the entity with its tag, but
 				// for backwards-compatibility we accept any non-UUID tag.
-				c.Assert(e.Tag(), gc.Equals, env.Tag())
+				c.Assert(e.Tag(), gc.Equals, model.Tag())
 			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
 				expected := test.tag.(names.UserTag).Id()
@@ -3159,12 +3159,12 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseModelTag(c *gc.C) {
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, env.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, model.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "models")
-	c.Assert(id, gc.Equals, env.UUID())
+	c.Assert(id, gc.Equals, model.UUID())
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {

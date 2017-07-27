@@ -67,9 +67,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		{otherSt, hostedAPI, false, "hostedenv"},
 		{st, api, true, "admin"},
 	} {
-		env, err := test.st.Model()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(env.Destroy(), jc.ErrorIsNil)
+		test.st.env.life = state.Dying
 
 		result, err := test.api.ModelInfo()
 		c.Assert(err, jc.ErrorIsNil)
@@ -78,7 +76,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.Error, gc.IsNil)
 
-		c.Assert(info.UUID, gc.Equals, env.UUID())
+		c.Assert(info.UUID, gc.Equals, test.st.env.UUID())
 		c.Assert(info.GlobalName, gc.Equals, "user-admin/"+test.envName)
 		c.Assert(info.Name, gc.Equals, test.envName)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
@@ -95,11 +93,7 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 
-	err = env.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(env.Life(), gc.Equals, state.Dying)
-
+	otherSt.env.life = state.Dying
 	err = hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dead)
@@ -116,26 +110,20 @@ func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 
 func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dying
-	err = env.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	otherSt.env.life = state.Dying
 
-	err = hostedAPI.RemoveModel()
+	err := hostedAPI.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "model not dead")
 }
 
 func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dead
-	err = env.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = hostedAPI.ProcessDyingModel()
+	otherSt.env.life = state.Dying
+	err := hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.IsNil)
 
 	err = hostedAPI.RemoveModel()

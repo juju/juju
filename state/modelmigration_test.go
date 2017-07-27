@@ -226,7 +226,7 @@ func (s *MigrationSuite) TestCreateMigrationWhenModelNotAlive(c *gc.C) {
 	// Set the hosted model to Dying.
 	model, err := s.State2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 
 	mig, err := s.State2.CreateMigration(s.stdSpec)
 	c.Check(mig, gc.IsNil)

@@ -158,7 +158,7 @@ type VolumeAttachmentParams struct {
 }
 
 // validate validates the contents of the volume document.
-func (v *volume) validate() error {
+func (v *volumeDoc) validate() error {
 	return nil
 }
 
@@ -260,7 +260,52 @@ func (im *IAASModel) Volume(tag names.VolumeTag) (Volume, error) {
 }
 
 func (im *IAASModel) volumes(query interface{}) ([]*volume, error) {
-	coll, cleanup := im.mb.db().GetCollection(volumesC)
+	docs, err := getVolumeDocs(im.mb.db(), query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumes := make([]*volume, len(docs))
+	for i := range docs {
+		volumes[i] = &volume{im, docs[i]}
+	}
+	return volumes, nil
+}
+
+func (im *IAASModel) volumeByTag(tag names.VolumeTag) (*volume, error) {
+	doc, err := getVolumeDocByTag(im.mb.db(), tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &volume{im, doc}, nil
+}
+
+func (im *IAASModel) volume(query bson.D, description string) (*volume, error) {
+	doc, err := getVolumeDoc(im.mb.db(), query, description)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &volume{im, doc}, nil
+}
+
+func getVolumeDocByTag(db Database, tag names.VolumeTag) (volumeDoc, error) {
+	return getVolumeDoc(db, bson.D{{"_id", tag.Id()}}, fmt.Sprintf("volume %q", tag.Id()))
+}
+
+func getVolumeDoc(db Database, query bson.D, description string) (volumeDoc, error) {
+	docs, err := getVolumeDocs(db, query)
+	if err != nil {
+		return volumeDoc{}, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return volumeDoc{}, errors.NotFoundf("%s", description)
+	} else if len(docs) != 1 {
+		return volumeDoc{}, errors.Errorf("expected 1 volume, got %d", len(docs))
+	}
+	return docs[0], nil
+}
+
+func getVolumeDocs(db Database, query interface{}) ([]volumeDoc, error) {
+	coll, cleanup := db.GetCollection(volumesC)
 	defer cleanup()
 
 	var docs []volumeDoc
@@ -268,32 +313,12 @@ func (im *IAASModel) volumes(query interface{}) ([]*volume, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "querying volumes")
 	}
-	volumes := make([]*volume, len(docs))
-	for i := range docs {
-		volume := &volume{im, docs[i]}
-		if err := volume.validate(); err != nil {
+	for _, doc := range docs {
+		if err := doc.validate(); err != nil {
 			return nil, errors.Annotate(err, "validating volume")
 		}
-		volumes[i] = volume
 	}
-	return volumes, nil
-}
-
-func (im *IAASModel) volume(query bson.D, description string) (*volume, error) {
-	volumes, err := im.volumes(query)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(volumes) == 0 {
-		return nil, errors.NotFoundf("%s", description)
-	} else if len(volumes) != 1 {
-		return nil, errors.Errorf("expected 1 volume, got %d", len(volumes))
-	}
-	return volumes[0], nil
-}
-
-func (im *IAASModel) volumeByTag(tag names.VolumeTag) (*volume, error) {
-	return im.volume(bson.D{{"_id", tag.Id()}}, fmt.Sprintf("volume %q", tag.Id()))
+	return docs, nil
 }
 
 func volumesToInterfaces(volumes []*volume) []Volume {
@@ -443,12 +468,12 @@ func (im *IAASModel) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 
 // isDetachableVolumeTag reports whether or not the volume with the specified
 // tag is detachable.
-func isDetachableVolumeTag(im *IAASModel, tag names.VolumeTag) (bool, error) {
-	volume, err := im.volumeByTag(tag)
+func isDetachableVolumeTag(db Database, tag names.VolumeTag) (bool, error) {
+	doc, err := getVolumeDocByTag(db, tag)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return volume.Detachable(), nil
+	return doc.MachineId == "", nil
 }
 
 // Detachable reports whether or not the volume is detachable.
@@ -507,7 +532,7 @@ func (im *IAASModel) DetachVolume(machine names.MachineTag, volume names.VolumeT
 		if va.Life() != Alive {
 			return nil, jujutxn.ErrNoOperations
 		}
-		detachable, err := isDetachableVolumeTag(im, volume)
+		detachable, err := isDetachableVolumeTag(im.mb.db(), volume)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
