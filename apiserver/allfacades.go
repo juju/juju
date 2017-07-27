@@ -120,11 +120,14 @@ func AllFacades() *facade.Registry {
 	reg("AgentTools", 1, agenttools.NewFacade)
 	reg("Annotations", 2, annotations.NewAPI)
 
-	reg("Application", 1, application.NewFacade)
-	reg("Application", 2, application.NewFacade)
-	reg("Application", 3, application.NewFacade)
-	reg("Application", 4, application.NewFacade)
-	reg("Application", 5, application.NewFacade) // adds AttachStorage
+	// Application facade versions 1-4 share NewFacadeV4 as
+	// the newer methodology for versioning wasn't started with
+	// Application until version 5.
+	reg("Application", 1, application.NewFacadeV4)
+	reg("Application", 2, application.NewFacadeV4)
+	reg("Application", 3, application.NewFacadeV4)
+	reg("Application", 4, application.NewFacadeV4)
+	reg("Application", 5, application.NewFacade) // adds AttachStorage & UpdateApplicationSeries
 
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 1, backups.NewFacade)

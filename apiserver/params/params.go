@@ -240,6 +240,20 @@ type ApplicationUpdate struct {
 	Constraints     *constraints.Value `json:"constraints,omitempty"`
 }
 
+// ApplicationUpdateSeriesParams holds the parameters for updating the series for the
+// application to use in the future. Only known by facade version 5 and greater.
+type ApplicationUpdateSeriesArg struct {
+	ApplicationName string `json:"application"`
+	Force           bool   `json:"force"`
+	Series          string `json:"series"`
+}
+
+// ApplicationUpdateSeriesArgs holds the parameters for updating the series
+// of one or more applications.
+type ApplicationUpdateSeriesArgs struct {
+	Args []ApplicationUpdateSeriesArg `json:"args"`
+}
+
 // ApplicationSetCharm sets the charm for a given application.
 type ApplicationSetCharm struct {
 	// ApplicationName is the name of the application to set the charm on.

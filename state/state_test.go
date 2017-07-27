@@ -1797,7 +1797,7 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 		Name: "wordpress", Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty, xenial, yakkety"`)
 }
 
 func (s *StateSuite) TestAllApplications(c *gc.C) {

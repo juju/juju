@@ -81,12 +81,14 @@ type mockApplication struct {
 	jtesting.Stub
 	application.Application
 
-	name      string
-	charm     *mockCharm
-	curl      *charm.URL
-	endpoints []state.Endpoint
-	bindings  map[string]string
-	units     []mockUnit
+	bindings    map[string]string
+	charm       *mockCharm
+	curl        *charm.URL
+	endpoints   []state.Endpoint
+	name        string
+	subordinate bool
+	series      string
+	units       []mockUnit
 }
 
 func (m *mockApplication) Name() string {
@@ -138,6 +140,23 @@ func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, e
 	}
 	unitTag := names.NewUnitTag(a.name + "/99")
 	return &mockUnit{tag: unitTag}, nil
+}
+
+func (a *mockApplication) IsPrincipal() bool {
+	a.MethodCall(a, "IsPrincipal")
+	a.PopNoErr()
+	return !a.subordinate
+}
+
+func (a *mockApplication) UpdateApplicationSeries(series string, force bool) error {
+	a.MethodCall(a, "UpdateApplicationSeries", series, force)
+	return a.NextErr()
+}
+
+func (a *mockApplication) Series() string {
+	a.MethodCall(a, "Series")
+	a.PopNoErr()
+	return a.series
 }
 
 type mockRemoteApplication struct {

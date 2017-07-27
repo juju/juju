@@ -60,7 +60,9 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		controllers: make(map[string]crossmodel.ControllerInfo),
 		applications: map[string]application.Application{
 			"postgresql": &mockApplication{
-				name: "postgresql",
+				name:        "postgresql",
+				series:      "quantal",
+				subordinate: false,
 				charm: &mockCharm{
 					config: &charm.Config{
 						Options: map[string]charm.Option{
@@ -68,10 +70,29 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 							"intOption":    {Type: "int", Default: int(123)},
 						},
 					},
-				}, units: []mockUnit{{
+				},
+				units: []mockUnit{{
 					tag: names.NewUnitTag("postgresql/0"),
 				}, {
 					tag: names.NewUnitTag("postgresql/1"),
+				}},
+			},
+			"postgresql-subordinate": &mockApplication{
+				name:        "postgresql-subordinate",
+				series:      "quantal",
+				subordinate: true,
+				charm: &mockCharm{
+					config: &charm.Config{
+						Options: map[string]charm.Option{
+							"stringOption": {Type: "string"},
+							"intOption":    {Type: "int", Default: int(123)},
+						},
+					},
+				},
+				units: []mockUnit{{
+					tag: names.NewUnitTag("postgresql-subordinate/0"),
+				}, {
+					tag: names.NewUnitTag("postgresql-subordinate/1"),
 				}},
 			},
 		},
@@ -593,4 +614,88 @@ func (s *ApplicationSuite) TestConsumeWithNonNetworkingEnviron(c *gc.C) {
 func (s *ApplicationSuite) TestConsumeProviderSpaceInfoNotSupported(c *gc.C) {
 	s.env.(*mockEnviron).stub.SetErrors(errors.NotSupportedf("provider space info"))
 	s.assertConsumeWithNoSpacesInfoAvailable(c)
+}
+
+func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
+	args := params.ApplicationUpdateSeriesArgs{
+		Args: []params.ApplicationUpdateSeriesArg{{
+			ApplicationName: "postgresql",
+			Series:          "trusty",
+		}, {
+			ApplicationName: "postgresql",
+			Series:          "quantal",
+		}},
+	}
+	results, err := s.api.UpdateApplicationSeries(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Results), gc.Equals, 2)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
+	c.Assert(results.Results[1], jc.DeepEquals, params.ErrorResult{})
+
+	s.backend.CheckCall(c, 0, "ModelTag")
+	s.backend.CheckCall(c, 1, "Application", "postgresql")
+	s.backend.CheckCall(c, 2, "Application", "postgresql")
+
+	app := s.backend.applications["postgresql"].(*mockApplication)
+	app.CheckCall(c, 0, "IsPrincipal")
+	app.CheckCall(c, 1, "Series")
+	app.CheckCall(c, 2, "UpdateApplicationSeries", "trusty", false)
+	app.CheckCall(c, 3, "IsPrincipal")
+	app.CheckCall(c, 4, "Series")
+	// ensure that app.UpdateApplicationSeries wasn't called a 2nd time.
+	c.Assert(len(app.Calls()), gc.Equals, 5)
+}
+
+func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
+	results, err := s.api.UpdateApplicationSeries(
+		params.ApplicationUpdateSeriesArgs{
+			Args: []params.ApplicationUpdateSeriesArg{},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
+
+	s.backend.CheckCallNames(c, "ModelTag")
+}
+
+func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
+	results, err := s.api.UpdateApplicationSeries(
+		params.ApplicationUpdateSeriesArgs{
+			Args: []params.ApplicationUpdateSeriesArg{{ApplicationName: "postgresql"}},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeBadRequest,
+			Message: `series missing from args`,
+		},
+	})
+
+	s.backend.CheckCallNames(c, "ModelTag")
+}
+
+func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
+	args := params.ApplicationUpdateSeriesArgs{
+		Args: []params.ApplicationUpdateSeriesArg{{
+			ApplicationName: "postgresql-subordinate",
+			Series:          "xenial",
+		}},
+	}
+	results, err := s.api.UpdateApplicationSeries(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeNotSupported,
+			Message: `"postgresql-subordinate" is a subordinate application, update-series not supported`,
+		},
+	})
+
+	s.backend.CheckCall(c, 0, "ModelTag")
+	s.backend.CheckCall(c, 1, "Application", "postgresql-subordinate")
+
+	app := s.backend.applications["postgresql-subordinate"].(*mockApplication)
+	app.CheckCall(c, 0, "IsPrincipal")
 }

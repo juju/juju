@@ -1021,6 +1021,97 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	return nil
 }
 
+// UpdateApplicationSeries updates the series for the Application.
+func (a *Application) UpdateApplicationSeries(series string, force bool) (err error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			// If we've tried once already and failed, re-evaluate the criteria.
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Exit early if the Application series doesn't need to change.
+		if a.Series() == series {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		// Verify and gather data for the transaction operations.
+		err := a.VerifySupportedSeries(series, force)
+		if err != nil {
+			return nil, err
+		}
+		units, err := a.AllUnits()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var subApps []*Application
+		var unit *Unit
+
+		if len(units) > 0 {
+			// All units have the same subordinates...
+			unit = units[0]
+			for _, n := range unit.SubordinateNames() {
+				app, err := a.st.Application(unitAppName(n))
+				if err != nil {
+					return nil, err
+				}
+				err = app.VerifySupportedSeries(series, force)
+				if err != nil {
+					return nil, err
+				}
+				subApps = append(subApps, app)
+			}
+		}
+
+		//Create the transaction operations
+		ops := []txn.Op{{
+			C:      applicationsC,
+			Id:     a.doc.DocID,
+			Assert: bson.D{{"charmurl", a.doc.CharmURL}, {"unitcount", a.doc.UnitCount}},
+			Update: bson.D{{"$set", bson.D{{"series", series}}}},
+		}}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if unit != nil {
+			ops = append(ops, txn.Op{
+				C:      unitsC,
+				Id:     unit.doc.DocID,
+				Assert: bson.D{{"subordinates", unit.SubordinateNames()}},
+			})
+		}
+		for _, sub := range subApps {
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     sub.doc.DocID,
+				Assert: bson.D{{"charmurl", sub.doc.CharmURL}, {"unitcount", sub.doc.UnitCount}},
+				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+			})
+		}
+		return ops, nil
+	}
+
+	err = a.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "cannot update series for %q to %s", a, series)
+}
+
+// VerifySupportedSeries verifies if the given series is supported by the
+// application.
+func (a *Application) VerifySupportedSeries(series string, force bool) error {
+	ch, _, err := a.Charm()
+	if err != nil {
+		return err
+	}
+	_, seriesSupportedErr := charm.SeriesForCharm(series, ch.Meta().Series)
+	if seriesSupportedErr != nil && !force {
+		return &ErrIncompatibleSeries{
+			seriesList: ch.Meta().Series,
+			series:     series,
+		}
+	}
+	return nil
+}
+
 // String returns the application name.
 func (a *Application) String() string {
 	return a.doc.Name
