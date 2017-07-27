@@ -557,10 +557,12 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 		string(params.Dying),
 		8,
 		1,
+		2,
+		1,
 		0,
 		0,
 	}
 
 	out := controller.FmtModelStatus(data)
-	c.Assert(out, gc.Equals, "\towner/envname (dying), 8 machines, 1 application")
+	c.Assert(out, gc.Equals, "\towner/envname (dying), 8 machines, 1 application, 2 volumes, 1 filesystem")
 }

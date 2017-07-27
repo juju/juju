@@ -40,7 +40,7 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
-	err := common.DestroyModel(s.modelManager)
+	err := common.DestroyModel(s.modelManager, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{
 		{"SendMetrics", []interface{}{s.modelManager}},
@@ -48,7 +48,18 @@ func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
-	err := common.DestroyModel(s.modelManager)
+	true_ := true
+	false_ := false
+	s.testDestroyModel(c, nil)
+	s.testDestroyModel(c, &true_)
+	s.testDestroyModel(c, &false_)
+}
+
+func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
+	s.modelManager.ResetCalls()
+	s.modelManager.models[0].ResetCalls()
+
+	err := common.DestroyModel(s.modelManager, destroyStorage)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
@@ -58,10 +69,9 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 		{"Model", nil},
 	})
 
-	destroyStorage := true
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
 		{"Destroy", []interface{}{state.DestroyModelParams{
-			DestroyStorage: &destroyStorage,
+			DestroyStorage: destroyStorage,
 		}}},
 	})
 }
@@ -69,7 +79,7 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
 	s.modelManager.SetErrors(errors.New("nope"))
 
-	err := common.DestroyModel(s.modelManager)
+	err := common.DestroyModel(s.modelManager, nil)
 	c.Assert(err, gc.ErrorMatches, "nope")
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType")

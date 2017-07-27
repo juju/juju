@@ -61,7 +61,7 @@ var facadeVersions = map[string]int{
 	"MigrationStatusWatcher":       1,
 	"MigrationTarget":              1,
 	"ModelConfig":                  1,
-	"ModelManager":                 3,
+	"ModelManager":                 4,
 	"ModelUpgrader":                1,
 	"NotifyWatcher":                1,
 	"Payloads":                     1,

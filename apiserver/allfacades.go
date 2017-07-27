@@ -180,6 +180,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelConfig", 1, modelconfig.NewFacade)
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
+	reg("ModelManager", 4, modelmanager.NewFacadeV4)
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)

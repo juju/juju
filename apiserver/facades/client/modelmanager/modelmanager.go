@@ -36,6 +36,16 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
+// ModelManagerV4 defines the methods on the version 2 facade for the
+// modelmanager API endpoint.
+type ModelManagerV4 interface {
+	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
+	DumpModels(args params.DumpModelRequest) params.StringResults
+	DumpModelsDB(args params.Entities) params.MapResults
+	ListModels(user params.Entity) (params.UserModelList, error)
+	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
+}
+
 // ModelManagerV3 defines the methods on the version 2 facade for the
 // modelmanager API endpoint.
 type ModelManagerV3 interface {
@@ -70,18 +80,25 @@ type ModelManagerAPI struct {
 }
 
 // ModelManagerAPIV2 provides a way to wrap the different calls between
-// version 2 and version 3 of the model manager API
-type ModelManagerAPIV2 struct {
+// version 3 and version 4 of the model manager API
+type ModelManagerAPIV3 struct {
 	*ModelManagerAPI
 }
 
+// ModelManagerAPIV2 provides a way to wrap the different calls between
+// version 2 and version 3 of the model manager API
+type ModelManagerAPIV2 struct {
+	*ModelManagerAPIV3
+}
+
 var (
-	_ ModelManagerV3 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV4 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
 	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacade is used for API registration.
-func NewFacadeV3(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV4 is used for API registration.
+func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	auth := ctx.Auth()
 	pool := ctx.StatePool()
@@ -90,6 +107,15 @@ func NewFacadeV3(ctx facade.Context) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(
 		common.NewModelManagerBackend(st),
 		common.NewBackendPool(pool), configGetter, auth)
+}
+
+// NewFacadeV3 is used for API registration.
+func NewFacadeV3(ctx facade.Context) (*ModelManagerAPIV3, error) {
+	v4, err := NewFacadeV4(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV3{v4}, nil
 }
 
 // NewFacade is used for API registration.
@@ -575,12 +601,31 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 
 // DestroyModels will try to destroy the specified models.
 // If there is a block on destruction, this method will return an error.
-func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResults, error) {
+func (m *ModelManagerAPIV3) DestroyModels(args params.Entities) (params.ErrorResults, error) {
+	// v3 DestroyModels is implemented in terms of v4:
+	// storage is unconditionally destroyed, as was the
+	// old behaviour.
+	destroyStorage := true
+	v4Args := params.DestroyModelsParams{
+		Models: make([]params.DestroyModelParams, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		v4Args.Models[i] = params.DestroyModelParams{
+			ModelTag:       arg.Tag,
+			DestroyStorage: &destroyStorage,
+		}
+	}
+	return m.ModelManagerAPI.DestroyModels(v4Args)
+}
+
+// DestroyModels will try to destroy the specified models.
+// If there is a block on destruction, this method will return an error.
+func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Models)),
 	}
 
-	destroyModel := func(tag names.ModelTag) error {
+	destroyModel := func(tag names.ModelTag, destroyStorage *bool) error {
 		model, err := m.state.GetModel(tag)
 		if err != nil {
 			return errors.Trace(err)
@@ -593,16 +638,16 @@ func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResul
 			return errors.Trace(err)
 		}
 		defer releaser()
-		return errors.Trace(common.DestroyModel(st))
+		return errors.Trace(common.DestroyModel(st, destroyStorage))
 	}
 
-	for i, arg := range args.Entities {
-		tag, err := names.ParseModelTag(arg.Tag)
+	for i, arg := range args.Models {
+		tag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := destroyModel(tag); err != nil {
+		if err := destroyModel(tag, arg.DestroyStorage); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

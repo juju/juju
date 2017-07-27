@@ -125,8 +125,8 @@ func (c *destroyCommand) Info() *cmd.Info {
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
 	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
-	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage managed by the controller")
-	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage from management of the controller, without destroying them")
+	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances managed by the controller")
+	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from management of the controller, without destroying them")
 }
 
 // Init implements Command.Init.
@@ -173,7 +173,7 @@ to confirm that you want to destroy the storage along
 with the controller.
 
 If instead you want to keep the storage, you must first
-upgrade the controller.
+upgrade the controller to version 2.3 or greater.
 
 `)
 			return cmd.ErrSilent

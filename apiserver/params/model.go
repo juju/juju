@@ -286,3 +286,21 @@ const (
 	ModelReadAccess  UserAccessPermission = "read"
 	ModelWriteAccess UserAccessPermission = "write"
 )
+
+// DestroyModelsParams holds the arguments for destroying models.
+type DestroyModelsParams struct {
+	Models []DestroyModelParams `json:"models"`
+}
+
+// DestroyModelParams holds the arguments for destroying a model.
+type DestroyModelParams struct {
+	// ModelTag is the tag of the model to destroy.
+	ModelTag string `json:"model-tag"`
+
+	// DestroyStorage controls whether or not storage in the model.
+	//
+	// This is ternary: nil, false, or true. If nil and there is persistent
+	// storage in the model, an error with the code
+	// params.CodeHasPersistentStorage will be returned.
+	DestroyStorage *bool `json:"destroy-storage,omitempty"`
+}

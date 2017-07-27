@@ -41,25 +41,43 @@ var _ = gc.Suite(&DestroySuite{})
 
 // fakeDestroyAPI mocks out the cient API
 type fakeAPI struct {
+	*jutesting.Stub
 	err             error
 	env             map[string]interface{}
 	statusCallCount int
+	bestAPIVersion  int
 	modelInfoErr    []*params.Error
 }
 
 func (f *fakeAPI) Close() error { return nil }
 
-func (f *fakeAPI) DestroyModel(names.ModelTag) error {
-	return f.err
+func (f *fakeAPI) BestAPIVersion() int {
+	return f.bestAPIVersion
+}
+
+func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool) error {
+	f.MethodCall(f, "DestroyModel", tag, destroyStorage)
+	return f.NextErr()
 }
 
 func (f *fakeAPI) ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error) {
-	var err *params.Error = &params.Error{Code: params.CodeNotFound}
+	var err error
 	if f.statusCallCount < len(f.modelInfoErr) {
-		err = f.modelInfoErr[f.statusCallCount]
+		modelInfoErr := f.modelInfoErr[f.statusCallCount]
+		if modelInfoErr != nil {
+			err = modelInfoErr
+		}
+	} else {
+		err = &params.Error{Code: params.CodeNotFound}
 	}
 	f.statusCallCount++
-	return []base.ModelStatus{{}}, err
+	return []base.ModelStatus{{
+		Volumes: []base.Volume{
+			{Detachable: true},
+			{Detachable: true},
+		},
+		Filesystems: []base.Filesystem{{Detachable: true}},
+	}}, err
 }
 
 // faceConfiAPI mocks out the ModelConfigAPI.
@@ -76,10 +94,12 @@ func (f *fakeConfigAPI) Close() error { return nil }
 
 func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.api = &fakeAPI{}
-	s.api.err = nil
+	s.stub = &jutesting.Stub{}
+	s.api = &fakeAPI{
+		Stub:           s.stub,
+		bestAPIVersion: 4,
+	}
 	s.configAPI = &fakeConfigAPI{}
-	s.configAPI.err = nil
 
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "test1"
@@ -95,7 +115,6 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.sleep = func(time.Duration) {}
 
-	s.stub = &jutesting.Stub{}
 	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.PatchValue(model.GetBudgetAPIClient, func(*httpbakery.Client) model.BudgetAPIClient { return s.budgetAPIClient })
 }
@@ -150,7 +169,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
-	s.api.err = errors.New("connection refused")
+	s.stub.SetErrors(errors.New("connection refused"))
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy model: connection refused")
 	c.Check(c.GetTestLog(), jc.Contains, "failed to destroy model \"test2\"")
@@ -168,7 +187,9 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil)}},
+	})
 }
 
 func (s *DestroySuite) TestDestroyBlocks(c *gc.C) {
@@ -181,7 +202,7 @@ func (s *DestroySuite) TestDestroyBlocks(c *gc.C) {
 }
 
 func (s *DestroySuite) TestFailedDestroyModel(c *gc.C) {
-	s.api.err = errors.New("permission denied")
+	s.stub.SetErrors(errors.New("permission denied"))
 	_, err := s.runDestroyCommand(c, "test1:test2", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy model: permission denied")
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
@@ -191,26 +212,87 @@ func (s *DestroySuite) TestDestroyWithUnsupportedSLA(c *gc.C) {
 	s.configAPI.slaLevel = "unsupported"
 	_, err := s.runDestroyCommand(c, "test1:test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCallNames(c, "DestroyModel")
 }
 
 func (s *DestroySuite) TestDestroyWithSupportedSLA(c *gc.C) {
 	s.configAPI.slaLevel = "standard"
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCalls(c, []jutesting.StubCall{{
-		"DeleteBudget", []interface{}{"test2-uuid"},
-	}})
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil)}},
+		{"DeleteBudget", []interface{}{"test2-uuid"}},
+	})
 }
 
 func (s *DestroySuite) TestDestroyWithSupportedSLAFailure(c *gc.C) {
 	s.configAPI.slaLevel = "standard"
-	s.stub.SetErrors(errors.New("bah"))
+	s.stub.SetErrors(nil, errors.New("bah"))
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCalls(c, []jutesting.StubCall{{
-		"DeleteBudget", []interface{}{"test2-uuid"},
-	}})
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil)}},
+		{"DeleteBudget", []interface{}{"test2-uuid"}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyDestroyStorage(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--destroy-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	destroyStorage := true
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyReleaseStorage(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--release-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	destroyStorage := false
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyDestroyReleaseStorageFlagsMutuallyExclusive(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--destroy-storage", "--release-storage")
+	c.Assert(err, gc.ErrorMatches, "--destroy-storage and --release-storage cannot both be specified")
+}
+
+func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecified(c *gc.C) {
+	s.stub.SetErrors(&params.Error{Code: params.CodeHasPersistentStorage})
+	s.api.modelInfoErr = []*params.Error{nil}
+	_, err := s.runDestroyCommand(c, "test2", "-y")
+	c.Assert(err, gc.ErrorMatches, `cannot destroy model "test2"
+
+The model has persistent storage remaining:
+	2 volumes and 1 filesystem
+
+To destroy the storage, run the destroy-model
+command again with the "--destroy-storage" flag.
+
+To release the storage from Juju's management
+without destroying it, use the "--release-storage"
+flag instead. The storage can then be imported
+into another Juju model.
+
+`)
+}
+
+func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
+	s.api.bestAPIVersion = 3
+	ctx, err := s.runDestroyCommand(c, "test2", "-y")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `this juju controller only supports destroying storage
+
+Please run the the command again with --destroy-storage,
+to confirm that you want to destroy the storage along
+with the model.
+
+If instead you want to keep the storage, you must first
+upgrade the controller to version 2.3 or greater.
+
+`)
 }
 
 func (s *DestroySuite) resetModel(c *gc.C) {
@@ -273,7 +355,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 }
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
-	s.api.err = common.OperationBlockedError("TestBlockedDestroy")
+	s.stub.SetErrors(common.OperationBlockedError("TestBlockedDestroy"))
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedDestroy.*")
 }

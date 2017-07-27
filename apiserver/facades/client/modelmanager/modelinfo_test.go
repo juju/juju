@@ -551,6 +551,7 @@ type mockState struct {
 	blockMsg        string
 	block           state.BlockType
 	migration       *mockMigration
+	modelConfig     *config.Config
 }
 
 type fakeModelDescription struct {
@@ -820,6 +821,16 @@ func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 func (st *mockState) SetModelMeterStatus(level, message string) error {
 	st.MethodCall(st, "SetModelMeterStatus", level, message)
 	return st.NextErr()
+}
+
+func (st *mockState) ModelConfig() (*config.Config, error) {
+	st.MethodCall(st, "ModelConfig")
+	return st.modelConfig, st.NextErr()
+}
+
+func (st *mockState) MetricsManager() (*state.MetricsManager, error) {
+	st.MethodCall(st, "MetricsManager")
+	return nil, errors.New("nope")
 }
 
 type mockBlock struct {
