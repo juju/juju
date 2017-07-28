@@ -71,7 +71,7 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	charmcmd.RegisterSubCommand(resourcecmd.NewListCharmResourcesCommand())
+	charmcmd.RegisterSubCommand(resourcecmd.NewListCharmResourcesCommand(nil))
 
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return resourcecmd.NewUploadCommand(resourcecmd.UploadDeps{

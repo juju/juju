@@ -26,7 +26,3 @@ func UploadCommandService(c *UploadCommand) string {
 }
 
 var FormatServiceResources = formatServiceResources
-
-func SetResourceLister(c modelcmd.Command, lister ResourceLister) {
-	modelcmd.InnerCommand(c).(*ListCharmResourcesCommand).resourceLister = lister
-}
