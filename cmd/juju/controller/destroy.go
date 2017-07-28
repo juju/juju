@@ -190,6 +190,7 @@ upgrade the controller.
 		// Attempt to destroy the controller.
 		ctx.Infof("Destroying controller")
 		var hasHostedModels bool
+		var hasPersistentStorage bool
 		var destroyStorage *bool
 		if c.destroyStorage || c.releaseStorage {
 			// Set destroyStorage to true or false, if
@@ -204,6 +205,8 @@ upgrade the controller.
 		if err != nil {
 			if params.IsCodeHasHostedModels(err) {
 				hasHostedModels = true
+			} else if params.IsCodeHasPersistentStorage(err) {
+				hasPersistentStorage = true
 			} else {
 				return c.ensureUserFriendlyErrorLog(
 					errors.Annotate(err, "cannot destroy controller"),
@@ -225,6 +228,16 @@ upgrade the controller.
 				// try destroying again.
 				continue
 			}
+		}
+		if !c.destroyStorage && !c.releaseStorage && hasPersistentStorage {
+			if err := c.checkNoPersistentStorage(ctx, envStatus); err != nil {
+				return errors.Trace(err)
+			}
+			// When we called DestroyController before, we were
+			// informed that there was persistent storage remaining.
+			// When we checked just now, there was none. We should
+			// try destroying again.
+			continue
 		}
 
 		// Even if we've not just requested for hosted models to be destroyed,
@@ -275,6 +288,69 @@ Models:
 %s`, controllerName, buf.String())
 }
 
+// checkNoPersistentStorage ensures that the controller contains
+// no persistent storage. If there is any, a message is printed
+// out informing the user that they must choose to destroy or
+// release the storage.
+func (c *destroyCommand) checkNoPersistentStorage(ctx *cmd.Context, envStatus environmentStatus) error {
+	models := append([]modelData{envStatus.controller.Model}, envStatus.models...)
+
+	var modelsWithPersistentStorage int
+	var persistentVolumesTotal int
+	var persistentFilesystemsTotal int
+	for _, m := range models {
+		if m.PersistentVolumeCount+m.PersistentFilesystemCount == 0 {
+			continue
+		}
+		modelsWithPersistentStorage++
+		persistentVolumesTotal += m.PersistentVolumeCount
+		persistentFilesystemsTotal += m.PersistentFilesystemCount
+	}
+
+	var buf bytes.Buffer
+	if n := persistentVolumesTotal; n > 0 {
+		fmt.Fprintf(&buf, "%d volume", n)
+		if n > 1 {
+			buf.WriteRune('s')
+		}
+		if persistentFilesystemsTotal > 0 {
+			buf.WriteString(" and ")
+		}
+	}
+	if n := persistentFilesystemsTotal; n > 0 {
+		fmt.Fprintf(&buf, "%d filesystem", n)
+		if n > 1 {
+			buf.WriteRune('s')
+		}
+	}
+	buf.WriteRune(' ')
+	if n := modelsWithPersistentStorage; n == 1 {
+		buf.WriteString("in 1 model")
+	} else {
+		fmt.Fprintf(&buf, "across %d models", n)
+	}
+
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Errorf(`cannot destroy controller %q
+
+The controller has persistent storage remaining:
+	%s
+
+To destroy the storage, run the destroy-controller
+command again with the "--destroy-storage" flag.
+
+To release the storage from Juju's management
+without destroying it, use the "--release-storage"
+flag instead. The storage can then be imported
+into another Juju model.
+
+`, controllerName, buf.String())
+}
+
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
 // in a user-friendly manner with readable and digestable error message.
 func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.Context, api destroyControllerAPI) error {
@@ -302,16 +378,9 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 		}
 		return cmd.ErrSilent
 	}
-	if params.IsCodeHasHostedModels(destroyErr) {
-		return destroyErr
-	}
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if params.IsCodeHasPersistentStorage(destroyErr) {
-		ctx.Infof(destroyControllerStorageMessage, controllerName)
-		return cmd.ErrSilent
 	}
 	logger.Errorf(stdFailureMsg, controllerName)
 	return destroyErr
@@ -336,20 +405,6 @@ If the controller is unusable, then you may run
 to forcibly destroy the controller. Upon doing so, review
 your cloud provider console for any resources that need
 to be cleaned up.
-
-`
-
-const destroyControllerStorageMessage = `cannot destroy controller %q
-
-The controller has storage remaining.
-
-To destroy the storage, run the destroy-controller
-command again with the "--destroy-storage" flag.
-
-To release the storage from Juju's management
-without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
-into another Juju model.
 
 `
 

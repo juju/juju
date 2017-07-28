@@ -372,7 +372,7 @@ func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
 	_, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "ModelStatus", "Close")
+	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
 	destroyStorage := true
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyModels:  true,
@@ -540,11 +540,10 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 
 func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 	data := controller.CtrData{
-		"uuid",
-		string(params.Alive),
-		3,
-		20,
-		8,
+		UUID:               "uuid",
+		HostedModelCount:   3,
+		HostedMachineCount: 20,
+		ServiceCount:       8,
 	}
 	out := controller.FmtCtrStatus(data)
 	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 applications")
@@ -558,6 +557,8 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 		string(params.Dying),
 		8,
 		1,
+		0,
+		0,
 	}
 
 	out := controller.FmtModelStatus(data)

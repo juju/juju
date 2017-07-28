@@ -306,7 +306,7 @@ func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "ModelStatus", "Close")
+	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyModels: true,
 	})
@@ -334,6 +334,38 @@ func (s *DestroySuite) TestDestroyWithDestroyReleaseStorageFlag(c *gc.C) {
 func (s *DestroySuite) TestDestroyWithDestroyDestroyReleaseStorageFlagsMutuallyExclusive(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage", "--release-storage")
 	c.Assert(err, gc.ErrorMatches, "--destroy-storage and --release-storage cannot both be specified")
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc.C) {
+	var haveFilesystem bool
+	for uuid, status := range s.api.envStatus {
+		status.Life = string(params.Alive)
+		status.Volumes = append(status.Volumes, base.Volume{Detachable: true})
+		if !haveFilesystem {
+			haveFilesystem = true
+			status.Filesystems = append(
+				status.Filesystems, base.Filesystem{Detachable: true},
+			)
+		}
+		s.api.envStatus[uuid] = status
+	}
+
+	s.api.SetErrors(&params.Error{Code: params.CodeHasPersistentStorage})
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
+	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "test1"
+
+The controller has persistent storage remaining:
+	3 volumes and 1 filesystem across 3 models
+
+To destroy the storage, run the destroy-controller
+command again with the "--destroy-storage" flag.
+
+To release the storage from Juju's management
+without destroying it, use the "--release-storage"
+flag instead. The storage can then be imported
+into another Juju model.
+
+`)
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
@@ -402,10 +434,8 @@ func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
 		"DestroyController",
 		"AllModels",
 		"ModelStatus",
-		"ModelStatus",
 		"DestroyController",
 		"AllModels",
-		"ModelStatus",
 		"ModelStatus",
 		"Close",
 	)
