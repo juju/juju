@@ -319,8 +319,6 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
                         ' completes.')
     parser.add_argument('--existing', action='store_true',
                         help='Test against existing without bootstraping.')
-    parser.add_argument('--model', action='store',
-                        help='Target model, use with --existing')
     if deadline:
         parser.add_argument('--timeout', dest='deadline', type=_to_deadline,
                             help="The script timeout, in seconds.")

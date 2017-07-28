@@ -8,7 +8,7 @@ import logging
 import sys
 
 from deploy_stack import (
-    deploy_and_test,
+    get_client_and_test,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -43,7 +43,7 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    deploy_and_test(assess_TEMPLATE, args)
+    get_client_and_test(assess_TEMPLATE, args)
     return 0
 
 
