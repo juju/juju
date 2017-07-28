@@ -1917,7 +1917,7 @@ class ModelClient:
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
-                self._add_model(env.environment, config_file)
+            self._add_model(env.environment, config_file)
         return model_client
 
     def make_model_config(self):

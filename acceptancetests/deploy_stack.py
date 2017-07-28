@@ -583,9 +583,11 @@ class ExistingController:
         self.tear_down_client = tear_down_client
         _, _, self.old_model = client._backend.get_active_model(juju_data_dir)
 
-    def create_initial_model(self, upload_tools, model_name):
+    def create_initial_model(self, upload_tools):
         """Create the initial model."""
         self.client.add_model(self.client.env)
+        logging.info('Added model {} to existing controller'.format(
+            self.client.env.environment))
 
     def prepare(self):
         """Prepare client for use by killing the existing controller."""
@@ -601,6 +603,7 @@ class ExistingController:
 
     def tear_down(self, has_controller):
         """Tear down via client.tear_down."""
+        import pdb; pdb.set_trace()
         if has_controller:
             self.tear_down_client.tear_down()
         else:
@@ -1109,7 +1112,7 @@ class BootstrapManager:
             with self.top_context() as machines:
                 with self.runtime_context(machines):
                     self.controller_strategy.create_initial_model(
-                        upload_tools, env_name)
+                        upload_tools)
                     yield machines
         except LoggedException:
             sys.exit(1)
@@ -1225,3 +1228,15 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
         else:
             raise Exception(
                 '{} was not deleted:'.format(instance_id))
+
+
+def deploy_and_test(test, args):
+    if args.existing:
+        bs_manager = BootstrapManager.from_existing(args)
+        with bs_manager.existing_context(args.upload_tools,
+                                         args.temp_env_name):
+                test(bs_manager.client)
+    else:
+        bs_manager = BootstrapManager.from_args(args)
+        with bs_manager.booted_context(args.upload_tools):
+                test(bs_manager.client)
