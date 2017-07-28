@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	internalclient "github.com/juju/juju/resource/api/private/client"
-	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -71,18 +71,18 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	charmcmd.RegisterSubCommand(cmd.NewListCharmResourcesCommand())
+	charmcmd.RegisterSubCommand(resourcecmd.NewListCharmResourcesCommand())
 
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
-		return cmd.NewUploadCommand(cmd.UploadDeps{
-			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
+		return resourcecmd.NewUploadCommand(resourcecmd.UploadDeps{
+			NewClient: func(c *resourcecmd.UploadCommand) (resourcecmd.UploadClient, error) {
 				apiRoot, err := c.NewAPIRoot()
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
 				return resourceadapters.NewAPIClient(apiRoot)
 			},
-			OpenResource: func(s string) (cmd.ReadSeekCloser, error) {
+			OpenResource: func(s string) (resourcecmd.ReadSeekCloser, error) {
 				return os.Open(s)
 			},
 		})
@@ -90,8 +90,8 @@ func (r resources) registerPublicCommands() {
 	})
 
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
-		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
-			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
+		return resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+			NewClient: func(c *resourcecmd.ShowServiceCommand) (resourcecmd.ShowServiceClient, error) {
 				apiRoot, err := c.NewAPIRoot()
 				if err != nil {
 					return nil, errors.Trace(err)
