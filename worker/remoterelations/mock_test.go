@@ -247,13 +247,15 @@ type mockRemoteRelationsFacade struct {
 	mu   sync.Mutex
 	stub *testing.Stub
 	remoterelations.RemoteModelRelationsFacadeCloser
-	relationsUnitsWatchers map[string]*mockRelationUnitsWatcher
+	relationsUnitsWatchers  map[string]*mockRelationUnitsWatcher
+	relationsStatusWatchers map[string]*mockRelationStatusWatcher
 }
 
 func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade {
 	return &mockRemoteRelationsFacade{
 		stub: stub,
-		relationsUnitsWatchers: make(map[string]*mockRelationUnitsWatcher),
+		relationsUnitsWatchers:  make(map[string]*mockRelationUnitsWatcher),
+		relationsStatusWatchers: make(map[string]*mockRelationStatusWatcher),
 	}
 }
 
@@ -305,6 +307,24 @@ func (m *mockRemoteRelationsFacade) WatchRelationUnits(arg params.RemoteEntityAr
 	}
 	m.relationsUnitsWatchers[arg.Token] = newMockRelationUnitsWatcher()
 	return m.relationsUnitsWatchers[arg.Token], nil
+}
+
+func (m *mockRemoteRelationsFacade) relationsStatusWatcher(key string) (*mockRelationStatusWatcher, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	w, ok := m.relationsStatusWatchers[key]
+	return w, ok
+}
+
+func (m *mockRemoteRelationsFacade) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchRelationStatus", arg.Token, arg.Macaroons)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	m.relationsStatusWatchers[arg.Token] = newMockRelationStatusWatcher()
+	return m.relationsStatusWatchers[arg.Token], nil
 }
 
 // RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
@@ -400,6 +420,24 @@ func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 }
 
 func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
+	w.MethodCall(w, "Changes")
+	return w.changes
+}
+
+type mockRelationStatusWatcher struct {
+	mockWatcher
+	changes chan []watcher.RelationStatusChange
+}
+
+func newMockRelationStatusWatcher() *mockRelationStatusWatcher {
+	w := &mockRelationStatusWatcher{
+		changes: make(chan []watcher.RelationStatusChange, 1),
+	}
+	go w.doneWhenDying()
+	return w
+}
+
+func (w *mockRelationStatusWatcher) Changes() watcher.RelationStatusChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }

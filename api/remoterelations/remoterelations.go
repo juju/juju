@@ -252,7 +252,7 @@ func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeE
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("ConsumeRemoteRelationChange", args, &results)
+	err := c.facade.FacadeCall("ConsumeRemoteRelationChanges", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

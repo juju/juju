@@ -45,6 +45,10 @@ type RemoteModelRelationsFacade interface {
 
 	// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
 	RelationUnitSettings([]params.RemoteRelationUnit) ([]params.SettingsResult, error)
+
+	// WatchRemoteApplicationRelations starts a RelationStatusWatcher for watching the
+	// relations of each specified application in the remote model.
+	WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.

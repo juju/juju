@@ -376,9 +376,9 @@ func (api *RemoteRelationsAPI) WatchRemoteRelations() (params.StringsWatchResult
 	return params.StringsWatchResult{}, watcher.EnsureErr(w)
 }
 
-// ConsumeRemoteRelationChange consumes a change to settings originating
-// from the remote/offering side of a relation.
-func (api *RemoteRelationsAPI) ConsumeRemoteRelationChange(
+// ConsumeRemoteRelationChanges consumes changes to settings originating
+// from the remote/offering side of relations.
+func (api *RemoteRelationsAPI) ConsumeRemoteRelationChanges(
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{

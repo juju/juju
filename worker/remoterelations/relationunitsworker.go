@@ -84,7 +84,7 @@ func (w *relationUnitsWorker) loop() error {
 		case change, ok := <-w.ruw.Changes():
 			if !ok {
 				// We are dying.
-				continue
+				return w.catacomb.ErrDying()
 			}
 			logger.Debugf("relation units changed for %v: %#v", w.relationTag, change)
 			if evt, err := w.relationUnitsChangeEvent(change); err != nil {
