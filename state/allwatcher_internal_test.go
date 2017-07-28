@@ -1132,7 +1132,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				return 1
 			},
 		}, {
-			about: "statuses",
+			about: "machine agent status",
 			setUpState: func(st *State) int {
 				m, err := st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
@@ -1152,6 +1152,26 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 					Since:   &now,
 				}
 				err = m.SetStatus(sInfo)
+				c.Assert(err, jc.ErrorIsNil)
+				return 1
+			},
+		}, {
+			about: "instance status",
+			setUpState: func(st *State) int {
+				m, err := st.AddMachine("trusty", JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(m.Id(), gc.Equals, "0")
+				return 1
+			},
+			triggerEvent: func(st *State) int {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				now := testing.ZeroTime()
+				m.SetInstanceStatus(status.StatusInfo{
+					Status:  status.Error,
+					Message: "pete tong",
+					Since:   &now,
+				})
 				c.Assert(err, jc.ErrorIsNil)
 				return 1
 			},
