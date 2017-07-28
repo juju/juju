@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func ListCharmResourcesCommandChannel(c *ListCharmResourcesCommand) string {
+func ListCharmResourcesCommandChannel(c modelcmd.Command) string {
 	return modelcmd.InnerCommand(c).(*ListCharmResourcesCommand).channel
 }
 
