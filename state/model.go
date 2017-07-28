@@ -882,7 +882,7 @@ func (m *Model) Destroy(args DestroyModelParams) (err error) {
 			}
 		}
 
-		ops, err := m.destroyOps(args, false)
+		ops, err := m.destroyOps(args, false, false)
 		if err == errModelNotAlive {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -938,7 +938,16 @@ type modelNotEmptyError struct {
 //
 // If ensureEmpty is true, then destroyOps will return an error
 // if the model is non-empty.
-func (m *Model) destroyOps(args DestroyModelParams, ensureEmpty bool) ([]txn.Op, error) {
+//
+// If destroyingController is true, then destroyOps will progress
+// empty models to Dead, but otherwise will return only non-mutating
+// ops to assert the current state of the model, and will leave it
+// to the "models" cleanup to destroy the model.
+func (m *Model) destroyOps(
+	args DestroyModelParams,
+	ensureEmpty bool,
+	destroyingController bool,
+) ([]txn.Op, error) {
 	if m.Life() != Alive {
 		return nil, errModelNotAlive
 	}
@@ -1008,8 +1017,11 @@ func (m *Model) destroyOps(args DestroyModelParams, ensureEmpty bool) ([]txn.Op,
 				continue
 			}
 			// See if the model is empty, and if it is,
-			// get the ops required to destroy it.
-			ops, err := model.destroyOps(args, !args.DestroyHostedModels)
+			// get the ops required to ensure it can be
+			// destroyed, but without effecting the
+			// destruction. The destruction is carried
+			// out by the cleanup.
+			ops, err := model.destroyOps(args, !args.DestroyHostedModels, true)
 			switch err {
 			case errModelNotAlive:
 				dying++
@@ -1044,23 +1056,36 @@ func (m *Model) destroyOps(args DestroyModelParams, ensureEmpty bool) ([]txn.Op,
 		)
 	}
 
-	timeOfDying := m.globalState.nowToTheSecond()
-	modelUpdateValues := bson.D{
-		{"life", nextLife},
-		{"time-of-dying", timeOfDying},
-	}
-	if nextLife == Dead {
-		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
-			"time-of-death", timeOfDying,
-		})
-	}
-
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
-		Update: bson.D{{"$set", modelUpdateValues}},
 	}}
+	if !destroyingController || nextLife == Dead {
+		timeOfDying := m.globalState.nowToTheSecond()
+		modelUpdateValues := bson.D{
+			{"life", nextLife},
+			{"time-of-dying", timeOfDying},
+		}
+		if nextLife == Dead {
+			modelUpdateValues = append(modelUpdateValues, bson.DocElem{
+				"time-of-death", timeOfDying,
+			})
+		}
+		ops[0].Update = bson.D{{"$set", modelUpdateValues}}
+	} else {
+		// We're destroying the controller, and we're not
+		// progressing the model directly to Dead. We leave
+		// it to the "models" cleanup to destroy the model.
+	}
+	if destroyingController {
+		// We're destroying the controller model, and being asked
+		// to check the validity of destroying hosted models,
+		// progressing empty models to Dead. We don't want to
+		// include the cleanups below, as they assume we're
+		// destroying the model.
+		return append(prereqOps, ops...), nil
+	}
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op

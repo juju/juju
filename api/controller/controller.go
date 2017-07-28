@@ -123,15 +123,35 @@ func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
 	return hostedConfigs, err
 }
 
+// DestroyControllerParams controls the behaviour of destroying the controller.
+type DestroyControllerParams struct {
+	// DestroyModels controls whether or not all hosted models should be
+	// destroyed. If this is false, and there are non-empty hosted models,
+	// an error with the code params.CodeHasHostedModels will be returned.
+	DestroyModels bool
+
+	// DestroyStorage controls whether or not storage in the model (and
+	// hosted models, if DestroyModels is true) should be destroyed.
+	//
+	// This is ternary: nil, false, or true. If nil and there is persistent
+	// storage in the model (or hosted models), an error with the code
+	// params.CodeHasPersistentStorage will be returned.
+	DestroyStorage *bool
+}
+
 // DestroyController puts the controller model into a "dying" state,
-// and removes all non-manager machine instances. Underlying DestroyModel
-// calls will fail if there are any manually-provisioned non-manager machines
-// in state.
-func (c *Client) DestroyController(destroyModels bool) error {
-	args := params.DestroyControllerArgs{
-		DestroyModels: destroyModels,
+// and removes all non-manager machine instances.
+func (c *Client) DestroyController(args DestroyControllerParams) error {
+	if c.BestAPIVersion() < 4 {
+		if args.DestroyStorage == nil || !*args.DestroyStorage {
+			return errors.New("this Juju controller requires DestroyStorage to be true")
+		}
+		args.DestroyStorage = nil
 	}
-	return c.facade.FacadeCall("DestroyController", args, nil)
+	return c.facade.FacadeCall("DestroyController", params.DestroyControllerArgs{
+		DestroyModels:  args.DestroyModels,
+		DestroyStorage: args.DestroyStorage,
+	}, nil)
 }
 
 // ListBlockedModels returns a list of all models within the controller

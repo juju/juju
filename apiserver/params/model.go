@@ -218,6 +218,22 @@ type MachineHardware struct {
 	AvailabilityZone *string   `json:"availability-zone,omitempty"`
 }
 
+// ModelVolumeInfo holds information about a volume in a model.
+type ModelVolumeInfo struct {
+	Id         string `json:"id"`
+	ProviderId string `json:"provider-id,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Detachable bool   `json:"detachable,omitempty"`
+}
+
+// ModelFilesystemInfo holds information about a filesystem in a model.
+type ModelFilesystemInfo struct {
+	Id         string `json:"id"`
+	ProviderId string `json:"provider-id,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Detachable bool   `json:"detachable,omitempty"`
+}
+
 // ModelUserInfo holds information on a user who has access to a
 // model. Owners of a model can see this information for all users
 // who have access, so it should not include sensitive information.

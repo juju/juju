@@ -582,6 +582,16 @@ func (st *mockState) AllApplications() ([]common.Application, error) {
 	return nil, st.NextErr()
 }
 
+func (st *mockState) AllVolumes() ([]state.Volume, error) {
+	st.MethodCall(st, "AllVolumes")
+	return nil, st.NextErr()
+}
+
+func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
+	st.MethodCall(st, "AllFilesystems")
+	return nil, st.NextErr()
+}
+
 func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
 	st.MethodCall(st, "IsControllerAdmin", user)
 	if st.controllerModel == nil {

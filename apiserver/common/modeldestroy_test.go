@@ -10,57 +10,149 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/testing"
 )
 
 type destroyModelSuite struct {
-	testing.JujuConnSuite
-	commontesting.BlockHelper
-	modelManager common.ModelManagerBackend
+	jtesting.IsolationSuite
+
+	modelManager *mockModelManager
+	metricSender *testMetricSender
 }
 
 var _ = gc.Suite(&destroyModelSuite{})
 
 func (s *destroyModelSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.modelManager = common.NewModelManagerBackend(s.State)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+	s.IsolationSuite.SetUpTest(c)
+
+	otherModelTag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f33d")
+	s.modelManager = &mockModelManager{
+		models: []*mockModel{
+			{tag: testing.ModelTag},
+			{tag: otherModelTag},
+		},
+	}
+	s.metricSender = &testMetricSender{}
+	s.PatchValue(common.SendMetrics, s.metricSender.SendMetrics)
 }
 
-// setUpInstances adds machines to state backed by instances:
-// one manager machine, one non-manager, and a container in the
-// non-manager.
-func (s *destroyModelSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageModel)
+func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
+	err := common.DestroyModel(s.modelManager)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m0.Id())
-	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{
+		{"SendMetrics", []interface{}{s.modelManager}},
+	})
+}
+
+func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
+	err := common.DestroyModel(s.modelManager)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	inst, _ = testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m1.Id())
-	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)
+	s.modelManager.CheckCalls(c, []jtesting.StubCall{
+		{"GetBlockForType", []interface{}{state.DestroyBlock}},
+		{"GetBlockForType", []interface{}{state.RemoveBlock}},
+		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+		{"Model", nil},
+	})
+
+	destroyStorage := true
+	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Destroy", []interface{}{state.DestroyModelParams{
+			DestroyStorage: &destroyStorage,
+		}}},
+	})
+}
+
+func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
+	s.modelManager.SetErrors(errors.New("nope"))
+
+	err := common.DestroyModel(s.modelManager)
+	c.Assert(err, gc.ErrorMatches, "nope")
+
+	s.modelManager.CheckCallNames(c, "GetBlockForType")
+	s.modelManager.models[0].CheckNoCalls(c)
+}
+
+func (s *destroyModelSuite) TestDestroyControllerNonControllerModel(c *gc.C) {
+	s.modelManager.models[0].tag = s.modelManager.models[1].tag
+	err := common.DestroyController(s.modelManager, false, nil)
+	c.Assert(err, gc.ErrorMatches, `expected state for controller model UUID deadbeef-0bad-400d-8000-4b1d0d06f33d, got deadbeef-0bad-400d-8000-4b1d0d06f00d`)
+}
+
+func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
+	err := common.DestroyController(s.modelManager, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Series: "precise",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, m1.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetProvisioned("container0", "fake_nonce", nil)
+	s.modelManager.CheckCalls(c, []jtesting.StubCall{
+		{"ControllerModel", nil},
+		{"GetBlockForType", []interface{}{state.DestroyBlock}},
+		{"GetBlockForType", []interface{}{state.RemoveBlock}},
+		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+		{"Model", nil},
+	})
+	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Destroy", []interface{}{state.DestroyModelParams{}}},
+	})
+}
+
+func (s *destroyModelSuite) TestDestroyControllerReleaseStorage(c *gc.C) {
+	destroyStorage := false
+	err := common.DestroyController(s.modelManager, false, &destroyStorage)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return m0, m1, m2
+	s.modelManager.CheckCalls(c, []jtesting.StubCall{
+		{"ControllerModel", nil},
+		{"GetBlockForType", []interface{}{state.DestroyBlock}},
+		{"GetBlockForType", []interface{}{state.RemoveBlock}},
+		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+		{"Model", nil},
+	})
+	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Destroy", []interface{}{state.DestroyModelParams{
+			DestroyStorage: &destroyStorage,
+		}}},
+	})
+}
+
+func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
+	err := common.DestroyController(s.modelManager, true, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelManager.CheckCalls(c, []jtesting.StubCall{
+		{"ControllerModel", nil},
+		{"AllModels", nil},
+
+		{"ForModel", []interface{}{s.modelManager.models[0].tag}},
+		{"GetBlockForType", []interface{}{state.DestroyBlock}},
+		{"GetBlockForType", []interface{}{state.RemoveBlock}},
+		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+
+		{"ForModel", []interface{}{s.modelManager.models[1].tag}},
+		{"GetBlockForType", []interface{}{state.DestroyBlock}},
+		{"GetBlockForType", []interface{}{state.RemoveBlock}},
+		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+
+		{"GetBlockForType", []interface{}{state.DestroyBlock}},
+		{"GetBlockForType", []interface{}{state.RemoveBlock}},
+		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+		{"Model", nil},
+		{"Close", nil},
+		{"Close", nil},
+	})
+	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Destroy", []interface{}{state.DestroyModelParams{
+			DestroyHostedModels: true,
+		}}},
+	})
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{
+		// One call per hosted model, and one for the controller model.
+		{"SendMetrics", []interface{}{s.modelManager}},
+		{"SendMetrics", []interface{}{s.modelManager}},
+		{"SendMetrics", []interface{}{s.modelManager}},
+	})
 }
 
 type testMetricSender struct {
@@ -68,311 +160,66 @@ type testMetricSender struct {
 }
 
 func (t *testMetricSender) SendMetrics(st metricsender.ModelBackend) error {
-	t.AddCall("SendMetrics")
-	return nil
+	t.MethodCall(t, "SendMetrics", st)
+	return t.NextErr()
 }
 
-func (s *destroyModelSuite) TestMetrics(c *gc.C) {
-	metricSender := &testMetricSender{}
-	s.PatchValue(common.SendMetrics, metricSender.SendMetrics)
+type mockModelManager struct {
+	common.ModelManagerBackend
+	jtesting.Stub
 
-	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	metricSender.CheckCalls(c, []jtesting.StubCall{{
-		FuncName: "SendMetrics",
-	}})
+	models []*mockModel
 }
 
-func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
-	manager, nonManager, _ := s.setUpInstances(c)
-	managerId, _ := manager.InstanceId()
-	nonManagerId, _ := nonManager.InstanceId()
-
-	instances, err := s.Environ.Instances([]instance.Id{managerId, nonManagerId})
-	c.Assert(err, jc.ErrorIsNil)
-	for _, inst := range instances {
-		c.Assert(inst, gc.NotNil)
+func (m *mockModelManager) AllModels() ([]common.Model, error) {
+	m.MethodCall(m, "AllModels")
+	models := make([]common.Model, len(m.models))
+	for i, model := range m.models {
+		models[i] = model
 	}
-
-	services, err := s.State.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	runAllCleanups(c, s.State)
-
-	// After DestroyModel returns and all cleanup jobs have run, we should have:
-	//   - all non-manager machines dying
-	assertLife(c, manager, state.Alive)
-	// Note: we leave the machine in a dead state and rely on the provisioner
-	// to stop the backing instances, remove the dead machines and finally
-	// remove all model docs from state.
-	assertLife(c, nonManager, state.Dead)
-
-	//   - all services in state are Dying or Dead (or removed altogether),
-	//     after running the state Cleanups.
-	for _, s := range services {
-		err = s.Refresh()
-		if err != nil {
-			c.Assert(err, jc.Satisfies, errors.IsNotFound)
-		} else {
-			c.Assert(s.Life(), gc.Not(gc.Equals), state.Alive)
-		}
-	}
-	//   - model is Dying or Dead.
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
+	return models, m.NextErr()
 }
 
-func (s *destroyModelSuite) TestDestroyImportingModel(c *gc.C) {
-	modelSt := s.Factory.MakeModel(c, nil)
-	defer modelSt.Close()
-
-	model, err := modelSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = common.DestroyModel(s.modelManager, model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
+func (m *mockModelManager) ControllerModel() (common.Model, error) {
+	m.MethodCall(m, "ControllerModel")
+	return m.models[0], m.NextErr()
 }
 
-func assertLife(c *gc.C, entity state.Living, life state.Life) {
-	err := entity.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.Life(), gc.Equals, life)
+func (m *mockModelManager) ModelTag() names.ModelTag {
+	return testing.ModelTag
 }
 
-func (s *destroyModelSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
-	// Setup model
-	s.setUpInstances(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyDestroyModel")
-	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	s.AssertBlocked(c, err, "TestBlockDestroyDestroyModel")
+func (m *mockModelManager) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	m.MethodCall(m, "GetBlockForType", t)
+	return nil, false, m.NextErr()
 }
 
-func (s *destroyModelSuite) TestBlockDestroyDestroyHostedModel(c *gc.C) {
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
-	info := s.APIInfo(c)
-	info.ModelTag = otherSt.ModelTag()
-	apiState, err := api.Open(info, api.DefaultDialOpts())
-
-	block := commontesting.NewBlockHelper(apiState)
-	defer block.Close()
-
-	block.BlockDestroyModel(c, "TestBlockDestroyDestroyModel")
-	err = common.DestroyModelIncludingHosted(s.modelManager, s.State.ModelTag())
-	s.AssertBlocked(c, err, "TestBlockDestroyDestroyModel")
+func (m *mockModelManager) Model() (common.Model, error) {
+	m.MethodCall(m, "Model")
+	return m.models[0], m.NextErr()
 }
 
-func (s *destroyModelSuite) TestBlockRemoveDestroyModel(c *gc.C) {
-	// Setup model
-	s.setUpInstances(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveDestroyModel")
-	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	s.AssertBlocked(c, err, "TestBlockRemoveDestroyModel")
+func (m *mockModelManager) ForModel(tag names.ModelTag) (common.ModelManagerBackend, error) {
+	m.MethodCall(m, "ForModel", tag)
+	return m, m.NextErr()
 }
 
-func (s *destroyModelSuite) TestBlockChangesDestroyModel(c *gc.C) {
-	// Setup model
-	s.setUpInstances(c)
-	// lock model: can't destroy locked model
-	s.BlockAllChanges(c, "TestBlockChangesDestroyModel")
-	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	s.AssertBlocked(c, err, "TestBlockChangesDestroyModel")
+func (m *mockModelManager) Close() error {
+	m.MethodCall(m, "Close")
+	return m.NextErr()
 }
 
-type destroyTwoModelsSuite struct {
-	testing.JujuConnSuite
-	otherState      *state.State
-	otherModelOwner names.UserTag
-
-	modelManager      common.ModelManagerBackend
-	otherModelManager common.ModelManagerBackend
+type mockModel struct {
+	common.Model
+	jtesting.Stub
+	tag names.ModelTag
 }
 
-var _ = gc.Suite(&destroyTwoModelsSuite{})
-
-func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	_, err := s.State.AddUser("jess", "jess", "", "test")
-	c.Assert(err, jc.ErrorIsNil)
-	s.otherModelOwner = names.NewUserTag("jess")
-	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
-		Owner: s.otherModelOwner,
-		ConfigAttrs: jujutesting.Attrs{
-			"controller": false,
-		},
-	})
-	s.modelManager = common.NewModelManagerBackend(s.State)
-	s.otherModelManager = common.NewModelManagerBackend(s.otherState)
-	s.AddCleanup(func(*gc.C) { s.otherState.Close() })
+func (m *mockModel) ModelTag() names.ModelTag {
+	return m.tag
 }
 
-func (s *destroyTwoModelsSuite) TestCleanupModelResources(c *gc.C) {
-	otherFactory := factory.NewFactory(s.otherState)
-	m := otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachineNested(c, m.Id(), nil)
-
-	err := common.DestroyModel(s.otherModelManager, s.otherState.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Assert that the machines are not removed until the cleanup runs.
-	c.Assert(m.Refresh(), jc.ErrorIsNil)
-	assertMachineCount(c, s.otherState, 2)
-	runAllCleanups(c, s.otherState)
-	assertAllMachinesDeadAndRemove(c, s.otherState)
-
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(otherModel.Life(), gc.Equals, state.Dying)
-
-	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(otherModel.Refresh(), jc.ErrorIsNil)
-	c.Assert(otherModel.Life(), gc.Equals, state.Dead)
-
-}
-
-// The provisioner will remove dead machines once their backing instances are
-// stopped. For the tests, we remove them directly.
-func assertAllMachinesDeadAndRemove(c *gc.C, st *state.State) {
-	machines, err := st.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, m := range machines {
-		if m.IsManager() {
-			continue
-		}
-		if _, isContainer := m.ParentId(); isContainer {
-			continue
-		}
-		manual, err := m.IsManual()
-		c.Assert(err, jc.ErrorIsNil)
-		if manual {
-			continue
-		}
-
-		c.Assert(m.Life(), gc.Equals, state.Dead)
-		c.Assert(m.Remove(), jc.ErrorIsNil)
-	}
-}
-
-func (s *destroyTwoModelsSuite) TestDifferentStateModel(c *gc.C) {
-	otherFactory := factory.NewFactory(s.otherState)
-	otherFactory.MakeMachine(c, nil)
-	m := otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachineNested(c, m.Id(), nil)
-
-	// NOTE: pass in the main test State instance, which is 'bound'
-	// to the controller model.
-	err := common.DestroyModel(s.modelManager, s.otherState.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	runAllCleanups(c, s.otherState)
-	assertAllMachinesDeadAndRemove(c, s.otherState)
-
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(otherModel.Refresh(), jc.ErrorIsNil)
-	c.Assert(otherModel.Life(), gc.Equals, state.Dead)
-
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Alive)
-}
-
-func (s *destroyTwoModelsSuite) TestDestroyControllerAfterNonControllerIsDestroyed(c *gc.C) {
-	otherFactory := factory.NewFactory(s.otherState)
-	otherFactory.MakeMachine(c, nil)
-	m := otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachineNested(c, m.Id(), nil)
-
-	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
-
-	needsCleanup, err := s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needsCleanup, jc.IsFalse)
-
-	err = common.DestroyModel(s.modelManager, s.otherState.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The hosted model is Dying, not Dead; we cannot destroy
-	// the controller model until all hosted models are Dead.
-	err = common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
-
-	// Continue to take the hosted model down so we can
-	// destroy the controller model.
-	runAllCleanups(c, s.otherState)
-	assertAllMachinesDeadAndRemove(c, s.otherState)
-	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
-
-	err = common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	otherEnv, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
-
-	env, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
-	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(env.Refresh(), jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dead)
-}
-
-func (s *destroyTwoModelsSuite) TestDestroyControllerAndNonController(c *gc.C) {
-	otherFactory := factory.NewFactory(s.otherState)
-	otherFactory.MakeMachine(c, nil)
-	m := otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachineNested(c, m.Id(), nil)
-
-	err := common.DestroyModelIncludingHosted(s.modelManager, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	runAllCleanups(c, s.State)
-	runAllCleanups(c, s.otherState)
-	assertAllMachinesDeadAndRemove(c, s.otherState)
-
-	// Make sure we can continue to take the hosted model down while the
-	// controller model is dying.
-	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
-}
-
-func (s *destroyTwoModelsSuite) TestCanDestroyNonBlockedModel(c *gc.C) {
-	bh := commontesting.NewBlockHelper(s.APIState)
-	defer bh.Close()
-
-	bh.BlockDestroyModel(c, "TestBlockDestroyDestroyModel")
-
-	err := common.DestroyModel(s.modelManager, s.otherState.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = common.DestroyModel(s.modelManager, s.State.ModelTag())
-	bh.AssertBlocked(c, err, "TestBlockDestroyDestroyModel")
-}
-
-func runAllCleanups(c *gc.C, st *state.State) {
-	needCleanup, err := st.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for needCleanup {
-		err := st.Cleanup()
-		c.Assert(err, jc.ErrorIsNil)
-		needCleanup, err = st.NeedsCleanup()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func assertMachineCount(c *gc.C, st *state.State, count int) {
-	otherMachines, err := st.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(otherMachines, gc.HasLen, count)
+func (m *mockModel) Destroy(args state.DestroyModelParams) error {
+	m.MethodCall(m, "Destroy", args)
+	return m.NextErr()
 }

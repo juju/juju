@@ -31,25 +31,13 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
-// Controller defines the methods on the controller API end point.
-type Controller interface {
-	AllModels() (params.UserModelList, error)
-	DestroyController(args params.DestroyControllerArgs) error
-	ModelConfig() (params.ModelConfigResults, error)
-	HostedModelConfigs() (params.HostedModelConfigsResults, error)
-	GetControllerAccess(params.Entities) (params.UserAccessResults, error)
-	ControllerConfig() (params.ControllerConfigResult, error)
-	ListBlockedModels() (params.ModelBlockInfoList, error)
-	RemoveBlocks(args params.RemoveBlocksArgs) error
-	WatchAllModels() (params.AllWatcherId, error)
-	ModelStatus(params.Entities) (params.ModelStatusResults, error)
-	InitiateMigration(params.InitiateMigrationArgs) (params.InitiateMigrationResults, error)
-	ModifyControllerAccess(params.ModifyControllerAccessRequest) (params.ErrorResults, error)
+// ControllerAPIv4 provides the v4 Controller API.
+type ControllerAPIv4 struct {
+	*ControllerAPIv3
 }
 
-// ControllerAPI implements the environment manager interface and is
-// the concrete implementation of the api end point.
-type ControllerAPI struct {
+// ControllerAPIv3 provides the v3 Controller API.
+type ControllerAPIv3 struct {
 	*common.ControllerConfigAPI
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecAPI
@@ -61,11 +49,17 @@ type ControllerAPI struct {
 	resources  facade.Resources
 }
 
-var _ Controller = (*ControllerAPI)(nil)
+// NewControllerAPIv4 creates a new ControllerAPIv4.
+func NewControllerAPIv4(ctx facade.Context) (*ControllerAPIv4, error) {
+	v3, err := NewControllerAPIv3(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv4{v3}, nil
+}
 
-// NewControllerAPI creates a new api server endpoint for managing
-// environments.
-func NewControllerAPI(ctx facade.Context) (*ControllerAPI, error) {
+// NewControllerAPIv3 creates a new ControllerAPIv3.
+func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
@@ -77,7 +71,7 @@ func NewControllerAPI(ctx facade.Context) (*ControllerAPI, error) {
 
 	st := ctx.State()
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
-	return &ControllerAPI{
+	return &ControllerAPIv3{
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(st),
@@ -94,7 +88,7 @@ func NewControllerAPI(ctx facade.Context) (*ControllerAPI, error) {
 	}, nil
 }
 
-func (s *ControllerAPI) checkHasAdmin() error {
+func (s *ControllerAPIv3) checkHasAdmin() error {
 	isAdmin, err := s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -107,7 +101,7 @@ func (s *ControllerAPI) checkHasAdmin() error {
 
 // AllModels allows controller administrators to get the list of all the
 // models in the controller.
-func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
+func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
 	if err := s.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
@@ -168,7 +162,7 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 // which have a block in place.  The resulting slice is sorted by environment
 // name, then owner. Callers must be controller administrators to retrieve the
 // list.
-func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
+func (s *ControllerAPIv3) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
 	if err := s.checkHasAdmin(); err != nil {
 		return results, errors.Trace(err)
@@ -213,7 +207,7 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 // ModelConfig returns the environment config for the controller
 // environment.  For information on the current environment, use
 // client.ModelGet
-func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
+func (s *ControllerAPIv3) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := s.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
@@ -241,7 +235,7 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 // HostedModelConfigs returns all the information that the client needs in
 // order to connect directly with the host model's provider and destroy it
 // directly.
-func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, error) {
+func (s *ControllerAPIv3) HostedModelConfigs() (params.HostedModelConfigsResults, error) {
 	result := params.HostedModelConfigsResults{}
 	if err := s.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
@@ -282,7 +276,7 @@ func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 }
 
 // RemoveBlocks removes all the blocks in the controller.
-func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+func (s *ControllerAPIv3) RemoveBlocks(args params.RemoveBlocksArgs) error {
 	if err := s.checkHasAdmin(); err != nil {
 		return errors.Trace(err)
 	}
@@ -296,7 +290,7 @@ func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 // WatchAllModels starts watching events for all models in the
 // controller. The returned AllWatcherId should be used with Next on the
 // AllModelWatcher endpoint to receive deltas.
-func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
+func (c *ControllerAPIv3) WatchAllModels() (params.AllWatcherId, error) {
 	if err := c.checkHasAdmin(); err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
@@ -335,7 +329,7 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 
 // GetControllerAccess returns the level of access the specifed users
 // have on the controller.
-func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
+func (c *ControllerAPIv3) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
 	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil {
@@ -368,7 +362,7 @@ func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAcc
 
 // InitiateMigration attempts to begin the migration of one or
 // more models to other controllers.
-func (c *ControllerAPI) InitiateMigration(reqArgs params.InitiateMigrationArgs) (
+func (c *ControllerAPIv3) InitiateMigration(reqArgs params.InitiateMigrationArgs) (
 	params.InitiateMigrationResults, error,
 ) {
 	out := params.InitiateMigrationResults{
@@ -391,7 +385,7 @@ func (c *ControllerAPI) InitiateMigration(reqArgs params.InitiateMigrationArgs) 
 	return out, nil
 }
 
-func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string, error) {
+func (c *ControllerAPIv3) initiateOneMigration(spec params.MigrationSpec) (string, error) {
 	modelTag, err := names.ParseModelTag(spec.ModelTag)
 	if err != nil {
 		return "", errors.Annotate(err, "model tag")
@@ -450,7 +444,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 }
 
 // ModifyControllerAccess changes the model access granted to users.
-func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAccessRequest) (params.ErrorResults, error) {
+func (c *ControllerAPIv3) ModifyControllerAccess(args params.ModifyControllerAccessRequest) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}

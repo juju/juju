@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/cmdtest"
@@ -371,7 +372,12 @@ func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
 	_, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.destroyAll, jc.IsTrue)
+	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
+	destroyStorage := true
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -399,7 +405,6 @@ func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error\nDestroying through provider")
-	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
@@ -535,11 +540,10 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 
 func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 	data := controller.CtrData{
-		"uuid",
-		string(params.Alive),
-		3,
-		20,
-		8,
+		UUID:               "uuid",
+		HostedModelCount:   3,
+		HostedMachineCount: 20,
+		ServiceCount:       8,
 	}
 	out := controller.FmtCtrStatus(data)
 	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 applications")
@@ -553,6 +557,8 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 		string(params.Dying),
 		8,
 		1,
+		0,
+		0,
 	}
 
 	out := controller.FmtModelStatus(data)

@@ -32,6 +32,8 @@ type ModelStatus struct {
 	HostedMachineCount int
 	ServiceCount       int
 	Machines           []Machine
+	Volumes            []Volume
+	Filesystems        []Filesystem
 }
 
 // Machine holds information about a machine in a juju model.
@@ -76,4 +78,20 @@ type UserInfo struct {
 	DisplayName    string
 	LastConnection *time.Time
 	Access         string
+}
+
+// Volume holds information about a volume in a juju model.
+type Volume struct {
+	Id         string
+	ProviderId string
+	Status     string
+	Detachable bool
+}
+
+// Filesystem holds information about a filesystem in a juju model.
+type Filesystem struct {
+	Id         string
+	ProviderId string
+	Status     string
+	Detachable bool
 }

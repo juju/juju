@@ -55,13 +55,17 @@ type baseDestroySuite struct {
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	gitjujutesting.Stub
-	cloud        environs.CloudSpec
-	env          map[string]interface{}
-	destroyAll   bool
-	blocks       []params.ModelBlockInfo
-	envStatus    map[string]base.ModelStatus
-	allModels    []base.UserModel
-	hostedConfig []apicontroller.HostedConfig
+	cloud          environs.CloudSpec
+	env            map[string]interface{}
+	blocks         []params.ModelBlockInfo
+	envStatus      map[string]base.ModelStatus
+	allModels      []base.UserModel
+	hostedConfig   []apicontroller.HostedConfig
+	bestAPIVersion int
+}
+
+func (f *fakeDestroyAPI) BestAPIVersion() int {
+	return f.bestAPIVersion
 }
 
 func (f *fakeDestroyAPI) Close() error {
@@ -93,9 +97,8 @@ func (f *fakeDestroyAPI) HostedModelConfigs() ([]apicontroller.HostedConfig, err
 	return f.hostedConfig, nil
 }
 
-func (f *fakeDestroyAPI) DestroyController(destroyAll bool) error {
-	f.MethodCall(f, "DestroyController", destroyAll)
-	f.destroyAll = destroyAll
+func (f *fakeDestroyAPI) DestroyController(args apicontroller.DestroyControllerParams) error {
+	f.MethodCall(f, "DestroyController", args)
 	return f.NextErr()
 }
 
@@ -156,8 +159,9 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
-		cloud:     dummy.SampleCloudSpec(),
-		envStatus: map[string]base.ModelStatus{},
+		cloud:          dummy.SampleCloudSpec(),
+		envStatus:      map[string]base.ModelStatus{},
+		bestAPIVersion: 4,
 	}
 	s.apierror = nil
 
@@ -288,7 +292,6 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -296,7 +299,6 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -304,8 +306,82 @@ func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.destroyAll, jc.IsTrue)
+	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		DestroyModels: true,
+	})
 	checkControllerRemovedFromStore(c, "test1", s.store)
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	destroyStorage := true
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		DestroyStorage: &destroyStorage,
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyReleaseStorageFlag(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--release-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	destroyStorage := false
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		DestroyStorage: &destroyStorage,
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyReleaseStorageFlagsMutuallyExclusive(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage", "--release-storage")
+	c.Assert(err, gc.ErrorMatches, "--destroy-storage and --release-storage cannot both be specified")
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc.C) {
+	var haveFilesystem bool
+	for uuid, status := range s.api.envStatus {
+		status.Life = string(params.Alive)
+		status.Volumes = append(status.Volumes, base.Volume{Detachable: true})
+		if !haveFilesystem {
+			haveFilesystem = true
+			status.Filesystems = append(
+				status.Filesystems, base.Filesystem{Detachable: true},
+			)
+		}
+		s.api.envStatus[uuid] = status
+	}
+
+	s.api.SetErrors(&params.Error{Code: params.CodeHasPersistentStorage})
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
+	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "test1"
+
+The controller has persistent storage remaining:
+	3 volumes and 1 filesystem across 3 models
+
+To destroy the storage, run the destroy-controller
+command again with the "--destroy-storage" flag.
+
+To release the storage from Juju's management
+without destroying it, use the "--release-storage"
+flag instead. The storage can then be imported
+into another Juju model.
+
+`)
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
+	s.api.bestAPIVersion = 3
+	ctx, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `this juju controller only supports destroying storage
+
+Please run the the command again with --destroy-storage,
+to confirm that you want to destroy the storage along
+with the controller.
+
+If instead you want to keep the storage, you must first
+upgrade the controller.
+
+`)
 }
 
 func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
@@ -321,7 +397,6 @@ func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
 	s.api.SetErrors(errors.New("permission denied"))
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
-	c.Assert(s.api.destroyAll, jc.IsFalse)
 	checkControllerExistsInStore(c, "test1", s.store)
 }
 
@@ -359,10 +434,8 @@ func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
 		"DestroyController",
 		"AllModels",
 		"ModelStatus",
-		"ModelStatus",
 		"DestroyController",
 		"AllModels",
-		"ModelStatus",
 		"ModelStatus",
 		"Close",
 	)

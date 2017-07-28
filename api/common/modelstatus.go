@@ -48,6 +48,26 @@ func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", r.OwnerTag, i)
 		}
 
+		volumes := make([]base.Volume, len(r.Volumes))
+		for i, in := range r.Volumes {
+			volumes[i] = base.Volume{
+				Id:         in.Id,
+				ProviderId: in.ProviderId,
+				Status:     in.Status,
+				Detachable: in.Detachable,
+			}
+		}
+
+		filesystems := make([]base.Filesystem, len(r.Filesystems))
+		for i, in := range r.Filesystems {
+			filesystems[i] = base.Filesystem{
+				Id:         in.Id,
+				ProviderId: in.ProviderId,
+				Status:     in.Status,
+				Detachable: in.Detachable,
+			}
+		}
+
 		results[i] = base.ModelStatus{
 			UUID:               model.Id(),
 			Life:               string(r.Life),
@@ -55,6 +75,8 @@ func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 			HostedMachineCount: r.HostedMachineCount,
 			ServiceCount:       r.ApplicationCount,
 			TotalMachineCount:  len(r.Machines),
+			Volumes:            volumes,
+			Filesystems:        filesystems,
 		}
 		results[i].Machines = make([]base.Machine, len(r.Machines))
 		for j, mm := range r.Machines {
