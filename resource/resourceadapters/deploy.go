@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/charmstore"
+	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/resource/api/client"
-	"github.com/juju/juju/resource/cmd"
 )
 
 // DeployResourcesFunc is the function type of DeployResources.
@@ -59,7 +59,7 @@ func DeployResources(
 		}
 	}
 
-	ids, err = cmd.DeployResources(cmd.DeployResourcesArgs{
+	ids, err = resourcecmd.DeployResources(resourcecmd.DeployResourcesArgs{
 		ApplicationID:      applicationID,
 		CharmID:            chID,
 		CharmStoreMacaroon: csMac,

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package resource_test
 
 import (
 	jujucmd "github.com/juju/cmd"
@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	resourcecmd "github.com/juju/juju/resource/cmd"
+	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 )
 
 var _ = gc.Suite(&UploadSuite{})
