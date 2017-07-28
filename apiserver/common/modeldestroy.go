@@ -6,9 +6,9 @@ package common
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/state"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {
@@ -27,42 +27,28 @@ var sendMetrics = func(st metricsender.ModelBackend) error {
 	return errors.Trace(err)
 }
 
-// DestroyModelIncludingHosted sets the model to dying. Cleanup jobs then destroy
-// all services and non-manager, non-manual machine instances in the specified
-// model. This function assumes that all necessary authentication checks
-// have been done. If the model is a controller hosting other
-// models, they will also be destroyed.
-func DestroyModelIncludingHosted(st ModelManagerBackend, systemTag names.ModelTag) error {
-	return destroyModel(st, systemTag, true)
-}
-
-// DestroyModel sets the environment to dying. Cleanup jobs then destroy
-// all services and non-manager, non-manual machine instances in the specified
-// model. This function assumes that all necessary authentication checks
-// have been done. An error will be returned if this model is a
-// controller hosting other model.
-func DestroyModel(st ModelManagerBackend, modelTag names.ModelTag) error {
-	return destroyModel(st, modelTag, false)
-}
-
-func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHostedModels bool) error {
-	var err error
-	if modelTag != st.ModelTag() {
-		if st, err = st.ForModel(modelTag); err != nil {
-			return errors.Trace(err)
-		}
-		defer st.Close()
+// DestroyController sets the controller model to Dying and, if requested,
+// schedules cleanups so that all of the hosted models are destroyed, or
+// otherwise returns an error indicating that there are hosted models
+// remaining.
+func DestroyController(
+	st ModelManagerBackend,
+	destroyHostedModels bool,
+	destroyStorage *bool,
+) error {
+	modelTag := st.ModelTag()
+	controllerModel, err := st.ControllerModel()
+	if err != nil {
+		return errors.Trace(err)
 	}
-
+	if modelTag != controllerModel.ModelTag() {
+		return errors.Errorf(
+			"expected state for controller model UUID %v, got %v",
+			controllerModel.ModelTag().Id(),
+			modelTag.Id(),
+		)
+	}
 	if destroyHostedModels {
-		// Check we are operating on the controller state.
-		controllerModel, err := st.ControllerModel()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if modelTag != controllerModel.ModelTag() {
-			return errors.Errorf("expected controller model UUID %v, got %v", modelTag.Id(), controllerModel.ModelTag().Id())
-		}
 		models, err := st.AllModels()
 		if err != nil {
 			return errors.Trace(err)
@@ -82,27 +68,37 @@ func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHosted
 				logger.Errorf("failed to send leftover metrics: %v", err)
 			}
 		}
-	} else {
-		check := NewBlockChecker(st)
-		if err = check.DestroyAllowed(); err != nil {
-			return errors.Trace(err)
-		}
+	}
+	return destroyModel(st, state.DestroyModelParams{
+		DestroyHostedModels: destroyHostedModels,
+		DestroyStorage:      destroyStorage,
+	})
+}
+
+// DestroyModel sets the model to Dying, such that the model's resources will
+// be destroyed and the model removed from the controller.
+func DestroyModel(st ModelManagerBackend) error {
+	// TODO(axw) make this a parameter.
+	destroyStorage := true
+	return destroyModel(st, state.DestroyModelParams{
+		DestroyStorage: &destroyStorage,
+	})
+}
+
+func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
+	check := NewBlockChecker(st)
+	if err := check.DestroyAllowed(); err != nil {
+		return errors.Trace(err)
 	}
 
 	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if destroyHostedModels {
-		if err := model.DestroyIncludingHosted(); err != nil {
-			return err
-		}
-	} else {
-		if err = model.Destroy(); err != nil {
-			return errors.Trace(err)
-		}
+	if err := model.Destroy(args); err != nil {
+		return errors.Trace(err)
 	}
+
 	err = sendMetrics(st)
 	if err != nil {
 		logger.Errorf("failed to send leftover metrics: %v", err)

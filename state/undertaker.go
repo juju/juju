@@ -36,7 +36,11 @@ func (st *State) ProcessDyingModel() (err error) {
 			}
 		}
 
-		if err := model.checkEmpty(); err != nil {
+		modelEntityRefsDoc, err := model.getEntityRefs()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if _, err := checkModelEntityRefsEmpty(modelEntityRefsDoc); err != nil {
 			return nil, errors.Trace(err)
 		}
 

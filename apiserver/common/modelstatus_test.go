@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,9 +14,15 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -23,7 +30,7 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPI
+	controller *controller.ControllerAPIv4
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	pool       *state.StatePool
@@ -36,6 +43,9 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"name": "controller",
 	})
+	s.NewPolicy = func(*state.State) state.Policy {
+		return statePolicy{}
+	}
 
 	s.StateSuite.SetUpTest(c)
 	s.resources = common.NewResources()
@@ -49,7 +59,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	s.pool = state.NewStatePool(s.State)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 
-	controller, err := controller.NewControllerAPI(
+	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -68,7 +78,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPI(
+	endpoint, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -92,7 +102,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
 	defer st.Close()
-	endpoint, err := controller.NewControllerAPI(
+	endpoint, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -124,9 +134,28 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Jobs:            []state.MachineJob{state.JobManageModel},
 		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
 		InstanceId:      "id-4",
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{
+				Pool: "modelscoped",
+				Size: 123,
+			},
+		}},
 	})
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits}, InstanceId: "id-5"})
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "id-5",
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{
+				Pool: "modelscoped",
+				Size: 123,
+			},
+		}, {
+			Filesystem: state.FilesystemParams{
+				Pool: "machinescoped",
+				Size: 123,
+			},
+		}},
+	})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
@@ -163,6 +192,14 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
 			{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
 		},
+		Volumes: []params.ModelVolumeInfo{{
+			Id: "0", Status: "pending", Detachable: true,
+		}},
+		Filesystems: []params.ModelFilesystemInfo{{
+			Id: "0", Status: "pending", Detachable: true,
+		}, {
+			Id: "1/1", Status: "pending", Detachable: false,
+		}},
 	}, {
 		ModelTag:           hostedModelTag,
 		HostedMachineCount: 2,
@@ -174,4 +211,33 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
 		},
 	}})
+}
+
+type statePolicy struct{}
+
+func (statePolicy) Prechecker() (environs.InstancePrechecker, error) {
+	return nil, errors.NotImplementedf("Prechecker")
+}
+
+func (statePolicy) ConfigValidator() (config.Validator, error) {
+	return nil, errors.NotImplementedf("ConfigValidator")
+}
+
+func (statePolicy) ConstraintsValidator() (constraints.Validator, error) {
+	return nil, errors.NotImplementedf("ConstraintsValidator")
+}
+
+func (statePolicy) InstanceDistributor() (instance.Distributor, error) {
+	return nil, errors.NotImplementedf("InstanceDistributor")
+}
+
+func (statePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+	return storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	}, nil
+}
+
+func (statePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+	return nil, errors.NotImplementedf("ConfigSchemaSource")
 }

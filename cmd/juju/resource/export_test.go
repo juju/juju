@@ -1,7 +1,14 @@
-package cmd
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
-func ListCharmResourcesCommandChannel(c *ListCharmResourcesCommand) string {
-	return c.channel
+package resource
+
+import (
+	"github.com/juju/juju/cmd/modelcmd"
+)
+
+func ListCharmResourcesCommandChannel(c modelcmd.Command) string {
+	return modelcmd.InnerCommand(c).(*ListCharmResourcesCommand).channel
 }
 
 func ShowServiceCommandTarget(c *ShowServiceCommand) string {

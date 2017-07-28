@@ -217,6 +217,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeHasAssignedUnits
 	case state.IsHasHostedModelsError(err):
 		code = params.CodeHasHostedModels
+	case state.IsHasPersistentStorageError(err):
+		code = params.CodeHasPersistentStorage
 	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
@@ -309,6 +311,8 @@ func RestoreError(err error) error {
 		// ...by parsing msg?
 		return err
 	case params.IsCodeHasHostedModels(err):
+		return err
+	case params.IsCodeHasPersistentStorage(err):
 		return err
 	case params.IsCodeNoAddressSet(err):
 		// TODO(ericsnow) Handle isNoAddressSetError here.

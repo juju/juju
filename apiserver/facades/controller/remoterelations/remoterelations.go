@@ -52,7 +52,7 @@ func NewRemoteRelationsAPI(
 }
 
 // ImportRemoteEntities adds entities to the remote entities collection with the specified opaque tokens.
-func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
+func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.RemoteEntityTokenArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -63,7 +63,7 @@ func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.RemoteEntityArgs
 	return results, nil
 }
 
-func (api *RemoteRelationsAPI) importRemoteEntity(arg params.RemoteEntityArg) error {
+func (api *RemoteRelationsAPI) importRemoteEntity(arg params.RemoteEntityTokenArg) error {
 	entityTag, err := names.ParseTag(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)

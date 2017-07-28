@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package resource_test
 
 import (
 	"bytes"
@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/resource"
-	resourcecmd "github.com/juju/juju/resource/cmd"
 )
 
 var _ = gc.Suite(&CharmTabularSuite{})

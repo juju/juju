@@ -147,18 +147,18 @@ func (s *AnnotationsEnvSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
-	env, st := s.createTestEnv(c)
+func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
+	model, st := s.createTestModel(c)
 	defer st.Close()
 
 	key := "key"
 	expected := "oops"
 	annts := map[string]string{key: expected}
-	err := st.SetAnnotations(env, annts)
+	err := st.SetAnnotations(model, annts)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAnnotation(c, st, env, key, expected)
+	assertAnnotation(c, st, model, key, expected)
 
-	err = env.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,12 +167,12 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 
 	expected = "fail"
 	annts[key] = expected
-	err = s.State.SetAnnotations(env, annts)
+	err = s.State.SetAnnotations(model, annts)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*model not found.*")
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 
-func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
+func (s *AnnotationsEnvSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
@@ -180,10 +180,10 @@ func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.State.NewModel(state.ModelArgs{
 		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return env, st
+	return model, st
 }

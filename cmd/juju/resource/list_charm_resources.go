@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package resource
 
 import (
 	"github.com/juju/cmd"
@@ -24,10 +24,9 @@ type ResourceLister interface {
 type ListCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
 
-	// ResourceLister is called by Run to list charm resources. The
-	// default implementation uses juju/juju/charmstore.Client, but
-	// it may be set to mock out the call to that method.
-	ResourceLister ResourceLister
+	// resourceLister is called by Run to list charm resources and
+	// uses juju/juju/charmstore.Client.
+	resourceLister ResourceLister
 
 	out     cmd.Output
 	channel string
@@ -36,10 +35,13 @@ type ListCharmResourcesCommand struct {
 
 // NewListCharmResourcesCommand returns a new command that lists resources defined
 // by a charm.
-func NewListCharmResourcesCommand() *ListCharmResourcesCommand {
+func NewListCharmResourcesCommand(resourceLister ResourceLister) modelcmd.ModelCommand {
 	var c ListCharmResourcesCommand
-	c.ResourceLister = &c
-	return &c
+	if resourceLister == nil {
+		resourceLister = &c
+	}
+	c.resourceLister = resourceLister
+	return modelcmd.Wrap(&c)
 }
 
 var listCharmResourcesDoc = `
@@ -109,7 +111,7 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 		charms[i] = charmstore.CharmID{URL: id, Channel: csparams.Channel(c.channel)}
 	}
 
-	resources, err := c.ResourceLister.ListResources(charms)
+	resources, err := c.resourceLister.ListResources(charms)
 	if err != nil {
 		return errors.Trace(err)
 	}

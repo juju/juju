@@ -30,7 +30,9 @@ type destroyControllerSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	controller *controller.ControllerAPI
+	authorizer apiservertesting.FakeAuthorizer
+	resources  *common.Resources
+	controller *controller.ControllerAPIv4
 
 	otherState          *state.State
 	otherEnvOwner       names.UserTag
@@ -46,17 +48,17 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	authoriser := apiservertesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	controller, err := controller.NewControllerAPI(
+	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
-			Resources_: resources,
-			Auth_:      authoriser,
+			Resources_: s.resources,
+			Auth_:      s.authorizer,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
@@ -135,7 +137,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
-	err := common.DestroyModel(s.modelManagerBackend, s.otherState.ModelTag())
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
@@ -147,7 +149,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBlock(c *gc.C) {
-	err := common.DestroyModel(s.modelManagerBackend, s.otherState.ModelTag())
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -161,7 +163,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBloc
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
-	err := common.DestroyModel(s.modelManagerBackend, s.otherState.ModelTag())
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -173,4 +175,98 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(
 	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 2)
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified(c *gc.C) {
+	f := factory.NewFactory(s.otherState)
+	f.MakeUnit(c, &factory.UnitParams{
+		Application: f.MakeApplication(c, &factory.ApplicationParams{
+			Charm: f.MakeCharm(c, &factory.CharmParams{
+				Name: "storage-block",
+			}),
+			Storage: map[string]state.StorageConstraints{
+				"data": {Pool: "modelscoped"},
+			},
+		}),
+	})
+
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
+		DestroyModels: true,
+	})
+	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+
+	env, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Alive)
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c *gc.C) {
+	f := factory.NewFactory(s.otherState)
+	f.MakeUnit(c, &factory.UnitParams{
+		Application: f.MakeApplication(c, &factory.ApplicationParams{
+			Charm: f.MakeCharm(c, &factory.CharmParams{
+				Name: "storage-block",
+			}),
+			Storage: map[string]state.StorageConstraints{
+				"data": {Pool: "modelscoped"},
+			},
+		}),
+	})
+
+	destroyStorage := false
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecifiedV3(c *gc.C) {
+	controller, err := controller.NewControllerAPIv3(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := factory.NewFactory(s.otherState)
+	f.MakeUnit(c, &factory.UnitParams{
+		Application: f.MakeApplication(c, &factory.ApplicationParams{
+			Charm: f.MakeCharm(c, &factory.CharmParams{
+				Name: "storage-block",
+			}),
+			Storage: map[string]state.StorageConstraints{
+				"data": {Pool: "modelscoped"},
+			},
+		}),
+	})
+
+	err = controller.DestroyController(params.DestroyControllerArgs{
+		DestroyModels: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecifiedV3(c *gc.C) {
+	controller, err := controller.NewControllerAPIv3(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	destroyStorage := true
+	err = controller.DestroyController(params.DestroyControllerArgs{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
+	c.Assert(err, gc.ErrorMatches, "destroy-storage unexpected on the v3 API")
 }

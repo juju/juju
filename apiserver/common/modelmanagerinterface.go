@@ -50,6 +50,8 @@ type ModelManagerBackend interface {
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 	AllMachines() (machines []Machine, err error)
 	AllApplications() (applications []Application, err error)
+	AllFilesystems() ([]state.Filesystem, error)
+	AllVolumes() ([]state.Volume, error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
@@ -84,8 +86,7 @@ type Model interface {
 	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
-	Destroy() error
-	DestroyIncludingHosted() error
+	Destroy(state.DestroyModelParams) error
 	SLALevel() string
 	SLAOwner() string
 	MigrationMode() state.MigrationMode
@@ -214,6 +215,22 @@ func (st modelManagerStateShim) AllApplications() ([]Application, error) {
 		all[i] = applicationShim{a}
 	}
 	return all, nil
+}
+
+func (st modelManagerStateShim) AllFilesystems() ([]state.Filesystem, error) {
+	model, err := st.State.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return model.AllFilesystems()
+}
+
+func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
+	model, err := st.State.IAASModel()
+	if err != nil {
+		return nil, err
+	}
+	return model.AllVolumes()
 }
 
 // BackendPool provides access to a pool of ModelManagerBackends.

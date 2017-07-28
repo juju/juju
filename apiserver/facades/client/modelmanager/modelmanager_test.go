@@ -939,9 +939,13 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+	pool := state.NewStatePool(st)
+	defer pool.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), nil, nil, s.authoriser,
+		common.NewModelManagerBackend(st),
+		common.NewBackendPool(pool),
+		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -967,14 +971,16 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+	pool := state.NewStatePool(st)
+	defer pool.Close()
 
+	s.authoriser.Tag = s.AdminUserTag(c)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), nil, nil, s.authoriser,
+		common.NewModelManagerBackend(st),
+		common.NewBackendPool(pool),
+		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	other := s.AdminUserTag(c)
-	s.setAPIUser(c, other)
 
 	results, err := s.modelmanager.DestroyModels(params.Entities{
 		Entities: []params.Entity{{"model-" + m.UUID}},
@@ -983,7 +989,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	s.setAPIUser(c, owner)
+	s.authoriser.Tag = owner
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)

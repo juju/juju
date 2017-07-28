@@ -34,6 +34,7 @@ func NewLimitedContext(unitName string) *limitedContext {
 // HookVars implements runner.Context.
 func (ctx *limitedContext) HookVars(paths context.Paths) ([]string, error) {
 	vars := []string{
+		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
 		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + paths.GetJujucSocket(),

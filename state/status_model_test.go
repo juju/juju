@@ -86,14 +86,14 @@ func (s *ModelStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	// directly to Dead.
 	factory.NewFactory(s.st).MakeMachine(c, nil)
 
-	err := s.model.Destroy()
+	err := s.model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
 func (s *ModelStatusSuite) TestGetSetStatusDead(c *gc.C) {
-	err := s.model.Destroy()
+	err := s.model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// NOTE: it would be more technically correct to reject status updates
@@ -103,7 +103,7 @@ func (s *ModelStatusSuite) TestGetSetStatusDead(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.model.Destroy()
+	err := s.model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)

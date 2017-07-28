@@ -308,8 +308,8 @@ func (s *remoteRelationsSuite) TestImportRemoteEntity(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "ImportRemoteEntities")
-		c.Check(arg, gc.DeepEquals, params.RemoteEntityArgs{
-			Args: []params.RemoteEntityArg{{Tag: "application-app", Token: "token"}}})
+		c.Check(arg, gc.DeepEquals, params.RemoteEntityTokenArgs{
+			Args: []params.RemoteEntityTokenArg{{Tag: "application-app", Token: "token"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{

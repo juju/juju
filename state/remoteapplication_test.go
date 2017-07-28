@@ -842,11 +842,11 @@ func (s *remoteApplicationSuite) TestAllRemoteApplications(c *gc.C) {
 	c.Assert(names[1], gc.Equals, "mysql")
 }
 
-func (s *remoteApplicationSuite) TestAddApplicationEnvironmentDying(c *gc.C) {
-	// Check that applications cannot be added if the environment is initially Dying.
+func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
+	// Check that applications cannot be added if the model is initially Dying.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.State.ModelTag()})
@@ -899,14 +899,14 @@ func (s *remoteApplicationSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
 }
 
-func (s *remoteApplicationSuite) TestAddApplicationEnvironDiesAfterInitial(c *gc.C) {
+func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C) {
 	// Check that a application with a name conflict cannot be added if
 	// there is no conflict initially but a remote application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		model, err := s.State.Model()
 		c.Assert(err, jc.ErrorIsNil)
-		err = model.Destroy()
+		err = model.Destroy(state.DestroyModelParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

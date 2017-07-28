@@ -115,7 +115,7 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",

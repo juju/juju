@@ -114,7 +114,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(arg, jc.DeepEquals, params.RemoteRelationArgs{Args: []params.RemoteRelationArg{{
+		c.Check(arg, jc.DeepEquals, params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
 			Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}}})
 		c.Check(request, gc.Equals, "WatchRelationUnits")
 		c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResults{})
@@ -127,7 +127,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClient(apiCaller)
-	_, err = client.WatchRelationUnits(params.RemoteRelationArg{
+	_, err = client.WatchRelationUnits(params.RemoteEntityArg{
 		Token:     remoteRelationToken,
 		Macaroons: macaroon.Slice{mac},
 	})
@@ -199,7 +199,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) 
 	var callCount int
 	remoteRelationToken := "token"
 	mac, err := macaroon.New(nil, "", "")
-	relation := params.RemoteRelationArg{
+	relation := params.RemoteEntityArg{
 		Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}
 	c.Check(err, jc.ErrorIsNil)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -207,8 +207,8 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) 
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
-		c.Check(arg, gc.DeepEquals, params.RemoteRelationArgs{
-			Args: []params.RemoteRelationArg{relation}})
+		c.Check(arg, gc.DeepEquals, params.RemoteEntityArgs{
+			Args: []params.RemoteEntityArg{relation}})
 		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{

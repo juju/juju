@@ -136,7 +136,10 @@ func AllFacades() *facade.Registry {
 	if featureflag.Enabled(feature.CAAS) {
 		reg("Cloud", 2, cloud.NewFacadeV2)
 	}
-	reg("Controller", 3, controller.NewControllerAPI)
+
+	reg("Controller", 3, controller.NewControllerAPIv3)
+	reg("Controller", 4, controller.NewControllerAPIv4)
+
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
 	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)

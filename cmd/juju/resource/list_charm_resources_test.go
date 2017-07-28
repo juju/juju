@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package resource_test
 
 import (
 	"strings"
@@ -14,7 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/charmstore"
-	resourcecmd "github.com/juju/juju/resource/cmd"
+	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 )
 
 var _ = gc.Suite(&ListCharmSuite{})
@@ -69,8 +69,7 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	resources[0].Revision = 2
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := resourcecmd.NewListCharmResourcesCommand()
-	command.ResourceLister = s.client
+	command := resourcecmd.NewListCharmResourcesCommand(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -95,8 +94,7 @@ music     1
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := resourcecmd.NewListCharmResourcesCommand()
-	command.ResourceLister = s.client
+	command := resourcecmd.NewListCharmResourcesCommand(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -167,8 +165,7 @@ music     1
 	}
 	for format, expected := range formats {
 		c.Logf("checking format %q", format)
-		command := resourcecmd.NewListCharmResourcesCommand()
-		command.ResourceLister = s.client
+		command := resourcecmd.NewListCharmResourcesCommand(s.client)
 		args := []string{
 			"--format", format,
 			"cs:a-charm",
@@ -191,8 +188,7 @@ func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
-	command := resourcecmd.NewListCharmResourcesCommand()
-	command.ResourceLister = s.client
+	command := resourcecmd.NewListCharmResourcesCommand(s.client)
 
 	code, _, stderr := runCmd(c, command,
 		"--channel", "development",

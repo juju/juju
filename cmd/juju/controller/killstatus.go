@@ -17,10 +17,12 @@ import (
 
 type ctrData struct {
 	UUID               string
-	Life               string
 	HostedModelCount   int
 	HostedMachineCount int
 	ServiceCount       int
+
+	// Model contains controller model data
+	Model modelData
 }
 
 type modelData struct {
@@ -29,13 +31,17 @@ type modelData struct {
 	Name  string
 	Life  string
 
-	HostedMachineCount int
-	ServiceCount       int
+	HostedMachineCount        int
+	ServiceCount              int
+	PersistentVolumeCount     int
+	PersistentFilesystemCount int
 }
 
 type environmentStatus struct {
 	controller ctrData
-	models     []modelData
+	// models contains only the hosted models. controller.Model
+	// contains data specific to the controller model.
+	models []modelData
 }
 
 // newTimedStatusUpdater returns a function which waits a given period of time
@@ -69,60 +75,66 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 		return ctrData{}, nil, errors.New("no models found")
 	}
 
-	status, err := api.ModelStatus(names.NewModelTag(controllerModelUUID))
-	if err != nil {
-		return ctrData{}, nil, errors.Trace(err)
-	}
-	if l := len(status); l != 1 {
-		return ctrData{}, nil, errors.Errorf("error finding controller status: expected one result, got %d", l)
-	}
-	ctrStatus := status[0]
-
-	hostedModelCount := len(models) - 1
-	hostedTags := make([]names.ModelTag, hostedModelCount)
-	modelName := map[string]string{}
-	var i int
-	for _, model := range models {
-		if model.UUID != controllerModelUUID {
-			modelName[model.UUID] = model.Name
-			hostedTags[i] = names.NewModelTag(model.UUID)
-			i++
-		}
+	modelTags := make([]names.ModelTag, len(models))
+	modelName := make(map[string]string)
+	for i, model := range models {
+		modelTags[i] = names.NewModelTag(model.UUID)
+		modelName[model.UUID] = model.Name
 	}
 
-	hostedStatus, err := api.ModelStatus(hostedTags...)
+	status, err := api.ModelStatus(modelTags...)
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
 
-	hostedMachinesCount := ctrStatus.HostedMachineCount
-	servicesCount := ctrStatus.ServiceCount
+	var hostedMachinesCount int
+	var servicesCount int
 	var modelsData []modelData
 	var aliveModelCount int
-	for _, model := range hostedStatus {
-		if model.Life == string(params.Dead) {
-			continue
+	var ctrModelData modelData
+	for _, model := range status {
+		var persistentVolumeCount int
+		var persistentFilesystemCount int
+		for _, v := range model.Volumes {
+			if v.Detachable {
+				persistentVolumeCount++
+			}
 		}
-		modelsData = append(modelsData, modelData{
+		for _, f := range model.Filesystems {
+			if f.Detachable {
+				persistentFilesystemCount++
+			}
+		}
+		modelData := modelData{
 			model.UUID,
 			model.Owner,
 			modelName[model.UUID],
 			model.Life,
 			model.HostedMachineCount,
 			model.ServiceCount,
-		})
-
-		aliveModelCount++
+			persistentVolumeCount,
+			persistentFilesystemCount,
+		}
+		if model.UUID == controllerModelUUID {
+			ctrModelData = modelData
+		} else {
+			if model.Life == string(params.Dead) {
+				// Filter out dead, non-controller models.
+				continue
+			}
+			modelsData = append(modelsData, modelData)
+			aliveModelCount++
+		}
 		hostedMachinesCount += model.HostedMachineCount
 		servicesCount += model.ServiceCount
 	}
 
 	ctrFinalStatus := ctrData{
 		controllerModelUUID,
-		ctrStatus.Life,
 		aliveModelCount,
 		hostedMachinesCount,
 		servicesCount,
+		ctrModelData,
 	}
 
 	return ctrFinalStatus, modelsData, nil

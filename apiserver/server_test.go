@@ -584,7 +584,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	conn.Close()
 
 	// When the model goes away the API server should ensure st gets closed.
-	err = model.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.StartSync()

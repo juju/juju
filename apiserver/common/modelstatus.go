@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 // ModelStatusAPI implements the ModelStatus() API.
@@ -95,6 +96,18 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	modelVolumes := ModelVolumeInfo(volumes)
+
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	modelFilesystems := ModelFilesystemInfo(filesystems)
+
 	return params.ModelStatus{
 		ModelTag:           tag,
 		OwnerTag:           model.Owner().String(),
@@ -102,5 +115,57 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(applications),
 		Machines:           modelMachines,
+		Volumes:            modelVolumes,
+		Filesystems:        modelFilesystems,
 	}, nil
+}
+
+// ModelFilesystemInfo returns information about filesystems in the model.
+func ModelFilesystemInfo(in []state.Filesystem) []params.ModelFilesystemInfo {
+	out := make([]params.ModelFilesystemInfo, len(in))
+	for i, in := range in {
+		var statusString string
+		status, err := in.Status()
+		if err != nil {
+			statusString = err.Error()
+		} else {
+			statusString = string(status.Status)
+		}
+		var providerId string
+		if info, err := in.Info(); err == nil {
+			providerId = info.FilesystemId
+		}
+		out[i] = params.ModelFilesystemInfo{
+			Id:         in.Tag().Id(),
+			ProviderId: providerId,
+			Status:     statusString,
+			Detachable: in.Detachable(),
+		}
+	}
+	return out
+}
+
+// ModelVolumeInfo returns information about volumes in the model.
+func ModelVolumeInfo(in []state.Volume) []params.ModelVolumeInfo {
+	out := make([]params.ModelVolumeInfo, len(in))
+	for i, in := range in {
+		var statusString string
+		status, err := in.Status()
+		if err != nil {
+			statusString = err.Error()
+		} else {
+			statusString = string(status.Status)
+		}
+		var providerId string
+		if info, err := in.Info(); err == nil {
+			providerId = info.VolumeId
+		}
+		out[i] = params.ModelVolumeInfo{
+			Id:         in.Tag().Id(),
+			ProviderId: providerId,
+			Status:     statusString,
+			Detachable: in.Detachable(),
+		}
+	}
+	return out
 }
