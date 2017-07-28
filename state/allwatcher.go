@@ -1138,6 +1138,7 @@ func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, 
 	id := key[2:]
 	switch key[0] {
 	case 'm':
+		id = strings.TrimSuffix(id, "#instance")
 		return (&multiwatcher.MachineInfo{
 			ModelUUID: modelUUID,
 			Id:        id,
