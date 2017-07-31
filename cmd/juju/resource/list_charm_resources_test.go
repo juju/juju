@@ -75,8 +75,8 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 Resource  Revision
-website   2
 music     1
+website   2
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -117,19 +117,11 @@ func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
 	formats := map[string]string{
 		"tabular": `
 Resource  Revision
-website   1
 music     1
+website   1
 
 `[1:],
 		"yaml": `
-- name: website
-  type: file
-  path: website.tgz
-  description: .tgz of your website
-  revision: 1
-  fingerprint: 73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4
-  size: 48
-  origin: store
 - name: music
   type: file
   path: music.mp3
@@ -138,25 +130,33 @@ music     1
   fingerprint: b0ea2a0f90267a8bd32848c65d7a61569a136f4e421b56127b6374b10a576d29e09294e620b4dcdee40f602115104bd5
   size: 48
   origin: store
+- name: website
+  type: file
+  path: website.tgz
+  description: .tgz of your website
+  revision: 1
+  fingerprint: 73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4
+  size: 48
+  origin: store
 `[1:],
 		"json": strings.Replace(""+
 			"["+
 			"  {"+
-			`    "name":"website",`+
-			`    "type":"file",`+
-			`    "path":"website.tgz",`+
-			`    "description":".tgz of your website",`+
-			`    "revision":1,`+
-			`    "fingerprint":"73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4",`+
-			`    "size":48,`+
-			`    "origin":"store"`+
-			"  },{"+
 			`    "name":"music",`+
 			`    "type":"file",`+
 			`    "path":"music.mp3",`+
 			`    "description":"mp3 of your backing vocals",`+
 			`    "revision":1,`+
 			`    "fingerprint":"b0ea2a0f90267a8bd32848c65d7a61569a136f4e421b56127b6374b10a576d29e09294e620b4dcdee40f602115104bd5",`+
+			`    "size":48,`+
+			`    "origin":"store"`+
+			"  },{"+
+			`    "name":"website",`+
+			`    "type":"file",`+
+			`    "path":"website.tgz",`+
+			`    "description":".tgz of your website",`+
+			`    "revision":1,`+
+			`    "fingerprint":"73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4",`+
 			`    "size":48,`+
 			`    "origin":"store"`+
 			"  }"+

@@ -5,6 +5,7 @@ package resource
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,10 @@ type charmResourcesFormatter struct {
 }
 
 func newCharmResourcesFormatter(resources []charmresource.Resource) *charmResourcesFormatter {
+	// It's a lot easier to read and to digest a list of resources
+	// when  they are ordered.
+	sort.Sort(resourceList(resources))
+
 	// Note that unlike the "juju status" code, we don't worry
 	// about "compatVersion".
 	crf := charmResourcesFormatter{
@@ -225,4 +230,23 @@ func resourceMap(resources []resource.Resource) map[string]resource.Resource {
 		m[res.Name] = res
 	}
 	return m
+}
+
+// resourceList is a convenience type enabling to sort
+// a collection of charmresource.Resource by Name.
+type resourceList []charmresource.Resource
+
+// Len implements sort.Interface
+func (m resourceList) Len() int {
+	return len(m)
+}
+
+// Less implements sort.Interface and sorts resources by Name.
+func (m resourceList) Less(i, j int) bool {
+	return m[i].Name < m[j].Name
+}
+
+// Swap implements sort.Interface
+func (m resourceList) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
 }
