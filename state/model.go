@@ -319,7 +319,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	assertCloudCredentialOp, cloudCredentialOk, err := validateCloudCredential(
+	assertCloudCredentialOp, hasNonEmptyAuth, err := validateCloudCredential(
 		controllerCloud, cloudCredentials, args.CloudCredential,
 	)
 	if err != nil {
@@ -364,7 +364,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 	ops := append(prereqOps, modelOps...)
 
-	if cloudCredentialOk {
+	if hasNonEmptyAuth {
 		cloudCredentialRefOp, err := cloudCredentialIncRefOp(newSt, args.CloudCredential)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to increment cloud credential refcount for new model")
@@ -453,8 +453,9 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 
 // validateCloudCredential validates the given cloud credential
 // name against the provided cloud definition and credentials,
-// and returns a txn.Op to include in a transaction to assert the
-// same. A user is supplied, for which access to the credential
+// and returns whether a cloud credential with non-empty auth was matched, and
+// a txn.Op to include in a transaction to assert the same. A user is supplied,
+// for which access to the credential
 // will be asserted.
 func validateCloudCredential(
 	cloud jujucloud.Cloud,

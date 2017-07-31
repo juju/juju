@@ -150,6 +150,7 @@ func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag, force bool)
 			ops = append(ops, refOp)
 		} else {
 			ops = append(ops, nsRefcounts.JustRemoveOp(globalrefcountsC, cloudCredKey, -1))
+			// TODO(cmars): clear references from models with this credential
 		}
 		return ops, nil
 	}
