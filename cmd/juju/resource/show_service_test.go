@@ -176,8 +176,8 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 [Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
-website   upload       -
 rsc1234   charmstore   15
+website   upload       -
 website2  Bill User    2012-12-12T12:12
 
 [Updates Available]

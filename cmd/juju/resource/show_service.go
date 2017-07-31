@@ -4,6 +4,8 @@
 package resource
 
 import (
+	"sort"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -114,6 +116,14 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("bad data returned from server")
 	}
 	v := vals[0]
+
+	// It's a lot easier to read and to digest a list of resources
+	// when  they are ordered.
+	sort.Sort(charmResourceList(v.CharmStoreResources))
+	sort.Sort(resourceList(v.Resources))
+	for _, u := range v.UnitResources {
+		sort.Sort(resourceList(u.Resources))
+	}
 
 	if unit == "" {
 		return c.formatServiceResources(ctx, v)
