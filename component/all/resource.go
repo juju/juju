@@ -4,18 +4,12 @@
 package all
 
 import (
-	"os"
-
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/cmd/juju/charmcmd"
-	"github.com/juju/juju/cmd/juju/commands"
-	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	"github.com/juju/juju/resource/context"
@@ -41,8 +35,6 @@ func (r resources) registerForServer() error {
 // RegisterForClient is the top-level registration method
 // for the component in a "juju" command context.
 func (r resources) registerForClient() error {
-	r.registerPublicCommands()
-
 	// needed for help-tool
 	r.registerHookContextCommands()
 	return nil
@@ -62,44 +54,6 @@ func (resources) registerState() {
 	if !markRegistered(resource.ComponentName, "state") {
 		return
 	}
-}
-
-// registerPublicCommands adds the resources-related commands
-// to the "juju" supercommand.
-func (r resources) registerPublicCommands() {
-	if !markRegistered(resource.ComponentName, "public-commands") {
-		return
-	}
-
-	charmcmd.RegisterSubCommand(resourcecmd.NewListCharmResourcesCommand(nil))
-
-	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
-		return resourcecmd.NewUploadCommand(resourcecmd.UploadDeps{
-			NewClient: func(c *resourcecmd.UploadCommand) (resourcecmd.UploadClient, error) {
-				apiRoot, err := c.NewAPIRoot()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				return resourceadapters.NewAPIClient(apiRoot)
-			},
-			OpenResource: func(s string) (resourcecmd.ReadSeekCloser, error) {
-				return os.Open(s)
-			},
-		})
-
-	})
-
-	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
-		return resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
-			NewClient: func(c *resourcecmd.ShowServiceCommand) (resourcecmd.ShowServiceClient, error) {
-				apiRoot, err := c.NewAPIRoot()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				return resourceadapters.NewAPIClient(apiRoot)
-			},
-		})
-	})
 }
 
 func (r resources) registerHookContext() {
