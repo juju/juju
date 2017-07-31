@@ -457,7 +457,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(gui.NewUpgradeGUICommand())
 
 	// Resource commands
-	r.Register(resource.NewUploadCommand(resource.UploadDeps{
+	r.Register(modelcmd.Wrap(resource.NewUploadCommand(resource.UploadDeps{
 		NewClient: func(c *resource.UploadCommand) (resource.UploadClient, error) {
 			apiRoot, err := c.NewAPIRoot()
 			if err != nil {
@@ -468,8 +468,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		OpenResource: func(s string) (resource.ReadSeekCloser, error) {
 			return os.Open(s)
 		},
-	}))
-	r.Register(resource.NewShowServiceCommand(resource.ShowServiceDeps{
+	})))
+	r.Register(modelcmd.Wrap(resource.NewShowServiceCommand(resource.ShowServiceDeps{
 		NewClient: func(c *resource.ShowServiceCommand) (resource.ShowServiceClient, error) {
 			apiRoot, err := c.NewAPIRoot()
 			if err != nil {
@@ -477,7 +477,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 			}
 			return resourceadapters.NewAPIClient(apiRoot)
 		},
-	}))
+	})))
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
