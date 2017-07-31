@@ -5,14 +5,9 @@ package charmcmd
 
 import (
 	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/juju/resource"
 )
-
-var registeredSubCommands []cmd.Command
-
-// RegisterSubCommand registers the given command as a "juju charm" subcommand.
-func RegisterSubCommand(c cmd.Command) {
-	registeredSubCommands = append(registeredSubCommands, c)
-}
 
 var charmDoc = `
 "juju charm" is the the juju CLI equivalent of the "charm" command used
@@ -38,14 +33,11 @@ func NewSuperCommand() *Command {
 			},
 		),
 	}
-
-	// Sub-commands may be registered directly here, like so:
-	//charmCmd.Register(newXXXCommand())
-
-	// ...or externally via RegisterSubCommand().
-	for _, command := range registeredSubCommands {
-		charmCmd.Register(command)
-	}
+	// TODO (anastasiamac 2017-07-28) this needs to be renamed
+	// to something else, for eg. 'juju charm-resources',
+	// to comply with the new naming convention.
+	// This command was overlooked in general rename for Juju 2.x
+	charmCmd.Register(resource.NewListCharmResourcesCommand(nil))
 
 	return charmCmd
 }

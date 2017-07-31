@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/juju/resource"
 	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
@@ -50,6 +51,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -453,6 +455,29 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Juju GUI commands.
 	r.Register(gui.NewGUICommand())
 	r.Register(gui.NewUpgradeGUICommand())
+
+	// Resource commands
+	r.Register(resource.NewUploadCommand(resource.UploadDeps{
+		NewClient: func(c *resource.UploadCommand) (resource.UploadClient, error) {
+			apiRoot, err := c.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return resourceadapters.NewAPIClient(apiRoot)
+		},
+		OpenResource: func(s string) (resource.ReadSeekCloser, error) {
+			return os.Open(s)
+		},
+	}))
+	r.Register(resource.NewShowServiceCommand(resource.ShowServiceDeps{
+		NewClient: func(c *resource.ShowServiceCommand) (resource.ShowServiceClient, error) {
+			apiRoot, err := c.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return resourceadapters.NewAPIClient(apiRoot)
+		},
+	}))
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
