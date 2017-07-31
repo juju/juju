@@ -1,11 +1,14 @@
 #!/usr/bin/env python
-"""Testing spaces and subnets settings for app deployment to lxd container."""
+"""Testing spaces and subnets settings for app deployment to lxd container.
+   This is an validation of Bug 1685782:
+   https://bugs.launchpad.net/juju/+bug/1685782
+   The test procedures are based on comment #29.
+"""
 
 from __future__ import print_function
 
 import os
 import sys
-import ipdb
 import json
 import logging
 import argparse
@@ -32,7 +35,6 @@ def assert_initial_spaces(client):
     # because spaces list is empty at this point.
     raw_output = client.get_juju_output(
         'spaces', '--format', 'json', include_e=False, merge_stderr=True)
-    # raw_output = get_spaces(client, merge_stderr=True)
     expected_spaces = 'no spaces to display'
     if expected_spaces not in raw_output:
         raise JujuAssertionError(
@@ -118,6 +120,23 @@ def assert_added_space(client):
         log.info('New added space {} has been validated.'.format(space_name))
 
 
+def assert_app_status(client, charm_name, expected):
+    # Run juju status --format json
+    log.info('Checking current status of app {}.'.format(charm_name))
+    status_output = json.loads(
+        client.get_juju_output('status', '--format', 'json', include_e=False))
+    app_status = status_output['applications'][charm_name]['application-status']['current']
+
+    if app_status != expected:
+        raise JujuAssertionError(
+            'App status is incorrect. '\
+            'Found: {}\nExpected: {}\n.'.format(
+            app_status, expected))
+    else:
+        log.info('The current status of app {} is: {}; Expected: {}'.format(
+        charm_name, app_status, expected))
+
+
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
@@ -135,6 +154,16 @@ def assess_lxd_space(client):
         assert_initial_spaces(client)
         assert_initial_subnets(client)
         assert_added_space(client)
+        # Run juju deploy ubuntu --constraints "spaces=testspace"
+        client.deploy(charm='ubuntu', constraints='spaces=testspace')
+        client.wait_for_started()
+        client.wait_for_workloads()
+        assert_app_status(client, charm_name='ubuntu', expected='active')
+        # Run juju deploy ubuntu ubuntu-lxd --to lxd:0
+        client.deploy(charm='ubuntu', service='ubuntu-lxd', to='lxd:0')
+        client.wait_for_started()
+        client.wait_for_workloads()
+        assert_app_status(client, charm_name='ubuntu-lxd', expected='active')
 
 
 def main(argv=None):
