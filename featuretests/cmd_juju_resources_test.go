@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/resource"
 	coretesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ResourcesCmdSuite struct {
@@ -37,16 +38,14 @@ func (s *ResourcesCmdSuite) SetUpTest(c *gc.C) {
 	s.appOneName = "app1"
 	charmOne := s.AddTestingCharm(c, s.charmName)
 
-	var err error
-	s.appOne, err = s.State.AddApplication(state.AddApplicationArgs{
+	s.appOne = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  s.appOneName,
 		Charm: charmOne,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	unitOne, err := s.appOne.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	unitOne.SetCharmURL(charmOne.URL())
-
+	unitOne := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.appOne,
+		SetCharmURL: true,
+	})
 	s.unitOneName = unitOne.Name()
 
 	s.client = &stubCharmStore{
@@ -71,8 +70,15 @@ func (s *ResourcesCmdSuite) TestResourcesCommands(c *gc.C) {
 	// check "juju resources <application>"
 	context, err := runCommand(c, "resources", s.appOneName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), jc.Contains, "No resources to display.")
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
+[Service]
+Resource          Supplied by  Revision
+install-resource  upload       -
+store-resource    upload       -
+upload-resource   upload       -
+
+`[1:])
 
 	// check "juju resources <unit>"
 	context, err = runCommand(c, "resources", s.unitOneName)
