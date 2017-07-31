@@ -23,7 +23,7 @@ type charmResourcesFormatter struct {
 func newCharmResourcesFormatter(resources []charmresource.Resource) *charmResourcesFormatter {
 	// It's a lot easier to read and to digest a list of resources
 	// when  they are ordered.
-	sort.Sort(resourceList(resources))
+	sort.Sort(charmResourceList(resources))
 
 	// Note that unlike the "juju status" code, we don't worry
 	// about "compatVersion".
@@ -232,9 +232,28 @@ func resourceMap(resources []resource.Resource) map[string]resource.Resource {
 	return m
 }
 
-// resourceList is a convenience type enabling to sort
+// charmResourceList is a convenience type enabling to sort
 // a collection of charmresource.Resource by Name.
-type resourceList []charmresource.Resource
+type charmResourceList []charmresource.Resource
+
+// Len implements sort.Interface
+func (m charmResourceList) Len() int {
+	return len(m)
+}
+
+// Less implements sort.Interface and sorts resources by Name.
+func (m charmResourceList) Less(i, j int) bool {
+	return m[i].Name < m[j].Name
+}
+
+// Swap implements sort.Interface
+func (m charmResourceList) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
+}
+
+// resourceList is a convenience type enabling to sort
+// a collection of resource.Resource by Name.
+type resourceList []resource.Resource
 
 // Len implements sort.Interface
 func (m resourceList) Len() int {
