@@ -41,8 +41,8 @@ type ShowServiceCommand struct {
 
 // NewShowServiceCommand returns a new command that lists resources defined
 // by a charm.
-func NewShowServiceCommand(deps ShowServiceDeps) *ShowServiceCommand {
-	return &ShowServiceCommand{deps: deps}
+func NewShowServiceCommand(deps ShowServiceDeps) modelcmd.ModelCommand {
+	return modelcmd.Wrap(&ShowServiceCommand{deps: deps})
 }
 
 // Info implements cmd.Command.Info.

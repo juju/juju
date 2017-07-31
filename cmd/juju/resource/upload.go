@@ -47,8 +47,8 @@ type UploadCommand struct {
 
 // NewUploadCommand returns a new command that lists resources defined
 // by a charm.
-func NewUploadCommand(deps UploadDeps) *UploadCommand {
-	return &UploadCommand{deps: deps}
+func NewUploadCommand(deps UploadDeps) modelcmd.ModelCommand {
+	return modelcmd.Wrap(&UploadCommand{deps: deps})
 }
 
 // Info implements cmd.Command.Info
