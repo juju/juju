@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
@@ -179,6 +180,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+		{"WatchRelationStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
@@ -190,6 +192,11 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	unitWatcher, ok = s.remoteRelationsFacade.relationsUnitsWatcher("token-db2:db django:db")
 	c.Check(ok, jc.IsTrue)
 	waitForStubCalls(c, &unitWatcher.Stub, []jujutesting.StubCall{
+		{"Changes", nil},
+	})
+	relationStatusWatcher, ok := s.remoteRelationsFacade.relationsStatusWatcher("token-db2:db django:db")
+	c.Check(ok, jc.IsTrue)
+	waitForStubCalls(c, &relationStatusWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
 	return w
@@ -228,6 +235,10 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 		if !ok {
 			break
 		}
+		_, ok = s.remoteRelationsFacade.relationsStatusWatcher("token-db2:db django:db")
+		if !ok {
+			break
+		}
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	mac, err := macaroon.New(nil, "apimac", "")
@@ -247,7 +258,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
+func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 	// Checks that when a remote relation goes away, the relation units
 	// worker is killed.
 	w := s.assertRemoteRelationsWorkers(c)
@@ -346,6 +357,28 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 				}},
 				DepartedUnits: []int{2},
 				Macaroons:     macaroon.Slice{mac},
+			},
+		}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
+	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	statusWatcher, _ := s.remoteRelationsFacade.relationsStatusWatcher("token-db2:db django:db")
+	statusWatcher.changes <- []watcher.RelationStatusChange{{
+		Life: life.Dying,
+	}}
+
+	expected := []jujutesting.StubCall{
+		{"ConsumeRemoteRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				Life:             params.Dying,
+				ApplicationToken: "token-offer-db2",
+				RelationToken:    "token-db2:db django:db",
 			},
 		}},
 	}
