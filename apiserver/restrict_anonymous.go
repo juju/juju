@@ -15,6 +15,7 @@ import (
 // its own authentication and authorisation if required.
 var anonymousFacadeNames = set.NewStrings(
 	"CrossModelRelations",
+	"RelationStatusWatcher",
 	"RelationUnitsWatcher",
 	"StringsWatcher",
 )

@@ -215,6 +215,56 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 	return params.RelationUnitsWatchResult{}, err
 }
 
+// srvRelationStatusWatcher defines the API wrapping a state.RelationStatusWatcher.
+type srvRelationStatusWatcher struct {
+	watcherCommon
+	watcher state.RelationStatusWatcher
+}
+
+func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.RelationStatusWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRelationStatusWatcher{
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvRelationStatusWatcher.
+func (w *srvRelationStatusWatcher) Next() (params.RelationStatusWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		changesParams := make([]params.RelationStatusChange, len(changes))
+		for i, ch := range changes {
+			changesParams[i] = params.RelationStatusChange{
+				Key:    ch.Key,
+				Life:   params.Life(ch.Life),
+				Status: params.RelationStatusValue(ch.Status),
+			}
+		}
+		return params.RelationStatusWatchResult{
+			Changes: changesParams,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RelationStatusWatchResult{}, err
+}
+
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher
 // watching machine/storage attachments. This watcher notifies about storage
 // entities (volumes/filesystems) being attached to and detached from machines.

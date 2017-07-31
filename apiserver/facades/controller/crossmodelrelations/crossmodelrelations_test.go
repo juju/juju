@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
 
 var _ = gc.Suite(&crossmodelRelationsSuite{})
@@ -58,7 +59,15 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		s.watchedRelations = relations
 		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil
 	}
-	api, err := crossmodelrelations.NewCrossModelRelationsAPI(s.st, fw, s.resources, s.authorizer, s.bakery, egressAddressWatcher)
+	relationStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, tag names.RelationTag) (state.RelationStatusWatcher, error) {
+		c.Assert(s.st, gc.Equals, st)
+		s.watchedRelations = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
+		w := &mockRelationStatusWatcher{changes: make(chan []watcher.RelationStatusChange, 1)}
+		w.changes <- []watcher.RelationStatusChange{{}}
+		return w, nil
+	}
+	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
+		s.st, fw, s.resources, s.authorizer, s.bakery, egressAddressWatcher, relationStatusWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -269,4 +278,44 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
 	})
 	// TODO(wallyworld) - add mre tests when implementation finished
+}
+
+func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon("", nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
+			{
+				Token:     "token-mysql:db django:db",
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				Token:     "token-db2:db django:db",
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				Token:     "token-postgresql:db django:db",
+				Macaroons: macaroon.Slice{mac},
+			},
+		},
+	}
+	results, err := s.api.WatchRelationsStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(s.watchedRelations, jc.DeepEquals, params.Entities{
+		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
+	)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
+	})
 }

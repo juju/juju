@@ -4,6 +4,7 @@
 package watcher_test
 
 import (
+	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -11,12 +12,18 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/migrationminion"
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -243,6 +250,99 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 		c.Fatalf("received unexpected change")
 	case <-time.After(coretesting.ShortWait):
 	}
+}
+
+func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relation, expected life.Value) {
+	// Export the relation so it can be found with a token.
+	re := s.State.RemoteEntities()
+	token, err := re.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a macaroon for authorisation.
+	bakery, err := crossmodel.NewBakery(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.State.ModelTag(), rel.Tag()), nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", rel.String()),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Start watching for a relation change.
+	client := crossmodelrelations.NewClient(s.stateAPI)
+	w, err := client.WatchRelationStatus(params.RemoteEntityArg{
+		Token:     token,
+		Macaroons: macaroon.Slice{mac},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
+
+	assertNoChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(life life.Value, status relation.Status) {
+		s.BackingState.StartSync()
+		select {
+		case changes, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(changes, gc.HasLen, 1)
+			c.Check(changes[0].Life, gc.Equals, life)
+			c.Check(changes[0].Status, gc.Equals, status)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+		assertNoChange()
+	}
+
+	// Initial event.
+	assertChange(life.Alive, "")
+
+	// Now change the relation, should trigger the watcher.
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(expected, "")
+}
+
+func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
+	// Create a pair of services and a relation between them.
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	u, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	err = u.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+	relUnit, err := rel.Unit(u)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertRelationStatusWatchResult(c, rel, life.Dying)
+}
+
+func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
+	// Create a pair of services and a relation between them.
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertRelationStatusWatchResult(c, rel, life.Dead)
 }
 
 type migrationSuite struct {

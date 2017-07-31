@@ -6,6 +6,7 @@ package crossmodelrelations_test
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
 
 type mockState struct {
@@ -151,6 +153,50 @@ func (st *mockState) Application(id string) (common.Application, error) {
 
 type mockFirewallState struct {
 	firewall.State
+}
+
+type mockWatcher struct {
+	mu      sync.Mutex
+	stopped chan struct{}
+}
+
+func (w *mockWatcher) Kill() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if !w.Stopped() {
+		close(w.stopped)
+	}
+}
+
+func (w *mockWatcher) Stop() error {
+	return nil
+}
+
+func (w *mockWatcher) Wait() error {
+	<-w.stopped
+	return nil
+}
+
+func (w *mockWatcher) Err() error {
+	return nil
+}
+
+func (w *mockWatcher) Stopped() bool {
+	select {
+	case <-w.stopped:
+		return true
+	default:
+		return false
+	}
+}
+
+type mockRelationStatusWatcher struct {
+	*mockWatcher
+	changes chan []watcher.RelationStatusChange
+}
+
+func (w *mockRelationStatusWatcher) Changes() <-chan []watcher.RelationStatusChange {
+	return w.changes
 }
 
 type mockModel struct {

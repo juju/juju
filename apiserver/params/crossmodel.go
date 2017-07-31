@@ -313,6 +313,9 @@ type RemoteRelationChangeEvent struct {
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
 
+	// Status is the current status of the relation.
+	Status RelationStatusValue `json:"status"`
+
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
@@ -322,6 +325,32 @@ type RemoteRelationChangeEvent struct {
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+}
+
+// RelationStatusChange describes the life and status of a relation.
+type RelationStatusChange struct {
+	// Key is the relation key of the changed relation.
+	Key string `json:"key"`
+
+	// Life is the life of the relation.
+	Life Life `json:"life"`
+
+	// Status is the status of the relation.
+	Status RelationStatusValue `json:"status"`
+}
+
+// RelationStatusWatchResult holds a RelationStatusWatcher id, baseline state
+// (in the Changes field), and an error (if any).
+type RelationStatusWatchResult struct {
+	RelationStatusWatcherId string                 `json:"watcher-id"`
+	Changes                 []RelationStatusChange `json:"changes"`
+	Error                   *Error                 `json:"error,omitempty"`
+}
+
+// RelationStatusWatchResults holds the results for any API call which ends up
+// returning a list of RelationStatusWatchers.
+type RelationStatusWatchResults struct {
+	Results []RelationStatusWatchResult `json:"results"`
 }
 
 // IngressNetworksChanges holds a set of IngressNetworksChangeEvent structures.

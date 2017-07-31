@@ -130,3 +130,23 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// WatchRelationStatus starts a RelationStatusWatcher for watching the life and
+// status of the specified relation in the remote model.
+func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{arg}}
+	var results params.RelationStatusWatchResults
+	err := c.facade.FacadeCall("WatchRelationsStatus", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewRelationStatusWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
