@@ -31,6 +31,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
 
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
+type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.RelationStatusWatcher, error)
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
@@ -41,7 +42,8 @@ type CrossModelRelationsAPI struct {
 
 	bakery authentication.BakeryService
 
-	egressAddressWatcher egressAddressWatcherFunc
+	egressAddressWatcher  egressAddressWatcherFunc
+	relationStatusWatcher relationStatusWatcherFunc
 }
 
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
@@ -59,6 +61,7 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		firewall.StateShim(ctx.State()),
 		ctx.Resources(), ctx.Auth(), bakery,
 		firewall.WatchEgressAddressesForRelations,
+		watchRelationStatus,
 	)
 }
 
@@ -70,14 +73,16 @@ func NewCrossModelRelationsAPI(
 	authorizer facade.Authorizer,
 	bakery authentication.BakeryService,
 	egressAddressWatcher egressAddressWatcherFunc,
+	relationStatusWatcher relationStatusWatcherFunc,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
-		st:                   st,
-		fw:                   fw,
-		resources:            resources,
-		authorizer:           authorizer,
-		bakery:               bakery,
-		egressAddressWatcher: egressAddressWatcher,
+		st:                    st,
+		fw:                    fw,
+		resources:             resources,
+		authorizer:            authorizer,
+		bakery:                bakery,
+		egressAddressWatcher:  egressAddressWatcher,
+		relationStatusWatcher: relationStatusWatcher,
 	}, nil
 }
 
@@ -348,6 +353,57 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 			continue
 		}
 		results.Results[i].Settings = settings
+	}
+	return results, nil
+}
+
+func watchRelationStatus(st CrossModelRelationsState, tag names.RelationTag) (state.RelationStatusWatcher, error) {
+	relation, err := st.KeyRelation(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return relation.WatchStatus(), nil
+}
+
+// WatchRelationsStatus starts a RelationStatusWatcher for
+// watching the life and status of a relation.
+func (api *CrossModelRelationsAPI) WatchRelationsStatus(
+	remoteRelationArgs params.RemoteEntityArgs,
+) (params.RelationStatusWatchResults, error) {
+	results := params.RelationStatusWatchResults{
+		Results: make([]params.RelationStatusWatchResult, len(remoteRelationArgs.Args)),
+	}
+
+	for i, arg := range remoteRelationArgs.Args {
+		relationTag, err := api.st.GetRemoteEntity(arg.Token)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		w, err := api.relationStatusWatcher(api.st, relationTag.(names.RelationTag))
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		changes, ok := <-w.Changes()
+		if !ok {
+			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+		results.Results[i].RelationStatusWatcherId = api.resources.Register(w)
+		changesParams := make([]params.RelationStatusChange, len(changes))
+		for j, ch := range changes {
+			changesParams[j] = params.RelationStatusChange{
+				Key:    ch.Key,
+				Life:   params.Life(ch.Life),
+				Status: params.RelationStatusValue(ch.Status),
+			}
+		}
+		results.Results[i].Changes = changesParams
 	}
 	return results, nil
 }

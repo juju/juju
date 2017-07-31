@@ -11,7 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
 
 type Stopper interface {
@@ -304,6 +307,75 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, departed []string)
 }
 
 func (c RelationUnitsWatcherC) AssertClosed() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsFalse)
+	default:
+		c.Fatalf("watcher not closed")
+	}
+}
+
+// RelationStatusWatcherC embeds a gocheck.C and adds methods to help
+// verify the behaviour of any watcher that uses a <-chan
+// params.RelationStatusChange.
+type RelationStatusWatcherC struct {
+	*gc.C
+	State   SyncStarter
+	Watcher RelationStatusWatcher
+}
+
+// NewRelationStatusWatcherC returns a RelationStatusWatcherC that
+// checks for aggressive event coalescence.
+func NewRelationStatusWatcherC(c *gc.C, st SyncStarter, w RelationStatusWatcher) RelationStatusWatcherC {
+	return RelationStatusWatcherC{
+		C:       c,
+		State:   st,
+		Watcher: w,
+	}
+}
+
+type RelationStatusWatcher interface {
+	Stop() error
+	Changes() <-chan []watcher.RelationStatusChange
+}
+
+func (c RelationStatusWatcherC) AssertNoChange() {
+	c.State.StartSync()
+	select {
+	case actual, ok := <-c.Watcher.Changes():
+		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+func (c RelationStatusWatcherC) AssertOneChange() {
+	c.State.StartSync()
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+	c.AssertNoChange()
+}
+
+// AssertChange asserts the given changes was reported by the watcher,
+// but does not assume there are no following changes.
+func (c RelationStatusWatcherC) AssertChange(life life.Value, status relation.Status) {
+	c.State.StartSync()
+	timeout := time.After(testing.LongWait)
+	select {
+	case actual, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(actual, gc.HasLen, 1)
+		c.Assert(actual[0].Life, gc.Equals, life)
+		c.Assert(actual[0].Status, gc.Equals, status)
+	case <-timeout:
+		c.Fatalf("watcher did not send change")
+	}
+}
+
+func (c RelationStatusWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, jc.IsFalse)

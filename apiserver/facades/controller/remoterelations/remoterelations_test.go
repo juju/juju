@@ -374,7 +374,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	changes := params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
-	result, err := s.api.ConsumeRemoteRelationChange(changes)
+	result, err := s.api.ConsumeRemoteRelationChanges(changes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 

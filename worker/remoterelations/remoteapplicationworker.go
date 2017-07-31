@@ -46,6 +46,7 @@ type relation struct {
 	life       params.Life
 	localRuw   *relationUnitsWorker
 	remoteRuw  *relationUnitsWorker
+	remoteRrw  *remoteRelationsWorker
 }
 
 type remoteRelationInfo struct {
@@ -112,7 +113,7 @@ func (w *remoteApplicationWorker) loop() error {
 			logger.Debugf("relations changed: %#v, %v", change, ok)
 			if !ok {
 				// We are dying.
-				continue
+				return w.catacomb.ErrDying()
 			}
 			results, err := w.localModelFacade.Relations(change)
 			if err != nil {
@@ -150,6 +151,9 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 	}
 	if err := worker.Stop(relation.remoteRuw); err != nil {
 		logger.Warningf("stopping remote relation unit worker for %v: %v", key, err)
+	}
+	if err := worker.Stop(relation.remoteRrw); err != nil {
+		logger.Warningf("stopping remote relations worker for %v: %v", key, err)
 	}
 
 	// Remove the remote entity record for the relation to ensure any unregister
@@ -335,11 +339,34 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 		return errors.Trace(err)
 	}
 
+	remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationStatus(params.RemoteEntityArg{
+		Token:     relationToken,
+		Macaroons: macaroon.Slice{w.macaroon},
+	})
+	if err != nil {
+		return errors.Annotatef(err, "watching remote side of relation %v", remoteRelation.Key)
+	}
+
+	remoteRelationsWorker, err := newRemoteRelationsWorker(
+		relationTag,
+		remoteAppToken,
+		relationToken,
+		remoteRelationsWatcher,
+		w.remoteRelationChanges,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(remoteRelationsWorker); err != nil {
+		return errors.Trace(err)
+	}
+
 	relations[key] = &relation{
 		relationId: remoteRelation.Id,
 		life:       remoteRelation.Life,
 		localRuw:   localUnitsWorker,
 		remoteRuw:  remoteUnitsWorker,
+		remoteRrw:  remoteRelationsWorker,
 	}
 
 	return nil

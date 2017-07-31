@@ -10,7 +10,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type RelationSuite struct {
@@ -414,4 +417,54 @@ func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
 	state.RemoveRelation(c, relation)
 	_, err = s.State.KeyRelation(relation.Tag().Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
+	// Create a pair of services and a relation between them.
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	u, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	err = u.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+	relUnit, err := rel.Unit(u)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := rel.WatchStatus()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewRelationStatusWatcherC(c, s.State, w)
+	wc.AssertChange(life.Alive, "")
+
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(life.Dying, "")
+	wc.AssertNoChange()
+}
+
+func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
+	// Create a pair of services and a relation between them.
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := rel.WatchStatus()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewRelationStatusWatcherC(c, s.State, w)
+	wc.AssertChange(life.Alive, "")
+
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(life.Dead, "")
+	wc.AssertNoChange()
 }

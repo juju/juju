@@ -370,7 +370,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 		c.Check(objType, gc.Equals, "RemoteRelations")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ConsumeRemoteRelationChange")
+		c.Check(request, gc.Equals, "ConsumeRemoteRelationChanges")
 		c.Check(arg, jc.DeepEquals, changes)
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{

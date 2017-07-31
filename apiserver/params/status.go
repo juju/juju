@@ -8,6 +8,7 @@ package params
 import (
 	"time"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -267,4 +268,12 @@ const (
 	Alive Life = "alive"
 	Dying Life = "dying"
 	Dead  Life = "dead"
+)
+
+// RelationStatusValue describes the status of a relation ("active" or "revoked").
+type RelationStatusValue relation.Status
+
+const (
+	Active  RelationStatusValue = "active"
+	Revoked RelationStatusValue = "revoked"
 )
