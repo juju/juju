@@ -1,0 +1,135 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package featuretests
+
+import (
+	"strings"
+
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/resource"
+	coretesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+)
+
+type ResourcesCmdSuite struct {
+	coretesting.JujuConnSuite
+
+	appOne *state.Application
+
+	charmName   string
+	appOneName  string
+	unitOneName string
+
+	client *stubCharmStore
+}
+
+func (s *ResourcesCmdSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	s.charmName = "starsay"
+	s.appOneName = "app1"
+	charmOne := s.AddTestingCharm(c, s.charmName)
+
+	var err error
+	s.appOne, err = s.State.AddApplication(state.AddApplicationArgs{
+		Name:  s.appOneName,
+		Charm: charmOne,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	unitOne, err := s.appOne.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	unitOne.SetCharmURL(charmOne.URL())
+
+	s.unitOneName = unitOne.Name()
+
+	s.client = &stubCharmStore{
+		stub: &testing.Stub{},
+		listResources: func() [][]charmresource.Resource {
+			metas := charmOne.Meta().Resources
+			rs := []charmresource.Resource{}
+			for n, meta := range metas {
+				rs = append(rs, charmRes(c, n, meta))
+			}
+			return [][]charmresource.Resource{rs}
+		},
+	}
+
+}
+
+// This test only verifies that component-based resources commands don't panic.
+func (s *ResourcesCmdSuite) TestResourcesCommands(c *gc.C) {
+	// check "juju charm resources..."
+	s.runCharmResourcesCommand(c)
+
+	// check "juju resources <application>"
+	context, err := runCommand(c, "resources", s.appOneName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, "No resources to display.")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+
+	// check "juju resources <unit>"
+	context, err = runCommand(c, "resources", s.unitOneName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
+[Unit]
+Resource  Revision
+
+`[1:],
+	)
+
+	// check "juju attach"
+	context, err = runCommand(c, "attach", s.appOneName, "install-resource=oops")
+	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, `ERROR failed to upload resource "install-resource": open oops: no such file or directory`)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+}
+
+func (s *ResourcesCmdSuite) runCharmResourcesCommand(c *gc.C) {
+	context, err := cmdtesting.RunCommand(c, resource.NewListCharmResourcesCommand(s.client), s.charmName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+Resource          Revision
+install-resource  1
+store-resource    1
+upload-resource   1
+
+`[1:])
+	s.client.stub.CheckCallNames(c, "ListResources")
+}
+
+type stubCharmStore struct {
+	stub *testing.Stub
+
+	listResources func() [][]charmresource.Resource
+}
+
+func (s *stubCharmStore) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
+	s.stub.AddCall("ListResources", charms)
+	return s.listResources(), s.stub.NextErr()
+}
+
+func charmRes(c *gc.C, name string, meta charmresource.Meta) charmresource.Resource {
+	content := name
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := charmresource.Resource{
+		Meta:        meta,
+		Origin:      charmresource.OriginStore,
+		Revision:    1,
+		Fingerprint: fp,
+		Size:        int64(len(content)),
+	}
+	err = res.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+	return res
+}
