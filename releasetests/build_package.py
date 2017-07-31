@@ -31,8 +31,9 @@ SUPPORTED_RELEASES = """\
 15.04 vivid HISTORIC
 15.10 wily HISTORIC
 16.04 xenial LTS
-16.10 yakkety SUPPORTED
-17.04 zesty DEVEL
+16.10 yakkety HISTORIC
+17.04 zesty SUPPORTED
+17.10 artful DEVEL
 """
 
 
