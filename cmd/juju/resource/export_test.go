@@ -11,6 +11,10 @@ func ListCharmResourcesCommandChannel(c modelcmd.Command) string {
 	return modelcmd.InnerCommand(c).(*ListCharmResourcesCommand).channel
 }
 
+func CharmResourcesCommandChannel(c modelcmd.Command) string {
+	return modelcmd.InnerCommand(c).(*CharmResourcesCommand).channel
+}
+
 func ShowServiceCommandTarget(c *ShowServiceCommand) string {
 	return c.target
 }

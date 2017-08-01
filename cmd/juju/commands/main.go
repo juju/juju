@@ -308,6 +308,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
+	// TODO (anastasiamac 2017-08-1) This needs to be removed in Juju 3.x
+	// lp#1707836
 	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
@@ -478,6 +480,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 			return resourceadapters.NewAPIClient(apiRoot)
 		},
 	}))
+	r.Register(resource.NewCharmResourcesCommand(nil))
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

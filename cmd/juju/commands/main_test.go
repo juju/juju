@@ -412,6 +412,7 @@ var commandNames = []string{
 	"cancel-action",
 	"change-user-password",
 	"charm",
+	"charm-resources",
 	"clouds",
 	"collect-metrics",
 	"config",
