@@ -17,7 +17,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -186,13 +185,10 @@ func (st *State) Model() (*Model, error) {
 
 // GetModel looks for the model identified by the uuid passed in.
 func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
-	models, closer := st.db().GetCollection(modelsC)
-	defer closer()
-
 	model := &Model{
 		globalState: st,
 	}
-	if err := model.refresh(models.FindId(tag.Id())); err != nil {
+	if err := model.refresh(tag.Id()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return model, nil
@@ -779,13 +775,13 @@ func (m *Model) globalKey() string {
 }
 
 func (m *Model) Refresh() error {
-	models, closer := m.globalState.db().GetCollection(modelsC)
-	defer closer()
-	return m.refresh(models.FindId(m.UUID()))
+	return m.refresh(m.UUID())
 }
 
-func (m *Model) refresh(query mongo.Query) error {
-	err := query.One(&m.doc)
+func (m *Model) refresh(uuid string) error {
+	models, closer := m.globalState.db().GetCollection(modelsC)
+	defer closer()
+	err := models.FindId(uuid).One(&m.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("model")
 	}
