@@ -403,9 +403,11 @@ func (st *mockStatePool) Get(modelUUID string) (applicationoffers.Backend, func(
 type mockBakeryService struct {
 	authentication.BakeryService
 	jtesting.Stub
+	caveats map[string][]checkers.Caveat
 }
 
 func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", id, key, caveats)
+	s.caveats[id] = caveats
 	return macaroon.New(nil, id, "")
 }

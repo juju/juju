@@ -117,24 +117,25 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPI) checkMacaroons(mac macaroon.Slice, requiredValues map[string]string) error {
-	_, err := api.bakery.CheckAny([]macaroon.Slice{mac}, requiredValues, checkers.TimeBefore)
+func (api *CrossModelRelationsAPI) checkMacaroons(mac macaroon.Slice, requiredValues map[string]string) (map[string]string, error) {
+	attrs, err := api.bakery.CheckAny([]macaroon.Slice{mac}, requiredValues, checkers.TimeBefore)
 	if err != nil {
 		if _, ok := errgo.Cause(err).(*bakery.VerificationError); ok {
 			logger.Debugf("macaroon verification failed: %+v", err)
-			return common.ErrPerm
+			return nil, common.ErrPerm
 		} else {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return attrs, nil
 }
 
 func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.Tag, mac macaroon.Slice) error {
-	return api.checkMacaroons(mac, map[string]string{
+	_, err := api.checkMacaroons(mac, map[string]string{
 		"source-model-uuid": api.st.ModelUUID(),
 		"relation-key":      relationTag.Id(),
 	})
+	return err
 }
 
 // RegisterRemoteRelationArgs sets up the model to participate
@@ -176,12 +177,19 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		return nil, errors.Annotate(err, "loading model")
 	}
 	offerURL := crossmodel.MakeURL(model.Owner().Name(), model.Name(), relation.OfferName, "")
-	if err := api.checkMacaroons(relation.Macaroons, map[string]string{
+	attr, err := api.checkMacaroons(relation.Macaroons, map[string]string{
 		"source-model-uuid": api.st.ModelUUID(),
 		"offer-url":         offerURL,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
+	// The macaroon needs to be attenuated to a user.
+	username, ok := attr["username"]
+	if username == "" || !ok {
+		return nil, common.ErrPerm
+	}
+	// TODO(wallyworld) - require macaroon to be discharged to validate consume permission is still held
 
 	localApplicationName := appOffer.ApplicationName
 	localApp, err := api.st.Application(localApplicationName)
@@ -248,13 +256,21 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	if err != nil {
+	if err != nil { // not found
 		localRel, err = api.st.AddRelation(*localEndpoint, remoteEndpoint)
 		// Again, if it already exists, that's fine.
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return nil, errors.Annotate(err, "adding remote relation")
 		}
 		logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
+	}
+	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
+		Username:   username,
+		OfferName:  relation.OfferName,
+		RelationId: localRel.Id(),
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return nil, errors.Annotate(err, "adding offer connection details")
 	}
 
 	// Ensure we have references recorded.
@@ -277,13 +293,14 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	logger.Debugf("local application %v from model %v exported with token %v ", localApplicationName, api.st.ModelUUID(), token)
 
 	// Mint a new macaroon attenuated to the actual relation.
-	// TODO(wallyworld) - wind back expiry time and add refresh
+	// TODO(wallyworld) - wind back expiry time and implement a local discharge URL
 	modelTag := names.NewModelTag(api.st.ModelUUID())
 	relationMacaroon, err := api.bakery.NewMacaroon(fmt.Sprintf("%v %v", modelTag, localRel.Tag()), nil,
 		[]checkers.Caveat{
 			checkers.TimeBeforeCaveat(time.Now().Add(365 * 24 * time.Hour)),
 			checkers.DeclaredCaveat("source-model-uuid", api.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", localRel.Tag().Id()),
+			checkers.DeclaredCaveat("username", username),
 		})
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")

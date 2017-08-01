@@ -31,6 +31,7 @@ type mockState struct {
 	remoteApplications map[string]*mockRemoteApplication
 	applications       map[string]*mockApplication
 	offers             []crossmodel.ApplicationOffer
+	offerConnections   map[int]*mockOfferConnection
 	remoteEntities     map[names.Tag]string
 }
 
@@ -40,6 +41,7 @@ func newMockState() *mockState {
 		remoteApplications: make(map[string]*mockRemoteApplication),
 		applications:       make(map[string]*mockApplication),
 		remoteEntities:     make(map[names.Tag]string),
+		offerConnections:   make(map[int]*mockOfferConnection),
 	}
 }
 
@@ -57,16 +59,35 @@ func (st *mockState) Model() (crossmodelrelations.Model, error) {
 
 func (st *mockState) AddRelation(eps ...state.Endpoint) (common.Relation, error) {
 	rel := &mockRelation{
-		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
+		id:  len(st.relations),
+		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name),
+	}
+	if _, ok := st.relations[rel.key]; ok {
+		return nil, errors.AlreadyExistsf("relation %q", rel.key)
+	}
 	st.relations[rel.key] = rel
 	return rel, nil
 }
 
+func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (crossmodelrelations.OfferConnection, error) {
+	if _, ok := st.offerConnections[arg.RelationId]; ok {
+		return nil, errors.AlreadyExistsf("offer connection for relation %d", arg.RelationId)
+	}
+	oc := &mockOfferConnection{
+		relationId: arg.RelationId,
+		username:   arg.Username,
+		offerName:  arg.OfferName,
+	}
+	st.offerConnections[arg.RelationId] = oc
+	return oc, nil
+}
+
 func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (common.Relation, error) {
-	rel := &mockRelation{
-		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
-	st.relations[rel.key] = rel
-	return rel, nil
+	key := fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)
+	if rel, ok := st.relations[key]; ok {
+		return rel, nil
+	}
+	return nil, errors.NotFoundf("relation with key %q", key)
 }
 
 func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (common.RemoteApplication, error) {
@@ -225,6 +246,11 @@ func newMockRelation(id int) *mockRelation {
 	}
 }
 
+func (r *mockRelation) Id() int {
+	r.MethodCall(r, "Id")
+	return r.id
+}
+
 func (r *mockRelation) Tag() names.Tag {
 	r.MethodCall(r, "Tag")
 	return names.NewRelationTag(r.key)
@@ -296,6 +322,12 @@ func (a *mockApplication) Endpoints() ([]state.Endpoint, error) {
 func (a *mockApplication) Life() state.Life {
 	a.MethodCall(a, "Life")
 	return a.life
+}
+
+type mockOfferConnection struct {
+	relationId int
+	username   string
+	offerName  string
 }
 
 type mockRelationUnit struct {

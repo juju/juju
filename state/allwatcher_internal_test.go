@@ -347,7 +347,6 @@ func addTestingRemoteApplication(
 		Life:           multiwatcher.Life(rs.Life().String()),
 		Status: multiwatcher.StatusInfo{
 			Current: "unknown",
-			Message: "waiting for remote connection",
 			Data:    map[string]interface{}{},
 		},
 	}
@@ -369,6 +368,15 @@ func addTestingApplicationOffer(
 		Endpoints:       eps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	// Add the requested number of connections.
+	for i := 0; i < connected; i++ {
+		_, err := st.AddOfferConnection(AddOfferConnectionParams{
+			RelationId: i,
+			Username:   "fred",
+			OfferName:  offerName,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	return offer, multiwatcher.ApplicationOfferInfo{
 		ModelUUID:       st.ModelUUID(),
 		OfferName:       offerName,
@@ -3660,6 +3668,12 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			initialApplicationOfferInfo := applicationOfferInfo
 			addTestingRemoteApplication(
 				c, st, "remote-wordpress", "", "hosted-mysql", mysqlRelations, true)
+			_, err := st.AddOfferConnection(AddOfferConnectionParams{
+				RelationId: 0,
+				Username:   "fred",
+				OfferName:  initialApplicationOfferInfo.OfferName,
+			})
+			c.Assert(err, jc.ErrorIsNil)
 
 			applicationOfferInfo.ConnectedCount = 1
 			return changeTestCase{

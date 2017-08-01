@@ -95,14 +95,15 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 	mac, err := macaroon.New(nil, "test", "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "mysql",
-		URL:         "me/model.mysql",
-		SourceModel: s.State.ModelTag(),
-		Token:       "app-token",
-		Endpoints:   eps,
-		Spaces:      spaces,
-		Bindings:    bindings,
-		Macaroon:    mac,
+		Name:            "mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.State.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		Endpoints:       eps,
+		Spaces:          spaces,
+		Bindings:        bindings,
+		Macaroon:        mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -752,6 +753,32 @@ func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
 
 	_, err = re.GetRemoteEntity(relToken)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *remoteApplicationSuite) TestDestroyWithOfferConnections(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a offer connection record so we can check it is cleaned up.
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		RelationId: rel.Id(),
+		Username:   "fred",
+		OfferName:  "mysql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rc, err := s.State.RemoteConnectionStatus("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
+
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rc, err = s.State.RemoteConnectionStatus("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc.ConnectionCount(), gc.Equals, 0)
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {

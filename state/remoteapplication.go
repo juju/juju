@@ -692,10 +692,14 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	}
 	appDoc.Spaces = spaces
 	app := newRemoteApplication(st, appDoc)
+	statusInfo := ""
+	if args.IsConsumerProxy {
+		statusInfo = "waiting for remote connection"
+	}
 	statusDoc := statusDoc{
 		ModelUUID:  st.ModelUUID(),
 		Status:     status.Unknown,
-		StatusInfo: "waiting for remote connection",
+		StatusInfo: statusInfo,
 		Updated:    time.Now().UnixNano(),
 	}
 
@@ -796,30 +800,4 @@ func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err
 		applications = append(applications, newRemoteApplication(st, &v))
 	}
 	return applications, nil
-}
-
-// RemoteConnectionStatus returns summary information about connections to the specified offer.
-func (st *State) RemoteConnectionStatus(offerName string) (*RemoteConnectionStatus, error) {
-	applicationsCollection, closer := st.db().GetCollection(remoteApplicationsC)
-	defer closer()
-
-	count, err := applicationsCollection.Find(bson.D{{"offer-name", offerName}}).Count()
-	if err != nil {
-		return nil, errors.Errorf("cannot get remote connection status for offer %q", offerName)
-	}
-	return &RemoteConnectionStatus{
-		count: count,
-	}, nil
-}
-
-// RemoteConnectionStatus holds summary information about connections
-// to an application offer.
-type RemoteConnectionStatus struct {
-	count int
-}
-
-// ConnectionCount returns the number of remote applications
-// related to an offer.
-func (r *RemoteConnectionStatus) ConnectionCount() int {
-	return r.count
 }
