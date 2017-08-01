@@ -756,7 +756,6 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			Life:           "alive",
 			Status: multiwatcher.StatusInfo{
 				Current: status.Unknown,
-				Message: "waiting for remote connection",
 			},
 		},
 	}) {

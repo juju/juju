@@ -403,6 +403,46 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteTokens(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
+		OfferName:       "chapo",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a offer connection record so we can check it is cleaned up.
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		RelationId: relation.Id(),
+		Username:   "fred",
+		OfferName:  "mysql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rc, err := s.State.RemoteConnectionStatus("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
+
+	state.RemoveRelation(c, relation)
+	rc, err = s.State.RemoteConnectionStatus("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc.ConnectionCount(), gc.Equals, 0)
+}
+
 func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags( /*none*/ )
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))

@@ -422,6 +422,9 @@ func allCollections() collectionSchema {
 			applicationOffersC: {
 				indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
 			},
+			offerConnectionsC: {
+				indexes: []mgo.Index{{Key: []string{"model-uuid", "offer-name"}}},
+			},
 			remoteApplicationsC: {},
 			// remoteEntitiesC holds information about entities involved in
 			// cross-model relations.
@@ -530,6 +533,7 @@ const (
 	// Cross model relations
 	applicationOffersC   = "applicationOffers"
 	remoteApplicationsC  = "remoteApplications"
+	offerConnectionsC    = "applicationOfferConnections"
 	remoteEntitiesC      = "remoteEntities"
 	externalControllersC = "externalControllers"
 	relationIngressC     = "relationIngress"

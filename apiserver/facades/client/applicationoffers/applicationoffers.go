@@ -441,12 +441,13 @@ func (api *OffersAPI) GetConsumeDetails(args params.ApplicationURLs) (params.Con
 				continue
 			}
 			results[i].ControllerInfo = controllerInfo
-			// TODO(wallyworld) - wind back expiry time and add refresh
+			// TODO(wallyworld) - wind back expiry time and implement a local discharge URL
 			offerMacaroon, err := api.bakery.NewMacaroon("", nil,
 				[]checkers.Caveat{
 					checkers.TimeBeforeCaveat(time.Now().Add(365 * 24 * time.Hour)),
 					checkers.DeclaredCaveat("source-model-uuid", sourceModelTag.Id()),
 					checkers.DeclaredCaveat("offer-url", offer.OfferURL),
+					checkers.DeclaredCaveat("username", api.Authorizer.GetAuthTag().Id()),
 				})
 			if err != nil {
 				results[i].Error = common.ServerError(err)

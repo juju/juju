@@ -204,6 +204,8 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 		re := r.st.RemoteEntities()
 		tokenOps := re.removeRemoteEntityOps(r.Tag())
 		ops = append(ops, tokenOps...)
+		offerOps := removeOfferConnectionsForRelationOps(r.Id())
+		ops = append(ops, offerOps...)
 	}
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil

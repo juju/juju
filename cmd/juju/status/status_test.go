@@ -2799,7 +2799,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
+		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}, isConsumerProxy: true},
 		relateServices{"wordpress", "hosted-mysql"},
 
 		expect{
@@ -3238,10 +3238,11 @@ func (as addService) step(c *gc.C, ctx *context) {
 }
 
 type addRemoteApplication struct {
-	name      string
-	url       string
-	charm     string
-	endpoints []string
+	name            string
+	url             string
+	charm           string
+	endpoints       []string
+	isConsumerProxy bool
 }
 
 func (as addRemoteApplication) step(c *gc.C, ctx *context) {
@@ -3257,10 +3258,11 @@ func (as addRemoteApplication) step(c *gc.C, ctx *context) {
 		endpoints = append(endpoints, r)
 	}
 	_, err := ctx.st.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        as.name,
-		URL:         as.url,
-		SourceModel: coretesting.ModelTag,
-		Endpoints:   endpoints,
+		Name:            as.name,
+		URL:             as.url,
+		SourceModel:     coretesting.ModelTag,
+		Endpoints:       endpoints,
+		IsConsumerProxy: as.isConsumerProxy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

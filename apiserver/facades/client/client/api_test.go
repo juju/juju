@@ -378,10 +378,11 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-db2",
-		OfferName:   "hosted-db2",
-		URL:         "admin/prod.db2",
-		SourceModel: coretesting.ModelTag,
+		Name:            "remote-db2",
+		OfferName:       "hosted-db2",
+		URL:             "admin/prod.db2",
+		SourceModel:     coretesting.ModelTag,
+		IsConsumerProxy: true,
 		Endpoints: []charm.Relation{
 			{
 				Name:      "database",
