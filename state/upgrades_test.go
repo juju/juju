@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
@@ -1005,58 +1006,11 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr testing.Attrs) *Sta
 }
 
 func (s *upgradesSuite) TestAddStatusHistoryPruneSettings(c *gc.C) {
-	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
-	defer settingsCloser()
-	_, err := settingsColl.RemoveAll(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.checkAddPruneSettings(c, "max-status-history-age", "max-status-history-size", config.DefaultStatusHistoryAge, config.DefaultStatusHistorySize, AddStatusHistoryPruneSettings)
+}
 
-	m1 := s.makeModel(c, "m1", testing.Attrs{
-		"max-status-history-age":  "96h",
-		"max-status-history-size": "4G",
-	})
-	defer m1.Close()
-
-	m2 := s.makeModel(c, "m2", testing.Attrs{})
-	defer m2.Close()
-
-	err = settingsColl.Insert(bson.M{
-		"_id": "someothersettingshouldnotbetouched",
-		// non-model setting: should not be touched
-		"settings": bson.M{"key": "value"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg1, err := m1.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	expected1 := cfg1.AllAttrs()
-	expected1["resource-tags"] = ""
-
-	cfg2, err := m2.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	expected2 := cfg2.AllAttrs()
-	expected2["max-status-history-age"] = "336h"
-	expected2["max-status-history-size"] = "5G"
-	expected2["resource-tags"] = ""
-
-	expectedSettings := bsonMById{
-		{
-			"_id":        m1.ModelUUID() + ":e",
-			"settings":   bson.M(expected1),
-			"model-uuid": m1.ModelUUID(),
-		}, {
-			"_id":        m2.ModelUUID() + ":e",
-			"settings":   bson.M(expected2),
-			"model-uuid": m2.ModelUUID(),
-		}, {
-			"_id":      "someothersettingshouldnotbetouched",
-			"settings": bson.M{"key": "value"},
-		},
-	}
-	sort.Sort(expectedSettings)
-
-	s.assertUpgradedData(c, AddStatusHistoryPruneSettings,
-		expectUpgradedData{settingsColl, expectedSettings},
-	)
+func (s *upgradesSuite) TestAddActionPruneSettings(c *gc.C) {
+	s.checkAddPruneSettings(c, "max-action-results-age", "max-action-results-size", config.DefaultActionResultsAge, config.DefaultActionResultsSize, AddActionPruneSettings)
 }
 
 func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
@@ -1817,5 +1771,60 @@ func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
 	}}
 	s.assertUpgradedData(c, AddModelEnvironVersion,
 		expectUpgradedData{models, expectedModels},
+	)
+}
+
+func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(st *State) error) {
+	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m1 := s.makeModel(c, "m1", testing.Attrs{
+		ageProp:  "96h",
+		sizeProp: "4G",
+	})
+	defer m1.Close()
+
+	m2 := s.makeModel(c, "m2", testing.Attrs{})
+	defer m2.Close()
+
+	err = settingsColl.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg1, err := m1.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected1 := cfg1.AllAttrs()
+	expected1["resource-tags"] = ""
+
+	cfg2, err := m2.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected2 := cfg2.AllAttrs()
+	expected2[ageProp] = defaultAge
+	expected2[sizeProp] = defaultSize
+	expected2["resource-tags"] = ""
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	s.assertUpgradedData(c, updateFunc,
+		expectUpgradedData{settingsColl, expectedSettings},
 	)
 }

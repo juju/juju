@@ -149,13 +149,13 @@ const (
 	// collection can grow to before it is pruned, eg "5M"
 	MaxStatusHistorySize = "max-status-history-size"
 
-	// MaxActionAge is the maximum age of actions to keep when pruning, eg
+	// MaxActionResultsAge is the maximum age of actions to keep when pruning, eg
 	// "72h"
-	MaxActionAge = "max-action-age"
+	MaxActionResultsAge = "max-action-results-age"
 
-	// MaxActionSize is the maximum size the actions collection can
+	// MaxActionResultsSize is the maximum size the actions collection can
 	// grow to before it is pruned, eg "5M"
-	MaxActionSize = "max-action-size"
+	MaxActionResultsSize = "max-action-results-size"
 
 	// UpdateStatusHookInterval is how often to run the update-status hook.
 	UpdateStatusHookInterval = "update-status-hook-interval"
@@ -319,9 +319,9 @@ const (
 	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
 	DefaultUpdateStatusHookInterval = "5m"
 
-	DefaultActionAge = "336h" // 2 weeks
+	DefaultActionResultsAge = "336h" // 2 weeks
 
-	DefaultActionSize = "5G"
+	DefaultActionResultsSize = "5G"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -386,8 +386,8 @@ var defaultConfigValues = map[string]interface{}{
 	// Status history settings
 	MaxStatusHistoryAge:  DefaultStatusHistoryAge,
 	MaxStatusHistorySize: DefaultStatusHistorySize,
-	MaxActionAge:         DefaultActionAge,
-	MaxActionSize:        DefaultActionSize,
+	MaxActionResultsAge:  DefaultActionResultsAge,
+	MaxActionResultsSize: DefaultActionResultsSize,
 }
 
 // ConfigDefaults returns the config default values
@@ -537,13 +537,13 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if v, ok := cfg.defined[MaxActionAge].(string); ok {
+	if v, ok := cfg.defined[MaxActionResultsAge].(string); ok {
 		if _, err := time.ParseDuration(v); err != nil {
 			return errors.Annotate(err, "invalid max action age in model configuration")
 		}
 	}
 
-	if v, ok := cfg.defined[MaxActionSize].(string); ok {
+	if v, ok := cfg.defined[MaxActionResultsSize].(string); ok {
 		if _, err := utils.ParseSize(v); err != nil {
 			return errors.Annotate(err, "invalid max action size in model configuration")
 		}
@@ -999,15 +999,15 @@ func (c *Config) MaxStatusHistorySizeMB() uint {
 	return uint(val)
 }
 
-func (c *Config) MaxActionAge() time.Duration {
+func (c *Config) MaxActionResultsAge() time.Duration {
 	// Value has already been validated.
-	val, _ := time.ParseDuration(c.mustString(MaxActionAge))
+	val, _ := time.ParseDuration(c.mustString(MaxActionResultsAge))
 	return val
 }
 
-func (c *Config) MaxActionSizeMB() uint {
+func (c *Config) MaxActionResultsSizeMB() uint {
 	// Value has already been validated.
-	val, _ := utils.ParseSize(c.mustString(MaxActionSize))
+	val, _ := utils.ParseSize(c.mustString(MaxActionResultsSize))
 	return uint(val)
 }
 
@@ -1134,8 +1134,8 @@ var alwaysOptional = schema.Defaults{
 	NetBondReconfigureDelayKey:   schema.Omit,
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
-	MaxActionAge:                 schema.Omit,
-	MaxActionSize:                schema.Omit,
+	MaxActionResultsAge:          schema.Omit,
+	MaxActionResultsSize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
 }
 
@@ -1518,12 +1518,12 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	MaxActionAge: {
+	MaxActionResultsAge: {
 		Description: "The maximum age for action entries before they are pruned, in human-readable time format",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	MaxActionSize: {
+	MaxActionResultsSize: {
 		Description: "The maximum size for the action collection, in human-readable memory format",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,

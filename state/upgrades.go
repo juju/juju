@@ -698,6 +698,44 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	return nil
 }
 
+// AddActionPruneSettings adds the model settings
+// to control log pruning if they are missing.
+func AddActionPruneSettings(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	models, err := st.AllModels()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var ids []string
+	for _, m := range models {
+		ids = append(ids, m.UUID()+":e")
+	}
+
+	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		settingsChanged :=
+			maybeUpdateSettings(doc.Settings, config.MaxActionResultsAge, config.DefaultActionResultsAge)
+		settingsChanged =
+			maybeUpdateSettings(doc.Settings, config.MaxActionResultsSize, config.DefaultActionResultsSize) || settingsChanged
+		if settingsChanged {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
 // AddUpdateStatusHookSettings adds the model settings
 // to control how often to run the update-status hook
 // if they are missing.
