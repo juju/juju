@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 )
 
 type CloudV1 interface {
@@ -34,6 +33,7 @@ type CloudV2 interface {
 
 type CloudAPI struct {
 	backend                Backend
+	ctlrBackend            Backend
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
 	getCredentialsAuthFunc common.GetAuthFunc
@@ -49,18 +49,21 @@ var (
 )
 
 // NewFacade provides the required signature for facade registration.
-func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
-	return NewCloudAPI(NewStateBackend(st), auth)
+func NewFacade(context facade.Context) (*CloudAPI, error) {
+	st := NewStateBackend(context.State())
+	ctlrSt := NewStateBackend(context.StatePool().SystemState())
+	return NewCloudAPI(st, ctlrSt, context.Auth())
 }
 
-func NewFacadeV2(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPIV2, error) {
-	return NewCloudAPIV2(NewStateBackend(st), auth)
+func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
+	st := NewStateBackend(context.State())
+	ctlrSt := NewStateBackend(context.StatePool().SystemState())
+	return NewCloudAPIV2(st, ctlrSt, context.Auth())
 }
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, error) {
-
+func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -81,13 +84,14 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 	}
 	return &CloudAPI{
 		backend:                backend,
+		ctlrBackend:            ctlrBackend,
 		authorizer:             authorizer,
 		getCredentialsAuthFunc: getUserAuthFunc,
 	}, nil
 }
 
-func NewCloudAPIV2(backend Backend, authorizer facade.Authorizer) (*CloudAPIV2, error) {
-	cloudAPI, err := NewCloudAPI(backend, authorizer)
+func NewCloudAPIV2(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPIV2, error) {
+	cloudAPI, err := NewCloudAPI(backend, ctlrBackend, authorizer)
 	if err != nil {
 		return nil, err
 	}
@@ -142,11 +146,10 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 // DefaultCloud returns the tag of the cloud that models will be
 // created in by default.
 func (api *CloudAPI) DefaultCloud() (params.StringResult, error) {
-	controllerModel, err := api.backend.ControllerModel()
+	controllerModel, err := api.ctlrBackend.Model()
 	if err != nil {
 		return params.StringResult{}, err
 	}
-
 	return params.StringResult{
 		Result: names.NewCloudTag(controllerModel.Cloud()).String(),
 	}, nil

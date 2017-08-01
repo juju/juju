@@ -34,6 +34,7 @@ type modelInfoSuite struct {
 	coretesting.BaseSuite
 	authorizer   apiservertesting.FakeAuthorizer
 	st           *mockState
+	ctlrSt       *mockState
 	modelmanager *modelmanager.ModelManagerAPI
 }
 
@@ -69,7 +70,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 					Value: "spam"}}},
 		},
 	}
-	s.st.controllerModel = &mockModel{
+	controllerModel := &mockModel{
 		owner: names.NewUserTag("admin@local"),
 		life:  state.Alive,
 		cfg:   coretesting.ModelConfig(c),
@@ -88,6 +89,12 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			userName: "otheruser",
 			access:   permission.AdminAccess,
 		}},
+	}
+	s.st.controllerModel = controllerModel
+
+	s.ctlrSt = &mockState{
+		model:           controllerModel,
+		controllerModel: controllerModel,
 	}
 
 	s.st.model = &mockModel{
@@ -136,14 +143,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, nil, &s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, nil, s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -560,17 +567,27 @@ type fakeModelDescription struct {
 	UUID string `yaml:"model-uuid"`
 }
 
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return st.model.UUID()
+}
+
+func (st *mockState) ControllerModelUUID() string {
+	st.MethodCall(st, "ControllerModelUUID")
+	return st.controllerModel.tag.Id()
+}
+
+func (st *mockState) ControllerModelTag() names.ModelTag {
+	st.MethodCall(st, "ControllerModelTag")
+	return st.controllerModel.tag
+}
+
 func (st *mockState) Export() (description.Model, error) {
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
 func (st *mockState) ExportPartial(state.ExportConfig) (description.Model, error) {
 	return st.Export()
-}
-
-func (st *mockState) ModelUUID() string {
-	st.MethodCall(st, "ModelUUID")
-	return st.model.UUID()
 }
 
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {

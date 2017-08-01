@@ -147,9 +147,9 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	model, err := s.State.ControllerModel()
+	owner, err := s.State.ControllerOwner()
 	c.Assert(err, jc.ErrorIsNil)
-	return model.Owner()
+	return owner
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {

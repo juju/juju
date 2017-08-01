@@ -739,11 +739,7 @@ func jsonToMacaroons(raw string) ([]macaroon.Slice, error) {
 }
 
 func checkTargetController(st *State, targetControllerTag names.ControllerTag) error {
-	currentController, err := st.ControllerModel()
-	if err != nil {
-		return errors.Annotate(err, "failed to load existing controller model")
-	}
-	if targetControllerTag == currentController.ControllerTag() {
+	if targetControllerTag.Id() == st.ControllerUUID() {
 		return errors.New("model already attached to target controller")
 	}
 	return nil

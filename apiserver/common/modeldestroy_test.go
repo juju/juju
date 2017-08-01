@@ -97,7 +97,7 @@ func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModel", nil},
+		{"ControllerModelTag", nil},
 		{"GetBlockForType", []interface{}{state.DestroyBlock}},
 		{"GetBlockForType", []interface{}{state.RemoveBlock}},
 		{"GetBlockForType", []interface{}{state.ChangeBlock}},
@@ -114,7 +114,7 @@ func (s *destroyModelSuite) TestDestroyControllerReleaseStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModel", nil},
+		{"ControllerModelTag", nil},
 		{"GetBlockForType", []interface{}{state.DestroyBlock}},
 		{"GetBlockForType", []interface{}{state.RemoveBlock}},
 		{"GetBlockForType", []interface{}{state.ChangeBlock}},
@@ -132,7 +132,7 @@ func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModel", nil},
+		{"ControllerModelTag", nil},
 		{"AllModels", nil},
 
 		{"ForModel", []interface{}{s.modelManager.models[0].tag}},
@@ -190,9 +190,14 @@ func (m *mockModelManager) AllModels() ([]common.Model, error) {
 	return models, m.NextErr()
 }
 
-func (m *mockModelManager) ControllerModel() (common.Model, error) {
-	m.MethodCall(m, "ControllerModel")
-	return m.models[0], m.NextErr()
+func (m *mockModelManager) ControllerModelUUID() string {
+	m.MethodCall(m, "ControllerModelUUID")
+	return m.models[0].UUID()
+}
+
+func (m *mockModelManager) ControllerModelTag() names.ModelTag {
+	m.MethodCall(m, "ControllerModelTag")
+	return m.models[0].ModelTag()
 }
 
 func (m *mockModelManager) ModelTag() names.ModelTag {

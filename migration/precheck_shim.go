@@ -107,11 +107,7 @@ func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, er
 
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
-	model, err := s.State.ControllerModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	st, err := s.State.ForModel(model.ModelTag())
+	st, err := s.State.ForModel(s.State.ControllerModelTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

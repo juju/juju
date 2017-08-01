@@ -33,7 +33,8 @@ type ModelManagerBackend interface {
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 
 	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error)
-	ControllerModel() (Model, error)
+	ControllerModelUUID() string
+	ControllerModelTag() names.ModelTag
 	ControllerConfig() (controller.Config, error)
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
 	GetModel(names.ModelTag) (Model, error)
@@ -105,15 +106,6 @@ type modelManagerStateShim struct {
 // state, which implements ModelManagerBackend.
 func NewModelManagerBackend(st *state.State) ModelManagerBackend {
 	return modelManagerStateShim{st}
-}
-
-// ControllerModel implements ModelManagerBackend.
-func (st modelManagerStateShim) ControllerModel() (Model, error) {
-	m, err := st.State.ControllerModel()
-	if err != nil {
-		return nil, err
-	}
-	return modelShim{m}, nil
 }
 
 // NewModel implements ModelManagerBackend.

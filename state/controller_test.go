@@ -52,9 +52,7 @@ func (s *ControllerSuite) TestNewState(c *gc.C) {
 func (s *ControllerSuite) TestControllerConfig(c *gc.C) {
 	cfg, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.State.ControllerModel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["controller-uuid"], gc.Equals, m.ControllerUUID())
+	c.Assert(cfg["controller-uuid"], gc.Equals, s.State.ControllerUUID())
 }
 
 func (s *ControllerSuite) TestPing(c *gc.C) {

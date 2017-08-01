@@ -165,19 +165,6 @@ type modelEntityRefsDoc struct {
 	Filesystems []string `bson:"filesystems"`
 }
 
-// ControllerModel returns the model that was bootstrapped.
-// This is the only model that can have controller machines.
-// The owner of this model is also considered "special", in that
-// they are the only user that is able to create other users (until we
-// have more fine grained permissions), and they cannot be disabled.
-func (st *State) ControllerModel() (*Model, error) {
-	ssinfo, err := st.ControllerInfo()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not get controller info")
-	}
-	return st.GetModel(ssinfo.ModelTag)
-}
-
 // Model returns the model entity.
 func (st *State) Model() (*Model, error) {
 	return st.GetModel(st.modelTag)

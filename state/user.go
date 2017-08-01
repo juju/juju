@@ -473,11 +473,11 @@ func (u *User) Disable() error {
 	if err := u.ensureNotDeleted(); err != nil {
 		return errors.Annotate(err, "cannot disable")
 	}
-	environment, err := u.st.ControllerModel()
+	owner, err := u.st.ControllerOwner()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if u.doc.Name == environment.Owner().Name() {
+	if u.doc.Name == owner.Name() {
 		return errors.Unauthorizedf("cannot disable controller model owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())

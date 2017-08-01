@@ -296,38 +296,6 @@ func (s *ModelSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(ms.Info, gc.Equals, "info setting 2")
 }
 
-func (s *ModelSuite) TestControllerModel(c *gc.C) {
-	model, err := s.State.ControllerModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedTag := names.NewModelTag(model.UUID())
-	c.Assert(model.Tag(), gc.Equals, expectedTag)
-	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
-	c.Assert(model.Name(), gc.Equals, "testenv")
-	c.Assert(model.Owner(), gc.Equals, s.Owner)
-	c.Assert(model.Life(), gc.Equals, state.Alive)
-}
-
-func (s *ModelSuite) TestControllerModelAccessibleFromOtherModels(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	_, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       names.NewUserTag("test@remote"),
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	model, err := st.ControllerModel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Tag(), gc.Equals, s.modelTag)
-	c.Assert(model.Name(), gc.Equals, "testenv")
-	c.Assert(model.Owner(), gc.Equals, s.Owner)
-	c.Assert(model.Life(), gc.Equals, state.Alive)
-}
-
 func (s *ModelSuite) TestConfigForControllerModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()

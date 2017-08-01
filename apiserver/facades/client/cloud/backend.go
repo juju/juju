@@ -16,8 +16,9 @@ type Backend interface {
 	Cloud(cloudName string) (cloud.Cloud, error)
 	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
-	ControllerModel() (Model, error)
+	Model() (Model, error)
 	ControllerTag() names.ControllerTag
+	ControllerModelTag() names.ModelTag
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
 	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
@@ -40,8 +41,8 @@ func NewStateBackend(st *state.State) Backend {
 	return stateShim{st}
 }
 
-func (s stateShim) ControllerModel() (Model, error) {
-	m, err := s.State.ControllerModel()
+func (s stateShim) Model() (Model, error) {
+	m, err := s.State.Model()
 	if err != nil {
 		return nil, err
 	}

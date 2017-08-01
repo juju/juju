@@ -928,12 +928,8 @@ func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
 }
 
 func (a *fakeUpgradeJujuAPI) ModelConfig() (map[string]interface{}, error) {
-	controllerModel, err := a.st.ControllerModel()
-	if err != nil {
-		return make(map[string]interface{}), err
-	}
 	return map[string]interface{}{
-		"uuid": controllerModel.UUID(),
+		"uuid": a.st.ControllerModelUUID(),
 	}, nil
 }
 

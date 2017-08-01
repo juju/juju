@@ -71,6 +71,7 @@ type ModelManagerV2 interface {
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
+	ctlrState   common.ModelManagerBackend
 	pool        common.BackendPool
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
@@ -100,13 +101,18 @@ var (
 // NewFacadeV4 is used for API registration.
 func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
+	ctlrSt := ctx.StatePool().SystemState()
 	auth := ctx.Auth()
 	pool := ctx.StatePool()
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 
 	return NewModelManagerAPI(
 		common.NewModelManagerBackend(st),
-		common.NewBackendPool(pool), configGetter, auth)
+		common.NewModelManagerBackend(ctlrSt),
+		common.NewBackendPool(pool),
+		configGetter,
+		auth,
+	)
 }
 
 // NewFacadeV3 is used for API registration.
@@ -131,6 +137,7 @@ func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 // models.
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
+	ctlrSt common.ModelManagerBackend,
 	pool common.BackendPool,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
@@ -151,6 +158,7 @@ func NewModelManagerAPI(
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, pool, authorizer, apiUser),
 		state:          st,
+		ctlrState:      ctlrSt,
 		pool:           pool,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
@@ -264,7 +272,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
-	controllerModel, err := m.state.ControllerModel()
+	controllerModel, err := m.ctlrState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

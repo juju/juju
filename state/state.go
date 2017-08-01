@@ -141,8 +141,42 @@ func (st *State) ControllerUUID() string {
 	return st.controllerTag.Id()
 }
 
+// ControllerTag returns the tag form of the the return value of
+// ControllerUUID.
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
+}
+
+// ControllerModelUUID returns the UUID of the model that was
+// bootstrapped.  This is the only model that can have controller
+// machines.  The owner of this model is also considered "special", in
+// that they are the only user that is able to create other users
+// (until we have more fine grained permissions), and they cannot be
+// disabled.
+func (st *State) ControllerModelUUID() string {
+	return st.controllerModelTag.Id()
+}
+
+// ControllerModelTag returns the tag form the return value of
+// ControllerModelUUID.
+func (st *State) ControllerModelTag() names.ModelTag {
+	return st.controllerModelTag
+}
+
+// ControllerOwner returns the owner of the controller model.
+func (st *State) ControllerOwner() (names.UserTag, error) {
+	models, close := st.db().GetCollection(modelsC)
+	defer close()
+	var doc map[string]string
+	err := models.FindId(st.ControllerModelUUID()).Select(bson.M{"owner": 1}).One(&doc)
+	if err != nil {
+		return names.UserTag{}, errors.Annotate(err, "loading controller model")
+	}
+	owner := doc["owner"]
+	if owner == "" {
+		return names.UserTag{}, errors.New("model owner missing")
+	}
+	return names.NewUserTag(owner), nil
 }
 
 func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {

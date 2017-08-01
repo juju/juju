@@ -6,7 +6,7 @@ package apiserver
 import (
 	"net/http"
 
-	"github.com/juju/errors"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -55,15 +55,11 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 		return nil
 	}
 
-	controllerModel, err := st.ControllerModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	ok, err = common.HasPermission(
 		st.UserPermission,
 		entity.Tag(),
 		permission.ReadAccess,
-		controllerModel.ModelTag(),
+		names.NewModelTag(st.ControllerModelUUID()),
 	)
 	if err != nil {
 		return err

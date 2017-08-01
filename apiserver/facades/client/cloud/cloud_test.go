@@ -20,10 +20,11 @@ import (
 
 type cloudSuite struct {
 	gitjujutesting.IsolationSuite
-	backend    mockBackend
-	authorizer apiservertesting.FakeAuthorizer
-	api        *cloudfacade.CloudAPI
-	apiv2      *cloudfacade.CloudAPIV2
+	backend     mockBackend
+	ctlrBackend mockBackend
+	authorizer  apiservertesting.FakeAuthorizer
+	api         *cloudfacade.CloudAPI
+	apiv2       *cloudfacade.CloudAPIV2
 }
 
 var _ = gc.Suite(&cloudSuite{})
@@ -48,10 +49,19 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 			}),
 		},
 	}
+	s.ctlrBackend = mockBackend{
+		cloud: cloud.Cloud{
+			Name:      "dummy",
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+		},
+	}
+
 	var err error
-	s.api, err = cloudfacade.NewCloudAPI(&s.backend, &s.authorizer)
+	s.api, err = cloudfacade.NewCloudAPI(&s.backend, &s.ctlrBackend, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv2, err = cloudfacade.NewCloudAPIV2(&s.backend, &s.authorizer)
+	s.apiv2, err = cloudfacade.NewCloudAPIV2(&s.backend, &s.ctlrBackend, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -91,9 +101,9 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 	result, err := s.api.DefaultCloud()
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerModel")
+	s.ctlrBackend.CheckCallNames(c, "Model")
 	c.Assert(result, jc.DeepEquals, params.StringResult{
-		Result: "cloud-some-cloud",
+		Result: "cloud-dummy",
 	})
 }
 
@@ -313,10 +323,9 @@ func (st *mockBackend) IsControllerAdmin(user names.UserTag) (bool, error) {
 	return user.Id() == "admin", st.NextErr()
 }
 
-func (st *mockBackend) ControllerModel() (cloudfacade.Model, error) {
-	st.MethodCall(st, "ControllerModel")
-	credentialTag := names.NewCloudCredentialTag("some-cloud/admin/some-credential")
-	return &mockModel{"some-cloud", "some-region", credentialTag}, st.NextErr()
+func (st *mockBackend) ControllerModelTag() names.ModelTag {
+	st.MethodCall(st, "ControllerModelTag")
+	return names.NewModelTag("beefdead-1bad-500d-9000-4b1d0d06f00d")
 }
 
 func (st *mockBackend) ControllerTag() names.ControllerTag {
@@ -364,6 +373,13 @@ func (st *mockBackend) Close() error {
 func (st *mockBackend) AddCloud(cloud cloud.Cloud) error {
 	st.MethodCall(st, "AddCloud", cloud)
 	return st.NextErr()
+}
+
+func (st *mockBackend) Model() (cloudfacade.Model, error) {
+	st.MethodCall(st, "Model")
+	return &mockModel{
+		cloud: st.cloud.Name,
+	}, st.NextErr()
 }
 
 type mockModel struct {

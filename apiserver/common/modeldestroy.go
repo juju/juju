@@ -37,14 +37,11 @@ func DestroyController(
 	destroyStorage *bool,
 ) error {
 	modelTag := st.ModelTag()
-	controllerModel, err := st.ControllerModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if modelTag != controllerModel.ModelTag() {
+	controllerModelTag := st.ControllerModelTag()
+	if modelTag != controllerModelTag {
 		return errors.Errorf(
 			"expected state for controller model UUID %v, got %v",
-			controllerModel.ModelTag().Id(),
+			controllerModelTag.Id(),
 			modelTag.Id(),
 		)
 	}

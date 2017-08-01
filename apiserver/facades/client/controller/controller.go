@@ -213,11 +213,11 @@ func (s *ControllerAPIv3) ModelConfig() (params.ModelConfigResults, error) {
 		return result, errors.Trace(err)
 	}
 
-	controllerModel, err := s.state.ControllerModel()
+	controllerState := s.statePool.SystemState()
+	controllerModel, err := controllerState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
 	cfg, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -241,18 +241,13 @@ func (s *ControllerAPIv3) HostedModelConfigs() (params.HostedModelConfigsResults
 		return result, errors.Trace(err)
 	}
 
-	controllerModel, err := s.state.ControllerModel()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
 	allModels, err := s.state.AllModels()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
 	for _, model := range allModels {
-		if model.UUID() != controllerModel.UUID() {
+		if model.UUID() != s.state.ControllerModelUUID() {
 			config := params.HostedModelConfig{
 				Name:     model.Name(),
 				OwnerTag: model.Owner().String(),
@@ -428,7 +423,8 @@ func (c *ControllerAPIv3) initiateOneMigration(spec params.MigrationSpec) (strin
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, &targetInfo); err != nil {
+	ctlrSt := c.statePool.SystemState()
+	if err := runMigrationPrechecks(hostedState, ctlrSt, &targetInfo); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -484,7 +480,7 @@ func (c *ControllerAPIv3) ModifyControllerAccess(args params.ModifyControllerAcc
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
-var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.TargetInfo) error {
+var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st)
 	if err != nil {
@@ -500,7 +496,7 @@ var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.Targ
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer conn.Close()
-	modelInfo, err := makeModelInfo(st)
+	modelInfo, err := makeModelInfo(st, ctlrSt)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -520,7 +516,7 @@ var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.Targ
 	return errors.Annotate(err, "target prechecks failed")
 }
 
-func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
+func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, error) {
 	var empty coremigration.ModelInfo
 
 	model, err := st.Model()
@@ -536,7 +532,7 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 	agentVersion, _ := conf.AgentVersion()
 
 	// Retrieve agent version for the controller.
-	controllerModel, err := st.ControllerModel()
+	controllerModel, err := ctlrSt.Model()
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
