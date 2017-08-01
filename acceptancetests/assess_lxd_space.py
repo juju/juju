@@ -2,7 +2,18 @@
 """Testing spaces and subnets settings for app deployment to lxd container.
    This is an validation of Bug 1685782:
    https://bugs.launchpad.net/juju/+bug/1685782
-   The test procedures are based on comment #29.
+   The test procedures are based on comment #29:
+   juju bootstrap aws test
+   juju spaces
+   juju subnets
+   juju add-space testspace <CIDR>
+   juju spaces
+   juju deploy ubuntu --constraints "spaces=testspace"
+   juju status
+   juju deploy ubuntu ubuntu-lxd --to lxd:0
+   juju status
+
+   python assess_lxd_space.py $ENV $JUJU_BIN $JUJU_DATA
 """
 
 from __future__ import print_function
@@ -23,12 +34,13 @@ from utility import (
     )
 
 __metaclass__ = type
-log = logging.getLogger("assess_lxd_space")
+log = logging.getLogger("assess_lxd_container_space")
 
 
 def assert_initial_spaces(client):
     """Initial spaces status after bootstrap should show as:
-       no spaces to display"""
+       no spaces to display
+       :param client: ModelClient object."""
     # Run juju spaces --format json
     # Bug 1704105: https://bugs.launchpad.net/juju/+bug/1704105
     # merge_stderr need to be set to True for the initial assert
@@ -45,6 +57,9 @@ def assert_initial_spaces(client):
 
 
 def get_subnets(client):
+    """Get existing subnets after bootstrap, perform a basic validity check.
+       :param client: ModelClient object.
+       :returns subnets_dict: a dictionary with CIDR as its keys."""
     # Run juju subnets --format json
     raw_output = client.get_juju_output(
         'subnets', '--format', 'json', include_e=False)
@@ -54,14 +69,14 @@ def get_subnets(client):
         log.error('Invalid output from juju subnets:\n{}'.format(raw_output))
         raise e
     subnets_dict = subnets_output['subnets']
-    subnets_cidr_list = subnets_output['subnets'].keys()
-    return (subnets_dict, subnets_cidr_list)
+    return subnets_dict
 
 
 def assert_initial_subnets(client):
     """There should be at least 1 subnet available once bootstrap is completed.
-       By default 4 subnets should be shown under an AWS controller."""
-    subnets_dict = get_subnets(client)[0]
+       By default 4 subnets should be shown under an AWS controller.
+       :param client: ModelClient object."""
+    subnets_dict = get_subnets(client)
     if not subnets_dict:
         raise JujuAssertionError('No subnet can be Found.')
     else:
@@ -69,8 +84,11 @@ def assert_initial_subnets(client):
 
 
 def add_space_with_existing_subnet(client, space_name):
+    """Add a new space and with one of subnet CIDRs.
+       :param client: ModelClient object.
+       :param space_name: The name of newly added space."""
     # Run juju add-space <space_name> <subnet_cidr>
-    subnets_cidr_list = get_subnets(client)[1]
+    subnets_cidr_list = get_subnets(client).keys()
     subnet_cidr = subnets_cidr_list[0]
     # Bug 1704105, merge_stderr=True is required.
     client.get_juju_output(
@@ -87,11 +105,13 @@ def assert_added_space(client):
        3. The name of new added space should be the same as specified.
        4. Total number of subnet CIDR from this new added space should be 1.
        5. The CIDR data from new added space should be the same as specified.
+       :param client: ModelClient object.
     """
     space_name, subnet_cidr = add_space_with_existing_subnet(
         client, space_name='testspace')
     # New added space should exist at this point,
-    # set merge_stderr to False to eliminate noise in output.
+    # set merge_stderr to False to eliminate noise in output,
+    # otherwise the extra output will break the json object.
     raw_output = client.get_juju_output(
         'spaces', '--format', 'json', include_e=False, merge_stderr=False)
     try:
@@ -121,6 +141,10 @@ def assert_added_space(client):
 
 
 def assert_app_status(client, charm_name, expected):
+    """Validate app status after each deployment.
+       :param client: ModelClient object.
+       :param charm_name: Application name for the status check against.
+       :param expected: Expected app status, in this case it is active."""
     # Run juju status --format json
     log.info('Checking current status of app {}.'.format(charm_name))
     status_output = json.loads(
@@ -145,34 +169,36 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def assess_lxd_space(client):
-    environment = os.getenv('ENV', default='parallel-aws')
-    if environment != 'parallel-aws':
-        log.error('Incorrect substrate, should be parallel-aws.')
-        sys.exit(1)
-    else:
-        assert_initial_spaces(client)
-        assert_initial_subnets(client)
-        assert_added_space(client)
-        # Run juju deploy ubuntu --constraints "spaces=testspace"
-        client.deploy(charm='ubuntu', constraints='spaces=testspace')
-        client.wait_for_started()
-        client.wait_for_workloads()
-        assert_app_status(client, charm_name='ubuntu', expected='active')
-        # Run juju deploy ubuntu ubuntu-lxd --to lxd:0
-        client.deploy(charm='ubuntu', service='ubuntu-lxd', to='lxd:0')
-        client.wait_for_started()
-        client.wait_for_workloads()
-        assert_app_status(client, charm_name='ubuntu-lxd', expected='active')
+def assess_lxd_container_space(client):
+    """Execute full workflow, see docstring on top of the script.
+       :param client: ModelClient object."""
+    assert_initial_spaces(client)
+    assert_initial_subnets(client)
+    assert_added_space(client)
+    # Run juju deploy ubuntu --constraints "spaces=testspace"
+    client.deploy(charm='ubuntu', constraints='spaces=testspace')
+    client.wait_for_started()
+    client.wait_for_workloads()
+    assert_app_status(client, charm_name='ubuntu', expected='active')
+    # Run juju deploy ubuntu ubuntu-lxd --to lxd:0
+    client.deploy(charm='ubuntu', service='ubuntu-lxd', to='lxd:0')
+    client.wait_for_started()
+    client.wait_for_workloads()
+    assert_app_status(client, charm_name='ubuntu-lxd', expected='active')
 
 
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(args.upload_tools):
-        assess_lxd_space(bs_manager.client)
-    return 0
+    environment = os.getenv('ENV', default='parallel-aws')
+    if environment != 'parallel-aws':
+        log.error('Incorrect substrate, should be parallel-aws.')
+        sys.exit(1)
+    else:
+        bs_manager = BootstrapManager.from_args(args)
+        with bs_manager.booted_context(args.upload_tools):
+            assess_lxd_container_space(bs_manager.client)
+        return 0
 
 
 if __name__ == '__main__':
