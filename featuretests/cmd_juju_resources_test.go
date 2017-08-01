@@ -92,7 +92,7 @@ Resource  Revision
 	)
 
 	// check "juju attach"
-	context, err = runCommand(c, "attach", s.appOneName, "install-resource=oops")
+	context, err = runCommand(c, "attach-resource", s.appOneName, "install-resource=oops")
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(cmdtesting.Stderr(context), jc.Contains, `ERROR failed to upload resource "install-resource": open oops: no such file or directory`)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
