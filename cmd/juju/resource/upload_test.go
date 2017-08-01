@@ -90,13 +90,14 @@ func (s *UploadSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "attach",
+		Name:    "attach-resource",
 		Args:    "application name=file",
 		Purpose: "Upload a file as a resource for an application.",
 		Doc: `
 This command uploads a file from your local disk to the juju controller to be
 used as a resource for an application.
 `,
+		Aliases: []string{"attach"},
 	})
 }
 
