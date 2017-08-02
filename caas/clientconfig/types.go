@@ -31,14 +31,12 @@ type CloudConfig struct {
 // Cluster_A, User_A: error. already exists.
 // Cluster_A, User_B: No new Cloud, new Credential for the cloud.
 
-type ClientConfigReader interface {
-	GetClientConfig() (*ClientConfig, error)
-}
+type ClientConfigFunc func() (*ClientConfig, error)
 
-func NewClientConfigReader(cloudType string) (ClientConfigReader, error) {
+func NewClientConfigReader(cloudType string) (ClientConfigFunc, error) {
 	switch cloudType {
 	case "kubernetes":
-		return &K8SClientConfigReader{}, nil
+		return K8SClientConfig, nil
 	default:
 		return nil, errors.Errorf("Cannot read local config: unsupported cloud type '%s'", cloudType)
 	}

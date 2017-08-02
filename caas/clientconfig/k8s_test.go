@@ -17,7 +17,6 @@ import (
 
 type k8sConfigSuite struct {
 	testing.IsolationSuite
-	reader caascfg.K8SClientConfigReader
 }
 
 var _ = gc.Suite(&k8sConfigSuite{})
@@ -125,7 +124,7 @@ func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 
-	cfg, err := s.reader.GetClientConfig()
+	cfg, err := caascfg.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
 		&caascfg.ClientConfig{
@@ -142,7 +141,7 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 
-	cfg, err := s.reader.GetClientConfig()
+	cfg, err := caascfg.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
 		&caascfg.ClientConfig{
@@ -169,7 +168,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 
-	cfg, err := s.reader.GetClientConfig()
+	cfg, err := caascfg.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
 		&caascfg.ClientConfig{

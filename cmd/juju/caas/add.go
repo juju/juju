@@ -63,7 +63,7 @@ type AddCAASCommand struct {
 	cloudMetadataStore    CloudMetadataStore
 	apiRoot               api.Connection
 	newCloudAPI           func(base.APICallCloser) AddCloudAPI
-	newClientConfigReader func(string) (caascfg.ClientConfigReader, error)
+	newClientConfigReader func(string) (caascfg.ClientConfigFunc, error)
 }
 
 // NewAddCAASCommand returns a command to add caas information.
@@ -73,12 +73,12 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
 		newCloudAPI: func(caller base.APICallCloser) AddCloudAPI {
 			return cloudapi.NewClient(caller)
 		},
-		newClientConfigReader: func(caasType string) (caascfg.ClientConfigReader, error) {
+		newClientConfigReader: func(caasType string) (caascfg.ClientConfigFunc, error) {
 			return caascfg.NewClientConfigReader(caasType)
 		},
 	}
 }
-func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) AddCloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigReader, error)) *AddCAASCommand {
+func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) AddCloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) *AddCAASCommand {
 	return &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
 		apiRoot:               apiRoot,
@@ -134,12 +134,12 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	reader, err := c.newClientConfigReader(c.caasType)
+	clientConfigFunc, err := c.newClientConfigReader(c.caasType)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	caasConfig, err := reader.GetClientConfig()
+	caasConfig, err := clientConfigFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}

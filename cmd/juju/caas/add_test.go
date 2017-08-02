@@ -21,9 +21,9 @@ import (
 
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
-	fakeCloudAPI    *fakeCloudAPI
-	store           *fakeCloudMetadataStore
-	k8sConfigReader *fakeK8SClientConfigReader
+	fakeCloudAPI      *fakeCloudAPI
+	store             *fakeCloudMetadataStore
+	fakeK8SConfigFunc caascfg.ClientConfigFunc
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -72,11 +72,7 @@ type fakeCloudAPI struct {
 	credentials []names.CloudCredentialTag
 }
 
-type fakeK8SClientConfigReader struct {
-	*jujutesting.Stub
-}
-
-func (f *fakeK8SClientConfigReader) GetClientConfig() (*caascfg.ClientConfig, error) {
+func fakeK8SClientConfig() (*caascfg.ClientConfig, error) {
 	return &caascfg.ClientConfig{}, nil
 }
 
@@ -99,19 +95,19 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 			Name: "mrcloud",
 			Type: "kubernetes"},
 	}, false, nil)
-	s.k8sConfigReader = &fakeK8SClientConfigReader{}
 }
 
-func (s *addCAASSuite) makeCommand(c *gc.C) *caas.AddCAASCommand {
+func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool) *caas.AddCAASCommand {
 	return caas.NewAddCAASCommandForTest(s.store, &fakeAPIConnection{},
 		func(caller base.APICallCloser) caas.AddCloudAPI {
 			return s.fakeCloudAPI
 		},
-		func(caasType string) (caascfg.ClientConfigReader, error) {
-			if s.k8sConfigReader == nil {
+		func(caasType string) (caascfg.ClientConfigFunc, error) {
+			if cloudTypeExists {
+				return fakeK8SClientConfig, nil
+			} else {
 				return nil, errors.Errorf("unsupported cloud type '%s'", caasType)
 			}
-			return s.k8sConfigReader, nil
 		},
 	)
 }
@@ -121,25 +117,24 @@ func (s *addCAASSuite) runCommand(c *gc.C, cmd *caas.AddCAASCommand, args ...str
 }
 
 func (s *addCAASSuite) TestAddExtraArg(c *gc.C) {
-	cmd := s.makeCommand(c)
+	cmd := s.makeCommand(c, true)
 	_, err := s.runCommand(c, cmd, "kubernetes", "caasname", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *addCAASSuite) TestAddKnownTypeNoData(c *gc.C) {
-	cmd := s.makeCommand(c)
+	cmd := s.makeCommand(c, true)
 	_, err := s.runCommand(c, cmd, "kubernetes", "caasname")
 	c.Assert(err, gc.ErrorMatches, `No CAAS cluster definitions found in config`)
 }
 func (s *addCAASSuite) TestAddUnknownType(c *gc.C) {
-	s.k8sConfigReader = nil
-	cmd := s.makeCommand(c)
+	cmd := s.makeCommand(c, false)
 	_, err := s.runCommand(c, cmd, "ducttape", "caasname")
 	c.Assert(err, gc.ErrorMatches, `unsupported cloud type 'ducttape'`)
 }
 
 func (s *addCAASSuite) TestAddNameClash(c *gc.C) {
-	cmd := s.makeCommand(c)
+	cmd := s.makeCommand(c, true)
 	_, err := s.runCommand(c, cmd, "kubernetes", "mrcloud")
 	c.Assert(err, gc.ErrorMatches, `"mrcloud" is the name of a public cloud`)
 }

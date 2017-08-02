@@ -14,10 +14,7 @@ import (
 
 var logger = loggo.GetLogger("juju.caas.clientconfig")
 
-type K8SClientConfigReader struct {
-}
-
-func (r *K8SClientConfigReader) GetClientConfig() (*ClientConfig, error) {
+func K8SClientConfig() (*ClientConfig, error) {
 
 	configPath := getKubeConfigPath()
 
