@@ -32,7 +32,7 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 	s.fakeController = &fakeController{
 		modelNames: map[string]string{
-			"abc": "controller",
+			"abc": "model0",
 			"def": "my-model",
 			"ghi": "controller",
 		},
@@ -71,7 +71,7 @@ mallards:
     cloud: mallards
     agent-version: 999.99.99
   models:
-    controller:
+    model0:
       uuid: abc
       machine-count: 2
       core-count: 4
@@ -108,7 +108,7 @@ mallards:
     cloud: mallards
     agent-version: 999.99.99
   models:
-    controller:
+    model0:
       uuid: abc
       machine-count: 2
       core-count: 4
@@ -161,7 +161,7 @@ mallards:
     region: mallards1
     agent-version: 999.99.99
   models:
-    controller:
+    model0:
       uuid: abc
       machine-count: 2
       core-count: 4
@@ -322,6 +322,20 @@ func (s *ShowControllerSuite) TestShowControllerUnrecognizedFlag(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) {
 	s.expectedErr = `flag provided but not defined: --model`
 	s.assertShowControllerFailed(c, "--model", "still.my.world")
+}
+
+func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *gc.C) {
+	store := s.createTestClientStore(c)
+	s.fakeController.store = store
+	_, err := s.runShowController(c, "aws-test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(store.Controllers["aws-test"].ControllerMachineCount, gc.Equals, 3)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, gc.Equals, 1)
+	s.fakeController.machines["ghi"][0].HasVote = true
+	_, err = s.runShowController(c, "aws-test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(store.Controllers["aws-test"].ControllerMachineCount, gc.Equals, 3)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, gc.Equals, 2)
 }
 
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {

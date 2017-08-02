@@ -162,11 +162,11 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
-	details.ActiveControllerMachineCount, details.ControllerMachineCount = controllerMachineCounts(controllerModelUUID, modelStatus)
+	details.ActiveControllerMachineCount, details.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatus)
 	return c.store.UpdateController(controllerName, *details)
 }
 
-func controllerMachineCounts(controllerModelUUID string, modelStatus []base.ModelStatus) (activeCount, totalCount int) {
+func ControllerMachineCounts(controllerModelUUID string, modelStatus []base.ModelStatus) (activeCount, totalCount int) {
 	for _, s := range modelStatus {
 		if s.UUID != controllerModelUUID {
 			continue

@@ -85,7 +85,7 @@ controllers:
     current-model: controller
   mallards:
     models:
-      controller:
+      model0:
         uuid: abc
       my-model:
         uuid: def

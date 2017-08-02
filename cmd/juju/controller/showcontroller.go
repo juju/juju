@@ -5,6 +5,7 @@ package controller
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -40,6 +41,7 @@ type showControllerCommand struct {
 
 	out   cmd.Output
 	store jujuclient.ClientStore
+	mu    sync.Mutex
 	api   func(controllerName string) ControllerAccessAPI
 
 	controllerNames []string
@@ -113,6 +115,8 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		controllerNames = []string{currentController}
 	}
 	controllers := make(map[string]ShowControllerDetails)
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for _, controllerName := range controllerNames {
 		one, err := c.store.ControllerByName(controllerName)
 		if err != nil {
@@ -141,8 +145,12 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			continue
 		}
 		modelTags := make([]names.ModelTag, len(allModels))
+		var controllerModelUUID string
 		for i, m := range allModels {
 			modelTags[i] = names.NewModelTag(m.UUID)
+			if m.Name == bootstrap.ControllerModelName {
+				controllerModelUUID = m.UUID
+			}
 		}
 		modelStatus, err = client.ModelStatus(modelTags...)
 		if err != nil {
@@ -151,6 +159,19 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatus)
 		controllers[controllerName] = details
+		// Refresh local store for this controller
+		modelCount := len(allModels)
+		one.ModelCount = &modelCount
+		machineCount := 0
+		for _, s := range modelStatus {
+			machineCount += s.TotalMachineCount
+		}
+		one.MachineCount = &machineCount
+		one.ActiveControllerMachineCount, one.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatus)
+		err = c.store.UpdateController(controllerName, *one)
+		if err != nil {
+			details.Errors = append(details.Errors, err.Error())
+		}
 	}
 	return c.out.Write(ctx, controllers)
 }
