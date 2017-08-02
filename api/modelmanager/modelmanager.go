@@ -278,12 +278,23 @@ func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, erro
 // DestroyModel puts the specified model into a "dying" state, which will
 // cause the model's resources to be cleaned up, after which the model will
 // be removed.
-func (c *Client) DestroyModel(tag names.ModelTag) error {
-	var results params.ErrorResults
-	entities := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage *bool) error {
+	var args interface{}
+	if c.BestAPIVersion() < 4 {
+		if destroyStorage == nil || !*destroyStorage {
+			return errors.New("this Juju controller requires destroyStorage to be true")
+		}
+		args = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
+	} else {
+		args = params.DestroyModelsParams{
+			Models: []params.DestroyModelParams{{
+				ModelTag:       tag.String(),
+				DestroyStorage: destroyStorage,
+			}},
+		}
 	}
-	if err := c.facade.FacadeCall("DestroyModels", entities, &results); err != nil {
+	var results params.ErrorResults
+	if err := c.facade.FacadeCall("DestroyModels", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {

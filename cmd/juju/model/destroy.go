@@ -4,6 +4,7 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
@@ -55,10 +56,12 @@ type destroyCommand struct {
 	// sleepFunc is used when calling the timed function to get model status updates.
 	sleepFunc func(time.Duration)
 
-	envName   string
-	assumeYes bool
-	api       DestroyModelAPI
-	configApi ModelConfigAPI
+	envName        string
+	assumeYes      bool
+	destroyStorage bool
+	releaseStorage bool
+	api            DestroyModelAPI
+	configApi      ModelConfigAPI
 }
 
 var destroyDoc = `
@@ -68,10 +71,16 @@ there. Due to the irreversible nature of the command, it will prompt for
 confirmation (unless overridden with the '-y' option) before taking any
 action.
 
+If there is persistent storage in any of the models managed by the
+controller, then you must choose to either destroy or release the
+storage, using --destroy-storage or --release-storage respectively.
+
 Examples:
 
     juju destroy-model test
     juju destroy-model -y mymodel
+    juju destroy-model -y mymodel --destroy-storage
+    juju destroy-model -y mymodel --release-storage
 
 See also:
     destroy-controller
@@ -86,7 +95,8 @@ Continue [y/N]? `[1:]
 // API that the destroy command calls. It is exported for mocking in tests.
 type DestroyModelAPI interface {
 	Close() error
-	DestroyModel(names.ModelTag) error
+	BestAPIVersion() int
+	DestroyModel(tag names.ModelTag, destroyStorage *bool) error
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
@@ -112,10 +122,15 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
+	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
+	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from the model, and management of the controller, without destroying them")
 }
 
 // Init implements Command.Init.
 func (c *destroyCommand) Init(args []string) error {
+	if c.destroyStorage && c.releaseStorage {
+		return errors.New("--destroy-storage and --release-storage cannot both be specified")
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no model specified")
@@ -210,11 +225,40 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		logger.Debugf("could not determine model SLA level: %v", err)
 	}
 
+	if api.BestAPIVersion() < 4 {
+		// Versions before 4 support only destroying the storage,
+		// and will not raise an error if there is storage in the
+		// controller. Force the user to specify up-front.
+		if c.releaseStorage {
+			return errors.New("this juju controller only supports destroying storage")
+		}
+		if !c.destroyStorage {
+			ctx.Infof(`this juju controller only supports destroying storage
+
+Please run the the command again with --destroy-storage,
+to confirm that you want to destroy the storage along
+with the model.
+
+If instead you want to keep the storage, you must first
+upgrade the controller to version 2.3 or greater.
+
+`)
+			return cmd.ErrSilent
+		}
+	}
+
 	// Attempt to destroy the model.
 	ctx.Infof("Destroying model")
-	err = api.DestroyModel(names.NewModelTag(modelDetails.ModelUUID))
-	if err != nil {
-		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
+	var destroyStorage *bool
+	if c.destroyStorage || c.releaseStorage {
+		destroyStorage = &c.destroyStorage
+	}
+	modelTag := names.NewModelTag(modelDetails.ModelUUID)
+	if err := api.DestroyModel(modelTag, destroyStorage); err != nil {
+		return c.handleError(
+			modelTag, modelName, api,
+			errors.Annotate(err, "cannot destroy model"),
+		)
 	}
 
 	// Wait for model to be destroyed.
@@ -263,6 +307,8 @@ func (c *destroyCommand) removeModelBudget(uuid string) error {
 type modelData struct {
 	machineCount     int
 	applicationCount int
+	volumeCount      int
+	filesystemCount  int
 }
 
 // newTimedModelStatus returns a function which waits a given period of time
@@ -284,6 +330,8 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 		return &modelData{
 			machineCount:     status[0].HostedMachineCount,
 			applicationCount: status[0].ServiceCount,
+			volumeCount:      len(status[0].Volumes),
+			filesystemCount:  len(status[0].Filesystems),
 		}
 	}
 }
@@ -299,18 +347,84 @@ func formatDestroyModelInfo(data *modelData) string {
 	if data.applicationCount > 0 {
 		out += fmt.Sprintf(", %d application(s)", data.applicationCount)
 	}
+	if data.volumeCount > 0 {
+		out += fmt.Sprintf(", %d volume(s)", data.volumeCount)
+	}
+	if data.filesystemCount > 0 {
+		out += fmt.Sprintf(", %d filesystems(s)", data.filesystemCount)
+	}
 	return out
 }
 
-func (c *destroyCommand) handleError(err error, modelName string) error {
-	if err == nil {
-		return nil
-	}
+func (c *destroyCommand) handleError(
+	modelTag names.ModelTag,
+	modelName string,
+	api DestroyModelAPI,
+	err error,
+) error {
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockDestroy)
 	}
+	if params.IsCodeHasPersistentStorage(err) {
+		return handlePersistentStorageError(modelTag, modelName, api)
+	}
 	logger.Errorf(`failed to destroy model %q`, modelName)
 	return err
+}
+
+func handlePersistentStorageError(
+	modelTag names.ModelTag,
+	modelName string,
+	api DestroyModelAPI,
+) error {
+	modelStatuses, err := api.ModelStatus(modelTag)
+	if err != nil {
+		return errors.Annotate(err, "getting model status")
+	}
+	modelStatus := modelStatuses[0]
+
+	var buf bytes.Buffer
+	var persistentVolumes, persistentFilesystems int
+	for _, v := range modelStatus.Volumes {
+		if v.Detachable {
+			persistentVolumes++
+		}
+	}
+	for _, f := range modelStatus.Filesystems {
+		if f.Detachable {
+			persistentFilesystems++
+		}
+	}
+	if n := persistentVolumes; n > 0 {
+		fmt.Fprintf(&buf, "%d volume", n)
+		if n > 1 {
+			buf.WriteRune('s')
+		}
+		if persistentFilesystems > 0 {
+			buf.WriteString(" and ")
+		}
+	}
+	if n := persistentFilesystems; n > 0 {
+		fmt.Fprintf(&buf, "%d filesystem", n)
+		if n > 1 {
+			buf.WriteRune('s')
+		}
+	}
+
+	return errors.Errorf(`cannot destroy model %q
+
+The model has persistent storage remaining:
+	%s
+
+To destroy the storage, run the destroy-model
+command again with the "--destroy-storage" flag.
+
+To release the storage from Juju's management
+without destroying it, use the "--release-storage"
+flag instead. The storage can then be imported
+into another Juju model.
+
+`, modelName, buf.String())
 }
 
 var getBudgetAPIClient = getBudgetAPIClientImpl

@@ -4,106 +4,202 @@
 package modelmanager_test
 
 import (
+	"time"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type modelmanagerSuite struct {
-	jujutesting.JujuConnSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&modelmanagerSuite{})
 
-func (s *modelmanagerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-}
-
-func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
-	return modelmanager.NewClient(s.OpenControllerAPI(c))
-}
-
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
-	modelManager := s.OpenAPI(c)
-	defer modelManager.Close()
-	_, err := modelManager.CreateModel("mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
+	client := modelmanager.NewClient(basetesting.BestVersionCaller{})
+	_, err := client.CreateModel("mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
+func (s *modelmanagerSuite) TestCreateModelBadCloud(c *gc.C) {
+	client := modelmanager.NewClient(basetesting.BestVersionCaller{})
+	_, err := client.CreateModel("mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil)
+	c.Assert(err, gc.ErrorMatches, `invalid cloud name "123!"`)
+}
+
 func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
-	s.testCreateModel(c, "dummy", "dummy-region")
-}
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "ModelManager")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "CreateModel")
+		c.Check(arg, jc.DeepEquals, params.ModelCreateArgs{
+			Name:        "new-model",
+			OwnerTag:    "user-bob",
+			Config:      map[string]interface{}{"abc": 123},
+			CloudTag:    "cloud-nimbus",
+			CloudRegion: "catbus",
+		})
+		c.Check(result, gc.FitsTypeOf, &params.ModelInfo{})
 
-func (s *modelmanagerSuite) TestCreateModelCloudDefaultRegion(c *gc.C) {
-	s.testCreateModel(c, "dummy", "")
-}
-
-func (s *modelmanagerSuite) TestCreateModelDefaultCloudAndRegion(c *gc.C) {
-	s.testCreateModel(c, "", "")
-}
-
-func (s *modelmanagerSuite) testCreateModel(c *gc.C, cloud, region string) {
-	modelManager := s.OpenAPI(c)
-	defer modelManager.Close()
-	user := s.Factory.MakeUser(c, nil)
-	owner := user.UserTag().Id()
-	newModel, err := modelManager.CreateModel("new-model", owner, cloud, region, names.CloudCredentialTag{}, map[string]interface{}{
-		"authorized-keys": "ssh-key",
-		// dummy needs controller
-		"controller": false,
+		out := result.(*params.ModelInfo)
+		out.Name = "dowhatimean"
+		out.UUID = "youyoueyedee"
+		out.ControllerUUID = "youyoueyedeetoo"
+		out.ProviderType = "C-123"
+		out.DefaultSeries = "M*A*S*H"
+		out.CloudTag = "cloud-nimbus"
+		out.CloudRegion = "catbus"
+		out.OwnerTag = "user-fnord"
+		out.Life = "alive"
+		return nil
 	})
+
+	client := modelmanager.NewClient(apiCaller)
+	newModel, err := client.CreateModel(
+		"new-model",
+		"bob",
+		"nimbus",
+		"catbus",
+		names.CloudCredentialTag{},
+		map[string]interface{}{"abc": 123},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newModel.Name, gc.Equals, "new-model")
-	c.Assert(newModel.Owner, gc.Equals, user.String())
-	c.Assert(newModel.CloudRegion, gc.Equals, "dummy-region")
-	c.Assert(utils.IsValidUUIDString(newModel.UUID), jc.IsTrue)
+
+	c.Assert(newModel, jc.DeepEquals, base.ModelInfo{
+		Name:           "dowhatimean",
+		UUID:           "youyoueyedee",
+		ControllerUUID: "youyoueyedeetoo",
+		ProviderType:   "C-123",
+		DefaultSeries:  "M*A*S*H",
+		Cloud:          "nimbus",
+		CloudRegion:    "catbus",
+		Owner:          "fnord",
+		Life:           "alive",
+		Status: base.Status{
+			Data: make(map[string]interface{}),
+		},
+		Users:    []base.UserInfo{},
+		Machines: []base.Machine{},
+	})
 }
 
 func (s *modelmanagerSuite) TestListModelsBadUser(c *gc.C) {
-	modelManager := s.OpenAPI(c)
-	defer modelManager.Close()
-	_, err := modelManager.ListModels("not a user")
+	client := modelmanager.NewClient(basetesting.BestVersionCaller{})
+	_, err := client.ListModels("not a user")
 	c.Assert(err, gc.ErrorMatches, `invalid user name "not a user"`)
 }
 
 func (s *modelmanagerSuite) TestListModels(c *gc.C) {
-	owner := names.NewUserTag("user@remote")
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner}).Close()
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: owner}).Close()
+	lastConnection := time.Now()
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, req string,
+			args, resp interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(req, gc.Equals, "ListModels")
+			c.Check(args, jc.DeepEquals, params.Entity{"user-user@remote"})
+			results := resp.(*params.UserModelList)
+			results.UserModels = []params.UserModel{{
+				Model: params.Model{
+					Name:     "yo",
+					UUID:     "wei",
+					OwnerTag: "user-user@remote",
+				},
+				LastConnection: &lastConnection,
+			}, {
+				Model: params.Model{
+					Name:     "sup",
+					UUID:     "hazzagarn",
+					OwnerTag: "user-phyllis@thrace",
+				},
+			}}
+			return nil
+		},
+	)
 
-	modelManager := s.OpenAPI(c)
-	defer modelManager.Close()
-	models, err := modelManager.ListModels("user@remote")
+	client := modelmanager.NewClient(apiCaller)
+	models, err := client.ListModels("user@remote")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 2)
-
-	modelNames := []string{models[0].Name, models[1].Name}
-	c.Assert(modelNames, jc.DeepEquals, []string{"first", "second"})
-	ownerNames := []string{models[0].Owner, models[1].Owner}
-	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
+	c.Assert(models, jc.DeepEquals, []base.UserModel{{
+		Name:           "yo",
+		UUID:           "wei",
+		Owner:          "user@remote",
+		LastConnection: &lastConnection,
+	}, {
+		Name:  "sup",
+		UUID:  "hazzagarn",
+		Owner: "phyllis@thrace",
+	}})
 }
 
 func (s *modelmanagerSuite) TestDestroyModel(c *gc.C) {
-	modelManager := s.OpenAPI(c)
-	defer modelManager.Close()
+	true_ := true
+	false_ := false
+	s.testDestroyModel(c, nil)
+	s.testDestroyModel(c, &true_)
+	s.testDestroyModel(c, &false_)
+}
+
+func (s *modelmanagerSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
 	var called bool
-	modelmanager.PatchFacadeCall(&s.CleanupSuite, modelManager,
-		func(req string, args interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "DestroyModels")
-			c.Assert(args, jc.DeepEquals, params.Entities{
-				Entities: []params.Entity{{testing.ModelTag.String()}},
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, req string,
+				args, resp interface{},
+			) error {
+				c.Check(objType, gc.Equals, "ModelManager")
+				c.Check(id, gc.Equals, "")
+				c.Check(req, gc.Equals, "DestroyModels")
+				c.Check(args, jc.DeepEquals, params.DestroyModelsParams{
+					Models: []params.DestroyModelParams{{
+						ModelTag:       coretesting.ModelTag.String(),
+						DestroyStorage: destroyStorage,
+					}},
+				})
+				results := resp.(*params.ErrorResults)
+				*results = params.ErrorResults{
+					Results: []params.ErrorResult{{}},
+				}
+				called = true
+				return nil
+			},
+		),
+	}
+	client := modelmanager.NewClient(apiCaller)
+	err := client.DestroyModel(coretesting.ModelTag, destroyStorage)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestDestroyModelV3(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, req string,
+			args, resp interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(req, gc.Equals, "DestroyModels")
+			c.Check(args, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{{coretesting.ModelTag.String()}},
 			})
 			results := resp.(*params.ErrorResults)
 			*results = params.ErrorResults{
@@ -111,11 +207,21 @@ func (s *modelmanagerSuite) TestDestroyModel(c *gc.C) {
 			}
 			called = true
 			return nil
-		})
-
-	err := modelManager.DestroyModel(testing.ModelTag)
+		},
+	)
+	client := modelmanager.NewClient(apiCaller)
+	destroyStorage := true
+	err := client.DestroyModel(coretesting.ModelTag, &destroyStorage)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestDestroyModelV3DestroyStorageNotTrue(c *gc.C) {
+	client := modelmanager.NewClient(basetesting.BestVersionCaller{})
+	for _, destroyStorage := range []*bool{nil, new(bool)} {
+		err := client.DestroyModel(coretesting.ModelTag, destroyStorage)
+		c.Assert(err, gc.ErrorMatches, "this Juju controller requires destroyStorage to be true")
+	}
 }
 
 func (s *modelmanagerSuite) TestModelDefaults(c *gc.C) {
@@ -219,27 +325,49 @@ func (s *modelmanagerSuite) TestUnsetModelDefaults(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	m := s.Factory.MakeMachine(c, nil)
-	id, err := m.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	modelTag := s.State.ModelTag()
-	results, err := sysManager.ModelStatus(modelTag)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "ModelManager")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelStatus")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			[]params.Entity{{
+				Tag: coretesting.ModelTag.String(),
+			}},
+		})
+		c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+
+		out := result.(*params.ModelStatusResults)
+		out.Results = []params.ModelStatus{{
+			ModelTag:           coretesting.ModelTag.String(),
+			OwnerTag:           "user-glenda",
+			ApplicationCount:   3,
+			HostedMachineCount: 2,
+			Life:               "alive",
+			Machines: []params.ModelMachineInfo{{
+				Id:         "0",
+				InstanceId: "inst-ance",
+				Status:     "pending",
+			}},
+		}}
+		return nil
+	})
+
+	client := modelmanager.NewClient(apiCaller)
+	results, err := client.ModelStatus(coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
-		UUID:               modelTag.Id(),
+		UUID:               coretesting.ModelTag.Id(),
 		TotalMachineCount:  1,
-		HostedMachineCount: 1,
-		ServiceCount:       0,
-		Owner:              "admin",
+		HostedMachineCount: 2,
+		ServiceCount:       3,
+		Owner:              "glenda",
 		Life:               string(params.Alive),
-		Machines:           []base.Machine{{Id: "0", InstanceId: string(id), Status: "pending"}},
+		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	}})
 }
 
 type dumpModelSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&dumpModelSuite{})
@@ -260,7 +388,7 @@ func (s *dumpModelSuite) TestDumpModelV3(c *gc.C) {
 				c.Check(request, gc.Equals, "DumpModels")
 				c.Check(version, gc.Equals, 3)
 				c.Assert(args, gc.DeepEquals, params.DumpModelRequest{
-					Entities:   []params.Entity{{testing.ModelTag.String()}},
+					Entities:   []params.Entity{{coretesting.ModelTag.String()}},
 					Simplified: true})
 				res, ok := result.(*params.StringResults)
 				c.Assert(ok, jc.IsTrue)
@@ -269,7 +397,7 @@ func (s *dumpModelSuite) TestDumpModelV3(c *gc.C) {
 			}),
 	}
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModel(testing.ModelTag, true)
+	out, err := client.DumpModel(coretesting.ModelTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, expected)
 }
@@ -289,7 +417,7 @@ func (s *dumpModelSuite) TestDumpModelV2(c *gc.C) {
 				c.Check(objType, gc.Equals, "ModelManager")
 				c.Check(request, gc.Equals, "DumpModels")
 				c.Check(version, gc.Equals, 2)
-				c.Assert(args, gc.DeepEquals, params.Entities{[]params.Entity{{testing.ModelTag.String()}}})
+				c.Assert(args, gc.DeepEquals, params.Entities{[]params.Entity{{coretesting.ModelTag.String()}}})
 				res, ok := result.(*params.MapResults)
 				c.Assert(ok, jc.IsTrue)
 				*res = results
@@ -297,7 +425,7 @@ func (s *dumpModelSuite) TestDumpModelV2(c *gc.C) {
 			}),
 	}
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModel(testing.ModelTag, false)
+	out, err := client.DumpModel(coretesting.ModelTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, expected)
 }
@@ -316,7 +444,7 @@ func (s *dumpModelSuite) TestDumpModelErrorV3(c *gc.C) {
 		}),
 	}
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModel(testing.ModelTag, false)
+	out, err := client.DumpModel(coretesting.ModelTag, false)
 	c.Assert(err, gc.ErrorMatches, "fake error")
 	c.Assert(out, gc.IsNil)
 }
@@ -336,7 +464,7 @@ func (s *dumpModelSuite) TestDumpModelErrorV2(c *gc.C) {
 			}),
 	}
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModel(testing.ModelTag, false)
+	out, err := client.DumpModel(coretesting.ModelTag, false)
 	c.Assert(err, gc.ErrorMatches, "fake error")
 	c.Assert(out, gc.IsNil)
 }
@@ -361,14 +489,14 @@ func (s *dumpModelSuite) TestDumpModelDB(c *gc.C) {
 			c.Check(request, gc.Equals, "DumpModelsDB")
 			in, ok := args.(params.Entities)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(in, gc.DeepEquals, params.Entities{[]params.Entity{{testing.ModelTag.String()}}})
+			c.Assert(in, gc.DeepEquals, params.Entities{[]params.Entity{{coretesting.ModelTag.String()}}})
 			res, ok := result.(*params.MapResults)
 			c.Assert(ok, jc.IsTrue)
 			*res = results
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModelDB(testing.ModelTag)
+	out, err := client.DumpModelDB(coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, expected)
 }
@@ -385,7 +513,7 @@ func (s *dumpModelSuite) TestDumpModelDBError(c *gc.C) {
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.DumpModelDB(testing.ModelTag)
+	out, err := client.DumpModelDB(coretesting.ModelTag)
 	c.Assert(err, gc.ErrorMatches, "fake error")
 	c.Assert(out, gc.IsNil)
 }

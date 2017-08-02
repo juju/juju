@@ -77,11 +77,12 @@ func DestroyController(
 
 // DestroyModel sets the model to Dying, such that the model's resources will
 // be destroyed and the model removed from the controller.
-func DestroyModel(st ModelManagerBackend) error {
-	// TODO(axw) make this a parameter.
-	destroyStorage := true
+func DestroyModel(
+	st ModelManagerBackend,
+	destroyStorage *bool,
+) error {
 	return destroyModel(st, state.DestroyModelParams{
-		DestroyStorage: &destroyStorage,
+		DestroyStorage: destroyStorage,
 	})
 }
 

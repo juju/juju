@@ -79,6 +79,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = &mockState{
+		block: -1,
 		cloud: dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
@@ -139,6 +140,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 					Name:  "left",
 					Value: "spam"}}},
 		},
+		modelConfig: coretesting.ModelConfig(c),
 	}
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
@@ -495,7 +497,9 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelV2(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV2{s.api}
+	api := &modelmanager.ModelManagerAPIV2{
+		&modelmanager.ModelManagerAPIV3{s.api},
+	}
 
 	results := api.DumpModels(params.Entities{[]params.Entity{{
 		Tag: "bad-tag",
@@ -671,6 +675,35 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	nonAdminUser := names.NewUserTag("non-admin")
 	_, err = s.api.CreateModel(createArgs(nonAdminUser))
 	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners: permission denied")
+}
+
+func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
+	api := &modelmanager.ModelManagerAPIV3{s.api}
+	results, err := api.DestroyModels(params.Entities{
+		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{[]params.ErrorResult{{}}})
+	s.st.CheckCallNames(c,
+		"ControllerTag",
+		"ModelUUID",
+		"GetModel",
+		"Get",
+		"GetBlockForType",
+		"GetBlockForType",
+		"GetBlockForType",
+		"Model",
+		"ModelConfig",
+		"MetricsManager",
+	)
+	destroyStorage := true
+	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
+		{"UUID", nil},
+		{"Owner", nil},
+		{"Destroy", []interface{}{state.DestroyModelParams{
+			DestroyStorage: &destroyStorage,
+		}}},
+	})
 }
 
 // modelManagerStateSuite contains end-to-end tests.
@@ -949,8 +982,10 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.modelmanager.DestroyModels(params.Entities{
-		Entities: []params.Entity{{"model-" + m.UUID}},
+	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{
+			ModelTag: "model-" + m.UUID,
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -982,8 +1017,10 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.modelmanager.DestroyModels(params.Entities{
-		Entities: []params.Entity{{"model-" + m.UUID}},
+	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{
+			ModelTag: "model-" + m.UUID,
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -1012,11 +1049,11 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	user := names.NewUserTag("other@remote")
 	s.setAPIUser(c, user)
 
-	results, err := s.modelmanager.DestroyModels(params.Entities{
-		Entities: []params.Entity{
-			{"model-" + m.UUID},
-			{"model-9f484882-2f18-4fd2-967d-db9663db7bea"},
-			{"machine-42"},
+	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{
+			{ModelTag: "model-" + m.UUID},
+			{ModelTag: "model-9f484882-2f18-4fd2-967d-db9663db7bea"},
+			{ModelTag: "machine-42"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

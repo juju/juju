@@ -379,7 +379,7 @@ to confirm that you want to destroy the storage along
 with the controller.
 
 If instead you want to keep the storage, you must first
-upgrade the controller.
+upgrade the controller to version 2.3 or greater.
 
 `)
 }
