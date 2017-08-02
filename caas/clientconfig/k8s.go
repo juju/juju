@@ -14,6 +14,7 @@ import (
 
 var logger = loggo.GetLogger("juju.caas.clientconfig")
 
+// K8SClientConfig parses Kubernetes client configuration from the default location or $KUBECONFIG.
 func K8SClientConfig() (*ClientConfig, error) {
 
 	configPath := getKubeConfigPath()
@@ -77,17 +78,17 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 		var hasCert bool
 		attrs := map[string]string{}
 		if len(user.ClientCertificateData) > 0 {
-			attrs["ClientCertificateData"] = string(user.ClientCertificateData[:])
+			attrs["ClientCertificateData"] = string(user.ClientCertificateData)
 			hasCert = true
 		}
 		if len(user.ClientKeyData) > 0 {
-			attrs["ClientKeyData"] = string(user.ClientKeyData[:])
+			attrs["ClientKeyData"] = string(user.ClientKeyData)
 		}
 
 		var authType cloud.AuthType
 		if user.Token != "" {
 			if user.Username != "" || user.Password != "" {
-				logger.Warningf("Invalid AuthInfo: '%s' has both Token and User/Pass: skipping", name)
+				logger.Warningf("invalid AuthInfo: '%s' has both Token and User/Pass: skipping", name)
 				continue
 			}
 			attrs["Token"] = user.Token
@@ -110,7 +111,7 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 		} else if hasCert {
 			authType = cloud.CertificateAuthType
 		} else {
-			logger.Warningf("Unsupported configuration for AuthInfo '%s'", name)
+			logger.Warningf("unsupported configuration for AuthInfo '%s'", name)
 		}
 
 		rv[name] = cloud.NewCredential(authType, attrs)
