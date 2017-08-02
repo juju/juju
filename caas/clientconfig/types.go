@@ -6,6 +6,10 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+// ClientConfig - a set of cloud endpoint info and user credentials
+// Clouds and user Credentials are joined by
+// Contexts. There should always be a valid Context with same name as
+// the CurrentContext string.
 type ClientConfig struct {
 	Type           string
 	Contexts       map[string]Context
@@ -14,11 +18,13 @@ type ClientConfig struct {
 	Credentials    map[string]cloud.Credential
 }
 
+// Context joins Clouds and Credentials.
 type Context struct {
 	CloudName      string
 	CredentialName string
 }
 
+// CloudConfig stores information about how to connect to a Cloud.
 type CloudConfig struct {
 	Endpoint   string
 	Attributes map[string]interface{}
