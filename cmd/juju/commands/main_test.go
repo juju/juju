@@ -450,6 +450,7 @@ var commandNames = []string{
 	"list-agreements",
 	"list-backups",
 	"list-cached-images",
+	"list-charm-resources",
 	"list-clouds",
 	"list-controllers",
 	"list-credentials",

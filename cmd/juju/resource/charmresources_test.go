@@ -41,6 +41,7 @@ func (s *CharmResourcesSuite) TestInfo(c *gc.C) {
 		Name:    "charm-resources",
 		Args:    "<charm>",
 		Purpose: "Display the resources for a charm in the charm store.",
+		Aliases: []string{"list-charm-resources"},
 		Doc: `
 This command will report the resources for a charm in the charm store.
 

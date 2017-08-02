@@ -12,7 +12,7 @@ import (
 
 const (
 	Deprecated      = "DEPRECATED: "
-	DeprecatedSince = "This command is DEPRECATED from Juju 2.3.x\n"
+	DeprecatedSince = "This command is DEPRECATED since Juju 2.3.x, please use 'juju charm-resources' instead.\n"
 )
 
 // ListCharmResourcesCommand implements the "juju charm resources" command.

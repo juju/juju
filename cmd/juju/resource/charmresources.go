@@ -32,6 +32,7 @@ func NewCharmResourcesCommand(resourceLister ResourceLister) modelcmd.ModelComma
 func (c *CharmResourcesCommand) Info() *cmd.Info {
 	i := c.baseInfo()
 	i.Name = "charm-resources"
+	i.Aliases = []string{"list-charm-resources"}
 	return i
 }
 
@@ -108,17 +109,13 @@ func (c *baseCharmResourcesCommand) baseInit(args []string) error {
 func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
 
-	charmURLs, err := resolveCharms([]string{c.charm})
+	charmURL, err := resolveCharm(c.charm)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	charm := charmstore.CharmID{URL: charmURL, Channel: csparams.Channel(c.channel)}
 
-	charms := make([]charmstore.CharmID, len(charmURLs))
-	for i, id := range charmURLs {
-		charms[i] = charmstore.CharmID{URL: id, Channel: csparams.Channel(c.channel)}
-	}
-
-	resources, err := c.resourceLister.ListResources(charms)
+	resources, err := c.resourceLister.ListResources([]charmstore.CharmID{charm})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -168,18 +165,6 @@ func (c *baseCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][
 		return nil, errors.Trace(err)
 	}
 	return client.ListResources(ids)
-}
-
-func resolveCharms(charms []string) ([]*charm.URL, error) {
-	var charmURLs []*charm.URL
-	for _, raw := range charms {
-		charmURL, err := resolveCharm(raw)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		charmURLs = append(charmURLs, charmURL)
-	}
-	return charmURLs, nil
 }
 
 func resolveCharm(raw string) (*charm.URL, error) {

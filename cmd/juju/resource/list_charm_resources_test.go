@@ -41,7 +41,7 @@ func (s *ListCharmSuite) TestInfo(c *gc.C) {
 		Name:    "resources",
 		Args:    "<charm>",
 		Purpose: "DEPRECATED: Display the resources for a charm in the charm store.",
-		Doc: `This command is DEPRECATED from Juju 2.3.x
+		Doc: `This command is DEPRECATED since Juju 2.3.x, please use 'juju charm-resources' instead.
 
 This command will report the resources for a charm in the charm store.
 
