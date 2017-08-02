@@ -941,6 +941,26 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
+func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
+	err := s.State.SetModelConstraints(constraints.MustParse("mem=4G tags=foo"))
+	c.Assert(err, jc.ErrorIsNil)
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:    "quantal",
+		Jobs:      oneJob,
+		Placement: "theplacement",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Id(), gc.Equals, "0")
+	c.Assert(m.Series(), gc.Equals, "quantal")
+	c.Assert(m.Placement(), gc.Equals, "theplacement")
+	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
+	expectedCons := constraints.MustParse("")
+	mcons, err := m.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mcons, gc.DeepEquals, expectedCons)
+}
+
 func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})

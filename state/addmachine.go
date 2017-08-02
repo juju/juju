@@ -231,9 +231,12 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 		return tmpl, errors.New("cannot specify a nonce without an instance id")
 	}
 
-	p.Constraints, err = st.resolveMachineConstraints(p.Constraints)
-	if err != nil {
-		return tmpl, err
+	// We ignore all constraints if there's a placement directive.
+	if p.Placement == "" {
+		p.Constraints, err = st.resolveMachineConstraints(p.Constraints)
+		if err != nil {
+			return tmpl, err
+		}
 	}
 
 	if len(p.Jobs) == 0 {
