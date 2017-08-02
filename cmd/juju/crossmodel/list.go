@@ -10,7 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient"
@@ -28,17 +30,16 @@ options:
    <filter-term> is free text and will be matched against any of:
        - endpoint URL prefix
        - interface name
-       - charm name
+       - application name
    <filter-scope> is optional and is used to limit the scope of the search using the search term, one of:
-       - url
        - interface
-       - charm
+       - application
 
 Examples:
     $ juju offers
-    $ juju offers user/model
-    $ juju offers --url user/model
+    $ juju offers -m model
     $ juju offers --interface db2
+    $ juju offers --application mysql
 
     $ juju offers --interface db2
     mycontroller
@@ -49,13 +50,16 @@ Examples:
 
 // listCommand returns storage instances.
 type listCommand struct {
-	ApplicationOffersCommandBase
+	modelcmd.ModelCommandBase
 
 	out cmd.Output
 
-	newAPIFunc func() (ListAPI, error)
+	newAPIFunc    func() (ListAPI, error)
+	refreshModels func(jujuclient.ClientStore, string) error
 
-	filters []crossmodel.ApplicationOfferFilter
+	interfaceName   string
+	applicationName string
+	filters         []crossmodel.ApplicationOfferFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -64,12 +68,22 @@ func NewListEndpointsCommand() cmd.Command {
 	listCmd.newAPIFunc = func() (ListAPI, error) {
 		return listCmd.NewApplicationOffersAPI()
 	}
-	return modelcmd.WrapController(listCmd)
+	listCmd.refreshModels = listCmd.ModelCommandBase.RefreshModels
+	return modelcmd.Wrap(listCmd)
+}
+
+// NewApplicationOffersAPI returns an application offers api for the root api endpoint
+// that the command returns.
+func (c *listCommand) NewApplicationOffersAPI() (*applicationoffers.Client, error) {
+	root, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return applicationoffers.NewClient(root), nil
 }
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
-	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
 	return cmd.CheckEmpty(args)
 }
 
@@ -85,9 +99,9 @@ func (c *listCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ApplicationOffersCommandBase.SetFlags(f)
-
-	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
+	c.ModelCommandBase.SetFlags(f)
+	f.StringVar(&c.applicationName, "application", "", "return results matching the application")
+	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -103,19 +117,34 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	// TODO (anastasiamac 2015-11-17) add input filters
-	// For now, just filter on the current model.
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelName, err := c.ClientStore().CurrentModel(controllerName)
+
+	modelName, err := c.ModelName()
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return errors.New("no current model, use juju switch to select a model on which to operate")
-		} else {
-			return errors.Annotate(err, "cannot load current model")
+		return errors.Trace(err)
+	}
+	if !jujuclient.IsQualifiedModelName(modelName) {
+		account, err := c.ClientStore().AccountDetails(controllerName)
+		if err != nil {
+			return errors.Trace(err)
 		}
+		modelName = jujuclient.JoinOwnerModelName(names.NewUserTag(account.User), modelName)
+	}
+
+	store := c.ClientStore()
+	_, err = store.ModelByName(controllerName, modelName)
+	if errors.IsNotFound(err) {
+		if err := c.refreshModels(store, controllerName); err != nil {
+			return errors.Annotate(err, "refreshing models cache")
+		}
+		// Now try again.
+		_, err = store.ModelByName(controllerName, modelName)
+	}
+	if err != nil {
+		return errors.Annotate(err, "getting model details")
 	}
 
 	unqualifiedModelName, ownerTag, err := jujuclient.SplitModelName(modelName)
@@ -123,9 +152,15 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	c.filters = []crossmodel.ApplicationOfferFilter{{
-		OwnerName: ownerTag.Name(),
-		ModelName: unqualifiedModelName,
+		OwnerName:       ownerTag.Name(),
+		ModelName:       unqualifiedModelName,
+		ApplicationName: c.applicationName,
 	}}
+	if c.interfaceName != "" {
+		c.filters[0].Endpoints = []crossmodel.EndpointFilterTerm{{
+			Interface: c.interfaceName,
+		}}
+	}
 
 	offeredApplications, err := api.ListOffers(c.filters...)
 	if err != nil {

@@ -87,7 +87,7 @@ func (c *findCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.RemoteEndpointsCommandBase.SetFlags(f)
-	f.StringVar(&c.url, "url", "", "application URL")
+	f.StringVar(&c.url, "url", "", "return results matching the offer URL")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{

@@ -45,11 +45,14 @@ func NewShowEndpointsCommandForTest(store jujuclient.ClientStore, api ShowAPI) c
 }
 
 func NewListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) cmd.Command {
-	aCmd := &listCommand{newAPIFunc: func() (ListAPI, error) {
-		return api, nil
-	}}
+	aCmd := &listCommand{
+		newAPIFunc: func() (ListAPI, error) {
+			return api, nil
+		},
+		refreshModels: noOpRefresh,
+	}
 	aCmd.SetClientStore(store)
-	return modelcmd.WrapController(aCmd)
+	return modelcmd.Wrap(aCmd)
 }
 
 func NewFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) cmd.Command {
