@@ -603,7 +603,8 @@ func fetchOfferConnections(st Backend) (map[int]*state.OfferConnection, error) {
 	return connMap, nil
 }
 
-// fetchRelations returns a map of all relations keyed by application name.
+// fetchRelations returns a map of all relations keyed by application name,
+// and another map keyed by id..
 //
 // This structure is useful for processApplicationRelations() which needs
 // to have the relations for each application. Reading them once here

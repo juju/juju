@@ -5,6 +5,7 @@ package firewaller_test
 
 import (
 	"reflect"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/testing"
@@ -845,9 +846,9 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	watched := make(chan bool)
 	var relToken string
-	callCount := 0
+	callCount := int32(0)
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		switch callCount {
+		switch atomic.LoadInt32(&callCount) {
 		case 0:
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(version, gc.Equals, 0)
@@ -868,7 +869,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 		default:
 			c.Check(objType, gc.Equals, "StringsWatcher")
 		}
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		return nil
 	})
 
