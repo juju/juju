@@ -6,6 +6,7 @@ package caas_test
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,6 +18,7 @@ import (
 
 type k8sConfigSuite struct {
 	testing.IsolationSuite
+	dir string
 }
 
 var _ = gc.Suite(&k8sConfigSuite{})
@@ -100,29 +102,28 @@ users:
 `
 )
 
+func (s *k8sConfigSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.dir = c.MkDir()
+}
+
 // writeTempKubeConfig writes yaml to a temp file and sets the
 // KUBECONFIG environment variable so that the clientconfig code reads
 // it instead of the default.
 // The caller must close and remove the returned file.
-func writeTempKubeConfig(c *gc.C, data string) *os.File {
-	caasFile, err := ioutil.TempFile("", "caasFile")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = ioutil.WriteFile(caasFile.Name(), []byte(data), 0644)
+func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data string) string {
+	fullpath := filepath.Join(s.dir, filename)
+	err := ioutil.WriteFile(fullpath, []byte(data), 0644)
 	if err != nil {
-		caasFile.Close()
-		os.Remove(caasFile.Name())
 		c.Fatal(err.Error())
 	}
-	os.Setenv("KUBECONFIG", caasFile.Name())
+	os.Setenv("KUBECONFIG", fullpath)
 
-	return caasFile
+	return fullpath
 }
 
 func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
-	tempFile := writeTempKubeConfig(c, emptyConfig)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	s.writeTempKubeConfig(c, "emptyConfig", emptyConfig)
 
 	cfg, err := caascfg.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,9 +138,7 @@ func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
-	tempFile := writeTempKubeConfig(c, singleConfig)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	s.writeTempKubeConfig(c, "singleConfig", singleConfig)
 
 	cfg, err := caascfg.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,9 +163,7 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
-	tempFile := writeTempKubeConfig(c, multiConfig)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	s.writeTempKubeConfig(c, "multiConfig", multiConfig)
 
 	cfg, err := caascfg.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
