@@ -74,9 +74,10 @@ func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (cro
 		return nil, errors.AlreadyExistsf("offer connection for relation %d", arg.RelationId)
 	}
 	oc := &mockOfferConnection{
-		relationId: arg.RelationId,
-		username:   arg.Username,
-		offerName:  arg.OfferName,
+		sourcemodelUUID: arg.SourceModelUUID,
+		relationId:      arg.RelationId,
+		username:        arg.Username,
+		offerName:       arg.OfferName,
 	}
 	st.offerConnections[arg.RelationId] = oc
 	return oc, nil
@@ -325,9 +326,10 @@ func (a *mockApplication) Life() state.Life {
 }
 
 type mockOfferConnection struct {
-	relationId int
-	username   string
-	offerName  string
+	sourcemodelUUID string
+	relationId      int
+	username        string
+	offerName       string
 }
 
 type mockRelationUnit struct {

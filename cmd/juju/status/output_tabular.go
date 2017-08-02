@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -253,6 +254,38 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	p()
 	printMachines(tw, fs.Machines)
 
+	connCount := 0
+	for _, offer := range fs.Offers {
+		connCount += len(offer.Connections)
+	}
+	if connCount > 0 {
+		outputHeaders("Offer", "User", "Relation id", "Status", "Endpoint", "Interface", "Role")
+		for _, offerName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Offers)) {
+			offer := fs.Offers[offerName]
+			// Record the details of each offer endpoint keyed on name
+			// but with the alias recorded against the endpoint since
+			// that's what we print.
+			endpoints := make(map[string]remoteEndpoint)
+			for alias, ep := range offer.Endpoints {
+				aliasedEp := ep
+				aliasedEp.Name = alias
+				endpoints[ep.Name] = ep
+			}
+			for _, conn := range offer.Connections {
+				w.Print(offerName)
+				if conn.Err != nil {
+					w.Printf("(%s)\n", conn.Err)
+					continue
+				}
+				w.Print(conn.Username, conn.RelationId)
+				w.PrintColor(relationStatusColor(relation.Status(conn.Status)), conn.Status)
+				connEp := endpoints[conn.Endpoint]
+				w.Println(connEp.Name, connEp.Interface, connEp.Role)
+			}
+		}
+		tw.Flush()
+	}
+
 	if relations.len() > 0 {
 		outputHeaders("Relation", "Provides", "Consumes", "Type")
 		for _, k := range relations.sorted() {
@@ -264,6 +297,16 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	tw.Flush()
+	return nil
+}
+
+func relationStatusColor(status relation.Status) *ansiterm.Context {
+	switch status {
+	case relation.Active:
+		return output.GoodHighlight
+	case relation.Revoked:
+		return output.WarningHighlight
+	}
 	return nil
 }
 

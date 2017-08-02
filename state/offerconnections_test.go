@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type offerConnectionsSuite struct {
@@ -19,11 +20,13 @@ var _ = gc.Suite(&offerConnectionsSuite{})
 
 func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	oc, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
-		RelationId: 1,
-		Username:   "fred",
-		OfferName:  "mysql",
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      1,
+		Username:        "fred",
+		OfferName:       "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(oc.SourceModelUUID(), gc.Equals, testing.ModelTag.Id())
 	c.Assert(oc.RelationId(), gc.Equals, 1)
 	c.Assert(oc.OfferName(), gc.Equals, "mysql")
 	c.Assert(oc.UserName(), gc.Equals, "fred")
@@ -39,6 +42,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	all, err := anotherState.AllOfferConnections()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 1)
+	c.Assert(all[0].SourceModelUUID(), gc.Equals, testing.ModelTag.Id())
 	c.Assert(all[0].RelationId(), gc.Equals, 1)
 	c.Assert(all[0].OfferName(), gc.Equals, "mysql")
 	c.Assert(all[0].UserName(), gc.Equals, "fred")
@@ -47,9 +51,10 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 
 func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	_, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
-		RelationId: 1,
-		Username:   "fred",
-		OfferName:  "mysql",
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      1,
+		Username:        "fred",
+		OfferName:       "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -58,9 +63,10 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	defer anotherState.Close()
 
 	_, err = anotherState.AddOfferConnection(state.AddOfferConnectionParams{
-		RelationId: 1,
-		Username:   "fred",
-		OfferName:  "mysql",
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      1,
+		Username:        "fred",
+		OfferName:       "mysql",
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }

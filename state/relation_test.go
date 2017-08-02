@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -428,9 +429,10 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
 
 	// Add a offer connection record so we can check it is cleaned up.
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
-		RelationId: relation.Id(),
-		Username:   "fred",
-		OfferName:  "mysql",
+		SourceModelUUID: coretesting.ModelTag.Id(),
+		RelationId:      relation.Id(),
+		Username:        "fred",
+		OfferName:       "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	rc, err := s.State.RemoteConnectionStatus("mysql")

@@ -26,6 +26,7 @@ type FullStatus struct {
 	Machines           map[string]MachineStatus           `json:"machines"`
 	Applications       map[string]ApplicationStatus       `json:"applications"`
 	RemoteApplications map[string]RemoteApplicationStatus `json:"remote-applications"`
+	Offers             map[string]ApplicationOfferStatus  `json:"offers"`
 	Relations          []RelationStatus                   `json:"relations"`
 }
 
@@ -120,13 +121,32 @@ type ApplicationStatus struct {
 
 // RemoteApplicationStatus holds status info about a remote application.
 type RemoteApplicationStatus struct {
-	Err             error               `json:"err,omitempty"`
-	ApplicationURL  string              `json:"application-url"`
-	ApplicationName string              `json:"application-name"`
-	Endpoints       []RemoteEndpoint    `json:"endpoints"`
-	Life            string              `json:"life"`
-	Relations       map[string][]string `json:"relations"`
-	Status          DetailedStatus      `json:"status"`
+	Err            error               `json:"err,omitempty"`
+	ApplicationURL string              `json:"application-url"`
+	OfferName      string              `json:"offer-name"`
+	Endpoints      []RemoteEndpoint    `json:"endpoints"`
+	Life           string              `json:"life"`
+	Relations      map[string][]string `json:"relations"`
+	Status         DetailedStatus      `json:"status"`
+}
+
+// ApplicationOfferStatus holds status info about an application offer.
+type ApplicationOfferStatus struct {
+	Err             error                         `json:"err,omitempty"`
+	ApplicationURL  string                        `json:"application-url"`
+	OfferName       string                        `json:"offer-name"`
+	ApplicationName string                        `json:"application-name"`
+	Endpoints       map[string]RemoteEndpoint     `json:"endpoints"`
+	Connections     map[int]OfferConnectionStatus `json:"connections,omitempty"`
+}
+
+// OfferConnectionStatus holds status info about a connection to an offer.
+type OfferConnectionStatus struct {
+	Err            error  `json:"err,omitempty"`
+	SourceModelTag string `json:"source-model-tag"`
+	Username       string `json:"username"`
+	Endpoint       string `json:"endpoint"`
+	Status         string `json:"status"`
 }
 
 // MeterStatus represents the meter status of a unit.

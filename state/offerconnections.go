@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -20,10 +21,11 @@ type OfferConnection struct {
 
 // offerConnectionDoc represents the internal state of an offer connection in MongoDB.
 type offerConnectionDoc struct {
-	DocID      string `bson:"_id"`
-	RelationId int    `bson:"relation-id"`
-	OfferName  string `bson:"offer-name"`
-	UserName   string `bson:"username"`
+	DocID           string `bson:"_id"`
+	RelationId      int    `bson:"relation-id"`
+	OfferName       string `bson:"offer-name"`
+	UserName        string `bson:"username"`
+	SourceModelUUID string `bson:"source-model-uuid"`
 }
 
 func newOfferConnection(st *State, doc *offerConnectionDoc) *OfferConnection {
@@ -49,6 +51,11 @@ func (oc *OfferConnection) RelationId() int {
 	return oc.doc.RelationId
 }
 
+// SourceModelUUID is the uuid of the consuming model.
+func (oc *OfferConnection) SourceModelUUID() string {
+	return oc.doc.SourceModelUUID
+}
+
 func removeOfferConnectionsForRelationOps(relId int) []txn.Op {
 	op := txn.Op{
 		C:      offerConnectionsC,
@@ -66,6 +73,9 @@ func (oc *OfferConnection) String() string {
 // AddOfferConnectionParams contains the parameters for adding an offer connection
 // to the model.
 type AddOfferConnectionParams struct {
+	// SourceModelUUID is the UUID of the consuming model.
+	SourceModelUUID string
+
 	// OfferName is the name of the offer.
 	OfferName string
 
@@ -76,10 +86,25 @@ type AddOfferConnectionParams struct {
 	RelationId int
 }
 
+func validateOfferConnectionParams(args AddOfferConnectionParams) (err error) {
+	// Sanity checks.
+	if !names.IsValidModel(args.SourceModelUUID) {
+		return errors.NotValidf("source model %q", args.SourceModelUUID)
+	}
+	if !names.IsValidUser(args.Username) {
+		return errors.NotValidf("offer connection user %q", args.Username)
+	}
+	return nil
+}
+
 // AddOfferConnection creates a new offer connection record, which records details about a
 // relation made from a remote model to an offer in the local model.
 func (st *State) AddOfferConnection(args AddOfferConnectionParams) (_ *OfferConnection, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add offer record for %q", args.OfferName)
+
+	if err := validateOfferConnectionParams(args); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	model, err := st.Model()
 	if err != nil {
@@ -90,10 +115,11 @@ func (st *State) AddOfferConnection(args AddOfferConnectionParams) (_ *OfferConn
 
 	// Create the application addition operations.
 	offerConnectionDoc := offerConnectionDoc{
-		OfferName:  args.OfferName,
-		UserName:   args.Username,
-		RelationId: args.RelationId,
-		DocID:      fmt.Sprintf("%d", args.RelationId),
+		SourceModelUUID: args.SourceModelUUID,
+		OfferName:       args.OfferName,
+		UserName:        args.Username,
+		RelationId:      args.RelationId,
+		DocID:           fmt.Sprintf("%d", args.RelationId),
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that

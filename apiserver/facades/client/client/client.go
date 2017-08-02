@@ -99,6 +99,22 @@ func (c *Client) checkCanWrite() error {
 	return nil
 }
 
+func (c *Client) checkIsAdmin() error {
+	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	isModelAdmin, err := c.api.auth.HasPermission(permission.AdminAccess, c.api.stateAccessor.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !isModelAdmin && !isAdmin {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // NewFacade provides the required signature for facade registration.
 func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)

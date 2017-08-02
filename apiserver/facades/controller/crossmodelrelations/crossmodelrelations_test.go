@@ -178,9 +178,10 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Assert(s.st.offerConnections, gc.HasLen, 1)
 	offerConnection := s.st.offerConnections[0]
 	c.Assert(offerConnection, jc.DeepEquals, &mockOfferConnection{
-		relationId: 0,
-		username:   "mary",
-		offerName:  "offered",
+		sourcemodelUUID: coretesting.ModelTag.Id(),
+		relationId:      0,
+		username:        "mary",
+		offerName:       "offered",
 	})
 }
 

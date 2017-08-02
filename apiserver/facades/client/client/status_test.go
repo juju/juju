@@ -51,6 +51,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Model.SLA, gc.Equals, "essential")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
+	c.Check(status.Offers, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
