@@ -8,6 +8,8 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jujutesting "github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -15,8 +17,6 @@ import (
 	caascfg "github.com/juju/juju/caas/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
-	jujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type addCAASSuite struct {
@@ -137,4 +137,16 @@ func (s *addCAASSuite) TestAddNameClash(c *gc.C) {
 	cmd := s.makeCommand(c, true)
 	_, err := s.runCommand(c, cmd, "kubernetes", "mrcloud")
 	c.Assert(err, gc.ErrorMatches, `"mrcloud" is the name of a public cloud`)
+}
+
+func (s *addCAASSuite) TestMissingName(c *gc.C) {
+	cmd := s.makeCommand(c, true)
+	_, err := s.runCommand(c, cmd, "kubernetes")
+	c.Assert(err, gc.ErrorMatches, `missing CAAS name.`)
+}
+
+func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
+	cmd := s.makeCommand(c, true)
+	_, err := s.runCommand(c, cmd)
+	c.Assert(err, gc.ErrorMatches, `missing CAAS type and CAAS name.`)
 }

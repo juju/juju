@@ -104,16 +104,15 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *AddCAASCommand) Init(args []string) (err error) {
-	if len(args) > 0 {
-		c.caasType = args[0]
+	if len(args) == 0 {
+		return errors.Errorf("missing CAAS type and CAAS name.")
 	}
-	if len(args) > 1 {
-		c.caasName = args[1]
+	if len(args) == 1 {
+		return errors.Errorf("missing CAAS name.")
 	}
-	if len(args) > 2 {
-		return cmd.CheckEmpty(args[2:])
-	}
-	return nil
+	c.caasType = args[0]
+	c.caasName = args[1]
+	return cmd.CheckEmpty(args[2:])
 }
 
 func (c *AddCAASCommand) newAPIRoot() (api.Connection, error) {
