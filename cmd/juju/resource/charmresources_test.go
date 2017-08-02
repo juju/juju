@@ -17,32 +17,32 @@ import (
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 )
 
-var _ = gc.Suite(&ListCharmSuite{})
+var _ = gc.Suite(&CharmResourcesSuite{})
 
-type ListCharmSuite struct {
+type CharmResourcesSuite struct {
 	testing.IsolationSuite
 
 	stub   *testing.Stub
 	client *stubCharmStore
 }
 
-func (s *ListCharmSuite) SetUpTest(c *gc.C) {
+func (s *CharmResourcesSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
 	s.client = &stubCharmStore{stub: s.stub}
 }
 
-func (s *ListCharmSuite) TestInfo(c *gc.C) {
-	var command resourcecmd.ListCharmResourcesCommand
+func (s *CharmResourcesSuite) TestInfo(c *gc.C) {
+	var command resourcecmd.CharmResourcesCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "resources",
+		Name:    "charm-resources",
 		Args:    "<charm>",
-		Purpose: "DEPRECATED: Display the resources for a charm in the charm store.",
-		Doc: `This command is DEPRECATED since Juju 2.3.x, please use 'juju charm-resources' instead.
-
+		Purpose: "Display the resources for a charm in the charm store.",
+		Aliases: []string{"list-charm-resources"},
+		Doc: `
 This command will report the resources for a charm in the charm store.
 
 <charm> can be a charm URL, or an unambiguously condensed form of it,
@@ -58,11 +58,10 @@ For cs:~user/trusty/mysql
 Where the series is not supplied, the series from your local host is used.
 Thus the above examples imply that the local series is trusty.
 `,
-		Aliases: []string{"list-resources"},
 	})
 }
 
-func (s *ListCharmSuite) TestOkay(c *gc.C) {
+func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
 	resources := newCharmResources(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
@@ -70,7 +69,7 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	resources[0].Revision = 2
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := resourcecmd.NewListCharmResourcesCommand(s.client)
+	command := resourcecmd.NewCharmResourcesCommand(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -92,10 +91,10 @@ website   2
 	})
 }
 
-func (s *ListCharmSuite) TestNoResources(c *gc.C) {
+func (s *CharmResourcesSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := resourcecmd.NewListCharmResourcesCommand(s.client)
+	command := resourcecmd.NewCharmResourcesCommand(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -104,7 +103,7 @@ func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	s.stub.CheckCallNames(c, "ListResources")
 }
 
-func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
+func (s *CharmResourcesSuite) TestOutputFormats(c *gc.C) {
 	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
@@ -166,7 +165,7 @@ website   1
 	}
 	for format, expected := range formats {
 		c.Logf("checking format %q", format)
-		command := resourcecmd.NewListCharmResourcesCommand(s.client)
+		command := resourcecmd.NewCharmResourcesCommand(s.client)
 		args := []string{
 			"--format", format,
 			"cs:a-charm",
@@ -179,7 +178,7 @@ website   1
 	}
 }
 
-func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
+func (s *CharmResourcesSuite) TestChannelFlag(c *gc.C) {
 	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
@@ -189,7 +188,7 @@ func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
-	command := resourcecmd.NewListCharmResourcesCommand(s.client)
+	command := resourcecmd.NewCharmResourcesCommand(s.client)
 
 	code, _, stderr := runCmd(c, command,
 		"--channel", "development",
@@ -198,5 +197,5 @@ func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
 
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
-	c.Check(resourcecmd.ListCharmResourcesCommandChannel(command), gc.Equals, "development")
+	c.Check(resourcecmd.CharmResourcesCommandChannel(command), gc.Equals, "development")
 }

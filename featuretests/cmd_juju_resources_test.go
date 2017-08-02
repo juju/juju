@@ -64,7 +64,7 @@ func (s *ResourcesCmdSuite) SetUpTest(c *gc.C) {
 
 // This test only verifies that component-based resources commands don't panic.
 func (s *ResourcesCmdSuite) TestResourcesCommands(c *gc.C) {
-	// check "juju charm resources..."
+	// check "juju charm-resources..."
 	s.runCharmResourcesCommand(c)
 
 	// check "juju resources <application>"
@@ -99,7 +99,7 @@ Resource  Revision
 }
 
 func (s *ResourcesCmdSuite) runCharmResourcesCommand(c *gc.C) {
-	context, err := cmdtesting.RunCommand(c, resource.NewListCharmResourcesCommand(s.client), s.charmName)
+	context, err := cmdtesting.RunCommand(c, resource.NewCharmResourcesCommand(s.client), s.charmName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `

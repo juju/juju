@@ -27,17 +27,12 @@ func NewSuperCommand() *Command {
 		SuperCommand: *cmd.NewSuperCommand(
 			cmd.SuperCommandParams{
 				Name:        "charm",
-				Doc:         charmDoc,
+				Doc:         resource.DeprecatedSince + charmDoc,
 				UsagePrefix: "juju",
-				Purpose:     charmPurpose,
+				Purpose:     resource.Deprecated + charmPurpose,
 			},
 		),
 	}
-	// TODO (anastasiamac 2017-07-28) this needs to be renamed
-	// to something else, for eg. 'juju charm-resources',
-	// to comply with the new naming convention.
-	// This command was overlooked in general rename for Juju 2.x
 	charmCmd.Register(resource.NewListCharmResourcesCommand(nil))
-
 	return charmCmd
 }
