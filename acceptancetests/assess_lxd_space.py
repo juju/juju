@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 """Testing spaces and subnets settings for app deployment to lxd container.
-   This is an validation of Bug 1685782:
-   https://bugs.launchpad.net/juju/+bug/1685782
+
+   Starting with juju 2.1, spaces must be specified for containers, and juju
+   will pick a default if not specified. This test is to validate that lxd
+   containers don't inherit spaces from the host machine, an verification of
+   Bug 1685782: https://bugs.launchpad.net/juju/+bug/1685782
    The test procedures are based on comment #29:
+
    juju bootstrap aws test
    juju spaces
    juju subnets
@@ -14,6 +18,7 @@
    juju status
 
    python assess_lxd_space.py $ENV $JUJU_BIN $JUJU_DATA
+   This test is designed to be run on AWS only.
 """
 
 from __future__ import print_function
@@ -109,9 +114,8 @@ def assert_added_space(client):
     """
     space_name, subnet_cidr = add_space_with_existing_subnet(
         client, space_name='testspace')
-    # New added space should exist at this point,
-    # set merge_stderr to False to eliminate noise in output,
-    # otherwise the extra output will break the json object.
+    # New added space should exist at this point, set merge_stderr to False to
+    # eliminate noise in output - the extra output will break the json object.
     raw_output = client.get_juju_output(
         'spaces', '--format', 'json', include_e=False, merge_stderr=False)
     try:
@@ -136,8 +140,7 @@ def assert_added_space(client):
         raise JujuAssertionError(
             'Incorrect CIDR name. Found: {}; Expected: {}.'.format(
             space_output['spaces'][space_name].keys()[0], subnet_cidr))
-    else:
-        log.info('New added space {} has been validated.'.format(space_name))
+    log.info('New added space {} has been validated.'.format(space_name))
 
 
 def assert_app_status(client, charm_name, expected):
@@ -190,15 +193,15 @@ def assess_lxd_container_space(client):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    environment = os.getenv('ENV', default='parallel-aws')
-    if environment != 'parallel-aws':
-        log.error('Incorrect substrate, should be parallel-aws.')
+    bs_manager = BootstrapManager.from_args(args)
+    if bs_manager.client.env.get_cloud() != 'aws':
+        # The behaviour of space and subnet in this test is for AWS only,
+        # it's meaningless to run it on other substrates.
+        log.error('Incorrect substrate, should be AWS.')
         sys.exit(1)
-    else:
-        bs_manager = BootstrapManager.from_args(args)
-        with bs_manager.booted_context(args.upload_tools):
-            assess_lxd_container_space(bs_manager.client)
-        return 0
+    with bs_manager.booted_context(args.upload_tools):
+        assess_lxd_container_space(bs_manager.client)
+    return 0
 
 
 if __name__ == '__main__':
