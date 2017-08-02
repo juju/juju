@@ -2263,7 +2263,7 @@ class ModelClient:
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, resource=None, num=None,
-               storage=None, constraints=None, alias=None, bind=None):
+               constraints=None, alias=None, bind=None, **kwargs):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -2277,14 +2277,18 @@ class ModelClient:
             args.extend(['--resource', resource])
         if num is not None:
             args.extend(['-n', str(num)])
-        if storage is not None:
-            args.extend(['--storage', storage])
         if constraints is not None:
             args.extend(['--constraints', constraints])
         if bind is not None:
             args.extend(['--bind', bind])
         if alias is not None:
             args.extend([alias])
+        for key, value in kwargs.items():
+            if isinstance(value, list):
+                for item in value:
+                    args.extend(['--{}'.format(key), item])
+            else:
+                args.extend(['--{}'.format(key), value])
         retvar, ct = self.juju('deploy', tuple(args))
         return retvar, CommandComplete(WaitAgentsStarted(), ct)
 
