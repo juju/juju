@@ -765,7 +765,8 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
 
 
 def client_for_existing(juju_path, juju_data_dir, debug=False,
-                        soft_deadline=None):
+                        soft_deadline=None, controller_name=None,
+                        model_name=None):
     """Create a client for an existing controller/model.
 
     :param juju_path: Path to juju binary the client should wrap.
@@ -782,8 +783,12 @@ def client_for_existing(juju_path, juju_data_dir, debug=False,
     backend = client_class.default_backend(full_path, version, set(),
                                            debug=debug,
                                            soft_deadline=soft_deadline)
-    controller_name, user_name, model_name = backend.get_active_model(
+    current_controller, user_name, current_model = backend.get_active_model(
         juju_data_dir)
+    if controller_name is None:
+        controller_name = current_controller
+    if model_name is None:
+        model_name = current_model
     config = client_class.config_class.for_existing(
         juju_data_dir, controller_name, model_name)
     return client_class(config, version, full_path, debug=debug,
