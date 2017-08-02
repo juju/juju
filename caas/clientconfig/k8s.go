@@ -2,7 +2,6 @@ package caas
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -120,9 +119,9 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 }
 
 func getKubeConfigPath() string {
-	envPath := os.Getenv("KUBECONFIG")
+	envPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
 	if envPath == "" {
-		return filepath.Join(os.Getenv("HOME"), "/.kube/config")
+		return clientcmd.RecommendedHomeFile
 	}
 	return envPath
 }
