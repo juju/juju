@@ -83,13 +83,8 @@ upload-resource   upload       -
 	// check "juju resources <unit>"
 	context, err = runCommand(c, "resources", s.unitOneName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-[Unit]
-Resource  Revision
-
-`[1:],
-	)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "No resources to display.\n")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 
 	// check "juju attach-resource"
 	context, err = runCommand(c, "attach-resource", s.appOneName, "install-resource=oops")
