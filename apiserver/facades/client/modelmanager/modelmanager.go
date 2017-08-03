@@ -101,14 +101,15 @@ var (
 // NewFacadeV4 is used for API registration.
 func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
-	ctlrSt := ctx.StatePool().SystemState()
-	auth := ctx.Auth()
 	pool := ctx.StatePool()
+	ctlrSt := pool.SystemState()
+	auth := ctx.Auth()
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 
 	return NewModelManagerAPI(
-		common.NewModelManagerBackend(st),
-		common.NewModelManagerBackend(ctlrSt),
+		// XXX normalise this?
+		common.NewModelManagerBackend(st, pool),
+		common.NewModelManagerBackend(ctlrSt, pool),
 		common.NewBackendPool(pool),
 		configGetter,
 		auth,

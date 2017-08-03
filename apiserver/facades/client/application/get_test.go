@@ -34,7 +34,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	backend, err := application.NewStateBackend(s.State)
+	backend, err := application.NewStateBackend(s.State, s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
 	s.serviceAPI, err = application.NewAPI(

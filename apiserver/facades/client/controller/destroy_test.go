@@ -34,10 +34,9 @@ type destroyControllerSuite struct {
 	resources  *common.Resources
 	controller *controller.ControllerAPIv4
 
-	otherState          *state.State
-	otherEnvOwner       names.UserTag
-	otherModelUUID      string
-	modelManagerBackend common.ModelManagerBackend
+	otherState     *state.State
+	otherEnvOwner  names.UserTag
+	otherModelUUID string
 }
 
 var _ = gc.Suite(&destroyControllerSuite{})
@@ -57,6 +56,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
 		})
@@ -73,7 +73,6 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	})
 	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
 	s.otherModelUUID = s.otherState.ModelUUID()
-	s.modelManagerBackend = common.NewModelManagerBackend(s.State)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBlocks(c *gc.C) {
@@ -137,7 +136,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
@@ -149,7 +148,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBlock(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -163,7 +162,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBloc
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -228,6 +227,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecifiedV3(c *gc.C) {
 	controller, err := controller.NewControllerAPIv3(facadetest.Context{
 		State_:     s.State,
+		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -258,6 +258,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecifiedV3(c *gc.C) {
 	controller, err := controller.NewControllerAPIv3(facadetest.Context{
 		State_:     s.State,
+		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})

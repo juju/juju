@@ -25,12 +25,16 @@ func (st *State) ProcessDyingModel() (err error) {
 		}
 
 		if st.IsController() {
-			models, err := st.AllModels()
+			modelUUIDs, err := st.AllModelUUIDs()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			for _, model := range models {
-				if model.UUID() != st.ModelUUID() && model.Life() != Dead {
+			for _, modelUUID := range modelUUIDs {
+				dead, err := isDead(st, modelsC, modelUUID)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if modelUUID != st.ModelUUID() && !dead {
 					return nil, errors.Errorf("one or more hosted models are not yet dead")
 				}
 			}

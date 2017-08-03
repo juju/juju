@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/description"
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
@@ -100,12 +101,13 @@ var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
 
 type modelManagerStateShim struct {
 	*state.State
+	pool *state.StatePool
 }
 
 // NewModelManagerBackend returns a modelManagerStateShim wrapping the passed
 // state, which implements ModelManagerBackend.
-func NewModelManagerBackend(st *state.State) ModelManagerBackend {
-	return modelManagerStateShim{st}
+func NewModelManagerBackend(st *state.State, pool *state.StatePool) ModelManagerBackend {
+	return modelManagerStateShim{st, pool}
 }
 
 // NewModel implements ModelManagerBackend.
@@ -114,7 +116,7 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 	if err != nil {
 		return nil, nil, err
 	}
-	return modelShim{m}, modelManagerStateShim{otherState}, nil
+	return modelShim{m}, modelManagerStateShim{otherState, st.pool}, nil
 }
 
 // ForModel implements ModelManagerBackend.
@@ -123,7 +125,7 @@ func (st modelManagerStateShim) ForModel(tag names.ModelTag) (ModelManagerBacken
 	if err != nil {
 		return nil, err
 	}
-	return modelManagerStateShim{otherState}, nil
+	return modelManagerStateShim{otherState, st.pool}, nil
 }
 
 // GetModel implements ModelManagerBackend.
@@ -146,15 +148,24 @@ func (st modelManagerStateShim) Model() (Model, error) {
 
 // AllModels implements ModelManagerBackend.
 func (st modelManagerStateShim) AllModels() ([]Model, error) {
-	allStateModels, err := st.State.AllModels()
+	modelUUIDs, err := st.State.AllModelUUIDs()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	all := make([]Model, len(allStateModels))
-	for i, m := range allStateModels {
-		all[i] = modelShim{m}
+	out := make([]Model, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := st.pool.Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer release()
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out = append(out, model)
 	}
-	return all, nil
+	return out, nil
 }
 
 type modelShim struct {
@@ -245,5 +256,5 @@ func (p *statePoolShim) Get(modelUUID string) (ModelManagerBackend, func(), erro
 	closer := func() {
 		releaser()
 	}
-	return NewModelManagerBackend(st), closer, err
+	return NewModelManagerBackend(st, p.pool), closer, err
 }

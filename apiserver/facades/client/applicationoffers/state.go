@@ -40,7 +40,11 @@ func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 	closer := func() {
 		releaser()
 	}
-	return &stateShim{st: st, Backend: commoncrossmodel.GetBackend(st)}, closer, nil
+	return &stateShim{
+		st:      st,
+		Backend: commoncrossmodel.GetBackend(st),
+		pool:    pool.StatePool,
+	}, closer, nil
 }
 
 // Backend provides selected methods off the state.State struct.
@@ -59,13 +63,18 @@ type Backend interface {
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 }
 
-var GetStateAccess = func(st *state.State) Backend {
-	return &stateShim{st: st, Backend: commoncrossmodel.GetBackend(st)}
+var GetStateAccess = func(st *state.State, pool *state.StatePool) Backend {
+	return &stateShim{
+		st:      st,
+		Backend: commoncrossmodel.GetBackend(st),
+		pool:    pool,
+	}
 }
 
 type stateShim struct {
 	commoncrossmodel.Backend
-	st *state.State
+	st   *state.State
+	pool *state.StatePool
 }
 
 func (s stateShim) GetAddressAndCertGetter() common.AddressAndCertGetter {
@@ -99,15 +108,24 @@ func (s *stateShim) Model() (Model, error) {
 }
 
 func (s *stateShim) AllModels() ([]Model, error) {
-	all, err := s.st.AllModels()
+	modelUUIDs, err := s.State.AllModelUUIDs()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	var result []Model
-	for _, m := range all {
-		result = append(result, &modelShim{m})
+	out := make([]Model, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := s.pool.Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer release()
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out = append(out, model)
 	}
-	return result, err
+	return out, nil
 }
 
 type stateCharmShim struct {

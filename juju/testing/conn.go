@@ -93,6 +93,7 @@ type JujuConnSuite struct {
 
 	ControllerConfig   controller.Config
 	State              *state.State
+	StatePool          *state.StatePool
 	IAASModel          *state.IAASModel
 	Environ            environs.Environ
 	APIState           api.Connection
@@ -396,6 +397,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.StatePool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
 
 	s.IAASModel, err = s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)

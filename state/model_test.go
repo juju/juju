@@ -1034,22 +1034,19 @@ func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers
 	}
 }
 
-func (s *ModelSuite) TestAllModels(c *gc.C) {
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test", Owner: names.NewUserTag("bob@remote")}).Close()
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test", Owner: names.NewUserTag("mary@remote")}).Close()
-	envs, err := s.State.AllModels()
+func (s *ModelSuite) TestAllModelUUIDs(c *gc.C) {
+	st1 := s.Factory.MakeModel(c, nil)
+	defer st1.Close()
+
+	st2 := s.Factory.MakeModel(c, nil)
+	defer st2.Close()
+
+	obtained, err := s.State.AllModelUUIDs()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envs, gc.HasLen, 3)
-	var obtained []string
-	for _, model := range envs {
-		obtained = append(obtained, fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name()))
-	}
 	expected := []string{
-		"bob@remote/test",
-		"mary@remote/test",
-		"test-admin/testenv",
+		s.State.ModelUUID(),
+		st1.ModelUUID(),
+		st2.ModelUUID(),
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }

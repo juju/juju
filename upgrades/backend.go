@@ -43,22 +43,32 @@ type Model interface {
 }
 
 // NewStateBackend returns a new StateBackend using a *state.State object.
-func NewStateBackend(st *state.State) StateBackend {
-	return stateBackend{st}
+func NewStateBackend(st *state.State, pool *state.StatePool) StateBackend {
+	return stateBackend{st, pool}
 }
 
 type stateBackend struct {
-	st *state.State
+	st   *state.State
+	pool *state.StatePool
 }
 
 func (s stateBackend) AllModels() ([]Model, error) {
-	models, err := s.st.AllModels()
+	modelUUIDs, err := s.st.AllModelUUIDs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]Model, len(models))
-	for i, m := range models {
-		out[i] = &modelShim{s.st, m}
+	out := make([]Model, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := s.pool.Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer release()
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out = append(out, &modelShim{st, model})
 	}
 	return out, nil
 }

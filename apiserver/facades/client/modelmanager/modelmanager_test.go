@@ -746,8 +746,8 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State),
-		common.NewModelManagerBackend(s.State),
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		nil,
 		stateenvirons.EnvironConfigGetter{s.State},
 		s.authoriser,
@@ -760,8 +760,8 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State),
-		common.NewModelManagerBackend(s.State),
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		nil, nil, anAuthoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -772,8 +772,8 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State),
-		common.NewModelManagerBackend(s.State),
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		nil, nil, anAuthoriser,
 	)
 	c.Assert(endPoint, gc.IsNil)
@@ -992,8 +992,8 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer pool.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st),
-		common.NewModelManagerBackend(s.State),
+		common.NewModelManagerBackend(st, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		common.NewBackendPool(pool),
 		nil, s.authoriser,
 	)
@@ -1028,8 +1028,8 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 
 	s.authoriser.Tag = s.AdminUserTag(c)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st),
-		common.NewModelManagerBackend(s.State),
+		common.NewModelManagerBackend(st, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		common.NewBackendPool(pool),
 		nil, s.authoriser,
 	)
@@ -1060,8 +1060,8 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st),
-		common.NewModelManagerBackend(s.State),
+		common.NewModelManagerBackend(st, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		nil, nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)

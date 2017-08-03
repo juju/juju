@@ -786,14 +786,6 @@ func (st *State) AllMachines() ([]*Machine, error) {
 	return st.allMachines(machinesCollection)
 }
 
-// AllMachinesFor returns all machines for the model represented
-// by the given modeluuid
-func (st *State) AllMachinesFor(modelUUID string) ([]*Machine, error) {
-	machinesCollection, closer := st.db().GetCollectionFor(modelUUID, machinesC)
-	defer closer()
-	return st.allMachines(machinesCollection)
-}
-
 type machineDocSlice []machineDoc
 
 func (ms machineDocSlice) Len() int      { return len(ms) }

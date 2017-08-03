@@ -83,7 +83,7 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,
-		GetStateAccess(ctx.State()),
+		GetStateAccess(ctx.State(), ctx.StatePool()),
 		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources(),
 		authContext.(*commoncrossmodel.AuthContext),
 	)

@@ -8,6 +8,7 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -122,6 +123,7 @@ type Model interface {
 type stateShim struct {
 	*state.State
 	*state.IAASModel
+	pool *state.StatePool
 }
 
 type ExternalController state.ExternalController
@@ -132,12 +134,16 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 }
 
 // NewStateBackend converts a state.State into a Backend.
-func NewStateBackend(st *state.State) (Backend, error) {
+func NewStateBackend(st *state.State, pool *state.StatePool) (Backend, error) {
 	im, err := st.IAASModel()
 	if err != nil {
 		return nil, err
 	}
-	return stateShim{State: st, IAASModel: im}, nil
+	return stateShim{
+		State:     st,
+		IAASModel: im,
+		pool:      pool,
+	}, nil
 }
 
 // NewStateApplication converts a state.Application into an Application.
@@ -234,15 +240,24 @@ func (s stateShim) Unit(name string) (Unit, error) {
 }
 
 func (s stateShim) AllModels() ([]Model, error) {
-	models, err := s.State.AllModels()
+	modelUUIDs, err := s.State.AllModelUUIDs()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	result := make([]Model, len(models))
-	for i, m := range models {
-		result[i] = stateModelShim{m}
+	out := make([]Model, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := s.pool.Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer release()
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out = append(out, stateModelShim{model})
 	}
-	return result, nil
+	return out, nil
 }
 
 type stateApplicationShim struct {

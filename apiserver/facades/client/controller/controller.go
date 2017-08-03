@@ -74,7 +74,7 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 	return &ControllerAPIv3{
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI: common.NewModelStatusAPI(
-			common.NewModelManagerBackend(st),
+			common.NewModelManagerBackend(st, ctx.StatePool()),
 			common.NewBackendPool(ctx.StatePool()),
 			authorizer,
 			apiUser,
@@ -134,13 +134,22 @@ func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 		})
 	}
 
-	allModels, err := s.state.AllModels()
+	modelUUIDs, err := s.state.AllModelUUIDs()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, model := range allModels {
-		if !visibleModels.Contains(model.UUID()) {
+	for _, modelUUID := range modelUUIDs {
+		if !visibleModels.Contains(modelUUID) {
+			st, release, err := s.statePool.Get(modelUUID)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			defer release()
+			model, err := st.Model()
+			if err != nil {
+				return result, errors.Trace(err)
+			}
 			result.UserModels = append(result.UserModels, params.UserModel{
 				Model: params.Model{
 					Name:     model.Name(),
@@ -241,13 +250,23 @@ func (s *ControllerAPIv3) HostedModelConfigs() (params.HostedModelConfigsResults
 		return result, errors.Trace(err)
 	}
 
-	allModels, err := s.state.AllModels()
+	modelUUIDs, err := s.state.AllModelUUIDs()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, model := range allModels {
-		if model.UUID() != s.state.ControllerModelUUID() {
+	for _, modelUUID := range modelUUIDs {
+		if modelUUID != s.state.ControllerModelUUID() {
+			st, release, err := s.statePool.Get(modelUUID)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			defer release()
+			model, err := st.Model()
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+
 			config := params.HostedModelConfig{
 				Name:     model.Name(),
 				OwnerTag: model.Owner().String(),
@@ -423,8 +442,7 @@ func (c *ControllerAPIv3) initiateOneMigration(spec params.MigrationSpec) (strin
 	}
 
 	// Check if the migration is likely to succeed.
-	ctlrSt := c.statePool.SystemState()
-	if err := runMigrationPrechecks(hostedState, ctlrSt, &targetInfo); err != nil {
+	if err := runMigrationPrechecks(hostedState, c.statePool, &targetInfo); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -480,9 +498,9 @@ func (c *ControllerAPIv3) ModifyControllerAccess(args params.ModifyControllerAcc
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
-var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo) error {
+var runMigrationPrechecks = func(st *state.State, pool *state.StatePool, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
-	backend, err := migration.PrecheckShim(st)
+	backend, err := migration.PrecheckShim(st, pool)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
@@ -496,7 +514,7 @@ var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigrat
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer conn.Close()
-	modelInfo, err := makeModelInfo(st, ctlrSt)
+	modelInfo, err := makeModelInfo(st, pool.SystemState())
 	if err != nil {
 		return errors.Trace(err)
 	}

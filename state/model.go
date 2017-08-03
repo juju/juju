@@ -181,26 +181,22 @@ func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 	return model, nil
 }
 
-// AllModels returns all the models in the system.
-func (st *State) AllModels() ([]*Model, error) {
+// AllModelUUIDs returns the UUIDs for all models in the controller.
+func (st *State) AllModelUUIDs() ([]string, error) {
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
-	var modelDocs []modelDoc
-	err := models.Find(nil).Sort("name", "owner").All(&modelDocs)
+	var docs []bson.M
+	err := models.Find(nil).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*Model, len(modelDocs))
-	for i, doc := range modelDocs {
-		result[i] = &Model{
-			globalState: st,
-			doc:         doc,
-		}
+	out := make([]string, len(docs))
+	for i, doc := range docs {
+		out[i] = doc["_id"].(string)
 	}
-
-	return result, nil
+	return out, nil
 }
 
 // ModelArgs is a params struct for creating a new model.
@@ -981,16 +977,36 @@ func (m *Model) destroyOps(
 		// Check for any Dying or alive but non-empty models. If there
 		// are any and we have not been instructed to destroy them, we
 		// return an error indicating that there are hosted models.
-		models, err := m.globalState.AllModels()
+
+		// We need access State instances for hosted models and it's
+		// too hard to thread an external StatePool to here, so create
+		// a fresh one. Creating new States is relatively slow but
+		// this is ok because this is an infrequently used code path.
+		pool := NewStatePool(m.globalState)
+		defer pool.Close()
+
+		modelUUIDs, err := m.globalState.AllModelUUIDs()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		var aliveEmpty, aliveNonEmpty, dying, dead int
-		for _, model := range models {
-			if model.UUID() == m.UUID() {
+		for _, modelUUID := range modelUUIDs {
+			if modelUUID == m.UUID() {
 				// Ignore the controller model.
 				continue
 			}
+
+			st, release, err := pool.Get(modelUUID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			defer release()
+
+			model, err := st.Model()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			if model.Life() == Dead {
 				// Dead hosted models don't affect
 				// whether the controller can be

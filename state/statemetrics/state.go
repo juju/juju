@@ -58,7 +58,7 @@ type statePoolShim struct {
 }
 
 func (p statePoolShim) SystemState() State {
-	return stateShim{p.StatePool.SystemState()}
+	return stateShim{p.StatePool.SystemState(), p.StatePool}
 }
 
 func (p statePoolShim) Get(modelUUID string) (State, state.StatePoolReleaser, error) {
@@ -66,11 +66,12 @@ func (p statePoolShim) Get(modelUUID string) (State, state.StatePoolReleaser, er
 	if err != nil {
 		return nil, nil, err
 	}
-	return stateShim{st}, releaser, nil
+	return stateShim{st, p.StatePool}, releaser, nil
 }
 
 type stateShim struct {
 	*state.State
+	pool *state.StatePool
 }
 
 func (s stateShim) AllMachines() ([]Machine, error) {
@@ -88,15 +89,22 @@ func (s stateShim) AllMachines() ([]Machine, error) {
 }
 
 func (s stateShim) AllModels() ([]Model, error) {
-	models, err := s.State.AllModels()
+	modelUUIDs, err := s.State.AllModelUUIDs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]Model, len(models))
-	for i, m := range models {
-		if m != nil {
-			out[i] = m
+	out := make([]Model, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := s.pool.Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		defer release()
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out = append(out, model)
 	}
 	return out, nil
 }
