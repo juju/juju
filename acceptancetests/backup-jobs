@@ -1,9 +1,0 @@
-#!/bin/bash
-tarfile=/mnt/jenkins/ci-jobs-$(date -I).tar.bz2
-if [ -e $tarfile ]; then
-    echo $tarfile already exists!
-    exit 1
-fi
-tar -C /var/lib/jenkins -cjf $tarfile --exclude=workspace/* \
-  --exclude=builds/*/archive --exclude=jobs/.bzr  \
-  jobs/ build-failure-analyzer.xml repository
