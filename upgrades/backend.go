@@ -28,6 +28,7 @@ type StateBackend interface {
 	RemoveNilValueApplicationSettings() error
 	AddControllerLogCollectionsSizeSettings() error
 	AddStatusHistoryPruneSettings() error
+	AddActionPruneSettings() error
 	AddStorageInstanceConstraints() error
 	SplitLogCollections() error
 	AddUpdateStatusHookSettings() error
@@ -105,6 +106,10 @@ func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
 
 func (s stateBackend) AddStatusHistoryPruneSettings() error {
 	return state.AddStatusHistoryPruneSettings(s.st)
+}
+
+func (s stateBackend) AddActionPruneSettings() error {
+	return state.AddActionPruneSettings(s.st)
 }
 
 func (s stateBackend) AddUpdateStatusHookSettings() error {

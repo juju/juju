@@ -27,7 +27,7 @@ func NewFacade(caller base.APICaller) pruner.Facade {
 
 func (w *Worker) loop() error {
 	return w.Work(func(config *config.Config) (time.Duration, uint) {
-		return config.MaxActionAge(), config.MaxActionSizeMB()
+		return config.MaxActionResultsAge(), config.MaxActionResultsSizeMB()
 	})
 }
 

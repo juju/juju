@@ -1439,8 +1439,8 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 		ConfigAttrs: coretesting.Attrs{
 			"max-status-history-age":  "2h",
 			"max-status-history-size": "4M",
-			"max-action-age":          "2h",
-			"max-action-size":         "4M",
+			"max-action-results-age":  "2h",
+			"max-action-results-size": "4M",
 		},
 	})
 	return newSt, func() {
