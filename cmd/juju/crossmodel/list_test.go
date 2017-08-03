@@ -43,6 +43,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 
 	s.mockAPI = &mockListAPI{
 		list: func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error) {
+			s.mockAPI.filters = filters
 			return s.applications, nil
 		},
 	}
@@ -51,7 +52,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 func (s *ListSuite) TestListNoCurrentModel(c *gc.C) {
 	s.store.Models["test-master"].CurrentModel = ""
 	_, err := s.runList(c, nil)
-	c.Assert(err, gc.ErrorMatches, `no current model, use juju switch to select a model on which to operate`)
+	c.Assert(err, gc.ErrorMatches, `current model for controller test-master not found`)
 }
 
 func (s *ListSuite) TestListError(c *gc.C) {
@@ -63,6 +64,20 @@ func (s *ListSuite) TestListError(c *gc.C) {
 
 	_, err := s.runList(c, nil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
+}
+
+func (s *ListSuite) TestListFilterArgs(c *gc.C) {
+	_, err := s.runList(c, []string{"--interface", "mysql", "--application", "mysql-lite"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mockAPI.filters, gc.HasLen, 1)
+	c.Assert(s.mockAPI.filters[0], jc.DeepEquals, model.ApplicationOfferFilter{
+		OwnerName:       "fred",
+		ModelName:       "test",
+		ApplicationName: "mysql-lite",
+		Endpoints: []model.EndpointFilterTerm{{
+			Interface: "mysql",
+		}},
+	})
 }
 
 func (s *ListSuite) TestListFormatError(c *gc.C) {
@@ -161,7 +176,8 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expec
 }
 
 type mockListAPI struct {
-	list func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error)
+	filters []model.ApplicationOfferFilter
+	list    func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error)
 }
 
 func (s mockListAPI) Close() error {

@@ -23,7 +23,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 const (
@@ -35,7 +34,6 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 // NewDestroyCommand returns a command used to destroy a model.
 func NewDestroyCommand() cmd.Command {
 	destroyCmd := &destroyCommand{}
-	destroyCmd.RefreshModels = destroyCmd.ModelCommandBase.RefreshModels
 	destroyCmd.sleepFunc = time.Sleep
 	return modelcmd.Wrap(
 		destroyCmd,
@@ -47,11 +45,6 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified model.
 type destroyCommand struct {
 	modelcmd.ModelCommandBase
-	// RefreshModels hides the RefreshModels function defined
-	// in ModelCommandBase. This allows overriding for testing.
-	// NOTE: ideal solution would be to have the base implement a method
-	// like store.ModelByName which auto-refreshes.
-	RefreshModels func(jujuclient.ClientStore, string) error
 
 	// sleepFunc is used when calling the timed function to get model status updates.
 	sleepFunc func(time.Duration)
@@ -170,25 +163,14 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelName, err := c.ModelName()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller details")
 	}
-	modelDetails, err := store.ModelByName(controllerName, modelName)
-	if errors.IsNotFound(err) {
-		if err := c.RefreshModels(store, controllerName); err != nil {
-			return errors.Annotate(err, "refreshing models cache")
-		}
-		// Now try again.
-		modelDetails, err = store.ModelByName(controllerName, modelName)
-	}
+	modelName, modelDetails, err := c.ModelDetails()
 	if err != nil {
-		return errors.Annotate(err, "cannot read model info")
+		return errors.Trace(err)
 	}
 
 	if modelDetails.ModelUUID == controllerDetails.ControllerUUID {

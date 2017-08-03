@@ -165,7 +165,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, refresh, s.store, s.sleep)
 	_, err := cmdtesting.RunCommand(c, cmd, "foo")
 	c.Check(called, jc.IsTrue)
-	c.Check(err, gc.ErrorMatches, `cannot read model info: model test1:admin/foo not found`)
+	c.Check(err, gc.ErrorMatches, `model test1:admin/foo not found`)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {

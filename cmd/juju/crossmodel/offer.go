@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -48,7 +49,7 @@ func NewOfferCommand() cmd.Command {
 }
 
 type offerCommand struct {
-	ApplicationOffersCommandBase
+	modelcmd.ControllerCommandBase
 	newAPIFunc    func() (OfferAPI, error)
 	refreshModels func(jujuclient.ClientStore, string) error
 	endpointsSpec string
@@ -64,6 +65,16 @@ type offerCommand struct {
 
 	// QualifiedModelName stores the name of the model hosting the offer.
 	QualifiedModelName string
+}
+
+// NewApplicationOffersAPI returns an application offers api for the root api endpoint
+// that the command returns.
+func (c *offerCommand) NewApplicationOffersAPI() (*applicationoffers.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return applicationoffers.NewClient(root), nil
 }
 
 // Info implements Command.Info.
@@ -92,7 +103,7 @@ func (c *offerCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *offerCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ApplicationOffersCommandBase.SetFlags(f)
+	c.ControllerCommandBase.SetFlags(f)
 }
 
 // Run implements Command.Run.
@@ -181,11 +192,12 @@ func (c *offerCommand) parseEndpoints(controllerName, arg string) error {
 	)
 	if modelNameArg != "" && !jujuclient.IsQualifiedModelName(modelNameArg) {
 		modelName = modelNameArg
-		account, err := c.ClientStore().AccountDetails(controllerName)
+		store := modelcmd.QualifyingClientStore{c.ClientStore()}
+		var err error
+		c.QualifiedModelName, err = store.QualifiedModelName(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		c.QualifiedModelName = jujuclient.JoinOwnerModelName(names.NewUserTag(account.User), modelName)
 	} else if modelNameArg != "" {
 		c.QualifiedModelName = modelNameArg
 		modelName, _, err = jujuclient.SplitModelName(modelNameArg)

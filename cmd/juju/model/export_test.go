@@ -44,8 +44,9 @@ func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 
 // NewShowCommandForTest returns a ShowCommand with the api provided as specified.
 func NewShowCommandForTest(api ShowModelAPI, refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore) cmd.Command {
-	cmd := &showModelCommand{api: api, RefreshModels: refreshFunc}
+	cmd := &showModelCommand{api: api}
 	cmd.SetClientStore(store)
+	cmd.SetModelRefresh(refreshFunc)
 	return modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
 }
 
@@ -71,12 +72,12 @@ func NewDestroyCommandForTest(
 	sleepFunc func(time.Duration),
 ) cmd.Command {
 	cmd := &destroyCommand{
-		api:           api,
-		configApi:     configApi,
-		RefreshModels: refreshFunc,
-		sleepFunc:     sleepFunc,
+		api:       api,
+		configApi: configApi,
+		sleepFunc: sleepFunc,
 	}
 	cmd.SetClientStore(store)
+	cmd.SetModelRefresh(refreshFunc)
 	return modelcmd.Wrap(
 		cmd,
 		modelcmd.WrapSkipDefaultModel,
