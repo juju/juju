@@ -87,6 +87,8 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 		Tag:        names.NewUserTag("read"),
 		Controller: true,
 	})
+	err = model.SetSLA("advanced", "who", []byte(""))
+	c.Assert(err, jc.ErrorIsNil)
 	info, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
@@ -98,6 +100,10 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info.Life, gc.Equals, params.Alive)
 	expectedAgentVersion, _ := conf.AgentVersion()
 	c.Assert(info.AgentVersion, gc.DeepEquals, &expectedAgentVersion)
+	c.Assert(info.SLA, gc.DeepEquals, &params.ModelSLAInfo{
+		Level: "advanced",
+		Owner: "who",
+	})
 	// The controller UUID is not returned by the ModelInfo endpoint on the
 	// Client facade.
 	c.Assert(info.ControllerUUID, gc.Equals, "")
