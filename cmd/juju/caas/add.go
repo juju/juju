@@ -9,14 +9,19 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/cloud"
+	caascfg "github.com/juju/juju/caas/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.caas")
 
 type CloudMetadataStore interface {
 	ParseCloudMetadataFile(path string) (map[string]cloud.Cloud, error)
@@ -46,18 +51,19 @@ See also:
 type AddCAASCommand struct {
 	modelcmd.ModelCommandBase
 
-	// CAASName is the name of the caas to add.
-	CAASName string
+	// caasName is the name of the caas to add.
+	caasName string
 
 	// CAASType is the type of CAAS being added
-	CAASType string
+	caasType string
 
 	// Context is the name of the context (k8s) or credential to import
-	Context string
+	context string
 
-	clientStore        jujuclient.ClientStore
-	cloudMetadataStore CloudMetadataStore
-	newCloudAPI        func(base.APICallCloser) AddCloudAPI
+	cloudMetadataStore    CloudMetadataStore
+	apiRoot               api.Connection
+	newCloudAPI           func(base.APICallCloser) AddCloudAPI
+	newClientConfigReader func(string) (caascfg.ClientConfigFunc, error)
 }
 
 // NewAddCAASCommand returns a command to add caas information.
@@ -67,6 +73,17 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
 		newCloudAPI: func(caller base.APICallCloser) AddCloudAPI {
 			return cloudapi.NewClient(caller)
 		},
+		newClientConfigReader: func(caasType string) (caascfg.ClientConfigFunc, error) {
+			return caascfg.NewClientConfigReader(caasType)
+		},
+	}
+}
+func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) AddCloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) *AddCAASCommand {
+	return &AddCAASCommand{
+		cloudMetadataStore:    cloudMetadataStore,
+		apiRoot:               apiRoot,
+		newCloudAPI:           newCloudAPIFunc,
+		newClientConfigReader: newClientConfigReaderFunc,
 	}
 }
 
@@ -87,31 +104,59 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *AddCAASCommand) Init(args []string) (err error) {
-	if len(args) > 0 {
-		c.CAASType = args[0]
+	if len(args) == 0 {
+		return errors.Errorf("missing CAAS type and CAAS name.")
 	}
-	if len(args) > 1 {
-		c.CAASName = args[1]
+	if len(args) == 1 {
+		return errors.Errorf("missing CAAS name.")
 	}
-	if len(args) > 2 {
-		return cmd.CheckEmpty(args[2:])
-	}
-	return nil
+	c.caasType = args[0]
+	c.caasName = args[1]
+	return cmd.CheckEmpty(args[2:])
 }
 
-// Run executes the add caas command, adding a caas based on a passed-in yaml
-// file or interactive queries.
+func (c *AddCAASCommand) newAPIRoot() (api.Connection, error) {
+	if c.apiRoot != nil {
+		return c.apiRoot, nil
+	}
+	return c.NewControllerAPIRoot()
+}
+
 func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
-	api, err := c.NewControllerAPIRoot()
+	api, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
+	if err := c.verifyName(c.caasName); err != nil {
+		return errors.Trace(err)
+	}
+
+	clientConfigFunc, err := c.newClientConfigReader(c.caasType)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	caasConfig, err := clientConfigFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(caasConfig.Contexts) == 0 {
+		return errors.Errorf("No CAAS cluster definitions found in config")
+	}
+	defaultContext := caasConfig.Contexts[caasConfig.CurrentContext]
+
+	defaultCredential := caasConfig.Credentials[defaultContext.CredentialName]
+	defaultCloud := caasConfig.Clouds[defaultContext.CloudName]
+
 	newCloud := cloud.Cloud{
-		Name:      c.CAASName,
-		Type:      c.CAASType,
-		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
+		Name:     c.caasName,
+		Type:     c.caasType,
+		Endpoint: defaultCloud.Endpoint,
+
+		AuthTypes: []cloud.AuthType{defaultCredential.AuthType()},
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -119,9 +164,15 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	cloudClient := c.newCloudAPI(api)
+
 	if err := addCloudToController(cloudClient, newCloud); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := addCredentialToLocal(c.caasName, defaultCredential, defaultContext.CredentialName); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -170,6 +221,19 @@ func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud
 
 func addCloudToController(apiClient AddCloudAPI, newCloud cloud.Cloud) error {
 	err := apiClient.AddCloud(newCloud)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func addCredentialToLocal(cloudName string, newCredential cloud.Credential, credentialName string) error {
+	store := jujuclient.NewFileCredentialStore()
+	newCredentials := &cloud.CloudCredential{
+		AuthCredentials: make(map[string]cloud.Credential),
+	}
+	newCredentials.AuthCredentials[credentialName] = newCredential
+	err := store.UpdateCredential(cloudName, *newCredentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
