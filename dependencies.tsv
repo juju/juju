@@ -19,7 +19,7 @@ github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
-github.com/juju/bundlechanges	git	7725027b95e0d54635e0fb11efc2debdcdf19f75	2016-12-15T16:06:52Z
+github.com/juju/bundlechanges	git	cd189848b313df50084de692b05861210022cf81	2017-08-02T17:04:42Z
 github.com/juju/cmd	git	e47739aefe0adb68a401fcd371c0c92c8f6f8d99	2017-04-13T02:13:06Z
 github.com/juju/description	git	b764a15740dbcb800ec894fedd41cc0a37826419	2017-07-06T03:32:20Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
@@ -92,7 +92,7 @@ gopkg.in/errgo.v1	git	442357a80af5c6bf9b6d51ae791a39c3421004f3	2016-12-22T12:58:
 gopkg.in/goose.v2	git	54760fcc506e180a22bef75f111d5e0b7d9a7f41	2017-05-11T03:10:46Z
 gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
-gopkg.in/juju/charm.v6-unstable	git	50e4ae5b5f4164de296f56d8821787503f479296	2017-05-18T13:20:58Z
+gopkg.in/juju/charm.v6-unstable	git	514bb811b021ebeb3e7ffcf1c267e9803968f59d	2017-07-31T13:20:58Z
 gopkg.in/juju/charmrepo.v2-unstable	git	e79aa298df89ea887c9bffec46063c24bfb730f7	2016-11-17T15:25:28Z
 gopkg.in/juju/charmstore.v5-unstable	git	fd1eef3002fc6b6daff5e97efab6f5056d22dcc7	2016-09-16T10:09:07Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
