@@ -375,7 +375,7 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 
 // UpdateApplicationSeries updates the application series. Series for
 // subordinates updated too.
-func (api *API) UpdateApplicationSeries(args params.ApplicationUpdateSeriesArgs) (params.ErrorResults, error) {
+func (api *API) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -392,20 +392,24 @@ func (api *API) UpdateApplicationSeries(args params.ApplicationUpdateSeriesArgs)
 	return results, nil
 }
 
-func (api *API) updateOneApplicationSeries(arg params.ApplicationUpdateSeriesArg) error {
+func (api *API) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
 	if arg.Series == "" {
 		return &params.Error{
 			Message: "series missing from args",
 			Code:    params.CodeBadRequest,
 		}
 	}
-	app, err := api.backend.Application(arg.ApplicationName)
+	applicationTag, err := names.ParseApplicationTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	app, err := api.backend.Application(applicationTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !app.IsPrincipal() {
 		return &params.Error{
-			Message: fmt.Sprintf("%q is a subordinate application, update-series not supported", arg.ApplicationName),
+			Message: fmt.Sprintf("%q is a subordinate application, update-series not supported", applicationTag.Id()),
 			Code:    params.CodeNotSupported,
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -2418,4 +2419,194 @@ func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
 
 	_, err = m.AddAction("benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
+}
+
+func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
+	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+	subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
+	_ = state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate", subCh)
+
+	eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(mach)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch2 := state.AddTestingCharmMultiSeries(c, s.State, "wordpress")
+	app2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "wordpress", ch2)
+	unit2, err := app2.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit2.AssignToMachine(mach)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return mach
+}
+
+func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Machine, series string) {
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mach.Series(), gc.Equals, series)
+	principals := mach.Principals()
+	for _, p := range principals {
+		u, err := s.State.Unit(p)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(u.Series(), gc.Equals, series)
+		subs := u.SubordinateNames()
+		for _, sn := range subs {
+			u, err := s.State.Unit(sn)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(u.Series(), gc.Equals, series)
+		}
+	}
+}
+
+func (s *MachineSuite) TestUpdateMachineSeries(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesFail(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("xenial", false)
+	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesForce(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("xenial", true)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "xenial")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesToStart(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("precise", false)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				ops := []txn.Op{{
+					C:      state.MachinesC,
+					Id:     state.DocID(s.State, mach.Id()),
+					Update: bson.D{{"$set", bson.D{{"series", "trusty"}}}},
+				}}
+				err := state.RunTransaction(s.State, ops)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+			After: func() {
+				err := mach.Refresh()
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(mach.Series(), gc.Equals, "trusty")
+			},
+		},
+	).Check()
+
+	err := mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mach.Series(), gc.Equals, "trusty")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesCharmURLChangedSeriesFail(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
+				cfg := state.SetCharmConfig{Charm: v2}
+				app, err := s.State.Application("multi-series")
+				c.Assert(err, jc.ErrorIsNil)
+				err = app.SetCharm(cfg)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	// Trusty is listed in only version 1 of the charm.
+	err := mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, gc.ErrorMatches, "cannot update series for \"2\" to trusty: series \"trusty\" not supported by charm, supported series are: precise,xenial")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(mach.Principals()), gc.Equals, 2)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				app, err := s.State.Application("wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+				unit, err := app.AddUnit(state.AddUnitParams{})
+				c.Assert(err, jc.ErrorIsNil)
+				err = unit.AssignToMachine(mach)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	err = mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
+	c.Assert(len(mach.Principals()), gc.Equals, 3)
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleSeries(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+
+	unit, err := s.State.Unit("multi-series/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.SubordinateNames(), gc.DeepEquals, []string{"multi-series-subordinate/0"})
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				subCh2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate2")
+				subApp2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate2", subCh2)
+				c.Assert(subApp2.Series(), gc.Equals, "precise")
+
+				eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate2")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := s.State.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = unit.Refresh()
+				c.Assert(err, jc.ErrorIsNil)
+				relUnit, err := rel.Unit(unit)
+				c.Assert(err, jc.ErrorIsNil)
+				err = relUnit.EnterScope(nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	err = mach.UpdateMachineSeries("yakkety", false)
+	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
 }

@@ -138,13 +138,13 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 // ErrIncompatibleSeries is a standard error to indicate that the series
 // requested is not compatible with the charm of the application.
 type ErrIncompatibleSeries struct {
-	seriesList []string
-	series     string
+	SeriesList []string
+	Series     string
 }
 
 func (e *ErrIncompatibleSeries) Error() string {
 	return fmt.Sprintf("series %q not supported by charm, supported series are: %s",
-		e.series, strings.Join(e.seriesList, ","))
+		e.Series, strings.Join(e.SeriesList, ","))
 }
 
 // IsIncompatibleSeriesError returns if the given error or its cause is

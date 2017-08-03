@@ -1065,9 +1065,11 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 
 		//Create the transaction operations
 		ops := []txn.Op{{
-			C:      applicationsC,
-			Id:     a.doc.DocID,
-			Assert: bson.D{{"charmurl", a.doc.CharmURL}, {"unitcount", a.doc.UnitCount}},
+			C:  applicationsC,
+			Id: a.doc.DocID,
+			Assert: bson.D{{"life", Alive},
+				{"charmurl", a.doc.CharmURL},
+				{"unitcount", a.doc.UnitCount}},
 			Update: bson.D{{"$set", bson.D{{"series", series}}}},
 		}}
 		if err != nil {
@@ -1075,16 +1077,19 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 		}
 		if unit != nil {
 			ops = append(ops, txn.Op{
-				C:      unitsC,
-				Id:     unit.doc.DocID,
-				Assert: bson.D{{"subordinates", unit.SubordinateNames()}},
+				C:  unitsC,
+				Id: unit.doc.DocID,
+				Assert: bson.D{{"life", Alive},
+					{"subordinates", unit.SubordinateNames()}},
 			})
 		}
 		for _, sub := range subApps {
 			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     sub.doc.DocID,
-				Assert: bson.D{{"charmurl", sub.doc.CharmURL}, {"unitcount", sub.doc.UnitCount}},
+				C:  applicationsC,
+				Id: sub.doc.DocID,
+				Assert: bson.D{{"life", Alive},
+					{"charmurl", sub.doc.CharmURL},
+					{"unitcount", sub.doc.UnitCount}},
 				Update: bson.D{{"$set", bson.D{{"series", series}}}},
 			})
 		}
@@ -1105,8 +1110,8 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	_, seriesSupportedErr := charm.SeriesForCharm(series, ch.Meta().Series)
 	if seriesSupportedErr != nil && !force {
 		return &ErrIncompatibleSeries{
-			seriesList: ch.Meta().Series,
-			series:     series,
+			SeriesList: ch.Meta().Series,
+			Series:     series,
 		}
 	}
 	return nil

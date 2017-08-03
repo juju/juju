@@ -9,7 +9,9 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,17 +25,24 @@ func NewUpdateSeriesCommand() cmd.Command {
 
 // updateApplicationAPI defines a subset of the application facade, as required
 // by the update-series command.
-type updateSeriesAPI interface {
+type updateApplicationSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error
 	UpdateApplicationSeries(string, string, bool) error
+}
+
+type updateMachineSeriesAPI interface {
+	BestAPIVersion() int
+	Close() error
+	UpdateMachineSeries(string, string, bool) error
 }
 
 // updateSeriesCommand is responsible for updating the series of an application or machine.
 type updateSeriesCommand struct {
 	modelcmd.ModelCommandBase
 
-	updateSeriesClient updateSeriesAPI
+	updateApplicationSeriesClient updateApplicationSeriesAPI
+	updateMachineSeriesClient     updateMachineSeriesAPI
 
 	applicationName string
 	force           bool
@@ -108,33 +117,56 @@ func (c *updateSeriesCommand) Init(args []string) error {
 
 // Run implements cmd.Run.
 func (c *updateSeriesCommand) Run(ctx *cmd.Context) error {
-
-	if c.updateSeriesClient == nil {
-		apiRoot, err := c.NewAPIRoot()
+	var apiRoot api.Connection
+	if c.updateMachineSeriesClient == nil && c.updateApplicationSeriesClient == nil {
+		var err error
+		apiRoot, err = c.NewAPIRoot()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer apiRoot.Close()
-		c.updateSeriesClient = application.NewClient(apiRoot)
-		defer c.updateSeriesClient.Close()
-	}
-
-	if c.updateSeriesClient.BestAPIVersion() < 5 {
-		return errors.New("updating the application series is not supported by this API server")
 	}
 
 	if c.machineNumber != "" {
-		// TODO(hml) 2017/08/14
-		// implment updateMachineSeries
-		return errors.NotSupportedf("update-series by machine name is")
+		if c.updateMachineSeriesClient == nil {
+			c.updateMachineSeriesClient = machinemanager.NewClient(apiRoot)
+			defer c.updateMachineSeriesClient.Close()
+		}
+		if c.updateMachineSeriesClient.BestAPIVersion() < 4 {
+			return errors.New("updating the machine series is not supported by this API server")
+		}
+		return c.updateMachineSeries()
 	}
 
-	return c.updateApplicationSeries(ctx)
+	if c.applicationName != "" {
+		if c.updateApplicationSeriesClient == nil {
+			c.updateApplicationSeriesClient = application.NewClient(apiRoot)
+			defer c.updateApplicationSeriesClient.Close()
+		}
+		if c.updateApplicationSeriesClient.BestAPIVersion() < 5 {
+			return errors.New("updating the application series is not supported by this API server")
+		}
+		return c.updateApplicationSeries()
+	}
+
+	// This should never happen...
+	return errors.New("no application nor machine name specified")
 }
 
-func (c *updateSeriesCommand) updateApplicationSeries(ctx *cmd.Context) error {
+func (c *updateSeriesCommand) updateApplicationSeries() error {
 	err := block.ProcessBlockedError(
-		c.updateSeriesClient.UpdateApplicationSeries(c.applicationName, c.series, c.force),
+		c.updateApplicationSeriesClient.UpdateApplicationSeries(c.applicationName, c.series, c.force),
+		block.BlockChange)
+
+	if params.IsCodeIncompatibleSeries(err) {
+		return errors.Errorf("%v. Use --force to update the series anyway.", err)
+	}
+	return err
+}
+
+func (c *updateSeriesCommand) updateMachineSeries() error {
+	err := block.ProcessBlockedError(
+		c.updateMachineSeriesClient.UpdateMachineSeries(c.machineNumber, c.series, c.force),
 		block.BlockChange)
 
 	if params.IsCodeIncompatibleSeries(err) {

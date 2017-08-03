@@ -44,6 +44,23 @@ func (s *ApplicationSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }
 
+func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authorizer.Tag = user
+	api, err := application.NewAPI(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api = api
+}
+
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
@@ -631,21 +648,29 @@ func (s *ApplicationSuite) TestConsumeProviderSpaceInfoNotSupported(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
-	args := params.ApplicationUpdateSeriesArgs{
-		Args: []params.ApplicationUpdateSeriesArg{{
-			ApplicationName: "postgresql",
-			Series:          "trusty",
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
+			Series: "trusty",
 		}, {
-			ApplicationName: "postgresql",
-			Series:          "quantal",
+			Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
+			Series: "quantal",
+		}, {
+			Entity: params.Entity{Tag: names.NewApplicationTag("name").String()},
+			Series: "trusty",
+		}, {
+			Entity: params.Entity{Tag: names.NewUnitTag("mysql/0").String()},
+			Series: "trusty",
 		}},
 	}
 	results, err := s.api.UpdateApplicationSeries(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(results.Results), gc.Equals, 2)
-	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
-	c.Assert(results.Results[1], jc.DeepEquals, params.ErrorResult{})
-
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{}, {},
+			{Error: &params.Error{Message: "application \"name\" not found", Code: "not found"}},
+			{Error: &params.Error{Message: "\"unit-mysql-0\" is not a valid application tag", Code: ""}},
+		}})
 	s.backend.CheckCall(c, 0, "ModelTag")
 	s.backend.CheckCall(c, 1, "Application", "postgresql")
 	s.backend.CheckCall(c, 2, "Application", "postgresql")
@@ -662,8 +687,8 @@ func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	results, err := s.api.UpdateApplicationSeries(
-		params.ApplicationUpdateSeriesArgs{
-			Args: []params.ApplicationUpdateSeriesArg{},
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -674,8 +699,8 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
 	results, err := s.api.UpdateApplicationSeries(
-		params.ApplicationUpdateSeriesArgs{
-			Args: []params.ApplicationUpdateSeriesArg{{ApplicationName: "postgresql"}},
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{{Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()}}},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -691,10 +716,10 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
-	args := params.ApplicationUpdateSeriesArgs{
-		Args: []params.ApplicationUpdateSeriesArg{{
-			ApplicationName: "postgresql-subordinate",
-			Series:          "xenial",
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewApplicationTag("postgresql-subordinate").String()},
+			Series: "xenial",
 		}},
 	}
 	results, err := s.api.UpdateApplicationSeries(args)
@@ -712,4 +737,38 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 
 	app := s.backend.applications["postgresql-subordinate"].(*mockApplication)
 	app.CheckCall(c, 0, "IsPrincipal")
+}
+
+func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
+	app := s.backend.applications["postgresql"].(*mockApplication)
+	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	results, err := s.api.UpdateApplicationSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{{
+				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
+				Series: "xenial",
+			}},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeIncompatibleSeries,
+			Message: "series \"xenial\" not supported by charm, supported series are: yakkety,zesty",
+		},
+	})
+}
+
+func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) {
+	user := names.NewUserTag("fred")
+	s.setAPIUser(c, user)
+	_, err := s.api.UpdateApplicationSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{{
+				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
+				Series: "trusty",
+			}},
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

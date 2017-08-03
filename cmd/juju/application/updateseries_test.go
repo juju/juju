@@ -15,24 +15,38 @@ import (
 
 type updateSeriesSuite struct {
 	testing.IsolationSuite
-	mockAPI *mockUpdateSeriesAPI
+	mockApplicationAPI *mockUpdateApplicationSeriesAPI
+	mockMachineAPI     *mockUpdateMachineSeriesAPI
 }
 
 var _ = gc.Suite(&updateSeriesSuite{})
 
 func (s *updateSeriesSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockUpdateSeriesAPI{Stub: &testing.Stub{}}
+	s.mockApplicationAPI = &mockUpdateApplicationSeriesAPI{Stub: &testing.Stub{}}
+	s.mockMachineAPI = &mockUpdateMachineSeriesAPI{Stub: &testing.Stub{}}
 }
 
 func (s *updateSeriesSuite) runUpdateSeries(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, NewUpdateSeriesCommandForTest(s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, NewUpdateSeriesCommandForTest(s.mockApplicationAPI, s.mockMachineAPI), args...)
 }
 
 func (s *updateSeriesSuite) TestUpdateSeriesApplicationGoodPath(c *gc.C) {
 	_, err := s.runUpdateSeries(c, "ghost", "xenial")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "UpdateApplicationSeries", "ghost", "xenial", false)
+	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationSeries", "ghost", "xenial", false)
+}
+
+func (s *updateSeriesSuite) TestUpdateSeriesMachineGoodPath(c *gc.C) {
+	_, err := s.runUpdateSeries(c, "0", "xenial")
+	c.Assert(err, jc.ErrorIsNil)
+	s.mockMachineAPI.CheckCall(c, 0, "UpdateMachineSeries", "0", "xenial", false)
+}
+
+func (s *updateSeriesSuite) TestUpdateSeriesMachineGoodPathForce(c *gc.C) {
+	_, err := s.runUpdateSeries(c, "0", "xenial", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	s.mockMachineAPI.CheckCall(c, 0, "UpdateMachineSeries", "0", "xenial", true)
 }
 
 func (s *updateSeriesSuite) TestNoArguments(c *gc.C) {
@@ -52,25 +66,38 @@ func (s *updateSeriesSuite) TestTooManyArguments(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["something else"\]`, gc.Commentf("details: %s", errors.Details(err)))
 }
 
-func (s *updateSeriesSuite) TestUpdateMachineSeriesUnsupported(c *gc.C) {
-	_, err := s.runUpdateSeries(c, "0", "xenial")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-type mockUpdateSeriesAPI struct {
+type mockUpdateApplicationSeriesAPI struct {
 	*testing.Stub
 }
 
-func (a *mockUpdateSeriesAPI) Close() error {
+func (a *mockUpdateApplicationSeriesAPI) Close() error {
 	a.MethodCall(a, "Close")
 	return a.NextErr()
 }
 
-func (a *mockUpdateSeriesAPI) BestAPIVersion() int {
+func (a *mockUpdateApplicationSeriesAPI) BestAPIVersion() int {
 	return 5
 }
 
-func (a *mockUpdateSeriesAPI) UpdateApplicationSeries(appName, series string, force bool) error {
+func (a *mockUpdateApplicationSeriesAPI) UpdateApplicationSeries(appName, series string, force bool) error {
 	a.MethodCall(a, "UpdateApplicationSeries", appName, series, force)
+	return a.NextErr()
+}
+
+type mockUpdateMachineSeriesAPI struct {
+	*testing.Stub
+}
+
+func (a *mockUpdateMachineSeriesAPI) Close() error {
+	a.MethodCall(a, "Close")
+	return a.NextErr()
+}
+
+func (a *mockUpdateMachineSeriesAPI) BestAPIVersion() int {
+	return 4
+}
+
+func (a *mockUpdateMachineSeriesAPI) UpdateMachineSeries(machName, series string, force bool) error {
+	a.MethodCall(a, "UpdateMachineSeries", machName, series, force)
 	return a.NextErr()
 }

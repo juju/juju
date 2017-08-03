@@ -1182,7 +1182,6 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 
 	err = app.UpdateApplicationSeries("yakkety", false)
 	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
-	//c.Assert(err, jc.ErrorIsNil)
 	assertApplicationSeriesUpdate(c, app, "precise")
 	assertApplicationSeriesUpdate(c, subApp, "precise")
 

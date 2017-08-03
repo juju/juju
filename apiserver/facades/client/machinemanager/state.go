@@ -43,8 +43,10 @@ type Model interface {
 type Machine interface {
 	Destroy() error
 	ForceDestroy() error
+	Series() string
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error
+	UpdateMachineSeries(string, bool) error
 }
 
 type stateShim struct {
