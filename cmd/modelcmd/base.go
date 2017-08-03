@@ -58,12 +58,13 @@ type ModelAPI interface {
 // an API connection.
 type CommandBase struct {
 	cmd.CommandBase
-	cmdContext  *cmd.Context
-	apiContexts map[string]*apiContext
-	modelAPI_   ModelAPI
-	apiOpenFunc api.OpenFunc
-	authOpts    AuthOpts
-	runStarted  bool
+	cmdContext    *cmd.Context
+	apiContexts   map[string]*apiContext
+	modelAPI_     ModelAPI
+	apiOpenFunc   api.OpenFunc
+	authOpts      AuthOpts
+	runStarted    bool
+	refreshModels func(jujuclient.ClientStore, string) error
 }
 
 func (c *CommandBase) assertRunStarted() {
@@ -100,6 +101,11 @@ func (c *CommandBase) SetModelAPI(api ModelAPI) {
 // SetAPIOpen sets the function used for opening an API connection.
 func (c *CommandBase) SetAPIOpen(apiOpen api.OpenFunc) {
 	c.apiOpenFunc = apiOpen
+}
+
+// SetModelRefresh sets the function used for refreshing models.
+func (c *CommandBase) SetModelRefresh(refresh func(jujuclient.ClientStore, string) error) {
+	c.refreshModels = refresh
 }
 
 func (c *CommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
@@ -256,6 +262,13 @@ func (c *CommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection
 // RefreshModels refreshes the local models cache for the current user
 // on the specified controller.
 func (c *CommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
+	if c.refreshModels == nil {
+		return c.doRefreshModels(store, controllerName)
+	}
+	return c.refreshModels(store, controllerName)
+}
+
+func (c *CommandBase) doRefreshModels(store jujuclient.ClientStore, controllerName string) error {
 	c.assertRunStarted()
 	modelManager, err := c.modelAPI(store, controllerName)
 	if err != nil {

@@ -192,11 +192,12 @@ func (c *offerCommand) parseEndpoints(controllerName, arg string) error {
 	)
 	if modelNameArg != "" && !jujuclient.IsQualifiedModelName(modelNameArg) {
 		modelName = modelNameArg
-		account, err := c.ClientStore().AccountDetails(controllerName)
+		store := modelcmd.QualifyingClientStore{c.ClientStore()}
+		var err error
+		c.QualifiedModelName, err = store.QualifiedModelName(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		c.QualifiedModelName = jujuclient.JoinOwnerModelName(names.NewUserTag(account.User), modelName)
 	} else if modelNameArg != "" {
 		c.QualifiedModelName = modelNameArg
 		modelName, _, err = jujuclient.SplitModelName(modelNameArg)

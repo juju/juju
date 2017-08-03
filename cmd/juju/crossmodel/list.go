@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -122,29 +121,17 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	modelName, err := c.ModelName()
+	modelName, _, err := c.ModelDetails()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !jujuclient.IsQualifiedModelName(modelName) {
-		account, err := c.ClientStore().AccountDetails(controllerName)
+		store := modelcmd.QualifyingClientStore{c.ClientStore()}
+		var err error
+		modelName, err = store.QualifiedModelName(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		modelName = jujuclient.JoinOwnerModelName(names.NewUserTag(account.User), modelName)
-	}
-
-	store := c.ClientStore()
-	_, err = store.ModelByName(controllerName, modelName)
-	if errors.IsNotFound(err) {
-		if err := c.refreshModels(store, controllerName); err != nil {
-			return errors.Annotate(err, "refreshing models cache")
-		}
-		// Now try again.
-		_, err = store.ModelByName(controllerName, modelName)
-	}
-	if err != nil {
-		return errors.Annotate(err, "getting model details")
 	}
 
 	unqualifiedModelName, ownerTag, err := jujuclient.SplitModelName(modelName)

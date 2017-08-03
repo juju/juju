@@ -202,33 +202,39 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
-// NewAPIRoot returns a new connection to the API server for the environment
-// directed to the model specified on the command line.
-func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
+func (c *ModelCommandBase) ModelDetails() (string, *jujuclient.ModelDetails, error) {
 	modelName, err := c.ModelName()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
 	controllerName, err := c.ControllerName()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
-	// This is work in progress as we remove the ModelName from downstream code.
-	// We want to be able to specify the environment in a number of ways, one of
-	// which is the connection name on the client machine.
 	if modelName == "" {
-		return nil, errors.Trace(ErrNoModelSpecified)
+		return "", nil, errors.Trace(ErrNoModelSpecified)
 	}
-	_, err = c.store.ModelByName(controllerName, modelName)
+	details, err := c.store.ModelByName(controllerName, modelName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
+			return "", nil, errors.Trace(err)
 		}
 		// The model isn't known locally, so query the models
 		// available in the controller, and cache them locally.
 		if err := c.RefreshModels(c.store, controllerName); err != nil {
-			return nil, errors.Annotate(err, "refreshing models")
+			return "", nil, errors.Annotate(err, "refreshing models")
 		}
+		details, err = c.store.ModelByName(controllerName, modelName)
+	}
+	return modelName, details, err
+}
+
+// NewAPIRoot returns a new connection to the API server for the environment
+// directed to the model specified on the command line.
+func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
+	modelName, _, err := c.ModelDetails()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return c.newAPIRoot(modelName)
 }
