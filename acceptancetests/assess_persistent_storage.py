@@ -27,12 +27,17 @@ from utility import (
 __metaclass__ = type
 log = logging.getLogger("assess_persistent_storage")
 
+def assert_equal(msg, found, expected):
+    if found != expected:
+        raise JujuAssertionError('{} Found: {}\nExpected: {}'.format(
+            msg, found, expected))
+
 
 def get_storage_list(client):
     raw_output = client.get_juju_output(
         'storage', '--format', 'json', include_e=False)
-    # it's not a bug for juju storage --format json output to be empty
-    # if there is no storage exists.
+    # Bug 1708340 https://bugs.launchpad.net/juju/+bug/1708340
+    # juju storage --format json output will be empty if no storage exists.
     if raw_output == '':
         storage_list=storage_output=''
     else:
@@ -73,27 +78,19 @@ def assert_app_status(client, charm_name, expected):
     status_output = json.loads(
         client.get_juju_output('status', '--format', 'json', include_e=False))
     app_status = status_output['applications'][charm_name]['application-status']['current']
-
-    if app_status != expected:
-        raise JujuAssertionError(
-            'App status is incorrect. '\
-            'Found: {}\nExpected: {}\n.'.format(
-            app_status, expected))
-    else:
-        log.info('The current status of app {} is: {}; Expected: {}'.format(
-        charm_name, app_status, expected))
+    assert_equal(
+        msg='App status is incorrect.', found=app_status, expected=expected)
+    log.info('The current status of app {} is: {}; Expected: {}'.format(
+    charm_name, app_status, expected))
 
 
 def assert_storage_number(storage_list, expected):
     log.info('Checking total number of storage unit(s).')
     found = len(storage_list)
-    if found != expected:
-        raise JujuAssertionError(
-            'Unexpected number of storage unit(s). '\
-            'Found: {}\nExpected: {}\n.'.format(
-            str(found), str(expected)))
-    else:
-        log.info(
+    assert_equal(
+        msg='Unexpected number of storage unit(s).',
+        found=str(found), expected=str(expected))
+    log.info(
         'Found {} storage unit(s). Expected: {}.'.format(
         str(found), str(expected)))
 
@@ -122,31 +119,24 @@ def assert_persistent_setting(storage_id, found, expected):
     log.info(
         'Checking persistent setting of storage unit {}.'.format(
         storage_id))
-    if found != expected:
-        raise JujuAssertionError(
-            'Incorrect value of persistent setting on storage unit {}. '\
-            'Found: {};\nExpected: {}.'.format(storage_id, found, expected))
-    else:
-        log.info(
-            'Persistent setting of storage unit {}, '\
-            'Found: {}; Expected: {}.'.format(storage_id, found, expected))
+    err_msg = 'Incorrect value of persistent setting on storage unit {}.'.format(storage_id)
+    assert_equal(msg=err_msg, found=found, expected=expected)
+    log.info(
+        'Persistent setting of storage unit {}, '\
+        'Found: {}; Expected: {}.'.format(storage_id, found, expected))
 
 
 def assert_storage_status(found_id, expected_id, found_status, expected_status):
     log.info(
         'Checking the status of storage {} in volumes.'.format(expected_id))
-    if found_id != expected_id:
-        raise JujuAssertionError(
-            '{} missing from volumes.'.format(expected_id))
-    elif found_status != expected_status:
-        raise JujuAssertionError(
-            'Incorrect status for {}. '\
-            'Found: {}\nExpected: {}'.format(
-            found_id, found_status, expected_status))
-    else:
-        log.info(
-            'The current status of storage {} in volumes is: {}; '\
-            'Expected: {}.'.format(found_id, found_status, expected_status))
+    volume_err_msg = '{} missing from volumes.'.format(expected_id)
+    assert_equal(msg=volume_err_msg, found=found_id, expected=expected_id)
+    status_err_msg = 'Incorrect status for {}.'.format(found_id)
+    assert_equal(msg=status_err_msg, found=found_status, expected=expected_status)
+    log.info(
+        'The current status of storage {} in volumes is: {}; '\
+        'Expected: {}.'.format(found_id, found_status, expected_status))
+
 
 def assert_app_removal_msg(client, charm_name):
     # Run juju remove-application dummy-storage
@@ -158,7 +148,6 @@ def assert_app_removal_msg(client, charm_name):
     remove_app_output_check = 'FAILED'
     for line in app_removal_output.split('\n'):
         if 'will remove unit {}'.format(charm_name) in line:
-        #if line.find('will remove unit {}'.format(charm_name)) != -1:
             log.info(line)
             remove_app_output_check = 'PASSED'
             break
@@ -169,6 +158,7 @@ def assert_app_removal_msg(client, charm_name):
         log.info('Remove Application output message check: {}'.format(
             remove_app_output_check))
     return app_removal_output
+
 
 def assert_single_fs_removal_msg(single_fs_id, app_removal_output):
     # pre-set the result to FAILED
@@ -240,7 +230,6 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
     storage_list = get_storage_list(client)[0]
     # check the total number of storage unit(s) and name(s)
     assert_storage_number(storage_list=storage_list, expected=2)
-    # TODO: following block will be put into a function, leave it for now.
     log.info(
         'Following storage units have been found:\n{}'.format(
         '\n'.join(storage_list)))
@@ -414,21 +403,25 @@ def parse_args(argv):
 
 
 def assess_persistent_storage(client):
-    # PR7635 landed later today, brings persistent storage to lxd
-    # The persistent storage type on lxd is 'lxd'
-    # https://github.com/juju/juju/pull/7635
-    environment = os.getenv('ENV', default='parallel-aws')
-    if environment == 'parallel-lxd':
-        log.error('TODO: Add persistent storage test on lxd.')
-        sys.exit(1)
-    else:
-        assess_deploy_charm_with_existing_storage_and_removal(client)
+    """Functional dependencies. Because the whole test is one user scenario,
+       the assess functions are connected. e.g.:
+       assess_deploy_charm_with_existing_storage_and_removal(client) depends on
+       assess_charm_removal_single_block_and_filesystem_storage(client) which
+       depends on assess_charm_deploy_single_block_and_filesystem_storage(client).
+       Therefore only the last assess function need to be called."""
+    assess_deploy_charm_with_existing_storage_and_removal(client)
 
 
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
+    if bs_manager.client.env.get_cloud() != 'aws':
+        # Due to the differences in volume type, at this stage
+        # the test is designed to run on AWS only.
+        # PR7635 is for persistent storage feature on lxd.
+        log.error('Incorrect substrate, should be AWS.')
+        sys.exit(1)
     with bs_manager.booted_context(args.upload_tools):
         assess_persistent_storage(bs_manager.client)
     return 0
