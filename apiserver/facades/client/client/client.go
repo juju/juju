@@ -492,6 +492,10 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if tag, ok := model.CloudCredential(); ok {
 		info.CloudCredentialTag = tag.String()
 	}
+	info.SLA = &params.ModelSLAInfo{
+		Level: model.SLALevel(),
+		Owner: model.SLAOwner(),
+	}
 	return info, nil
 }
 
