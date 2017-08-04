@@ -221,6 +221,7 @@ class TestParseArgs(TestCase):
             juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
             region=None, series=None, temp_env_name='qux', upload_tools=False,
             verbose=logging.INFO, test='combined', config=None, to=None,
+            existing=None
             ))
 
     def test_parse_args_combined_config(self):
@@ -239,7 +240,7 @@ class TestParseArgs(TestCase):
             juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
             region=None, series=None, temp_env_name='qux', upload_tools=False,
             verbose=logging.INFO, test='kill-controller', config=None,
-            to=None,
+            to=None, existing=None
             ))
 
     def test_parse_args_kill_controller_config(self):
@@ -258,7 +259,7 @@ class TestParseArgs(TestCase):
             juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
             region=None, series=None, temp_env_name='qux', upload_tools=False,
             verbose=logging.INFO, test='provisioning', config=None,
-            machine_series=None, to=None,
+            machine_series=None, to=None, existing=None
             ))
 
     def test_parse_args_provisioning_config(self):

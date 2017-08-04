@@ -36,6 +36,7 @@ class TestParseArgs(TestCase):
                 upload_tools=False,
                 verbose=20,
                 deadline=None,
+                existing=None
                 ))
 
     def test_help(self):

@@ -317,16 +317,16 @@ class TestJuju2Backend(TestCase):
                                soft_deadline=None)
         with patch('subprocess.Popen') as mock_popen:
             mock_popen.return_value.communicate.return_value = (
-                'ctrl1:user1/model1\n'.encode('ascii'), '')
+                '{"current-model": "model"}', '')
             mock_popen.return_value.returncode = 0
             result = backend.get_active_model('/foo/bar')
-        self.assertEqual(('ctrl1', 'user1', 'model1'), result)
+        self.assertEqual(('model'), result)
 
     def test_get_active_model_none(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=None)
         with patch('subprocess.Popen', autospec=True, return_value=FakePopen(
-                   '', 'ERROR no currently specified model', 1)):
+                   '{"models": {}}', '', 0)):
             with self.assertRaises(NoActiveModel):
                 backend.get_active_model('/foo/bar')
 
@@ -940,7 +940,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo', '-y'),
+            'destroy-model', ('foo:foo', '-y'),
             include_e=False, timeout=600)
 
     def test_destroy_model_azure(self):
@@ -949,7 +949,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo', '-y'),
+            'destroy-model', ('foo:foo', '-y'),
             include_e=False, timeout=2700)
 
     def test_destroy_model_gce(self):
@@ -958,7 +958,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo', '-y'),
+            'destroy-model', ('foo:foo', '-y'),
             include_e=False, timeout=1200)
 
     def test_kill_controller(self):

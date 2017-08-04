@@ -226,7 +226,7 @@ def make_args():
         keep_env=False, large_test_enabled=False, logs='/tmp/logs', machine=[],
         region=None, resource_timeout=1800, series=None, to=None,
         temp_env_name='an-env-mod', upload_tools=False, verbose=10,
-        deadline=None,)
+        deadline=None, existing=None)
 
 
 class FakeFile:

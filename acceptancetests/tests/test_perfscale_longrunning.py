@@ -31,6 +31,7 @@ def get_default_args(log_dir='/tmp/logs', run_length=12):
         upload_tools=False,
         verbose=20,
         deadline=None,
+        existing=None
     )
 
 

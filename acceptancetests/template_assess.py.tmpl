@@ -8,7 +8,7 @@ import logging
 import sys
 
 from deploy_stack import (
-    BootstrapManager,
+    get_client_and_test,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -43,9 +43,7 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(args.upload_tools):
-        assess_TEMPLATE(bs_manager.client)
+    get_client_and_test(assess_TEMPLATE, args)
     return 0
 
 

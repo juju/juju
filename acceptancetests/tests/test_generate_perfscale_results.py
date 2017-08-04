@@ -39,7 +39,8 @@ def get_default_args(**kwargs):
         to=None,
         upload_tools=False,
         verbose=20,
-        deadline=None)
+        deadline=None,
+        existing=None)
     default_args.update(kwargs)
 
     return argparse.Namespace(**default_args)
