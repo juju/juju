@@ -575,9 +575,7 @@ class ExistingController:
     """A Controller strategy where the controller is already present.
 
     Intended for use with BootstrapManager and
-    version_client.client_for_existing(). The ivar env in this strategy is a
-    bit of a hack to allow jujupy to set up and track the correct model name
-    to test under.
+    version_client.client_for_existing().
 
     :ivar client: Client object
     :ivar tear_down_client: Client object to tear down at the end of testing
@@ -598,7 +596,7 @@ class ExistingController:
         logging.info('Added model {} to existing controller'.format(
             self.client.env.environment))
 
-    def prepare(self, controller_id):
+    def prepare(self, controller_name):
         """Prepare client for use by pointing it at the selected controller.
 
         This is a bit of a hack to allow for multiple controllers in the same
@@ -611,7 +609,7 @@ class ExistingController:
         :param controller_id: ID of the controller in use for testing, passed
         in with the --existing flag
         """
-        self.client.env.controller.name = controller_id
+        self.client.env.controller.name = controller_name
 
     def get_hosts(self):
         """Provide the controller host."""
@@ -622,15 +620,8 @@ class ExistingController:
         return {'0': host}
 
     def tear_down(self, _):
-        """Destroy the current model and switch back to a known default model.
-
-        The client.switch allows another client_from_existing client object to
-        be created after this test completes, in the event that tests are to be
-        run in serial.
-        """
+        """Destroys the current model"""
         self.client.destroy_model()
-        self.client.switch(
-            'controller', controller=self.client.env.controller.name)
 
 
 class PublicController:
