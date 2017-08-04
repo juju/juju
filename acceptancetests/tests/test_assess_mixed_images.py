@@ -42,6 +42,7 @@ class TestParseArgs(TestCase):
             region=None,
             to=None,
             deadline=None,
+            existing=None
             ), args)
 
     def test_image_metadata_url(self):

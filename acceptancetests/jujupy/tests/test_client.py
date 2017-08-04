@@ -940,7 +940,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo', '-y'),
+            'destroy-model', ('foo:foo', '-y'),
             include_e=False, timeout=600)
 
     def test_destroy_model_azure(self):
@@ -949,7 +949,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo', '-y'),
+            'destroy-model', ('foo:foo', '-y'),
             include_e=False, timeout=2700)
 
     def test_destroy_model_gce(self):
@@ -958,7 +958,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo', '-y'),
+            'destroy-model', ('foo:foo', '-y'),
             include_e=False, timeout=1200)
 
     def test_kill_controller(self):

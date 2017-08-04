@@ -92,7 +92,7 @@ class TestParseArgs(TestCase):
                     keep_env=False, local_metadata_source=None, logs=log_dir,
                     machine=[], part='base', region=None, series=None,
                     temp_env_name='baz', to=None, upload_tools=False,
-                    verbose=20),
+                    verbose=20, existing=None),
                 args)
 
     def test_parse_args_debug(self):

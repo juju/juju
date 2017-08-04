@@ -995,7 +995,7 @@ class FakeBackend:
             if command == 'destroy-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
-                model = args[0]
+                model = args[0].split(':')[1]
                 try:
                     model_state = self.controller_state.models[model]
                 except KeyError:

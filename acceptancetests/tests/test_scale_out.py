@@ -56,6 +56,7 @@ class TestScaleOut(TestCase):
             upload_tools=False,
             verbose=logging.INFO,
             deadline=None,
+            existing=None
         )
         self.assertEqual(args, expected)
 

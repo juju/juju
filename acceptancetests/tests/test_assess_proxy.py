@@ -32,7 +32,7 @@ class TestParseArgs(TestCase):
             deadline=None, debug=False, env='an-env', juju_bin='/bin/juju',
             keep_env=False, logs=log_dir, machine=[], region=None, to=None,
             scenario='both-proxied', series=None, temp_env_name='an-env-mod',
-            upload_tools=False, verbose=20)
+            upload_tools=False, verbose=20, existing=None)
         self.assertEqual(expected_args, args)
 
     def test_help(self):
