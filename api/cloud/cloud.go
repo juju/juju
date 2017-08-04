@@ -155,6 +155,24 @@ func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCr
 	return results.Results, nil
 }
 
+// AddCredential adds a credential to the controller with a given tag.
+// This can be a credential for a cloud that is not the same cloud as the controller's host.
+func (c *Client) AddCredential(tag string, credential jujucloud.Credential) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return errors.NotImplementedf("AddCredential() (need v2+, have v%d)", bestVer)
+	}
+	cloudCredential := params.CloudCredential{
+		AuthType:   string(credential.AuthType()),
+		Attributes: credential.Attributes(),
+	}
+	args := params.AddCredentialArgs{CredentialTag: tag, Credential: cloudCredential}
+	err := c.facade.FacadeCall("AddCredential", args, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)

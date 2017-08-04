@@ -44,6 +44,12 @@ type CloudsResult struct {
 	Clouds map[string]Cloud `json:"clouds,omitempty"`
 }
 
+// AddCredentialArgs contains a credential to be added with its name
+type AddCredentialArgs struct {
+	Credential    CloudCredential `json:"credential"`
+	CredentialTag string          `json:"credential-tag"`
+}
+
 // CloudCredential contains a cloud credential
 // possibly with secrets redacted.
 type CloudCredential struct {

@@ -300,6 +300,22 @@ func (s *cloudSuite) TestAddCloudInV2(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestAddCredentialInV2(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	paramsCloud := params.AddCredentialArgs{
+		CredentialTag: "cloudcred-fake_fake_fake",
+		Credential: params.CloudCredential{
+			AuthType:   "userpass",
+			Attributes: map[string]string{},
+		}}
+	err := s.apiv2.AddCredential(paramsCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential")
+	s.backend.CheckCall(c, 1, "UpdateCloudCredential",
+		names.NewCloudCredentialTag("fake/fake/fake"),
+		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{}))
+}
+
 type mockBackend struct {
 	gitjujutesting.Stub
 	cloud cloud.Cloud
