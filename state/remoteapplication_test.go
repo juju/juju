@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type remoteApplicationSuite struct {
@@ -764,9 +765,10 @@ func (s *remoteApplicationSuite) TestDestroyWithOfferConnections(c *gc.C) {
 
 	// Add a offer connection record so we can check it is cleaned up.
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
-		RelationId: rel.Id(),
-		Username:   "fred",
-		OfferName:  "mysql",
+		SourceModelUUID: coretesting.ModelTag.Id(),
+		RelationId:      rel.Id(),
+		Username:        "fred",
+		OfferName:       "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	rc, err := s.State.RemoteConnectionStatus("mysql")

@@ -155,6 +155,35 @@ func (s *applicationOffersSuite) TestApplicationOffer(c *gc.C) {
 	c.Assert(*offer, jc.DeepEquals, expectedOffer)
 }
 
+func (s *applicationOffersSuite) TestAllApplicationOffers(c *gc.C) {
+	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	anOffer := s.createDefaultOffer(c)
+	args := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "another-mysql",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              eps,
+		Owner:                  owner.Name(),
+		HasRead:                []string{"everyone@external"},
+	}
+	anotherOffer, err := sd.AddOffer(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	offers, err := sd.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure ordering doesn't matter.
+	offersMap := make(map[string]*crossmodel.ApplicationOffer)
+	for _, offer := range offers {
+		offersMap[offer.OfferName] = offer
+	}
+	c.Assert(offersMap, jc.DeepEquals, map[string]*crossmodel.ApplicationOffer{
+		anOffer.OfferName:      &anOffer,
+		anotherOffer.OfferName: anotherOffer,
+	})
+}
+
 func (s *applicationOffersSuite) TestListOffersAll(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer := s.createDefaultOffer(c)

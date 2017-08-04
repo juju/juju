@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -177,9 +178,20 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
-		if context.remoteApplications, err =
-			fetchRemoteApplications(c.api.stateAccessor); err != nil {
+		if context.consumerRemoteApplications, err =
+			fetchConsumerRemoteApplications(c.api.stateAccessor); err != nil {
 			return noStatus, errors.Annotate(err, "could not fetch remote applications")
+		}
+		// Only admins can see offer details.
+		if err := c.checkIsAdmin(); err == nil {
+			if context.offerConnections, err =
+				fetchOfferConnections(c.api.stateAccessor); err != nil {
+				return noStatus, errors.Annotate(err, "could not fetch offer connections")
+			}
+			if context.offers, err =
+				fetchOffers(c.api.stateAccessor); err != nil {
+				return noStatus, errors.Annotate(err, "could not fetch application offers")
+			}
 		}
 	}
 	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
@@ -190,7 +202,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		fetchNetworkInterfaces(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch IP addresses and link layer devices")
 	}
-	if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
+	if context.relations, context.relationsById, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
 	if len(context.applications) > 0 {
@@ -200,7 +212,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 
 	logger.Debugf("Applications: %v", context.applications)
-	logger.Debugf("Remote applications: %v", context.remoteApplications)
+	logger.Debugf("Remote applications: %v", context.consumerRemoteApplications)
+	logger.Debugf("Offers: %v", context.offers)
+	logger.Debugf("Offer connections: %v", context.offerConnections)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -304,6 +318,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		),
 		Applications:       context.processApplications(),
 		RemoteApplications: context.processRemoteApplications(),
+		Offers:             context.processOffers(),
 		Relations:          context.processRelations(),
 	}, nil
 }
@@ -374,11 +389,19 @@ type statusContext struct {
 	applications map[string]*state.Application
 
 	// remote applications: application name -> application
-	remoteApplications map[string]*state.RemoteApplication
-	relations          map[string][]*state.Relation
-	units              map[string]map[string]*state.Unit
-	latestCharms       map[charm.URL]*state.Charm
-	leaders            map[string]string
+	consumerRemoteApplications map[string]*state.RemoteApplication
+
+	// offers: offer name -> offer
+	offers map[string]offerStatus
+
+	// offerConnections: relationId -> offer connection
+	offerConnections map[int]*state.OfferConnection
+
+	relations     map[string][]*state.Relation
+	relationsById map[int]*state.Relation
+	units         map[string]map[string]*state.Unit
+	latestCharms  map[charm.URL]*state.Charm
+	leaders       map[string]string
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -527,8 +550,8 @@ func fetchAllApplicationsAndUnits(
 	return appMap, unitMap, latestCharms, nil
 }
 
-// fetchRemoteApplications returns a map from application name to remote application.
-func fetchRemoteApplications(st Backend) (map[string]*state.RemoteApplication, error) {
+// fetchConsumerRemoteApplications returns a map from application name to remote application.
+func fetchConsumerRemoteApplications(st Backend) (map[string]*state.RemoteApplication, error) {
 	appMap := make(map[string]*state.RemoteApplication)
 	applications, err := st.AllRemoteApplications()
 	if err != nil {
@@ -543,24 +566,80 @@ func fetchRemoteApplications(st Backend) (map[string]*state.RemoteApplication, e
 	return appMap, nil
 }
 
-// fetchRelations returns a map of all relations keyed by application name.
+// fetchOfferConnections returns a map from relation id to offer connection.
+func fetchOffers(st Backend) (map[string]offerStatus, error) {
+	offersMap := make(map[string]offerStatus)
+	offers, err := st.AllApplicationOffers()
+	if err != nil {
+		return nil, err
+	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+	for _, offer := range offers {
+		offersMap[offer.OfferName] = offerStatus{
+			ApplicationOffer: crossmodel.ApplicationOffer{
+				OfferName:       offer.OfferName,
+				ApplicationName: offer.ApplicationName,
+				Endpoints:       offer.Endpoints,
+			},
+			ApplicationURL: crossmodel.MakeURL(model.Owner().Name(), model.Name(), offer.OfferName, ""),
+		}
+	}
+	return offersMap, nil
+}
+
+// fetchOfferConnections returns a map from relation id to offer connection.
+func fetchOfferConnections(st Backend) (map[int]*state.OfferConnection, error) {
+	connMap := make(map[int]*state.OfferConnection)
+	conns, err := st.AllOfferConnections()
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range conns {
+		connMap[c.RelationId()] = c
+	}
+	return connMap, nil
+}
+
+// fetchRelations returns a map of all relations keyed by application name,
+// and another map keyed by id..
 //
 // This structure is useful for processApplicationRelations() which needs
 // to have the relations for each application. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // application that used to happen in processApplicationRelations().
-func fetchRelations(st Backend) (map[string][]*state.Relation, error) {
+func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make(map[string][]*state.Relation)
+	outById := make(map[int]*state.Relation)
 	for _, relation := range relations {
+		outById[relation.Id()] = relation
+		// If either end of the relation is a remote application
+		// on the offering side, exclude it here.
+		isRemote := false
+		for _, ep := range relation.Endpoints() {
+			if app, err := st.RemoteApplication(ep.ApplicationName); err == nil {
+				if app.IsConsumerProxy() {
+					isRemote = true
+					break
+				}
+			} else if !errors.IsNotFound(err) {
+				return nil, nil, err
+			}
+		}
+		if isRemote {
+			continue
+		}
 		for _, ep := range relation.Endpoints() {
 			out[ep.ApplicationName] = append(out[ep.ApplicationName], relation)
 		}
 	}
-	return out, nil
+	return out, outById, nil
 }
 
 func processMachines(
@@ -865,15 +944,15 @@ func (context *statusContext) processApplication(application *state.Application)
 
 func (context *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
 	applicationsMap := make(map[string]params.RemoteApplicationStatus)
-	for _, s := range context.remoteApplications {
-		applicationsMap[s.Name()] = context.processRemoteApplication(s)
+	for _, app := range context.consumerRemoteApplications {
+		applicationsMap[app.Name()] = context.processRemoteApplication(app)
 	}
 	return applicationsMap
 }
 
 func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
 	status.ApplicationURL, _ = application.URL()
-	status.ApplicationName = application.Name()
+	status.OfferName = application.Name()
 	eps, err := application.Endpoints()
 	if err != nil {
 		status.Err = err
@@ -897,6 +976,67 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 	}
 	applicationStatus, err := application.Status()
 	populateStatusFromStatusInfoAndErr(&status.Status, applicationStatus, err)
+	return status
+}
+
+type offerStatus struct {
+	crossmodel.ApplicationOffer
+	ApplicationURL string
+}
+
+func (context *statusContext) processOffers() map[string]params.ApplicationOfferStatus {
+	offers := make(map[string]params.ApplicationOfferStatus)
+	for name, offer := range context.offers {
+		offerStatus := params.ApplicationOfferStatus{
+			ApplicationName: offer.ApplicationName,
+			OfferName:       offer.OfferName,
+			ApplicationURL:  offer.ApplicationURL,
+			Endpoints:       make(map[string]params.RemoteEndpoint),
+			Connections:     make(map[int]params.OfferConnectionStatus),
+		}
+		for name, ep := range offer.Endpoints {
+			offerStatus.Endpoints[name] = params.RemoteEndpoint{
+				Name:      ep.Name,
+				Interface: ep.Interface,
+				Role:      ep.Role,
+				Limit:     ep.Limit,
+			}
+		}
+		offers[name] = offerStatus
+	}
+	for relId, conn := range context.offerConnections {
+		connStatus := context.processOfferConnection(conn)
+		offer, ok := offers[conn.OfferName()]
+		if !ok {
+			continue
+		}
+		offer.Connections[relId] = connStatus
+		offers[conn.OfferName()] = offer
+	}
+	return offers
+}
+
+func (context *statusContext) processOfferConnection(conn *state.OfferConnection) (status params.OfferConnectionStatus) {
+	status.SourceModelTag = names.NewModelTag(conn.SourceModelUUID()).String()
+	status.Username = conn.UserName()
+	rel, ok := context.relationsById[conn.RelationId()]
+	if !ok {
+		status.Err = errors.NotFoundf("relation id %d", conn.RelationId())
+		return
+	}
+	offer, ok := context.offers[conn.OfferName()]
+	if !ok {
+		status.Err = errors.NotFoundf("application offer %s", conn.OfferName())
+		return
+	}
+	ep, err := rel.Endpoint(offer.ApplicationName)
+	if err != nil {
+		status.Err = err
+		return
+	}
+	status.Endpoint = ep.Name
+	// TODO(wallyworld)
+	status.Status = "active"
 	return status
 }
 

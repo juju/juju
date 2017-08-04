@@ -4,6 +4,7 @@
 package status
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/juju/utils/series"
@@ -64,6 +65,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		Machines:           make(map[string]machineStatus),
 		Applications:       make(map[string]applicationStatus),
 		RemoteApplications: make(map[string]remoteApplicationStatus),
+		Offers:             make(map[string]offerStatus),
 	}
 	if sf.status.Model.MeterStatus.Color != "" {
 		out.Model.MeterStatus = &meterStatus{
@@ -79,6 +81,9 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	}
 	for sn, s := range sf.status.RemoteApplications {
 		out.RemoteApplications[sn] = sf.formatRemoteApplication(sn, s)
+	}
+	for name, offer := range sf.status.Offers {
+		out.Offers[name] = sf.formatOffer(name, offer)
 	}
 	return out, nil
 }
@@ -242,6 +247,59 @@ func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.Rem
 		info.Since = common.FormatTime(application.Status.Since, sf.isoTime)
 	}
 	return info
+}
+
+func (sf *statusFormatter) formatOffer(name string, offer params.ApplicationOfferStatus) offerStatus {
+	out := offerStatus{
+		Err:             offer.Err,
+		ApplicationURL:  offer.ApplicationURL,
+		ApplicationName: offer.ApplicationName,
+	}
+	out.Endpoints = make(map[string]remoteEndpoint)
+	for alias, ep := range offer.Endpoints {
+		out.Endpoints[alias] = remoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      string(ep.Role),
+		}
+	}
+	for id, conn := range offer.Connections {
+		if conn.Err != nil {
+			out.Connections = append(out.Connections, offerConnectionStatus{Err: conn.Err})
+			continue
+		}
+		sourceModelUUID := "unknown"
+		if sourceModel, err := names.ParseModelTag(conn.SourceModelTag); err == nil {
+			sourceModelUUID = sourceModel.Id()
+		}
+		connStatus := offerConnectionStatus{
+			SourceModelUUID: sourceModelUUID,
+			RelationId:      id,
+			Username:        conn.Username,
+			Endpoint:        conn.Endpoint,
+			Status:          conn.Status,
+		}
+		out.Connections = append(out.Connections, connStatus)
+	}
+	sort.Sort(byUserRelationId(out.Connections))
+	return out
+}
+
+type byUserRelationId []offerConnectionStatus
+
+func (b byUserRelationId) Len() int {
+	return len(b)
+}
+
+func (b byUserRelationId) Less(i, j int) bool {
+	if b[i].Username == b[j].Username {
+		return b[i].RelationId < b[j].RelationId
+	}
+	return b[i].Username < b[j].Username
+}
+
+func (b byUserRelationId) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
 }
 
 type unitFormatInfo struct {

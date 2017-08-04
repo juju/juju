@@ -17,6 +17,7 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -93,7 +94,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 }
 
 // scenarioStatus describes the expected state
-// of the juju environment set up by setUpScenario.
+// of the juju model set up by setUpScenario.
 //
 // NOTE: AgentState: "down", AgentStateInfo: "(started)" here is due
 // to the scenario not calling SetAgentPresence on the respective entities,
@@ -167,8 +168,8 @@ var scenarioStatus = &params.FullStatus{
 	},
 	RemoteApplications: map[string]params.RemoteApplicationStatus{
 		"remote-db2": {
-			ApplicationURL:  "admin/prod.db2",
-			ApplicationName: "remote-db2",
+			ApplicationURL: "admin/prod.db2",
+			OfferName:      "remote-db2",
 			Endpoints: []params.RemoteEndpoint{{
 				Name:      "database",
 				Interface: "db2",
@@ -178,9 +179,28 @@ var scenarioStatus = &params.FullStatus{
 			Relations: map[string][]string{},
 			Status: params.DetailedStatus{
 				Status: status.Unknown.String(),
-				Info:   "waiting for remote connection",
 				Data:   map[string]interface{}{},
 			},
+		},
+	},
+	Offers: map[string]params.ApplicationOfferStatus{
+		"hosted-mysql": {
+			ApplicationURL:  "admin/controller.hosted-mysql",
+			ApplicationName: "mysql",
+			OfferName:       "hosted-mysql",
+			Endpoints: map[string]params.RemoteEndpoint{
+				"database": {
+					Name:      "server",
+					Interface: "mysql",
+					Role:      "provider",
+				}},
+			Connections: map[int]params.OfferConnectionStatus{
+				1: {
+					SourceModelTag: coretesting.ModelTag.String(),
+					Username:       "fred",
+					Status:         "active",
+					Endpoint:       "server",
+				}},
 		},
 	},
 	Applications: map[string]params.ApplicationStatus{
@@ -302,7 +322,7 @@ var scenarioStatus = &params.FullStatus{
 	},
 }
 
-// setUpScenario makes an environment scenario suitable for
+// setUpScenario makes a model scenario suitable for
 // testing most kinds of access scenario. It returns
 // a list of all the entities in the scenario.
 //
@@ -336,14 +356,16 @@ var scenarioStatus = &params.FullStatus{
 //     deployer-name=machine-2
 // unit-logging-1
 //  deployer-name=unit-wordpress-1
+// remoteapplication-mediawiki
+// applicationoffer-hosted-mysql
 //
 // The passwords for all returned entities are
 // set to the entity name with a " password" suffix.
 //
 // Note that there is nothing special about machine-0
-// here - it's the environment manager in this scenario
+// here - it's the controller in this scenario
 // just because machine 0 has traditionally been the
-// environment manager (bootstrap machine), so is
+// controller (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
@@ -378,11 +400,10 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:            "remote-db2",
-		OfferName:       "hosted-db2",
-		URL:             "admin/prod.db2",
-		SourceModel:     coretesting.ModelTag,
-		IsConsumerProxy: true,
+		Name:        "remote-db2",
+		OfferName:   "hosted-db2",
+		URL:         "admin/prod.db2",
+		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{
 			{
 				Name:      "database",
@@ -391,6 +412,39 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				Scope:     charm.ScopeGlobal,
 			},
 		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "mediawiki",
+		SourceModel:     coretesting.ModelTag,
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{
+			{
+				Name:      "db",
+				Interface: "mysql",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeGlobal,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	eps, err = s.State.InferEndpoints("mediawiki", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	mwRel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	offers := state.NewApplicationOffers(s.State)
+	_, err = offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           "admin",
+		Endpoints:       map[string]string{"database": "server"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: coretesting.ModelTag.Id(),
+		Username:        "fred",
+		OfferName:       "hosted-mysql",
+		RelationId:      mwRel.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

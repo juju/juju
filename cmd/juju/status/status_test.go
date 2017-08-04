@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -2799,7 +2800,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}, isConsumerProxy: true},
+		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
 		relateServices{"wordpress", "hosted-mysql"},
 
 		expect{
@@ -2821,7 +2822,6 @@ var statusTests = []testCase{
 						},
 						"application-status": M{
 							"current": "unknown",
-							"message": "waiting for remote connection",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"relations": M{
@@ -3263,6 +3263,47 @@ func (as addRemoteApplication) step(c *gc.C, ctx *context) {
 		SourceModel:     coretesting.ModelTag,
 		Endpoints:       endpoints,
 		IsConsumerProxy: as.isConsumerProxy,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type addApplicationOffer struct {
+	name            string
+	owner           string
+	applicationName string
+	endpoints       []string
+}
+
+func (ao addApplicationOffer) step(c *gc.C, ctx *context) {
+	endpoints := make(map[string]string)
+	for _, ep := range ao.endpoints {
+		endpoints[ep] = ep
+	}
+	offers := state.NewApplicationOffers(ctx.st)
+	_, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       ao.name,
+		Owner:           ao.owner,
+		ApplicationName: ao.applicationName,
+		Endpoints:       endpoints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type addOfferConnection struct {
+	sourceModelUUID string
+	name            string
+	username        string
+	relationKey     string
+}
+
+func (oc addOfferConnection) step(c *gc.C, ctx *context) {
+	rel, err := ctx.st.KeyRelation(oc.relationKey)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ctx.st.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: oc.sourceModelUUID,
+		OfferName:       oc.name,
+		Username:        oc.username,
+		RelationId:      rel.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -4018,6 +4059,11 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
+
+		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", owner: "admin", endpoints: []string{"server"}},
+		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
+		relateServices{"remote-wordpress", "mysql"},
+		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -4025,14 +4071,10 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	return ctx
 }
 
-func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) {
+func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	var args []string
-	if !useFeatureFlag {
-		args = []string{"--format", "tabular"}
-	}
-	code, stdout, stderr := runStatus(c, args...)
+	code, stdout, stderr := runStatus(c, "--format", "tabular")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
@@ -4059,6 +4101,9 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 2        started  10.0.2.1  controller-2  quantal              
 3        started  10.0.3.1  controller-3  quantal              I am number three
 
+Offer         User  Relation id  Status  Endpoint  Interface  Role
+hosted-mysql  fred  3            active  server    mysql      provider
+
 Relation           Provides   Consumes   Type
 juju-info          logging    mysql      regular
 logging-dir        logging    wordpress  regular
@@ -4068,10 +4113,6 @@ logging-directory  wordpress  logging    subordinate
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)
-}
-
-func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
-	s.testStatusWithFormatTabular(c, false)
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
@@ -4758,6 +4799,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
+		Offers:             map[string]offerStatus{},
 	})
 }
 

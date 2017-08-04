@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -371,9 +372,10 @@ func addTestingApplicationOffer(
 	// Add the requested number of connections.
 	for i := 0; i < connected; i++ {
 		_, err := st.AddOfferConnection(AddOfferConnectionParams{
-			RelationId: i,
-			Username:   "fred",
-			OfferName:  offerName,
+			SourceModelUUID: utils.MustNewUUID().String(),
+			RelationId:      i,
+			Username:        "fred",
+			OfferName:       offerName,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -3669,9 +3671,10 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			addTestingRemoteApplication(
 				c, st, "remote-wordpress", "", "hosted-mysql", mysqlRelations, true)
 			_, err := st.AddOfferConnection(AddOfferConnectionParams{
-				RelationId: 0,
-				Username:   "fred",
-				OfferName:  initialApplicationOfferInfo.OfferName,
+				SourceModelUUID: utils.MustNewUUID().String(),
+				RelationId:      0,
+				Username:        "fred",
+				OfferName:       initialApplicationOfferInfo.OfferName,
 			})
 			c.Assert(err, jc.ErrorIsNil)
 

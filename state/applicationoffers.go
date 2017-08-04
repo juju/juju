@@ -110,6 +110,26 @@ func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.Appl
 	return s.makeApplicationOffer(*offerDoc)
 }
 
+// AllApplicationOffers returns all application offers in the model.
+func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.ApplicationOffer, _ error) {
+	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
+	defer closer()
+
+	var docs []applicationOfferDoc
+	err := applicationOffersCollection.Find(bson.D{}).All(&docs)
+	if err != nil {
+		return nil, errors.Errorf("cannot get all application offers")
+	}
+	for _, doc := range docs {
+		offer, err := s.makeApplicationOffer(doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		offers = append(offers, offer)
+	}
+	return offers, nil
+}
+
 // Remove deletes the application offer for offerName immediately.
 func (s *applicationOffers) Remove(offerName string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)

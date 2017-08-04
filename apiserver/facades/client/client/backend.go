@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -40,6 +41,8 @@ type Backend interface {
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
+	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
+	AllOfferConnections() ([]*state.OfferConnection, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
@@ -66,6 +69,7 @@ type Backend interface {
 	ModelConstraints() (constraints.Value, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
+	RemoteApplication(string) (*state.RemoteApplication, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number) error
@@ -90,4 +94,9 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return u, nil
+}
+
+func (s stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {
+	offers := state.NewApplicationOffers(s.State)
+	return offers.AllApplicationOffers()
 }

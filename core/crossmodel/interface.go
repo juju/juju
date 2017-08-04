@@ -131,6 +131,9 @@ type ApplicationOffers interface {
 
 	// Remove removes the application offer at the specified URL.
 	Remove(offerName string) error
+
+	// AllApplicationOffers returns all application offers in the model.
+	AllApplicationOffers() (offers []*ApplicationOffer, _ error)
 }
 
 // RemoteApplication represents a remote application.
