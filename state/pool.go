@@ -108,6 +108,22 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 	return st, releaser, nil
 }
 
+// GetModel is a convenience method for getting a Model for a State.
+func (p *StatePool) GetModel(modelUUID string) (*Model, StatePoolReleaser, error) {
+	st, release, err := p.Get(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	model, err := st.Model()
+	if err != nil {
+		release()
+		return nil, nil, errors.Trace(err)
+	}
+
+	return model, release, nil
+}
+
 // release indicates that the client has finished using the State. If the
 // state has been marked for removal, it will be closed and removed
 // when the final Release is done; if there are no references, it will be
