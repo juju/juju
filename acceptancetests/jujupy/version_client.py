@@ -46,6 +46,7 @@ from jujupy.client import (
     SYSTEM,
     unqualified_model_name,
     UpgradeMongoNotSupported,
+    NoActiveModel
     )
 from jujupy.utility import (
     ensure_deleted,
@@ -783,11 +784,11 @@ def client_for_existing(juju_path, juju_data_dir, debug=False,
     backend = client_class.default_backend(full_path, version, set(),
                                            debug=debug,
                                            soft_deadline=soft_deadline)
-    current_controller, user_name, current_model = backend.get_active_model(
-        juju_data_dir)
     if controller_name is None:
+        current_controller = backend.get_active_controller(juju_data_dir)
         controller_name = current_controller
     if model_name is None:
+        current_model = backend.get_active_model(juju_data_dir)
         model_name = current_model
     config = client_class.config_class.for_existing(
         juju_data_dir, controller_name, model_name)

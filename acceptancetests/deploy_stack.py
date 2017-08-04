@@ -794,11 +794,16 @@ class BootstrapManager:
         try:
             juju_home = os.environ['JUJU_DATA']
         except KeyError:
-            logging.error(
-                'Use of the --existing flag requires setting the JUJU_DATA '
-                'environment variable. Please point JUJU_DATA to your local '
-                'juju data directory')
-            raise
+            home = os.path.expanduser('~')
+            if os.path.isdir(os.path.join(home, '.local/share/juju/')):
+                juju_home = os.path.join(home, '.local/share/juju/')
+            elif os.path.isdir(os.path.join(home, '.juju/')):
+                juju_home = os.path.join(home, '.juju/')
+            else:
+                raise Exception(
+                    'No juju data directory found at ~/.local/share/juju/ '
+                    'or ~/.juju If your juju data is located somewhere '
+                    'else please set the JUJU_DATA env variable to that path.')
         if not args.logs:
             args.logs = generate_default_clean_dir(args.temp_env_name)
         model = args.temp_env_name.replace('-temp-env', '')
