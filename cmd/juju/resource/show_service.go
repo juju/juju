@@ -159,7 +159,8 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 }
 
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
-	if len(sr.UnitResources) == 0 {
+	resources := unitResources(unit, service, sr)
+	if len(resources) == 0 {
 		ctx.Infof(noResources)
 		return nil
 	}
@@ -172,13 +173,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 		return c.out.Write(ctx, FormattedUnitDetails(formatted))
 	}
 
-	resources, err := unitResources(unit, service, sr)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	res := make([]FormattedUnitResource, len(resources))
-
 	for i, r := range resources {
 		res[i] = FormattedUnitResource(FormatSvcResource(r))
 	}
@@ -187,14 +182,14 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 
 }
 
-func unitResources(unit, service string, v resource.ServiceResources) ([]resource.Resource, error) {
-	for _, res := range v.UnitResources {
+func unitResources(unit, service string, sr resource.ServiceResources) []resource.Resource {
+	if len(sr.UnitResources) == 0 {
+		return nil
+	}
+	for _, res := range sr.UnitResources {
 		if res.Tag.Id() == unit {
-			return res.Resources, nil
+			return res.Resources
 		}
 	}
-	// TODO(natefinch): we need to differentiate between a unit with no
-	// resources and a unit that doesn't exist. This requires a serverside
-	// change.
-	return nil, nil
+	return nil
 }

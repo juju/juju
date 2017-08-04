@@ -74,6 +74,21 @@ updates available for resources from the charmstore.
 	})
 }
 
+func (s *ShowServiceSuite) TestRunNoResourcesForService(c *gc.C) {
+	data := []resource.ServiceResources{resource.ServiceResources{}}
+	s.stubDeps.client.ReturnResources = data
+
+	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+		NewClient: s.stubDeps.NewClient,
+	})
+
+	code, stdout, stderr := runCmd(c, cmd, "svc")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "No resources to display.\n")
+	c.Check(stdout, gc.Equals, "")
+	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+}
+
 func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	data := []resource.ServiceResources{
 		{
@@ -186,6 +201,70 @@ openjdk   10
 
 `[1:])
 
+	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+}
+
+func (s *ShowServiceSuite) TestRunNoResourcesForUnit(c *gc.C) {
+	data := []resource.ServiceResources{resource.ServiceResources{}}
+	s.stubDeps.client.ReturnResources = data
+
+	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+		NewClient: s.stubDeps.NewClient,
+	})
+
+	code, stdout, stderr := runCmd(c, cmd, "svc/0")
+	c.Assert(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "No resources to display.\n")
+	c.Check(stdout, gc.Equals, "")
+	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+}
+
+func (s *ShowServiceSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) {
+	unitName := "svc/0"
+
+	data := []resource.ServiceResources{resource.ServiceResources{
+		Resources: []resource.Resource{
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:        "openjdk",
+						Description: "the java runtime",
+					},
+					Origin:   charmresource.OriginStore,
+					Revision: 7,
+				},
+			},
+		},
+		CharmStoreResources: []charmresource.Resource{
+			{
+				// This resource has a higher revision than the corresponding one
+				// above.
+				Meta: charmresource.Meta{
+					Name:        "openjdk",
+					Description: "the java runtime",
+					Type:        charmresource.TypeFile,
+					Path:        "foobar",
+				},
+				Revision: 10,
+				Origin:   charmresource.OriginStore,
+			},
+		},
+		UnitResources: []resource.UnitResources{
+			resource.UnitResources{
+				Tag: names.NewUnitTag(unitName),
+			},
+		},
+	}}
+	s.stubDeps.client.ReturnResources = data
+
+	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+		NewClient: s.stubDeps.NewClient,
+	})
+
+	code, stdout, stderr := runCmd(c, cmd, unitName)
+	c.Assert(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "No resources to display.\n")
+	c.Check(stdout, gc.Equals, "")
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
