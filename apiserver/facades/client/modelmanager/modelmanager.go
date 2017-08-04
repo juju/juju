@@ -580,14 +580,20 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	models, err := m.state.ModelsForUser(userTag)
+	modelUUIDs, err := m.state.ModelsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, model := range models {
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := m.pool.Get(modelUUID)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		defer release()
+
 		var lastConn *time.Time
-		userLastConn, err := model.LastConnection()
+		userLastConn, err := st.LastModelConnection(userTag)
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)
@@ -595,6 +601,12 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		} else {
 			lastConn = &userLastConn
 		}
+
+		model, err := st.Model()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     model.Name(),

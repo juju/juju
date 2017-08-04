@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -107,58 +106,40 @@ func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 		return result, errors.Trace(err)
 	}
 
-	// Get all the models that the authenticated user can see, and
-	// supplement that with the other models that exist that the user
-	// cannot see. The reason we do this is to get the LastConnection
-	// time for the models that the user is able to see, so we have
-	// consistent output when listing with or without --all when an
-	// admin user.
-	models, err := s.state.ModelsForUser(s.apiUser)
+	modelUUIDs, err := s.state.AllModelUUIDs()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	visibleModels := set.NewStrings()
-	for _, model := range models {
-		lastConn, err := model.LastConnection()
-		if err != nil && !state.IsNeverConnectedError(err) {
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := s.statePool.Get(modelUUID)
+		if err != nil {
 			return result, errors.Trace(err)
 		}
-		visibleModels.Add(model.UUID())
-		result.UserModels = append(result.UserModels, params.UserModel{
+		defer release()
+
+		model, err := st.Model()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
+		userModel := params.UserModel{
 			Model: params.Model{
 				Name:     model.Name(),
 				UUID:     model.UUID(),
 				OwnerTag: model.Owner().String(),
 			},
-			LastConnection: &lastConn,
-		})
-	}
-
-	modelUUIDs, err := s.state.AllModelUUIDs()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	for _, modelUUID := range modelUUIDs {
-		if !visibleModels.Contains(modelUUID) {
-			st, release, err := s.statePool.Get(modelUUID)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-			defer release()
-			model, err := st.Model()
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-			result.UserModels = append(result.UserModels, params.UserModel{
-				Model: params.Model{
-					Name:     model.Name(),
-					UUID:     model.UUID(),
-					OwnerTag: model.Owner().String(),
-				},
-				// No LastConnection as this user hasn't.
-			})
 		}
+
+		lastConn, err := st.LastModelConnection(s.apiUser)
+		if err != nil {
+			if !state.IsNeverConnectedError(err) {
+				return result, errors.Trace(err)
+			}
+		} else {
+			userModel.LastConnection = &lastConn
+		}
+
+		result.UserModels = append(result.UserModels, userModel)
 	}
 
 	// Sort the resulting sequence by environment name, then owner.

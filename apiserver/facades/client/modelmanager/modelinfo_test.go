@@ -590,7 +590,7 @@ func (st *mockState) ExportPartial(state.ExportConfig) (description.Model, error
 	return st.Export()
 }
 
-func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
+func (st *mockState) ModelsForUser(user names.UserTag) ([]string, error) {
 	st.MethodCall(st, "ModelsForUser", user)
 	return nil, st.NextErr()
 }

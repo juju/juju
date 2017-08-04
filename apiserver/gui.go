@@ -370,7 +370,7 @@ func getConfigPath(path string, ctxt httpContext) string {
 	// Possibly handle requests to the new "/u/{user}/{model}" path, but
 	// made from an old version of the GUI, which didn't connect to the
 	// model based on the path.
-	uuid, user, model := modelInfoFromPath(path, st)
+	uuid, user, model := modelInfoFromPath(path, st, ctxt.srv.statePool)
 	if uuid != "" {
 		return fmt.Sprintf("%s?model-uuid=%s&base-postfix=u/%s/%s/", configPath, uuid, user, model)
 	}
@@ -391,20 +391,25 @@ func uuidFromPath(path string) string {
 // modelInfoFromPath checks whether the given path includes "/u/{user}/{model}""
 // fragments identifying a model, in which case its UUID, user and model name
 // are returned. Empty strings are returned if the model is not found.
-func modelInfoFromPath(path string, st *state.State) (uuid, user, model string) {
+func modelInfoFromPath(path string, st *state.State, pool *state.StatePool) (uuid, user, modelName string) {
 	path = strings.TrimPrefix(path, guiURLPathPrefix)
 	parts := strings.SplitN(path, "/", 4)
 	if len(parts) < 3 || parts[0] != "u" || !names.IsValidUserName(parts[1]) || !names.IsValidModelName(parts[2]) {
 		return "", "", ""
 	}
-	user, model = parts[1], parts[2]
-	models, err := st.ModelsForUser(names.NewUserTag(user))
+	user, modelName = parts[1], parts[2]
+	modelUUIDs, err := st.ModelsForUser(names.NewUserTag(user))
 	if err != nil {
 		return "", "", ""
 	}
-	for _, m := range models {
-		if m.Name() == model {
-			return m.UUID(), user, model
+	for _, modelUUID := range modelUUIDs {
+		model, release, err := pool.GetModel(modelUUID)
+		if err != nil {
+			return "", "", ""
+		}
+		defer release()
+		if model.Name() == modelName {
+			return modelUUID, user, modelName
 		}
 	}
 	return "", "", ""
