@@ -10,6 +10,28 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// StatePool provides the subset of a state pool.
+type StatePool interface {
+	// Get returns a State for a given model from the pool.
+	Get(modelUUID string) (Backend, func(), error)
+}
+
+type statePoolShim struct {
+	*state.StatePool
+}
+
+func (p *statePoolShim) Get(modelUUID string) (Backend, func(), error) {
+	st, releaser, err := p.StatePool.Get(modelUUID)
+	closer := func() {
+		releaser()
+	}
+	return stateShim{st}, closer, err
+}
+
+func GetStatePool(pool *state.StatePool) StatePool {
+	return &statePoolShim{pool}
+}
+
 // GetBackend wraps a State to provide a Backend interface implementation.
 func GetBackend(st *state.State) stateShim {
 	return stateShim{State: st}
@@ -29,6 +51,10 @@ func (st stateShim) KeyRelation(key string) (Relation, error) {
 
 type applicationShim struct {
 	*state.Application
+}
+
+func (a applicationShim) Charm() (ch Charm, force bool, err error) {
+	return a.Application.Charm()
 }
 
 func (st stateShim) Application(name string) (Application, error) {

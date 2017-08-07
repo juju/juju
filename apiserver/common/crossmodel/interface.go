@@ -4,9 +4,11 @@
 package crossmodel
 
 import (
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
@@ -16,12 +18,24 @@ type Backend interface {
 	// controlled by this state instance.
 	ModelUUID() string
 
+	// ModelTag the tag of the model on which we are operating.
+	ModelTag() names.ModelTag
+
+	// ControllerTag the tag of the controller in which we are operating.
+	ControllerTag() names.ControllerTag
+
 	// KeyRelation returns the existing relation with the given key (which can
 	// be derived unambiguously from the relation's endpoints).
 	KeyRelation(string) (Relation, error)
 
 	// Application returns a local application by name.
 	Application(string) (Application, error)
+
+	// GetOfferAccess gets the access permission for the specified user on an offer.
+	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
+
+	// UserPermission returns the access permission for the passed subject and target.
+	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
 
 	// RemoteApplication returns a remote application by name.
 	RemoteApplication(string) (RemoteApplication, error)
@@ -123,6 +137,27 @@ type Application interface {
 
 	// Endpoints returns the application's currently available relation endpoints.
 	Endpoints() ([]state.Endpoint, error)
+
+	// Charm returns the application's charm and whether units should upgrade to that
+	// charm even if they are in an error state.
+	Charm() (ch Charm, force bool, err error)
+
+	// CharmURL returns the application's charm URL, and whether units should upgrade
+	// to the charm with that URL even if they are in an error state.
+	CharmURL() (curl *charm.URL, force bool)
+
+	// EndpointBindings returns the mapping for each endpoint name and the space
+	// name it is bound to (or empty if unspecified). When no bindings are stored
+	// for the application, defaults are returned.
+	EndpointBindings() (map[string]string, error)
+}
+
+type Charm interface {
+	// Meta returns the metadata of the charm.
+	Meta() *charm.Meta
+
+	// StoragePath returns the storage path of the charm bundle.
+	StoragePath() string
 }
 
 // RemoteApplication represents the state of an application hosted in an external

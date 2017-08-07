@@ -22,12 +22,14 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	oc, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
 		RelationId:      1,
+		RelationKey:     "rel-key",
 		Username:        "fred",
 		OfferName:       "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(oc.SourceModelUUID(), gc.Equals, testing.ModelTag.Id())
 	c.Assert(oc.RelationId(), gc.Equals, 1)
+	c.Assert(oc.RelationKey(), gc.Equals, "rel-key")
 	c.Assert(oc.OfferName(), gc.Equals, "mysql")
 	c.Assert(oc.UserName(), gc.Equals, "fred")
 
@@ -44,6 +46,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	c.Assert(all, gc.HasLen, 1)
 	c.Assert(all[0].SourceModelUUID(), gc.Equals, testing.ModelTag.Id())
 	c.Assert(all[0].RelationId(), gc.Equals, 1)
+	c.Assert(all[0].RelationKey(), gc.Equals, "rel-key")
 	c.Assert(all[0].OfferName(), gc.Equals, "mysql")
 	c.Assert(all[0].UserName(), gc.Equals, "fred")
 	c.Assert(all[0].String(), gc.Equals, `connection to "mysql" by "fred" for relation 1`)
@@ -53,6 +56,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	_, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
 		RelationId:      1,
+		RelationKey:     "rel-key",
 		Username:        "fred",
 		OfferName:       "mysql",
 	})
@@ -65,6 +69,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	_, err = anotherState.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
 		RelationId:      1,
+		RelationKey:     "rel-key",
 		Username:        "fred",
 		OfferName:       "mysql",
 	})
