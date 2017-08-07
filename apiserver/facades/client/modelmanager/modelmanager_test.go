@@ -205,14 +205,13 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ComposeNewModelConfig",
 		"NewModel",
 		"ReloadSpaces",
-		"ForModel",
+		"GetBackend",
 		"Model",
 		"LastModelConnection",
 		"LastModelConnection",
 		"LastModelConnection",
 		"AllMachines",
 		"LatestMigration",
-		"Close",
 		"Close",
 	)
 

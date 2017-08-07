@@ -54,7 +54,9 @@ type Backend interface {
 	Charm(*charm.URL) (commoncrossmodel.Charm, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
-	AllModels() ([]Model, error)
+	AllModelUUIDs() ([]string, error)
+	GetModel(string) (Model, func() bool, error)
+	ModelTag() names.ModelTag
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 	Space(string) (Space, error)
 
@@ -107,25 +109,12 @@ func (s *stateShim) Model() (Model, error) {
 	return &modelShim{m}, err
 }
 
-func (s *stateShim) AllModels() ([]Model, error) {
-	modelUUIDs, err := s.State.AllModelUUIDs()
+func (s *stateShim) GetModel(uuid string) (Model, func() bool, error) {
+	model, release, err := s.pool.GetModel(uuid)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	out := make([]Model, 0, len(modelUUIDs))
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := s.pool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, model)
-	}
-	return out, nil
+	return model, release, nil
 }
 
 type stateCharmShim struct {

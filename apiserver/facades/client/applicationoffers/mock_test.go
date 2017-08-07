@@ -334,11 +334,34 @@ func (m *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.modelUUID)
 }
 
-func (m *mockState) AllModels() ([]applicationoffers.Model, error) {
-	if len(m.allmodels) > 0 {
-		return m.allmodels, nil
+func (m *mockState) AllModelUUIDs() ([]string, error) {
+	if len(m.allmodels) == 0 {
+		return []string{m.model.UUID()}, nil
 	}
-	return []applicationoffers.Model{m.model}, nil
+
+	var out []string
+	for _, model := range m.allmodels {
+		out = append(out, model.UUID())
+	}
+	return out, nil
+}
+
+func (m *mockState) GetModel(uuid string) (applicationoffers.Model, func() bool, error) {
+	fakeRelease := func() bool { return true }
+
+	if len(m.allmodels) == 0 {
+		if m.model.UUID() != uuid {
+			return nil, nil, errors.NotFoundf("model")
+		}
+		return m.model, fakeRelease, nil
+	}
+
+	for _, model := range m.allmodels {
+		if model.UUID() == uuid {
+			return model, fakeRelease, nil
+		}
+	}
+	return nil, nil, errors.NotFoundf("model")
 }
 
 func (m *mockState) RemoteConnectionStatus(offerName string) (applicationoffers.RemoteConnectionStatus, error) {

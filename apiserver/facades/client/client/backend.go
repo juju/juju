@@ -4,6 +4,7 @@
 package client
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -45,9 +46,9 @@ type Backend interface {
 	AllOfferConnections() ([]*state.OfferConnection, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
+	AllModelUUIDs() ([]string, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
-	AllModels() ([]*state.Model, error)
 	AllRelations() ([]*state.Relation, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	APIHostPorts() ([][]network.HostPort, error)
@@ -57,12 +58,12 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
 	FindEntity(names.Tag) (state.Entity, error)
-	ForModel(tag names.ModelTag) (*state.State, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	IsController() bool
 	LatestMigration() (state.ModelMigration, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
+	GetModel(string) (*state.Model, func() bool, error)
 	Model() (*state.Model, error)
 	ModelConfig() (*config.Config, error)
 	ModelConfigValues() (config.ConfigValues, error)
@@ -80,12 +81,13 @@ type Backend interface {
 	Watch(params state.WatchParams) *state.Multiwatcher
 }
 
-func NewStateBackend(st *state.State) Backend {
-	return stateShim{st}
+func NewStateBackend(st *state.State, pool *state.StatePool) Backend {
+	return stateShim{st, pool}
 }
 
 type stateShim struct {
 	*state.State
+	pool *state.StatePool
 }
 
 func (s stateShim) Unit(name string) (Unit, error) {
@@ -99,4 +101,18 @@ func (s stateShim) Unit(name string) (Unit, error) {
 func (s stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {
 	offers := state.NewApplicationOffers(s.State)
 	return offers.AllApplicationOffers()
+}
+
+func (s stateShim) GetModel(uuid string) (*state.Model, func() bool, error) {
+	st, release, err := s.pool.Get(uuid)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return model, release, nil
 }

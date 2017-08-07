@@ -208,7 +208,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
-		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
+		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
@@ -216,7 +216,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
 		{"AllMachines", nil},
 		{"LatestMigration", nil},
-		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
@@ -590,6 +589,21 @@ func (st *mockState) ExportPartial(state.ExportConfig) (description.Model, error
 	return st.Export()
 }
 
+func (st *mockState) AllModelUUIDs() ([]string, error) {
+	st.MethodCall(st, "AllModelUUIDs")
+	return []string{st.model.UUID()}, st.NextErr()
+}
+
+func (st *mockState) GetBackend(modelUUID string) (common.ModelManagerBackend, func() bool, error) {
+	st.MethodCall(st, "GetBackend", modelUUID)
+	return st, func() bool { return true }, st.NextErr()
+}
+
+func (st *mockState) GetModel(modelUUID string) (common.Model, func() bool, error) {
+	st.MethodCall(st, "GetModel", modelUUID)
+	return st.model, func() bool { return true }, st.NextErr()
+}
+
 func (st *mockState) ModelsForUser(user names.UserTag) ([]string, error) {
 	st.MethodCall(st, "ModelsForUser", user)
 	return nil, st.NextErr()
@@ -669,16 +683,6 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	}, st.NextErr()
 }
 
-func (st *mockState) ForModel(tag names.ModelTag) (common.ModelManagerBackend, error) {
-	st.MethodCall(st, "ForModel", tag)
-	return st, st.NextErr()
-}
-
-func (st *mockState) GetModel(tag names.ModelTag) (common.Model, error) {
-	st.MethodCall(st, "GetModel", tag)
-	return st.model, st.NextErr()
-}
-
 func (st *mockState) Model() (common.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()
@@ -687,11 +691,6 @@ func (st *mockState) Model() (common.Model, error) {
 func (st *mockState) ModelTag() names.ModelTag {
 	st.MethodCall(st, "ModelTag")
 	return st.model.ModelTag()
-}
-
-func (st *mockState) AllModels() ([]common.Model, error) {
-	st.MethodCall(st, "AllModels")
-	return []common.Model{st.model}, st.NextErr()
 }
 
 func (st *mockState) AllMachines() ([]common.Machine, error) {

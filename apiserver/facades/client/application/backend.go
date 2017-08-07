@@ -23,7 +23,8 @@ import (
 type Backend interface {
 	storagecommon.StorageInterface
 
-	AllModels() ([]Model, error)
+	AllModelUUIDs() ([]string, error)
+	GetModel(string) (Model, func() bool, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
@@ -239,25 +240,12 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	return stateUnitShim{u, s.State}, nil
 }
 
-func (s stateShim) AllModels() ([]Model, error) {
-	modelUUIDs, err := s.State.AllModelUUIDs()
+func (s stateShim) GetModel(uuid string) (Model, func() bool, error) {
+	model, release, err := s.pool.GetModel(uuid)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	out := make([]Model, 0, len(modelUUIDs))
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := s.pool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, stateModelShim{model})
-	}
-	return out, nil
+	return model, release, nil
 }
 
 type stateApplicationShim struct {
@@ -316,10 +304,6 @@ func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
 
 func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement) error {
 	return u.st.AssignUnitWithPlacement(u.Unit, placement)
-}
-
-type stateModelShim struct {
-	*state.Model
 }
 
 type Subnet interface {

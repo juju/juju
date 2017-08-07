@@ -116,7 +116,11 @@ func (c *Client) checkIsAdmin() error {
 }
 
 // NewFacade provides the required signature for facade registration.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
+func NewFacade(ctx facade.Context) (*Client, error) {
+	st := ctx.State()
+	resources := ctx.Resources()
+	authorizer := ctx.Auth()
+
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
@@ -131,7 +135,7 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 	}
 	addresser := common.NewAPIAddresser(st, resources)
 	return NewClient(
-		NewStateBackend(st),
+		NewStateBackend(st, ctx.StatePool()),
 		modelConfigAPI,
 		resources,
 		authorizer,
@@ -578,11 +582,17 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
 	if c.api.stateAccessor.IsController() {
-		models, err := c.api.stateAccessor.AllModels()
+		modelUUIDs, err := c.api.stateAccessor.AllModelUUIDs()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, model := range models {
+
+		for _, modelUUID := range modelUUIDs {
+			model, release, err := c.api.stateAccessor.GetModel(modelUUID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			defer release()
 			if mode := model.MigrationMode(); mode != state.MigrationModeNone {
 				return errors.Errorf("model \"%s/%s\" is %s, upgrade blocked", model.Owner().Name(), model.Name(), mode)
 			}

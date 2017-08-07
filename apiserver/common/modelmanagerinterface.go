@@ -32,20 +32,20 @@ type ModelManagerBackend interface {
 	ModelsForUser(names.UserTag) ([]string, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
+	Model() (Model, error)
+	AllModelUUIDs() ([]string, error)
+	GetModel(string) (Model, func() bool, error)
+	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
 	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error)
 	ControllerModelUUID() string
 	ControllerModelTag() names.ModelTag
 	ControllerConfig() (controller.Config, error)
-	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
-	GetModel(names.ModelTag) (Model, error)
-	Model() (Model, error)
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
 	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
-	AllModels() ([]Model, error)
 	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
@@ -119,22 +119,22 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 	return modelShim{m}, modelManagerStateShim{otherState, st.pool}, nil
 }
 
-// ForModel implements ModelManagerBackend.
-func (st modelManagerStateShim) ForModel(tag names.ModelTag) (ModelManagerBackend, error) {
-	otherState, err := st.State.ForModel(tag)
+// GetBackend implements ModelManagerBackend.
+func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBackend, func() bool, error) {
+	otherState, release, err := st.pool.Get(modelUUID)
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Trace(err)
 	}
-	return modelManagerStateShim{otherState, st.pool}, nil
+	return modelManagerStateShim{otherState, st.pool}, release, nil
 }
 
 // GetModel implements ModelManagerBackend.
-func (st modelManagerStateShim) GetModel(tag names.ModelTag) (Model, error) {
-	m, err := st.State.GetModel(tag)
+func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, error) {
+	model, release, err := st.pool.GetModel(modelUUID)
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Trace(err)
 	}
-	return modelShim{m}, nil
+	return modelShim{model}, release, nil
 }
 
 // Model implements ModelManagerBackend.
@@ -146,27 +146,7 @@ func (st modelManagerStateShim) Model() (Model, error) {
 	return modelShim{m}, nil
 }
 
-// AllModels implements ModelManagerBackend.
-func (st modelManagerStateShim) AllModels() ([]Model, error) {
-	modelUUIDs, err := st.State.AllModelUUIDs()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]Model, 0, len(modelUUIDs))
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := st.pool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, model)
-	}
-	return out, nil
-}
+var _ Model = (*modelShim)(nil)
 
 type modelShim struct {
 	*state.Model

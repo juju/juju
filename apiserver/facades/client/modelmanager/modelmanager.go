@@ -72,7 +72,7 @@ type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
 	ctlrState   common.ModelManagerBackend
-	pool        common.BackendPool
+	pool        common.BackendPool // XXX this can be made unnecessary by using the backend methods
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
@@ -646,19 +646,22 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
 
-	destroyModel := func(tag names.ModelTag, destroyStorage *bool) error {
-		model, err := m.state.GetModel(tag)
+	destroyModel := func(modelUUID string, destroyStorage *bool) error {
+		model, releaseModel, err := m.state.GetModel(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer releaseModel()
 		if err := m.authCheck(model.Owner()); err != nil {
 			return errors.Trace(err)
 		}
-		st, releaser, err := m.pool.Get(tag.Id())
+
+		st, releaseSt, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer releaser()
+		defer releaseSt()
+
 		return errors.Trace(common.DestroyModel(st, destroyStorage))
 	}
 
@@ -668,7 +671,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := destroyModel(tag, arg.DestroyStorage); err != nil {
+		if err := destroyModel(tag.Id(), arg.DestroyStorage); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -702,13 +705,13 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 }
 
 func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
-	st, err := m.state.ForModel(tag)
+	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
-	defer st.Close()
+	defer release()
 
 	model, err := st.Model()
 	if errors.IsNotFound(err) {
@@ -914,11 +917,11 @@ func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin boo
 // changeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
 func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.Access, userIsAdmin bool) error {
-	st, err := accessor.ForModel(modelTag)
+	st, release, err := accessor.GetBackend(modelTag.Id())
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
 	}
-	defer st.Close()
+	defer release()
 
 	if err := userAuthorizedToChangeAccess(st, userIsAdmin, apiUser); err != nil {
 		return errors.Trace(err)

@@ -46,16 +46,17 @@ func DestroyController(
 		)
 	}
 	if destroyHostedModels {
-		models, err := st.AllModels()
+		uuids, err := st.AllModelUUIDs()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, model := range models {
-			modelSt, err := st.ForModel(model.ModelTag())
-			defer modelSt.Close()
+		for _, uuid := range uuids {
+			modelSt, release, err := st.GetBackend(uuid)
 			if err != nil {
 				return errors.Trace(err)
 			}
+			defer release()
+
 			check := NewBlockChecker(modelSt)
 			if err = check.DestroyAllowed(); err != nil {
 				return errors.Trace(err)
