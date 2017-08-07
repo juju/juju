@@ -20,16 +20,18 @@ var log = loggo.GetLogger("juju.worker.logger")
 type Logger struct {
 	api            *logger.State
 	agentConfig    agent.Config
+	updateCallback func(string) error
 	lastConfig     string
 	configOverride string
 }
 
 // NewLogger returns a worker.Worker that uses the notify watcher returned
 // from the setup.
-func NewLogger(api *logger.State, agentConfig agent.Config) (worker.Worker, error) {
+func NewLogger(api *logger.State, agentConfig agent.Config, updateCallback func(string) error) (worker.Worker, error) {
 	logger := &Logger{
 		api:            api,
 		agentConfig:    agentConfig,
+		updateCallback: updateCallback,
 		lastConfig:     loggo.LoggerInfo(),
 		configOverride: agentConfig.Value(agent.LoggingOverride),
 	}
@@ -68,8 +70,16 @@ func (logger *Logger) setLogging() {
 			log.Warningf("configure loggers failed: %v", err)
 			// Try to reset to what we had before
 			loggo.ConfigureLoggers(logger.lastConfig)
+			return
 		}
 		logger.lastConfig = loggingConfig
+		// Save the logging config in the agent.conf file.
+		if logger.updateCallback != nil {
+			err := logger.updateCallback(loggingConfig)
+			if err != nil {
+				log.Errorf("%v", err)
+			}
+		}
 	}
 }
 

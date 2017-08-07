@@ -4,14 +4,11 @@
 package agent
 
 import (
-	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
@@ -24,7 +21,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/introspection"
@@ -32,8 +28,6 @@ import (
 )
 
 var (
-	agentLogger = loggo.GetLogger("juju.jujud")
-
 	// should be an explicit dependency, can't do it cleanly yet
 	unitManifolds = unit.Manifolds
 )
@@ -124,15 +118,6 @@ func (a *UnitAgent) Init(args []string) error {
 
 	}
 
-	if loggingOverride := agentConfig.Value(agent.LoggingOverride); loggingOverride != "" {
-		logger.Infof("setting logging override to %q", loggingOverride)
-		loggo.DefaultContext().ResetLoggerLevels()
-		err := loggo.ConfigureLoggers(loggingOverride)
-		if err != nil {
-			logger.Errorf("setting logging override %v", err)
-		}
-	}
-
 	return nil
 }
 
@@ -148,10 +133,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), jujuversion.Current, runtime.Compiler)
-	if flags := featureflag.String(); flags != "" {
-		logger.Warningf("developer feature flags enabled: %s", flags)
-	}
+	setupAgentLogging(a.CurrentConfig())
 
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := cmdutil.AgentDone(logger, a.runner.Wait())
@@ -161,6 +143,13 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
+	updateAgentConfLogging := func(loggingConfig string) error {
+		return a.AgentConf.ChangeConfig(func(setter agent.ConfigSetter) error {
+			setter.SetLoggingConfig(loggingConfig)
+			return nil
+		})
+	}
+
 	manifolds := unitManifolds(unit.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{a},
 		LogSource:            a.bufferedLogger.Logs(),
@@ -168,6 +157,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		AgentConfigChanged:   a.configChangedVal,
 		ValidateMigration:    a.validateMigration,
 		PrometheusRegisterer: a.prometheusRegistry,
+		UpdateLoggerConfig:   updateAgentConfLogging,
 	})
 
 	config := dependency.EngineConfig{

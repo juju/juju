@@ -30,7 +30,9 @@ type LoggerSuite struct {
 
 	loggerAPI *apilogger.State
 	machine   *state.Machine
-	values    map[string]string
+
+	value  string
+	values map[string]string
 }
 
 var _ = gc.Suite(&LoggerSuite{})
@@ -42,6 +44,7 @@ func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	s.loggerAPI = apilogger.NewState(apiConn)
 	c.Assert(s.loggerAPI, gc.NotNil)
 	s.machine = machine
+	s.value = ""
 	s.values = nil
 }
 
@@ -86,7 +89,10 @@ func agentConfig(c *gc.C, tag names.Tag, values map[string]string) *mockConfig {
 
 func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
 	config := agentConfig(c, s.machine.Tag(), s.values)
-	w, err := logger.NewLogger(s.loggerAPI, config)
+	w, err := logger.NewLogger(s.loggerAPI, config, func(v string) error {
+		s.value = v
+		return nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w, config
 }
@@ -112,6 +118,7 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 	defer worker.Stop(loggingWorker)
 
 	s.waitLoggingInfo(c, expected)
+	c.Check(s.value, gc.Equals, expected)
 }
 
 func (s *LoggerSuite) TestConfigOverride(c *gc.C) {

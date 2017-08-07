@@ -44,8 +44,9 @@ type format_2_0Serialization struct {
 	APIAddresses []string `yaml:"apiaddresses,omitempty"`
 	APIPassword  string   `yaml:"apipassword,omitempty"`
 
-	OldPassword string            `yaml:"oldpassword,omitempty"`
-	Values      map[string]string `yaml:"values"`
+	OldPassword   string            `yaml:"oldpassword,omitempty"`
+	LoggingConfig string            `yaml:"loggingconfig,omitempty"`
+	Values        map[string]string `yaml:"values"`
 
 	// Only controller machines have these next items set.
 	ControllerCert     string `yaml:"controllercert,omitempty"`
@@ -100,6 +101,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		model:             modelTag,
 		caCert:            format.CACert,
 		oldPassword:       format.OldPassword,
+		loggingConfig:     format.LoggingConfig,
 		values:            format.Values,
 	}
 	if len(format.StateAddresses) > 0 {
@@ -173,6 +175,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		Model:             modelTag,
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
+		LoggingConfig:     config.loggingConfig,
 		Values:            config.values,
 	}
 	if config.servingInfo != nil {
