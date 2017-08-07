@@ -72,7 +72,6 @@ type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
 	ctlrState   common.ModelManagerBackend
-	pool        common.BackendPool // XXX this can be made unnecessary by using the backend methods
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
@@ -107,10 +106,8 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 
 	return NewModelManagerAPI(
-		// XXX normalise this?
 		common.NewModelManagerBackend(st, pool),
 		common.NewModelManagerBackend(ctlrSt, pool),
-		common.NewBackendPool(pool),
 		configGetter,
 		auth,
 	)
@@ -139,7 +136,6 @@ func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
-	pool common.BackendPool,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
 ) (*ModelManagerAPI, error) {
@@ -157,10 +153,9 @@ func NewModelManagerAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		ModelStatusAPI: common.NewModelStatusAPI(st, pool, authorizer, apiUser),
+		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
 		ctlrState:      ctlrSt,
-		pool:           pool,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
@@ -425,14 +420,14 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte
 		return nil, common.ErrPerm
 	}
 
-	st, releaser, err := m.pool.Get(modelTag.Id())
+	st, release, err := m.state.GetBackend(modelTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.Trace(common.ErrBadId)
 		}
 		return nil, errors.Trace(err)
 	}
-	defer releaser()
+	defer release()
 
 	var exportConfig state.ExportConfig
 	if simplified {
@@ -495,13 +490,13 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 
 	st := m.state
 	if st.ModelTag() != modelTag {
-		newSt, releaser, err := m.pool.Get(modelTag.Id())
+		newSt, release, err := m.state.GetBackend(modelTag.Id())
 		if errors.IsNotFound(err) {
 			return nil, errors.Trace(common.ErrBadId)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer releaser()
+		defer release()
 		st = newSt
 	}
 
@@ -586,7 +581,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 	}
 
 	for _, modelUUID := range modelUUIDs {
-		st, release, err := m.pool.Get(modelUUID)
+		st, release, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return result, errors.Trace(err)
 		}

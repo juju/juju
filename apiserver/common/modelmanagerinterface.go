@@ -215,26 +215,3 @@ func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
 	}
 	return model.AllVolumes()
 }
-
-// BackendPool provides access to a pool of ModelManagerBackends.
-type BackendPool interface {
-	Get(modelUUID string) (ModelManagerBackend, func(), error)
-}
-
-// NewBackendPool returns a BackendPool wrapping the passed StatePool.
-func NewBackendPool(pool *state.StatePool) BackendPool {
-	return &statePoolShim{pool: pool}
-}
-
-type statePoolShim struct {
-	pool *state.StatePool
-}
-
-// Get implements BackendPool.
-func (p *statePoolShim) Get(modelUUID string) (ModelManagerBackend, func(), error) {
-	st, releaser, err := p.pool.Get(modelUUID)
-	closer := func() {
-		releaser()
-	}
-	return NewModelManagerBackend(st, p.pool), closer, err
-}

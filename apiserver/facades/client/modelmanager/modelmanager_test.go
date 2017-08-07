@@ -55,7 +55,6 @@ type modelManagerSuite struct {
 	gitjujutesting.IsolationSuite
 	st         *mockState
 	ctlrSt     *mockState
-	pool       *mockPool
 	authoriser apiservertesting.FakeAuthorizer
 	api        *modelmanager.ModelManagerAPI
 }
@@ -157,15 +156,14 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
-	s.pool = &mockPool{s.st}
-	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, s.pool, nil, s.authoriser)
+	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, s.pool, nil, s.authoriser)
+	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -563,7 +561,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
-		{"Get", []interface{}{tag.Id()}},
+		{"GetBackend", []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -622,7 +620,7 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
 		{"ModelTag", nil},
-		{"Get", []interface{}{tag.Id()}},
+		{"GetBackend", []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -698,7 +696,7 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 		"ControllerTag",
 		"ModelUUID",
 		"GetModel",
-		"Get",
+		"GetBackend",
 		"GetBlockForType",
 		"GetBlockForType",
 		"GetBlockForType",
@@ -747,7 +745,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.State, s.StatePool),
 		common.NewModelManagerBackend(s.State, s.StatePool),
-		common.NewBackendPool(s.StatePool),
 		stateenvirons.EnvironConfigGetter{s.State},
 		s.authoriser,
 	)
@@ -761,7 +758,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.State, s.StatePool),
 		common.NewModelManagerBackend(s.State, s.StatePool),
-		nil, nil, anAuthoriser,
+		nil, anAuthoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -773,7 +770,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.State, s.StatePool),
 		common.NewModelManagerBackend(s.State, s.StatePool),
-		nil, nil, anAuthoriser,
+		nil, anAuthoriser,
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -987,13 +984,10 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-	pool := state.NewStatePool(st)
-	defer pool.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(st, s.StatePool),
 		common.NewModelManagerBackend(s.State, s.StatePool),
-		common.NewBackendPool(pool),
 		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1022,14 +1016,11 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-	pool := state.NewStatePool(st)
-	defer pool.Close()
 
 	s.authoriser.Tag = s.AdminUserTag(c)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(st, s.StatePool),
 		common.NewModelManagerBackend(s.State, s.StatePool),
-		common.NewBackendPool(pool),
 		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1061,7 +1052,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(st, s.StatePool),
 		common.NewModelManagerBackend(s.State, s.StatePool),
-		nil, nil, s.authoriser,
+		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

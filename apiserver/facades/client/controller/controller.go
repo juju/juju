@@ -74,7 +74,6 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(st, ctx.StatePool()),
-			common.NewBackendPool(ctx.StatePool()),
 			authorizer,
 			apiUser,
 		),

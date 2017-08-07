@@ -143,14 +143,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, &s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1041,13 +1041,4 @@ func (m *mockMigration) StartTime() time.Time {
 
 func (m *mockMigration) EndTime() time.Time {
 	return m.end
-}
-
-type mockPool struct {
-	st *mockState
-}
-
-func (p *mockPool) Get(modelUUID string) (common.ModelManagerBackend, func(), error) {
-	p.st.MethodCall(p, "Get", modelUUID)
-	return p.st, func() {}, p.st.NextErr()
 }
