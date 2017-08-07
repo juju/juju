@@ -5,6 +5,7 @@ package applicationoffers_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
@@ -124,6 +126,7 @@ func (m *mockCharm) StoragePath() string {
 }
 
 type mockApplication struct {
+	crossmodel.Application
 	name      string
 	charm     *mockCharm
 	curl      *charm.URL
@@ -135,7 +138,7 @@ func (m *mockApplication) Name() string {
 	return m.name
 }
 
-func (m *mockApplication) Charm() (applicationoffers.Charm, bool, error) {
+func (m *mockApplication) Charm() (crossmodel.Charm, bool, error) {
 	return m.charm, true, nil
 }
 
@@ -270,27 +273,32 @@ type offerAccess struct {
 }
 
 type mockState struct {
+	crossmodel.Backend
 	common.AddressAndCertGetter
 	modelUUID         string
 	model             applicationoffers.Model
 	allmodels         []applicationoffers.Model
 	users             set.Strings
-	applications      map[string]applicationoffers.Application
+	applications      map[string]crossmodel.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
 	spaces            map[string]applicationoffers.Space
 	connStatus        applicationoffers.RemoteConnectionStatus
 	accessPerms       map[offerAccess]permission.Access
 }
 
+func (m *mockState) GetAddressAndCertGetter() common.AddressAndCertGetter {
+	return m
+}
+
 func (m *mockState) ControllerTag() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (m *mockState) Charm(*charm.URL) (applicationoffers.Charm, error) {
+func (m *mockState) Charm(*charm.URL) (crossmodel.Charm, error) {
 	return &mockCharm{}, nil
 }
 
-func (m *mockState) Application(name string) (applicationoffers.Application, error) {
+func (m *mockState) Application(name string) (crossmodel.Application, error) {
 	app, ok := m.applications[name]
 	if !ok {
 		return nil, errors.NotFoundf("application %q", name)
@@ -400,8 +408,16 @@ func (st *mockStatePool) Get(modelUUID string) (applicationoffers.Backend, func(
 	return backend, func() {}, nil
 }
 
+type mockCommonStatePool struct {
+	*mockStatePool
+}
+
+func (st *mockCommonStatePool) Get(modelUUID string) (crossmodel.Backend, func(), error) {
+	return st.mockStatePool.Get(modelUUID)
+}
+
 type mockBakeryService struct {
-	authentication.BakeryService
+	authentication.ExpirableStorageBakeryService
 	jtesting.Stub
 	caveats map[string][]checkers.Caveat
 }
@@ -410,4 +426,9 @@ func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checker
 	s.MethodCall(s, "NewMacaroon", id, key, caveats)
 	s.caveats[id] = caveats
 	return macaroon.New(nil, id, "")
+}
+
+func (s *mockBakeryService) ExpireStorageAt(when time.Time) (authentication.ExpirableStorageBakeryService, error) {
+	s.MethodCall(s, "ExpireStorageAt", when)
+	return s, nil
 }

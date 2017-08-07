@@ -402,7 +402,7 @@ func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Enti
 }
 
 func (a *admin) authenticator() authentication.EntityAuthenticator {
-	return a.srv.authCtxt.authenticator(a.root.serverHost)
+	return a.srv.loginAuthCtxt.authenticator(a.root.serverHost)
 }
 
 func (a *admin) maintenanceInProgress() bool {

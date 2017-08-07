@@ -209,7 +209,7 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
-// for authCtxt.externalMacaroonAuth.
+// for loginAuthCtxt.externalMacaroonAuth.
 func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonAuthenticator, error) {
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {

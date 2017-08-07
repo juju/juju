@@ -15,6 +15,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
@@ -31,11 +32,13 @@ var _ = gc.Suite(&crossmodelRelationsSuite{})
 type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mockState
-	bakery     *mockBakeryService
-	api        *crossmodelrelations.CrossModelRelationsAPI
+	resources     *common.Resources
+	authorizer    *apiservertesting.FakeAuthorizer
+	st            *mockState
+	mockStatePool *mockStatePool
+	bakery        *mockBakeryService
+	authContext   *commoncrossmodel.AuthContext
+	api           *crossmodelrelations.CrossModelRelationsAPI
 
 	watchedRelations params.Entities
 }
@@ -43,7 +46,7 @@ type crossmodelRelationsSuite struct {
 func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
+	s.bakery = &mockBakeryService{}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -53,6 +56,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
+	s.mockStatePool = &mockStatePool{map[string]commoncrossmodel.Backend{coretesting.ModelTag.Id(): s.st}}
 	fw := &mockFirewallState{}
 	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, relations params.Entities) (params.StringsWatchResults, error) {
 		c.Assert(fw, gc.Equals, fws)
@@ -66,8 +70,11 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		w.changes <- []watcher.RelationStatusChange{{}}
 		return w, nil
 	}
+	var err error
+	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
+	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
-		s.st, fw, s.resources, s.authorizer, s.bakery, egressAddressWatcher, relationStatusWatcher)
+		s.st, fw, s.resources, s.authorizer, s.authContext, egressAddressWatcher, relationStatusWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -81,11 +88,18 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	rel.units["db2/1"] = ru1
 	rel.units["db2/2"] = ru2
 	s.st.relations["db2:db django:db"] = rel
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerName:       "hosted-db2",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	mac, err := s.bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
@@ -131,6 +145,12 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		OfferName:       "offered",
 		ApplicationName: "offeredapp",
 	}}
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerName:       "hosted-db2",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
 	mac, err := s.bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
@@ -154,16 +174,20 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Check(result.Result.Token, gc.Equals, "token-offeredapp")
 	c.Check(result.Result.Macaroons, gc.HasLen, 1)
-	c.Check(
-		result.Result.Macaroons[0].Id(),
-		gc.Equals,
-		"model-deadbeef-0bad-400d-8000-4b1d0d06f00d relation-offeredapp.local#remote-apptoken.remote")
-	cav := s.bakery.caveats[result.Result.Macaroons[0].Id()]
-	c.Check(cav, gc.HasLen, 4)
-	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
-	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Condition, gc.Equals, "declared relation-key offeredapp:local remote-apptoken:remote")
-	c.Check(cav[3].Condition, gc.Equals, "declared username mary")
+	declared := checkers.InferDeclared(result.Result.Macaroons)
+	c.Assert(declared, jc.DeepEquals, checkers.Declared{
+		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"relation-key":      "offeredapp:local remote-apptoken:remote",
+		"username":          "mary",
+		"offer-url":         "fred/prod.offered",
+	})
+	cav := result.Result.Macaroons[0].Caveats()
+	c.Check(cav, gc.HasLen, 5)
+	c.Check(strings.HasPrefix(cav[0].Id, "time-before "), jc.IsTrue)
+	c.Check(cav[1].Id, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	c.Check(cav[2].Id, gc.Equals, "declared offer-url fred/prod.offered")
+	c.Check(cav[3].Id, gc.Equals, "declared username mary")
+	c.Check(cav[4].Id, gc.Equals, "declared relation-key offeredapp:local remote-apptoken:remote")
 
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
@@ -180,6 +204,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Assert(offerConnection, jc.DeepEquals, &mockOfferConnection{
 		sourcemodelUUID: coretesting.ModelTag.Id(),
 		relationId:      0,
+		relationKey:     "offeredapp:local remote-apptoken:remote",
 		username:        "mary",
 		offerName:       "offered",
 	})
@@ -200,11 +225,18 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	db2Relation := newMockRelation(123)
 	db2Relation.units["django/0"] = djangoRelationUnit
 	s.st.relations["db2:db django:db"] = db2Relation
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerName:       "hosted-db2",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2"
 	mac, err := s.bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.api.RelationUnitSettings(params.RemoteRelationUnits{
@@ -226,10 +258,17 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerName:       "hosted-db2",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
 	mac, err := s.bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
@@ -254,10 +293,17 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 
 func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerName:       "hosted-db2",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
 	mac, err := s.bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
@@ -295,10 +341,17 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 
 func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerName:       "hosted-db2",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
 	mac, err := s.bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.RemoteEntityArgs{

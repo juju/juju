@@ -942,6 +942,11 @@ func (s *state) Close() error {
 	return err
 }
 
+// BakeryClient implements api.Connection.
+func (s *state) BakeryClient() *httpbakery.Client {
+	return s.bakeryClient
+}
+
 // Broken implements api.Connection.
 func (s *state) Broken() <-chan struct{} {
 	return s.broken

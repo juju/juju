@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
@@ -43,6 +44,10 @@ func (APICallerFunc) Close() error {
 
 func (APICallerFunc) HTTPClient() (*httprequest.Client, error) {
 	return nil, errors.New("no HTTP client available in this test")
+}
+
+func (APICallerFunc) BakeryClient() *httpbakery.Client {
+	panic("no bakery client available in this test")
 }
 
 func (APICallerFunc) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
@@ -174,6 +179,22 @@ func NotifyingAPICaller(c *gc.C, called chan<- struct{}, caller base.APICaller) 
 		APICaller: caller,
 		called:    called,
 	}
+}
+
+type apiCallerWithBakery struct {
+	APICallerFunc
+	bakeryClient *httpbakery.Client
+}
+
+func (a *apiCallerWithBakery) BakeryClient() *httpbakery.Client {
+	return a.bakeryClient
+}
+
+// APICallerWithBakery returns an api caller with a bakery client which uses the
+// specified discharge acquirer.
+func APICallerWithBakery(callerFunc APICallerFunc, dischargeAcquirer httpbakery.DischargeAcquirer) *apiCallerWithBakery {
+	client := &httpbakery.Client{DischargeAcquirer: dischargeAcquirer}
+	return &apiCallerWithBakery{callerFunc, client}
 }
 
 // StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.

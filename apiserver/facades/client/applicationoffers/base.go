@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -302,7 +303,7 @@ func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.Applica
 }
 
 func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer, access permission.Access) (
-	*params.ApplicationOffer, Application, error,
+	*params.ApplicationOffer, crossmodel.Application, error,
 ) {
 	app, err := backend.Application(offer.ApplicationName)
 	if err != nil {

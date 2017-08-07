@@ -74,7 +74,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	if err != nil {
 		return nil, nil, nil, errors.NewUnauthorized(err, "")
 	}
-	authenticator := ctxt.srv.authCtxt.authenticator(r.Host)
+	authenticator := ctxt.srv.loginAuthCtxt.authenticator(r.Host)
 	entity, _, err := checkCreds(st, req, true, authenticator)
 	if err != nil {
 		if common.IsDischargeRequiredError(err) {
