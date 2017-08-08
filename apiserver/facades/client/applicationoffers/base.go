@@ -71,7 +71,7 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, erro
 		return nil, false, errors.Trace(err)
 	}
 	for _, uuid := range uuids {
-		m, release, err := api.ControllerModel.GetModel(uuid)
+		m, release, err := api.StatePool.GetModel(uuid)
 		if err != nil {
 			return nil, false, errors.Trace(err)
 		}

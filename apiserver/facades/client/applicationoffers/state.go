@@ -21,6 +21,9 @@ import (
 type StatePool interface {
 	// Get returns a State for a given model from the pool.
 	Get(modelUUID string) (Backend, func(), error)
+
+	// Get returns a Model from the pool.
+	GetModel(modelUUID string) (Model, func(), error)
 }
 
 var GetStatePool = func(sp *state.StatePool) StatePool {
@@ -33,18 +36,23 @@ type statePoolShim struct {
 }
 
 func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
-	st, releaser, err := pool.StatePool.Get(modelUUID)
+	st, release, err := pool.StatePool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
-	}
-	closer := func() {
-		releaser()
 	}
 	return &stateShim{
 		st:      st,
 		Backend: commoncrossmodel.GetBackend(st),
 		pool:    pool.StatePool,
-	}, closer, nil
+	}, func() { release() }, nil
+}
+
+func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
+	m, release, err := pool.StatePool.GetModel(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return &modelShim{m}, func() { release() }, nil
 }
 
 // Backend provides selected methods off the state.State struct.
@@ -55,7 +63,6 @@ type Backend interface {
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	AllModelUUIDs() ([]string, error)
-	GetModel(string) (Model, func() bool, error)
 	ModelTag() names.ModelTag
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 	Space(string) (Space, error)
@@ -65,18 +72,16 @@ type Backend interface {
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 }
 
-var GetStateAccess = func(st *state.State, pool *state.StatePool) Backend {
+var GetStateAccess = func(st *state.State) Backend {
 	return &stateShim{
 		st:      st,
 		Backend: commoncrossmodel.GetBackend(st),
-		pool:    pool,
 	}
 }
 
 type stateShim struct {
 	commoncrossmodel.Backend
-	st   *state.State
-	pool *state.StatePool
+	st *state.State
 }
 
 func (s stateShim) GetAddressAndCertGetter() common.AddressAndCertGetter {
@@ -107,14 +112,6 @@ func (s *stateShim) Space(name string) (Space, error) {
 func (s *stateShim) Model() (Model, error) {
 	m, err := s.st.Model()
 	return &modelShim{m}, err
-}
-
-func (s *stateShim) GetModel(uuid string) (Model, func() bool, error) {
-	model, release, err := s.pool.GetModel(uuid)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return model, release, nil
 }
 
 type stateCharmShim struct {

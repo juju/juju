@@ -83,8 +83,10 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,
-		GetStateAccess(ctx.State(), ctx.StatePool()),
-		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources(),
+		GetStateAccess(ctx.State()),
+		GetStatePool(ctx.StatePool()),
+		ctx.Auth(),
+		ctx.Resources(),
 		authContext.(*commoncrossmodel.AuthContext),
 	)
 }
@@ -380,7 +382,7 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 			return result, errors.Trace(err)
 		}
 		for _, uuid := range uuids {
-			m, release, err := api.ControllerModel.GetModel(uuid)
+			m, release, err := api.StatePool.GetModel(uuid)
 			if err != nil {
 				return result, errors.Trace(err)
 			}

@@ -346,24 +346,6 @@ func (m *mockState) AllModelUUIDs() ([]string, error) {
 	return out, nil
 }
 
-func (m *mockState) GetModel(uuid string) (applicationoffers.Model, func() bool, error) {
-	fakeRelease := func() bool { return true }
-
-	if len(m.allmodels) == 0 {
-		if m.model.UUID() != uuid {
-			return nil, nil, errors.NotFoundf("model")
-		}
-		return m.model, fakeRelease, nil
-	}
-
-	for _, model := range m.allmodels {
-		if model.UUID() == uuid {
-			return model, fakeRelease, nil
-		}
-	}
-	return nil, nil, errors.NotFoundf("model")
-}
-
 func (m *mockState) RemoteConnectionStatus(offerName string) (applicationoffers.RemoteConnectionStatus, error) {
 	return m.connStatus, nil
 }
@@ -429,6 +411,18 @@ func (st *mockStatePool) Get(modelUUID string) (applicationoffers.Backend, func(
 		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
 	}
 	return backend, func() {}, nil
+}
+
+func (st *mockStatePool) GetModel(modelUUID string) (applicationoffers.Model, func(), error) {
+	backend, ok := st.st[modelUUID]
+	if !ok {
+		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
+	}
+	model, err := backend.Model()
+	if err != nil {
+		return nil, nil, err
+	}
+	return model, func() {}, nil
 }
 
 type mockCommonStatePool struct {

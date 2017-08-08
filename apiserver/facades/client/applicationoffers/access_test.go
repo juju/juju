@@ -75,13 +75,14 @@ func (s *offerAccessSuite) revoke(c *gc.C, user names.UserTag, access params.Off
 }
 
 func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) {
-	s.mockState.allmodels = []applicationoffers.Model{
-		&mockModel{uuid: modelUUID, name: modelName, owner: owner}}
+	model := &mockModel{uuid: modelUUID, name: modelName, owner: owner}
+	s.mockState.allmodels = []applicationoffers.Model{model}
 	st := &mockState{
 		modelUUID:         modelUUID,
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		users:             set.NewStrings(),
 		accessPerms:       make(map[offerAccess]permission.Access),
+		model:             model,
 	}
 	s.mockStatePool.st[modelUUID] = st
 	st.applicationOffers[offerName] = jujucrossmodel.ApplicationOffer{}
