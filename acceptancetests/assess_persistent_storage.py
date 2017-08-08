@@ -239,27 +239,17 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
     log.info(
         'Following storage units have been found:\n{}'.format(
         '\n'.join(storage_list)))
-    single_fs_id = ''
-    single_blk_id = ''
-    for elem in storage_list:
-        if elem.startswith('single-fs'):
-            single_fs_id = elem
-            log.info(
-                'Single filesystem storage {} has been found.'.format(
-                single_fs_id))
-        elif elem.startswith('single-blk'):
-            single_blk_id = elem
-            log.info(
-                'Single block device storage {} has been found.'.format(
-                single_blk_id))
-    if single_fs_id == '':
-        raise JujuAssertionError(
-            'Name mismatch on Single filesystem storage.')
-    elif single_blk_id == '':
-        raise JujuAssertionError(
-            'Name mismatch on Single block device storage.')
-    else:
-        log.info('Check name and total number of storage unit: PASSED.')
+    try:
+        single_fs_id = [elem for elem in storage_list
+            if elem.startswith('single-fs')][0]
+    except IndexError:
+        raise JujuAssertionError('Name mismatch on Single filesystem storage.')
+    try:
+        single_blk_id = [elem for elem in storage_list
+            if elem.startswith('single-blk')][0]
+    except IndexError:
+        raise JujuAssertionError('Name mismatch on Single block device storage.')
+    log.info('Check name and total number of storage unit: PASSED.')
     # check type, persistent setting and pool of single block storage unit
     storage_list, storage_type, persistent_setting, pool_storage, pool_setting,\
     storage_status = get_storage_property(client, storage_id=single_blk_id)
