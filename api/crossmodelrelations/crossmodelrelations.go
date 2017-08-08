@@ -6,6 +6,7 @@ package crossmodelrelations
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
@@ -20,12 +21,24 @@ var logger = loggo.GetLogger("juju.api.crossmodelrelations")
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
+
+	cache *MacaroonCache
 }
 
 // NewClient creates a new client-side CrossModelRelations facade.
 func NewClient(caller base.APICallCloser) *Client {
+	return NewClientWithCache(caller, NewMacaroonCache(clock.WallClock))
+}
+
+// NewClientWithCache creates a new client-side CrossModelRelations facade
+// with the specified cache.
+func NewClientWithCache(caller base.APICallCloser, cache *MacaroonCache) *Client {
 	frontend, backend := base.NewClientFacade(caller, "CrossModelRelations")
-	return &Client{ClientFacade: frontend, facade: backend}
+	return &Client{
+		ClientFacade: frontend,
+		facade:       backend,
+		cache:        cache,
+	}
 }
 
 func (c *Client) Close() error {
@@ -44,7 +57,27 @@ func (c *Client) handleError(err error) (macaroon.Slice, error) {
 		return nil, errors.Annotatef(err, "no error info found in discharge-required response error")
 	}
 	logger.Debugf("attempting to discharge macaroon due to error: %v", err)
-	return c.facade.RawAPICaller().BakeryClient().DischargeAll(errResp.Info.Macaroon)
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(errResp.Info.Macaroon)
+	if err == nil && logger.IsTraceEnabled() {
+		logger.Tracef("discharge macaroon ids:")
+		for _, m := range ms {
+			logger.Tracef("  - %v", m.Id())
+		}
+	}
+	return ms, err
+}
+
+func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) {
+	ms, ok := c.cache.Get(token)
+	if ok {
+		logger.Debugf("%s using cached macaroons for %s", opName, token)
+		if logger.IsTraceEnabled() {
+			for _, m := range ms {
+				logger.Tracef("  - %v", m.Id())
+			}
+		}
+	}
+	return ms, ok
 }
 
 // PublishRelationChange publishes relation changes to the
@@ -53,6 +86,11 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 	args := params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("publish relation changed", change.RelationToken); ok {
+		args.Changes[0].Macaroons = ms
+	}
+
 	// We make up to 2 api calls - the second is a retry after a macaroon discharge is obtained.
 	for i := 0; i < 2; i++ {
 		var results params.ErrorResults
@@ -60,18 +98,17 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 			return errors.Trace(err)
 		}
 		err = results.OneError()
-		if err != nil {
-			if params.IsCodeNotFound(err) {
-				return errors.NotFoundf("relation for event %v", change)
+		if params.IsCodeNotFound(err) {
+			return errors.NotFoundf("relation for event %v", change)
+		}
+		if err != nil && i == 0 {
+			mac, err2 := c.handleError(err)
+			if err2 != nil {
+				err = errors.Wrap(err, err2)
+				return err
 			}
-			if i == 0 {
-				mac, err2 := c.handleError(err)
-				if err2 != nil {
-					err = errors.Wrap(err, err2)
-					return err
-				}
-				args.Changes[0].Macaroons = mac
-			}
+			args.Changes[0].Macaroons = mac
+			c.cache.Upsert(args.Changes[0].RelationToken, mac)
 		}
 	}
 	return err
@@ -81,6 +118,11 @@ func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChange
 	args := params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{change},
 	}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("publish ingress network change", change.RelationToken); ok {
+		args.Changes[0].Macaroons = ms
+	}
+
 	// We make up to 2 api calls - the second is a retry after a macaroon discharge is obtained.
 	for i := 0; i < 2; i++ {
 		var results params.ErrorResults
@@ -95,6 +137,7 @@ func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChange
 				return err
 			}
 			args.Changes[0].Macaroons = mac
+			c.cache.Upsert(args.Changes[0].RelationToken, mac)
 		}
 	}
 	return err
@@ -110,6 +153,15 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 
 	result := make([]params.RegisterRemoteRelationResult, len(relations))
 	args = params.RegisterRemoteRelationArgs{Relations: relations}
+
+	// Use any previously cached discharge macaroons.
+	for i, arg := range relations {
+		if ms, ok := c.getCachedMacaroon("register remote relation", arg.RelationToken); ok {
+			newArg := arg
+			newArg.Macaroons = ms
+			args.Relations[i] = newArg
+		}
+	}
 
 	// We make up to 2 api calls - the second is a retry after a macaroon discharge is obtained.
 	for i := 0; i < 2; i++ {
@@ -140,6 +192,7 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 				retryArg.Macaroons = mac
 				args.Relations = append(args.Relations, retryArg)
 				retryIndices = append(retryIndices, i)
+				c.cache.Upsert(retryArg.RelationToken, mac)
 			}
 			if len(args.Relations) == 0 {
 				break
@@ -159,6 +212,11 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 // units in the remote model for the relation with the given remote token.
 func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch relation units", remoteRelationArg.Token); ok {
+		args.Args[0].Macaroons = ms
+	}
+
 	var result params.RelationUnitsWatchResult
 
 	// We make up to 2 api calls - the second is a retry after a macaroon discharge is obtained.
@@ -179,6 +237,7 @@ func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (w
 				return nil, err
 			}
 			args.Args[0].Macaroons = mac
+			c.cache.Upsert(args.Args[0].Token, mac)
 		}
 	}
 	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
@@ -194,6 +253,15 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 
 	result := make([]params.SettingsResult, len(relationUnits))
 	args = params.RemoteRelationUnits{RelationUnits: relationUnits}
+
+	// Use any previously cached discharge macaroons.
+	for i, arg := range args.RelationUnits {
+		if ms, ok := c.getCachedMacaroon("relation unit settings", arg.RelationToken); ok {
+			newArg := arg
+			newArg.Macaroons = ms
+			args.RelationUnits[i] = newArg
+		}
+	}
 
 	// We make up to 2 api calls - the second is a retry after a macaroon discharge is obtained.
 	for i := 0; i < 2; i++ {
@@ -223,6 +291,7 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 				retryArg.Macaroons = mac
 				args.RelationUnits = append(args.RelationUnits, retryArg)
 				retryIndices = append(retryIndices, i)
+				c.cache.Upsert(retryArg.RelationToken, mac)
 			}
 			if len(args.RelationUnits) == 0 {
 				break
@@ -243,6 +312,11 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 // to allow for access to the other side of the relation.
 func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.RemoteEntityArg) (watcher.StringsWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch relation egress addresses", remoteRelationArg.Token); ok {
+		args.Args[0].Macaroons = ms
+	}
+
 	var result params.StringsWatchResult
 
 	// We make up to 2 api calls - the second is a retry after a macaroon discharge is obtained.
@@ -263,6 +337,7 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 				return nil, err
 			}
 			args.Args[0].Macaroons = mac
+			c.cache.Upsert(args.Args[0].Token, mac)
 		}
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
@@ -273,6 +348,11 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 // status of the specified relation in the remote model.
 func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{arg}}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch relation status", arg.Token); ok {
+		args.Args[0].Macaroons = ms
+	}
+
 	var result params.RelationStatusWatchResult
 
 	// We make up to 2 api calls - the second is a retry after a macaroon discharge is obtained.
@@ -293,6 +373,7 @@ func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.Relati
 				return nil, err
 			}
 			args.Args[0].Macaroons = mac
+			c.cache.Upsert(arg.Token, mac)
 		}
 	}
 	w := apiwatcher.NewRelationStatusWatcher(c.facade.RawAPICaller(), result)

@@ -420,10 +420,10 @@ type RegisterRemoteRelationResults struct {
 	Results []RegisterRemoteRelationResult `json:"results,omitempty"`
 }
 
-// RemoteRelationDetails holds a remote relation token corresponding macaroons.
+// RemoteRelationDetails holds a remote relation token and corresponding macaroon.
 type RemoteRelationDetails struct {
-	Token     string         `json:"relation-token"`
-	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+	Token    string             `json:"relation-token"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 }
 
 // RemoteEntityArgs holds arguments to an API call dealing with remote relations.

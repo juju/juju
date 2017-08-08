@@ -173,15 +173,14 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 	c.Check(result.Result.Token, gc.Equals, "token-offeredapp")
-	c.Check(result.Result.Macaroons, gc.HasLen, 1)
-	declared := checkers.InferDeclared(result.Result.Macaroons)
+	declared := checkers.InferDeclared(macaroon.Slice{result.Result.Macaroon})
 	c.Assert(declared, jc.DeepEquals, checkers.Declared{
 		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"relation-key":      "offeredapp:local remote-apptoken:remote",
 		"username":          "mary",
 		"offer-url":         "fred/prod.offered",
 	})
-	cav := result.Result.Macaroons[0].Caveats()
+	cav := result.Result.Macaroon.Caveats()
 	c.Check(cav, gc.HasLen, 5)
 	c.Check(strings.HasPrefix(cav[0].Id, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Id, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")

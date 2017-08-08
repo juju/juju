@@ -294,8 +294,8 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
 	return &params.RemoteRelationDetails{
-		Token:     token,
-		Macaroons: macaroon.Slice{relationMacaroon},
+		Token:    token,
+		Macaroon: relationMacaroon,
 	}, nil
 }
 

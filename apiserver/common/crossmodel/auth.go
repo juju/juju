@@ -27,8 +27,14 @@ const (
 	sourcemodelKey = "source-model-uuid"
 	relationKey    = "relation-key"
 
-	offerPermissionCaveat          = "has-offer-permission"
-	localOfferPermissionExpiryTime = 2 * time.Minute
+	offerPermissionCaveat = "has-offer-permission"
+
+	// localOfferPermissionExpiryTime is used to expire offer macaroons.
+	// It should be long enough to allow machines hosting workloads to
+	// be provisioned so that the macaroon is still valid when the macaroon
+	// is next used. If a machine takes longer, that's ok, a new discharge
+	// will be obtained.
+	localOfferPermissionExpiryTime = 5 * time.Minute
 )
 
 // AuthContext is used to validate macaroons used to access
