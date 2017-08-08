@@ -16,13 +16,12 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 )
 
-// ConnectFunc describes what we need to check whether the connection
-// details are set up correctly for the specified agent.
+// ConnectFunc connects to the API as the given agent.
 type ConnectFunc func(agent.Agent) (io.Closer, error)
 
-// ReallyConnect really connects to the API specified in the agent
+// ConnectAsAgent really connects to the API specified in the agent
 // config. It's extracted so tests can pass something else in.
-func ReallyConnect(a agent.Agent) (io.Closer, error) {
+func ConnectAsAgent(a agent.Agent) (io.Closer, error) {
 	return apicaller.ScaryConnect(a, api.Open)
 }
 
@@ -47,7 +46,7 @@ func (c *checkConnectionCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "check-connection",
 		Args:    "<agent-name>",
-		Purpose: "check connection to the API server",
+		Purpose: "check connection to the API server for the specified agent",
 	}
 }
 
@@ -57,15 +56,15 @@ func (c *checkConnectionCommand) Init(args []string) error {
 		return &util.FatalError{"agent-name argument is required"}
 	}
 	agentName, args := args[0], args[1:]
+	if err := cmd.CheckEmpty(args); err != nil {
+		return err
+	}
 	tag, err := names.ParseTag(agentName)
 	if err != nil {
 		return errors.Annotatef(err, "agent-name")
 	}
 	if tag.Kind() != "machine" && tag.Kind() != "unit" {
 		return &util.FatalError{"agent-name must be a machine or unit tag"}
-	}
-	if err := cmd.CheckEmpty(args); err != nil {
-		return err
 	}
 	err = c.config.ReadConfig(agentName)
 	if err != nil {
