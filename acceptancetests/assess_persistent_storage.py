@@ -24,19 +24,24 @@ __metaclass__ = type
 log = logging.getLogger("assess_persistent_storage")
 
 
-def assert_equal(msg, found, expected):
+def assert_equal(error_msg, found, expected):
     if found != expected:
         raise JujuAssertionError('{} Found: {}\nExpected: {}'.format(
             msg, found, expected))
 
 
-def wait_for_storage_list_update(client, storage_id, interval, timeout):
+def wait_for_storage_status_update(client, storage_id, interval, timeout):
+    """The sole purpose of this function is to wait until an update of storage
+       status occurred. Due to the asynchronous nature of Juju, the status of
+       storage may change time to time after a Juju CLI issued, in this test
+       only the existence of storage id is the point of interest.
+       This function does not judge the changed status, it will be done by the
+       assert function after it, as the conditions of assert may vary."""
     for ignored in until_timeout(timeout):
         time.sleep(interval)
         storage_list = get_storage_list(client)[0]
         if storage_id not in storage_list:
             break
-    return storage_list
 
 
 def get_storage_list(client):
@@ -85,16 +90,16 @@ def assert_app_status(client, charm_name, expected):
         client.get_juju_output('status', '--format', 'json', include_e=False))
     app_status = status_output['applications'][charm_name]['application-status']['current']
     assert_equal(
-        msg='App status is incorrect.', found=app_status, expected=expected)
+        error_msg='App status is incorrect.', found=app_status, expected=expected)
     log.info('The current status of app {} is: {}; Expected: {}'.format(
         charm_name, app_status, expected))
 
 
-def assert_storage_number(storage_list, expected):
+def assert_storage_count(storage_list, expected):
     log.info('Checking total number of storage unit(s).')
     found = len(storage_list)
     assert_equal(
-        msg='Unexpected number of storage unit(s).',
+        error_msg='Unexpected number of storage unit(s).',
         found=found, expected=expected)
     log.info(
         'Found {} storage unit(s). Expected: {}.'.format(found, expected))
@@ -125,7 +130,7 @@ def assert_persistent_setting(storage_id, found, expected):
         'Checking persistent setting of storage unit {}.'.format(
         storage_id))
     err_msg = 'Incorrect value of persistent setting on storage unit {}.'.format(storage_id)
-    assert_equal(msg=err_msg, found=found, expected=expected)
+    assert_equal(error_msg=err_msg, found=found, expected=expected)
     log.info(
         'Persistent setting of storage unit {}, '
         'Found: {}; Expected: {}.'.format(storage_id, found, expected))
@@ -135,9 +140,9 @@ def assert_storage_status(found_id, expected_id, found_status, expected_status):
     log.info(
         'Checking the status of storage {} in volumes.'.format(expected_id))
     volume_err_msg = '{} missing from volumes.'.format(expected_id)
-    assert_equal(msg=volume_err_msg, found=found_id, expected=expected_id)
+    assert_equal(error_msg=volume_err_msg, found=found_id, expected=expected_id)
     status_err_msg = 'Incorrect status for {}.'.format(found_id)
-    assert_equal(msg=status_err_msg, found=found_status, expected=expected_status)
+    assert_equal(error_msg=status_err_msg, found=found_status, expected=expected_status)
     log.info(
         'The current status of storage {} in volumes is: {}; '
         'Expected: {}.'.format(found_id, found_status, expected_status))
@@ -149,14 +154,13 @@ def assert_app_removal_msg(client, charm_name):
     # merge_stderr=True is required
     app_removal_output = client.get_juju_output(
         'remove-application', charm_name, '--show-log', include_e=False, merge_stderr=True)
-    # pre-set the result to FAILED
-    remove_app_output_check = 'FAILED'
+    remove_app_output_check = False
     for line in app_removal_output.split('\n'):
         if 'will remove unit {}'.format(charm_name) in line:
             log.info(line)
-            remove_app_output_check = 'PASSED'
+            remove_app_output_check = True
             break
-    if remove_app_output_check != 'PASSED':
+    if not remove_app_output_check:
         raise JujuAssertionError(
             'Missing application name in remove-application output message.')
     else:
@@ -166,14 +170,13 @@ def assert_app_removal_msg(client, charm_name):
 
 
 def assert_single_fs_removal_msg(single_fs_id, app_removal_output):
-    # pre-set the result to FAILED
-    remove_single_fs_output_check = 'FAILED'
+    remove_single_fs_output_check = False
     for line in app_removal_output.split('\n'):
         if 'will remove storage {}'.format(single_fs_id) in line:
             log.info(line)
-            remove_single_fs_output_check = 'PASSED'
+            remove_single_fs_output_check = True
             break
-    if remove_single_fs_output_check != 'PASSED':
+    if not remove_single_fs_output_check:
         raise JujuAssertionError(
             'Missing single filesystem id {} in '
             'remove-application output message.'.format(single_fs_id))
@@ -184,14 +187,13 @@ def assert_single_fs_removal_msg(single_fs_id, app_removal_output):
 
 
 def assert_single_blk_detach_msg(single_blk_id, app_removal_output):
-    # pre-set the result to FAILED
-    detach_single_blk_output_check = 'FAILED'
+    detach_single_blk_output_check = False
     for line in app_removal_output.split('\n'):
         if 'will detach storage {}'.format(single_blk_id) in line:
             log.info(line)
-            detach_single_blk_output_check = 'PASSED'
+            detach_single_blk_output_check = True
             break
-    if detach_single_blk_output_check != 'PASSED':
+    if not detach_single_blk_output_check:
         raise JujuAssertionError(
             'Missing single block device id {} in '
             'remove-application output message.'.format(single_blk_id))
@@ -233,7 +235,7 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
     assert_app_status(client, charm_name=charm_name, expected='active')
     storage_list = get_storage_list(client)[0]
     # check the total number of storage unit(s) and name(s)
-    assert_storage_number(storage_list=storage_list, expected=2)
+    assert_storage_count(storage_list=storage_list, expected=2)
     log.info(
         'Following storage units have been found:\n{}'.format(
         '\n'.join(storage_list)))
@@ -318,9 +320,10 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
         single_blk_id=single_blk_id, app_removal_output=app_removal_output)
     # storage status change after remove-application takes some time.
     # from experiments even 30 seconds is not enough.
-    storage_list = wait_for_storage_list_update(
+    wait_for_storage_status_update(
         client, storage_id=single_fs_id, interval=15, timeout=90)
-    assert_storage_number(storage_list=storage_list, expected=1)
+    storage_list = get_storage_list(client)[0]
+    assert_storage_count(storage_list=storage_list, expected=1)
     if single_fs_id in storage_list:
         raise JujuAssertionError(
             '{} should be removed along with remove-application.'.format(
@@ -370,7 +373,7 @@ def assess_deploy_charm_with_existing_storage_and_removal(client):
     assert_app_status(client, charm_name=charm_name, expected='active')
     storage_list, storage_type, persistent_setting, pool_storage, pool_setting,\
     storage_status = get_storage_property(client, storage_id=single_blk_id)
-    assert_storage_number(storage_list=storage_list, expected=1)
+    assert_storage_count(storage_list=storage_list, expected=1)
     assert_single_blk_existence(
         storage_list=storage_list, storage_id=single_blk_id)
     assert_persistent_setting(
@@ -381,8 +384,9 @@ def assess_deploy_charm_with_existing_storage_and_removal(client):
     # Run juju remove-application dummy-storage
     client.get_juju_output('remove-application', charm_name, include_e=False)
     # persistent storage single_blk_id should remain after remove-application
-    storage_list = wait_for_storage_list_update(
+    wait_for_storage_status_update(
         client, storage_id=single_blk_id, interval=15, timeout=90)
+    storage_list = get_storage_list(client)[0]
     assert_single_blk_existence(
         storage_list=storage_list, storage_id=single_blk_id)
     # Run juju remove-storage <single_blk_id>
@@ -390,8 +394,9 @@ def assess_deploy_charm_with_existing_storage_and_removal(client):
     # https://bugs.launchpad.net/juju/+bug/1704105
     client.get_juju_output(
         'remove-storage', single_blk_id, include_e=False, merge_stderr=True)
-    storage_list = wait_for_storage_list_update(
+    wait_for_storage_status_update(
         client, storage_id=single_blk_id, interval=15, timeout=90)
+    storage_list = get_storage_list(client)[0]
     assert_single_blk_removal(
         storage_list=storage_list, storage_id=single_blk_id)
 
