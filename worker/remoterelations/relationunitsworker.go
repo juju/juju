@@ -30,7 +30,7 @@ type relationUnitsWorker struct {
 	changes     chan<- params.RemoteRelationChangeEvent
 
 	applicationToken    string
-	macaroon            *macaroon.Macaroon
+	macaroons           macaroon.Slice
 	remoteRelationToken string
 
 	unitSettingsFunc relationUnitsSettingsFunc
@@ -39,7 +39,7 @@ type relationUnitsWorker struct {
 func newRelationUnitsWorker(
 	relationTag names.RelationTag,
 	applicationToken string,
-	macaroon *macaroon.Macaroon,
+	macaroons macaroon.Slice,
 	remoteRelationToken string,
 	ruw watcher.RelationUnitsWatcher,
 	changes chan<- params.RemoteRelationChangeEvent,
@@ -48,7 +48,7 @@ func newRelationUnitsWorker(
 	w := &relationUnitsWorker{
 		relationTag:         relationTag,
 		applicationToken:    applicationToken,
-		macaroon:            macaroon,
+		macaroons:           macaroons,
 		remoteRelationToken: remoteRelationToken,
 		ruw:                 ruw,
 		changes:             changes,
@@ -129,7 +129,7 @@ func (w *relationUnitsWorker) relationUnitsChangeEvent(
 		RelationToken:    w.remoteRelationToken,
 		Life:             params.Alive,
 		ApplicationToken: w.applicationToken,
-		Macaroons:        macaroon.Slice{w.macaroon},
+		Macaroons:        w.macaroons,
 		DepartedUnits:    make([]int, len(change.Departed)),
 	}
 	for i, u := range change.Departed {

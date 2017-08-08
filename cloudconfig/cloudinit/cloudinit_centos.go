@@ -8,13 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/feature"
 )
 
 //PackageHelper is the interface for configuring specific parameter of the package manager
@@ -236,9 +233,6 @@ func (cfg *centOSCloudConfig) AddPackageCommands(
 func (cfg *centOSCloudConfig) addRequiredPackages() {
 
 	packages := cfg.helper.getRequiredPackages()
-	if featureflag.Enabled(feature.DeveloperMode) {
-		packages = append(packages, "socat")
-	}
 
 	// The required packages need to come from the correct repo.
 	// For CentOS 7, this requires an rpm cloud archive be up.

@@ -23,6 +23,7 @@ type OfferConnection struct {
 type offerConnectionDoc struct {
 	DocID           string `bson:"_id"`
 	RelationId      int    `bson:"relation-id"`
+	RelationKey     string `bson:"relation-key"`
 	OfferName       string `bson:"offer-name"`
 	UserName        string `bson:"username"`
 	SourceModelUUID string `bson:"source-model-uuid"`
@@ -56,6 +57,11 @@ func (oc *OfferConnection) SourceModelUUID() string {
 	return oc.doc.SourceModelUUID
 }
 
+// RelationKey is the key of the relation to which this connection pertains.
+func (oc *OfferConnection) RelationKey() string {
+	return oc.doc.RelationKey
+}
+
 func removeOfferConnectionsForRelationOps(relId int) []txn.Op {
 	op := txn.Op{
 		C:      offerConnectionsC,
@@ -84,6 +90,9 @@ type AddOfferConnectionParams struct {
 
 	// RelationId is the id of the relation to which this offer pertains.
 	RelationId int
+
+	// RelationKey is the key of the relation to which this offer pertains.
+	RelationKey string
 }
 
 func validateOfferConnectionParams(args AddOfferConnectionParams) (err error) {
@@ -119,6 +128,7 @@ func (st *State) AddOfferConnection(args AddOfferConnectionParams) (_ *OfferConn
 		OfferName:       args.OfferName,
 		UserName:        args.Username,
 		RelationId:      args.RelationId,
+		RelationKey:     args.RelationKey,
 		DocID:           fmt.Sprintf("%d", args.RelationId),
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -161,6 +171,19 @@ func (st *State) AllOfferConnections() (conns []*OfferConnection, err error) {
 		conns = append(conns, newOfferConnection(st, &v))
 	}
 	return conns, nil
+}
+
+// OfferConnectionForRelation returns the offer connection for the specified relation.
+func (st *State) OfferConnectionForRelation(relationKey string) (*OfferConnection, error) {
+	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
+	defer closer()
+
+	var connDoc offerConnectionDoc
+	err := offerConnectionCollection.Find(bson.D{{"relation-key", relationKey}}).One(&connDoc)
+	if err != nil {
+		return nil, errors.Errorf("cannot get offer connection details for relation %q", relationKey)
+	}
+	return newOfferConnection(st, &connDoc), nil
 }
 
 // RemoteConnectionStatus returns summary information about connections to the specified offer.

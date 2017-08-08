@@ -10,13 +10,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/feature"
 )
 
 // ubuntuCloudConfig is the cloudconfig type specific to Ubuntu machines
@@ -274,9 +271,6 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 		"bridge-utils",
 		"cloud-utils",
 		"tmux",
-	}
-	if featureflag.Enabled(feature.DeveloperMode) {
-		packages = append(packages, "socat")
 	}
 
 	// The required packages need to come from the correct repo.

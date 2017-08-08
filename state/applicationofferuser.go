@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/permission"
 )
 
-// GetOfferAccess gets the access permission for the specifed user on an offer.
+// GetOfferAccess gets the access permission for the specified user on an offer.
 func (st *State) GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error) {
 	offerUUID, err := applicationOfferUUID(st, offer.Name)
 	if err != nil {
