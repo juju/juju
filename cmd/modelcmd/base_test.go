@@ -64,7 +64,7 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	conn, err := baseCmd.NewAPIRoot()
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.There are 1 accessible models on controller "foo".`)
+	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.`)
 	c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
 	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals, jujuclient.ModelDetails{"deadbeef2"})
 	c.Assert(s.store.Models["foo"].CurrentModel, gc.Equals, expectedCurrent)

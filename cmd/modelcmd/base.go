@@ -170,15 +170,7 @@ func (c *CommandBase) missingModelError(store jujuclient.ClientStore, controller
 			logger.Warningf("cannot reset current model: %v", err)
 		}
 	}
-	errorMessage := "model %q has been removed from the controller, run 'juju models' and switch to one of them."
-	modelInfoMessage := "\nThere are %d accessible models on controller %q."
-	models, err := store.AllModels(controllerName)
-	if err == nil {
-		modelInfoMessage = fmt.Sprintf(modelInfoMessage, len(models), controllerName)
-	} else {
-		modelInfoMessage = ""
-	}
-	return errors.Errorf(errorMessage+modelInfoMessage, modelName)
+	return errors.Errorf("model %q has been removed from the controller, run 'juju models' and switch to one of them.", modelName)
 }
 
 // NewAPIConnectionParams returns a juju.NewAPIConnectionParams with the
