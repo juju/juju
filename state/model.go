@@ -182,6 +182,7 @@ func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 }
 
 // AllModelUUIDs returns the UUIDs for all models in the controller.
+// Results are sorted by (name, owner).
 func (st *State) AllModelUUIDs() ([]string, error) {
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()

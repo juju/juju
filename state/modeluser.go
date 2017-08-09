@@ -172,6 +172,7 @@ func (st *State) removeModelUser(user names.UserTag) error {
 
 // ModelsForUser returns a list of models that the user
 // is able to access.
+// Results are sorted by (name, owner).
 func (st *State) ModelsForUser(user names.UserTag) ([]string, error) {
 	// Consider the controller permissions overriding Model permission, for
 	// this case the only relevant one is superuser.
@@ -213,17 +214,16 @@ func (st *State) ModelsForUser(user names.UserTag) ([]string, error) {
 		"_id":            bson.M{"$in": modelUUIDs},
 		"life":           bson.M{"$ne": Dead},
 		"migration-mode": bson.M{"$ne": MigrationModeImporting},
-	}).Select(bson.M{"_id": 1})
+	}).Sort("name", "owner").Select(bson.M{"_id": 1})
 
 	var docs []bson.M
 	err = query.All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	var out []string
-	for _, doc := range docs {
-		out = append(out, doc["_id"].(string))
+	out := make([]string, len(docs))
+	for i, doc := range docs {
+		out[i] = doc["_id"].(string)
 	}
 	return out, nil
 }
