@@ -66,11 +66,16 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, erro
 		ownerName = user.Id()
 	}
 	var model Model
-	models, err := api.ControllerModel.AllModels()
+	uuids, err := api.ControllerModel.AllModelUUIDs()
 	if err != nil {
-		return nil, false, err
+		return nil, false, errors.Trace(err)
 	}
-	for _, m := range models {
+	for _, uuid := range uuids {
+		m, release, err := api.StatePool.GetModel(uuid)
+		if err != nil {
+			return nil, false, errors.Trace(err)
+		}
+		defer release()
 		if m.Name() == modelName && m.Owner().Id() == ownerName {
 			model = m
 			break

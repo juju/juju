@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -60,7 +61,13 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
-	apiserverClient, err := client.NewFacade(st, common.NewResources(), auth)
+	context := &facadetest.Context{
+		State_:     st,
+		StatePool_: s.StatePool,
+		Auth_:      auth,
+		Resources_: common.NewResources(),
+	}
+	apiserverClient, err := client.NewFacade(context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.newEnviron = func() (environs.Environ, error) {
 		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{st}, environs.New)

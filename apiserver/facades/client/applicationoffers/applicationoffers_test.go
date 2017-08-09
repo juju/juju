@@ -449,12 +449,12 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 		return nil, nil
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred"}
-	s.mockState.allmodels = []applicationoffers.Model{
-		s.mockState.model,
-		&mockModel{uuid: "uuid2", name: "test", owner: "fred"},
+	anotherModel := &mockModel{uuid: "uuid2", name: "test", owner: "fred"}
+	s.mockStatePool.st["uuid2"] = &mockState{
+		modelUUID: "uuid2",
+		model:     anotherModel,
 	}
-	anotherState := &mockState{modelUUID: "uuid2"}
-	s.mockStatePool.st["uuid2"] = anotherState
+	s.mockState.allmodels = []applicationoffers.Model{s.mockState.model, anotherModel}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -497,11 +497,12 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		"test": &mockApplication{
 			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db": "myspace"}},
 	}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred"}
-	s.mockState.allmodels = []applicationoffers.Model{
-		s.mockState.model,
-		&mockModel{uuid: "uuid2", name: "test", owner: "mary"},
-	}
+
+	model := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred"}
+	anotherModel := &mockModel{uuid: "uuid2", name: "test", owner: "mary"}
+
+	s.mockState.model = model
+	s.mockState.allmodels = []applicationoffers.Model{model, anotherModel}
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
@@ -532,6 +533,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		users:       set.NewStrings(),
 		accessPerms: make(map[offerAccess]permission.Access),
 		spaces:      make(map[string]applicationoffers.Space),
+		model:       anotherModel,
 	}
 	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
@@ -1048,10 +1050,11 @@ func (s *consumeSuite) setupOffer() {
 	modelUUID := testing.ModelTag.Id()
 	offerName := "hosted-mysql"
 
-	s.mockState.allmodels = []applicationoffers.Model{
-		&mockModel{uuid: modelUUID, name: "prod", owner: "fred"}}
+	model := &mockModel{uuid: modelUUID, name: "prod", owner: "fred"}
+	s.mockState.allmodels = []applicationoffers.Model{model}
 	st := &mockState{
 		modelUUID:         modelUUID,
+		model:             model,
 		applications:      make(map[string]crossmodel.Application),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		users:             set.NewStrings(),

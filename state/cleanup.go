@@ -200,11 +200,29 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
 
-	models, err := st.AllModels()
+	// We need access State instances for all hosted models and it's
+	// too hard to thread an external StatePool to here, so create a
+	// fresh one. Creating new States is relatively slow but this is
+	// ok because this is an infrequently used code path.
+	pool := NewStatePool(st)
+	defer pool.Close()
+
+	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, model := range models {
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := pool.Get(modelUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer release()
+
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		if err := model.Destroy(args); err != nil {
 			return errors.Trace(err)
 		}

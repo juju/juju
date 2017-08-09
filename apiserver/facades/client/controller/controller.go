@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -74,8 +73,7 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 	return &ControllerAPIv3{
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI: common.NewModelStatusAPI(
-			common.NewModelManagerBackend(st),
-			common.NewBackendPool(ctx.StatePool()),
+			common.NewModelManagerBackend(st, ctx.StatePool()),
 			authorizer,
 			apiUser,
 		),
@@ -107,53 +105,41 @@ func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 		return result, errors.Trace(err)
 	}
 
-	// Get all the models that the authenticated user can see, and
-	// supplement that with the other models that exist that the user
-	// cannot see. The reason we do this is to get the LastConnection
-	// time for the models that the user is able to see, so we have
-	// consistent output when listing with or without --all when an
-	// admin user.
-	models, err := s.state.ModelsForUser(s.apiUser)
+	modelUUIDs, err := s.state.AllModelUUIDs()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	visibleModels := set.NewStrings()
-	for _, model := range models {
-		lastConn, err := model.LastConnection()
-		if err != nil && !state.IsNeverConnectedError(err) {
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := s.statePool.Get(modelUUID)
+		if err != nil {
 			return result, errors.Trace(err)
 		}
-		visibleModels.Add(model.UUID())
-		result.UserModels = append(result.UserModels, params.UserModel{
+		defer release()
+
+		model, err := st.Model()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
+		userModel := params.UserModel{
 			Model: params.Model{
 				Name:     model.Name(),
 				UUID:     model.UUID(),
 				OwnerTag: model.Owner().String(),
 			},
-			LastConnection: &lastConn,
-		})
-	}
-
-	allModels, err := s.state.AllModels()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	for _, model := range allModels {
-		if !visibleModels.Contains(model.UUID()) {
-			result.UserModels = append(result.UserModels, params.UserModel{
-				Model: params.Model{
-					Name:     model.Name(),
-					UUID:     model.UUID(),
-					OwnerTag: model.Owner().String(),
-				},
-				// No LastConnection as this user hasn't.
-			})
 		}
-	}
 
-	// Sort the resulting sequence by environment name, then owner.
-	sort.Sort(orderedUserModels(result.UserModels))
+		lastConn, err := st.LastModelConnection(s.apiUser)
+		if err != nil {
+			if !state.IsNeverConnectedError(err) {
+				return result, errors.Trace(err)
+			}
+		} else {
+			userModel.LastConnection = &lastConn
+		}
+
+		result.UserModels = append(result.UserModels, userModel)
+	}
 
 	return result, nil
 }
@@ -213,11 +199,11 @@ func (s *ControllerAPIv3) ModelConfig() (params.ModelConfigResults, error) {
 		return result, errors.Trace(err)
 	}
 
-	controllerModel, err := s.state.ControllerModel()
+	controllerState := s.statePool.SystemState()
+	controllerModel, err := controllerState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
 	cfg, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -241,18 +227,23 @@ func (s *ControllerAPIv3) HostedModelConfigs() (params.HostedModelConfigsResults
 		return result, errors.Trace(err)
 	}
 
-	controllerModel, err := s.state.ControllerModel()
+	modelUUIDs, err := s.state.AllModelUUIDs()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	allModels, err := s.state.AllModels()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
+	for _, modelUUID := range modelUUIDs {
+		if modelUUID != s.state.ControllerModelUUID() {
+			st, release, err := s.statePool.Get(modelUUID)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			defer release()
+			model, err := st.Model()
+			if err != nil {
+				return result, errors.Trace(err)
+			}
 
-	for _, model := range allModels {
-		if model.UUID() != controllerModel.UUID() {
 			config := params.HostedModelConfig{
 				Name:     model.Name(),
 				OwnerTag: model.Owner().String(),
@@ -298,33 +289,6 @@ func (c *ControllerAPIv3) WatchAllModels() (params.AllWatcherId, error) {
 	return params.AllWatcherId{
 		AllWatcherId: c.resources.Register(w),
 	}, nil
-}
-
-type orderedBlockInfo []params.ModelBlockInfo
-
-func (o orderedBlockInfo) Len() int {
-	return len(o)
-}
-
-func (o orderedBlockInfo) Less(i, j int) bool {
-	if o[i].Name < o[j].Name {
-		return true
-	}
-	if o[i].Name > o[j].Name {
-		return false
-	}
-
-	if o[i].OwnerTag < o[j].OwnerTag {
-		return true
-	}
-	if o[i].OwnerTag > o[j].OwnerTag {
-		return false
-	}
-
-	// Unreachable based on the rules of there not being duplicate
-	// environments of the same name for the same owner, but return false
-	// instead of panicing.
-	return false
 }
 
 // GetControllerAccess returns the level of access the specifed users
@@ -428,7 +392,7 @@ func (c *ControllerAPIv3) initiateOneMigration(spec params.MigrationSpec) (strin
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, &targetInfo); err != nil {
+	if err := runMigrationPrechecks(hostedState, c.statePool, &targetInfo); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -484,9 +448,9 @@ func (c *ControllerAPIv3) ModifyControllerAccess(args params.ModifyControllerAcc
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
-var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.TargetInfo) error {
+var runMigrationPrechecks = func(st *state.State, pool *state.StatePool, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
-	backend, err := migration.PrecheckShim(st)
+	backend, err := migration.PrecheckShim(st, pool)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
@@ -500,7 +464,7 @@ var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.Targ
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer conn.Close()
-	modelInfo, err := makeModelInfo(st)
+	modelInfo, err := makeModelInfo(st, pool.SystemState())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -520,7 +484,7 @@ var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.Targ
 	return errors.Annotate(err, "target prechecks failed")
 }
 
-func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
+func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, error) {
 	var empty coremigration.ModelInfo
 
 	model, err := st.Model()
@@ -536,7 +500,7 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 	agentVersion, _ := conf.AgentVersion()
 
 	// Retrieve agent version for the controller.
-	controllerModel, err := st.ControllerModel()
+	controllerModel, err := ctlrSt.Model()
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -641,17 +605,13 @@ func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.
 	}
 }
 
-func (o orderedBlockInfo) Swap(i, j int) {
-	o[i], o[j] = o[j], o[i]
-}
+type orderedBlockInfo []params.ModelBlockInfo
 
-type orderedUserModels []params.UserModel
-
-func (o orderedUserModels) Len() int {
+func (o orderedBlockInfo) Len() int {
 	return len(o)
 }
 
-func (o orderedUserModels) Less(i, j int) bool {
+func (o orderedBlockInfo) Less(i, j int) bool {
 	if o[i].Name < o[j].Name {
 		return true
 	}
@@ -672,6 +632,6 @@ func (o orderedUserModels) Less(i, j int) bool {
 	return false
 }
 
-func (o orderedUserModels) Swap(i, j int) {
+func (o orderedBlockInfo) Swap(i, j int) {
 	o[i], o[j] = o[j], o[i]
 }

@@ -34,6 +34,7 @@ type modelInfoSuite struct {
 	coretesting.BaseSuite
 	authorizer   apiservertesting.FakeAuthorizer
 	st           *mockState
+	ctlrSt       *mockState
 	modelmanager *modelmanager.ModelManagerAPI
 }
 
@@ -69,7 +70,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 					Value: "spam"}}},
 		},
 	}
-	s.st.controllerModel = &mockModel{
+	controllerModel := &mockModel{
 		owner: names.NewUserTag("admin@local"),
 		life:  state.Alive,
 		cfg:   coretesting.ModelConfig(c),
@@ -88,6 +89,12 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			userName: "otheruser",
 			access:   permission.AdminAccess,
 		}},
+	}
+	s.st.controllerModel = controllerModel
+
+	s.ctlrSt = &mockState{
+		model:           controllerModel,
+		controllerModel: controllerModel,
 	}
 
 	s.st.model = &mockModel{
@@ -136,14 +143,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, nil, &s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, nil, nil, s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -201,7 +208,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
-		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
+		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
@@ -209,7 +216,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
 		{"AllMachines", nil},
 		{"LatestMigration", nil},
-		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
@@ -560,6 +566,21 @@ type fakeModelDescription struct {
 	UUID string `yaml:"model-uuid"`
 }
 
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return st.model.UUID()
+}
+
+func (st *mockState) ControllerModelUUID() string {
+	st.MethodCall(st, "ControllerModelUUID")
+	return st.controllerModel.tag.Id()
+}
+
+func (st *mockState) ControllerModelTag() names.ModelTag {
+	st.MethodCall(st, "ControllerModelTag")
+	return st.controllerModel.tag
+}
+
 func (st *mockState) Export() (description.Model, error) {
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
@@ -568,13 +589,23 @@ func (st *mockState) ExportPartial(state.ExportConfig) (description.Model, error
 	return st.Export()
 }
 
-func (st *mockState) ModelUUID() string {
-	st.MethodCall(st, "ModelUUID")
-	return st.model.UUID()
+func (st *mockState) AllModelUUIDs() ([]string, error) {
+	st.MethodCall(st, "AllModelUUIDs")
+	return []string{st.model.UUID()}, st.NextErr()
 }
 
-func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
-	st.MethodCall(st, "ModelsForUser", user)
+func (st *mockState) GetBackend(modelUUID string) (common.ModelManagerBackend, func() bool, error) {
+	st.MethodCall(st, "GetBackend", modelUUID)
+	return st, func() bool { return true }, st.NextErr()
+}
+
+func (st *mockState) GetModel(modelUUID string) (common.Model, func() bool, error) {
+	st.MethodCall(st, "GetModel", modelUUID)
+	return st.model, func() bool { return true }, st.NextErr()
+}
+
+func (st *mockState) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
+	st.MethodCall(st, "ModelUUIDsForUser", user)
 	return nil, st.NextErr()
 }
 
@@ -652,16 +683,6 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	}, st.NextErr()
 }
 
-func (st *mockState) ForModel(tag names.ModelTag) (common.ModelManagerBackend, error) {
-	st.MethodCall(st, "ForModel", tag)
-	return st, st.NextErr()
-}
-
-func (st *mockState) GetModel(tag names.ModelTag) (common.Model, error) {
-	st.MethodCall(st, "GetModel", tag)
-	return st.model, st.NextErr()
-}
-
 func (st *mockState) Model() (common.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()
@@ -670,11 +691,6 @@ func (st *mockState) Model() (common.Model, error) {
 func (st *mockState) ModelTag() names.ModelTag {
 	st.MethodCall(st, "ModelTag")
 	return st.model.ModelTag()
-}
-
-func (st *mockState) AllModels() ([]common.Model, error) {
-	st.MethodCall(st, "AllModels")
-	return []common.Model{st.model}, st.NextErr()
 }
 
 func (st *mockState) AllMachines() ([]common.Machine, error) {
@@ -1025,13 +1041,4 @@ func (m *mockMigration) StartTime() time.Time {
 
 func (m *mockMigration) EndTime() time.Time {
 	return m.end
-}
-
-type mockPool struct {
-	st *mockState
-}
-
-func (p *mockPool) Get(modelUUID string) (common.ModelManagerBackend, func(), error) {
-	p.st.MethodCall(p, "Get", modelUUID)
-	return p.st, func() {}, p.st.NextErr()
 }

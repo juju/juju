@@ -670,13 +670,13 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 
-	models, err := st.AllModels()
+	uuids, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var ids []string
-	for _, m := range models {
-		ids = append(ids, m.UUID()+":e")
+	for _, uuid := range uuids {
+		ids = append(ids, uuid+":e")
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
@@ -709,13 +709,13 @@ func AddUpdateStatusHookSettings(st *State) error {
 	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 
-	models, err := st.AllModels()
+	uuids, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var ids []string
-	for _, m := range models {
-		ids = append(ids, m.UUID()+":e")
+	for _, uuid := range uuids {
+		ids = append(ids, uuid+":e")
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()

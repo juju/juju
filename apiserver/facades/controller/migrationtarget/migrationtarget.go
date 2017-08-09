@@ -83,7 +83,7 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	backend, err := migration.PrecheckShim(api.state)
+	backend, err := migration.PrecheckShim(api.state, api.pool)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}

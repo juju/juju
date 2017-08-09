@@ -21,6 +21,9 @@ type Backend interface {
 	// ModelTag the tag of the model on which we are operating.
 	ModelTag() names.ModelTag
 
+	// AllModelUUIDs returns the UUIDs of all models in the controller.
+	AllModelUUIDs() ([]string, error)
+
 	// ControllerTag the tag of the controller in which we are operating.
 	ControllerTag() names.ControllerTag
 

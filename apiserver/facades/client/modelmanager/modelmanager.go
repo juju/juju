@@ -71,7 +71,7 @@ type ModelManagerV2 interface {
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
-	pool        common.BackendPool
+	ctlrState   common.ModelManagerBackend
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
@@ -100,13 +100,17 @@ var (
 // NewFacadeV4 is used for API registration.
 func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
-	auth := ctx.Auth()
 	pool := ctx.StatePool()
+	ctlrSt := pool.SystemState()
+	auth := ctx.Auth()
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 
 	return NewModelManagerAPI(
-		common.NewModelManagerBackend(st),
-		common.NewBackendPool(pool), configGetter, auth)
+		common.NewModelManagerBackend(st, pool),
+		common.NewModelManagerBackend(ctlrSt, pool),
+		configGetter,
+		auth,
+	)
 }
 
 // NewFacadeV3 is used for API registration.
@@ -131,7 +135,7 @@ func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 // models.
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
-	pool common.BackendPool,
+	ctlrSt common.ModelManagerBackend,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
 ) (*ModelManagerAPI, error) {
@@ -149,9 +153,9 @@ func NewModelManagerAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		ModelStatusAPI: common.NewModelStatusAPI(st, pool, authorizer, apiUser),
+		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
-		pool:           pool,
+		ctlrState:      ctlrSt,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
@@ -264,7 +268,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
-	controllerModel, err := m.state.ControllerModel()
+	controllerModel, err := m.ctlrState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -416,14 +420,14 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte
 		return nil, common.ErrPerm
 	}
 
-	st, releaser, err := m.pool.Get(modelTag.Id())
+	st, release, err := m.state.GetBackend(modelTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.Trace(common.ErrBadId)
 		}
 		return nil, errors.Trace(err)
 	}
-	defer releaser()
+	defer release()
 
 	var exportConfig state.ExportConfig
 	if simplified {
@@ -486,13 +490,13 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 
 	st := m.state
 	if st.ModelTag() != modelTag {
-		newSt, releaser, err := m.pool.Get(modelTag.Id())
+		newSt, release, err := m.state.GetBackend(modelTag.Id())
 		if errors.IsNotFound(err) {
 			return nil, errors.Trace(common.ErrBadId)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer releaser()
+		defer release()
 		st = newSt
 	}
 
@@ -571,14 +575,20 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	models, err := m.state.ModelsForUser(userTag)
+	modelUUIDs, err := m.state.ModelUUIDsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, model := range models {
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := m.state.GetBackend(modelUUID)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		defer release()
+
 		var lastConn *time.Time
-		userLastConn, err := model.LastConnection()
+		userLastConn, err := st.LastModelConnection(userTag)
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)
@@ -586,6 +596,12 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		} else {
 			lastConn = &userLastConn
 		}
+
+		model, err := st.Model()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     model.Name(),
@@ -625,19 +641,22 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
 
-	destroyModel := func(tag names.ModelTag, destroyStorage *bool) error {
-		model, err := m.state.GetModel(tag)
+	destroyModel := func(modelUUID string, destroyStorage *bool) error {
+		model, releaseModel, err := m.state.GetModel(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer releaseModel()
 		if err := m.authCheck(model.Owner()); err != nil {
 			return errors.Trace(err)
 		}
-		st, releaser, err := m.pool.Get(tag.Id())
+
+		st, releaseSt, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer releaser()
+		defer releaseSt()
+
 		return errors.Trace(common.DestroyModel(st, destroyStorage))
 	}
 
@@ -647,7 +666,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := destroyModel(tag, arg.DestroyStorage); err != nil {
+		if err := destroyModel(tag.Id(), arg.DestroyStorage); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -681,13 +700,13 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 }
 
 func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
-	st, err := m.state.ForModel(tag)
+	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
-	defer st.Close()
+	defer release()
 
 	model, err := st.Model()
 	if errors.IsNotFound(err) {
@@ -893,11 +912,11 @@ func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin boo
 // changeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
 func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.Access, userIsAdmin bool) error {
-	st, err := accessor.ForModel(modelTag)
+	st, release, err := accessor.GetBackend(modelTag.Id())
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
 	}
-	defer st.Close()
+	defer release()
 
 	if err := userAuthorizedToChangeAccess(st, userIsAdmin, apiUser); err != nil {
 		return errors.Trace(err)

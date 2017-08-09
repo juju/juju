@@ -84,7 +84,9 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		GetApplicationOffers,
 		environFromModel,
 		GetStateAccess(ctx.State()),
-		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources(),
+		GetStatePool(ctx.StatePool()),
+		ctx.Auth(),
+		ctx.Resources(),
 		authContext.(*commoncrossmodel.AuthContext),
 	)
 }
@@ -375,11 +377,16 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 	// any models the user can see and query across those.
 	// If there's more than one filter term, each must specify a model.
 	if len(filters.Filters) == 1 && filters.Filters[0].ModelName == "" {
-		allModels, err := api.ControllerModel.AllModels()
+		uuids, err := api.ControllerModel.AllModelUUIDs()
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		for _, m := range allModels {
+		for _, uuid := range uuids {
+			m, release, err := api.StatePool.GetModel(uuid)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			defer release()
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name()
 			modelFilter.OwnerName = m.Owner().Name()

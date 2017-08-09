@@ -170,85 +170,61 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-// UserModel contains information about an model that a
-// user has access to.
-type UserModel struct {
-	*Model
-	User names.UserTag
-}
-
-// LastConnection returns the last time the user has connected to the
-// model.
-func (e *UserModel) LastConnection() (time.Time, error) {
-	db, dbCloser := e.modelDatabase()
-	defer dbCloser()
-	lastConnections, lastConnCloser := db.GetRawCollection(modelUserLastConnectionC)
-	defer lastConnCloser()
-
-	lastConnDoc := modelUserLastConnectionDoc{}
-	id := ensureModelUUID(e.ModelTag().Id(), strings.ToLower(e.User.Id()))
-	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
-	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
-		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Id()))
-	}
-
-	return lastConnDoc.LastConnection, nil
-}
-
-// allUserModels returns a list of all models with the user they belong to.
-func (st *State) allUserModels() ([]*UserModel, error) {
-	models, err := st.AllModels()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var result []*UserModel
-	for _, model := range models {
-		result = append(result, &UserModel{Model: model, User: model.Owner()})
-	}
-	return result, nil
-}
-
-// ModelsForUser returns a list of models that the user
-// is able to access.
-func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
+// ModelUUIDsForUser returns a list of models that the user is able to
+// access.
+// Results are sorted by (name, owner).
+func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 	// Consider the controller permissions overriding Model permission, for
 	// this case the only relevant one is superuser.
 	// The mgo query below wont work for superuser case because it needs at
 	// least one model user per model.
 	access, err := st.UserAccess(user, st.controllerTag)
-	if err == nil && access.Access == permission.SuperuserAccess {
-		return st.allUserModels()
-	}
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	// Since there are no groups at this stage, the simplest way to get all
-	// the models that a particular user can see is to look through the
-	// model user collection. A raw collection is required to support
-	// queries across multiple models.
-	modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
-	defer userCloser()
 
-	var userSlice []userAccessDoc
-	err = modelUsers.Find(bson.D{{"user", user.Id()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []*UserModel
-	for _, doc := range userSlice {
-		modelTag := names.NewModelTag(doc.ObjectUUID)
-		model, err := st.GetModel(modelTag)
+	var modelUUIDs []string
+	if access.Access == permission.SuperuserAccess {
+		var err error
+		modelUUIDs, err = st.AllModelUUIDs()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+	} else {
+		// Since there are no groups at this stage, the simplest way to get all
+		// the models that a particular user can see is to look through the
+		// model user collection. A raw collection is required to support
+		// queries across multiple models.
+		modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
+		defer userCloser()
 
-		if model.Life() != Dead && model.MigrationMode() != MigrationModeImporting {
-			result = append(result, &UserModel{Model: model, User: user})
+		var userSlice []userAccessDoc
+		err := modelUsers.Find(bson.D{{"user", user.Id()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
+		if err != nil {
+			return nil, err
+		}
+		for _, doc := range userSlice {
+			modelUUIDs = append(modelUUIDs, doc.ObjectUUID)
 		}
 	}
 
-	return result, nil
+	modelsColl, close := st.db().GetCollection(modelsC)
+	defer close()
+	query := modelsColl.Find(bson.M{
+		"_id":            bson.M{"$in": modelUUIDs},
+		"migration-mode": bson.M{"$ne": MigrationModeImporting},
+	}).Sort("name", "owner").Select(bson.M{"_id": 1})
+
+	var docs []bson.M
+	err = query.All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]string, len(docs))
+	for i, doc := range docs {
+		out[i] = doc["_id"].(string)
+	}
+	return out, nil
 }
 
 // IsControllerAdmin returns true if the user specified has Super User Access.

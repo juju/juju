@@ -97,7 +97,7 @@ func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModel", nil},
+		{"ControllerModelTag", nil},
 		{"GetBlockForType", []interface{}{state.DestroyBlock}},
 		{"GetBlockForType", []interface{}{state.RemoveBlock}},
 		{"GetBlockForType", []interface{}{state.ChangeBlock}},
@@ -114,7 +114,7 @@ func (s *destroyModelSuite) TestDestroyControllerReleaseStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModel", nil},
+		{"ControllerModelTag", nil},
 		{"GetBlockForType", []interface{}{state.DestroyBlock}},
 		{"GetBlockForType", []interface{}{state.RemoveBlock}},
 		{"GetBlockForType", []interface{}{state.ChangeBlock}},
@@ -132,15 +132,15 @@ func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModel", nil},
-		{"AllModels", nil},
+		{"ControllerModelTag", nil},
+		{"AllModelUUIDs", nil},
 
-		{"ForModel", []interface{}{s.modelManager.models[0].tag}},
+		{"GetBackend", []interface{}{s.modelManager.models[0].tag.Id()}},
 		{"GetBlockForType", []interface{}{state.DestroyBlock}},
 		{"GetBlockForType", []interface{}{state.RemoveBlock}},
 		{"GetBlockForType", []interface{}{state.ChangeBlock}},
 
-		{"ForModel", []interface{}{s.modelManager.models[1].tag}},
+		{"GetBackend", []interface{}{s.modelManager.models[1].tag.Id()}},
 		{"GetBlockForType", []interface{}{state.DestroyBlock}},
 		{"GetBlockForType", []interface{}{state.RemoveBlock}},
 		{"GetBlockForType", []interface{}{state.ChangeBlock}},
@@ -149,8 +149,6 @@ func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
 		{"GetBlockForType", []interface{}{state.RemoveBlock}},
 		{"GetBlockForType", []interface{}{state.ChangeBlock}},
 		{"Model", nil},
-		{"Close", nil},
-		{"Close", nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
 		{"Destroy", []interface{}{state.DestroyModelParams{
@@ -181,18 +179,14 @@ type mockModelManager struct {
 	models []*mockModel
 }
 
-func (m *mockModelManager) AllModels() ([]common.Model, error) {
-	m.MethodCall(m, "AllModels")
-	models := make([]common.Model, len(m.models))
-	for i, model := range m.models {
-		models[i] = model
-	}
-	return models, m.NextErr()
+func (m *mockModelManager) ControllerModelUUID() string {
+	m.MethodCall(m, "ControllerModelUUID")
+	return m.models[0].UUID()
 }
 
-func (m *mockModelManager) ControllerModel() (common.Model, error) {
-	m.MethodCall(m, "ControllerModel")
-	return m.models[0], m.NextErr()
+func (m *mockModelManager) ControllerModelTag() names.ModelTag {
+	m.MethodCall(m, "ControllerModelTag")
+	return m.models[0].ModelTag()
 }
 
 func (m *mockModelManager) ModelTag() names.ModelTag {
@@ -204,14 +198,23 @@ func (m *mockModelManager) GetBlockForType(t state.BlockType) (state.Block, bool
 	return nil, false, m.NextErr()
 }
 
+func (m *mockModelManager) AllModelUUIDs() ([]string, error) {
+	m.MethodCall(m, "AllModelUUIDs")
+	var out []string
+	for _, model := range m.models {
+		out = append(out, model.UUID())
+	}
+	return out, nil
+}
+
 func (m *mockModelManager) Model() (common.Model, error) {
 	m.MethodCall(m, "Model")
 	return m.models[0], m.NextErr()
 }
 
-func (m *mockModelManager) ForModel(tag names.ModelTag) (common.ModelManagerBackend, error) {
-	m.MethodCall(m, "ForModel", tag)
-	return m, m.NextErr()
+func (m *mockModelManager) GetBackend(uuid string) (common.ModelManagerBackend, func() bool, error) {
+	m.MethodCall(m, "GetBackend", uuid)
+	return m, func() bool { return true }, m.NextErr()
 }
 
 func (m *mockModelManager) Close() error {
@@ -227,6 +230,10 @@ type mockModel struct {
 
 func (m *mockModel) ModelTag() names.ModelTag {
 	return m.tag
+}
+
+func (m *mockModel) UUID() string {
+	return m.tag.Id()
 }
 
 func (m *mockModel) Destroy(args state.DestroyModelParams) error {

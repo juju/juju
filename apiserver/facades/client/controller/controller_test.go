@@ -262,6 +262,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     st,
+			StatePool_: s.statePool,
 			Resources_: common.NewResources(),
 			Auth_:      authorizer,
 		})

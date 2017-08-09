@@ -89,13 +89,16 @@ func (s *cmdUpgradeSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdUpgradeSuite) assertHostModelAgentVersion(c *gc.C, desiredAgentVersion string) {
-	userModels, err := s.State.ModelsForUser(s.hostedModelUserTag)
+	modelUUIDs, err := s.State.ModelUUIDsForUser(s.hostedModelUserTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var desiredModel *state.UserModel
-	for _, m := range userModels {
-		if m.Name() == s.hostedModel {
-			desiredModel = m
+	var desiredModel *state.Model
+	for _, modelUUID := range modelUUIDs {
+		model, release, err := s.StatePool.GetModel(modelUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		defer release()
+		if model.Name() == s.hostedModel {
+			desiredModel = model
 		}
 	}
 	c.Assert(desiredModel, gc.NotNil)

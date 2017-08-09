@@ -62,9 +62,9 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 type binaryStorageSuite struct {
 	ConnSuite
 
-	controllerUUID string
-	modelUUID      string
-	st             *state.State
+	controllerModelUUID string
+	modelUUID           string
+	st                  *state.State
 }
 
 var _ = gc.Suite(&binaryStorageSuite{})
@@ -72,10 +72,7 @@ var _ = gc.Suite(&binaryStorageSuite{})
 func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
-	// Store the controller UUID.
-	model, err := s.State.ControllerModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.controllerUUID = model.UUID()
+	s.controllerModelUUID = s.State.ControllerModelUUID()
 
 	// Create a new model and store its UUID.
 	s.modelUUID = utils.MustNewUUID().String()
@@ -83,6 +80,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		"name": "new-model",
 		"uuid": s.modelUUID,
 	})
+	var err error
 	_, s.st, err = s.State.NewModel(state.ModelArgs{
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -115,7 +113,7 @@ func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {
 }
 
 func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
-	s.testStorageParams(c, "guimetadata", []string{s.controllerUUID}, s.st.GUIStorage)
+	s.testStorageParams(c, "guimetadata", []string{s.controllerModelUUID}, s.st.GUIStorage)
 }
 
 func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {

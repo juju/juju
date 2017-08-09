@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -362,142 +361,84 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
-func (s *ModelUserSuite) TestModelsForUserNone(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserNone(c *gc.C) {
 	tag := names.NewUserTag("non-existent@remote")
-	models, err := s.State.ModelsForUser(tag)
+	models, err := s.State.ModelUUIDsForUser(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
 }
 
-func (s *ModelUserSuite) TestModelsForUserNewLocalUser(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserNewLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	models, err := s.State.ModelsForUser(user.UserTag())
+	models, err := s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
 }
 
-func (s *ModelUserSuite) TestModelsForUser(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelsForUser(user.UserTag())
+	models, err := s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 1)
-	c.Assert(models[0].UUID(), gc.Equals, s.State.ModelUUID())
-	st, err := s.State.ForModel(models[0].ModelTag())
+	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
+
+	modelTag := names.NewModelTag(models[0])
+	st, err := s.State.ForModel(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	modelUser, err := s.State.UserAccess(user.UserTag(), models[0].ModelTag())
-	when, err := st.LastModelConnection(modelUser.UserTag)
+
+	access, err := s.State.UserAccess(user.UserTag(), modelTag)
+	when, err := st.LastModelConnection(access.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
-func (s *ModelUserSuite) TestDeadModelsForUser(c *gc.C) {
+func (s *ModelUserSuite) TestImportingModelUUIDsForUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelsForUser(user.UserTag())
+	models, err := s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 1)
-	c.Assert(models[0].UUID(), gc.Equals, s.State.ModelUUID())
+	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
 
-	err = state.SetModelLifeDead(s.State, models[0].UUID())
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	models, err = s.State.ModelsForUser(user.UserTag())
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	models, err = s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
 }
 
-func (s *ModelUserSuite) TestImportingModelsForUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 1)
-	c.Assert(models[0].UUID(), gc.Equals, s.State.ModelUUID())
-
-	err = models[0].SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
-	models, err = s.State.ModelsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 0)
-}
-
-func (s *ModelUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag) *state.Model {
-	// Don't use the factory to call MakeModel because it may at some
-	// time in the future be modified to do additional things.  Instead call
-	// the state method directly to create an model to make sure that
-	// the owner is able to access the model.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": name,
-		"uuid": uuid.String(),
-	})
-	model, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	return model
-}
-
-func (s *ModelUserSuite) TestModelsForUserEnvOwner(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserModelOwner(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
-	model := s.newEnvWithOwner(c, "test-model", owner)
+	model := s.newModelWithOwner(c, owner)
 
-	models, err := s.State.ModelsForUser(owner)
+	models, err := s.State.ModelUUIDsForUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 1)
-	s.checkSameModel(c, models[0].Model, model)
+	c.Assert(models, jc.DeepEquals, []string{model.UUID()})
 }
 
-func (s *ModelUserSuite) checkSameModel(c *gc.C, env1, env2 *state.Model) {
-	c.Check(env1.Name(), gc.Equals, env2.Name())
-	c.Check(env1.UUID(), gc.Equals, env2.UUID())
-}
-
-func (s *ModelUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) *state.Model {
-	envState := s.Factory.MakeModel(c, &factory.ModelParams{Name: name})
-	defer envState.Close()
-	newEnv, err := envState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = envState.AddModelUser(
-		envState.ModelUUID(),
-		state.UserAccessSpec{
-			User: user, CreatedBy: newEnv.Owner(),
-			Access: permission.ReadAccess,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	return newEnv
-}
-
-func (s *ModelUserSuite) TestModelsForUserOfNewEnv(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserOfNewModel(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
-	model := s.newEnvWithUser(c, "test-model", userTag)
+	model := s.newModelWithUser(c, userTag)
 
-	models, err := s.State.ModelsForUser(userTag)
+	models, err := s.State.ModelUUIDsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 1)
-	s.checkSameModel(c, models[0].Model, model)
+	c.Assert(models, jc.DeepEquals, []string{model.UUID()})
 }
 
-func (s *ModelUserSuite) TestModelsForUserMultiple(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserMultiple(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
-	expected := []*state.Model{
-		s.newEnvWithUser(c, "user1", userTag),
-		s.newEnvWithUser(c, "user2", userTag),
-		s.newEnvWithUser(c, "user3", userTag),
-		s.newEnvWithOwner(c, "owner1", userTag),
-		s.newEnvWithOwner(c, "owner2", userTag),
+	expected := []string{
+		s.newModelWithUser(c, userTag).UUID(),
+		s.newModelWithUser(c, userTag).UUID(),
+		s.newModelWithUser(c, userTag).UUID(),
+		s.newModelWithOwner(c, userTag).UUID(),
+		s.newModelWithOwner(c, userTag).UUID(),
 	}
-	sort.Sort(UUIDOrder(expected))
 
-	models, err := s.State.ModelsForUser(userTag)
+	models, err := s.State.ModelUUIDsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, len(expected))
-	sort.Sort(userUUIDOrder(models))
-	for i := range expected {
-		s.checkSameModel(c, models[i].Model, expected[i])
-	}
+	c.Assert(models, jc.SameContents, expected)
 }
 
 func (s *ModelUserSuite) TestIsControllerAdmin(c *gc.C) {
@@ -536,16 +477,40 @@ func (s *ModelUserSuite) TestIsControllerAdminFromOtherState(c *gc.C) {
 	c.Assert(isAdmin, jc.IsTrue)
 }
 
-// UUIDOrder is used to sort the models into a stable order
-type UUIDOrder []*state.Model
+func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.Model {
+	// Don't use the factory to call MakeModel because it may at some
+	// time in the future be modified to do additional things.  Instead call
+	// the state method directly to create an model to make sure that
+	// the owner is able to access the model.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	uuidStr := uuid.String()
 
-func (a UUIDOrder) Len() int           { return len(a) }
-func (a UUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a UUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": uuidStr[:8],
+		"uuid": uuidStr,
+	})
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	return model
+}
 
-// userUUIDOrder is used to sort the UserModels into a stable order
-type userUUIDOrder []*state.UserModel
+func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag) *state.Model {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	newEnv, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
-func (a userUUIDOrder) Len() int           { return len(a) }
-func (a userUUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a userUUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }
+	_, err = st.AddModelUser(
+		st.ModelUUID(),
+		state.UserAccessSpec{
+			User: user, CreatedBy: newEnv.Owner(),
+			Access: permission.ReadAccess,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	return newEnv
+}

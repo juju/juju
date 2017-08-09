@@ -451,13 +451,6 @@ func (m *mockBackend) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.modelUUID)
 }
 
-func (m *mockBackend) AllModels() ([]application.Model, error) {
-	if len(m.allmodels) > 0 {
-		return m.allmodels, nil
-	}
-	return []application.Model{m.model}, nil
-}
-
 type mockBlockChecker struct {
 	jtesting.Stub
 }

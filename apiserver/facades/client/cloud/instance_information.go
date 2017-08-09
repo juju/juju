@@ -45,12 +45,7 @@ func instanceTypes(api *CloudAPI,
 	environGet environGetFunc,
 	cons params.CloudInstanceTypesConstraints,
 ) (params.InstanceTypesResults, error) {
-	c, err := api.backend.ControllerModel()
-	if err != nil {
-		return params.InstanceTypesResults{}, errors.Trace(err)
-	}
-	modelTag := c.ModelTag()
-	m, err := api.backend.GetModel(modelTag)
+	m, err := api.backend.GetModel(api.backend.ControllerModelTag())
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}

@@ -125,8 +125,7 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 		return deletions, errors.Trace(err)
 	}
 
-	// Get a handle on the controller model.
-	controllerModel, err := api.state.ControllerModel()
+	controllerOwner, err := api.state.ControllerOwner()
 	if err != nil {
 		return deletions, errors.Trace(err)
 	}
@@ -150,7 +149,7 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 			continue
 		}
 
-		if controllerModel.Owner().Id() == user.Id() {
+		if controllerOwner.Id() == user.Id() {
 			deletions.Results[i].Error = common.ServerError(
 				errors.Errorf("cannot delete controller owner %q", user.Name()))
 			continue

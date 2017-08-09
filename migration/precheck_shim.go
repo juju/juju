@@ -12,13 +12,14 @@ import (
 )
 
 // PrecheckShim wraps a *state.State to implement PrecheckBackend.
-func PrecheckShim(st *state.State) (PrecheckBackend, error) {
+func PrecheckShim(st *state.State, pool *state.StatePool) (PrecheckBackend, error) {
 	rSt, err := st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &precheckShim{
 		State:       st,
+		pool:        pool,
 		resourcesSt: rSt,
 	}, nil
 }
@@ -27,6 +28,7 @@ func PrecheckShim(st *state.State) (PrecheckBackend, error) {
 // inspection.
 type precheckShim struct {
 	*state.State
+	pool        *state.StatePool
 	resourcesSt state.Resources
 }
 
@@ -41,12 +43,21 @@ func (s *precheckShim) Model() (PrecheckModel, error) {
 
 // AllModels implements PrecheckBackend.
 func (s *precheckShim) AllModels() ([]PrecheckModel, error) {
-	models, err := s.State.AllModels()
+	modelUUIDs, err := s.State.AllModelUUIDs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckModel, 0, len(models))
-	for _, model := range models {
+	out := make([]PrecheckModel, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		st, release, err := s.pool.Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer release()
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		out = append(out, model)
 	}
 	return out, nil
@@ -107,11 +118,7 @@ func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, er
 
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
-	model, err := s.State.ControllerModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	st, err := s.State.ForModel(model.ModelTag())
+	st, err := s.State.ForModel(s.State.ControllerModelTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

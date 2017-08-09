@@ -112,6 +112,20 @@ func (s *StateSuite) TestIsController(c *gc.C) {
 	c.Assert(st2.IsController(), jc.IsFalse)
 }
 
+func (s *StateSuite) TestControllerOwner(c *gc.C) {
+	owner, err := s.State.ControllerOwner()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(owner, gc.Equals, s.Owner)
+
+	// Check that other models return the same controller owner.
+	otherSt := s.Factory.MakeModel(c, nil)
+	defer otherSt.Close()
+
+	owner2, err := otherSt.ControllerOwner()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(owner2, gc.Equals, s.Owner)
+}
+
 func (s *StateSuite) TestUserModelNameIndex(c *gc.C) {
 	index := state.UserModelNameIndex("BoB", "testing")
 	c.Assert(index, gc.Equals, "bob:testing")

@@ -37,28 +37,26 @@ func DestroyController(
 	destroyStorage *bool,
 ) error {
 	modelTag := st.ModelTag()
-	controllerModel, err := st.ControllerModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if modelTag != controllerModel.ModelTag() {
+	controllerModelTag := st.ControllerModelTag()
+	if modelTag != controllerModelTag {
 		return errors.Errorf(
 			"expected state for controller model UUID %v, got %v",
-			controllerModel.ModelTag().Id(),
+			controllerModelTag.Id(),
 			modelTag.Id(),
 		)
 	}
 	if destroyHostedModels {
-		models, err := st.AllModels()
+		uuids, err := st.AllModelUUIDs()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, model := range models {
-			modelSt, err := st.ForModel(model.ModelTag())
-			defer modelSt.Close()
+		for _, uuid := range uuids {
+			modelSt, release, err := st.GetBackend(uuid)
 			if err != nil {
 				return errors.Trace(err)
 			}
+			defer release()
+
 			check := NewBlockChecker(modelSt)
 			if err = check.DestroyAllowed(); err != nil {
 				return errors.Trace(err)

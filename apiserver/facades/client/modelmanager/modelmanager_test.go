@@ -54,7 +54,7 @@ func createArgs(owner names.UserTag) params.ModelCreateArgs {
 type modelManagerSuite struct {
 	gitjujutesting.IsolationSuite
 	st         *mockState
-	pool       *mockPool
+	ctlrSt     *mockState
 	authoriser apiservertesting.FakeAuthorizer
 	api        *modelmanager.ModelManagerAPI
 }
@@ -78,32 +78,34 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
+	controllerModel := &mockModel{
+		owner: names.NewUserTag("admin"),
+		life:  state.Alive,
+		cfg:   cfg,
+		status: status.StatusInfo{
+			Status: status.Available,
+			Since:  &time.Time{},
+		},
+		users: []*mockModelUser{{
+			userName: "admin",
+			access:   permission.AdminAccess,
+		}, {
+			userName: "add-model",
+			access:   permission.AdminAccess,
+		}, {
+
+			userName: "otheruser",
+			access:   permission.WriteAccess,
+		}},
+	}
+
 	s.st = &mockState{
 		block: -1,
 		cloud: dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
-		controllerModel: &mockModel{
-			owner: names.NewUserTag("admin"),
-			life:  state.Alive,
-			cfg:   cfg,
-			status: status.StatusInfo{
-				Status: status.Available,
-				Since:  &time.Time{},
-			},
-			users: []*mockModelUser{{
-				userName: "admin",
-				access:   permission.AdminAccess,
-			}, {
-				userName: "add-model",
-				access:   permission.AdminAccess,
-			}, {
-
-				userName: "otheruser",
-				access:   permission.WriteAccess,
-			}},
-		},
+		controllerModel: controllerModel,
 		model: &mockModel{
 			owner: names.NewUserTag("admin"),
 			life:  state.Alive,
@@ -142,18 +144,26 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		},
 		modelConfig: coretesting.ModelConfig(c),
 	}
+	s.ctlrSt = &mockState{
+		model:           controllerModel,
+		controllerModel: controllerModel,
+		cred:            cloud.NewEmptyCredential(),
+		cloud:           dummyCloud,
+		clouds: map[names.CloudTag]cloud.Cloud{
+			names.NewCloudTag("some-cloud"): dummyCloud,
+		},
+	}
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
-	s.pool = &mockPool{s.st}
-	api, err := modelmanager.NewModelManagerAPI(s.st, s.pool, nil, s.authoriser)
+	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	mm, err := modelmanager.NewModelManagerAPI(s.st, s.pool, nil, s.authoriser)
+	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -187,21 +197,19 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerTag",
 		"ModelUUID",
 		"ControllerTag",
-		"ControllerModel",
 		"Cloud",
 		"CloudCredential",
 		"ControllerConfig",
 		"ComposeNewModelConfig",
 		"NewModel",
 		"ReloadSpaces",
-		"ForModel",
+		"GetBackend",
 		"Model",
 		"LastModelConnection",
 		"LastModelConnection",
 		"LastModelConnection",
 		"AllMachines",
 		"LatestMigration",
-		"Close",
 		"Close",
 	)
 
@@ -258,7 +266,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
-	s.st.SetErrors(nil, errors.NotFoundf("cloud"))
+	s.st.SetErrors(errors.NotFoundf("cloud"))
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -326,7 +334,7 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 }
 
 func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
-	s.st.SetErrors(nil, nil, errors.NotFoundf("credential"))
+	s.st.SetErrors(nil, errors.NotFoundf("credential"))
 	args := params.ModelCreateArgs{
 		Name:               "foo",
 		OwnerTag:           "user-admin",
@@ -553,7 +561,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
-		{"Get", []interface{}{tag.Id()}},
+		{"GetBackend", []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -612,7 +620,7 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
 		{"ModelTag", nil},
-		{"Get", []interface{}{tag.Id()}},
+		{"GetBackend", []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -688,7 +696,7 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 		"ControllerTag",
 		"ModelUUID",
 		"GetModel",
-		"Get",
+		"GetBackend",
 		"GetBlockForType",
 		"GetBlockForType",
 		"GetBlockForType",
@@ -735,8 +743,8 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State),
-		nil,
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		stateenvirons.EnvironConfigGetter{s.State},
 		s.authoriser,
 	)
@@ -748,7 +756,9 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State), nil, nil, anAuthoriser,
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		nil, anAuthoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -758,7 +768,9 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State), nil, nil, anAuthoriser,
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		nil, anAuthoriser,
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -972,12 +984,10 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-	pool := state.NewStatePool(st)
-	defer pool.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st),
-		common.NewBackendPool(pool),
+		common.NewModelManagerBackend(st, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1006,13 +1016,11 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-	pool := state.NewStatePool(st)
-	defer pool.Close()
 
 	s.authoriser.Tag = s.AdminUserTag(c)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st),
-		common.NewBackendPool(pool),
+		common.NewModelManagerBackend(st, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
 		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1042,7 +1050,9 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	defer st.Close()
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st), nil, nil, s.authoriser,
+		common.NewModelManagerBackend(st, s.StatePool),
+		common.NewModelManagerBackend(s.State, s.StatePool),
+		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

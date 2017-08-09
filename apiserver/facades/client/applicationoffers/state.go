@@ -21,6 +21,9 @@ import (
 type StatePool interface {
 	// Get returns a State for a given model from the pool.
 	Get(modelUUID string) (Backend, func(), error)
+
+	// Get returns a Model from the pool.
+	GetModel(modelUUID string) (Model, func(), error)
 }
 
 var GetStatePool = func(sp *state.StatePool) StatePool {
@@ -33,14 +36,22 @@ type statePoolShim struct {
 }
 
 func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
-	st, releaser, err := pool.StatePool.Get(modelUUID)
+	st, release, err := pool.StatePool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	closer := func() {
-		releaser()
+	return &stateShim{
+		st:      st,
+		Backend: commoncrossmodel.GetBackend(st),
+	}, func() { release() }, nil
+}
+
+func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
+	m, release, err := pool.StatePool.GetModel(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-	return &stateShim{st: st, Backend: commoncrossmodel.GetBackend(st)}, closer, nil
+	return &modelShim{m}, func() { release() }, nil
 }
 
 // Backend provides selected methods off the state.State struct.
@@ -50,7 +61,6 @@ type Backend interface {
 	Charm(*charm.URL) (commoncrossmodel.Charm, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
-	AllModels() ([]Model, error)
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 	Space(string) (Space, error)
 
@@ -60,7 +70,10 @@ type Backend interface {
 }
 
 var GetStateAccess = func(st *state.State) Backend {
-	return &stateShim{st: st, Backend: commoncrossmodel.GetBackend(st)}
+	return &stateShim{
+		st:      st,
+		Backend: commoncrossmodel.GetBackend(st),
+	}
 }
 
 type stateShim struct {
@@ -96,18 +109,6 @@ func (s *stateShim) Space(name string) (Space, error) {
 func (s *stateShim) Model() (Model, error) {
 	m, err := s.st.Model()
 	return &modelShim{m}, err
-}
-
-func (s *stateShim) AllModels() ([]Model, error) {
-	all, err := s.st.AllModels()
-	if err != nil {
-		return nil, err
-	}
-	var result []Model
-	for _, m := range all {
-		result = append(result, &modelShim{m})
-	}
-	return result, err
 }
 
 type stateCharmShim struct {

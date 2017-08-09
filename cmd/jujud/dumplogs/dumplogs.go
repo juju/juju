@@ -121,14 +121,14 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer st0.Close()
 
-	envs, err := st0.AllModels()
+	modelUUIDs, err := st0.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")
 	}
-	for _, env := range envs {
-		err := c.dumpLogsForEnv(ctx, st0, env.ModelTag())
+	for _, modelUUID := range modelUUIDs {
+		err := c.dumpLogsForEnv(ctx, st0, names.NewModelTag(modelUUID))
 		if err != nil {
-			return errors.Annotatef(err, "failed to dump logs for model %s", env.UUID())
+			return errors.Annotatef(err, "failed to dump logs for model %s", modelUUID)
 		}
 	}
 
