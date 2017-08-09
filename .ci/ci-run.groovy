@@ -13,7 +13,11 @@ node('juju-core-slave') {
         parallel(
             'amd64': {
                 node('build-slave') {
-                    sh "snap install go --classic && apt-get install snapcraft -y"
+                    sh("""
+                    sudo snap install go --classic \
+                    && sudo apt-get install snapcraft -y
+                    """)
+
                     dir(${pwd(tmp: true)}) {
                         checkout scm
                         withEnv(['PATH+SNAP=/snap/bin']) {
