@@ -3,15 +3,14 @@
 
 from __future__ import print_function
 
-import os
-import sys
-import time
+import argparse
 import json
 import logging
-import argparse
+import sys
+import time
 
-from jujucharm import local_charm_path
 from deploy_stack import BootstrapManager
+from jujucharm import local_charm_path
 
 from utility import (
     until_timeout,
@@ -27,7 +26,7 @@ log = logging.getLogger("assess_persistent_storage")
 def assert_equal(error_msg, found, expected):
     if found != expected:
         raise JujuAssertionError('{} Found: {}\nExpected: {}'.format(
-            msg, found, expected))
+            error_msg, found, expected))
 
 
 def wait_for_storage_status_update(client, storage_id, interval, timeout):
@@ -127,8 +126,7 @@ def assert_single_blk_removal(storage_list, storage_id):
 
 def assert_persistent_setting(storage_id, found, expected):
     log.info(
-        'Checking persistent setting of storage unit {}.'.format(
-        storage_id))
+        'Checking persistent setting of storage unit {}.'.format(storage_id))
     err_msg = 'Incorrect value of persistent setting on storage unit {}.'.format(storage_id)
     assert_equal(error_msg=err_msg, found=found, expected=expected)
     log.info(
@@ -220,7 +218,6 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
 
        :param client: ModelClient object to deploy the charm on.
     """
-
     charm_name = 'dummy-storage'
     charm_path = local_charm_path(
         charm=charm_name, juju_ver=client.version)
@@ -241,12 +238,12 @@ def assess_charm_deploy_single_block_and_filesystem_storage(client):
         '\n'.join(storage_list)))
     try:
         single_fs_id = [elem for elem in storage_list
-            if elem.startswith('single-fs')][0]
+                        if elem.startswith('single-fs')][0]
     except IndexError:
         raise JujuAssertionError('Name mismatch on Single filesystem storage.')
     try:
         single_blk_id = [elem for elem in storage_list
-            if elem.startswith('single-blk')][0]
+                         if elem.startswith('single-blk')][0]
     except IndexError:
         raise JujuAssertionError('Name mismatch on Single block device storage.')
     log.info('Check name and total number of storage unit: PASSED.')
@@ -299,7 +296,6 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
 
        :param client: ModelClient object to deploy the charm on.
     """
-
     charm_name = 'dummy-storage'
     single_fs_id, single_blk_id = \
         assess_charm_deploy_single_block_and_filesystem_storage(client)
