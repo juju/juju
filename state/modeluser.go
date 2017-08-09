@@ -212,7 +212,6 @@ func (st *State) ModelsForUser(user names.UserTag) ([]string, error) {
 	defer close()
 	query := modelsColl.Find(bson.M{
 		"_id":            bson.M{"$in": modelUUIDs},
-		"life":           bson.M{"$ne": Dead},
 		"migration-mode": bson.M{"$ne": MigrationModeImporting},
 	}).Sort("name", "owner").Select(bson.M{"_id": 1})
 

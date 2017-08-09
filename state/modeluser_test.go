@@ -392,20 +392,6 @@ func (s *ModelUserSuite) TestModelsForUser(c *gc.C) {
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
-func (s *ModelUserSuite) TestDeadModelsForUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
-
-	err = state.SetModelLifeDead(s.State, models[0])
-	c.Assert(err, jc.ErrorIsNil)
-
-	models, err = s.State.ModelsForUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 0)
-}
-
 func (s *ModelUserSuite) TestImportingModelsForUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	models, err := s.State.ModelsForUser(user.UserTag())
