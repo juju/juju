@@ -8,7 +8,7 @@ and finally in to master.
 
 For example, if a bug is reported to impact R1, R2, and master. You
 would perform the work against a branch of R1. When your fix is ready
-you would use the pull request and review process. See: [reviewboard]
+you would use the pull request and review process.
 Then you would apply your fix to R2, and finally once your fix
 was merged in to R2, you would apply the fix to current master.
 

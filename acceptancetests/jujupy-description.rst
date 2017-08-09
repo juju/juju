@@ -1,8 +1,7 @@
 JujuPy
 ######
 
-A library for driving the Juju commandline client, created by the Juju QA
-team.
+A library for driving the Juju commandline client, created by the Juju team.
 
 This library is compatible with released juju versions in the 1.x and 2.x
 series, beginning with 1.18.  It has been used in production since 2013, but
@@ -22,7 +21,3 @@ of code.
 
 It provides fakes for testing, i.e. a fake backend and the convenience
 function ``get_fake_client``.
-
-JujuPy is part of Juju CI Tools.  For code and bugs, see its `Launchpad page`_.
-
-.. _Launchpad page: https://launchpad.net/juju-ci-tools

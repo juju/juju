@@ -11,9 +11,7 @@ Contents
 Quick links
 ===========
 
-* issue tracker: https://launchpad.net/juju-core
-* continuous integration: http://juju-ci.vapour.ws:8080/
-* code review: http://reviews.vapour.ws/
+* issue tracker: https://launchpad.net/juju-
 
 Documentation:
 * https://jujucharms.com/docs/
@@ -355,56 +353,29 @@ Code review
 -----------
 
 The juju project uses peer review of pull requests prior to merging to
-facilitate improvements both in code quality and in design.  The code
-review tool is ReviewBoard, hosted at http://reviews.vapour.ws/.  In the
-event that the site is down, the project will temporarily fall back to
-github for reviews of critical pull requests.
-
-A review request is automatically created for every pull request.  A
-link to that review request is added to the body of the pull request.
-Whenever the pull request is updated, the review request is likewise
-updated.  Thus for the normal workflow of contribution, there should
-be no need to worry about creating or updating review requests.
+facilitate improvements both in code quality and in design.
 
 Once you have created your pull request, it will be reviewed.  Make sure
 to address the feedback.  Your request might go through several rounds
-of feedback before the patch is approved or rejected.  Once you get a
-"ship it" from a member of the juju project, and there are not any
-"NOT LGTM" comments in ReviewBoard or github, you are ready to have your
-patch merged by a member of the juju team.  Congratulations!
+of feedback before the patch is approved or rejected.  Once you get an approval
+from a member of the juju project, you are ready to have your patch merged.
+Congratulations!
 
-The code review site uses github OAuth for authentication.  To log in
-simply go to login page and click the "github" button.  The first time
-you do this, it will redirect you to github to approve access and then
-redirect you back.  This first time is the only one where you will be
-redirected to github.  Furthermore, ReviewBoard will keep you logged in
-between visits via session cookies.
-
-That first time you log in, a ReviewBoard account will be created for
-you using your github username.  However, your email address is not
-added.  If you want to receive review-related email, be sure to add your
-email address to your ReviewBoard profile.
-
-For more information on ReviewBoard see:
-
- doc/contributions/reviewboard.md
 
 Continuous integration
 ----------------------
 
 Continuous integration is automated through Jenkins:
 
-http://juju-ci.vapour.ws:8080/
-
-The bot runs the test suite after `$$merge$$` but before it actually
-merges the pull request into develop.
+The bot runs on all commits during the PRE process,
+as well as handles merges. Use the `$$merge$$` comment to land PR's.
 
 Community
 =========
 
 The juju community is growing and you have a number of options for
 interacting beyond the workflow and the
-[issue tracker](https://launchpad.net/juju-core).
+[issue tracker](https://launchpad.net/juju).
 
 Take a look at the community page:
 

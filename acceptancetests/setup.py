@@ -16,9 +16,9 @@ setup(
         'pexpect >= 4.0.0',
         'PyYAML >= 3.0',
         ],
-    author='The Juju QA Team',
-    author_email='juju-qa@lists.canonical.com',
-    url='https://launchpad.net/juju-ci-tools',
+    author='The Juju Team',
+    author_email='juju-dev@lists.ubuntu.com',
+    url='https://github.com/juju/juju',
     license='Apache 2',
     classifiers=[
         "License :: OSI Approved :: GNU Lesser General Public License v3"

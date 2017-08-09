@@ -91,7 +91,7 @@ def make_build_data(number='lastSuccessfulBuild'):
         "number": 2102,
         "result": "SUCCESS",
         "timestamp": 1416382502379,
-        "url": "http://juju-ci.vapour.ws:8080/job/build-revision/%s/" % number
+        "url": "http://jenkins:8080/job/build-revision/%s/" % number
     }
 
 
@@ -116,7 +116,7 @@ def make_job_data():
         "builds": [
             {
                 "number": 1510,
-                "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+                "url": "http://jenkins:8080/job/ting/1510/"
             }
         ],
         "color": "red",
@@ -126,7 +126,7 @@ def make_job_data():
         "downstreamProjects": [],
         "firstBuild": {
             "number": 1,
-            "url": "http://juju-ci.vapour.ws:8080/job/ting/1/"
+            "url": "http://jenkins:8080/job/ting/1/"
         },
         "healthReport": [
             {
@@ -139,28 +139,28 @@ def make_job_data():
         "keepDependencies": False,
         "lastBuild": {
             "number": 1510,
-            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+            "url": "http://jenkins:8080/job/ting/1510/"
         },
         "lastCompletedBuild": {
             "number": 1510,
-            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+            "url": "http://jenkins:8080/job/ting/1510/"
         },
         "lastFailedBuild": {
             "number": 1510,
-            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+            "url": "http://jenkins:8080/job/ting/1510/"
         },
         "lastStableBuild": {
             "number": 1392,
-            "url": "http://juju-ci.vapour.ws:8080/job/ting/1392/"
+            "url": "http://jenkins:8080/job/ting/1392/"
         },
         "lastSuccessfulBuild": {
             "number": 1392,
-            "url": "http://juju-ci.vapour.ws:8080/job/ting/1392/"
+            "url": "http://jenkins:8080/job/ting/1392/"
         },
         "lastUnstableBuild": None,
         "lastUnsuccessfulBuild": {
             "number": 1510,
-            "url": "http://juju-ci.vapour.ws:8080/job/ting/1510/"
+            "url": "http://jenkins:8080/job/ting/1510/"
         },
         "name": "ting",
         "nextBuildNumber": 1511,
@@ -182,7 +182,7 @@ def make_job_data():
         ],
         "queueItem": None,
         "upstreamProjects": [],
-        "url": "http://juju-ci.vapour.ws:8080/job/ting/"
+        "url": "http://jenkins:8080/job/ting/"
     }
 
 
@@ -287,7 +287,7 @@ class JujuCITestCase(FakeHomeTestCase):
         artifact = artifacts[0]
         self.assertEqual('juju-core_1.22-alpha1.tar.gz', artifact.file_name)
         self.assertEqual(
-            'http://juju-ci.vapour.ws:8080/job/build-revision/2112/'
+            'http://jenkins:8080/job/build-revision/2112/'
             'artifact/artifacts/juju-core_1.22-alpha1.tar.gz',
             artifact.location)
 

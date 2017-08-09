@@ -31,7 +31,7 @@ from utility import (
 __metaclass__ = type
 
 
-JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
+JENKINS_URL = 'http://jenkins:8080'
 BUILD_REVISION = 'build-revision'
 PUBLISH_REVISION = 'publish-revision'
 
