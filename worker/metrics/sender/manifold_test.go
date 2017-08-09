@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -136,6 +137,10 @@ func (s *stubAPICaller) ConnectControllerStream(string, url.Values, http.Header)
 }
 
 func (s *stubAPICaller) HTTPClient() (*httprequest.Client, error) {
+	panic("should not be called")
+}
+
+func (s *stubAPICaller) BakeryClient() *httpbakery.Client {
 	panic("should not be called")
 }
 

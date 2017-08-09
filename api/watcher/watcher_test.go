@@ -286,8 +286,11 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a macaroon for authorisation.
+	store, err := s.State.NewBakeryStorage()
+	c.Assert(err, jc.ErrorIsNil)
 	bakery, err := bakery.NewService(bakery.NewServiceParams{
 		Location: "juju model " + s.State.ModelUUID(),
+		Store:    store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.State.ModelTag(), rel.Tag()), nil,
