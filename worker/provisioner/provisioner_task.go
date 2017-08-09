@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/wrench"
@@ -681,8 +680,12 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 			arch = *pInfo.Constraints.Arch
 		}
 
+		v, err := m.ModelAgentVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		possibleTools, err := task.toolsFinder.FindTools(
-			jujuversion.Current,
+			*v,
 			pInfo.Series,
 			arch,
 		)

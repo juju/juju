@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -26,6 +27,21 @@ type Machine struct {
 // Tag returns the machine's tag.
 func (m *Machine) Tag() names.Tag {
 	return m.tag
+}
+
+// ModelAgentVersion returns the agent version the machine's model is currently
+// running or an error.
+func (m *Machine) ModelAgentVersion() (*version.Number, error) {
+	mc, err := m.st.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if v, ok := mc.AgentVersion(); ok {
+		return &v, nil
+	}
+
+	return nil, errors.New("failed to get model's agent version.")
 }
 
 // MachineTag returns the identifier for the machine as the most specific type

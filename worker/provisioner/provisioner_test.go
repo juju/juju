@@ -469,16 +469,21 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
+	currentVersion := version.MustParseBinary("1.2.3-quantal-amd64")
 
-	// Set a current version that does not match the
-	// agent-version in the environ config.
-	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
+	// The current version is determined by the current model's agent
+	// version when locating tools to provision an added unit
+	attrs := map[string]interface{}{
+		config.AgentVersionKey: currentVersion.Number.String(),
+	}
+	err = s.State.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
 	s.PatchValue(&series.MustHostSeries, func() string { return currentVersion.Series })
-	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.
-	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")
+	compatibleVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	ignoreVersion1 := version.MustParseBinary("1.2.4-quantal-arm64")
 	ignoreVersion2 := version.MustParseBinary("1.2.3-precise-arm64")
 	availableVersions := []version.Binary{
