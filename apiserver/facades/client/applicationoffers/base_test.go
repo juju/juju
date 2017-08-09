@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -36,6 +37,7 @@ type baseSuite struct {
 	mockStatePool     *mockStatePool
 	env               *mockEnviron
 	bakery            *mockBakeryService
+	authContext       *crossmodel.AuthContext
 	applicationOffers *stubApplicationOffers
 }
 
@@ -87,7 +89,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}
-	s.mockState.applications = map[string]applicationoffers.Application{
+	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
 			charm: ch, curl: charm.MustParseURL("db2-2"),
 			bindings: map[string]string{"db2": "myspace"},

@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -36,8 +37,10 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	var err error
+	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
+	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, nil, s.mockState, s.mockStatePool, s.authorizer, resources, &mockBakeryService{},
+		getApplicationOffers, nil, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -33,7 +33,7 @@ var (
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
-	auth, err := srv.authCtxt.externalMacaroonAuth()
+	auth, err := srv.loginAuthCtxt.externalMacaroonAuth()
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
 }
 
 func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
-	auth, err := srv.authCtxt.externalMacaroonAuth()
+	auth, err := srv.loginAuthCtxt.externalMacaroonAuth()
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
 // ServerAuthenticatorForTag calls the authenticatorForTag method
 // of the server's authContext.
 func ServerAuthenticatorForTag(srv *Server, tag names.Tag) (authentication.EntityAuthenticator, error) {
-	return srv.authCtxt.authenticator("testing.invalid:1234").authenticatorForTag(tag)
+	return srv.loginAuthCtxt.authenticator("testing.invalid:1234").authenticatorForTag(tag)
 }
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {
@@ -95,12 +95,15 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
-	authCtxt, err := newAuthContext(pool.SystemState())
+	loginAuthCtxt, err := newAuthContext(pool.SystemState())
+	c.Assert(err, jc.ErrorIsNil)
+	offerAuthCtxt, err := newOfferAuthcontext(pool)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
-		authCtxt:  authCtxt,
-		statePool: pool,
-		tag:       names.NewMachineTag("0"),
+		loginAuthCtxt: loginAuthCtxt,
+		offerAuthCtxt: offerAuthCtxt,
+		statePool:     pool,
+		tag:           names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)

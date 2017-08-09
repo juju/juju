@@ -19,25 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 )
-
-// NewBakery returns a bakery used for minting macaroons used
-// in cross model relations.
-// TODO(wallyworld) - this will be removed next PR
-func NewBakery(st *state.State) (*bakery.Service, error) {
-	store, err := st.NewBakeryStorage()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// TODO(wallyworld) - shorten the exipry time when macaroon
-	// refresh is supported.
-	store = store.ExpireAfter(5 * 24 * 365 * time.Hour)
-	return bakery.NewService(bakery.NewServiceParams{
-		Location: "juju model " + st.ModelUUID(),
-		Store:    store,
-	})
-}
 
 const (
 	usernameKey    = "username"
@@ -45,8 +27,14 @@ const (
 	sourcemodelKey = "source-model-uuid"
 	relationKey    = "relation-key"
 
-	offerPermissionCaveat          = "has-offer-permission"
-	localOfferPermissionExpiryTime = 2 * time.Minute
+	offerPermissionCaveat = "has-offer-permission"
+
+	// localOfferPermissionExpiryTime is used to expire offer macaroons.
+	// It should be long enough to allow machines hosting workloads to
+	// be provisioned so that the macaroon is still valid when the macaroon
+	// is next used. If a machine takes longer, that's ok, a new discharge
+	// will be obtained.
+	localOfferPermissionExpiryTime = 5 * time.Minute
 )
 
 // AuthContext is used to validate macaroons used to access

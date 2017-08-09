@@ -284,8 +284,8 @@ func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.
 	}
 	for i, rel := range relations {
 		result[i].Result = &params.RemoteRelationDetails{
-			Token:     "token-" + rel.OfferName,
-			Macaroons: macaroon.Slice{mac},
+			Token:    "token-" + rel.OfferName,
+			Macaroon: mac,
 		}
 	}
 	return result, nil

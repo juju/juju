@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
@@ -43,6 +44,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
@@ -80,7 +82,8 @@ type Server struct {
 	validator              LoginValidator
 	facades                *facade.Registry
 	modelUUID              string
-	authCtxt               *authContext
+	loginAuthCtxt          *authContext
+	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
 	centralHub             *pubsub.StructuredHub
 	newObserver            observer.ObserverFactory
@@ -377,10 +380,18 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 	srv.lis = newThrottlingListener(
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
-	srv.authCtxt, err = newAuthContext(stPool.SystemState())
+	// The auth context for authenticating logins.
+	srv.loginAuthCtxt, err = newAuthContext(stPool.SystemState())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// The auth context for authenticating access to application offers.
+	srv.offerAuthCtxt, err = newOfferAuthcontext(stPool)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
@@ -780,7 +791,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 
 	// Add HTTP handlers for local-user macaroon authentication.
-	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.statePool.SystemState()}
+	localLoginHandlers := &localLoginHandlers{srv.loginAuthCtxt, srv.statePool.SystemState()}
 	dischargeMux := http.NewServeMux()
 	httpbakery.AddDischargeHandler(
 		dischargeMux,
@@ -801,6 +812,19 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add(localUserIdentityLocationPath+"/login", dischargeMux)
 	add(localUserIdentityLocationPath+"/wait", dischargeMux)
 
+	// Add HTTP handlers for application offer macaroon authentication.
+	appOfferHandler := &localOfferAuthHandler{authCtx: srv.offerAuthCtxt}
+	appOfferDischargeMux := http.NewServeMux()
+	httpbakery.AddDischargeHandler(
+		appOfferDischargeMux,
+		localOfferAccessLocationPath,
+		// Sadly we need a type assertion since the method doesn't accept an interface.
+		srv.offerAuthCtxt.ThirdPartyBakeryService().(*bakery.Service),
+		appOfferHandler.checkThirdPartyCaveat,
+	)
+	add(localOfferAccessLocationPath+"/discharge", appOfferDischargeMux)
+	add(localOfferAccessLocationPath+"/publickey", appOfferDischargeMux)
+
 	return endpoints
 }
 
@@ -810,8 +834,8 @@ func (srv *Server) expireLocalLoginInteractions() error {
 		case <-srv.tomb.Dying():
 			return tomb.ErrDying
 		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
-			now := srv.authCtxt.clock.Now()
-			srv.authCtxt.localUserInteractions.Expire(now)
+			now := srv.loginAuthCtxt.clock.Now()
+			srv.loginAuthCtxt.localUserInteractions.Expire(now)
 		}
 	}
 }

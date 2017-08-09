@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
@@ -19,12 +20,13 @@ import (
 	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/migrationminion"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -258,13 +260,44 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 	token, err := re.ExportLocalEntity(rel.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Create the offer connection details.
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
+	offers := state.NewApplicationOffers(s.State)
+	_, err = offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           "admin",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		OfferName:       "hosted-mysql",
+		Username:        "fred",
+		RelationKey:     rel.String(),
+		RelationId:      rel.Id(),
+		SourceModelUUID: s.State.ModelUUID(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the consume permission for the offer so the macaroon
+	// discharge can occur.
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewUserTag("fred"), permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Create a macaroon for authorisation.
-	bakery, err := crossmodel.NewBakery(s.State)
+	store, err := s.State.NewBakeryStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	bakery, err := bakery.NewService(bakery.NewServiceParams{
+		Location: "juju model " + s.State.ModelUUID(),
+		Store:    store,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.State.ModelTag(), rel.Tag()), nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", rel.String()),
+			checkers.DeclaredCaveat("username", "fred"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

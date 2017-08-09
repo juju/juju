@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/httprequest"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
 // APICaller is implemented by the client-facing State object.
@@ -38,6 +39,9 @@ type APICaller interface {
 	// Note that the URLs in HTTP requests passed to the Client.Do
 	// method should not include a host part.
 	HTTPClient() (*httprequest.Client, error)
+
+	// BakeryClient returns the bakery client for this connection.
+	BakeryClient() *httpbakery.Client
 
 	StreamConnector
 	ControllerStreamConnector

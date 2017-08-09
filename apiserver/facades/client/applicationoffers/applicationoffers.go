@@ -5,15 +5,12 @@ package applicationoffers
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
-	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
@@ -33,9 +30,8 @@ type environFromModelFunc func(string) (environs.Environ, error)
 type OffersAPI struct {
 	BaseAPI
 	*common.APIAddresser
-	dataDir string
-
-	bakery authentication.BakeryService
+	dataDir     string
+	authContext *commoncrossmodel.AuthContext
 }
 
 // createAPI returns a new application offers OffersAPI facade.
@@ -46,7 +42,7 @@ func createOffersAPI(
 	statePool StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
-	bakery authentication.BakeryService,
+	authContext *commoncrossmodel.AuthContext,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -55,8 +51,8 @@ func createOffersAPI(
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
 		dataDir:      dataDir.String(),
-		bakery:       bakery,
-		APIAddresser: common.NewAPIAddresser(backend, resources),
+		authContext:  authContext,
+		APIAddresser: common.NewAPIAddresser(backend.GetAddressAndCertGetter(), resources),
 		BaseAPI: BaseAPI{
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
@@ -78,22 +74,18 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		g := stateenvirons.EnvironConfigGetter{st}
 		env, err := environs.GetEnviron(g, environs.New)
 		if err != nil {
-			releaser()
 			return nil, errors.Trace(err)
 		}
 		return env, nil
 	}
 
-	bakery, err := commoncrossmodel.NewBakery(ctx.State())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,
 		GetStateAccess(ctx.State()),
 		GetStatePool(ctx.StatePool()), ctx.Auth(), ctx.Resources(),
-		bakery,
+		authContext.(*commoncrossmodel.AuthContext),
 	)
 }
 
@@ -435,20 +427,8 @@ func (api *OffersAPI) GetConsumeDetails(args params.ApplicationURLs) (params.Con
 		results[i].Offer = offer
 		results[i].Error = result.Error
 		if result.Error == nil {
-			sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
-			if err != nil {
-				results[i].Error = common.ServerError(err)
-				continue
-			}
 			results[i].ControllerInfo = controllerInfo
-			// TODO(wallyworld) - wind back expiry time and implement a local discharge URL
-			offerMacaroon, err := api.bakery.NewMacaroon("", nil,
-				[]checkers.Caveat{
-					checkers.TimeBeforeCaveat(time.Now().Add(365 * 24 * time.Hour)),
-					checkers.DeclaredCaveat("source-model-uuid", sourceModelTag.Id()),
-					checkers.DeclaredCaveat("offer-url", offer.OfferURL),
-					checkers.DeclaredCaveat("username", api.Authorizer.GetAuthTag().Id()),
-				})
+			offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offer, api.Authorizer.GetAuthTag().Id())
 			if err != nil {
 				results[i].Error = common.ServerError(err)
 				continue

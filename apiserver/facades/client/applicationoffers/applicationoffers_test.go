@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -35,7 +36,6 @@ var _ = gc.Suite(&applicationOffersSuite{})
 
 func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	s.applicationOffers = &stubApplicationOffers{}
 	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
 		return s.applicationOffers
@@ -48,8 +48,11 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 		return s.env, nil
 	}
 	var err error
+	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
+	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
+	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.bakery,
+		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -73,7 +76,7 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
-	s.mockState.applications = map[string]applicationoffers.Application{
+	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
 	s.mockState.spaces["myspace"] = &mockSpace{
@@ -153,7 +156,7 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
-	s.mockState.applications = map[string]applicationoffers.Application{
+	s.mockState.applications = map[string]crossmodel.Application{
 		"one":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 		"two":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
@@ -187,7 +190,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
-	s.mockState.applications = map[string]applicationoffers.Application{
+	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
 
@@ -490,7 +493,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		return []jujucrossmodel.ApplicationOffer{anOffer2}, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
-	s.mockState.applications = map[string]applicationoffers.Application{
+	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
 			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db": "myspace"}},
 	}
@@ -530,7 +533,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		accessPerms: make(map[offerAccess]permission.Access),
 		spaces:      make(map[string]applicationoffers.Space),
 	}
-	anotherState.applications = map[string]applicationoffers.Application{
+	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
 			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"db2": "anotherspace"}},
 	}
@@ -733,7 +736,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		return result, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
-	s.mockState.applications = map[string]applicationoffers.Application{
+	s.mockState.applications = map[string]crossmodel.Application{
 		"db2": &mockApplication{
 			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db2": "myspace"}},
 	}
@@ -770,7 +773,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		spaces:      make(map[string]applicationoffers.Space),
 	}
 	s.mockStatePool.st["uuid2"] = anotherState
-	anotherState.applications = map[string]applicationoffers.Application{
+	anotherState.applications = map[string]crossmodel.Application{
 		"mysql": &mockApplication{
 			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"mysql": "anotherspace"}},
 		"postgresql": &mockApplication{
@@ -924,8 +927,10 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		return s.env, nil
 	}
 	var err error
+	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
+	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.bakery,
+		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1047,7 +1052,7 @@ func (s *consumeSuite) setupOffer() {
 		&mockModel{uuid: modelUUID, name: "prod", owner: "fred"}}
 	st := &mockState{
 		modelUUID:         modelUUID,
-		applications:      make(map[string]applicationoffers.Application),
+		applications:      make(map[string]crossmodel.Application),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		users:             set.NewStrings(),
 		accessPerms:       make(map[offerAccess]permission.Access),

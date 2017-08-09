@@ -5,8 +5,8 @@ package crossmodelrelations_test
 
 import (
 	"fmt"
-	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -15,7 +15,8 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
-	common "github.com/juju/juju/apiserver/common/crossmodel"
+	common "github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
@@ -24,24 +25,38 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
+type mockStatePool struct {
+	st map[string]commoncrossmodel.Backend
+}
+
+func (st *mockStatePool) Get(modelUUID string) (commoncrossmodel.Backend, func(), error) {
+	backend, ok := st.st[modelUUID]
+	if !ok {
+		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
+	}
+	return backend, func() {}, nil
+}
+
 type mockState struct {
 	testing.Stub
 	crossmodelrelations.CrossModelRelationsState
-	relations          map[string]*mockRelation
-	remoteApplications map[string]*mockRemoteApplication
-	applications       map[string]*mockApplication
-	offers             []crossmodel.ApplicationOffer
-	offerConnections   map[int]*mockOfferConnection
-	remoteEntities     map[names.Tag]string
+	relations             map[string]*mockRelation
+	remoteApplications    map[string]*mockRemoteApplication
+	applications          map[string]*mockApplication
+	offers                []crossmodel.ApplicationOffer
+	offerConnections      map[int]*mockOfferConnection
+	offerConnectionsByKey map[string]*mockOfferConnection
+	remoteEntities        map[names.Tag]string
 }
 
 func newMockState() *mockState {
 	return &mockState{
-		relations:          make(map[string]*mockRelation),
-		remoteApplications: make(map[string]*mockRemoteApplication),
-		applications:       make(map[string]*mockApplication),
-		remoteEntities:     make(map[names.Tag]string),
-		offerConnections:   make(map[int]*mockOfferConnection),
+		relations:             make(map[string]*mockRelation),
+		remoteApplications:    make(map[string]*mockRemoteApplication),
+		applications:          make(map[string]*mockApplication),
+		remoteEntities:        make(map[names.Tag]string),
+		offerConnections:      make(map[int]*mockOfferConnection),
+		offerConnectionsByKey: make(map[string]*mockOfferConnection),
 	}
 }
 
@@ -57,7 +72,7 @@ func (st *mockState) Model() (crossmodelrelations.Model, error) {
 	return &mockModel{}, nil
 }
 
-func (st *mockState) AddRelation(eps ...state.Endpoint) (common.Relation, error) {
+func (st *mockState) AddRelation(eps ...state.Endpoint) (commoncrossmodel.Relation, error) {
 	rel := &mockRelation{
 		id:  len(st.relations),
 		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name),
@@ -76,14 +91,24 @@ func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (cro
 	oc := &mockOfferConnection{
 		sourcemodelUUID: arg.SourceModelUUID,
 		relationId:      arg.RelationId,
+		relationKey:     arg.RelationKey,
 		username:        arg.Username,
 		offerName:       arg.OfferName,
 	}
 	st.offerConnections[arg.RelationId] = oc
+	st.offerConnectionsByKey[arg.RelationKey] = oc
 	return oc, nil
 }
 
-func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (common.Relation, error) {
+func (st *mockState) OfferConnectionForRelation(relationKey string) (crossmodelrelations.OfferConnection, error) {
+	oc, ok := st.offerConnectionsByKey[relationKey]
+	if !ok {
+		return nil, errors.NotFoundf("offer connection details for realtion %v", relationKey)
+	}
+	return oc, nil
+}
+
+func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (commoncrossmodel.Relation, error) {
 	key := fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)
 	if rel, ok := st.relations[key]; ok {
 		return rel, nil
@@ -91,7 +116,7 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (common.Relation, 
 	return nil, errors.NotFoundf("relation with key %q", key)
 }
 
-func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (common.RemoteApplication, error) {
+func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (commoncrossmodel.RemoteApplication, error) {
 	app := &mockRemoteApplication{
 		sourceModelUUID: params.SourceModel.Id(),
 		consumerproxy:   params.IsConsumerProxy}
@@ -137,7 +162,7 @@ func (st *mockState) GetRemoteEntity(token string) (names.Tag, error) {
 	return nil, errors.NotFoundf("token %v", token)
 }
 
-func (st *mockState) KeyRelation(key string) (common.Relation, error) {
+func (st *mockState) KeyRelation(key string) (commoncrossmodel.Relation, error) {
 	st.MethodCall(st, "KeyRelation", key)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -149,7 +174,7 @@ func (st *mockState) KeyRelation(key string) (common.Relation, error) {
 	return r, nil
 }
 
-func (st *mockState) RemoteApplication(id string) (common.RemoteApplication, error) {
+func (st *mockState) RemoteApplication(id string) (commoncrossmodel.RemoteApplication, error) {
 	st.MethodCall(st, "RemoteApplication", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -161,7 +186,7 @@ func (st *mockState) RemoteApplication(id string) (common.RemoteApplication, err
 	return a, nil
 }
 
-func (st *mockState) Application(id string) (common.Application, error) {
+func (st *mockState) Application(id string) (commoncrossmodel.Application, error) {
 	st.MethodCall(st, "Application", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -233,17 +258,17 @@ func (m *mockModel) Owner() names.UserTag {
 }
 
 type mockRelation struct {
-	common.Relation
+	commoncrossmodel.Relation
 	testing.Stub
 	id    int
 	key   string
-	units map[string]common.RelationUnit
+	units map[string]commoncrossmodel.RelationUnit
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
 		id:    id,
-		units: make(map[string]common.RelationUnit),
+		units: make(map[string]commoncrossmodel.RelationUnit),
 	}
 }
 
@@ -262,7 +287,7 @@ func (r *mockRelation) Destroy() error {
 	return r.NextErr()
 }
 
-func (r *mockRelation) RemoteUnit(unitId string) (common.RelationUnit, error) {
+func (r *mockRelation) RemoteUnit(unitId string) (commoncrossmodel.RelationUnit, error) {
 	r.MethodCall(r, "RemoteUnit", unitId)
 	if err := r.NextErr(); err != nil {
 		return nil, err
@@ -274,7 +299,7 @@ func (r *mockRelation) RemoteUnit(unitId string) (common.RelationUnit, error) {
 	return u, nil
 }
 
-func (r *mockRelation) Unit(unitId string) (common.RelationUnit, error) {
+func (r *mockRelation) Unit(unitId string) (commoncrossmodel.RelationUnit, error) {
 	r.MethodCall(r, "Unit", unitId)
 	if err := r.NextErr(); err != nil {
 		return nil, err
@@ -292,7 +317,7 @@ func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
 }
 
 type mockRemoteApplication struct {
-	common.RemoteApplication
+	commoncrossmodel.RemoteApplication
 	testing.Stub
 	consumerproxy   bool
 	sourceModelUUID string
@@ -309,7 +334,7 @@ func (r *mockRemoteApplication) Destroy() error {
 }
 
 type mockApplication struct {
-	common.Application
+	commoncrossmodel.Application
 	testing.Stub
 	life state.Life
 	eps  []state.Endpoint
@@ -326,14 +351,20 @@ func (a *mockApplication) Life() state.Life {
 }
 
 type mockOfferConnection struct {
+	crossmodelrelations.OfferConnection
 	sourcemodelUUID string
 	relationId      int
+	relationKey     string
 	username        string
 	offerName       string
 }
 
+func (m *mockOfferConnection) OfferName() string {
+	return m.offerName
+}
+
 type mockRelationUnit struct {
-	common.RelationUnit
+	commoncrossmodel.RelationUnit
 	testing.Stub
 	inScope  bool
 	settings map[string]interface{}
@@ -386,42 +417,40 @@ func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) erro
 
 type mockBakeryService struct {
 	testing.Stub
-	authentication.BakeryService
-	caveats map[string][]checkers.Caveat
+	authentication.ExpirableStorageBakeryService
 }
 
 func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", id, key, caveats)
-	s.caveats[id] = caveats
-	return macaroon.New(nil, id, "")
+	mac, err := macaroon.New(nil, id, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, cav := range caveats {
+		if err := mac.AddFirstPartyCaveat(cav.Condition); err != nil {
+			return nil, err
+		}
+	}
+	return mac, nil
 }
 
 func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkers.Checker) (map[string]string, error) {
+	if len(ms) != 1 {
+		return nil, errors.New("unexpected macaroons")
+	}
 	if len(ms[0]) == 0 {
 		return nil, errors.New("no macaroons")
 	}
-	caveats := s.caveats[ms[0][0].Id()]
-	declared := make(map[string]string)
-	for _, cav := range caveats {
-		name, rest, err := checkers.ParseCaveat(cav.Condition)
-		if err != nil {
-			continue
-		}
-		if name != checkers.CondDeclared {
-			continue
-		}
-		parts := strings.SplitN(rest, " ", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key, val := parts[0], parts[1]
-		declared[key] = val
-	}
-
+	declared := checkers.InferDeclared(ms[0])
 	for k, v := range assert {
 		if declared[k] != v {
-			return nil, errors.New("validation error")
+			return nil, common.ErrPerm
 		}
 	}
 	return declared, nil
+}
+
+func (s *mockBakeryService) ExpireStorageAt(when time.Time) (authentication.ExpirableStorageBakeryService, error) {
+	s.MethodCall(s, "ExpireStorageAt", when)
+	return s, nil
 }

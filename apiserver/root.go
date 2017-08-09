@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"net/url"
 	"reflect"
 	"sync"
 	"time"
@@ -78,6 +79,20 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Facades involved with managing application offers need the auth context
+	// to mint and validate macaroons.
+	localOfferAccessEndpoint := url.URL{
+		Scheme: "https",
+		Host:   serverHost,
+		Path:   localOfferAccessLocationPath,
+	}
+	offerAuthCtxt := srv.offerAuthCtxt.WithDischargeURL(localOfferAccessEndpoint.String())
+	if err := r.resources.RegisterNamed(
+		"offerAccessAuthContext",
+		common.ValueResource{offerAuthCtxt},
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
