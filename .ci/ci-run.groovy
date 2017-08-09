@@ -9,28 +9,6 @@ node('juju-core-slave') {
     // juju_checkout_dir = "$build_base_dir/src/github.com/juju/juju"
     amd64_juju_data = "${pwd(tmp: true)}/amd64-juju"
 
-    def build_binaries(arch) {
-        def binary_stash_name = "${arch}-binaries"
-        sh("""
-        sudo snap install go --classic \
-        && sudo apt-get install snapcraft -y
-        """)
-
-        dir("${pwd(tmp: true)}") {
-            checkout scm
-            withEnv(['PATH+SNAP=/snap/bin']) {
-                sh "go version"
-                sh "snapcraft build && snapcraft prime"
-                // Also, artifact the snap itself
-                dir('./prime/bin/') {
-                    stash includes: "**/prime/bin/juju*", name: "${binary_stash_name}"
-                }
-            }
-        }
-
-        return binary_stash_name
-    }
-
     stage('Build') {
         parallel(
             'amd64': {
@@ -91,6 +69,28 @@ node('juju-core-slave') {
             }
         )
     }
+}
+
+def build_binaries(arch) {
+    def binary_stash_name = "${arch}-binaries"
+    sh("""
+    sudo snap install go --classic \
+    && sudo apt-get install snapcraft -y
+    """)
+
+    dir("${pwd(tmp: true)}") {
+        checkout scm
+        withEnv(['PATH+SNAP=/snap/bin']) {
+            sh "go version"
+            sh "snapcraft build && snapcraft prime"
+            // Also, artifact the snap itself
+            dir('./prime/bin/') {
+                stash includes: "**/prime/bin/juju*", name: "${binary_stash_name}"
+            }
+        }
+    }
+
+    return binary_stash_name
 }
 
 // // Get binaries
