@@ -170,10 +170,10 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-// ModelsForUser returns a list of models that the user
-// is able to access.
+// ModelUUIDsForUser returns a list of models that the user is able to
+// access.
 // Results are sorted by (name, owner).
-func (st *State) ModelsForUser(user names.UserTag) ([]string, error) {
+func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 	// Consider the controller permissions overriding Model permission, for
 	// this case the only relevant one is superuser.
 	// The mgo query below wont work for superuser case because it needs at

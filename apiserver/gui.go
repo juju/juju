@@ -398,7 +398,7 @@ func modelInfoFromPath(path string, st *state.State, pool *state.StatePool) (uui
 		return "", "", ""
 	}
 	user, modelName = parts[1], parts[2]
-	modelUUIDs, err := st.ModelsForUser(names.NewUserTag(user))
+	modelUUIDs, err := st.ModelUUIDsForUser(names.NewUserTag(user))
 	if err != nil {
 		return "", "", ""
 	}

@@ -89,7 +89,7 @@ func (s *cmdUpgradeSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdUpgradeSuite) assertHostModelAgentVersion(c *gc.C, desiredAgentVersion string) {
-	modelUUIDs, err := s.State.ModelsForUser(s.hostedModelUserTag)
+	modelUUIDs, err := s.State.ModelUUIDsForUser(s.hostedModelUserTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var desiredModel *state.Model

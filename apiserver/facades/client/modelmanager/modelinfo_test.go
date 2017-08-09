@@ -604,8 +604,8 @@ func (st *mockState) GetModel(modelUUID string) (common.Model, func() bool, erro
 	return st.model, func() bool { return true }, st.NextErr()
 }
 
-func (st *mockState) ModelsForUser(user names.UserTag) ([]string, error) {
-	st.MethodCall(st, "ModelsForUser", user)
+func (st *mockState) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
+	st.MethodCall(st, "ModelUUIDsForUser", user)
 	return nil, st.NextErr()
 }
 

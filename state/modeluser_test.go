@@ -361,23 +361,23 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
-func (s *ModelUserSuite) TestModelsForUserNone(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserNone(c *gc.C) {
 	tag := names.NewUserTag("non-existent@remote")
-	models, err := s.State.ModelsForUser(tag)
+	models, err := s.State.ModelUUIDsForUser(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
 }
 
-func (s *ModelUserSuite) TestModelsForUserNewLocalUser(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserNewLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	models, err := s.State.ModelsForUser(user.UserTag())
+	models, err := s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
 }
 
-func (s *ModelUserSuite) TestModelsForUser(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelsForUser(user.UserTag())
+	models, err := s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
 
@@ -392,9 +392,9 @@ func (s *ModelUserSuite) TestModelsForUser(c *gc.C) {
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
-func (s *ModelUserSuite) TestImportingModelsForUser(c *gc.C) {
+func (s *ModelUserSuite) TestImportingModelUUIDsForUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
-	models, err := s.State.ModelsForUser(user.UserTag())
+	models, err := s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
 
@@ -403,30 +403,30 @@ func (s *ModelUserSuite) TestImportingModelsForUser(c *gc.C) {
 	err = model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
-	models, err = s.State.ModelsForUser(user.UserTag())
+	models, err = s.State.ModelUUIDsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
 }
 
-func (s *ModelUserSuite) TestModelsForUserModelOwner(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserModelOwner(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
 	model := s.newModelWithOwner(c, owner)
 
-	models, err := s.State.ModelsForUser(owner)
+	models, err := s.State.ModelUUIDsForUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, []string{model.UUID()})
 }
 
-func (s *ModelUserSuite) TestModelsForUserOfNewModel(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserOfNewModel(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
 	model := s.newModelWithUser(c, userTag)
 
-	models, err := s.State.ModelsForUser(userTag)
+	models, err := s.State.ModelUUIDsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, []string{model.UUID()})
 }
 
-func (s *ModelUserSuite) TestModelsForUserMultiple(c *gc.C) {
+func (s *ModelUserSuite) TestModelUUIDsForUserMultiple(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
 	expected := []string{
 		s.newModelWithUser(c, userTag).UUID(),
@@ -436,7 +436,7 @@ func (s *ModelUserSuite) TestModelsForUserMultiple(c *gc.C) {
 		s.newModelWithOwner(c, userTag).UUID(),
 	}
 
-	models, err := s.State.ModelsForUser(userTag)
+	models, err := s.State.ModelUUIDsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.SameContents, expected)
 }

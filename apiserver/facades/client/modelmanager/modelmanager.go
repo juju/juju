@@ -575,7 +575,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := m.state.ModelsForUser(userTag)
+	modelUUIDs, err := m.state.ModelUUIDsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
