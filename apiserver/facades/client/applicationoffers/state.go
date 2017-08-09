@@ -43,7 +43,6 @@ func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 	return &stateShim{
 		st:      st,
 		Backend: commoncrossmodel.GetBackend(st),
-		pool:    pool.StatePool,
 	}, func() { release() }, nil
 }
 
@@ -62,8 +61,6 @@ type Backend interface {
 	Charm(*charm.URL) (commoncrossmodel.Charm, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
-	AllModelUUIDs() ([]string, error)
-	ModelTag() names.ModelTag
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 	Space(string) (Space, error)
 
