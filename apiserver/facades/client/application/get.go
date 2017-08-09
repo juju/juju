@@ -63,7 +63,7 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 		// This needs to work for nil values too, i.e. charm did not set
 		// settings default and this setting is still not set/is nil on the deployed application.
 		if info["value"] == option.Default {
-			info["default"] = true
+			info["is_default"] = true
 		}
 		results[name] = info
 	}
