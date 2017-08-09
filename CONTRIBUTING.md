@@ -11,7 +11,7 @@ Contents
 Quick links
 ===========
 
-* issue tracker: https://launchpad.net/juju-
+* issue tracker: https://launchpad.net/juju
 
 Documentation:
 * https://jujucharms.com/docs/
