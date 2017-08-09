@@ -455,7 +455,7 @@ func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
 
 func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkInfoResult) params.NetworkInfoResult {
 	if inResult.Error != nil {
-		return params.NetworkInfoResult{Error: common.ServerError(*inResult.Error)}
+		return params.NetworkInfoResult{Error: common.ServerError(inResult.Error)}
 	}
 	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
 	for i, info := range inResult.NetworkInfos {

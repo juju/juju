@@ -1124,7 +1124,7 @@ func generateMACAddress() string {
 // MachineNetworkInfoResult contains an error or a list of NetworkInfo structures for a specific space.
 type MachineNetworkInfoResult struct {
 	NetworkInfos []network.NetworkInfo
-	Error        *error
+	Error        error
 }
 
 // Add address to a device in list or create a new device with this address.
@@ -1168,8 +1168,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 		var err error
 		privateAddress, err = m.PrivateAddress()
 		if err != nil {
-			error := errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())
-			results[""] = MachineNetworkInfoResult{Error: &error}
+			results[""] = MachineNetworkInfoResult{Error: errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())}
 			spaces.Remove("")
 		}
 	}
@@ -1177,8 +1176,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 	addresses, err := m.AllAddresses()
 	logger.Debugf("Looking for something from spaces %v in %v", spaces, addresses)
 	if err != nil {
-		newErr := errors.Annotate(err, "cannot get devices addresses")
-		result := MachineNetworkInfoResult{Error: &newErr}
+		result := MachineNetworkInfoResult{Error: errors.Annotate(err, "cannot get devices addresses")}
 		for space := range spaces {
 			if _, ok := results[space]; !ok {
 				results[space] = result
@@ -1201,7 +1199,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 				r := results[space]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
-					r.Error = &err
+					r.Error = err
 				} else {
 					results[space] = r
 				}
@@ -1210,7 +1208,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 				r := results[""]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
-					r.Error = &err
+					r.Error = err
 				} else {
 					results[""] = r
 				}
@@ -1232,13 +1230,10 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 
 	for space := range spaces {
 		if _, ok := results[space]; !ok {
-			newErr := errors.Errorf("machine %q has no devices in space %q, only spaces %s", m.doc.Id, space, actualSpacesStr)
 			results[space] = MachineNetworkInfoResult{
-				Error: &newErr,
+				Error: errors.Errorf("machine %q has no devices in space %q, only spaces %s", m.doc.Id, space, actualSpacesStr),
 			}
 		}
-		return results
 	}
-
 	return results
 }
