@@ -141,9 +141,6 @@ func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 		result.UserModels = append(result.UserModels, userModel)
 	}
 
-	// Sort the resulting sequence by environment name, then owner.
-	sort.Sort(orderedUserModels(result.UserModels))
-
 	return result, nil
 }
 
@@ -292,33 +289,6 @@ func (c *ControllerAPIv3) WatchAllModels() (params.AllWatcherId, error) {
 	return params.AllWatcherId{
 		AllWatcherId: c.resources.Register(w),
 	}, nil
-}
-
-type orderedBlockInfo []params.ModelBlockInfo
-
-func (o orderedBlockInfo) Len() int {
-	return len(o)
-}
-
-func (o orderedBlockInfo) Less(i, j int) bool {
-	if o[i].Name < o[j].Name {
-		return true
-	}
-	if o[i].Name > o[j].Name {
-		return false
-	}
-
-	if o[i].OwnerTag < o[j].OwnerTag {
-		return true
-	}
-	if o[i].OwnerTag > o[j].OwnerTag {
-		return false
-	}
-
-	// Unreachable based on the rules of there not being duplicate
-	// environments of the same name for the same owner, but return false
-	// instead of panicing.
-	return false
 }
 
 // GetControllerAccess returns the level of access the specifed users
@@ -635,17 +605,13 @@ func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.
 	}
 }
 
-func (o orderedBlockInfo) Swap(i, j int) {
-	o[i], o[j] = o[j], o[i]
-}
+type orderedBlockInfo []params.ModelBlockInfo
 
-type orderedUserModels []params.UserModel
-
-func (o orderedUserModels) Len() int {
+func (o orderedBlockInfo) Len() int {
 	return len(o)
 }
 
-func (o orderedUserModels) Less(i, j int) bool {
+func (o orderedBlockInfo) Less(i, j int) bool {
 	if o[i].Name < o[j].Name {
 		return true
 	}
@@ -666,6 +632,6 @@ func (o orderedUserModels) Less(i, j int) bool {
 	return false
 }
 
-func (o orderedUserModels) Swap(i, j int) {
+func (o orderedBlockInfo) Swap(i, j int) {
 	o[i], o[j] = o[j], o[i]
 }
