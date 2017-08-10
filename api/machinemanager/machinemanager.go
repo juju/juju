@@ -49,6 +49,48 @@ func (client *Client) ForceDestroyMachines(machines ...string) ([]params.Destroy
 	return client.destroyMachines("ForceDestroyMachine", machines)
 }
 
+// DestroyMachinesWithParams removes the given set of machines, the semantics of which
+// is determined by the force and keep parameters.
+// TODO(wallyworld) - for Juju 3.0, this should be the preferred api to use.
+func (client *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+	if !keep {
+		if force {
+			return client.ForceDestroyMachines(machines...)
+		}
+		return client.DestroyMachines(machines...)
+	}
+	args := params.DestroyMachinesParams{
+		Force:       force,
+		Keep:        keep,
+		MachineTags: make([]string, 0, len(machines)),
+	}
+	allResults := make([]params.DestroyMachineResult, len(machines))
+	index := make([]int, 0, len(machines))
+	for i, machineId := range machines {
+		if !names.IsValidMachine(machineId) {
+			allResults[i].Error = &params.Error{
+				Message: errors.NotValidf("machine ID %q", machineId).Error(),
+			}
+			continue
+		}
+		index = append(index, i)
+		args.MachineTags = append(args.MachineTags, names.NewMachineTag(machineId).String())
+	}
+	if len(args.MachineTags) > 0 {
+		var result params.DestroyMachineResults
+		if err := client.facade.FacadeCall("DestroyMachineWithParams", args, &result); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n := len(result.Results); n != len(args.MachineTags) {
+			return nil, errors.Errorf("expected %d result(s), got %d", len(args.MachineTags), n)
+		}
+		for i, result := range result.Results {
+			allResults[index[i]] = result
+		}
+	}
+	return allResults, nil
+}
+
 func (client *Client) destroyMachines(method string, machines []string) ([]params.DestroyMachineResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, 0, len(machines)),

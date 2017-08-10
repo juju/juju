@@ -141,6 +141,31 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 	})
 }
 
+func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
+	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	results, err := apiV4.DestroyMachineWithParams(params.DestroyMachinesParams{
+		Keep:        true,
+		Force:       true,
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				DestroyedUnits: []params.Entity{
+					{"unit-foo-0"},
+					{"unit-foo-1"},
+					{"unit-foo-2"},
+				},
+				DestroyedStorage: []params.Entity{
+					{"storage-disks-0"},
+					{"storage-disks-1"},
+				},
+			},
+		}},
+	})
+}
+
 type mockState struct {
 	calls    int
 	machines []state.MachineTemplate
@@ -247,6 +272,10 @@ func (m *mockMachine) Destroy() error {
 }
 
 func (m *mockMachine) ForceDestroy() error {
+	return nil
+}
+
+func (m *mockMachine) SetKeepInstance(keep bool) error {
 	return nil
 }
 

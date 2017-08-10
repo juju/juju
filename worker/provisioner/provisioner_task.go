@@ -233,7 +233,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	// Stop all machines that are dead
-	stopping := task.instancesForMachines(dead)
+	stopping := task.instancesForDeadMachines(dead)
 
 	// Find running instances that have no machines associated
 	unknown, err := task.findUnknownInstances(stopping)
@@ -456,14 +456,19 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	return unknown, nil
 }
 
-// instancesForMachines returns a list of instance.Instance that represent
-// the list of machines running in the provider. Missing machines are
+// instancesForDeadMachines returns a list of instance.Instance that represent
+// the list of dead machines running in the provider. Missing machines are
 // omitted from the list.
-func (task *provisionerTask) instancesForMachines(machines []*apiprovisioner.Machine) []instance.Instance {
+func (task *provisionerTask) instancesForDeadMachines(deadMachines []*apiprovisioner.Machine) []instance.Instance {
 	var instances []instance.Instance
-	for _, machine := range machines {
+	for _, machine := range deadMachines {
 		instId, err := machine.InstanceId()
 		if err == nil {
+			keep, _ := machine.KeepInstance()
+			if keep {
+				logger.Debugf("machine %v is dead but keep-instance is true", instId)
+				continue
+			}
 			instance, found := task.instances[instId]
 			// If the instance is not found we can't stop it.
 			if found {
