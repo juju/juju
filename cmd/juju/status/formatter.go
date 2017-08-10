@@ -4,6 +4,7 @@
 package status
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/utils/series"
@@ -64,6 +65,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		Machines:           make(map[string]machineStatus),
 		Applications:       make(map[string]applicationStatus),
 		RemoteApplications: make(map[string]remoteApplicationStatus),
+		Relations:          make([]relationStatus, len(sf.relations)),
 	}
 	if sf.status.Model.MeterStatus.Color != "" {
 		out.Model.MeterStatus = &meterStatus{
@@ -79,6 +81,11 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	}
 	for sn, s := range sf.status.RemoteApplications {
 		out.RemoteApplications[sn] = sf.formatRemoteApplication(sn, s)
+	}
+	i := 0
+	for _, rel := range sf.relations {
+		out.Relations[i] = sf.formatRelation(rel)
+		i++
 	}
 	return out, nil
 }
@@ -212,6 +219,37 @@ func (sf *statusFormatter) formatRemoteApplication(name string, application para
 			Interface: ep.Interface,
 			Role:      string(ep.Role),
 		}
+	}
+	return out
+}
+
+func (sf *statusFormatter) formatRelation(rel params.RelationStatus) relationStatus {
+	var provider, requirer params.EndpointStatus
+	for _, ep := range rel.Endpoints {
+		switch charm.RelationRole(ep.Role) {
+		case charm.RolePeer:
+			provider = ep
+			requirer = ep
+		case charm.RoleProvider:
+			provider = ep
+		case charm.RoleRequirer:
+			requirer = ep
+		}
+	}
+	var relType string
+	switch {
+	case rel.Scope == "container":
+		relType = "subordinate"
+	case provider.ApplicationName == requirer.ApplicationName:
+		relType = "peer"
+	default:
+		relType = "regular"
+	}
+	out := relationStatus{
+		Provider:  fmt.Sprintf("%s:%s", provider.ApplicationName, provider.Name),
+		Requirer:  fmt.Sprintf("%s:%s", requirer.ApplicationName, requirer.Name),
+		Interface: rel.Interface,
+		Type:      relType,
 	}
 	return out
 }
