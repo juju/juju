@@ -126,6 +126,7 @@ func (c *defaultsCommand) Info() *cmd.Info {
 		Doc:     modelDefaultsHelpDoc,
 		Name:    "model-defaults",
 		Purpose: modelDefaultsSummary,
+		Aliases: []string{"model-default"},
 	}
 }
 
