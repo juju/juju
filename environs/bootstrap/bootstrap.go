@@ -267,7 +267,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bootstrapConstraints = withDefaultControllerConstraints(args.BootstrapConstraints)
+	bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
 
 	// The arch we use to find tools isn't the boostrapConstraints arch.
 	// We copy the constraints arch to a separate variable and
