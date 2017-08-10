@@ -215,7 +215,7 @@ var (
 )
 
 type TestSetting struct {
-	Default     bool        `yaml:"default"`
+	Default     bool        `yaml:"is_default"`
 	Description string      `yaml:"description"`
 	Type        string      `yaml:"type"`
 	Value       interface{} `yaml:"value"`

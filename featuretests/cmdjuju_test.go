@@ -97,21 +97,21 @@ func (s *cmdJujuSuite) TestServiceGet(c *gc.C) {
 charm: dummy
 settings:
   outlook:
-    default: true
     description: No default outlook.
+    is_default: true
     type: string
   skill-level:
-    default: true
     description: A number indicating skill.
+    is_default: true
     type: int
   title:
-    default: true
     description: A descriptive title used for the application.
+    is_default: true
     type: string
     value: My Title
   username:
-    default: true
     description: The name of the initial account (given admin permissions).
+    is_default: true
     type: string
     value: admin001
 `
