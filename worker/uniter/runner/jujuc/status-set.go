@@ -14,10 +14,10 @@ import (
 // StatusSetCommand implements the status-set command.
 type StatusSetCommand struct {
 	cmd.CommandBase
-	ctx     Context
-	status  string
-	message string
-	service bool
+	ctx         Context
+	status      string
+	message     string
+	application bool
 }
 
 // NewStatusSetCommand makes a jujuc status-set command.
@@ -47,7 +47,7 @@ var validStatus = []status.Status{
 }
 
 func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.service, "application", false, "set this status for the application to which the unit belongs if the unit is the leader")
+	f.BoolVar(&c.application, "application", false, "set this status for the application to which the unit belongs if the unit is the leader")
 }
 
 func (c *StatusSetCommand) Init(args []string) error {
@@ -77,7 +77,7 @@ func (c *StatusSetCommand) Run(ctx *cmd.Context) error {
 		Status: c.status,
 		Info:   c.message,
 	}
-	if c.service {
+	if c.application {
 		return c.ctx.SetApplicationStatus(statusInfo)
 	}
 	return c.ctx.SetUnitStatus(statusInfo)
