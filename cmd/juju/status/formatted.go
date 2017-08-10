@@ -18,6 +18,7 @@ type formattedStatus struct {
 	Machines           map[string]machineStatus           `json:"machines"`
 	Applications       map[string]applicationStatus       `json:"applications"`
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
+	Relations          []relationStatus                   `json:"-" yaml:"-"`
 }
 
 type formattedMachineStatus struct {
@@ -242,4 +243,11 @@ func (s unitStatus) MarshalYAML() (interface{}, error) {
 		return errorStatus{s.WorkloadStatusInfo.Err.Error()}, nil
 	}
 	return unitStatusNoMarshal(s), nil
+}
+
+type relationStatus struct {
+	Provider  string
+	Requirer  string
+	Interface string
+	Type      string
 }
