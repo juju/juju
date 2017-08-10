@@ -403,8 +403,7 @@ See also:
     spaces
     constraints
     add-unit
-    set-config
-    get-config
+    config
     set-constraints
     get-constraints
 `
