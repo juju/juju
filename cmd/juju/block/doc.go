@@ -25,6 +25,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     add-ssh-key
     add-user
     change-user-password
+    config
     deploy
     disable-user
     destroy-controller
@@ -33,6 +34,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     enable-user
     expose
     import-ssh-key
+    model-config
     remove-application
     remove-machine
     remove-relation
@@ -41,13 +43,9 @@ Commands that can be disabled are grouped based on logical operations as follows
     resolved
     retry-provisioning
     run
-    set-config
     set-constraints
-    set-model-config
     sync-tools
     unexpose
-    unset-config
-    unset-model-config
     upgrade-charm
     upgrade-juju
 	`
