@@ -393,7 +393,7 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "globalkey", "updated"},
 			}, {
 				// used for migration and model-specific pruning
-				Key: []string{"model-uuid", "-updated", "_id"},
+				Key: []string{"model-uuid", "-updated", "-_id"},
 			}, {
 				// used for global pruning (after size check)
 				Key: []string{"-updated"},
