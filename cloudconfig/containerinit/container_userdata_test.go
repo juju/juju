@@ -105,6 +105,14 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		ConfigType:    network.ConfigManual,
 		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
+	}, {
+		InterfaceName:  "any5",
+		ConfigType:     network.ConfigStatic,
+		MACAddress:     "aa:bb:cc:dd:ee:f5",
+		NoAutoStart:    false,
+		CIDR:           "2001:db8::/64",
+		Address:        network.NewAddress("2001:db8::dead:beef"),
+		GatewayAddress: network.NewAddress("2001:db8::dead:f00"),
 	}}
 
 	for _, version := range []string{
@@ -123,7 +131,7 @@ bootcmd:
 - install -D -m 644 /dev/null '%[1]s.templ'
 - |-
   printf '%%s\n' '
-  auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3}
+  auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3} {ethaa_bb_cc_dd_ee_f5}
 
   iface lo inet loopback
     dns-nameservers ns1.invalid ns2.invalid
@@ -144,10 +152,14 @@ bootcmd:
   iface {ethaa_bb_cc_dd_ee_f3} inet dhcp
 
   iface {ethaa_bb_cc_dd_ee_f4} inet manual
+
+  iface {ethaa_bb_cc_dd_ee_f5} inet6 static
+    address 2001:db8::dead:beef/64
+    gateway 2001:db8::dead:f00
   ' > '%[1]s.templ'
 `
 	s.expectedSampleConfigTemplate = `
-auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3}
+auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3} {ethaa_bb_cc_dd_ee_f5}
 
 iface lo inet loopback
   dns-nameservers ns1.invalid ns2.invalid
@@ -168,6 +180,10 @@ iface {ethaa_bb_cc_dd_ee_f2} inet dhcp
 iface {ethaa_bb_cc_dd_ee_f3} inet dhcp
 
 iface {ethaa_bb_cc_dd_ee_f4} inet manual
+
+iface {ethaa_bb_cc_dd_ee_f5} inet6 static
+  address 2001:db8::dead:beef/64
+  gateway 2001:db8::dead:f00
 `
 
 	networkInterfacesScriptYamled := strings.Replace(containerinit.NetworkInterfacesScript, "\n", "\n  ", -1)

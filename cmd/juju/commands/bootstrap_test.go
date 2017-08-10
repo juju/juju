@@ -1852,6 +1852,16 @@ clouds:
             region-2:
     dummy-cloud-without-regions:
         type: dummy
+    dummy-cloud-with-region-config:
+        type: dummy
+        regions:
+            region-1:
+            region-2:
+        config:
+            network: cloud-network
+        region-config:
+            region-1:
+                network: region-network
     dummy-cloud-with-config:
         type: dummy
         config:

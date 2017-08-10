@@ -171,7 +171,11 @@ func (st *State) cleanupResourceBlob(storagePath string) error {
 
 	persist := st.newPersistence()
 	storage := persist.NewStorage()
-	return storage.Remove(storagePath)
+	err := storage.Remove(storagePath)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 func (st *State) cleanupRelationSettings(prefix string) error {

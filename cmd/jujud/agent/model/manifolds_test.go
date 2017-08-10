@@ -32,6 +32,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
+		"action-pruner",
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -147,6 +148,7 @@ func (s *ManifoldsCrossModelSuite) TestNames(c *gc.C) {
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
+		"action-pruner",
 		"agent",
 		"api-caller",
 		"api-config-watcher",

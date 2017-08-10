@@ -12,6 +12,7 @@ package api
 // Facades that existed before versioning start at 0.
 var facadeVersions = map[string]int{
 	"Action":                       2,
+	"ActionPruner":                 1,
 	"Agent":                        2,
 	"AgentTools":                   1,
 	"AllModelWatcher":              2,

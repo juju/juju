@@ -464,3 +464,12 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 	}
 	return actions, errors.Trace(iter.Close())
 }
+
+// PruneActions removes action entries until
+// only logs newer than <maxLogTime> remain and also ensures
+// that the collection is smaller than <maxLogsMB> after the
+// deletion.
+func PruneActions(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, actionsC, "completed", GoTime)
+	return errors.Trace(err)
+}

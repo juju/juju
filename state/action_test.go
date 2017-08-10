@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	test "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
@@ -18,6 +20,8 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ActionSuite struct {
@@ -949,4 +953,110 @@ func (h *uuidMockHelper) mask(uuid utils.UUID) utils.UUID {
 		}
 	}
 	return uuid
+}
+
+type ActionPruningSuite struct {
+	statetesting.StateWithWallClockSuite
+}
+
+var _ = gc.Suite(&ActionPruningSuite{})
+
+func (s *ActionPruningSuite) TestPruneActionsBySize(c *gc.C) {
+	clock := test.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	// PrimeActions generates the actions to be pruned.
+	const numActionEntries = 15 //At slightly > 1MB per entry
+	const maxLogSize = 5        //MB
+	state.PrimeActions(c, clock.Now(), unit, numActionEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, numActionEntries)
+
+	err = state.PruneActions(s.State, 0, maxLogSize)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	actionsLen := len(actions)
+
+	// The test here is to see if the remaining count is relatively close to
+	// the max log size. I would expect the number of remaining entries to
+	// be no greater than 1.5x the max log size in MB since each entry is
+	// about 1MB (in memory) in size. 1.5x is probably good enough to ensure
+	// this test doesn't flake.
+	c.Assert(float64(actionsLen), jc.LessThan, 1.5*maxLogSize)
+}
+
+func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
+	clock := test.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numActionEntriesOlder = 5
+	const numActionEntriesYounger = 5
+	const numActionEntries = numActionEntriesOlder + numActionEntriesYounger
+	const maxLogSize = 5 //MB
+
+	olderTime := clock.Now().Add(-1 * time.Hour)
+	youngerTime := clock.Now()
+
+	state.PrimeActions(c, olderTime, unit, numActionEntriesOlder)
+	state.PrimeActions(c, youngerTime, unit, numActionEntriesYounger)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, numActionEntries)
+
+	err = state.PruneActions(s.State, 0, maxLogSize)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var olderEntries []time.Time
+	var youngerEntries []time.Time
+	for _, entry := range actions {
+		if entry.Completed().Before(youngerTime.Round(time.Second)) {
+			olderEntries = append(olderEntries, entry.Completed())
+		} else {
+			youngerEntries = append(youngerEntries, entry.Completed())
+		}
+	}
+
+	c.Assert(len(youngerEntries), jc.GreaterThan, len(olderEntries))
+}
+
+func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
+	clock := test.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numCurrentActionEntries = 5
+	const numExpiredActionEntries = 5
+	const ageOfExpired = 2 * time.Hour
+
+	state.PrimeActions(c, clock.Now(), unit, numCurrentActionEntries)
+	state.PrimeActions(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredActionEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, numCurrentActionEntries+numExpiredActionEntries)
+
+	err = state.PruneActions(s.State, 1*time.Hour, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	actionsLen := len(actions)
+
+	c.Assert(actionsLen, gc.Equals, numCurrentActionEntries)
 }

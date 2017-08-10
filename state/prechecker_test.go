@@ -46,11 +46,11 @@ func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 
 func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	// PrecheckInstance should be called with the specified
-	// series and placement, and the specified constraints
+	// series and no placement, and the specified constraints
 	// merged with the model constraints, when attempting
 	// to create an instance.
 	envCons := constraints.MustParse("mem=4G")
-	placement := "abc123"
+	placement := ""
 	template, err := s.addOneMachine(c, envCons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, template.Series)
@@ -59,6 +59,21 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	cons, err := validator.Merge(envCons, template.Constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, gc.DeepEquals, cons)
+}
+
+func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *gc.C) {
+	// PrecheckInstance should be called with the specified
+	// series and placement. If placement is provided all
+	// model constraints should be ignored, otherwise they
+	// should be merged with provided constraints, when
+	// attempting to create an instance
+	envCons := constraints.MustParse("mem=4G")
+	placement := "abc123"
+	template, err := s.addOneMachine(c, envCons, placement)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, template.Series)
+	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
+	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, gc.DeepEquals, template.Constraints)
 }
 
 func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {

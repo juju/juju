@@ -4,7 +4,6 @@
 package status
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -4104,12 +4103,10 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 Offer         User  Relation id  Status  Endpoint  Interface  Role
 hosted-mysql  fred  3            active  server    mysql      provider
 
-Relation           Provides   Consumes   Type
-juju-info          logging    mysql      regular
-logging-dir        logging    wordpress  regular
-info               mysql      logging    subordinate
-db                 mysql      wordpress  regular
-logging-directory  wordpress  logging    subordinate
+Relation provider      Requirer                   Interface  Type
+mysql:juju-info        logging:info               juju-info  subordinate
+mysql:server           wordpress:db               mysql      regular
+wordpress:logging-dir  logging:logging-directory  logging    subordinate
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)
@@ -4160,33 +4157,6 @@ foo/1  maintenance  executing                                  (backup database)
 
 Machine  State  DNS  Inst id  Series  AZ  Message
 `[1:])
-}
-
-func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
-	status := formattedStatus{
-		Applications: map[string]applicationStatus{
-			"foo": {
-				Relations: map[string][]string{
-					"coordinator":  {"foo"},
-					"frobulator":   {"foo"},
-					"encapsulator": {"foo"},
-					"catchulator":  {"foo"},
-					"perforator":   {"foo"},
-					"deliverator":  {"foo"},
-					"replicator":   {"foo"},
-				},
-			},
-		},
-	}
-	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
-	sections, err := splitTableSections(out.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sections["Relation"], gc.DeepEquals, []string{
-		"Relation    Provides  Consumes  Type",
-		"replicator  foo       foo       peer",
-	})
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
@@ -4801,31 +4771,4 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
 	})
-}
-
-type tableSections map[string][]string
-
-func sectionTitle(lines []string) string {
-	return strings.SplitN(lines[0], " ", 2)[0]
-}
-
-func splitTableSections(tableData []byte) (tableSections, error) {
-	scanner := bufio.NewScanner(bytes.NewReader(tableData))
-	result := make(tableSections)
-	var current []string
-	for scanner.Scan() {
-		if line := scanner.Text(); line == "" && current != nil {
-			result[sectionTitle(current)] = current
-			current = nil
-		} else if line != "" {
-			current = append(current, line)
-		}
-	}
-	if scanner.Err() != nil {
-		return nil, scanner.Err()
-	}
-	if current != nil {
-		result[sectionTitle(current)] = current
-	}
-	return result, nil
 }

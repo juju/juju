@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statushistorypruner_test
+package pruner_test
 
 import (
 	"github.com/juju/errors"
@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/statushistorypruner"
+	"github.com/juju/juju/worker/pruner"
 )
 
 type ManifoldSuite struct {
@@ -22,7 +22,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 type ManifoldConfigSuite struct {
 	testing.IsolationSuite
-	config statushistorypruner.ManifoldConfig
+	config pruner.ManifoldConfig
 }
 
 var _ = gc.Suite(&ManifoldConfigSuite{})
@@ -32,13 +32,13 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.config = s.validConfig()
 }
 
-func (s *ManifoldConfigSuite) validConfig() statushistorypruner.ManifoldConfig {
-	return statushistorypruner.ManifoldConfig{
+func (s *ManifoldConfigSuite) validConfig() pruner.ManifoldConfig {
+	return pruner.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
 		ClockName:     "clock",
-		NewWorker:     func(statushistorypruner.Config) (worker.Worker, error) { return nil, nil },
-		NewFacade:     func(caller base.APICaller) statushistorypruner.Facade { return nil },
+		NewWorker:     func(pruner.Config) (worker.Worker, error) { return nil, nil },
+		NewFacade:     func(caller base.APICaller) pruner.Facade { return nil },
 	}
 }
 

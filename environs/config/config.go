@@ -143,12 +143,20 @@ const (
 	ExtraInfoKey = "extra-info"
 
 	// MaxStatusHistoryAge is the maximum age of status history values
-	// to keep when pruning, ef "72h"
+	// to keep when pruning, eg "72h"
 	MaxStatusHistoryAge = "max-status-history-age"
 
 	// MaxStatusHistorySize is the maximum size the status history
 	// collection can grow to before it is pruned, eg "5M"
 	MaxStatusHistorySize = "max-status-history-size"
+
+	// MaxActionResultsAge is the maximum age of actions to keep when pruning, eg
+	// "72h"
+	MaxActionResultsAge = "max-action-results-age"
+
+	// MaxActionResultsSize is the maximum size the actions collection can
+	// grow to before it is pruned, eg "5M"
+	MaxActionResultsSize = "max-action-results-size"
 
 	// UpdateStatusHookInterval is how often to run the update-status hook.
 	UpdateStatusHookInterval = "update-status-hook-interval"
@@ -285,6 +293,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	if err != nil {
 		return nil, err
 	}
+
 	c := &Config{
 		defined: defined.(map[string]interface{}),
 		unknown: make(map[string]interface{}),
@@ -314,6 +323,10 @@ const (
 
 	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
 	DefaultUpdateStatusHookInterval = "5m"
+
+	DefaultActionResultsAge = "336h" // 2 weeks
+
+	DefaultActionResultsSize = "5G"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -379,6 +392,8 @@ var defaultConfigValues = map[string]interface{}{
 	// Status history settings
 	MaxStatusHistoryAge:  DefaultStatusHistoryAge,
 	MaxStatusHistorySize: DefaultStatusHistorySize,
+	MaxActionResultsAge:  DefaultActionResultsAge,
+	MaxActionResultsSize: DefaultActionResultsSize,
 }
 
 // ConfigDefaults returns the config default values
@@ -506,6 +521,18 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.defined[MaxStatusHistorySize].(string); ok {
 		if _, err := utils.ParseSize(v); err != nil {
 			return errors.Annotate(err, "invalid max status history size in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[MaxActionResultsAge].(string); ok {
+		if _, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid max action age in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[MaxActionResultsSize].(string); ok {
+		if _, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid max action size in model configuration")
 		}
 	}
 
@@ -968,6 +995,18 @@ func (c *Config) MaxStatusHistorySizeMB() uint {
 	return uint(val)
 }
 
+func (c *Config) MaxActionResultsAge() time.Duration {
+	// Value has already been validated.
+	val, _ := time.ParseDuration(c.mustString(MaxActionResultsAge))
+	return val
+}
+
+func (c *Config) MaxActionResultsSizeMB() uint {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(MaxActionResultsSize))
+	return uint(val)
+}
+
 // UpdateStatusHookInterval is how often to run the charm
 // update-status hook.
 func (c *Config) UpdateStatusHookInterval() time.Duration {
@@ -1107,6 +1146,8 @@ var alwaysOptional = schema.Defaults{
 	NetBondReconfigureDelayKey:   schema.Omit,
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
+	MaxActionResultsAge:          schema.Omit,
+	MaxActionResultsSize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
 	EgressCidrs:                  schema.Omit,
 }
@@ -1487,6 +1528,16 @@ data of the store. (default false)`,
 	},
 	MaxStatusHistorySize: {
 		Description: "The maximum size for the status history collection, in human-readable memory format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxActionResultsAge: {
+		Description: "The maximum age for action entries before they are pruned, in human-readable time format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxActionResultsSize: {
+		Description: "The maximum size for the action collection, in human-readable memory format",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
