@@ -4,6 +4,7 @@
 package status
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -66,6 +67,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		Applications:       make(map[string]applicationStatus),
 		RemoteApplications: make(map[string]remoteApplicationStatus),
 		Offers:             make(map[string]offerStatus),
+		Relations:          make([]relationStatus, len(sf.relations)),
 	}
 	if sf.status.Model.MeterStatus.Color != "" {
 		out.Model.MeterStatus = &meterStatus{
@@ -84,6 +86,11 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	}
 	for name, offer := range sf.status.Offers {
 		out.Offers[name] = sf.formatOffer(name, offer)
+	}
+	i := 0
+	for _, rel := range sf.relations {
+		out.Relations[i] = sf.formatRelation(rel)
+		i++
 	}
 	return out, nil
 }
@@ -217,6 +224,37 @@ func (sf *statusFormatter) formatRemoteApplication(name string, application para
 			Interface: ep.Interface,
 			Role:      string(ep.Role),
 		}
+	}
+	return out
+}
+
+func (sf *statusFormatter) formatRelation(rel params.RelationStatus) relationStatus {
+	var provider, requirer params.EndpointStatus
+	for _, ep := range rel.Endpoints {
+		switch charm.RelationRole(ep.Role) {
+		case charm.RolePeer:
+			provider = ep
+			requirer = ep
+		case charm.RoleProvider:
+			provider = ep
+		case charm.RoleRequirer:
+			requirer = ep
+		}
+	}
+	var relType string
+	switch {
+	case rel.Scope == "container":
+		relType = "subordinate"
+	case provider.ApplicationName == requirer.ApplicationName:
+		relType = "peer"
+	default:
+		relType = "regular"
+	}
+	out := relationStatus{
+		Provider:  fmt.Sprintf("%s:%s", provider.ApplicationName, provider.Name),
+		Requirer:  fmt.Sprintf("%s:%s", requirer.ApplicationName, requirer.Name),
+		Interface: rel.Interface,
+		Type:      relType,
 	}
 	return out
 }

@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
+	jutils "github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -577,6 +578,36 @@ func PrimeUnitStatusHistory(
 	}
 
 	err := unit.st.db().Run(buildTxn)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// PrimeActions generates actions to be pruned. The method pads each
+// entry with a 1MB string. This should allow us to infer the
+// approximate size of the entry and limit the number of entries that
+// must be generated for size related tests.
+func PrimeActions(c *gc.C, age time.Time, unit *Unit, count int) {
+	actionCollection, closer := unit.st.db().GetCollection(actionsC)
+	defer closer()
+
+	actionCollectionWriter := actionCollection.Writeable()
+
+	const numBytes = 1 * 1000 * 1000
+	var padding [numBytes]byte
+	var actionDocs []interface{}
+	for i := 0; i < count; i++ {
+		id, err := jutils.NewUUID()
+		c.Assert(err, jc.ErrorIsNil)
+		actionDocs = append(actionDocs, actionDoc{
+			DocId:     id.String(),
+			ModelUUID: unit.st.ModelUUID(),
+			Receiver:  unit.Name(),
+			Completed: age,
+			Status:    ActionCompleted,
+			Message:   string(padding[:numBytes]),
+		})
+	}
+
+	err := actionCollectionWriter.Insert(actionDocs...)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

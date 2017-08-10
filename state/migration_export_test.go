@@ -11,11 +11,13 @@ import (
 
 	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -33,7 +35,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
-	"gopkg.in/macaroon.v1"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Constraints stores megabytes by default for memory and root disk.
@@ -615,6 +617,66 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+}
+
+func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	logging := s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+
+	addSubordinate := func(app *state.Application, unit *state.Unit) {
+		eps, err := s.State.InferEndpoints(app.Name(), logging.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		pru, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = pru.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		// Need to reload the doc to get the subordinates.
+		err = unit.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		subordinates := unit.SubordinateNames()
+		c.Assert(subordinates, gc.HasLen, 1)
+		loggingUnit, err := s.State.Unit(subordinates[0])
+		c.Assert(err, jc.ErrorIsNil)
+		sub, err := rel.Unit(loggingUnit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = sub.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	addSubordinate(mysql, mysql_0)
+	addSubordinate(wordpress, wordpress_0)
+
+	setTools := func(unit *state.Unit) {
+		app, err := unit.Application()
+		c.Assert(err, jc.ErrorIsNil)
+		agentTools := version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: app.Series(),
+		}
+		err = unit.SetAgentVersion(agentTools)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	units, err := logging.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 2)
+
+	for _, unit := range units {
+		setTools(unit)
+	}
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels := model.Relations()
+	c.Assert(rels, gc.HasLen, 2)
 }
 
 func (s *MigrationExportSuite) TestSpaces(c *gc.C) {

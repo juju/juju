@@ -13,7 +13,6 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/cmd/output"
@@ -22,61 +21,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
-
-type statusRelation struct {
-	application1 string
-	application2 string
-	relation     string
-	subordinate  bool
-}
-
-func (s *statusRelation) relationType() string {
-	if s.subordinate {
-		return "subordinate"
-	} else if s.application1 == s.application2 {
-		return "peer"
-	}
-	return "regular"
-}
-
-type relationFormatter struct {
-	relationIndex set.Strings
-	relations     map[string]*statusRelation
-}
-
-func newRelationFormatter() *relationFormatter {
-	return &relationFormatter{
-		relationIndex: set.NewStrings(),
-		relations:     make(map[string]*statusRelation),
-	}
-}
-
-func (r *relationFormatter) len() int {
-	return r.relationIndex.Size()
-}
-
-func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
-	rel := []string{rel1, rel2}
-	if !is2SubOf1 {
-		sort.Sort(sort.StringSlice(rel))
-	}
-	k := strings.Join(rel, "\t")
-	r.relations[k] = &statusRelation{
-		application1: rel[0],
-		application2: rel[1],
-		relation:     relation,
-		subordinate:  is2SubOf1,
-	}
-	r.relationIndex.Add(k)
-}
-
-func (r *relationFormatter) sorted() []string {
-	return r.relationIndex.SortedValues()
-}
-
-func (r *relationFormatter) get(k string) *statusRelation {
-	return r.relations[k]
-}
 
 // FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
@@ -150,7 +94,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	units := make(map[string]unitStatus)
-	relations := newRelationFormatter()
 	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
@@ -186,20 +129,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 				metering = true
 			}
 		}
-		// Ensure that we pick a consistent name for peer relations.
-		sortedRelTypes := make([]string, 0, len(app.Relations))
-		for relType := range app.Relations {
-			sortedRelTypes = append(sortedRelTypes, relType)
-		}
-		sort.Strings(sortedRelTypes)
-
-		subs := set.NewStrings(app.SubordinateTo...)
-		for _, relType := range sortedRelTypes {
-			for _, related := range app.Relations[relType] {
-				relations.add(related, appName, relType, subs.Contains(related))
-			}
-		}
-
 	}
 
 	pUnit := func(name string, u unitStatus, level int) {
@@ -286,13 +215,17 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		tw.Flush()
 	}
 
-	if relations.len() > 0 {
-		outputHeaders("Relation", "Provides", "Consumes", "Type")
-		for _, k := range relations.sorted() {
-			r := relations.get(k)
-			if r != nil {
-				p(r.relation, r.application1, r.application2, r.relationType())
+	if len(fs.Relations) > 0 {
+		sort.Slice(fs.Relations, func(i, j int) bool {
+			a, b := fs.Relations[i], fs.Relations[j]
+			if a.Provider == b.Provider {
+				return a.Requirer < b.Requirer
 			}
+			return a.Provider < b.Provider
+		})
+		outputHeaders("Relation provider", "Requirer", "Interface", "Type")
+		for _, r := range fs.Relations {
+			p(r.Provider, r.Requirer, r.Interface, r.Type)
 		}
 	}
 

@@ -401,11 +401,11 @@ Examples:
     the 'cmd' or the 'database' spaces)
 
 See also:
-    spaces
-    config
     add-unit
+    config
     set-constraints
     get-constraints
+    spaces
 `
 
 // DeployStep is an action that needs to be taken during charm deployment.

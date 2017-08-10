@@ -72,7 +72,10 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
 
 	var output bytes.Buffer
-	gatewayHandled := false
+	gateway4Handled := false
+	gateway6Handled := false
+	hasV4Interface := false
+	hasV6Interface := false
 	for _, name := range prepared.InterfaceNames {
 		output.WriteString("\n")
 		if name == "lo" {
@@ -103,22 +106,41 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 			output.WriteString("iface " + name + " inet dhcp\n")
 			// We're expecting to get a default gateway
 			// from the DHCP lease.
-			gatewayHandled = true
+			gateway4Handled = true
 			continue
 		}
 
-		output.WriteString("iface " + name + " inet static\n")
-		output.WriteString("  address " + address + "\n")
-		if !gatewayHandled && prepared.GatewayAddress != "" {
-			_, network, err := net.ParseCIDR(address)
-			if err != nil {
-				return "", errors.Annotatef(err, "invalid gateway for interface %q with address %q", name, address)
-			}
+		_, network, err := net.ParseCIDR(address)
+		if err != nil {
+			return "", errors.Annotatef(err, "invalid address for interface %q: %q", name, address)
+		}
 
-			gatewayIP := net.ParseIP(prepared.GatewayAddress)
-			if network.Contains(gatewayIP) {
-				output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
-				gatewayHandled = true // write it only once
+		isIpv4 := network.IP.To4() != nil
+
+		if isIpv4 {
+			output.WriteString("iface " + name + " inet static\n")
+			hasV4Interface = true
+		} else {
+			output.WriteString("iface " + name + " inet6 static\n")
+			hasV6Interface = true
+		}
+		output.WriteString("  address " + address + "\n")
+
+		if isIpv4 {
+			if !gateway4Handled && prepared.Gateway4Address != "" {
+				gatewayIP := net.ParseIP(prepared.Gateway4Address)
+				if network.Contains(gatewayIP) {
+					output.WriteString("  gateway " + prepared.Gateway4Address + "\n")
+					gateway4Handled = true // write it only once
+				}
+			}
+		} else {
+			if !gateway6Handled && prepared.Gateway6Address != "" {
+				gatewayIP := net.ParseIP(prepared.Gateway6Address)
+				if network.Contains(gatewayIP) {
+					output.WriteString("  gateway " + prepared.Gateway6Address + "\n")
+					gateway4Handled = true // write it only once
+				}
 			}
 		}
 
@@ -137,8 +159,12 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	generatedConfig := output.String()
 	logger.Debugf("generated network config:\n%s", generatedConfig)
 
-	if !gatewayHandled {
-		logger.Infof("generated network config has no gateway")
+	if hasV4Interface && !gateway4Handled {
+		logger.Infof("generated network config has no ipv4 gateway")
+	}
+
+	if hasV6Interface && !gateway6Handled {
+		logger.Infof("generated network config has no ipv6 gateway")
 	}
 
 	return generatedConfig, nil
@@ -154,7 +180,8 @@ type PreparedConfig struct {
 	NameToAddress    map[string]string
 	NameToRoutes     map[string][]network.Route
 	NameToMTU        map[string]int
-	GatewayAddress   string
+	Gateway4Address  string
+	Gateway6Address  string
 }
 
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
@@ -163,7 +190,8 @@ type PreparedConfig struct {
 func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
-	gatewayAddress := ""
+	gateway4Address := ""
+	gateway6Address := ""
 	namesInOrder := make([]string, 1, len(interfaces)+1)
 	nameToAddress := make(map[string]string)
 	nameToRoutes := make(map[string][]network.Route)
@@ -195,8 +223,14 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 
 		dnsSearchDomains = dnsSearchDomains.Union(set.NewStrings(info.DNSSearchDomains...))
 
-		if gatewayAddress == "" && info.GatewayAddress.Value != "" {
-			gatewayAddress = info.GatewayAddress.Value
+		if info.GatewayAddress.Value != "" {
+			switch {
+			case gateway4Address == "" && info.GatewayAddress.Type == network.IPv4Address:
+				gateway4Address = info.GatewayAddress.Value
+
+			case gateway6Address == "" && info.GatewayAddress.Type == network.IPv6Address:
+				gateway6Address = info.GatewayAddress.Value
+			}
 		}
 
 		if info.MTU != 0 && info.MTU != 1500 {
@@ -214,7 +248,8 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 		AutoStarted:      autoStarted.SortedValues(),
 		DNSServers:       dnsServers.SortedValues(),
 		DNSSearchDomains: dnsSearchDomains.SortedValues(),
-		GatewayAddress:   gatewayAddress,
+		Gateway4Address:  gateway4Address,
+		Gateway6Address:  gateway6Address,
 	}
 
 	logger.Debugf("prepared network config for rendering: %+v", prepared)

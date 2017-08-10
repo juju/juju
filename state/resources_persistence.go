@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
@@ -382,10 +383,14 @@ func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.
 	}
 
 	ops := newRemoveResourcesOps(docs)
+	seenPaths := set.NewStrings()
 	for _, doc := range docs {
-		if doc.StoragePath != "" { // Don't schedule cleanups for placeholder resources.
-			ops = append(ops, newCleanupOp(cleanupResourceBlob, doc.StoragePath))
+		// Don't schedule cleanups for placeholder resources, or multiple for a given path.
+		if doc.StoragePath == "" || seenPaths.Contains(doc.StoragePath) {
+			continue
 		}
+		ops = append(ops, newCleanupOp(cleanupResourceBlob, doc.StoragePath))
+		seenPaths.Add(doc.StoragePath)
 	}
 	return ops, nil
 }

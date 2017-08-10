@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
@@ -40,6 +41,7 @@ import (
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelupgrader"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/remoterelations"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
@@ -86,6 +88,10 @@ type ManifoldsConfig struct {
 	// StatusHistoryPruner* values control status-history pruning
 	// behaviour.
 	StatusHistoryPrunerInterval time.Duration
+
+	// ActionPrunerInterval controls the rate at which the action pruner
+	// worker is run.
+	ActionPrunerInterval time.Duration
 
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
@@ -292,13 +298,21 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		statusHistoryPrunerName: ifNotMigrating(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
+		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
 			PruneInterval: config.StatusHistoryPrunerInterval,
+		})),
+		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			ClockName:     clockName,
+			NewWorker:     actionpruner.New,
+			NewFacade:     actionpruner.NewFacade,
+			PruneInterval: config.ActionPrunerInterval,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -424,6 +438,7 @@ const (
 	metricWorkerName         = "metric-worker"
 	stateCleanerName         = "state-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
+	actionPrunerName         = "action-pruner"
 	machineUndertakerName    = "machine-undertaker"
 	remoteRelationsName      = "remote-relations"
 	logForwarderName         = "log-forwarder"

@@ -225,6 +225,31 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
+	dir := c.MkDir()
+	testcharms.Repo.ClonedDir(dir, "dummy-resource")
+	path := filepath.Join(dir, "mybundle")
+	data := `
+        series: quantal
+        applications:
+            "dummy-resource":
+                charm: ./dummy-resource
+                series: quantal
+                num_units: 1
+                resources:
+                  dummy: %s
+    `
+	data = fmt.Sprintf(data, filepath.Join(dir, "dummy-resource", "dummy-resource.zip"))
+	err := ioutil.WriteFile(path, []byte(data), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runDeploy(c, path)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
+	s.assertApplicationsDeployed(c, map[string]serviceInfo{
+		"dummy-resource": {charm: "local:quantal/dummy-resource-0"},
+	})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C) {
 	testcharms.UploadCharmMultiSeries(c, s.client, "~who/multi-series", "multi-series")
 	dir := c.MkDir()
