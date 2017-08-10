@@ -1642,15 +1642,15 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 	}
 	var subordinateCount int
 	for _, ep := range []Endpoint{ep1, ep2} {
-		svc, err := applicationByName(st, ep.ApplicationName)
+		app, err := applicationByName(st, ep.ApplicationName)
 		if err != nil {
 			return false, err
 		}
 		// Container scoped relations are not allowed for remote applications.
-		if svc.IsRemote() {
+		if app.IsRemote() {
 			return false, nil
 		}
-		if svc.(*Application).doc.Subordinate {
+		if app.(*Application).doc.Subordinate {
 			subordinateCount++
 		}
 	}
@@ -1690,19 +1690,19 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 	} else {
 		return nil, errors.Errorf("invalid endpoint %q", name)
 	}
-	svc, err := applicationByName(st, appName)
+	app, err := applicationByName(st, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	eps := []Endpoint{}
 	if relName != "" {
-		ep, err := svc.Endpoint(relName)
+		ep, err := app.Endpoint(relName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		eps = append(eps, ep)
 	} else {
-		eps, err = svc.Endpoints()
+		eps, err = app.Endpoints()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1730,20 +1730,22 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	}
 
 	// Check applications are alive and do checks if one is remote.
-	svc1, err := aliveApplication(st, eps[0].ApplicationName)
+	app1, err := aliveApplication(st, eps[0].ApplicationName)
 	if err != nil {
 		return nil, err
 	}
-	svc2, err := aliveApplication(st, eps[1].ApplicationName)
+	app2, err := aliveApplication(st, eps[1].ApplicationName)
 	if err != nil {
 		return nil, err
 	}
-	if svc1.IsRemote() && svc2.IsRemote() {
+	if app1.IsRemote() && app2.IsRemote() {
 		return nil, errors.Errorf("cannot add relation between remote applications %q and %q", eps[0].ApplicationName, eps[1].ApplicationName)
 	}
-	remoteRelation := svc1.IsRemote() || svc2.IsRemote()
-	if remoteRelation && (eps[0].Scope != charm.ScopeGlobal || eps[1].Scope != charm.ScopeGlobal) {
-		return nil, errors.Errorf("both endpoints must be globally scoped for remote relations")
+	remoteRelation := app1.IsRemote() || app2.IsRemote()
+	ep0ok := app1.IsRemote() || eps[0].Scope == charm.ScopeGlobal
+	ep1ok := app2.IsRemote() || eps[1].Scope == charm.ScopeGlobal
+	if remoteRelation && (!ep0ok || !ep1ok) {
+		return nil, errors.Errorf("local endpoint must be globally scoped for remote relations")
 	}
 
 	// If either endpoint has container scope, so must the other; and the
@@ -1776,11 +1778,11 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
-			svc, err := aliveApplication(st, ep.ApplicationName)
+			app, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
 				return nil, err
 			}
-			if svc.IsRemote() {
+			if app.IsRemote() {
 				ops = append(ops, txn.Op{
 					C:      remoteApplicationsC,
 					Id:     st.docID(ep.ApplicationName),
@@ -1788,12 +1790,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			} else {
-				localSvc := svc.(*Application)
-				if localSvc.doc.Subordinate {
+				localApp := app.(*Application)
+				if localApp.doc.Subordinate {
 					subordinateCount++
 				}
-				series[localSvc.doc.Series] = true
-				ch, _, err := localSvc.Charm()
+				series[localApp.doc.Series] = true
+				ch, _, err := localApp.Charm()
 				if err != nil {
 					return nil, errors.Trace(err)
 				}

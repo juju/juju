@@ -141,8 +141,6 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 			Name:      "db2",
 			Role:      "requires",
 			Interface: "db2",
-			Limit:     1,
-			Scope:     "global",
 		},
 		remoteEndpointName: "data",
 	}
@@ -169,8 +167,6 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 				Name:      "db2",
 				Role:      "requires",
 				Interface: "db2",
-				Limit:     1,
-				Scope:     "global",
 			},
 			OfferName:         "offer-db2",
 			LocalEndpointName: "data",
@@ -426,8 +422,6 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 			Name:      "db2",
 			Role:      "requires",
 			Interface: "db2",
-			Limit:     1,
-			Scope:     "global",
 		},
 		remoteEndpointName: "data",
 	}
@@ -437,8 +431,6 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{names.NewRelationTag("db2:db django:db")}},
-		{"GetToken", []interface{}{names.NewApplicationTag("django")}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }

@@ -331,8 +331,6 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 			Name:      alias,
 			Interface: ep.Interface,
 			Role:      ep.Role,
-			Scope:     ep.Scope,
-			Limit:     ep.Limit,
 		})
 		spaceName, ok := appBindings[ep.Name]
 		if !ok {

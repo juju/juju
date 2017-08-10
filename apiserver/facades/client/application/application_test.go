@@ -2440,14 +2440,17 @@ func (s *applicationSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoint
 		Limit:     1,
 		Scope:     "global",
 	})
-	c.Assert(endpoints[mysqlAppName], gc.DeepEquals, params.CharmRelation{
+	ep := params.CharmRelation{
 		Name:      "server",
 		Role:      "provider",
 		Interface: "mysql",
-		Optional:  false,
-		Limit:     0,
 		Scope:     "global",
-	})
+	}
+	// Remote applications don't use scope.
+	if mysqlAppName == "hosted-mysql" {
+		ep.Scope = ""
+	}
+	c.Assert(endpoints[mysqlAppName], gc.DeepEquals, ep)
 }
 
 func (s *applicationSuite) setupRelationScenario(c *gc.C) {
@@ -2560,7 +2563,7 @@ func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
 				OfferName:              "hosted-mysql",
 				ApplicationDescription: "A pretty popular database",
 				Endpoints: []params.RemoteEndpoint{
-					{Name: "server", Interface: "mysql", Role: "provider", Scope: "global"},
+					{Name: "server", Interface: "mysql", Role: "provider"},
 				},
 			}},
 		},
@@ -2613,7 +2616,7 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 				SourceModelTag: testing.ModelTag.String(),
 				OfferName:      "hosted-db2",
 				Endpoints: []params.RemoteEndpoint{
-					{Name: "database", Interface: "db2", Role: "provider", Scope: "global"},
+					{Name: "database", Interface: "db2", Role: "provider"},
 				},
 			}},
 		},

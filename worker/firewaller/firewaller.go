@@ -329,6 +329,10 @@ func (fw *Firewaller) publishNetworkChanged(change *remoteRelationNetworkChange)
 		return errors.Annotatef(err, "cannot get api info for model %v", relData.remoteModelUUID)
 	}
 	mac, err := fw.firewallerApi.MacaroonForRelation(relData.tag.Id())
+	if params.IsCodeNotFound(err) {
+		// Relation has gone, nothing to do.
+		return nil
+	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot get macaroon for %v", relData.tag.Id())
 	}

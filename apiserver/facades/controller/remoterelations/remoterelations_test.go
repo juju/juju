@@ -331,8 +331,6 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 				Name:      "db",
 				Role:      "provides",
 				Interface: "db2",
-				Limit:     1,
-				Scope:     "global",
 			}},
 	}})
 	s.st.CheckCalls(c, []testing.StubCall{

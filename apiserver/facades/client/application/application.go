@@ -999,8 +999,6 @@ func (api *API) saveRemoteApplication(
 			Name:      ep.Name,
 			Role:      ep.Role,
 			Interface: ep.Interface,
-			Limit:     ep.Limit,
-			Scope:     ep.Scope,
 		}
 	}
 

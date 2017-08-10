@@ -89,8 +89,6 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) []crossmo
 				Name:      ep.Name,
 				Role:      ep.Role,
 				Interface: ep.Interface,
-				Scope:     ep.Scope,
-				Limit:     ep.Limit,
 			}
 		}
 		result[i].Result = &crossmodel.ApplicationOfferDetails{

@@ -220,10 +220,8 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		ApplicationName: uniqueRemoteApplicationName,
 		Relation: charm.Relation{
 			Name:      relation.RemoteEndpoint.Name,
-			Scope:     relation.RemoteEndpoint.Scope,
 			Interface: relation.RemoteEndpoint.Interface,
 			Role:      relation.RemoteEndpoint.Role,
-			Limit:     relation.RemoteEndpoint.Limit,
 		},
 	}
 

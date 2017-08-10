@@ -964,7 +964,6 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 			Name:      ep.Name,
 			Interface: ep.Interface,
 			Role:      ep.Role,
-			Scope:     ep.Scope,
 		}
 	}
 	status.Life = processLife(application)
@@ -999,7 +998,6 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 				Name:      ep.Name,
 				Interface: ep.Interface,
 				Role:      ep.Role,
-				Limit:     ep.Limit,
 			}
 		}
 		offers[name] = offerStatus

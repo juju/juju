@@ -988,7 +988,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		ApplicationDescription: "a database",
-		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": "myspace"},
 		Spaces: []params.RemoteSpace{
 			{
@@ -1040,7 +1040,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		ApplicationDescription: "a database",
-		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": ""},
 		Access:                 "consume",
 	})
@@ -1126,7 +1126,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 			SourceModelLabel: "prod",
 			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
 			Endpoints: []params.RemoteEndpoint{
-				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+				{Name: "server", Role: "provider", Interface: "mysql"}},
 		}},
 		{
 			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
