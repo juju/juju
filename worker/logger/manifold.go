@@ -29,18 +29,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			var a agent.Agent
+			if err := context.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
+			currentConfig := a.CurrentConfig()
+			loggingOverride := currentConfig.Value(agent.LoggingOverride)
+
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 
-			currentConfig := agent.CurrentConfig()
 			loggerFacade := logger.NewState(apiCaller)
-			return NewLogger(loggerFacade, currentConfig, config.UpdateAgentFunc)
+			return NewLogger(loggerFacade, currentConfig.Tag(), loggingOverride, config.UpdateAgentFunc)
 		},
 	}
 }

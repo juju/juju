@@ -46,7 +46,7 @@ func registerFormat(format formatter) {
 //
 // When a new format version is introduced there is going to need to be some
 // refactoring around the config writing when provisioning a machine as the
-// controller may well understand a config format that the model does  not. So
+// controller may well understand a config format that the model does not. So
 // when generating the agent.conf for the model's machine, it needs to be
 // written out in a format that the model can understand. Right now it will be
 // written out in the format that the controller understands, and that will

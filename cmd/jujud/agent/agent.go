@@ -119,7 +119,7 @@ func (ch *agentConf) CurrentConfig() agent.Config {
 func setupAgentLogging(config agent.Config) {
 
 	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
-		logger.Infof("setting logging override to %q", loggingOverride)
+		logger.Infof("logging override set for this agent: %q", loggingOverride)
 		loggo.DefaultContext().ResetLoggerLevels()
 		err := loggo.ConfigureLoggers(loggingOverride)
 		if err != nil {
@@ -132,7 +132,7 @@ func setupAgentLogging(config agent.Config) {
 		loggo.DefaultContext().ResetLoggerLevels()
 		err := loggo.ConfigureLoggers(loggingConfig)
 		if err != nil {
-			logger.Errorf("setting logging config %v", err)
+			logger.Errorf("problem setting logging config %v", err)
 		}
 	}
 

@@ -9,10 +9,8 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -31,8 +29,8 @@ type LoggerSuite struct {
 	loggerAPI *apilogger.State
 	machine   *state.Machine
 
-	value  string
-	values map[string]string
+	value    string
+	override string
 }
 
 var _ = gc.Suite(&LoggerSuite{})
@@ -45,7 +43,7 @@ func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.loggerAPI, gc.NotNil)
 	s.machine = machine
 	s.value = ""
-	s.values = nil
+	s.override = ""
 }
 
 func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
@@ -65,40 +63,17 @@ func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
 	}
 }
 
-type mockConfig struct {
-	agent.Config
-	c      *gc.C
-	tag    names.Tag
-	values map[string]string
-}
-
-func (mock *mockConfig) Tag() names.Tag {
-	return mock.tag
-}
-
-func (mock *mockConfig) Value(key string) string {
-	if mock.values == nil {
-		return ""
-	}
-	return mock.values[key]
-}
-
-func agentConfig(c *gc.C, tag names.Tag, values map[string]string) *mockConfig {
-	return &mockConfig{c: c, tag: tag, values: values}
-}
-
-func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
-	config := agentConfig(c, s.machine.Tag(), s.values)
-	w, err := logger.NewLogger(s.loggerAPI, config, func(v string) error {
+func (s *LoggerSuite) makeLogger(c *gc.C) worker.Worker {
+	w, err := logger.NewLogger(s.loggerAPI, s.machine.Tag(), s.override, func(v string) error {
 		s.value = v
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return w, config
+	return w
 }
 
 func (s *LoggerSuite) TestRunStop(c *gc.C) {
-	loggingWorker, _ := s.makeLogger(c)
+	loggingWorker := s.makeLogger(c)
 	c.Assert(worker.Stop(loggingWorker), gc.IsNil)
 }
 
@@ -114,7 +89,7 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 	err = loggo.ConfigureLoggers(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	loggingWorker, _ := s.makeLogger(c)
+	loggingWorker := s.makeLogger(c)
 	defer worker.Stop(loggingWorker)
 
 	s.waitLoggingInfo(c, expected)
@@ -122,13 +97,13 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 }
 
 func (s *LoggerSuite) TestConfigOverride(c *gc.C) {
-	s.values = map[string]string{agent.LoggingOverride: "test=TRACE"}
+	s.override = "test=TRACE"
 
 	loggo.DefaultContext().ResetLoggerLevels()
 	err := loggo.ConfigureLoggers("<root>=DEBUG;wibble=ERROR")
 	c.Assert(err, jc.ErrorIsNil)
 
-	loggingWorker, _ := s.makeLogger(c)
+	loggingWorker := s.makeLogger(c)
 	defer worker.Stop(loggingWorker)
 
 	// When reset, the root defaults to WARNING.
