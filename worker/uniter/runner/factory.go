@@ -121,7 +121,7 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 		return nil, &badActionError{name, err.Error()}
 	}
 
-	actionData := context.NewActionData(name, &tag, params)
+	actionData := context.NewActionData(name, &tag, spec.NonBlocking, params)
 	ctx, err := f.contextFactory.ActionContext(actionData)
 	runner := NewRunner(ctx, f.paths)
 	return runner, nil

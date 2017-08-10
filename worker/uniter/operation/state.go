@@ -88,7 +88,11 @@ type State struct {
 	// ActionId holds action information relevant to the current operation. If
 	// Kind is Continue, it holds the last action that was executed; if Kind is
 	// RunAction, it holds the running action.
-	ActionId *string `yaml:"action-id,omitempty"`
+	ActionId *string `yaml:"action-id,omit empty"`
+
+	// NonBlockingActionIds holds the ids of any actions that are designated
+	// `non-blocking` and that are currently running.
+	NonBlockingActionIds []string `yaml:"non-blocking-action-ids,omit empty"`
 
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.

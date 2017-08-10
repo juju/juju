@@ -17,10 +17,9 @@ type runAction struct {
 	callbacks     Callbacks
 	runnerFactory runner.Factory
 
-	name   string
-	runner runner.Runner
-
-	RequiresMachineLock
+	nonBlocking bool
+	name        string
+	runner      runner.Runner
 }
 
 // String is part of the Operation interface.
@@ -49,18 +48,29 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 		// this should *really* never happen, but let's not panic
 		return nil, errors.Trace(err)
 	}
+	ra.nonBlocking = actionData.NonBlocking
+
 	err = rnr.Context().Prepare()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ra.name = actionData.Name
 	ra.runner = rnr
-	return stateChange{
-		Kind:     RunAction,
-		Step:     Pending,
-		ActionId: &ra.actionId,
-		Hook:     state.Hook,
-	}.apply(state), nil
+
+	var newState *State
+	if ra.nonBlocking {
+		state.NonBlockingActionIds = append(state.NonBlockingActionIds, ra.actionId)
+		newState = &state
+	} else {
+		newState = stateChange{
+			Kind:     RunAction,
+			Step:     Pending,
+			ActionId: &ra.actionId,
+			Hook:     state.Hook,
+		}.apply(state)
+	}
+
+	return newState, nil
 }
 
 // Execute runs the action, and preserves any hook recorded in the supplied state.
@@ -78,22 +88,46 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		// be handled inside the Runner, and returned as nil.
 		return nil, errors.Annotatef(err, "running action %q", ra.name)
 	}
-	return stateChange{
-		Kind:     RunAction,
-		Step:     Done,
-		ActionId: &ra.actionId,
-		Hook:     state.Hook,
-	}.apply(state), nil
+
+	var newState *State
+	if !ra.nonBlocking {
+		newState = stateChange{
+			Kind:     RunAction,
+			Step:     Done,
+			ActionId: &ra.actionId,
+			Hook:     state.Hook,
+		}.apply(state)
+	}
+
+	return newState, nil
 }
 
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
-	return stateChange{
-		Kind: continuationKind(state),
-		Step: Pending,
-		Hook: state.Hook,
-	}.apply(state), nil
+	var newState *State
+	if ra.nonBlocking {
+		// remove the non-blocking action's id from the uniter's state
+		for i, v := range state.NonBlockingActionIds {
+			if v == ra.actionId {
+				state.NonBlockingActionIds[i] = state.NonBlockingActionIds[len(state.NonBlockingActionIds)-1]
+				state.NonBlockingActionIds = state.NonBlockingActionIds[:len(state.NonBlockingActionIds)-1]
+			}
+			newState = &state
+		}
+	} else {
+		newState = stateChange{
+			Kind: continuationKind(state),
+			Step: Pending,
+			Hook: state.Hook,
+		}.apply(state)
+	}
+
+	return newState, nil
+}
+
+func (ra *runAction) NeedsGlobalMachineLock() bool {
+	return !ra.nonBlocking
 }
 
 // continuationKind determines what State Kind the operation

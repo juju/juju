@@ -68,6 +68,8 @@ func (x *executor) State() State {
 func (x *executor) Run(op Operation) error {
 	logger.Debugf("running operation %v", op)
 
+	var releaser mutex.Releaser
+
 	if op.NeedsGlobalMachineLock() {
 		releaser, err := x.acquireMachineLock()
 		if err != nil {
@@ -80,9 +82,31 @@ func (x *executor) Run(op Operation) error {
 	switch err := x.do(op, stepPrepare); errors.Cause(err) {
 	case ErrSkipExecute:
 	case nil:
+
+		// after preparing the operation it may be determined that the
+		// lock is not needed (i.e for a long running action), therefore
+		// we release the lock.
+		if !op.NeedsGlobalMachineLock() {
+			releaser.Release()
+
+			// if the machine lock is not needed then we are free to
+			// run the action concurrently with other actions.
+			go func() {
+				if err := x.do(op, stepExecute); err != nil {
+					logger.Criticalf("asynchronous %s exited abnormally: %s", op.String(), err.Error())
+				}
+
+				if err = x.do(op, stepCommit); err != nil {
+					logger.Tracef("%e", err)
+				}
+			}()
+
+		}
+
 		if err := x.do(op, stepExecute); err != nil {
 			return err
 		}
+
 	default:
 		return err
 	}
