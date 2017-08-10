@@ -474,6 +474,7 @@ var commandNames = []string{
 	"metrics",
 	"migrate",
 	"model-config",
+	"model-default",
 	"model-defaults",
 	"models",
 	"payloads",
