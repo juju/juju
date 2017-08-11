@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -42,6 +43,10 @@ type mockState struct {
 	permissions map[string]permission.Access
 }
 
+func (m *mockState) ApplicationOfferForUUID(offerUUID string) (*jujucrossmodel.ApplicationOffer, error) {
+	return &jujucrossmodel.ApplicationOffer{OfferUUID: offerUUID}, nil
+}
+
 func (m *mockState) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
 	perm, ok := m.permissions[target.Id()+":"+subject.Id()]
 	if !ok {
@@ -50,8 +55,8 @@ func (m *mockState) UserPermission(subject names.UserTag, target names.Tag) (per
 	return perm, nil
 }
 
-func (m *mockState) GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error) {
-	perm, ok := m.permissions[offer.Id()+":"+user.Id()]
+func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
+	perm, ok := m.permissions[offerUUID+":"+user.Id()]
 	if !ok {
 		return permission.NoAccess, nil
 	}

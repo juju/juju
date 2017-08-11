@@ -226,6 +226,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "description",
 					OfferName:              "hosted-db2",
+					OfferUUID:              "hosted-db2-uuid",
 					OfferURL:               "fred/prod.hosted-db2",
 					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 					Bindings:               map[string]string{"db2": "myspace"},
@@ -340,6 +341,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 			ApplicationDescription: "description",
 			OfferURL:               "fred/prod.hosted-db2",
 			OfferName:              "hosted-db2",
+			OfferUUID:              "hosted-db2-uuid",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Bindings:               map[string]string{"db2": "myspace"},
 			Spaces: []params.RemoteSpace{
@@ -383,6 +385,7 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 			ApplicationDescription: "description",
 			OfferURL:               "fred/prod.hosted-db2",
 			OfferName:              "hosted-db2",
+			OfferUUID:              "hosted-db2-uuid",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Bindings:               map[string]string{"db2": "myspace"},
 			Spaces: []params.RemoteSpace{
@@ -471,6 +474,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		ApplicationName:        name,
 		ApplicationDescription: "description",
 		OfferName:              "hosted-" + name,
+		OfferUUID:              "hosted-" + name + "-uuid",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "db"}},
 	}
 
@@ -480,6 +484,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		ApplicationName:        name2,
 		ApplicationDescription: "description2",
 		OfferName:              "hosted-" + name2,
+		OfferUUID:              "hosted-" + name2 + "-uuid",
 		Endpoints:              map[string]charm.Relation{"db2": {Name: "db2"}},
 	}
 
@@ -563,6 +568,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			SourceModelTag:         testing.ModelTag.String(),
 			ApplicationDescription: "description",
 			OfferName:              "hosted-" + name,
+			OfferUUID:              "hosted-" + name + "-uuid",
 			OfferURL:               url,
 			Access:                 "read",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -578,6 +584,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			SourceModelTag:         "model-uuid2",
 			ApplicationDescription: "description2",
 			OfferName:              "hosted-" + name2,
+			OfferUUID:              "hosted-" + name2 + "-uuid",
 			OfferURL:               url2,
 			Access:                 "consume",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db2"}}},
@@ -622,6 +629,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 			SourceModelTag:         testing.ModelTag.String(),
 			ApplicationDescription: "description",
 			OfferName:              "hosted-db2",
+			OfferUUID:              "hosted-db2-uuid",
 			OfferURL:               "fred/prod.hosted-db2",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Bindings:               map[string]string{"db2": "myspace"},
@@ -657,6 +665,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 			SourceModelTag:         testing.ModelTag.String(),
 			ApplicationDescription: "description",
 			OfferName:              "hosted-db2",
+			OfferUUID:              "hosted-db2-uuid",
 			OfferURL:               "fred/prod.hosted-db2",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Bindings:               map[string]string{"db2": "myspace"},
@@ -699,18 +708,21 @@ func (s *applicationOffersSuite) TestFindRequiresFilter(c *gc.C) {
 func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	db2Offer := jujucrossmodel.ApplicationOffer{
 		OfferName:              "hosted-db2",
+		OfferUUID:              "hosted-db2-uuid",
 		ApplicationName:        "db2",
 		ApplicationDescription: "db2 description",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "db2"}},
 	}
 	mysqlOffer := jujucrossmodel.ApplicationOffer{
 		OfferName:              "hosted-mysql",
+		OfferUUID:              "hosted-mysql-uuid",
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql description",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "mysql"}},
 	}
 	postgresqlOffer := jujucrossmodel.ApplicationOffer{
 		OfferName:              "hosted-postgresql",
+		OfferUUID:              "hosted-postgresql-uuid",
 		ApplicationName:        "postgresql",
 		ApplicationDescription: "postgresql description",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "postgresql"}},
@@ -831,6 +843,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "db2 description",
 				OfferName:              "hosted-db2",
+				OfferUUID:              "hosted-db2-uuid",
 				OfferURL:               "fred/prod.hosted-db2",
 				Access:                 "consume",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -847,6 +860,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 				SourceModelTag:         "model-uuid2",
 				ApplicationDescription: "mysql description",
 				OfferName:              "hosted-mysql",
+				OfferUUID:              "hosted-mysql-uuid",
 				OfferURL:               "mary/another.hosted-mysql",
 				Access:                 "read",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -855,6 +869,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 				SourceModelTag:         "model-uuid2",
 				ApplicationDescription: "postgresql description",
 				OfferName:              "hosted-postgresql",
+				OfferUUID:              "hosted-postgresql-uuid",
 				OfferURL:               "mary/another.hosted-postgresql",
 				Access:                 "admin",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -987,6 +1002,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
+		OfferUUID:              "hosted-mysql-uuid",
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": "myspace"},
@@ -1009,7 +1025,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Condition, gc.Equals, "declared offer-url fred/prod.hosted-mysql")
+	c.Check(cav[2].Condition, gc.Equals, "declared offer-uuid hosted-mysql-uuid")
 	c.Check(cav[3].Condition, gc.Equals, "declared username someone")
 }
 
@@ -1039,6 +1055,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
+		OfferUUID:              "hosted-mysql-uuid",
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": ""},
@@ -1066,6 +1083,7 @@ func (s *consumeSuite) setupOffer() {
 		ApplicationName:        "mysql",
 		ApplicationDescription: "a database",
 		OfferName:              offerName,
+		OfferUUID:              offerName + "-uuid",
 		Endpoints: map[string]charm.Relation{
 			"server": {Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	}

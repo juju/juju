@@ -24,20 +24,20 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 		RelationId:      1,
 		RelationKey:     "rel-key",
 		Username:        "fred",
-		OfferName:       "mysql",
+		OfferUUID:       "offer-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(oc.SourceModelUUID(), gc.Equals, testing.ModelTag.Id())
 	c.Assert(oc.RelationId(), gc.Equals, 1)
 	c.Assert(oc.RelationKey(), gc.Equals, "rel-key")
-	c.Assert(oc.OfferName(), gc.Equals, "mysql")
+	c.Assert(oc.OfferUUID(), gc.Equals, "offer-uuid")
 	c.Assert(oc.UserName(), gc.Equals, "fred")
 
 	anotherState, err := s.State.ForModel(s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
-	rc, err := anotherState.RemoteConnectionStatus("mysql")
+	rc, err := anotherState.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
 
@@ -47,9 +47,9 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	c.Assert(all[0].SourceModelUUID(), gc.Equals, testing.ModelTag.Id())
 	c.Assert(all[0].RelationId(), gc.Equals, 1)
 	c.Assert(all[0].RelationKey(), gc.Equals, "rel-key")
-	c.Assert(all[0].OfferName(), gc.Equals, "mysql")
+	c.Assert(all[0].OfferUUID(), gc.Equals, "offer-uuid")
 	c.Assert(all[0].UserName(), gc.Equals, "fred")
-	c.Assert(all[0].String(), gc.Equals, `connection to "mysql" by "fred" for relation 1`)
+	c.Assert(all[0].String(), gc.Equals, `connection to "offer-uuid" by "fred" for relation 1`)
 }
 
 func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
@@ -58,7 +58,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 		RelationId:      1,
 		RelationKey:     "rel-key",
 		Username:        "fred",
-		OfferName:       "mysql",
+		OfferUUID:       "offer-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,7 +71,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 		RelationId:      1,
 		RelationKey:     "rel-key",
 		Username:        "fred",
-		OfferName:       "mysql",
+		OfferUUID:       "offer-uuid",
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }

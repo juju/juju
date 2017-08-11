@@ -24,7 +24,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -113,14 +112,6 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db.raw})
 	db.runner = runner
 	return runner
-}
-
-func OfferForName(sd crossmodel.ApplicationOffers, name string) (*applicationOfferDoc, error) {
-	return sd.(*applicationOffers).offerForName(name)
-}
-
-func MakeApplicationOffer(sd crossmodel.ApplicationOffers, offer *applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
-	return sd.(*applicationOffers).makeApplicationOffer(*offer)
 }
 
 // SetPolicy updates the State's policy field to the

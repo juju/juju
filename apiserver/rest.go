@@ -89,9 +89,8 @@ func (h *modelRestHandler) processRemoteApplication(r *http.Request, w http.Resp
 		return errors.NotSupportedf("attribute %v on entity %v", attribute, name)
 	}
 
-	// TODO(wallyworld) - for now, offername corresponds to the remoteApp name in the source model
 	// Get the backend state for the source model so we can lookup the app in that model to get the charm details.
-	offer := remoteApp.OfferName()
+	offerUUID := remoteApp.OfferUUID()
 	sourceModelUUID := remoteApp.SourceModel().Id()
 	sourceSt, releaser, err := h.ctxt.srv.statePool.Get(sourceModelUUID)
 	if err != nil {
@@ -99,7 +98,12 @@ func (h *modelRestHandler) processRemoteApplication(r *http.Request, w http.Resp
 	}
 	defer releaser()
 
-	app, err := sourceSt.Application(offer)
+	offers := state.NewApplicationOffers(sourceSt)
+	offer, err := offers.ApplicationOfferForUUID(offerUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	app, err := sourceSt.Application(offer.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}

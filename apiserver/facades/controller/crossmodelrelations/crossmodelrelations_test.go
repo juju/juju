@@ -89,7 +89,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	rel.units["db2/2"] = ru2
 	s.st.relations["db2:db django:db"] = rel
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerName:       "hosted-db2",
+		offerUUID:       "hosted-db2-uuid",
 		sourcemodelUUID: "source-model-uuid",
 		relationKey:     "db2:db django:db",
 		relationId:      1,
@@ -141,12 +141,14 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		Relation:        charm.Relation{Name: "local"},
 	}}
 	s.st.applications["offeredapp"] = app
-	s.st.offers = []crossmodel.ApplicationOffer{{
-		OfferName:       "offered",
-		ApplicationName: "offeredapp",
-	}}
+	s.st.offers = map[string]*crossmodel.ApplicationOffer{
+		"offer-uuid": {
+			OfferUUID:       "offer-uuid",
+			OfferName:       "offered",
+			ApplicationName: "offeredapp",
+		}}
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerName:       "hosted-db2",
+		offerUUID:       "offer-uuid",
 		sourcemodelUUID: "source-model-uuid",
 		relationKey:     "db2:db django:db",
 		relationId:      1,
@@ -154,7 +156,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	mac, err := s.bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
-			checkers.DeclaredCaveat("offer-url", "fred/prod.offered"),
+			checkers.DeclaredCaveat("offer-uuid", "offer-uuid"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +166,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 			SourceModelTag:    coretesting.ModelTag.String(),
 			RelationToken:     "rel-token",
 			RemoteEndpoint:    params.RemoteEndpoint{Name: "remote"},
-			OfferName:         "offered",
+			OfferUUID:         "offer-uuid",
 			LocalEndpointName: "local",
 			Macaroons:         macaroon.Slice{mac},
 		}}})
@@ -178,13 +180,13 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"relation-key":      "offeredapp:local remote-apptoken:remote",
 		"username":          "mary",
-		"offer-url":         "fred/prod.offered",
+		"offer-uuid":        "offer-uuid",
 	})
 	cav := result.Result.Macaroon.Caveats()
 	c.Check(cav, gc.HasLen, 5)
 	c.Check(strings.HasPrefix(cav[0].Id, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Id, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Id, gc.Equals, "declared offer-url fred/prod.offered")
+	c.Check(cav[2].Id, gc.Equals, "declared offer-uuid offer-uuid")
 	c.Check(cav[3].Id, gc.Equals, "declared username mary")
 	c.Check(cav[4].Id, gc.Equals, "declared relation-key offeredapp:local remote-apptoken:remote")
 
@@ -205,7 +207,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		relationId:      0,
 		relationKey:     "offeredapp:local remote-apptoken:remote",
 		username:        "mary",
-		offerName:       "offered",
+		offerUUID:       "offer-uuid",
 	})
 }
 
@@ -225,7 +227,7 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	db2Relation.units["django/0"] = djangoRelationUnit
 	s.st.relations["db2:db django:db"] = db2Relation
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerName:       "hosted-db2",
+		offerUUID:       "hosted-db2-uuid",
 		sourcemodelUUID: "source-model-uuid",
 		relationKey:     "db2:db django:db",
 		relationId:      1,
@@ -258,7 +260,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerName:       "hosted-db2",
+		offerUUID:       "hosted-db2-uuid",
 		sourcemodelUUID: "source-model-uuid",
 		relationKey:     "db2:db django:db",
 		relationId:      1,
@@ -293,7 +295,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerName:       "hosted-db2",
+		offerUUID:       "hosted-db2-uuid",
 		sourcemodelUUID: "source-model-uuid",
 		relationKey:     "db2:db django:db",
 		relationId:      1,
@@ -341,7 +343,7 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
-		offerName:       "hosted-db2",
+		offerUUID:       "hosted-db2-uuid",
 		sourcemodelUUID: "source-model-uuid",
 		relationKey:     "db2:db django:db",
 		relationId:      1,

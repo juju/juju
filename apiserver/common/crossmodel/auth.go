@@ -23,7 +23,7 @@ import (
 
 const (
 	usernameKey    = "username"
-	offerurlKey    = "offer-url"
+	offeruuidKey   = "offer-uuid"
 	sourcemodelKey = "source-model-uuid"
 	relationKey    = "relation-key"
 
@@ -127,13 +127,13 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 		return nil, errors.Trace(err)
 	}
 	defer releaser()
-	if err := a.checkOfferAccess(st, details.User, details.Offer); err != nil {
+	if err := a.checkOfferAccess(st, details.User, details.OfferUUID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	firstPartyCaveats := []checkers.Caveat{
 		checkers.DeclaredCaveat(sourcemodelKey, details.SourceModelUUID),
-		checkers.DeclaredCaveat(offerurlKey, details.Offer),
+		checkers.DeclaredCaveat(offeruuidKey, details.OfferUUID),
 		checkers.DeclaredCaveat(usernameKey, details.User),
 		checkers.TimeBeforeCaveat(a.clock.Now().Add(localOfferPermissionExpiryTime)),
 	}
@@ -143,7 +143,7 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 	return firstPartyCaveats, nil
 }
 
-func (a *AuthContext) checkOfferAccess(st Backend, username, offerName string) error {
+func (a *AuthContext) checkOfferAccess(st Backend, username, offerUUID string) error {
 	userTag := names.NewUserTag(username)
 	isAdmin, err := a.hasControllerAdminAccess(st, userTag)
 	if err != nil {
@@ -159,7 +159,7 @@ func (a *AuthContext) checkOfferAccess(st Backend, username, offerName string) e
 	if isAdmin {
 		return nil
 	}
-	access, err := st.GetOfferAccess(names.NewApplicationOfferTag(offerName), userTag)
+	access, err := st.GetOfferAccess(offerUUID, userTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return common.ErrPerm
 	}
@@ -189,7 +189,7 @@ func (a *AuthContext) offerPermissionYaml(sourceModelUUID, username, offerURL, r
 	out, err := yaml.Marshal(offerPermissionCheck{
 		SourceModelUUID: sourceModelUUID,
 		User:            username,
-		Offer:           offerURL,
+		OfferUUID:       offerURL,
 		Relation:        relationKey,
 		Permission:      string(permission),
 	})
@@ -215,13 +215,13 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOffer,
 		[]checkers.Caveat{
 			checkers.TimeBeforeCaveat(expiryTime),
 			checkers.DeclaredCaveat(sourcemodelKey, sourceModelTag.Id()),
-			checkers.DeclaredCaveat(offerurlKey, offer.OfferURL),
+			checkers.DeclaredCaveat(offeruuidKey, offer.OfferUUID),
 			checkers.DeclaredCaveat(usernameKey, username),
 		})
 }
 
 // CreateRemoteRelationMacaroon creates a macaroon that authorises access to the specified relation.
-func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerURL string, username string, rel names.Tag) (*macaroon.Macaroon, error) {
+func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerUUID string, username string, rel names.Tag) (*macaroon.Macaroon, error) {
 	expiryTime := a.clock.Now().Add(localOfferPermissionExpiryTime)
 	bakery, err := a.localOfferBakeryService.ExpireStorageAt(expiryTime)
 	if err != nil {
@@ -232,7 +232,7 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerURL str
 		[]checkers.Caveat{
 			checkers.TimeBeforeCaveat(expiryTime),
 			checkers.DeclaredCaveat(sourcemodelKey, sourceModelUUID),
-			checkers.DeclaredCaveat(offerurlKey, offerURL),
+			checkers.DeclaredCaveat(offeruuidKey, offerUUID),
 			checkers.DeclaredCaveat(usernameKey, username),
 			checkers.DeclaredCaveat(relationKey, rel.Id()),
 		})
@@ -242,7 +242,7 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerURL str
 type offerPermissionCheck struct {
 	SourceModelUUID string `yaml:"source-model-uuid"`
 	User            string `yaml:"username"`
-	Offer           string `yaml:"offer-url"`
+	OfferUUID       string `yaml:"offer-uuid"`
 	Relation        string `yaml:"relation-key"`
 	Permission      string `yaml:"permission"`
 }
@@ -253,7 +253,7 @@ type authenticator struct {
 	ctxt   *AuthContext
 
 	sourceModelUUID string
-	offerURL        string
+	offerUUID       string
 
 	// offerAccessEndpoint holds the URL of the trusted third party
 	// that is used to address the has-offer-permission third party caveat.
@@ -261,14 +261,14 @@ type authenticator struct {
 }
 
 // Authenticator returns an instance used to authenticate macaroons used to
-// access the spcified offer.
-func (a *AuthContext) Authenticator(sourceModelUUID, offerURL string) *authenticator {
+// access the specified offer.
+func (a *AuthContext) Authenticator(sourceModelUUID, offerUUID string) *authenticator {
 	auth := &authenticator{
 		clock:               a.clock,
 		bakery:              a.localOfferBakeryService,
 		ctxt:                a,
 		sourceModelUUID:     sourceModelUUID,
-		offerURL:            offerURL,
+		offerUUID:           offerUUID,
 		offerAccessEndpoint: a.offerAccessEndpoint,
 	}
 	return auth
@@ -299,7 +299,7 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 
 	logger.Debugf("generating discharge macaroon because: %v", err)
 	cause := err
-	authYaml, err := a.ctxt.offerPermissionYaml(a.sourceModelUUID, username, a.offerURL, relation, permission.ConsumeAccess)
+	authYaml, err := a.ctxt.offerPermissionYaml(a.sourceModelUUID, username, a.offerUUID, relation, permission.ConsumeAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -332,10 +332,10 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 }
 
 // CheckOfferMacaroons verifies that the specified macaroons allow access to the offer.
-func (a *authenticator) CheckOfferMacaroons(offerURL string, mac macaroon.Slice) (map[string]string, error) {
+func (a *authenticator) CheckOfferMacaroons(offerUUID string, mac macaroon.Slice) (map[string]string, error) {
 	requiredValues := map[string]string{
 		sourcemodelKey: a.sourceModelUUID,
-		offerurlKey:    offerURL,
+		offeruuidKey:   offerUUID,
 	}
 	return a.checkMacaroons(mac, requiredValues)
 }

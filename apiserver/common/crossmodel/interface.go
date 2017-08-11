@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -35,7 +36,7 @@ type Backend interface {
 	Application(string) (Application, error)
 
 	// GetOfferAccess gets the access permission for the specified user on an offer.
-	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
+	GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error)
 
 	// UserPermission returns the access permission for the passed subject and target.
 	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
@@ -67,6 +68,9 @@ type Backend interface {
 
 	// SaveIngressNetworks stores in state the ingress networks for the relation.
 	SaveIngressNetworks(relationKey string, cidrs []string) (RelationIngress, error)
+
+	// ApplicationOfferForUUID returns the application offer for the UUID.
+	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 }
 
 // Relation provides access a relation in global state.
@@ -180,8 +184,8 @@ type RemoteApplication interface {
 	// URL returns the remote application URL, at which it is offered.
 	URL() (string, bool)
 
-	// OfferName returns the name the offering side has given to the remote application..
-	OfferName() string
+	// OfferUUID returns the UUID of the offer.
+	OfferUUID() string
 
 	// SourceModel returns the tag of the model hosting the remote application.
 	SourceModel() names.ModelTag

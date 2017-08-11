@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	jujuFactory "github.com/juju/juju/testing/factory"
@@ -121,6 +122,14 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Charm: mysqlCh,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	// Add an offer for the application.
+	offers := state.NewApplicationOffers(s.State)
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "remote-app-offer",
+		ApplicationName: "mysql",
+		Owner:           "admin",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	// Set up a charm entry for dummy app with no charm in storage.
 	factory := jujuFactory.NewFactory(s.State)
 	dummyCh := factory.MakeCharm(c, &jujuFactory.CharmParams{
@@ -132,19 +141,25 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Charm: dummyCh,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "notfound-remote-app-offer",
+		ApplicationName: "dummy",
+		Owner:           "admin",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add remote applications to other model which we will query below.
 	otherModelState := s.setupOtherModel(c)
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-app",
 		SourceModel: s.State.ModelTag(),
-		OfferName:   "mysql",
+		OfferUUID:   offer.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "notfound-remote-app",
 		SourceModel: s.State.ModelTag(),
-		OfferName:   "dummy",
+		OfferUUID:   offer2.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

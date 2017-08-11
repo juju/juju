@@ -13,6 +13,9 @@ import (
 // ApplicationOffer holds the details of an application offered
 // by this model.
 type ApplicationOffer struct {
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string
+
 	// OfferName is the name of the offer.
 	OfferName string
 
@@ -125,6 +128,9 @@ type ApplicationOffers interface {
 
 	// ApplicationOffer returns the named application offer.
 	ApplicationOffer(offerName string) (*ApplicationOffer, error)
+
+	// ApplicationOfferForUUID returns the application offer with the UUID.
+	ApplicationOfferForUUID(offerUUID string) (*ApplicationOffer, error)
 
 	// ListOffers returns the offers satisfying the specified filter.
 	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)

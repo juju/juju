@@ -263,14 +263,14 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 	// Create the offer connection details.
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 	offers := state.NewApplicationOffers(s.State)
-	_, err = offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           "admin",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
-		OfferName:       "hosted-mysql",
+		OfferUUID:       offer.OfferUUID,
 		Username:        "fred",
 		RelationKey:     rel.String(),
 		RelationId:      rel.Id(),

@@ -205,6 +205,7 @@ func (i *ApplicationInfo) EntityId() EntityId {
 type RemoteApplicationInfo struct {
 	ModelUUID      string     `json:"model-uuid"`
 	Name           string     `json:"name"`
+	OfferUUID      string     `json:"offer-uuid"`
 	ApplicationURL string     `json:"application-url"`
 	Life           Life       `json:"life"`
 	Status         StatusInfo `json:"status"`
@@ -224,6 +225,7 @@ func (i *RemoteApplicationInfo) EntityId() EntityId {
 type ApplicationOfferInfo struct {
 	ModelUUID       string `json:"model-uuid"`
 	OfferName       string `json:"offer-name"`
+	OfferUUID       string `json:"offer-uuid"`
 	ApplicationName string `json:"application-name"`
 	CharmName       string `json:"charm-name"`
 	ConnectedCount  int    `json:"connected-count"`

@@ -120,7 +120,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// If the user is not a model admin, they need at least read
 		// access on an offer to see it.
 		if !isAdmin {
-			if userAccess, err = api.checkOfferAccess(backend, appOffer.OfferName, requiredAccess); err != nil {
+			if userAccess, err = api.checkOfferAccess(backend, appOffer.OfferUUID, requiredAccess); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if userAccess == permission.NoAccess {
@@ -141,7 +141,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
 			curl, _ := app.CharmURL()
-			status, err := backend.RemoteConnectionStatus(offer.OfferName)
+			status, err := backend.RemoteConnectionStatus(offer.OfferUUID)
 			if err != nil {
 				logger.Warningf("cannot get offer connection status: %v", err)
 				continue
@@ -157,9 +157,9 @@ func (api *BaseAPI) applicationOffersFromModel(
 
 // checkOfferAccess returns the level of access the authenticated user has to the offer,
 // so long as it is greater than the requested perm.
-func (api *BaseAPI) checkOfferAccess(backend Backend, offerName string, perm permission.Access) (permission.Access, error) {
+func (api *BaseAPI) checkOfferAccess(backend Backend, offerUUID string, perm permission.Access) (permission.Access, error) {
 	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
-	access, err := backend.GetOfferAccess(names.NewApplicationOfferTag(offerName), apiUser)
+	access, err := backend.GetOfferAccess(offerUUID, apiUser)
 	if err != nil && !errors.IsNotFound(err) {
 		return permission.NoAccess, errors.Trace(err)
 	}
@@ -321,6 +321,7 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 	result := params.ApplicationOffer{
 		SourceModelTag:         backend.ModelTag().String(),
 		OfferName:              offer.OfferName,
+		OfferUUID:              offer.OfferUUID,
 		ApplicationDescription: offer.ApplicationDescription,
 		Access:                 string(access),
 	}

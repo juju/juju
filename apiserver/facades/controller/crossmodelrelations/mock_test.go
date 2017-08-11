@@ -43,7 +43,7 @@ type mockState struct {
 	relations             map[string]*mockRelation
 	remoteApplications    map[string]*mockRemoteApplication
 	applications          map[string]*mockApplication
-	offers                []crossmodel.ApplicationOffer
+	offers                map[string]*crossmodel.ApplicationOffer
 	offerConnections      map[int]*mockOfferConnection
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
@@ -60,8 +60,12 @@ func newMockState() *mockState {
 	}
 }
 
-func (st *mockState) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
-	return st.offers, nil
+func (st *mockState) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+	offer, ok := st.offers[offerUUID]
+	if !ok {
+		return nil, errors.NotFoundf("offer %v", offerUUID)
+	}
+	return offer, nil
 }
 
 func (st *mockState) ModelUUID() string {
@@ -93,7 +97,7 @@ func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (cro
 		relationId:      arg.RelationId,
 		relationKey:     arg.RelationKey,
 		username:        arg.Username,
-		offerName:       arg.OfferName,
+		offerUUID:       arg.OfferUUID,
 	}
 	st.offerConnections[arg.RelationId] = oc
 	st.offerConnectionsByKey[arg.RelationKey] = oc
@@ -356,11 +360,11 @@ type mockOfferConnection struct {
 	relationId      int
 	relationKey     string
 	username        string
-	offerName       string
+	offerUUID       string
 }
 
-func (m *mockOfferConnection) OfferName() string {
-	return m.offerName
+func (m *mockOfferConnection) OfferUUID() string {
+	return m.offerUUID
 }
 
 type mockRelationUnit struct {

@@ -2561,6 +2561,7 @@ func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
 			{ApplicationOffer: params.ApplicationOffer{
 				SourceModelTag:         testing.ModelTag.String(),
 				OfferName:              "hosted-mysql",
+				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "A pretty popular database",
 				Endpoints: []params.RemoteEndpoint{
 					{Name: "server", Interface: "mysql", Role: "provider"},
@@ -2615,6 +2616,7 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 			{ApplicationOffer: params.ApplicationOffer{
 				SourceModelTag: testing.ModelTag.String(),
 				OfferName:      "hosted-db2",
+				OfferUUID:      "hosted-db2-uuid",
 				Endpoints: []params.RemoteEndpoint{
 					{Name: "database", Interface: "db2", Role: "provider"},
 				},

@@ -696,7 +696,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	// Include a remote app that needs admin access to see.
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-db2",
-		OfferName:   "hosted-db2",
+		OfferUUID:   "offer-uuid",
 		URL:         "admin/prod.db2",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{
@@ -765,6 +765,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		Entity: &multiwatcher.RemoteApplicationInfo{
 			Name:           "remote-db2",
 			ModelUUID:      s.State.ModelUUID(),
+			OfferUUID:      "offer-uuid",
 			ApplicationURL: "admin/prod.db2",
 			Life:           "alive",
 			Status: multiwatcher.StatusInfo{

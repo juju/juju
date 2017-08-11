@@ -63,6 +63,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {
 	return jujucrossmodel.ApplicationOffer{
 		OfferName:              "offer-" + name,
+		OfferUUID:              "offer-" + name + "-uuid",
 		ApplicationName:        name,
 		Endpoints:              map[string]charm.Relation{"db": {Name: "db"}},
 		ApplicationDescription: "applicaion description",
@@ -75,6 +76,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 
 	anOffer := jujucrossmodel.ApplicationOffer{
 		OfferName:              offerName,
+		OfferUUID:              offerName + "-uuid",
 		ApplicationName:        applicationName,
 		ApplicationDescription: "description",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "db2"}},

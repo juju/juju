@@ -24,7 +24,7 @@ type offerConnectionDoc struct {
 	DocID           string `bson:"_id"`
 	RelationId      int    `bson:"relation-id"`
 	RelationKey     string `bson:"relation-key"`
-	OfferName       string `bson:"offer-name"`
+	OfferUUID       string `bson:"offer-uuid"`
 	UserName        string `bson:"username"`
 	SourceModelUUID string `bson:"source-model-uuid"`
 }
@@ -37,9 +37,9 @@ func newOfferConnection(st *State, doc *offerConnectionDoc) *OfferConnection {
 	return app
 }
 
-// OfferName returns the offer name.
-func (oc *OfferConnection) OfferName() string {
-	return oc.doc.OfferName
+// OfferUUID returns the offer UUID.
+func (oc *OfferConnection) OfferUUID() string {
+	return oc.doc.OfferUUID
 }
 
 // UserName returns the name of the user who created this connection.
@@ -73,7 +73,7 @@ func removeOfferConnectionsForRelationOps(relId int) []txn.Op {
 
 // String returns the details of the connection.
 func (oc *OfferConnection) String() string {
-	return fmt.Sprintf("connection to %q by %q for relation %d", oc.doc.OfferName, oc.doc.UserName, oc.doc.RelationId)
+	return fmt.Sprintf("connection to %q by %q for relation %d", oc.doc.OfferUUID, oc.doc.UserName, oc.doc.RelationId)
 }
 
 // AddOfferConnectionParams contains the parameters for adding an offer connection
@@ -82,8 +82,8 @@ type AddOfferConnectionParams struct {
 	// SourceModelUUID is the UUID of the consuming model.
 	SourceModelUUID string
 
-	// OfferName is the name of the offer.
-	OfferName string
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string
 
 	// Username is the name of the user who created this connection.
 	Username string
@@ -109,7 +109,7 @@ func validateOfferConnectionParams(args AddOfferConnectionParams) (err error) {
 // AddOfferConnection creates a new offer connection record, which records details about a
 // relation made from a remote model to an offer in the local model.
 func (st *State) AddOfferConnection(args AddOfferConnectionParams) (_ *OfferConnection, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add offer record for %q", args.OfferName)
+	defer errors.DeferredAnnotatef(&err, "cannot add offer record for %q", args.OfferUUID)
 
 	if err := validateOfferConnectionParams(args); err != nil {
 		return nil, errors.Trace(err)
@@ -125,7 +125,7 @@ func (st *State) AddOfferConnection(args AddOfferConnectionParams) (_ *OfferConn
 	// Create the application addition operations.
 	offerConnectionDoc := offerConnectionDoc{
 		SourceModelUUID: args.SourceModelUUID,
-		OfferName:       args.OfferName,
+		OfferUUID:       args.OfferUUID,
 		UserName:        args.Username,
 		RelationId:      args.RelationId,
 		RelationKey:     args.RelationKey,
@@ -187,13 +187,13 @@ func (st *State) OfferConnectionForRelation(relationKey string) (*OfferConnectio
 }
 
 // RemoteConnectionStatus returns summary information about connections to the specified offer.
-func (st *State) RemoteConnectionStatus(offerName string) (*RemoteConnectionStatus, error) {
+func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStatus, error) {
 	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
 	defer closer()
 
-	count, err := offerConnectionCollection.Find(bson.D{{"offer-name", offerName}}).Count()
+	count, err := offerConnectionCollection.Find(bson.D{{"offer-uuid", offerUUID}}).Count()
 	if err != nil {
-		return nil, errors.Errorf("cannot get remote connection status for offer %q", offerName)
+		return nil, errors.Errorf("cannot get remote connection status for offer %q", offerUUID)
 	}
 	return &RemoteConnectionStatus{
 		count: count,

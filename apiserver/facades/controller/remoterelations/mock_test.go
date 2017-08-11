@@ -317,9 +317,9 @@ func (r *mockRemoteApplication) Name() string {
 	return r.name
 }
 
-func (r *mockRemoteApplication) OfferName() string {
-	r.MethodCall(r, "OfferName")
-	return r.alias
+func (r *mockRemoteApplication) OfferUUID() string {
+	r.MethodCall(r, "OfferUUID")
+	return r.name + "-uuid"
 }
 
 func (r *mockRemoteApplication) Tag() names.Tag {

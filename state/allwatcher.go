@@ -523,6 +523,7 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 	info := &multiwatcher.RemoteApplicationInfo{
 		ModelUUID:      st.ModelUUID(),
 		Name:           app.Name,
+		OfferUUID:      app.OfferUUID,
 		ApplicationURL: app.URL,
 		Life:           multiwatcher.Life(app.Life.String()),
 	}
@@ -551,19 +552,27 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 }
 
 func (app *backingRemoteApplication) updateOfferInfo(st *State, store *multiwatcherStore) error {
-	offerId := multiwatcher.EntityId{
-		Kind:      "applicationOffer",
-		ModelUUID: st.ModelUUID(),
-		Id:        app.OfferName,
+	// Remote Applications reference an offer using the offer UUID.
+	// Offers in the store use offer name as the id key, so we need
+	// to look through the store entities to find any matching offer.
+	var offerInfo *multiwatcher.ApplicationOfferInfo
+	entities := store.All()
+	for _, e := range entities {
+		var ok bool
+		if offerInfo, ok = e.(*multiwatcher.ApplicationOfferInfo); ok {
+			if offerInfo.OfferUUID != app.OfferUUID {
+				offerInfo = nil
+				continue
+			}
+			break
+		}
 	}
 	// If we have an existing remote application,
 	// adjust any offer info also.
-	info := store.Get(offerId)
-	if info == nil {
+	if offerInfo == nil {
 		return nil
 	}
-	offerInfo := info.(*multiwatcher.ApplicationOfferInfo)
-	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferName)
+	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -596,6 +605,7 @@ func (offer *backingApplicationOffer) updated(st *State, store *multiwatcherStor
 	info := &multiwatcher.ApplicationOfferInfo{
 		ModelUUID:       st.ModelUUID(),
 		OfferName:       offer.OfferName,
+		OfferUUID:       offer.OfferUUID,
 		ApplicationName: offer.ApplicationName,
 	}
 	err := updateOfferInfo(st, info)
@@ -608,7 +618,7 @@ func (offer *backingApplicationOffer) updated(st *State, store *multiwatcherStor
 
 func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) error {
 	offers := NewApplicationOffers(st)
-	offer, err := offers.ApplicationOffer(offerInfo.OfferName)
+	offer, err := offers.ApplicationOfferForUUID(offerInfo.OfferUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -620,7 +630,7 @@ func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) er
 	offerInfo.ApplicationName = offer.ApplicationName
 	offerInfo.CharmName = curl.Name
 
-	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferName)
+	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}

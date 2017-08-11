@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -114,6 +115,10 @@ func (st stateShim) ExportLocalEntity(entity names.Tag) (string, error) {
 func (st stateShim) ImportRemoteEntity(entity names.Tag, token string) error {
 	r := st.State.RemoteEntities()
 	return r.ImportRemoteEntity(entity, token)
+}
+
+func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+	return state.NewApplicationOffers(st.State).ApplicationOfferForUUID(offerUUID)
 }
 
 type RelationIngress state.RelationIngress

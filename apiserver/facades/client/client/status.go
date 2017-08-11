@@ -269,14 +269,14 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 
 		// Filter applications
-		for svcName, svc := range context.applications {
-			if matchedSvcs.Contains(svcName) {
+		for appName, app := range context.applications {
+			if matchedSvcs.Contains(appName) {
 				// There are matched units for this application.
 				continue
-			} else if matches, err := predicate(svc); err != nil {
+			} else if matches, err := predicate(app); err != nil {
 				return noStatus, errors.Annotate(err, "could not filter applications")
 			} else if !matches {
-				delete(context.applications, svcName)
+				delete(context.applications, appName)
 			}
 		}
 
@@ -581,10 +581,11 @@ func fetchOffers(st Backend) (map[string]offerStatus, error) {
 		offersMap[offer.OfferName] = offerStatus{
 			ApplicationOffer: crossmodel.ApplicationOffer{
 				OfferName:       offer.OfferName,
+				OfferUUID:       offer.OfferUUID,
 				ApplicationName: offer.ApplicationName,
 				Endpoints:       offer.Endpoints,
 			},
-			ApplicationURL: crossmodel.MakeURL(model.Owner().Name(), model.Name(), offer.OfferName, ""),
+			offerURL: crossmodel.MakeURL(model.Owner().Name(), model.Name(), offer.OfferName, ""),
 		}
 	}
 	return offersMap, nil
@@ -980,16 +981,17 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 
 type offerStatus struct {
 	crossmodel.ApplicationOffer
-	ApplicationURL string
+	offerURL string
 }
 
 func (context *statusContext) processOffers() map[string]params.ApplicationOfferStatus {
 	offers := make(map[string]params.ApplicationOfferStatus)
+	offersByUUID := make(map[string]params.ApplicationOfferStatus)
 	for name, offer := range context.offers {
 		offerStatus := params.ApplicationOfferStatus{
 			ApplicationName: offer.ApplicationName,
 			OfferName:       offer.OfferName,
-			ApplicationURL:  offer.ApplicationURL,
+			ApplicationURL:  offer.offerURL,
 			Endpoints:       make(map[string]params.RemoteEndpoint),
 			Connections:     make(map[int]params.OfferConnectionStatus),
 		}
@@ -1001,20 +1003,21 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 			}
 		}
 		offers[name] = offerStatus
+		offersByUUID[offer.OfferUUID] = offerStatus
 	}
 	for relId, conn := range context.offerConnections {
-		connStatus := context.processOfferConnection(conn)
-		offer, ok := offers[conn.OfferName()]
+		offer, ok := offersByUUID[conn.OfferUUID()]
 		if !ok {
 			continue
 		}
+		connStatus := context.processOfferConnection(conn, offer.ApplicationName)
 		offer.Connections[relId] = connStatus
-		offers[conn.OfferName()] = offer
+		offers[offer.OfferName] = offer
 	}
 	return offers
 }
 
-func (context *statusContext) processOfferConnection(conn *state.OfferConnection) (status params.OfferConnectionStatus) {
+func (context *statusContext) processOfferConnection(conn *state.OfferConnection, appName string) (status params.OfferConnectionStatus) {
 	status.SourceModelTag = names.NewModelTag(conn.SourceModelUUID()).String()
 	status.Username = conn.UserName()
 	rel, ok := context.relationsById[conn.RelationId()]
@@ -1022,12 +1025,7 @@ func (context *statusContext) processOfferConnection(conn *state.OfferConnection
 		status.Err = errors.NotFoundf("relation id %d", conn.RelationId())
 		return
 	}
-	offer, ok := context.offers[conn.OfferName()]
-	if !ok {
-		status.Err = errors.NotFoundf("application offer %s", conn.OfferName())
-		return
-	}
-	ep, err := rel.Endpoint(offer.ApplicationName)
+	ep, err := rel.Endpoint(appName)
 	if err != nil {
 		status.Err = err
 		return

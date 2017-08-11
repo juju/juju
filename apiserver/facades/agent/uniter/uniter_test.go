@@ -2703,7 +2703,7 @@ func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
 		Name:            "remote-wordpress",
 		SourceModel:     names.NewModelTag("source-model"),
 		IsConsumerProxy: true,
-		OfferName:       "chapo",
+		OfferUUID:       "offer-uuid",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Limit:     1,

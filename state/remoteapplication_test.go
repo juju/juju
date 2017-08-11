@@ -413,14 +413,14 @@ func (s *remoteApplicationSuite) TestParamsValidateChecksBindings(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestAddRemoteApplication(c *gc.C) {
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag()})
+		Name: "foo", OfferUUID: "offer-uuid", URL: "me/model.foo", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
 	c.Assert(foo.IsConsumerProxy(), jc.IsFalse)
 	foo, err = s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
-	c.Assert(foo.OfferName(), gc.Equals, "bar")
+	c.Assert(foo.OfferUUID(), gc.Equals, "offer-uuid")
 	url, ok := foo.URL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.Equals, "me/model.foo")
@@ -445,7 +445,7 @@ func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,7 +483,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConflicting(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -503,7 +503,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentOneDeleted(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -517,7 +517,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentOneDeleted(c *gc.C) {
 		err := foo.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+			Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.State.ModelTag(),
 			Endpoints: reducedEps,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -557,7 +557,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -587,7 +587,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -768,17 +768,17 @@ func (s *remoteApplicationSuite) TestDestroyWithOfferConnections(c *gc.C) {
 		SourceModelUUID: coretesting.ModelTag.Id(),
 		RelationId:      rel.Id(),
 		Username:        "fred",
-		OfferName:       "mysql",
+		OfferUUID:       "offer-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	rc, err := s.State.RemoteConnectionStatus("mysql")
+	rc, err := s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
 
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	rc, err = s.State.RemoteConnectionStatus("mysql")
+	rc, err = s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.ConnectionCount(), gc.Equals, 0)
 }

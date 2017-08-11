@@ -277,7 +277,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	}
 
 	_, remoteApplicationInfo := addTestingRemoteApplication(
-		c, st, "remote-mysql1", "me/model.mysql", "hosted-mysql", mysqlRelations, false,
+		c, st, "remote-mysql1", "me/model.mysql", "remote-mysql1-uuid", mysqlRelations, false,
 	)
 	add(&remoteApplicationInfo)
 
@@ -305,7 +305,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	// Set up a remote application related to the offer.
 	// It won't be included in the backing model.
 	addTestingRemoteApplication(
-		c, st, "remote-wordpress", "", "hosted-mysql", []charm.Relation{{
+		c, st, "remote-wordpress", "", "remote-wordpress-uuid", []charm.Relation{{
 			Name:      "db",
 			Role:      "requirer",
 			Scope:     charm.ScopeGlobal,
@@ -329,13 +329,13 @@ var mysqlRelations = []charm.Relation{{
 }}
 
 func addTestingRemoteApplication(
-	c *gc.C, st *State, name, url, offerName string, relations []charm.Relation, isProxy bool,
+	c *gc.C, st *State, name, url, offerUUID string, relations []charm.Relation, isProxy bool,
 ) (*RemoteApplication, multiwatcher.RemoteApplicationInfo) {
 
 	rs, err := st.AddRemoteApplication(AddRemoteApplicationParams{
 		Name:            name,
 		URL:             url,
-		OfferName:       offerName,
+		OfferUUID:       offerUUID,
 		SourceModel:     testing.ModelTag,
 		Endpoints:       relations,
 		IsConsumerProxy: isProxy,
@@ -344,6 +344,7 @@ func addTestingRemoteApplication(
 	return rs, multiwatcher.RemoteApplicationInfo{
 		ModelUUID:      st.ModelUUID(),
 		Name:           name,
+		OfferUUID:      offerUUID,
 		ApplicationURL: url,
 		Life:           multiwatcher.Life(rs.Life().String()),
 		Status: multiwatcher.StatusInfo{
@@ -375,13 +376,14 @@ func addTestingApplicationOffer(
 			SourceModelUUID: utils.MustNewUUID().String(),
 			RelationId:      i,
 			Username:        "fred",
-			OfferName:       offerName,
+			OfferUUID:       offer.OfferUUID,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return offer, multiwatcher.ApplicationOfferInfo{
 		ModelUUID:       st.ModelUUID(),
 		OfferName:       offerName,
+		OfferUUID:       offer.OfferUUID,
 		ApplicationName: applicationName,
 		CharmName:       charmName,
 		ConnectedCount:  connected,
@@ -3498,6 +3500,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 						ModelUUID:      st.ModelUUID(),
 						Name:           "remote-mysql2",
 						ApplicationURL: "me/model.mysql",
+						OfferUUID:      "remote-mysql2-uuid",
 					},
 				},
 				change: watcher.Change{
@@ -3507,7 +3510,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			_, remoteApplicationInfo := addTestingRemoteApplication(
-				c, st, "remote-mysql2", "me/model.mysql", "hosted-mysql", mysqlRelations, false)
+				c, st, "remote-mysql2", "me/model.mysql", "remote-mysql2-uuid", mysqlRelations, false)
 			return changeTestCase{
 				about: "remote application is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -3527,7 +3530,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			// upon destroying.
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
-				c, st, "remote-mysql2", "me/model.mysql", "hosted-mysql", mysqlRelations, false,
+				c, st, "remote-mysql2", "me/model.mysql", "remote-mysql2-uuid", mysqlRelations, false,
 			)
 
 			eps, err := st.InferEndpoints("wordpress", "remote-mysql2")
@@ -3559,7 +3562,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
-				c, st, "remote-mysql2", "me/model.mysql", "hosted-mysql", mysqlRelations, false,
+				c, st, "remote-mysql2", "me/model.mysql", "remote-mysql2-uuid", mysqlRelations, false,
 			)
 			now := time.Now()
 			sInfo := status.StatusInfo{
@@ -3591,14 +3594,14 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 }
 
 func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
-	addOffer := func(c *gc.C, st *State) (multiwatcher.ApplicationOfferInfo, *User) {
+	addOffer := func(c *gc.C, st *State) (multiwatcher.ApplicationOfferInfo, *User, string) {
 		owner, err := st.AddUser("owner", "owner", "password", "admin")
 		c.Assert(err, jc.ErrorIsNil)
 		AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
-		_, applicationOfferInfo := addTestingApplicationOffer(
+		offer, applicationOfferInfo := addTestingApplicationOffer(
 			c, st, owner.UserTag(), "hosted-mysql", "mysql",
 			"quantal-mysql", []string{"server"}, 0)
-		return applicationOfferInfo, owner
+		return applicationOfferInfo, owner, offer.OfferUUID
 	}
 
 	changeTestFuncs := []changeTestFunc{
@@ -3617,6 +3620,7 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 					&multiwatcher.ApplicationOfferInfo{
 						ModelUUID:       st.ModelUUID(),
 						OfferName:       "hosted-mysql",
+						OfferUUID:       "hosted-mysql-uuid",
 						ApplicationName: "mysql",
 					},
 				},
@@ -3626,7 +3630,7 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			applicationOfferInfo, _ := addOffer(c, st)
+			applicationOfferInfo, _, _ := addOffer(c, st)
 			return changeTestCase{
 				about: "application offer is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -3637,7 +3641,7 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			applicationOfferInfo, owner := addOffer(c, st)
+			applicationOfferInfo, owner, _ := addOffer(c, st)
 			app, err := st.Application("mysql")
 			c.Assert(err, jc.ErrorIsNil)
 			curl, _ := app.CharmURL()
@@ -3666,15 +3670,15 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			applicationOfferInfo, _ := addOffer(c, st)
+			applicationOfferInfo, _, offerUUID := addOffer(c, st)
 			initialApplicationOfferInfo := applicationOfferInfo
 			addTestingRemoteApplication(
-				c, st, "remote-wordpress", "", "hosted-mysql", mysqlRelations, true)
+				c, st, "remote-wordpress", "", offerUUID, mysqlRelations, true)
 			_, err := st.AddOfferConnection(AddOfferConnectionParams{
 				SourceModelUUID: utils.MustNewUUID().String(),
 				RelationId:      0,
 				Username:        "fred",
-				OfferName:       initialApplicationOfferInfo.OfferName,
+				OfferUUID:       initialApplicationOfferInfo.OfferUUID,
 			})
 			c.Assert(err, jc.ErrorIsNil)
 
