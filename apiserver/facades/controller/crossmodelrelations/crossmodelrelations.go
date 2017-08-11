@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -86,19 +85,15 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.T
 	api.mu.Lock()
 	defer api.mu.Unlock()
 
-	offerURL, ok := api.relationToOffer[relationTag.Id()]
+	offerUUID, ok := api.relationToOffer[relationTag.Id()]
 	if !ok {
 		oc, err := api.st.OfferConnectionForRelation(relationTag.Id())
 		if err != nil {
 			return errors.Trace(err)
 		}
-		model, err := api.st.Model()
-		if err != nil {
-			return errors.Annotate(err, "loading model")
-		}
-		offerURL = crossmodel.MakeURL(model.Owner().Name(), model.Name(), oc.OfferName(), "")
+		offerUUID = oc.OfferUUID()
 	}
-	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerURL)
+	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
 	return auth.CheckRelationMacaroons(relationTag, mac)
 }
 
@@ -158,25 +153,14 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	// Perform some initial validation - is the local application alive?
 
 	// Look up the offer record so get the local application to which we need to relate.
-	appOffers, err := api.st.ListOffers(crossmodel.ApplicationOfferFilter{
-		OfferName: relation.OfferName,
-	})
+	appOffer, err := api.st.ApplicationOfferForUUID(relation.OfferUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(appOffers) == 0 {
-		return nil, errors.NotFoundf("application offer %v", relation.OfferName)
-	}
 
 	// Check that the supplied macaroon allows access.
-	appOffer := appOffers[0]
-	model, err := api.st.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "loading model")
-	}
-	offerURL := crossmodel.MakeURL(model.Owner().Name(), model.Name(), relation.OfferName, "")
-	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerURL)
-	attr, err := auth.CheckOfferMacaroons(offerURL, relation.Macaroons)
+	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), appOffer.OfferUUID)
+	attr, err := auth.CheckOfferMacaroons(appOffer.OfferUUID, relation.Macaroons)
 	if err != nil {
 		return nil, err
 	}
@@ -188,12 +172,12 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	localApplicationName := appOffer.ApplicationName
 	localApp, err := api.st.Application(localApplicationName)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferName)
+		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferUUID)
 	}
 	if localApp.Life() != state.Alive {
 		// We don't want to leak the application name so just log it.
 		logger.Warningf("local application for offer %v not found", localApplicationName)
-		return nil, errors.NotFoundf("local application for offer %v", relation.OfferName)
+		return nil, errors.NotFoundf("local application for offer %v", relation.OfferUUID)
 	}
 	eps, err := localApp.Endpoints()
 	if err != nil {
@@ -231,7 +215,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	}
 	_, err = api.st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            uniqueRemoteApplicationName,
-		OfferName:       relation.OfferName,
+		OfferUUID:       relation.OfferUUID,
 		SourceModel:     sourceModelTag,
 		Token:           relation.ApplicationToken,
 		Endpoints:       []charm.Relation{remoteEndpoint.Relation},
@@ -258,14 +242,14 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	}
 	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: sourceModelTag.Id(), Username: username,
-		OfferName:   relation.OfferName,
+		OfferUUID:   appOffer.OfferUUID,
 		RelationId:  localRel.Id(),
 		RelationKey: localRel.Tag().Id(),
 	})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, errors.Annotate(err, "adding offer connection details")
 	}
-	api.relationToOffer[localRel.Tag().Id()] = offerURL
+	api.relationToOffer[localRel.Tag().Id()] = relation.OfferUUID
 
 	// Ensure we have references recorded.
 	logger.Debugf("importing remote relation into model %v", api.st.ModelUUID())
@@ -287,7 +271,8 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	logger.Debugf("local application %v from model %v exported with token %v ", localApplicationName, api.st.ModelUUID(), token)
 
 	// Mint a new macaroon attenuated to the actual relation.
-	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(api.st.ModelUUID(), offerURL, username, localRel.Tag())
+	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(
+		api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag())
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}

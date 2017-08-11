@@ -41,6 +41,7 @@ type OfferFilter struct {
 // ApplicationOffer represents an application offering from an external model.
 type ApplicationOffer struct {
 	SourceModelTag         string            `json:"source-model-tag"`
+	OfferUUID              string            `json:"offer-uuid"`
 	OfferURL               string            `json:"offer-url"`
 	OfferName              string            `json:"offer-name"`
 	ApplicationDescription string            `json:"application-description"`
@@ -186,8 +187,8 @@ type RemoteApplication struct {
 	// Name is the name of the application.
 	Name string `json:"name"`
 
-	// OfferName is the name of the application on the offering side.
-	OfferName string `json:"offer-name"`
+	// OfferUUID is the uuid of the application offer.
+	OfferUUID string `json:"offer-uuid"`
 
 	// Life is the current lifecycle state of the application.
 	Life Life `json:"life"`
@@ -393,8 +394,8 @@ type RegisterRemoteRelationArg struct {
 	// endpoint is bound to in the remote model.
 	RemoteSpace RemoteSpace `json:"remote-space"`
 
-	// OfferName is the name of the application offer from the local model.
-	OfferName string `json:"offer-name"`
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string `json:"offer-uuid"`
 
 	// LocalEndpointName is the name of the endpoint in the local model.
 	LocalEndpointName string `json:"local-endpoint-name"`

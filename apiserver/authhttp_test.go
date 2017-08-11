@@ -237,10 +237,10 @@ func (s *authHTTPSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response
 }
 
 func (s *authHTTPSuite) setupOtherModel(c *gc.C) *state.State {
-	envState := s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { envState.Close() })
+	modelState := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { modelState.Close() })
 	user := s.Factory.MakeUser(c, nil)
-	_, err := envState.AddModelUser(envState.ModelUUID(),
+	_, err := modelState.AddModelUser(modelState.ModelUUID(),
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: s.userTag,
@@ -248,8 +248,8 @@ func (s *authHTTPSuite) setupOtherModel(c *gc.C) *state.State {
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"
-	s.modelUUID = envState.ModelUUID()
-	return envState
+	s.modelUUID = modelState.ModelUUID()
+	return modelState
 }
 
 func (s *authHTTPSuite) uploadRequest(c *gc.C, uri string, contentType, path string) *http.Response {

@@ -56,7 +56,7 @@ func (s *authSuite) TestCheckValidCaveat(c *gc.C) {
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
-offer-url: prod.mysql
+offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
@@ -64,7 +64,7 @@ permission: consume
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opc.SourceModelUUID, gc.Equals, uuid.String())
 	c.Assert(opc.User, gc.Equals, "mary")
-	c.Assert(opc.Offer, gc.Equals, "prod.mysql")
+	c.Assert(opc.OfferUUID, gc.Equals, "mysql-uuid")
 	c.Assert(opc.Relation, gc.Equals, "mediawiki:db mysql:server")
 	c.Assert(opc.Permission, gc.Equals, "consume")
 }
@@ -76,7 +76,7 @@ func (s *authSuite) TestCheckInvalidCaveatId(c *gc.C) {
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
-offer-url: prod.mysql
+offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
@@ -90,7 +90,7 @@ func (s *authSuite) TestCheckInvalidCaveatContents(c *gc.C) {
 	permCheckDetails := `
 source-model-uuid: invalid
 username: mary
-offer-url: prod.mysql
+offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:]
@@ -103,7 +103,7 @@ func (s *authSuite) TestCheckLocalAccessRequest(c *gc.C) {
 	st := &mockState{
 		tag: names.NewModelTag(uuid.String()),
 		permissions: map[string]permission.Access{
-			"prod.hosted-mysql:mary": permission.ConsumeAccess,
+			"mysql-uuid:mary": permission.ConsumeAccess,
 		},
 	}
 	s.mockStatePool.st[uuid.String()] = st
@@ -112,7 +112,7 @@ func (s *authSuite) TestCheckLocalAccessRequest(c *gc.C) {
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
-offer-url: prod.hosted-mysql
+offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
@@ -122,7 +122,7 @@ permission: consume
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cav, gc.HasLen, 5)
 	c.Assert(cav[0].Condition, gc.Equals, "declared source-model-uuid "+uuid.String())
-	c.Assert(cav[1].Condition, gc.Equals, "declared offer-url prod.hosted-mysql")
+	c.Assert(cav[1].Condition, gc.Equals, "declared offer-uuid mysql-uuid")
 	c.Assert(cav[2].Condition, gc.Equals, "declared username mary")
 	c.Assert(strings.HasPrefix(cav[3].Condition, "time-before"), jc.IsTrue)
 	c.Assert(cav[4].Condition, gc.Equals, "declared relation-key mediawiki:db mysql:server")
@@ -142,7 +142,7 @@ func (s *authSuite) TestCheckLocalAccessRequestControllerAdmin(c *gc.C) {
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
-offer-url: prod.hosted-mysql
+offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
@@ -166,7 +166,7 @@ func (s *authSuite) TestCheckLocalAccessRequestModelAdmin(c *gc.C) {
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
-offer-url: prod.hosted-mysql
+offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
@@ -188,7 +188,7 @@ func (s *authSuite) TestCheckLocalAccessRequestNoPermission(c *gc.C) {
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
-offer-url: prod.hosted-mysql
+offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
@@ -203,7 +203,7 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	offer := &params.ApplicationOffer{
 		SourceModelTag: coretesting.ModelTag.String(),
-		OfferURL:       "prod.hosted-mysql",
+		OfferUUID:      "mysql-uuid",
 	}
 	mac, err := authContext.CreateConsumeOfferMacaroon(offer, "mary")
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,7 +211,7 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	c.Assert(cav, gc.HasLen, 4)
 	c.Assert(strings.HasPrefix(cav[0].Id, "time-before"), jc.IsTrue)
 	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
-	c.Assert(cav[2].Id, gc.Equals, "declared offer-url prod.hosted-mysql")
+	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
 	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
 }
 
@@ -219,13 +219,13 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := authContext.CreateRemoteRelationMacaroon(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql", "mary", names.NewRelationTag("mediawiki:db mysql:server"))
+		coretesting.ModelTag.Id(), "mysql-uuid", "mary", names.NewRelationTag("mediawiki:db mysql:server"))
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.Caveats()
 	c.Assert(cav, gc.HasLen, 5)
 	c.Assert(strings.HasPrefix(cav[0].Id, "time-before"), jc.IsTrue)
 	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
-	c.Assert(cav[2].Id, gc.Equals, "declared offer-url prod.hosted-mysql")
+	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
 	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
 	c.Assert(cav[4].Id, gc.Equals, "declared relation-key mediawiki:db mysql:server")
 }
@@ -235,20 +235,20 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
 		checkers.DeclaredCaveat("username", "mary"),
-		checkers.DeclaredCaveat("offer-url", "prod.hosted-mysql"),
+		checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	attr, err := authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckOfferMacaroons(
-		"prod.hosted-mysql",
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attr, gc.HasLen, 3)
 	c.Assert(attr, jc.DeepEquals, map[string]string{
 		"username":          "mary",
-		"offer-url":         "prod.hosted-mysql",
+		"offer-uuid":        "mysql-uuid",
 		"source-model-uuid": coretesting.ModelTag.Id(),
 	})
 }
@@ -258,32 +258,32 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
 		checkers.DeclaredCaveat("username", "mary"),
-		checkers.DeclaredCaveat("offer-url", "prod.hosted-mysql"),
+		checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckOfferMacaroons(
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
 		"prod.another",
 		macaroon.Slice{mac},
 	)
 	c.Assert(
 		err,
 		gc.ErrorMatches,
-		`.*caveat "declared offer-url prod.hosted-mysql" not satisfied: got offer-url="prod.another", expected "prod.hosted-mysql"`)
+		`.*caveat "declared offer-uuid mysql-uuid" not satisfied: got offer-uuid="prod.another", expected "mysql-uuid"`)
 }
 
 func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
-		checkers.DeclaredCaveat("offer-url", "prod.hosted-mysql"),
+		checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckOfferMacaroons(
-		"prod.hosted-mysql",
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -296,14 +296,14 @@ func (s *authSuite) TestCheckOfferMacaroonsExpired(c *gc.C) {
 	authContext = authContext.WithClock(clock)
 	offer := &params.ApplicationOffer{
 		SourceModelTag: coretesting.ModelTag.String(),
-		OfferURL:       "prod.hosted-mysql",
+		OfferURL:       "mysql-uuid",
 	}
 	mac, err := authContext.CreateConsumeOfferMacaroon(offer, "mary")
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckOfferMacaroons(
-		"prod.hosted-mysql",
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
 	c.Assert(err, gc.ErrorMatches, ".*macaroon has expired")
@@ -317,14 +317,14 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	authContext = authContext.WithDischargeURL("http://thirdparty")
 	offer := &params.ApplicationOffer{
 		SourceModelTag: coretesting.ModelTag.String(),
-		OfferURL:       "prod.hosted-mysql",
+		OfferURL:       "mysql-uuid",
 	}
 	mac, err := authContext.CreateConsumeOfferMacaroon(offer, "mary")
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckOfferMacaroons(
-		"prod.hosted-mysql",
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
 	dischargeErr, ok := err.(*common.DischargeRequiredError)
@@ -345,7 +345,7 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckRelationMacaroons(
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
 		relationTag,
 		macaroon.Slice{mac},
 	)
@@ -362,7 +362,7 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckRelationMacaroons(
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
 		names.NewRelationTag("app:db offer:db"),
 		macaroon.Slice{mac},
 	)
@@ -382,7 +382,7 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckRelationMacaroons(
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
 		relationTag,
 		macaroon.Slice{mac},
 	)
@@ -400,8 +400,8 @@ func (s *authSuite) TestCheckRelationMacaroonsExpired(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckOfferMacaroons(
-		"prod.hosted-mysql",
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
 	c.Assert(err, gc.ErrorMatches, ".*macaroon has expired")
@@ -415,12 +415,12 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	authContext = authContext.WithDischargeURL("http://thirdparty")
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := authContext.CreateRemoteRelationMacaroon(
-		coretesting.ModelTag.Id(), "prod.offer", "mary", relationTag)
+		coretesting.ModelTag.Id(), "mysql-uuid", "mary", relationTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "prod.hosted-mysql").CheckOfferMacaroons(
-		"prod.hosted-mysql",
+		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
 	dischargeErr, ok := err.(*common.DischargeRequiredError)

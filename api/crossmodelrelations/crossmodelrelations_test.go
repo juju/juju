@@ -153,7 +153,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.RegisterRemoteRelationArgs{
 			Relations: []params.RegisterRemoteRelationArg{{
 				RelationToken: "token",
-				OfferName:     "offeredapp",
+				OfferUUID:     "offer-uuid",
 				Macaroons:     macaroon.Slice{mac}}}})
 		c.Assert(result, gc.FitsTypeOf, &params.RegisterRemoteRelationResults{})
 		*(result.(*params.RegisterRemoteRelationResults)) = params.RegisterRemoteRelationResults{
@@ -167,7 +167,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
 	result, err := client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{
 		RelationToken: "token",
-		OfferName:     "offeredapp",
+		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{mac},
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -180,7 +180,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	result, err = client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{
 		RelationToken: "token",
-		OfferName:     "offeredapp",
+		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{different},
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -234,7 +234,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
 	result, err := client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{
 		RelationToken: "token",
-		OfferName:     "offeredapp"})
+		OfferUUID:     "offer-uuid"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 2)
 	c.Assert(result, gc.HasLen, 1)

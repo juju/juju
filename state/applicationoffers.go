@@ -77,35 +77,45 @@ func ApplicationOfferEndpoint(offer crossmodel.ApplicationOffer, relationName st
 	return Endpoint{}, errors.NotFoundf("relation %q on application offer %q", relationName, offer.String())
 }
 
+// TODO(wallyworld) - remove when we use UUID everywhere
 func applicationOfferUUID(st *State, offerName string) (string, error) {
 	appOffers := &applicationOffers{st: st}
-	offer, err := appOffers.offerForName(offerName)
+	offer, err := appOffers.ApplicationOffer(offerName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return offer.OfferUUID, nil
 }
 
-func (s *applicationOffers) offerForName(offerName string) (*applicationOfferDoc, error) {
+func (s *applicationOffers) offerQuery(query bson.D) (*applicationOfferDoc, error) {
 	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
 	defer closer()
 
 	var doc applicationOfferDoc
-	err := applicationOffersCollection.FindId(offerName).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("application offer %q", offerName)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot load application offer %q", offerName)
-	}
-	return &doc, nil
+	err := applicationOffersCollection.Find(query).One(&doc)
+	return &doc, err
 }
 
 // ApplicationOffer returns the named application offer.
 func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
-	offerDoc, err := s.offerForName(offerName)
+	offerDoc, err := s.offerQuery(bson.D{{"_id", offerName}})
 	if err != nil {
-		return nil, errors.Trace(err)
+		if err == mgo.ErrNotFound {
+			return nil, errors.NotFoundf("application offer %q", offerName)
+		}
+		return nil, errors.Annotatef(err, "cannot load application offer %q", offerName)
+	}
+	return s.makeApplicationOffer(*offerDoc)
+}
+
+// ApplicationOffer returns the application offer for the UUID.
+func (s *applicationOffers) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+	offerDoc, err := s.offerQuery(bson.D{{"offer-uuid", offerUUID}})
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return nil, errors.NotFoundf("application offer %q", offerUUID)
+		}
+		return nil, errors.Annotatef(err, "cannot load application offer %q", offerUUID)
 	}
 	return s.makeApplicationOffer(*offerDoc)
 }
@@ -204,7 +214,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			_, err := s.offerForName(offerArgs.OfferName)
+			_, err := s.ApplicationOffer(offerArgs.OfferName)
 			if err == nil {
 				return nil, errDuplicateApplicationOffer
 			}
@@ -257,7 +267,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	offer, err := s.offerForName(offerArgs.OfferName)
+	offer, err := s.ApplicationOffer(offerArgs.OfferName)
 	if err != nil {
 		// This will either be NotFound or some other error.
 		// In either case, we return the error.
@@ -271,7 +281,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			_, err := s.offerForName(offerArgs.OfferName)
+			_, err := s.ApplicationOffer(offerArgs.OfferName)
 			if err != nil {
 				// This will either be NotFound or some other error.
 				// In either case, we return the error.
@@ -364,6 +374,7 @@ func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilt
 func (s *applicationOffers) makeApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
 	offer := &crossmodel.ApplicationOffer{
 		OfferName:              doc.OfferName,
+		OfferUUID:              doc.OfferUUID,
 		ApplicationName:        doc.ApplicationName,
 		ApplicationDescription: doc.ApplicationDescription,
 	}

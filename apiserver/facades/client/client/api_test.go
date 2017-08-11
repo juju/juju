@@ -400,7 +400,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-db2",
-		OfferName:   "hosted-db2",
+		OfferUUID:   "offer-uuid",
 		URL:         "admin/prod.db2",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{
@@ -432,7 +432,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	mwRel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	offers := state.NewApplicationOffers(s.State)
-	_, err = offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           "admin",
@@ -442,7 +442,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: coretesting.ModelTag.Id(),
 		Username:        "fred",
-		OfferName:       "hosted-mysql",
+		OfferUUID:       offer.OfferUUID,
 		RelationId:      mwRel.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -168,12 +168,12 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 				Role:      "requires",
 				Interface: "db2",
 			},
-			OfferName:         "offer-db2",
+			OfferUUID:         "offer-db2-uuid",
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
-		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2"}},
+		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 		{"WatchRelationStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
@@ -345,7 +345,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life:             params.Alive,
-				ApplicationToken: "token-offer-db2",
+				ApplicationToken: "token-offer-db2-uuid",
 				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
@@ -373,7 +373,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life:             params.Dying,
-				ApplicationToken: "token-offer-db2",
+				ApplicationToken: "token-offer-db2-uuid",
 				RelationToken:    "token-db2:db django:db",
 			},
 		}},

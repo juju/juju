@@ -195,8 +195,8 @@ type modelShim struct {
 	*state.Model
 }
 
-func (s *stateShim) RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error) {
-	status, err := s.st.RemoteConnectionStatus(offerName)
+func (s *stateShim) RemoteConnectionStatus(offerUUID string) (RemoteConnectionStatus, error) {
+	status, err := s.st.RemoteConnectionStatus(offerUUID)
 	return &remoteConnectionStatusShim{status}, err
 }
 

@@ -296,7 +296,7 @@ func (s *RelationSuite) TestIsCrossModelYup(c *gc.C) {
 		Name:            "remote-wordpress",
 		SourceModel:     names.NewModelTag("source-model"),
 		IsConsumerProxy: true,
-		OfferName:       "chapo",
+		OfferUUID:       "offer-uuid",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Limit:     1,
@@ -409,7 +409,7 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
 		Name:            "remote-wordpress",
 		SourceModel:     names.NewModelTag("source-model"),
 		IsConsumerProxy: true,
-		OfferName:       "chapo",
+		OfferUUID:       "offer-uuid",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Limit:     1,
@@ -432,15 +432,15 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
 		SourceModelUUID: coretesting.ModelTag.Id(),
 		RelationId:      relation.Id(),
 		Username:        "fred",
-		OfferName:       "mysql",
+		OfferUUID:       "offer-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	rc, err := s.State.RemoteConnectionStatus("mysql")
+	rc, err := s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
 
 	state.RemoveRelation(c, relation)
-	rc, err = s.State.RemoteConnectionStatus("mysql")
+	rc, err = s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.ConnectionCount(), gc.Equals, 0)
 }

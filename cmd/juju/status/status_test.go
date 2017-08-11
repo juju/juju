@@ -3298,9 +3298,11 @@ type addOfferConnection struct {
 func (oc addOfferConnection) step(c *gc.C, ctx *context) {
 	rel, err := ctx.st.KeyRelation(oc.relationKey)
 	c.Assert(err, jc.ErrorIsNil)
+	offer, err := state.NewApplicationOffers(ctx.st).ApplicationOffer(oc.name)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = ctx.st.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: oc.sourceModelUUID,
-		OfferName:       oc.name,
+		OfferUUID:       offer.OfferUUID,
 		Username:        oc.username,
 		RelationId:      rel.Id(),
 	})

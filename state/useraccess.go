@@ -150,7 +150,11 @@ func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permis
 		}
 		return access.Access, nil
 	case names.ApplicationOfferTagKind:
-		return st.GetOfferAccess(target.(names.ApplicationOfferTag), subject)
+		offerUUID, err := applicationOfferUUID(st, target.Id())
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return st.GetOfferAccess(offerUUID, subject)
 	default:
 		return "", errors.NotValidf("%q as a target", target.Kind())
 	}

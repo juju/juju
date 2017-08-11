@@ -21,10 +21,10 @@ type ApplicationOfferUserSuite struct {
 
 var _ = gc.Suite(&ApplicationOfferUserSuite{})
 
-func (s *ApplicationOfferUserSuite) makeOffer(c *gc.C, access permission.Access) (names.ApplicationOfferTag, names.UserTag) {
+func (s *ApplicationOfferUserSuite) makeOffer(c *gc.C, access permission.Access) (*crossmodel.ApplicationOffer, names.UserTag) {
 	app := s.Factory.MakeApplication(c, nil)
 	offers := state.NewApplicationOffers(s.State)
-	_, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "someoffer",
 		ApplicationName: app.Name(),
 		Owner:           "test-admin",
@@ -36,31 +36,30 @@ func (s *ApplicationOfferUserSuite) makeOffer(c *gc.C, access permission.Access)
 		&factory.UserParams{
 			Name: "validusername",
 		})
-	offerTag := names.NewApplicationOfferTag("someoffer")
 
 	// Initially no access.
-	_, err = s.State.GetOfferAccess(offerTag, user.UserTag())
+	_, err = s.State.GetOfferAccess(offer.OfferUUID, user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	err = s.State.CreateOfferAccess(offerTag, user.UserTag(), access)
+	err = s.State.CreateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user.UserTag(), access)
 	c.Assert(err, jc.ErrorIsNil)
-	return offerTag, user.UserTag()
+	return offer, user.UserTag()
 }
 
 func (s *ApplicationOfferUserSuite) assertAddOffer(c *gc.C, wantedAccess permission.Access) {
-	offerTag, user := s.makeOffer(c, wantedAccess)
+	offer, user := s.makeOffer(c, wantedAccess)
 
-	access, err := s.State.GetOfferAccess(offerTag, user)
+	access, err := s.State.GetOfferAccess(offer.OfferUUID, user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, wantedAccess)
 
 	// Creator of offer has admin.
-	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("test-admin"))
+	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("test-admin"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.AdminAccess)
 
 	// Everyone has read.
-	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("everyone@external"))
+	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("everyone@external"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -78,10 +77,10 @@ func (s *ApplicationOfferUserSuite) TestAddAdminModelUser(c *gc.C) {
 }
 
 func (s *ApplicationOfferUserSuite) TestUpdateOfferAccess(c *gc.C) {
-	offerTag, user := s.makeOffer(c, permission.AdminAccess)
-	err := s.State.UpdateOfferAccess(offerTag, user, permission.ReadAccess)
+	offer, user := s.makeOffer(c, permission.AdminAccess)
+	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user, permission.ReadAccess)
 
-	access, err := s.State.GetOfferAccess(offerTag, user)
+	access, err := s.State.GetOfferAccess(offer.OfferUUID, user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -102,17 +101,17 @@ func (s *ApplicationOfferUserSuite) TestCreateOfferAccessNoUserFails(c *gc.C) {
 }
 
 func (s *ApplicationOfferUserSuite) TestRemoveOfferAccess(c *gc.C) {
-	offerTag, user := s.makeOffer(c, permission.ConsumeAccess)
+	offer, user := s.makeOffer(c, permission.ConsumeAccess)
 
-	err := s.State.RemoveOfferAccess(offerTag, user)
+	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.GetOfferAccess(offerTag, user)
+	_, err = s.State.GetOfferAccess(offer.OfferUUID, user)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ApplicationOfferUserSuite) TestRemoveOfferAccessNoUser(c *gc.C) {
-	offerTag, _ := s.makeOffer(c, permission.ConsumeAccess)
-	err := s.State.RemoveOfferAccess(offerTag, names.NewUserTag("fred"))
+	offer, _ := s.makeOffer(c, permission.ConsumeAccess)
+	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferName), names.NewUserTag("fred"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

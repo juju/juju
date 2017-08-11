@@ -412,12 +412,13 @@ func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the default access levels.
-	offerTag := names.NewApplicationOfferTag("riak")
+	offer, err := state.NewApplicationOffers(s.State).ApplicationOffer("riak")
+	c.Assert(err, jc.ErrorIsNil)
 	userTag := names.NewUserTag("everyone@external")
-	access, err := s.State.GetOfferAccess(offerTag, userTag)
+	access, err := s.State.GetOfferAccess(offer.OfferUUID, userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
-	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("admin"))
+	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("admin"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.AdminAccess)
 
@@ -425,7 +426,7 @@ func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "bob"})
 	_, err = cmdtesting.RunCommand(c, model.NewGrantCommand(), "bob", "consume", "admin/controller.riak")
 	c.Assert(err, jc.ErrorIsNil)
-	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
+	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("bob"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ConsumeAccess)
 
@@ -437,12 +438,13 @@ func (s *crossmodelSuite) TestOfferGrant(c *gc.C) {
 
 func (s *crossmodelSuite) TestOfferRevoke(c *gc.C) {
 	s.assertOfferGrant(c)
-	offerTag := names.NewApplicationOfferTag("riak")
 
 	// Revoke consume access.
 	_, err := cmdtesting.RunCommand(c, model.NewRevokeCommand(), "bob", "consume", "admin/controller.riak")
 	c.Assert(err, jc.ErrorIsNil)
-	access, err := s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
+	offer, err := state.NewApplicationOffers(s.State).ApplicationOffer("riak")
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("bob"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }

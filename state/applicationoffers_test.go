@@ -67,7 +67,7 @@ func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	err := sd.Remove(offer.OfferName)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = state.OfferForName(sd, offer.OfferName)
+	_, err = sd.ApplicationOffer(offer.OfferName)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -85,17 +85,15 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	}
 	offer, err := sd.AddOffer(args)
 	c.Assert(err, jc.ErrorIsNil)
-	doc, err := state.OfferForName(sd, "hosted-mysql")
+	expectedOffer, err := sd.ApplicationOffer(offer.OfferName)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedOffer, err := state.MakeApplicationOffer(sd, doc)
 	c.Assert(*offer, jc.DeepEquals, *expectedOffer)
 
-	offerTag := names.NewApplicationOfferTag(offer.OfferName)
-	access, err := s.State.GetOfferAccess(offerTag, owner.UserTag())
+	access, err := s.State.GetOfferAccess(offer.OfferUUID, owner.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.AdminAccess)
 
-	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("everyone@external"))
+	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("everyone@external"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -151,6 +149,14 @@ func (s *applicationOffersSuite) TestApplicationOffer(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	expectedOffer := s.createDefaultOffer(c)
 	offer, err := sd.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*offer, jc.DeepEquals, expectedOffer)
+}
+
+func (s *applicationOffersSuite) TestApplicationOfferForUUID(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	expectedOffer := s.createDefaultOffer(c)
+	offer, err := sd.ApplicationOfferForUUID(expectedOffer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*offer, jc.DeepEquals, expectedOffer)
 }
@@ -295,7 +301,7 @@ func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterIniti
 func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
-	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+	original, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
@@ -310,6 +316,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offer, jc.DeepEquals, &crossmodel.ApplicationOffer{
 		OfferName:       "hosted-mysql",
+		OfferUUID:       original.OfferUUID,
 		ApplicationName: "foo",
 		Endpoints:       map[string]charm.Relation{},
 	})

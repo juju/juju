@@ -29,6 +29,7 @@ import (
 
 const (
 	offerCall       = "offerCall"
+	offerCallUUID   = "offerCallUUID"
 	addOfferCall    = "addOffersCall"
 	listOffersCall  = "listOffersCall"
 	updateOfferCall = "updateOfferCall"
@@ -65,6 +66,11 @@ func (m *stubApplicationOffers) Remove(url string) error {
 
 func (m *stubApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(offerCall)
+	panic("not implemented")
+}
+
+func (m *stubApplicationOffers) ApplicationOfferForUUID(uuid string) (*jujucrossmodel.ApplicationOffer, error) {
+	m.AddCall(offerCallUUID)
 	panic("not implemented")
 }
 
@@ -268,8 +274,8 @@ func (m *mockApplicationOffers) ListOffers(filters ...jujucrossmodel.Application
 }
 
 type offerAccess struct {
-	user  names.UserTag
-	offer names.ApplicationOfferTag
+	user      names.UserTag
+	offerUUID string
 }
 
 type mockState struct {
@@ -350,8 +356,8 @@ func (m *mockState) RemoteConnectionStatus(offerName string) (applicationoffers.
 	return m.connStatus, nil
 }
 
-func (m *mockState) GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error) {
-	access, ok := m.accessPerms[offerAccess{user: user, offer: offer}]
+func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
+	access, ok := m.accessPerms[offerAccess{user: user, offerUUID: offerUUID}]
 	if !ok {
 		return "", errors.NotFoundf("offer access for %v", user)
 	}
@@ -362,10 +368,10 @@ func (m *mockState) CreateOfferAccess(offer names.ApplicationOfferTag, user name
 	if !m.users.Contains(user.Name()) {
 		return errors.NotFoundf("user %q", user.Name())
 	}
-	if _, ok := m.accessPerms[offerAccess{user: user, offer: offer}]; ok {
+	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}]; ok {
 		return errors.NewAlreadyExists(nil, fmt.Sprintf("offer user %s", user.Name()))
 	}
-	m.accessPerms[offerAccess{user: user, offer: offer}] = access
+	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}] = access
 	return nil
 }
 
@@ -373,10 +379,10 @@ func (m *mockState) UpdateOfferAccess(offer names.ApplicationOfferTag, user name
 	if !m.users.Contains(user.Name()) {
 		return errors.NotFoundf("user %q", user.Name())
 	}
-	if _, ok := m.accessPerms[offerAccess{user: user, offer: offer}]; !ok {
+	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}]; !ok {
 		return errors.NewNotFound(nil, fmt.Sprintf("offer user %s", user.Name()))
 	}
-	m.accessPerms[offerAccess{user: user, offer: offer}] = access
+	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}] = access
 	return nil
 }
 
@@ -384,7 +390,7 @@ func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user name
 	if !m.users.Contains(user.Name()) {
 		return errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", user.Name()))
 	}
-	delete(m.accessPerms, offerAccess{user: user, offer: offer})
+	delete(m.accessPerms, offerAccess{user: user, offerUUID: offer.Id() + "-uuid"})
 	return nil
 }
 

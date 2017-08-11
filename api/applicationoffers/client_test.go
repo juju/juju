@@ -136,6 +136,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 				offer := params.ApplicationOffer{
 					OfferURL:  url,
 					OfferName: offerName,
+					OfferUUID: offerName + "-uuid",
 					Endpoints: endpoints,
 				}
 				results.Results = []params.ApplicationOfferDetails{{

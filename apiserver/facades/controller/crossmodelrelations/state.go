@@ -16,9 +16,6 @@ import (
 type CrossModelRelationsState interface {
 	common.Backend
 
-	// ListOffers returns the application offers matching any one of the filter terms.
-	ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error)
-
 	// Model returns the model entity.
 	Model() (Model, error)
 
@@ -35,9 +32,9 @@ type stateShim struct {
 	st *state.State
 }
 
-func (st stateShim) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
 	oa := state.NewApplicationOffers(st.st)
-	return oa.ListOffers(filter...)
+	return oa.ApplicationOfferForUUID(offerUUID)
 }
 
 func (st stateShim) AddOfferConnection(arg state.AddOfferConnectionParams) (OfferConnection, error) {
@@ -58,5 +55,5 @@ func (st stateShim) Model() (Model, error) {
 }
 
 type OfferConnection interface {
-	OfferName() string
+	OfferUUID() string
 }

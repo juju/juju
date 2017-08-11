@@ -426,6 +426,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 	offer := params.ApplicationOffer{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
+		OfferUUID:              "offer-uuid",
 		OfferURL:               "offer url",
 		ApplicationDescription: "description",
 		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},

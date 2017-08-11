@@ -85,7 +85,7 @@ func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName str
 		model:             model,
 	}
 	s.mockStatePool.st[modelUUID] = st
-	st.applicationOffers[offerName] = jujucrossmodel.ApplicationOffer{}
+	st.applicationOffers[offerName] = jujucrossmodel.ApplicationOffer{OfferUUID: offerName + "-uuid"}
 }
 
 func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
@@ -117,7 +117,7 @@ func (s *offerAccessSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	err = s.revoke(c, user, params.OfferConsumeAccess, "test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := st.GetOfferAccess(offer, user)
+	access, err := st.GetOfferAccess(offer.Id()+"-uuid", user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -135,7 +135,7 @@ func (s *offerAccessSuite) TestRevokeReadRemovesPermission(c *gc.C) {
 	err = s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, gc.IsNil)
 
-	_, err = st.GetOfferAccess(offer, user)
+	_, err = st.GetOfferAccess(offer.Id()+"-uuid", user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -148,7 +148,7 @@ func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `could not revoke offer access: offer user "bob" does not exist`)
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	_, err = st.GetOfferAccess(offer, user)
+	_, err = st.GetOfferAccess(offer.Id()+"-uuid", user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -178,7 +178,7 @@ func (s *offerAccessSuite) assertGrantOfferAddUser(c *gc.C, user names.UserTag) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	access, err := st.GetOfferAccess(offer, user)
+	access, err := st.GetOfferAccess(offer.Id()+"-uuid", user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -204,7 +204,7 @@ func (s *offerAccessSuite) TestGrantOfferSuperUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	offer := names.NewApplicationOfferTag("someoffer")
-	access, err := st.GetOfferAccess(offer, other)
+	access, err := st.GetOfferAccess(offer.Id()+"-uuid", other)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -225,7 +225,7 @@ func (s *offerAccessSuite) TestGrantIncreaseAccess(c *gc.C) {
 	err = s.grant(c, user, params.OfferConsumeAccess, "other/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := st.GetOfferAccess(offer, user)
+	access, err := st.GetOfferAccess(offer.Id()+"-uuid", user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ConsumeAccess)
 }
@@ -287,7 +287,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 	err = s.grant(c, other, params.OfferReadAccess, "foobar/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := st.GetOfferAccess(offer, other)
+	access, err := st.GetOfferAccess(offer.Id()+"-uuid", other)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }

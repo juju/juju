@@ -25,8 +25,7 @@ type remoteApplicationWorker struct {
 
 	// These attribute are relevant to dealing with a specific
 	// remote application proxy.
-	// TODO(wallyworld) - change to offer UUID
-	offerName             string
+	offerUUID             string
 	applicationName       string // name of the remote application proxy in the local model
 	localModelUUID        string // uuid of the model hosting the local application
 	remoteModelUUID       string // uuid of the model hosting the remote offer
@@ -70,7 +69,7 @@ func newRemoteApplicationWorker(
 ) (worker.Worker, error) {
 	w := &remoteApplicationWorker{
 		relationsWatcher:                  relationsWatcher,
-		offerName:                         remoteApplication.OfferName,
+		offerUUID:                         remoteApplication.OfferUUID,
 		applicationName:                   remoteApplication.Name,
 		localModelUUID:                    localModelUUID,
 		remoteModelUUID:                   remoteApplication.ModelUUID,
@@ -242,7 +241,7 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 	applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
 	relationTag := names.NewRelationTag(key)
 	applicationToken, remoteAppToken, relationToken, mac, err := w.registerRemoteRelation(
-		applicationTag, relationTag, w.offerName,
+		applicationTag, relationTag, w.offerUUID,
 		remoteRelation.Endpoint, remoteRelation.RemoteEndpointName)
 	if err != nil {
 		return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
@@ -360,8 +359,7 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 }
 
 func (w *remoteApplicationWorker) registerRemoteRelation(
-	applicationTag, relationTag names.Tag,
-	remoteApplicationOfferName string,
+	applicationTag, relationTag names.Tag, offerUUID string,
 	localEndpointInfo params.RemoteEndpoint, remoteEndpointName string,
 ) (applicationToken, offeringAppToken, relationToken string, _ *macaroon.Macaroon, _ error) {
 	logger.Debugf("register remote relation %v", relationTag.Id())
@@ -390,7 +388,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		ApplicationToken:  applicationToken,
 		SourceModelTag:    names.NewModelTag(w.localModelUUID).String(),
 		RelationToken:     relationToken,
-		OfferName:         remoteApplicationOfferName,
+		OfferUUID:         offerUUID,
 		RemoteEndpoint:    localEndpointInfo,
 		LocalEndpointName: remoteEndpointName,
 	}

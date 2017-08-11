@@ -1018,7 +1018,7 @@ func (api *API) saveRemoteApplication(
 
 	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        applicationName,
-		OfferName:   offer.OfferName,
+		OfferUUID:   offer.OfferUUID,
 		URL:         offer.OfferURL,
 		SourceModel: sourceModelTag,
 		Endpoints:   remoteEps,

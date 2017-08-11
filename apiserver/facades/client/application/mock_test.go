@@ -146,7 +146,7 @@ type mockRemoteApplication struct {
 	endpoints      []state.Endpoint
 	bindings       map[string]string
 	spaces         []state.RemoteSpace
-	offerName      string
+	offerUUID      string
 	offerURL       string
 	mac            *macaroon.Macaroon
 }
@@ -350,7 +350,7 @@ func (m *mockBackend) AddRemoteApplication(args state.AddRemoteApplicationParams
 	app := &mockRemoteApplication{
 		name:           args.Name,
 		sourceModelTag: args.SourceModel,
-		offerName:      args.OfferName,
+		offerUUID:      args.OfferUUID,
 		offerURL:       args.URL,
 		bindings:       args.Bindings,
 		mac:            args.Macaroon,

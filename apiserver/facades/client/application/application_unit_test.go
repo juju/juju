@@ -368,6 +368,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 				ApplicationOffer: params.ApplicationOffer{
 					SourceModelTag:         coretesting.ModelTag.String(),
 					OfferName:              "hosted-mysql",
+					OfferUUID:              "hosted-mysql-uuid",
 					ApplicationDescription: "a database",
 					Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
 					OfferURL:               "othermodel.hosted-mysql",
@@ -382,7 +383,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
 		name:           "hosted-mysql",
 		sourceModelTag: coretesting.ModelTag,
-		offerName:      "hosted-mysql",
+		offerUUID:      "hosted-mysql-uuid",
 		offerURL:       "othermodel.hosted-mysql",
 		endpoints: []state.Endpoint{
 			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
@@ -398,6 +399,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 			ApplicationOffer: params.ApplicationOffer{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
+				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",
 				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
 				OfferURL:               "othermodel.hosted-mysql",
@@ -417,7 +419,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, &mockRemoteApplication{
 		name:           "hosted-mysql",
 		sourceModelTag: coretesting.ModelTag,
-		offerName:      "hosted-mysql",
+		offerUUID:      "hosted-mysql-uuid",
 		offerURL:       "othermodel.hosted-mysql",
 		endpoints: []state.Endpoint{
 			{ApplicationName: "hosted-mysql", Relation: charm.Relation{Name: "database", Interface: "mysql", Role: "provider"}}},
@@ -438,6 +440,7 @@ func (s *ApplicationSuite) TestConsumeFromSameController(c *gc.C) {
 			ApplicationOffer: params.ApplicationOffer{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
+				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",
 				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
 				OfferURL:               "othermodel.hosted-mysql",
@@ -480,6 +483,7 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 			ApplicationOffer: params.ApplicationOffer{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
+				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",
 				Endpoints:              []params.RemoteEndpoint{{Name: "server", Interface: "mysql", Role: "provider"}},
 				OfferURL:               "othermodel.hosted-mysql",
@@ -535,6 +539,7 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 		ApplicationOffer: params.ApplicationOffer{
 			SourceModelTag:         coretesting.ModelTag.String(),
 			OfferName:              "hosted-mysql",
+			OfferUUID:              "hosted-mysql-uuid",
 			ApplicationDescription: "a database",
 			Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
 			OfferURL:               "othermodel.hosted-mysql",
@@ -561,6 +566,7 @@ func (s *ApplicationSuite) assertConsumeWithNoSpacesInfoAvailable(c *gc.C) {
 			ApplicationOffer: params.ApplicationOffer{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
+				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",
 				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
 				OfferURL:               "othermodel.hosted-mysql",
