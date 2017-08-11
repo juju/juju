@@ -82,13 +82,19 @@ def wait_for_storage_detach(client, storage_id, interval, timeout):
     """
     Due to the asynchronous nature of Juju, detaching a persistent storage
     takes some time.
-    This function will wait then check if the status of a specific storage
-    unit changed to detached. Once detached status detected, waiting stops.
+    This function will wait then check if the status of a specific persistent
+    storage unit changed to detached. Once detached, waiting stops.
     """
     for ignored in until_timeout(timeout):
         time.sleep(interval)
         storage_output = json.loads(client.list_storage())
-        storage_status = storage_output['volumes']['2']['status']['current']
+        try:
+            index = [elem for elem in storage_output['volumes'].keys()
+                if storage_output['volumes'][elem]['storage'] == storage_id][0]
+        except IndexError:
+            log.info('Volume index for {} cannot be found.'.format(storage_id))
+            break
+        storage_status = storage_output['volumes'][index]['status']['current']
         if storage_status == 'detached':
             break
 
