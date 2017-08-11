@@ -28,11 +28,12 @@ type Client struct {
 
 // NewClient creates a new client-side Firewaller API facade.
 func NewClient(caller base.APICaller) *Client {
+	modelTag, _ := caller.ModelTag() //XXX
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &Client{
 		facade:       facadeCaller,
 		ModelWatcher: common.NewModelWatcher(facadeCaller),
-		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller),
+		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 	}
 }
 

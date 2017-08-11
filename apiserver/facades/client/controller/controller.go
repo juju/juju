@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
@@ -69,7 +68,6 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	st := ctx.State()
-	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPIv3{
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI: common.NewModelStatusAPI(
@@ -77,12 +75,15 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 			authorizer,
 			apiUser,
 		),
-		CloudSpecAPI: cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
-		state:        st,
-		statePool:    ctx.StatePool(),
-		authorizer:   authorizer,
-		apiUser:      apiUser,
-		resources:    ctx.Resources(),
+		CloudSpecAPI: cloudspec.NewCloudSpec(
+			cloudspec.MakeCloudSpecGetter(ctx.StatePool()),
+			common.AuthFuncForTag(st.ModelTag()),
+		),
+		state:      st,
+		statePool:  ctx.StatePool(),
+		authorizer: authorizer,
+		apiUser:    apiUser,
+		resources:  ctx.Resources(),
 	}, nil
 }
 
@@ -233,34 +234,35 @@ func (s *ControllerAPIv3) HostedModelConfigs() (params.HostedModelConfigsResults
 	}
 
 	for _, modelUUID := range modelUUIDs {
-		if modelUUID != s.state.ControllerModelUUID() {
-			st, release, err := s.statePool.Get(modelUUID)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-			defer release()
-			model, err := st.Model()
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-
-			config := params.HostedModelConfig{
-				Name:     model.Name(),
-				OwnerTag: model.Owner().String(),
-			}
-			modelConf, err := model.Config()
-			if err != nil {
-				config.Error = common.ServerError(err)
-			} else {
-				config.Config = modelConf.AllAttrs()
-			}
-			cloudSpec := s.GetCloudSpec(model.ModelTag())
-			if config.Error == nil {
-				config.CloudSpec = cloudSpec.Result
-				config.Error = cloudSpec.Error
-			}
-			result.Models = append(result.Models, config)
+		if modelUUID == s.state.ControllerModelUUID() {
+			continue
 		}
+		st, release, err := s.statePool.Get(modelUUID)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		defer release()
+		model, err := st.Model()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
+		config := params.HostedModelConfig{
+			Name:     model.Name(),
+			OwnerTag: model.Owner().String(),
+		}
+		modelConf, err := model.Config()
+		if err != nil {
+			config.Error = common.ServerError(err)
+		} else {
+			config.Config = modelConf.AllAttrs()
+		}
+		cloudSpec := s.GetCloudSpec(model.ModelTag())
+		if config.Error == nil {
+			config.CloudSpec = cloudSpec.Result
+			config.Error = cloudSpec.Error
+		}
+		result.Models = append(result.Models, config)
 	}
 
 	return result, nil

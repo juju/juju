@@ -54,10 +54,10 @@ func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 }
 
 // CloudSpec is part of the environ.ConfigObserver interface.
-func (context *runContext) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+func (context *runContext) CloudSpec() (environs.CloudSpec, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
-	context.stub.AddCall("CloudSpec", tag)
+	context.stub.AddCall("CloudSpec")
 	if err := context.stub.NextErr(); err != nil {
 		return environs.CloudSpec{}, err
 	}

@@ -32,13 +32,14 @@ type Client struct {
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
 func NewClient(st base.APICallCloser) *Client {
+	modelTag, _ := st.ModelTag() //XXX
 	frontend, backend := base.NewClientFacade(st, "Controller")
 	return &Client{
 		ClientFacade:        frontend,
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
 		ModelStatusAPI:      common.NewModelStatusAPI(backend),
-		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(backend),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(backend, modelTag),
 	}
 }
 

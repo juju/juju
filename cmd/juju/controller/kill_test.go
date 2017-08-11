@@ -395,7 +395,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
-		"getting controller environ: getting model config from API: controller \"test3\" not found",
+		"getting controller environ: getting cloud spec from API: controller \"test3\" not found",
 	)
 	checkControllerExistsInStore(c, "test3", s.store)
 }
