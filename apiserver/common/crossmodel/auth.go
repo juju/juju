@@ -275,7 +275,7 @@ func (a *AuthContext) Authenticator(sourceModelUUID, offerURL string) *authentic
 }
 
 func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[string]string) (map[string]string, error) {
-	logger.Debugf("check macaroons with required attrs: %v", requiredValues)
+	logger.Debugf("check %d macaroons with required attrs: %v", len(mac), requiredValues)
 	for _, m := range mac {
 		logger.Debugf("- mac %s", m.Id())
 	}

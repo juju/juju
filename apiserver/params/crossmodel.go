@@ -81,11 +81,10 @@ type AddApplicationOffer struct {
 
 // RemoteEndpoint represents a remote application endpoint.
 type RemoteEndpoint struct {
-	Name      string              `json:"name"`
-	Role      charm.RelationRole  `json:"role"`
-	Interface string              `json:"interface"`
-	Limit     int                 `json:"limit"`
-	Scope     charm.RelationScope `json:"scope"`
+	Name      string             `json:"name"`
+	Role      charm.RelationRole `json:"role"`
+	Interface string             `json:"interface"`
+	Limit     int                `json:"limit"`
 }
 
 // RemoteSpace represents a space in some remote model.

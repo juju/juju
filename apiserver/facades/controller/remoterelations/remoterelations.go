@@ -215,8 +215,6 @@ func (api *RemoteRelationsAPI) remoteRelation(entity params.Entity) (*params.Rem
 				Name:      ep.Name,
 				Interface: ep.Interface,
 				Role:      ep.Role,
-				Scope:     ep.Scope,
-				Limit:     ep.Limit,
 			}
 			continue
 		}

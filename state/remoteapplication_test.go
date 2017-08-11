@@ -653,7 +653,7 @@ func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
 		},
 	}
 	_, err := s.State.AddRelation(ep1, ep2)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:logging-client mysql:logging": both endpoints must be globally scoped for remote relations`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:logging-client mysql:logging": local endpoint must be globally scoped for remote relations`)
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteRelationLocalFirst(c *gc.C) {

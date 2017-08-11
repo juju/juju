@@ -220,8 +220,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 			ApplicationName: "hosted-mysql",
 			Relation: charm.Relation{Name: "server",
 				Role:      "provider",
-				Interface: "mysql",
-				Scope:     "global"},
+				Interface: "mysql"},
 		},
 	})
 }
@@ -248,8 +247,7 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 			ApplicationName: "hosted-mysql",
 			Relation: charm.Relation{Name: "database",
 				Role:      "provider",
-				Interface: "mysql",
-				Scope:     "global"},
+				Interface: "mysql"},
 		},
 	})
 }

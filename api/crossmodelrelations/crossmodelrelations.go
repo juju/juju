@@ -107,7 +107,7 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 	}
 	// Make the api call the first time.
 	err := apiCall()
-	if errors.IsNotFound(err) {
+	if err == nil || errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 

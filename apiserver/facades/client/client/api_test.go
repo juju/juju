@@ -174,7 +174,6 @@ var scenarioStatus = &params.FullStatus{
 				Name:      "database",
 				Interface: "db2",
 				Role:      "provider",
-				Scope:     "global",
 			}},
 			Relations: map[string][]string{},
 			Status: params.DetailedStatus{
