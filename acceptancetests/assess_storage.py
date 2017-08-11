@@ -2,13 +2,14 @@
 """Assess juju charm storage."""
 
 from __future__ import print_function
-import os
 
 import argparse
 import copy
 import json
 import logging
+import os
 import sys
+import time
 
 from deploy_stack import (
     BootstrapManager,
@@ -18,6 +19,7 @@ from jujucharm import (
     local_charm_path,
 )
 from utility import (
+    until_timeout,
     add_basic_testing_arguments,
     assert_dict_is_subset,
     configure_logging,
@@ -74,6 +76,34 @@ storage_pool_1x["ebs-ssd"] = {
     "provider": "ebs",
     "attrs": {"volume-type": "ssd"}
     }
+
+
+def wait_for_storage_detach(client, storage_id, interval, timeout):
+    """
+    Due to the asynchronous nature of Juju, detaching a persistent storage
+    takes some time.
+    This function will wait then check if the status of a specific storage
+    unit changed to detached. Once detached status detected, waiting stops.
+    """
+    for ignored in until_timeout(timeout):
+        time.sleep(interval)
+        storage_output = json.loads(client.list_storage())
+        storage_status = storage_output['volumes']['2']['status']['current']
+        if storage_status == 'detached':
+            break
+
+
+def wait_for_storage_removal(client, storage_id, interval, timeout):
+    """
+    Due to the asynchronous nature of Juju, storage removal takes some time.
+    This function will wait then check if a specific storage id can be found in
+    juju storage output. If the storage id disappeared, waiting stops.
+    """
+    for ignored in until_timeout(timeout):
+        time.sleep(interval)
+        storage_raw_output = client.list_storage()
+        if storage_id not in storage_raw_output:
+            break
 
 
 def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
@@ -312,7 +342,17 @@ def assess_storage(client, charm_series):
     expected = make_expected_ls(client, 'data/4', 'dummy-storage-np/0')
     check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
+
     client.remove_service('dummy-storage-np')
+    # data/4 is a persistent storage, detach is required before removal.
+    wait_for_storage_detach(
+        client, storage_id='data/4', interval=15, timeout=60)
+    # data/4 is a persistent storage, need to be removed, otherwise it will
+    # interfere the next test result.
+    client.get_juju_output(
+        'remove-storage', 'data/4', include_e=False, merge_stderr=True)
+    wait_for_storage_removal(
+        client, storage_id='data/4', interval=15, timeout=90)
 
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
