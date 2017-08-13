@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -338,26 +337,6 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
-}
-
-func (s *UnitSuite) TestLoggingOverride(c *gc.C) {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
-	agentConf := FakeAgentConfig{
-		values: map[string]string{agent.LoggingOverride: "test=trace"},
-	}
-
-	a := UnitAgent{
-		AgentConf: agentConf,
-		ctx:       ctx,
-		UnitName:  "mysql/25",
-	}
-
-	err = a.Init(nil)
-	c.Assert(err, gc.IsNil)
-
-	test := loggo.GetLogger("test")
-	c.Assert(test.LogLevel(), gc.Equals, loggo.TRACE)
 }
 
 func (s *UnitSuite) TestUseLumberjack(c *gc.C) {
