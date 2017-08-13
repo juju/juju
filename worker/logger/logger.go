@@ -6,9 +6,9 @@ package logger
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/logger"
 	"github.com/juju/juju/watcher"
 )
@@ -19,19 +19,21 @@ var log = loggo.GetLogger("juju.worker.logger")
 // environment watcher tells the agent that the value has changed.
 type Logger struct {
 	api            *logger.State
-	agentConfig    agent.Config
+	tag            names.Tag
+	updateCallback func(string) error
 	lastConfig     string
 	configOverride string
 }
 
 // NewLogger returns a worker.Worker that uses the notify watcher returned
 // from the setup.
-func NewLogger(api *logger.State, agentConfig agent.Config) (worker.Worker, error) {
+func NewLogger(api *logger.State, tag names.Tag, loggingOverride string, updateCallback func(string) error) (worker.Worker, error) {
 	logger := &Logger{
 		api:            api,
-		agentConfig:    agentConfig,
+		tag:            tag,
+		updateCallback: updateCallback,
 		lastConfig:     loggo.LoggerInfo(),
-		configOverride: agentConfig.Value(agent.LoggingOverride),
+		configOverride: loggingOverride,
 	}
 	log.Debugf("initial log config: %q", logger.lastConfig)
 
@@ -51,7 +53,7 @@ func (logger *Logger) setLogging() {
 		log.Debugf("overriding logging config with override from agent.conf %q", logger.configOverride)
 		loggingConfig = logger.configOverride
 	} else {
-		modelLoggingConfig, err := logger.api.LoggingConfig(logger.agentConfig.Tag())
+		modelLoggingConfig, err := logger.api.LoggingConfig(logger.tag)
 		if err != nil {
 			log.Errorf("%v", err)
 			return
@@ -68,8 +70,16 @@ func (logger *Logger) setLogging() {
 			log.Warningf("configure loggers failed: %v", err)
 			// Try to reset to what we had before
 			loggo.ConfigureLoggers(logger.lastConfig)
+			return
 		}
 		logger.lastConfig = loggingConfig
+		// Save the logging config in the agent.conf file.
+		if logger.updateCallback != nil {
+			err := logger.updateCallback(loggingConfig)
+			if err != nil {
+				log.Errorf("%v", err)
+			}
+		}
 	}
 }
 
@@ -78,7 +88,7 @@ func (logger *Logger) SetUp() (watcher.NotifyWatcher, error) {
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
 	logger.setLogging()
-	return logger.api.WatchLoggingConfig(logger.agentConfig.Tag())
+	return logger.api.WatchLoggingConfig(logger.tag)
 }
 
 func (logger *Logger) Handle(_ <-chan struct{}) error {
