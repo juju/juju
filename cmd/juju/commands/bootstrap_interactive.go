@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
@@ -56,6 +57,9 @@ func queryCloud(clouds []string, defCloud string, scanner *bufio.Scanner, w io.W
 	}
 	if cloud == "" {
 		return defCloud, nil
+	}
+	if ok := names.IsValidCloud(cloud); !ok {
+		return "", errors.NotValidf("cloud name %q", cloud)
 	}
 
 	cloudName, ok := interact.FindMatch(cloud, clouds)

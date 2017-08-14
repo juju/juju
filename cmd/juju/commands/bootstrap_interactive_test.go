@@ -102,6 +102,16 @@ func (BSInteractSuite) TestQueryCloudDefault(c *gc.C) {
 	c.Assert(cloud, gc.Equals, "local")
 }
 
+func (BSInteractSuite) TestInvalidCloud(c *gc.C) {
+	input := "bad^cloud\n"
+
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	clouds := []string{"books", "local", "bad^cloud"}
+
+	_, err := queryCloud(clouds, "local", scanner, ioutil.Discard)
+	c.Assert(err, gc.ErrorMatches, `cloud name "bad\^cloud" not valid`)
+}
+
 func (BSInteractSuite) TestQueryRegion(c *gc.C) {
 	input := "mars-west1\n"
 

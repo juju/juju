@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -108,6 +109,9 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *AddCloudCommand) Init(args []string) (err error) {
 	if len(args) > 0 {
 		c.Cloud = args[0]
+		if ok := names.IsValidCloud(c.Cloud); !ok {
+			return errors.NotValidf("cloud name %q", c.Cloud)
+		}
 	}
 	if len(args) > 1 {
 		if c.CloudFile != args[1] && c.CloudFile != "" {

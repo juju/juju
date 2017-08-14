@@ -98,11 +98,6 @@ var (
           localhost:
             type: lxd`
 
-	localhostCloud = cloudfile.Cloud{
-		Name: "localhost",
-		Type: "lxd",
-	}
-
 	awsYamlFile = `
         clouds:
           aws:
@@ -112,17 +107,6 @@ var (
               us-east-1:
                 endpoint: "https://us-east-1.aws.amazon.com/v1.2/"`
 
-	awsCloud = cloudfile.Cloud{
-		Name:      "aws",
-		Type:      "ec2",
-		AuthTypes: []cloudfile.AuthType{"access-key"},
-		Regions: []cloudfile.Region{
-			{
-				Name:     "us-east-1",
-				Endpoint: "https://us-east-1.aws.amazon.com/v1.2/",
-			},
-		},
-	}
 	garageMaasYamlFile = `
         clouds:
           garage-maas:
@@ -149,18 +133,6 @@ func homestackMetadata() map[string]cloudfile.Cloud {
 	return map[string]cloudfile.Cloud{"homestack": homestackCloud}
 }
 
-func localhostMetadata() map[string]cloudfile.Cloud {
-	return map[string]cloudfile.Cloud{"localhost": localhostCloud}
-}
-
-func awsMetadata() map[string]cloudfile.Cloud {
-	return map[string]cloudfile.Cloud{"aws": awsCloud}
-}
-
-func garageMAASMetadata() map[string]cloudfile.Cloud {
-	return map[string]cloudfile.Cloud{"garage-maas": garageMAASCloud}
-}
-
 func (*addSuite) TestAddBadFilename(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	badFileErr := errors.New("")
@@ -178,6 +150,15 @@ func (*addSuite) TestAddBadCloudName(c *gc.C) {
 	addCmd := cloud.NewAddCloudCommand(fake)
 	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "testFile")
 	c.Assert(err, gc.ErrorMatches, `cloud "cloud" not found in file .*`)
+}
+
+func (*addSuite) TestAddInvalidCloudName(c *gc.C) {
+	fake := newFakeCloudMetadataStore()
+	fake.Call("ParseCloudMetadataFile", "testFile").Returns(map[string]cloudfile.Cloud{}, nil)
+
+	addCmd := cloud.NewAddCloudCommand(fake)
+	_, err := cmdtesting.RunCommand(c, addCmd, "bad^cloud", "testFile")
+	c.Assert(err, gc.ErrorMatches, `cloud name "bad\^cloud" not valid`)
 }
 
 func (*addSuite) TestAddExisting(c *gc.C) {
@@ -723,7 +704,7 @@ clouds:
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		jc.SimpleMessage{
+		{
 			Level:   loggo.WARNING,
 			Message: `property "auth-typs" is invalid. Perhaps you mean "auth-types".`,
 		},
