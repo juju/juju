@@ -25,7 +25,7 @@ type CloudSpecSuite struct {
 }
 
 func (s *CloudSpecSuite) TestNewCloudSpecAPI(c *gc.C) {
-	api := cloudspec.NewCloudSpecAPI(nil)
+	api := cloudspec.NewCloudSpecAPI(nil, coretesting.ModelTag)
 	c.Check(api, gc.NotNil)
 }
 
@@ -54,8 +54,8 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		}
 		return nil
 	}
-	api := cloudspec.NewCloudSpecAPI(&facadeCaller)
-	cloudSpec, err := api.CloudSpec(coretesting.ModelTag)
+	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
+	cloudSpec, err := api.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
@@ -79,8 +79,8 @@ func (s *CloudSpecSuite) TestCloudSpecOverallError(c *gc.C) {
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		return expect
 	}
-	api := cloudspec.NewCloudSpecAPI(&facadeCaller)
-	_, err := api.CloudSpec(coretesting.ModelTag)
+	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
+	_, err := api.CloudSpec()
 	c.Assert(err, gc.Equals, expect)
 }
 
@@ -89,8 +89,8 @@ func (s *CloudSpecSuite) TestCloudSpecResultCountMismatch(c *gc.C) {
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		return nil
 	}
-	api := cloudspec.NewCloudSpecAPI(&facadeCaller)
-	_, err := api.CloudSpec(coretesting.ModelTag)
+	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
+	_, err := api.CloudSpec()
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
@@ -107,8 +107,8 @@ func (s *CloudSpecSuite) TestCloudSpecResultError(c *gc.C) {
 		}
 		return nil
 	}
-	api := cloudspec.NewCloudSpecAPI(&facadeCaller)
-	_, err := api.CloudSpec(coretesting.ModelTag)
+	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
+	_, err := api.CloudSpec()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(err, gc.ErrorMatches, "API request failed: dang")
 }
@@ -123,7 +123,7 @@ func (s *CloudSpecSuite) TestCloudSpecInvalidCloudSpec(c *gc.C) {
 		}}}
 		return nil
 	}
-	api := cloudspec.NewCloudSpecAPI(&facadeCaller)
-	_, err := api.CloudSpec(coretesting.ModelTag)
+	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
+	_, err := api.CloudSpec()
 	c.Assert(err, gc.ErrorMatches, "validating CloudSpec: empty Type not valid")
 }

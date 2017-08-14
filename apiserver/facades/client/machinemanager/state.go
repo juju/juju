@@ -18,14 +18,13 @@ type stateInterface interface {
 
 	Machine(string) (Machine, error)
 	ModelConfig() (*config.Config, error)
-	Model() (*state.Model, error)
+	Model() (Model, error)
 	ModelTag() names.ModelTag
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error)
 
-	GetModel(names.ModelTag) (Model, error)
 	Cloud(string) (cloud.Cloud, error)
 	Clouds() (map[names.CloudTag]cloud.Cloud, error)
 	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
@@ -49,7 +48,7 @@ func (s stateShim) ModelConfig() (*config.Config, error) {
 	return s.State.ModelConfig()
 }
 
-func (s stateShim) Model() (*state.Model, error) {
+func (s stateShim) Model() (Model, error) {
 	return s.State.Model()
 }
 func (s stateShim) ModelTag() names.ModelTag {
@@ -72,20 +71,13 @@ func (s stateShim) AddMachineInsideMachine(template state.MachineTemplate, paren
 	return s.State.AddMachineInsideMachine(template, parentId, containerType)
 }
 
-func (s stateShim) GetModel(tag names.ModelTag) (Model, error) {
-	m, err := s.State.GetModel(tag)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 type Model interface {
+	Name() string
+	UUID() string
 	Cloud() string
 	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	ModelTag() names.ModelTag
-
 	Config() (*config.Config, error)
 }
 

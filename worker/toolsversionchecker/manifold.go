@@ -30,7 +30,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	st := apiagent.NewState(apiCaller)
+	st, err := apiagent.NewState(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	isMM, err := isModelManager(a, st)
 	if err != nil {
 		return nil, errors.Trace(err)

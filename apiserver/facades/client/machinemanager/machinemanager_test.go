@@ -170,8 +170,8 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 	panic("not implemented")
 }
 
-func (st *mockState) Model() (*state.Model, error) {
-	panic("not implemented")
+func (st *mockState) Model() (machinemanager.Model, error) {
+	return &mockModel{}, nil
 }
 
 func (st *mockState) AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error) {
@@ -196,10 +196,6 @@ func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Creden
 
 func (st *mockState) Cloud(string) (cloud.Cloud, error) {
 	return cloud.Cloud{}, nil
-}
-
-func (st *mockState) GetModel(t names.ModelTag) (machinemanager.Model, error) {
-	return &mockModel{}, nil
 }
 
 func (st *mockState) Machine(id string) (machinemanager.Machine, error) {

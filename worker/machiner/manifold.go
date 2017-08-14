@@ -41,7 +41,10 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	// have completey separate workers.
 	//
 	// (With their own facades.)
-	agentFacade := apiagent.NewState(apiCaller)
+	agentFacade, err := apiagent.NewState(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	modelConfig, err := agentFacade.ModelConfig()
 	if err != nil {
 		return nil, errors.Errorf("cannot read environment config: %v", err)

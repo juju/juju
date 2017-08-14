@@ -27,13 +27,17 @@ type Client struct {
 }
 
 // NewClient creates a new client-side Firewaller API facade.
-func NewClient(caller base.APICaller) *Client {
+func NewClient(caller base.APICaller) (*Client, error) {
+	modelTag, isModel := caller.ModelTag()
+	if !isModel {
+		return nil, errors.New("expected model specific API connection")
+	}
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &Client{
 		facade:       facadeCaller,
 		ModelWatcher: common.NewModelWatcher(facadeCaller),
-		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller),
-	}
+		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
+	}, nil
 }
 
 // BestAPIVersion returns the API version that we were able to

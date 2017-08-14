@@ -126,13 +126,13 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 
 	var placementDirective string
 	if p.Placement != nil {
-		env, err := mm.st.Model()
+		model, err := mm.st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		// For 1.21 we should support both UUID and name, and with 1.22
 		// just support UUID
-		if p.Placement.Scope != env.Name() && p.Placement.Scope != env.UUID() {
+		if p.Placement.Scope != model.Name() && p.Placement.Scope != model.UUID() {
 			return nil, fmt.Errorf("invalid model name %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive

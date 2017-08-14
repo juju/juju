@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent"
@@ -23,8 +24,9 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 
 	stateAPI, _ := s.OpenAPIAsNewMachine(c)
 
-	agentAPI := agent.NewState(stateAPI)
+	agentAPI, err := agent.NewState(stateAPI)
 	c.Assert(agentAPI, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(
 		agentAPI, s.BackingState,

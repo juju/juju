@@ -56,15 +56,18 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	}
 	err := s.State.SetStateServingInfo(ssi)
 	c.Assert(err, jc.ErrorIsNil)
-	info, err := apiagent.NewState(st).StateServingInfo()
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := apiSt.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
 
 func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
-
-	_, err := apiagent.NewState(st).StateServingInfo()
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = apiSt.StateServingInfo()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",
@@ -81,8 +84,9 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	expected := true
-	result, err := apiagent.NewState(st).IsMaster()
-
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := apiSt.IsMaster()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, expected)
 	c.Assert(calledIsMaster, jc.IsTrue)
@@ -90,7 +94,9 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 
 func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
-	_, err := apiagent.NewState(st).IsMaster()
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = apiSt.IsMaster()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",
@@ -112,12 +118,16 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	tag := names.NewMachineTag("42")
-	m, err := apiagent.NewState(s.st).Entity(tag)
+	apiSt, err := apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := apiSt.Entity(tag)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
-	m, err = apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err = apiSt.Entity(s.machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
@@ -128,14 +138,18 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err = apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err = apiSt.Entity(s.machine.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
 
 func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
-	entity, err := apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err := apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	entity, err := apiSt.Entity(s.machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = entity.SetPassword("foo")
@@ -170,7 +184,9 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsTrue)
 
-	entity, err := apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err := apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	entity, err := apiSt.Entity(s.machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = entity.ClearReboot()

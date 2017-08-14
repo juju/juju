@@ -57,7 +57,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			agentFacade := apiagent.NewState(apiCaller)
+			agentFacade, err := apiagent.NewState(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			controllerCfg, err := agentFacade.ControllerConfig()
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot read controller config")

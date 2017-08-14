@@ -70,7 +70,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get the machine agent's jobs.
 			// TODO(fwereade): use appropriate facade!
-			agentFacade := apiagent.NewState(apiConn)
+			agentFacade, err := apiagent.NewState(apiConn)
+			if err != nil {
+				return nil, err
+			}
 			entity, err := agentFacade.Entity(tag)
 			if err != nil {
 				return nil, err

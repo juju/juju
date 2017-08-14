@@ -89,7 +89,7 @@ func (*mockBackend) ModelTag() names.ModelTag {
 	return names.NewModelTag("beef1beef1-0000-0000-000011112222")
 }
 
-func (*mockBackend) GetModel(t names.ModelTag) (machinemanager.Model, error) {
+func (*mockBackend) Model() (machinemanager.Model, error) {
 	return &mockModel{}, nil
 }
 
