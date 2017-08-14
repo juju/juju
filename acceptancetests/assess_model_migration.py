@@ -22,7 +22,10 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string
     )
-from jujupy.client import get_stripped_version_number
+from jujupy.client import (
+    BaseCondition,
+    get_stripped_version_number,
+)
 from jujupy.version_client import ModelClient2_0
 from jujucharm import local_charm_path
 from remote import remote_from_address
@@ -379,11 +382,57 @@ def ensure_superuser_can_migrate_other_user_models(
 
 def deploy_simple_server_to_new_model(
         client, model_name, resource_contents=None):
+    # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
+    #  related to both
     new_model = client.add_model(client.env.clone(model_name))
     application = deploy_simple_resource_server(new_model, resource_contents)
+    _, deploy_complete = new_model.deploy('cs:ubuntu')
+    new_model.wait_for(deploy_complete)
+    new_model.deploy('cs:ntp')
+    new_model.juju('add-relation', ('ntp', application))
+    new_model.juju('add-relation', ('ntp', 'ubuntu'))
+    # Need to wait for the subordinate charms too.
+    new_model.wait_for(AllApplicationActive())
+    new_model.wait_for(AllApplicationWorkloads())
+    new_model.juju('status', ())
     assert_deployed_charm_is_responding(new_model, resource_contents)
 
     return new_model, application
+
+
+class AllApplicationActive(BaseCondition):
+    """Ensure all applications (incl. subordinates) are 'active' state."""
+
+    def iter_blocking_state(self, status):
+        applications = status.get_applications()
+        all_app_status = [
+            state['application-status']['current']
+            for name, state in applications.items()]
+        apps_active = [state == 'active' for state in all_app_status]
+        if not all(apps_active):
+            yield 'applications', 'not-all-active'
+
+    def do_raise(self, model_name, status):
+        raise Exception('Timed out waiting for all applications to be active.')
+
+
+class AllApplicationWorkloads(BaseCondition):
+    """Ensure all applications (incl. subordinates) are workload 'active'."""
+
+    def iter_blocking_state(self, status):
+        app_workloads_active = []
+        for name, unit in status.iter_units():
+            try:
+                state = unit['workload-status']['current'] == 'active'
+            except KeyError:
+                state = False
+            app_workloads_active.append(state)
+        if not all(app_workloads_active):
+            yield 'application-workloads', 'not-all-active'
+
+    def do_raise(self, model_name, status):
+        raise Exception(
+            'Timed out waiting for all application workloads to be active.')
 
 
 def deploy_dummy_source_to_new_model(client, model_name):
@@ -471,7 +520,10 @@ def ensure_model_is_functional(client, application):
 
 def assert_units_on_different_machines(client, application):
     status = client.get_status()
-    unit_machines = [u[1]['machine'] for u in status.iter_units()]
+    # Not all units will be machines (as we have subordinate apps.)
+    unit_machines = [
+        u[1]['machine'] for u in status.iter_units()
+        if u[1].get('machine', None)]
     raise_if_shared_machines(unit_machines)
 
 
