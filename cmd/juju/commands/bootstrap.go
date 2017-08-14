@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
@@ -240,6 +241,9 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	c.Cloud = args[0]
 	if i := strings.IndexRune(c.Cloud, '/'); i > 0 {
 		c.Cloud, c.Region = c.Cloud[:i], c.Cloud[i+1:]
+	}
+	if ok := names.IsValidCloud(c.Cloud); !ok {
+		return errors.NotValidf("cloud name %q", c.Cloud)
 	}
 	if len(args) > 1 {
 		c.controllerName = args[1]
