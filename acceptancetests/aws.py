@@ -14,6 +14,7 @@ import sys
 
 from dateutil import tz
 from libcloud.common.types import MalformedResponseError
+from libcloud.common.exceptions import BaseHTTPError
 
 
 __metaclass__ = type
@@ -131,6 +132,10 @@ def delete_instances(client, name_id, old_age=OLD_MACHINE_AGE, dry_run=False):
                     log.error('Cannot delete {}'.format(node_name))
             except MalformedResponseError as e:
                 log.error('Cannot delete {}: {}'.format(node_name, e))
+            except BaseHTTPError as e:
+                log.error('Cannot delete {}: {}'.format(node_name, e))
+            except
+                log.error('Unknown error {}: {}'.format(node_name, e))
     return deleted_count
 
 
