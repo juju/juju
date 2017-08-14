@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -37,8 +36,10 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	environConfigGetter := stateenvirons.EnvironConfigGetter{s.State}
-	cloudSpecAPI := cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(s.State.ModelTag()))
+	cloudSpecAPI := cloudspec.NewCloudSpec(
+		cloudspec.MakeCloudSpecGetterForModel(s.State),
+		common.AuthFuncForTag(s.State.ModelTag()),
+	)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewFirewallerAPI(
 		firewaller.StateShim(s.State),

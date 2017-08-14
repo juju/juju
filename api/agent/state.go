@@ -30,11 +30,12 @@ type State struct {
 // NewState returns a version of the state that provides functionality
 // required by agent code.
 func NewState(caller base.APICaller) *State {
+	modelTag, _ := caller.ModelTag() // XXX
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &State{
 		facade:              facadeCaller,
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
-		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}
 }

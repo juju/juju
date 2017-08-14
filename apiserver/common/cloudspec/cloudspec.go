@@ -4,11 +4,14 @@
 package cloudspec
 
 import (
+	"fmt"
+
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/kr/pretty"
 )
 
 // CloudSpecAPI implements common methods for use by various
@@ -36,6 +39,7 @@ func NewCloudSpec(
 
 // CloudSpec returns the model's cloud spec.
 func (s cloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
+	fmt.Println("CloudSpec: %s", pretty.Sprint(args))
 	authFunc, err := s.getAuthFunc()
 	if err != nil {
 		return params.CloudSpecResults{}, err
@@ -55,6 +59,7 @@ func (s cloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 		}
 		results.Results[i] = s.GetCloudSpec(tag)
 	}
+	pretty.Println(results)
 	return results, nil
 }
 

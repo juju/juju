@@ -5,7 +5,6 @@ package environs
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -13,7 +12,7 @@ import (
 // EnvironConfigGetter exposes a model configuration to its clients.
 type EnvironConfigGetter interface {
 	ModelConfig() (*config.Config, error)
-	CloudSpec(names.ModelTag) (CloudSpec, error)
+	CloudSpec() (CloudSpec, error)
 }
 
 // NewEnvironFunc is the type of a function that, given a model config,
@@ -27,7 +26,7 @@ func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSpec, err := st.CloudSpec(names.NewModelTag(modelConfig.UUID()))
+	cloudSpec, err := st.CloudSpec()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

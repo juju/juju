@@ -447,7 +447,7 @@ func (sb *StubBacking) ModelTag() names.ModelTag {
 	return names.NewModelTag("dbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
-func (sb *StubBacking) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
+func (sb *StubBacking) CloudSpec() (environs.CloudSpec, error) {
 	sb.MethodCall(sb, "CloudSpec")
 	if err := sb.NextErr(); err != nil {
 		return environs.CloudSpec{}, err

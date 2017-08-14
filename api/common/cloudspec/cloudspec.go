@@ -16,20 +16,21 @@ import (
 // CloudSpecAPI provides common client-side API functions
 // to call into apiserver/common/cloudspec.CloudSpec.
 type CloudSpecAPI struct {
-	facade base.FacadeCaller
+	facade   base.FacadeCaller
+	modelTag names.ModelTag
 }
 
 // NewCloudSpecAPI creates a CloudSpecAPI using the provided
 // FacadeCaller.
-func NewCloudSpecAPI(facade base.FacadeCaller) *CloudSpecAPI {
-	return &CloudSpecAPI{facade}
+func NewCloudSpecAPI(facade base.FacadeCaller, modelTag names.ModelTag) *CloudSpecAPI {
+	return &CloudSpecAPI{facade, modelTag}
 }
 
 // CloudSpec returns the cloud specification for the model
 // with the given tag.
-func (api *CloudSpecAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+func (api *CloudSpecAPI) CloudSpec() (environs.CloudSpec, error) {
 	var results params.CloudSpecResults
-	args := params.Entities{Entities: []params.Entity{{tag.String()}}}
+	args := params.Entities{Entities: []params.Entity{{api.modelTag.String()}}}
 	err := api.facade.FacadeCall("CloudSpec", args, &results)
 	if err != nil {
 		return environs.CloudSpec{}, err

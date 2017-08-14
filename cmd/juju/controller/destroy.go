@@ -96,7 +96,7 @@ type destroyControllerAPI interface {
 	BestAPIVersion() int
 	ModelConfig() (map[string]interface{}, error)
 	HostedModelConfigs() ([]controller.HostedConfig, error)
-	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
+	CloudSpec() (environs.CloudSpec, error)
 	DestroyController(controller.DestroyControllerParams) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
@@ -510,6 +510,10 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 			"unable to get bootstrap information from client store or API",
 		)
 	}
+	cloudSpec, err := api.CloudSpec()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting cloud spec from API")
+	}
 	attrs, err := api.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config from API")
@@ -517,10 +521,6 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	cloudSpec, err := api.CloudSpec(names.NewModelTag(cfg.UUID()))
-	if err != nil {
-		return nil, errors.Annotate(err, "getting cloud spec from API")
 	}
 	return environs.New(environs.OpenParams{
 		Cloud:  cloudSpec,

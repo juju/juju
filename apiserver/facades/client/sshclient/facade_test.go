@@ -127,7 +127,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"ModelConfig", nil},
-		{"CloudSpec", []interface{}{names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")}},
+		{"CloudSpec", nil},
 		{"GetMachineForEntity", []interface{}{s.uOther}},
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetMachineForEntity", []interface{}{s.uFoo}},
@@ -235,8 +235,8 @@ func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostK
 	return nil, errors.New("machine not found")
 }
 
-func (backend *mockBackend) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
-	backend.stub.AddCall("CloudSpec", tag)
+func (backend *mockBackend) CloudSpec() (environs.CloudSpec, error) {
+	backend.stub.AddCall("CloudSpec")
 	return dummy.SampleCloudSpec(), nil
 }
 

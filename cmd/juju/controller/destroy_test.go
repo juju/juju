@@ -73,8 +73,8 @@ func (f *fakeDestroyAPI) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDestroyAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
-	f.MethodCall(f, "CloudSpec", tag)
+func (f *fakeDestroyAPI) CloudSpec() (environs.CloudSpec, error) {
+	f.MethodCall(f, "CloudSpec")
 	if err := f.NextErr(); err != nil {
 		return environs.CloudSpec{}, err
 	}
@@ -388,7 +388,7 @@ func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
-		"getting controller environ: getting model config from API: controller \"test3\" not found",
+		"getting controller environ: getting cloud spec from API: controller \"test3\" not found",
 	)
 	checkControllerExistsInStore(c, "test3", s.store)
 }
