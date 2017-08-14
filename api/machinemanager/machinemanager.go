@@ -53,12 +53,6 @@ func (client *Client) ForceDestroyMachines(machines ...string) ([]params.Destroy
 // is determined by the force and keep parameters.
 // TODO(wallyworld) - for Juju 3.0, this should be the preferred api to use.
 func (client *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
-	if !keep {
-		if force {
-			return client.ForceDestroyMachines(machines...)
-		}
-		return client.DestroyMachines(machines...)
-	}
 	args := params.DestroyMachinesParams{
 		Force:       force,
 		Keep:        keep,

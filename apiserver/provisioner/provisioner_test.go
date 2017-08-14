@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -792,9 +793,7 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 
 func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 	// Add a machine with different series.
-	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
+	foobarMachine := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "foobar"})
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: foobarMachine.Tag().String()},
@@ -819,11 +818,8 @@ func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 
 func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 	// Add a machine with keep-instance = true.
-	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = foobarMachine.SetProvisioned("1234", "nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = foobarMachine.SetKeepInstance(true)
+	foobarMachine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
+	err := foobarMachine.SetKeepInstance(true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

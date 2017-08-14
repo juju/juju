@@ -205,7 +205,6 @@ func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.D
 
 // DestroyMachineWithParams removes a set of machines from the model.
 func (mm *MachineManagerAPIV4) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
-	logger.Criticalf("%+v", args)
 	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag

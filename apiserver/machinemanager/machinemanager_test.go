@@ -4,8 +4,7 @@
 package machinemanager_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -38,7 +37,7 @@ func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	tag := names.NewUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	s.st = &mockState{}
+	s.st = &mockState{machines: make(map[string]*mockMachine)}
 	machinemanager.PatchState(s, s.st)
 
 	var err error
@@ -60,7 +59,7 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines.Machines, gc.HasLen, 2)
 	c.Assert(s.st.calls, gc.Equals, 2)
-	c.Assert(s.st.machines, jc.DeepEquals, []state.MachineTemplate{
+	c.Assert(s.st.machineTemplates, jc.DeepEquals, []state.MachineTemplate{
 		{
 			Series: "trusty",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -120,6 +119,7 @@ func (s *MachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
+	s.st.machines["0"] = &mockMachine{}
 	results, err := s.api.DestroyMachine(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0"}},
 	})
@@ -143,12 +143,16 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 
 func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
 	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	s.st.machines["0"] = &mockMachine{}
 	results, err := apiV4.DestroyMachineWithParams(params.DestroyMachinesParams{
 		Keep:        true,
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.(*mockMachine).keep, jc.IsTrue)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
@@ -167,14 +171,15 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
 }
 
 type mockState struct {
-	calls    int
-	machines []state.MachineTemplate
-	err      error
+	calls            int
+	machineTemplates []state.MachineTemplate
+	machines         map[string]*mockMachine
+	err              error
 }
 
 func (st *mockState) AddOneMachine(template state.MachineTemplate) (*state.Machine, error) {
 	st.calls++
-	st.machines = append(st.machines, template)
+	st.machineTemplates = append(st.machineTemplates, template)
 	m := state.Machine{}
 	return &m, st.err
 }
@@ -224,7 +229,11 @@ func (st *mockState) GetModel(t names.ModelTag) (machinemanager.Model, error) {
 }
 
 func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
-	return &mockMachine{}, nil
+	if m, ok := st.machines[id]; !ok {
+		return nil, errors.NotFoundf("machine %v", id)
+	} else {
+		return m, nil
+	}
 }
 
 func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -265,7 +274,9 @@ func (st *mockBlock) ModelUUID() string {
 	return "uuid"
 }
 
-type mockMachine struct{}
+type mockMachine struct {
+	keep bool
+}
 
 func (m *mockMachine) Destroy() error {
 	return nil
@@ -276,6 +287,7 @@ func (m *mockMachine) ForceDestroy() error {
 }
 
 func (m *mockMachine) SetKeepInstance(keep bool) error {
+	m.keep = keep
 	return nil
 }
 
