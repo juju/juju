@@ -56,14 +56,11 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 // The new user will not have a password. A password must be set, clearing the
 // secret key in the process, before the user can login normally.
 func (st *State) AddUserWithSecretKey(name, displayName, creator string) (*User, error) {
-	// Generate a random, 32-byte secret key. This can be used
-	// to obtain the controller's (self-signed) CA certificate
-	// and set the user's password.
-	var secretKey [32]byte
-	if _, err := rand.Read(secretKey[:]); err != nil {
+	secretKey, err := generateSecretKey()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.addUser(name, displayName, "", creator, secretKey[:])
+	return st.addUser(name, displayName, "", creator, secretKey)
 }
 
 func (st *State) addUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
@@ -541,6 +538,61 @@ func (u *User) ensureNotDeleted() error {
 		return DeletedUserError{u.Name()}
 	}
 	return nil
+}
+
+// ResetPassword cleans up password related field.
+// It generates and returns a new user secret key.
+// This must be an active user.
+func (u *User) ResetPassword() ([]byte, error) {
+	var key []byte
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if err := u.ensureNotDeleted(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if u.IsDisabled() {
+			return nil, fmt.Errorf("user deactivated")
+		}
+
+		key, err := generateSecretKey()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		update := bson.D{
+			{
+				"$set", bson.D{
+					{"secretkey", key},
+				},
+			},
+			{
+				"$unset", bson.D{
+					{"passwordhash", ""},
+					{"passwordsalt", ""},
+				},
+			},
+		}
+		return []txn.Op{{
+			C:      usersC,
+			Id:     u.Name(),
+			Assert: txn.DocExists,
+			Update: update,
+		}}, nil
+	}
+	if err := u.st.db().Run(buildTxn); err != nil {
+		return nil, errors.Annotatef(err, "cannot reset password for user %q", u.Name())
+	}
+	u.doc.SecretKey = key
+	return key, nil
+}
+
+// generateSecretKey generates a random, 32-byte secret key. This can be used
+// to obtain the controller's (self-signed) CA certificate
+// and set the user's password.
+func generateSecretKey() ([]byte, error) {
+	var secretKey [32]byte
+	if _, err := rand.Read(secretKey[:]); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return secretKey[:], nil
 }
 
 // userList type is used to provide the methods for sorting.
