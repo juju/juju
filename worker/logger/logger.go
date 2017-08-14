@@ -9,16 +9,21 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/logger"
 	"github.com/juju/juju/watcher"
 )
 
 var log = loggo.GetLogger("juju.worker.logger")
 
+// LoggerAPI represents the API calls the logger makes.
+type LoggerAPI interface {
+	LoggingConfig(agentTag names.Tag) (string, error)
+	WatchLoggingConfig(agentTag names.Tag) (watcher.NotifyWatcher, error)
+}
+
 // Logger is responsible for updating the loggo configuration when the
 // environment watcher tells the agent that the value has changed.
 type Logger struct {
-	api            *logger.State
+	api            LoggerAPI
 	tag            names.Tag
 	updateCallback func(string) error
 	lastConfig     string
@@ -27,7 +32,7 @@ type Logger struct {
 
 // NewLogger returns a worker.Worker that uses the notify watcher returned
 // from the setup.
-func NewLogger(api *logger.State, tag names.Tag, loggingOverride string, updateCallback func(string) error) (worker.Worker, error) {
+func NewLogger(api LoggerAPI, tag names.Tag, loggingOverride string, updateCallback func(string) error) (worker.Worker, error) {
 	logger := &Logger{
 		api:            api,
 		tag:            tag,
