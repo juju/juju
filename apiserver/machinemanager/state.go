@@ -91,6 +91,7 @@ type Machine interface {
 	Destroy() error
 	ForceDestroy() error
 	Units() ([]Unit, error)
+	SetKeepInstance(bool) error
 }
 
 type machineShim struct {

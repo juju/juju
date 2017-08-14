@@ -190,6 +190,21 @@ func (c *Client) ForceDestroyMachines(machines ...string) error {
 	return c.facade.FacadeCall("DestroyMachines", params, nil)
 }
 
+// DestroyMachinesWithParams removes a given set of machines and all associated units.
+//
+// NOTE(wallyworld) this exists only for backwards compatibility, when MachineManager
+// facade v4 is not available. The MachineManager.DestroyMachinesWithParams method
+// should be preferred.
+//
+// TODO(wallyworld) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (c *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) error {
+	if keep {
+		return errors.NotSupportedf("destroy machine with keep-instance=true")
+	}
+	return c.DestroyMachines(machines...)
+}
+
 // GetModelConstraints returns the constraints for the model.
 func (c *Client) GetModelConstraints() (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)

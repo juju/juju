@@ -1253,6 +1253,36 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 	s.waitForRemovalMark(c, m0)
 }
 
+func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
+
+	task := s.newProvisionerTask(c,
+		config.HarvestAll,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
+	defer stop(c, task)
+
+	// Create two machines, one with keep-instance=true.
+	m0, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	i0 := s.checkStartInstance(c, m0)
+	m1, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	i1 := s.checkStartInstance(c, m1)
+	err = m1.SetKeepInstance(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Mark them both as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+	c.Assert(m1.EnsureDead(), gc.IsNil)
+
+	// Only one of the machines is stopped.
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.waitForRemovalMark(c, m0)
+	s.waitForRemovalMark(c, m1)
+}
+
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	e := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
