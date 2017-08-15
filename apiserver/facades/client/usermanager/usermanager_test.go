@@ -838,6 +838,36 @@ func (s *userManagerSuite) TestResetPassword(c *gc.C) {
 	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
 }
 
+func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: alex.Tag().String()},
+		{Tag: barb.Tag().String()},
+	}}
+	results, err := s.usermanager.ResetPassword(args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = barb.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
+		params.AddUserResult{
+			Tag:       alex.Tag().String(),
+			SecretKey: alex.SecretKey(),
+		},
+		params.AddUserResult{
+			Tag:       barb.Tag().String(),
+			SecretKey: barb.SecretKey(),
+		},
+	})
+	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
+	c.Assert(barb.PasswordValid("password"), jc.IsFalse)
+}
+
 func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
@@ -905,4 +935,29 @@ func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
 			Error: common.ServerError(fmt.Errorf("cannot reset password for user \"alex\": user deactivated")),
 		},
 	})
+}
+
+func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "user-invalid"},
+		{Tag: alex.Tag().String()},
+	}}
+
+	results, err := s.usermanager.ResetPassword(args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
+		params.AddUserResult{
+			Tag:   "user-invalid",
+			Error: common.ServerError(common.ErrPerm),
+		},
+		params.AddUserResult{
+			Tag:       alex.Tag().String(),
+			SecretKey: alex.SecretKey(),
+		},
+	})
+	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
 }
