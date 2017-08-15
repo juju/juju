@@ -1540,7 +1540,7 @@ func (u *Unit) Watch() NotifyWatcher {
 
 // Watch returns a watcher for observing changes to a model.
 func (m *Model) Watch() NotifyWatcher {
-	return newEntityWatcher(m.globalState, modelsC, m.doc.UUID)
+	return newEntityWatcher(m.st, modelsC, m.doc.UUID)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade
