@@ -229,11 +229,11 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 // by the provider and reports any discrepancies.
 func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error) {
 	var empty params.ErrorResults
-	model, err := api.getModel(args.ModelTag)
+	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	st, release, err := api.pool.Get(model.UUID())
+	st, release, err := api.pool.Get(tag.Id())
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -248,6 +248,11 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 		if machine.IsContainer() {
 			// Containers don't correspond to instances at the
 			// provider level.
+			continue
+		}
+		if manual, err := machine.IsManual(); err != nil {
+			return empty, errors.Trace(err)
+		} else if manual {
 			continue
 		}
 		instanceId, err := machine.InstanceId()

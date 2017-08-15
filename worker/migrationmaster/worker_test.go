@@ -568,6 +568,11 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *gc.C) {
 		},
 		abortCalls,
 	))
+	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
+	c.Assert(lastMessages, gc.DeepEquals, []string{
+		"machine sanity check failed, 1 error found",
+		"aborted, removing model from target controller",
+	})
 }
 
 func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
@@ -586,6 +591,11 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
 		},
 		abortCalls,
 	))
+	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
+	c.Assert(lastMessages, gc.DeepEquals, []string{
+		"machine sanity check failed, 2 errors found",
+		"aborted, removing model from target controller",
+	})
 }
 
 func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *gc.C) {
@@ -1075,6 +1085,8 @@ type stubMasterFacade struct {
 	minionReportsErr      error
 
 	exportedResources []coremigration.SerializedModelResource
+
+	statuses []string
 }
 
 func (f *stubMasterFacade) triggerWatcher() {
@@ -1185,6 +1197,7 @@ func (f *stubMasterFacade) SetPhase(phase coremigration.Phase) error {
 }
 
 func (f *stubMasterFacade) SetStatusMessage(message string) error {
+	f.statuses = append(f.statuses, message)
 	return nil
 }
 

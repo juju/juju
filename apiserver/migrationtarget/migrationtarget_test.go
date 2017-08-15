@@ -373,6 +373,30 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
+func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	fact := factory.NewFactory(st)
+	fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "birds",
+	})
+	fact.MakeMachine(c, &factory.MachineParams{
+		Nonce: "manual:flibbertigibbert",
+	})
+
+	env := mockEnviron{
+		Stub:      &testing.Stub{},
+		instances: []*mockInstance{{id: "birds"}},
+	}
+	api := s.mustNewAPIWithEnviron(c, &env)
+
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: st.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, error) {
 	ctx := facadetest.Context{
 		State_:     s.State,
