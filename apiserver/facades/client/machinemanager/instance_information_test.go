@@ -28,9 +28,10 @@ var _ = gc.Suite(&instanceTypesSuite{})
 var over9kCPUCores uint64 = 9001
 
 func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
-	backend := mockBackend{
+	backend := &mockBackend{
 		cloudSpec: environs.CloudSpec{},
 	}
+	pool := &mockPool{}
 	authorizer := testing.FakeAuthorizer{Tag: names.NewUserTag("admin"),
 		Controller: true}
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
@@ -46,7 +47,8 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	api := machinemanager.NewMachineManagerTestingAPI(&backend, authorizer)
+	api, err := machinemanager.NewMachineManagerAPI(backend, pool, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.ModelInstanceTypesConstraints{
 		Constraints: []params.ModelInstanceTypesConstraint{{Value: &itCons}, {Value: &failureCons}, {}},
@@ -56,7 +58,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	) (environs.Environ, error) {
 		return &env, nil
 	}
-	r, err := machinemanager.InstanceTypes(&api, fakeEnvironGet, cons)
+	r, err := machinemanager.InstanceTypes(api, fakeEnvironGet, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
@@ -79,47 +81,41 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 }
 
 type mockBackend struct {
-	jujutesting.Stub
-	machinemanager.StateInterface
+	machinemanager.Backend
 
 	cloudSpec environs.CloudSpec
 }
 
-func (*mockBackend) ModelTag() names.ModelTag {
+func (b *mockBackend) ModelTag() names.ModelTag {
 	return names.NewModelTag("beef1beef1-0000-0000-000011112222")
 }
 
-func (*mockBackend) Model() (machinemanager.Model, error) {
+func (b *mockBackend) Model() (machinemanager.Model, error) {
 	return &mockModel{}, nil
 }
 
-func (fb *mockBackend) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
-	fb.MethodCall(fb, "CloudSpec")
-	if err := fb.NextErr(); err != nil {
-		return environs.CloudSpec{}, err
-	}
-	return fb.cloudSpec, nil
+func (b *mockBackend) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
+	return b.cloudSpec, nil
 }
 
-func (fb *mockBackend) Cloud(string) (cloud.Cloud, error) {
+func (b *mockBackend) Cloud(name string) (cloud.Cloud, error) {
 	return cloud.Cloud{}, nil
 }
 
-func (fb *mockBackend) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
-	return nil, nil
-}
-
-func (fb *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
-	return nil, nil
-}
-
-func (fb *mockBackend) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+func (b *mockBackend) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
 	return cloud.Credential{}, nil
+}
+
+type mockPool struct {
+}
+
+func (*mockPool) GetModel(uuid string) (machinemanager.Model, func(), error) {
+	return &mockModel{}, func() {}, nil
 }
 
 type mockEnviron struct {
 	environs.Environ
-	machinemanager.StateInterface
+	machinemanager.Backend
 	jujutesting.Stub
 
 	results map[constraints.Value]instances.InstanceTypesWithCostMetadata

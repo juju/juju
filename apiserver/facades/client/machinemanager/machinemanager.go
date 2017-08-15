@@ -22,38 +22,35 @@ import (
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st         stateInterface
+	st         Backend
+	pool       Pool
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
 }
 
-var getState = func(st *state.State) (stateInterface, error) {
+// NewFacade create a new server-side MachineManager API facade. This
+// is used for facade registration.
+func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
+	st := ctx.State()
 	im, err := st.IAASModel()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return stateShim{State: st, IAASModel: im}, nil
+	backend := &stateShim{State: st, IAASModel: im}
+	pool := &poolShim{ctx.StatePool()}
+	return NewMachineManagerAPI(backend, pool, ctx.Auth())
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
-func NewMachineManagerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*MachineManagerAPI, error) {
-
-	if !authorizer.AuthClient() {
+func NewMachineManagerAPI(backend Backend, pool Pool, auth facade.Authorizer) (*MachineManagerAPI, error) {
+	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
-	ss, err := getState(st)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state")
-	}
 	return &MachineManagerAPI{
-		st:         ss,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(ss),
+		st:         backend,
+		pool:       pool,
+		authorizer: auth,
+		check:      common.NewBlockChecker(backend),
 	}, nil
 }
 
