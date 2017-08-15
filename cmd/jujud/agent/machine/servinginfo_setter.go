@@ -49,7 +49,10 @@ func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifo
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			apiState := apiagent.NewState(apiCaller)
+			apiState, err := apiagent.NewState(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 
 			// If the machine needs State, grab the state serving info
 			// over the API and write it to the agent configuration.

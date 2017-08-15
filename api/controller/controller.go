@@ -38,7 +38,6 @@ func NewClient(st base.APICallCloser) *Client {
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
 		ModelStatusAPI:      common.NewModelStatusAPI(backend),
-		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(backend),
 	}
 }
 
@@ -64,6 +63,12 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 		}
 	}
 	return result, nil
+}
+
+// CloudSpec returns a CloudSpec for the specified model.
+func (c *Client) CloudSpec(modelTag names.ModelTag) (environs.CloudSpec, error) {
+	api := cloudspec.NewCloudSpecAPI(c.facade, modelTag)
+	return api.CloudSpec()
 }
 
 // ModelConfig returns all model settings for the

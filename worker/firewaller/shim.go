@@ -25,7 +25,10 @@ func NewRemoteRelationsFacade(apiCaller base.APICaller) (*remoterelations.Client
 
 // NewFirewallerFacade creates a firewaller API facade.
 func NewFirewallerFacade(apiCaller base.APICaller) (FirewallerAPI, error) {
-	facade := firewaller.NewClient(apiCaller)
+	facade, err := firewaller.NewClient(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return facade, nil
 }
 

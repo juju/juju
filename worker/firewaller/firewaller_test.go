@@ -99,8 +99,9 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	c.Assert(s.st, gc.NotNil)
 
 	// Create the API facades.
-	s.firewaller = apifirewaller.NewClient(s.st)
-	c.Assert(s.firewaller, gc.NotNil)
+	firewallerClient, err := apifirewaller.NewClient(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	s.firewaller = firewallerClient
 	s.remoteRelations = remoterelations.NewClient(s.st)
 	c.Assert(s.remoteRelations, gc.NotNil)
 }

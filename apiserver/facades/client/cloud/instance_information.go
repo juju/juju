@@ -22,8 +22,8 @@ type cloudEnvironConfigGetter struct {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g cloudEnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
-	model, err := g.GetModel(tag)
+func (g cloudEnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+	model, err := g.Model()
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}

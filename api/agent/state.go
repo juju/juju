@@ -29,14 +29,18 @@ type State struct {
 
 // NewState returns a version of the state that provides functionality
 // required by agent code.
-func NewState(caller base.APICaller) *State {
+func NewState(caller base.APICaller) (*State, error) {
+	modelTag, isModel := caller.ModelTag()
+	if !isModel {
+		return nil, errors.New("expected model specific API connection")
+	}
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &State{
 		facade:              facadeCaller,
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
-		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
-	}
+	}, nil
 }
 
 func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {

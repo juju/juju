@@ -5,7 +5,6 @@ package machinemanager
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -26,12 +25,12 @@ func instanceTypes(mm *MachineManagerAPI,
 	getEnviron environGetFunc,
 	cons params.ModelInstanceTypesConstraints,
 ) (params.InstanceTypesResults, error) {
-	model, err := mm.st.GetModel(mm.st.ModelTag())
+	model, err := mm.st.Model()
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}
 
-	cloudSpec := func(tag names.ModelTag) (environs.CloudSpec, error) {
+	cloudSpec := func() (environs.CloudSpec, error) {
 		cloudName := model.Cloud()
 		regionName := model.CloudRegion()
 		credentialTag, _ := model.CloudCredential()

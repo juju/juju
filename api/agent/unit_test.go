@@ -42,12 +42,15 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	tag := names.NewUnitTag("wordpress/1")
-	m, err := apiagent.NewState(s.st).Entity(tag)
+	apiSt, err := apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := apiSt.Entity(tag)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
-	m, err = apiagent.NewState(s.st).Entity(s.unit.Tag())
+	apiSt, err = apiagent.NewState(s.st)
+	m, err = apiSt.Entity(s.unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
@@ -58,7 +61,8 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err = apiagent.NewState(s.st).Entity(s.unit.Tag())
+	apiSt, err = apiagent.NewState(s.st)
+	m, err = apiSt.Entity(s.unit.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	resumer "github.com/juju/juju/worker/resumer"
@@ -302,4 +303,9 @@ func (f *fakeAPICaller) APICall(objType string, version int, id, request string,
 // BestFacadeVersion is part of the base.APICaller interface.
 func (*fakeAPICaller) BestFacadeVersion(facade string) int {
 	return 42
+}
+
+// ModelTag is part of the base.APICaller interface.
+func (*fakeAPICaller) ModelTag() (names.ModelTag, bool) {
+	return coretesting.ModelTag, true
 }

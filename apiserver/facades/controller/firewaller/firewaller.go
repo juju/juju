@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -49,8 +48,11 @@ type FirewallerAPIV4 struct {
 // NewStateFirewallerAPIv3 creates a new server-side FirewallerAPIV3 facade.
 func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	st := context.State()
-	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
-	cloudSpecAPI := cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag()))
+
+	cloudSpecAPI := cloudspec.NewCloudSpec(
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		common.AuthFuncForTag(st.ModelTag()),
+	)
 	return NewFirewallerAPI(stateShim{st: st, State: firewall.StateShim(st)}, context.Resources(), context.Auth(), cloudSpecAPI)
 }
 

@@ -18,7 +18,7 @@ import (
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
 	ModelConfig() (*config.Config, error)
-	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
+	CloudSpec() (environs.CloudSpec, error)
 	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 	ModelTag() names.ModelTag

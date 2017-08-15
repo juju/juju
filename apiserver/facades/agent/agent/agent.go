@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -44,16 +43,18 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
-	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &AgentAPIV2{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:        common.NewModelWatcher(st, resources, auth),
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
-		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
-		st:                  st,
-		auth:                auth,
-		resources:           resources,
+		CloudSpecAPI: cloudspec.NewCloudSpec(
+			cloudspec.MakeCloudSpecGetterForModel(st),
+			common.AuthFuncForTag(st.ModelTag()),
+		),
+		st:        st,
+		auth:      auth,
+		resources: resources,
 	}, nil
 }
 

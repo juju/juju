@@ -32,8 +32,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
+			apiSt, err := agent.NewState(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			w, err := NewTracker(Config{
-				Observer:       agent.NewState(apiCaller),
+				Observer:       apiSt,
 				NewEnvironFunc: config.NewEnvironFunc,
 			})
 			if err != nil {

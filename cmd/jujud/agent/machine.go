@@ -770,7 +770,11 @@ var newEnvirons = environs.New
 func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker, outErr error) {
 	agentConfig := a.CurrentConfig()
 
-	entity, err := apiagent.NewState(apiConn).Entity(a.Tag())
+	apiSt, err := apiagent.NewState(apiConn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	entity, err := apiSt.Entity(a.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -812,7 +816,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
-		env, err := environs.GetEnviron(apiagent.NewState(apiConn), newEnvirons)
+		apiSt, err := apiagent.NewState(apiConn)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting API facade")
+		}
+		env, err := environs.GetEnviron(apiSt, newEnvirons)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting environ")
 		}
