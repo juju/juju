@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state"
@@ -20,7 +19,7 @@ var logger = loggo.GetLogger("juju.workers.modelworkermanager")
 // Backend defines the State functionality used by the manager worker.
 type Backend interface {
 	WatchModels() state.StringsWatcher
-	GetModel(names.ModelTag) (BackendModel, error)
+	ModelActive(string) (bool, error)
 }
 
 type BackendModel interface {
@@ -116,14 +115,11 @@ func (m *modelWorkerManager) loop() error {
 				return errors.New("changes stopped")
 			}
 			for _, modelUUID := range uuids {
-				model, err := m.config.Backend.GetModel(names.NewModelTag(modelUUID))
-				if errors.IsNotFound(err) {
-					continue
-				}
+				isActive, err := m.config.Backend.ModelActive(modelUUID)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if model.MigrationMode() == state.MigrationModeImporting {
+				if !isActive {
 					// Ignore this model until it's activated - we
 					// never want to run workers for an importing
 					// model.
