@@ -1060,12 +1060,13 @@ func (srv *Server) processModelRemovals() error {
 			return tomb.ErrDying
 		case modelUUIDs := <-w.Changes():
 			for _, modelUUID := range modelUUIDs {
-				model, err := st.GetModel(names.NewModelTag(modelUUID))
+				model, release, err := srv.statePool.GetModel(modelUUID)
 				gone := errors.IsNotFound(err)
 				dead := err == nil && model.Life() == state.Dead
 				if err != nil && !gone {
 					return errors.Trace(err)
 				}
+				release()
 				if !dead && !gone {
 					continue
 				}
