@@ -479,3 +479,35 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 	c.Assert(name, gc.Equals, "alias")
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *applicationSuite) TestDestroyRelation(c *gc.C) {
+	called := false
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyRelation")
+		c.Assert(a, jc.DeepEquals, params.DestroyRelation{
+			Endpoints: []string{"ep1", "ep2"},
+		})
+		c.Assert(response, gc.IsNil)
+		called = true
+		return nil
+	})
+	err := client.DestroyRelation("ep1", "ep2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDestroyRelationId(c *gc.C) {
+	called := false
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyRelation")
+		c.Assert(a, jc.DeepEquals, params.DestroyRelation{
+			RelationId: 123,
+		})
+		c.Assert(response, gc.IsNil)
+		called = true
+		return nil
+	})
+	err := client.DestroyRelationId(123)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}

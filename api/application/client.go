@@ -463,6 +463,12 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 	return c.facade.FacadeCall("DestroyRelation", params, nil)
 }
 
+// DestroyRelationId removes the relation with the specified id.
+func (c *Client) DestroyRelationId(relationId int) error {
+	params := params.DestroyRelation{RelationId: relationId}
+	return c.facade.FacadeCall("DestroyRelation", params, nil)
+}
+
 // Consume adds a remote application to the model.
 func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
 	var consumeRes params.ErrorResults
