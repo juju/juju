@@ -18,6 +18,7 @@ var logger = loggo.GetLogger("juju.apiserver.modelupgrader")
 
 type Facade struct {
 	backend       Backend
+	pool          Pool
 	providers     ProviderRegistry
 	entityWatcher EntityWatcher
 	statusSetter  StatusSetter
@@ -43,7 +44,7 @@ type StatusSetter interface {
 
 // NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
-	backend := NewStateBackend(ctx.State())
+	pool := NewPool(ctx.StatePool())
 	registry := environs.GlobalProviderRegistry()
 	watcher := common.NewAgentEntityWatcher(
 		ctx.State(),
@@ -54,12 +55,13 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		ctx.State(),
 		common.AuthFuncForTagKind(names.ModelTagKind),
 	)
-	return NewFacade(backend, registry, watcher, statusSetter, ctx.Auth())
+	return NewFacade(ctx.State(), pool, registry, watcher, statusSetter, ctx.Auth())
 }
 
 // NewFacade returns a new Facade using the given Backend and Authorizer.
 func NewFacade(
 	backend Backend,
+	pool Pool,
 	providers ProviderRegistry,
 	entityWatcher EntityWatcher,
 	statusSetter StatusSetter,
@@ -70,6 +72,7 @@ func NewFacade(
 	}
 	return &Facade{
 		backend:       backend,
+		pool:          pool,
 		providers:     providers,
 		entityWatcher: entityWatcher,
 		statusSetter:  statusSetter,
@@ -98,10 +101,11 @@ func (f *Facade) modelEnvironVersion(arg params.Entity) (int, error) {
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
-	model, err := f.backend.GetModel(tag)
+	model, release, err := f.pool.GetModel(tag.Id())
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
+	defer release()
 	return model.EnvironVersion(), nil
 }
 
@@ -128,10 +132,11 @@ func (f *Facade) modelTargetEnvironVersion(arg params.Entity) (int, error) {
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
-	model, err := f.backend.GetModel(tag)
+	model, release, err := f.pool.GetModel(tag.Id())
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
+	defer release()
 	cloud, err := f.backend.Cloud(model.Cloud())
 	if err != nil {
 		return -1, errors.Trace(err)
@@ -163,10 +168,11 @@ func (f *Facade) setModelEnvironVersion(arg params.SetModelEnvironVersion) error
 	if err != nil {
 		return errors.Trace(err)
 	}
-	model, err := f.backend.GetModel(tag)
+	model, release, err := f.pool.GetModel(tag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer release()
 	return errors.Trace(model.SetEnvironVersion(arg.Version))
 }
 
