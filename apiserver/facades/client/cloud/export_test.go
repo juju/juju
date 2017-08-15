@@ -7,9 +7,10 @@ import "github.com/juju/juju/apiserver/facade"
 
 var InstanceTypes = instanceTypes
 
-func NewCloudTestingAPI(backend Backend, authorizer facade.Authorizer) *CloudAPI {
+func NewCloudTestingAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) *CloudAPI {
 	return &CloudAPI{
-		backend:    backend,
-		authorizer: authorizer,
+		backend:     backend,
+		ctlrBackend: ctlrBackend,
+		authorizer:  authorizer,
 	}
 }
