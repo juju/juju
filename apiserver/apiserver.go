@@ -1063,20 +1063,20 @@ func (srv *Server) processModelRemovals() error {
 				model, release, err := srv.statePool.GetModel(modelUUID)
 				gone := errors.IsNotFound(err)
 				dead := err == nil && model.Life() == state.Dead
+				if release != nil {
+					release()
+				}
 				if err != nil && !gone {
 					return errors.Trace(err)
 				}
-				release()
-				if !dead && !gone {
-					continue
-				}
-
-				logger.Debugf("removing model %v from the state pool", modelUUID)
-				// Model's gone away - ensure that it gets removed
-				// from from the state pool once people are finished
-				// with it.
-				if _, err := srv.statePool.Remove(modelUUID); err != nil {
-					return errors.Trace(err)
+				if dead || gone {
+					// Model's gone away - ensure that it gets removed
+					// from from the state pool once people are finished
+					// with it.
+					logger.Debugf("removing model %v from the state pool", modelUUID)
+					if _, err := srv.statePool.Remove(modelUUID); err != nil {
+						return errors.Trace(err)
+					}
 				}
 			}
 		}
