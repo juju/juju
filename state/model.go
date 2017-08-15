@@ -176,17 +176,6 @@ func (st *State) Model() (*Model, error) {
 	return model, nil
 }
 
-// GetModel looks for the model identified by the uuid passed in.
-func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
-	model := &Model{
-		globalState: st,
-	}
-	if err := model.refresh(tag.Id()); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return model, nil
-}
-
 // AllModelUUIDs returns the UUIDs for all models in the controller.
 // Results are sorted by (name, owner).
 func (st *State) AllModelUUIDs() ([]string, error) {
