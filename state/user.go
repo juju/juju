@@ -540,8 +540,8 @@ func (u *User) ensureNotDeleted() error {
 	return nil
 }
 
-// ResetPassword cleans up password related field.
-// It generates and returns a new user secret key.
+// ResetPassword clears the user's password (if there is one),
+// and generates a new secret key for the user.
 // This must be an active user.
 func (u *User) ResetPassword() ([]byte, error) {
 	var key []byte
@@ -581,12 +581,12 @@ func (u *User) ResetPassword() ([]byte, error) {
 		return nil, errors.Annotatef(err, "cannot reset password for user %q", u.Name())
 	}
 	u.doc.SecretKey = key
+	u.doc.PasswordHash = ""
+	u.doc.PasswordSalt = ""
 	return key, nil
 }
 
-// generateSecretKey generates a random, 32-byte secret key. This can be used
-// to obtain the controller's (self-signed) CA certificate
-// and set the user's password.
+// generateSecretKey generates a random, 32-byte secret key.
 func generateSecretKey() ([]byte, error) {
 	var secretKey [32]byte
 	if _, err := rand.Read(secretKey[:]); err != nil {
