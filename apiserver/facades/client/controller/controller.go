@@ -159,30 +159,31 @@ func (s *ControllerAPIv3) ListBlockedModels() (params.ModelBlockInfoList, error)
 		return results, errors.Trace(err)
 	}
 
-	envBlocks := make(map[string][]string)
+	modelBlocks := make(map[string][]string)
 	for _, block := range blocks {
 		uuid := block.ModelUUID()
-		types, ok := envBlocks[uuid]
+		types, ok := modelBlocks[uuid]
 		if !ok {
 			types = []string{block.Type().String()}
 		} else {
 			types = append(types, block.Type().String())
 		}
-		envBlocks[uuid] = types
+		modelBlocks[uuid] = types
 	}
 
-	for uuid, blocks := range envBlocks {
-		envInfo, err := s.state.GetModel(names.NewModelTag(uuid))
+	for uuid, blocks := range modelBlocks {
+		model, release, err := s.statePool.GetModel(uuid)
 		if err != nil {
-			logger.Debugf("Unable to get name for model: %s", uuid)
+			logger.Debugf("unable to retrieve model %s: %v", uuid, err)
 			continue
 		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
-			UUID:     envInfo.UUID(),
-			Name:     envInfo.Name(),
-			OwnerTag: envInfo.Owner().String(),
+			UUID:     model.UUID(),
+			Name:     model.Name(),
+			OwnerTag: model.Owner().String(),
 			Blocks:   blocks,
 		})
+		release()
 	}
 
 	// Sort the resulting sequence by environment name, then owner.
@@ -358,8 +359,10 @@ func (c *ControllerAPIv3) initiateOneMigration(spec params.MigrationSpec) (strin
 	}
 
 	// Ensure the model exists.
-	if _, err := c.state.GetModel(modelTag); err != nil {
-		return "", errors.Annotate(err, "unable to read model")
+	if modelExists, err := c.state.ModelExists(modelTag.Id()); err != nil {
+		return "", errors.Annotate(err, "reading model")
+	} else if !modelExists {
+		return "", errors.NotFoundf("model")
 	}
 
 	hostedState, err := c.state.ForModel(modelTag)
