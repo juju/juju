@@ -155,16 +155,17 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	}
 	assertModelMatches(model)
 
-	// Since the model tag for the State connection is different,
-	// asking for this model through FindEntity returns a not found error.
-	model, err = s.State.GetModel(modelTag)
+	model, release, err := s.StatePool.GetModel(uuid)
 	c.Assert(err, jc.ErrorIsNil)
+	defer release()
 	assertModelMatches(model)
 
 	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	assertModelMatches(model)
 
+	// Since the model tag for the State connection is different,
+	// asking for this model through FindEntity returns a not found error.
 	_, err = s.State.FindEntity(modelTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -308,30 +309,16 @@ func (s *ModelSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(ms.Info, gc.Equals, "info setting 2")
 }
 
-func (s *ModelSuite) TestConfigForControllerModel(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
-	defer otherState.Close()
-
-	model, err := otherState.GetModel(s.modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-
-	conf, err := model.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conf.Name(), gc.Equals, "testenv")
-	c.Assert(conf.UUID(), gc.Equals, s.modelTag.Id())
-}
-
 func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// By getting the model through a different state connection,
-	// the underlying state pointer in the *state.Model struct has
-	// a different model tag.
-	model, err := s.State.GetModel(otherModel.ModelTag())
+	// Obtain another instance of the model via the StatePool
+	model, release, err := s.StatePool.GetModel(otherModel.UUID())
 	c.Assert(err, jc.ErrorIsNil)
+	defer release()
 
 	conf, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1012,8 +999,9 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherModel, expectedUsersOtherModel)
 
 	// It doesn't matter how you obtain the Model.
-	otherModel2, err := s.State.GetModel(otherModel.ModelTag())
+	otherModel2, release, err := s.StatePool.GetModel(otherModel.UUID())
 	c.Assert(err, jc.ErrorIsNil)
+	defer release()
 	obtainedUsersOtherModel2, err := otherModel2.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherModel2, expectedUsersOtherModel)

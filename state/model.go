@@ -167,7 +167,13 @@ type modelEntityRefsDoc struct {
 
 // Model returns the model entity.
 func (st *State) Model() (*Model, error) {
-	return st.GetModel(st.modelTag)
+	model := &Model{
+		globalState: st,
+	}
+	if err := model.refresh(st.modelTag.Id()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return model, nil
 }
 
 // GetModel looks for the model identified by the uuid passed in.
