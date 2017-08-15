@@ -135,7 +135,8 @@ func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
 	err := s.model.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	model, err := s.State.GetModel(s.model.ModelTag())
+	// Get another instance of the Model to compare against
+	model, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err := model.Status()
