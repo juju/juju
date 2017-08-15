@@ -42,17 +42,17 @@ var initialLeaderClaimTime = time.Minute
 
 // Import the database agnostic model representation into the database.
 func (st *State) Import(model description.Model) (_ *Model, _ *State, err error) {
+	modelUUID := model.Tag().Id()
 	logger := loggo.GetLogger("juju.state.import-model")
-	logger.Debugf("import starting for model %s", model.Tag().Id())
+	logger.Debugf("import starting for model %s", modelUUID)
+
 	// At this stage, attempting to import a model with the same
 	// UUID as an existing model will error.
-	tag := model.Tag()
-	_, err = st.GetModel(tag)
-	if err == nil {
-		// We have an existing matching model.
-		return nil, nil, errors.AlreadyExistsf("model with UUID %s", tag.Id())
-	} else if !errors.IsNotFound(err) {
+	if modelExists, err := st.ModelExists(modelUUID); err != nil {
 		return nil, nil, errors.Trace(err)
+	} else if modelExists {
+		// We have an existing matching model.
+		return nil, nil, errors.AlreadyExistsf("model %s", modelUUID)
 	}
 
 	if len(model.RemoteApplications()) != 0 {
