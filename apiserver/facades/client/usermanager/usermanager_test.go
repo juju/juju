@@ -821,3 +821,88 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 	c.Assert(alice.IsDeleted(), jc.IsTrue)
 
 }
+
+func (s *userManagerSuite) TestResetPassword(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+
+	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
+	results, err := s.usermanager.ResetPassword(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Tag, gc.DeepEquals, alex.Tag().String())
+	c.Assert(results.Results[0].SecretKey, gc.DeepEquals, alex.SecretKey())
+	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+
+	s.BlockAllChanges(c, "TestBlockResetPassword")
+	_, err := s.usermanager.ResetPassword(args)
+	// Check that the call is blocked
+	s.AssertBlocked(c, err, "TestBlockResetPassword")
+
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+}
+
+func (s *userManagerSuite) TestResetPasswordForSelf(c *gc.C) {
+	alex, err := s.State.User(s.AdminUserTag(c))
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
+	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsTrue)
+
+	results, err := s.usermanager.ResetPassword(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Tag, gc.DeepEquals, alex.Tag().String())
+	c.Assert(results.Results[0].SecretKey, gc.DeepEquals, alex.SecretKey())
+	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
+	_, err = usermanager.ResetPassword(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+}
+
+func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true, Disabled: true})
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "user-invalid"},
+		{Tag: alex.Tag().String()},
+	}}
+
+	results, err := s.usermanager.ResetPassword(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
+		params.AddUserResult{
+			Tag:   "user-invalid",
+			Error: common.ServerError(common.ErrPerm),
+		},
+		params.AddUserResult{
+			Tag:   alex.Tag().String(),
+			Error: common.ServerError(fmt.Errorf("cannot reset password for user \"alex\": user deactivated")),
+		},
+	})
+}

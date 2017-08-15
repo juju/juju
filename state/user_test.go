@@ -418,6 +418,7 @@ func (s *UserSuite) TestResetPassword(c *gc.C) {
 	key, err := u.ResetPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key, gc.Not(gc.DeepEquals), oldKey)
+	c.Assert(key, gc.NotNil)
 	c.Assert(u.SecretKey(), gc.DeepEquals, key)
 }
 

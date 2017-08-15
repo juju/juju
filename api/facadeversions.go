@@ -90,7 +90,7 @@ var facadeVersions = map[string]int{
 	"UnitAssigner":                 1,
 	"Uniter":                       6,
 	"Upgrader":                     1,
-	"UserManager":                  1,
+	"UserManager":                  2,
 	"VolumeAttachmentsWatcher":     2,
 }
 
