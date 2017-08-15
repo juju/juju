@@ -227,7 +227,7 @@ func (s *usermanagerSuite) TestResetPasswordResponseError(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestResetPassword(c *gc.C) {
-	key := []byte("not cats or dragons here")
+	key := []byte("no cats or dragons here")
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "UserManager")
 		c.Assert(request, gc.Equals, "ResetPassword")
