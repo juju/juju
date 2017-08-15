@@ -218,6 +218,22 @@ func (st *State) ModelExists(uuid string) (bool, error) {
 	return count > 0, nil
 }
 
+// ModelActive returns true if a model with the supplied UUID exists
+// and is not being imported as part of a migration.
+func (st *State) ModelActive(uuid string) (bool, error) {
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	var doc modelDoc
+	err := models.FindId(uuid).One(&doc)
+	if err == mgo.ErrNotFound {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Annotate(err, "querying model")
+	}
+	return doc.MigrationMode != MigrationModeImporting, nil
+}
+
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
 	// CloudName is the name of the cloud to which the model is deployed.

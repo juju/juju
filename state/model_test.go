@@ -227,6 +227,42 @@ func (s *ModelSuite) TestModelExistsNoModel(c *gc.C) {
 	c.Check(modelExists, jc.IsFalse)
 }
 
+func (s *ModelSuite) TestModelActive(c *gc.C) {
+	modelActive, err := s.State.ModelActive(s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelActive, jc.IsTrue)
+}
+
+func (s *ModelSuite) TestModelActiveNoModel(c *gc.C) {
+	modelActive, err := s.State.ModelActive("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelActive, jc.IsFalse)
+}
+
+func (s *ModelSuite) TestModelActiveImporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.SetMigrationMode(state.MigrationModeImporting), jc.ErrorIsNil)
+
+	modelActive, err := s.State.ModelActive(model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelActive, jc.IsFalse)
+}
+
+func (s *ModelSuite) TestModelActiveExporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+
+	modelActive, err := s.State.ModelActive(model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelActive, jc.IsTrue)
+}
+
 func (s *ModelSuite) TestSLA(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
