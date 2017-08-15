@@ -218,11 +218,6 @@ type mockStateBackend struct {
 	models []upgrades.Model
 }
 
-func (mock *mockStateBackend) AllModels() ([]upgrades.Model, error) {
-	mock.MethodCall(mock, "AllModels")
-	return mock.models, mock.NextErr()
-}
-
 func (mock *mockStateBackend) ControllerUUID() string {
 	mock.MethodCall(mock, "ControllerUUID")
 	return "a-b-c-d"
