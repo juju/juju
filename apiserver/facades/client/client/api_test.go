@@ -184,7 +184,7 @@ var scenarioStatus = &params.FullStatus{
 	},
 	Offers: map[string]params.ApplicationOfferStatus{
 		"hosted-mysql": {
-			ApplicationURL:  "admin/controller.hosted-mysql",
+			CharmURL:        "local:quantal/mysql-1",
 			ApplicationName: "mysql",
 			OfferName:       "hosted-mysql",
 			Endpoints: map[string]params.RemoteEndpoint{
@@ -193,13 +193,7 @@ var scenarioStatus = &params.FullStatus{
 					Interface: "mysql",
 					Role:      "provider",
 				}},
-			Connections: map[int]params.OfferConnectionStatus{
-				1: {
-					SourceModelTag: coretesting.ModelTag.String(),
-					Username:       "fred",
-					Status:         "active",
-					Endpoint:       "server",
-				}},
+			ConnectedCount: 1,
 		},
 	},
 	Applications: map[string]params.ApplicationStatus{

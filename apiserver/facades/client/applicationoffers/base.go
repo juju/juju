@@ -141,14 +141,32 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
 			curl, _ := app.CharmURL()
-			status, err := backend.RemoteConnectionStatus(offer.OfferUUID)
+			conns, err := backend.OfferConnections(offer.OfferUUID)
 			if err != nil {
-				logger.Warningf("cannot get offer connection status: %v", err)
+				logger.Warningf("cannot get offer connection details: %v", err)
 				continue
 			}
 			offer.ApplicationName = app.Name()
-			offer.CharmName = curl.Name
-			offer.ConnectedCount = status.ConnectionCount()
+			offer.CharmURL = curl.String()
+			for _, oc := range conns {
+				connDetails := params.OfferConnection{
+					SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),
+					Username:       oc.UserName(),
+					RelationId:     oc.RelationId(),
+					// TODO(wallyworld)
+					Status: "active",
+				}
+				rel, err := backend.KeyRelation(oc.RelationKey())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ep, err := rel.Endpoint(app.Name())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				connDetails.Endpoint = ep.Name
+				offer.Connections = append(offer.Connections, connDetails)
+			}
 		}
 		results = append(results, offer)
 	}

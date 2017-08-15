@@ -4102,8 +4102,8 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 2        started  10.0.2.1  controller-2  quantal              
 3        started  10.0.3.1  controller-3  quantal              I am number three
 
-Offer         User  Relation id  Status  Endpoint  Interface  Role
-hosted-mysql  fred  3            active  server    mysql      provider
+Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
+hosted-mysql  mysql        mysql  1    1          server    mysql      provider
 
 Relation provider      Requirer                   Interface  Type
 mysql:juju-info        logging:info               juju-info  subordinate

@@ -19,15 +19,33 @@ type ApplicationOfferDetails struct {
 	// OfferURL is the URL where the offer can be located.
 	OfferURL string
 
-	// CharmName is a name of a charm for remote application.
-	CharmName string
+	// CharmURL is the URL of the charm for the remote application.
+	CharmURL string
 
 	// Endpoints are the charm endpoints supported by the application.
 	// TODO(wallyworld) - do not use charm.Relation here
 	Endpoints []charm.Relation
 
-	// ConnectedCount are the number of users that are consuming the application.
-	ConnectedCount int
+	// Connects are the connections to the offer.
+	Connections []OfferConnection
+}
+
+// OfferConnection holds details about a connection to an offer.
+type OfferConnection struct {
+	// SourceModelUUID is the UUID of the model hosting the offer.
+	SourceModelUUID string
+
+	// Username is the name of the user consuming the offer.
+	Username string
+
+	// RelationId is the id of the relation for this connection.
+	RelationId int
+
+	// Endpoint is the endpoint being connected to.
+	Endpoint string
+
+	// Status is the status of the offer connection.
+	Status string
 }
 
 // ApplicationOfferDetailsResult is a result of listing a remote application.

@@ -43,7 +43,6 @@ type Backend interface {
 	AddRelation(...state.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
 	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
-	AllOfferConnections() ([]*state.OfferConnection, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
 	AllModelUUIDs() ([]string, error)
@@ -71,6 +70,7 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	ModelUUID() string
 	RemoteApplication(string) (*state.RemoteApplication, error)
+	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number) error
