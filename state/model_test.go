@@ -214,6 +214,18 @@ func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeExporting)
 }
 
+func (s *ModelSuite) TestModelExists(c *gc.C) {
+	modelExists, err := s.State.ModelExists(s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelExists, jc.IsTrue)
+}
+
+func (s *ModelSuite) TestModelExistsNoModel(c *gc.C) {
+	modelExists, err := s.State.ModelExists("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelExists, jc.IsFalse)
+}
+
 func (s *ModelSuite) TestSLA(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")

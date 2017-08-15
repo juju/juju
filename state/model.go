@@ -200,6 +200,18 @@ func (st *State) AllModelUUIDs() ([]string, error) {
 	return out, nil
 }
 
+// ModelExists returns true if a model with the supplied UUID exists.
+func (st *State) ModelExists(uuid string) (bool, error) {
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	count, err := models.FindId(uuid).Count()
+	if err != nil {
+		return false, errors.Annotate(err, "querying model")
+	}
+	return count > 0, nil
+}
+
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
 	// CloudName is the name of the cloud to which the model is deployed.
