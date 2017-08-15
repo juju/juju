@@ -7,12 +7,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/state"
-	"gopkg.in/juju/names.v2"
 )
 
 type Backend interface {
 	Cloud(string) (cloud.Cloud, error)
-	GetModel(names.ModelTag) (Model, error)
+}
+
+type Pool interface {
+	GetModel(string) (Model, func(), error)
 }
 
 type Model interface {
@@ -21,18 +23,18 @@ type Model interface {
 	SetEnvironVersion(int) error
 }
 
-func NewStateBackend(st *state.State) Backend {
-	return stateBackend{st}
+func NewPool(pool *state.StatePool) Pool {
+	return &statePool{pool}
 }
 
-type stateBackend struct {
-	*state.State
+type statePool struct {
+	pool *state.StatePool
 }
 
-func (s stateBackend) GetModel(tag names.ModelTag) (Model, error) {
-	m, err := s.State.GetModel(tag)
+func (p *statePool) GetModel(uuid string) (Model, func(), error) {
+	m, release, err := p.pool.GetModel(uuid)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return m, nil
+	return m, func() { release() }, nil
 }

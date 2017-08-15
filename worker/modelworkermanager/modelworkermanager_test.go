@@ -10,7 +10,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
@@ -138,7 +137,7 @@ func (s *suite) TestNoStartingWorkersForImportingModel(c *gc.C) {
 	// otherwise the migrationmaster gets very confused.
 	// https://bugs.launchpad.net/juju/+bug/1646310
 	s.runTest(c, func(w worker.Worker, backend *mockBackend) {
-		backend.model.mode = state.MigrationModeImporting
+		backend.modelActive = false
 		backend.sendModelChange("uuid1")
 
 		s.assertNoWorkers(c)
@@ -241,30 +240,22 @@ func newMockBackend() *mockBackend {
 			Worker:  workertest.NewErrorWorker(nil),
 			changes: make(chan []string),
 		},
-		model: &mockModel{},
+		modelActive: true,
 	}
 }
 
 type mockBackend struct {
-	envWatcher *mockEnvWatcher
-	modelErr   error
-	model      *mockModel
+	envWatcher  *mockEnvWatcher
+	modelActive bool
+	modelErr    error
 }
 
 func (mock *mockBackend) WatchModels() state.StringsWatcher {
 	return mock.envWatcher
 }
 
-func (mock *mockBackend) GetModel(tag names.ModelTag) (modelworkermanager.BackendModel, error) {
-	return mock.model, mock.modelErr
-}
-
-type mockModel struct {
-	mode state.MigrationMode
-}
-
-func (mock *mockModel) MigrationMode() state.MigrationMode {
-	return mock.mode
+func (mock *mockBackend) ModelActive(uuid string) (bool, error) {
+	return mock.modelActive, mock.modelErr
 }
 
 func (mock *mockBackend) sendModelChange(uuids ...string) {

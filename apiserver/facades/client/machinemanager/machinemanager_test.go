@@ -10,14 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -28,22 +24,19 @@ var _ = gc.Suite(&MachineManagerSuite{})
 
 type MachineManagerSuite struct {
 	coretesting.BaseSuite
-	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
+	pool       *mockPool
 	api        *machinemanager.MachineManagerAPI
 }
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	tag := names.NewUserTag("admin")
-	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	s.st = &mockState{}
-	machinemanager.PatchState(s, s.st)
-
+	s.pool = &mockPool{}
+	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(nil, nil, s.authorizer)
+	s.api, err = machinemanager.NewMachineManagerAPI(s.st, s.pool, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -145,7 +138,7 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 }
 
 type mockState struct {
-	storagecommon.StorageInterface
+	machinemanager.Backend
 	calls    int
 	machines []state.MachineTemplate
 	err      error
@@ -166,28 +159,8 @@ func (st *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
-func (st *mockState) ModelConfig() (*config.Config, error) {
-	panic("not implemented")
-}
-
 func (st *mockState) Model() (machinemanager.Model, error) {
 	return &mockModel{}, nil
-}
-
-func (st *mockState) AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error) {
-	panic("not implemented")
-}
-
-func (st *mockState) AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error) {
-	panic("not implemented")
-}
-
-func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
-	return nil, nil
-}
-
-func (st *mockState) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
-	return nil, nil
 }
 
 func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
@@ -243,10 +216,6 @@ func (st *mockBlock) Type() state.BlockType {
 
 func (st *mockBlock) Message() string {
 	return "not allowed"
-}
-
-func (st *mockBlock) ModelUUID() string {
-	return "uuid"
 }
 
 type mockMachine struct{}

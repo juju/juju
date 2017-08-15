@@ -167,15 +167,10 @@ type modelEntityRefsDoc struct {
 
 // Model returns the model entity.
 func (st *State) Model() (*Model, error) {
-	return st.GetModel(st.modelTag)
-}
-
-// GetModel looks for the model identified by the uuid passed in.
-func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 	model := &Model{
 		globalState: st,
 	}
-	if err := model.refresh(tag.Id()); err != nil {
+	if err := model.refresh(st.modelTag.Id()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return model, nil
@@ -198,6 +193,34 @@ func (st *State) AllModelUUIDs() ([]string, error) {
 		out[i] = doc["_id"].(string)
 	}
 	return out, nil
+}
+
+// ModelExists returns true if a model with the supplied UUID exists.
+func (st *State) ModelExists(uuid string) (bool, error) {
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	count, err := models.FindId(uuid).Count()
+	if err != nil {
+		return false, errors.Annotate(err, "querying model")
+	}
+	return count > 0, nil
+}
+
+// ModelActive returns true if a model with the supplied UUID exists
+// and is not being imported as part of a migration.
+func (st *State) ModelActive(uuid string) (bool, error) {
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	var doc modelDoc
+	err := models.FindId(uuid).One(&doc)
+	if err == mgo.ErrNotFound {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Annotate(err, "querying model")
+	}
+	return doc.MigrationMode != MigrationModeImporting, nil
 }
 
 // ModelArgs is a params struct for creating a new model.

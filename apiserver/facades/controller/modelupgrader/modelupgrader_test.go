@@ -26,6 +26,7 @@ var (
 type ModelUpgraderSuite struct {
 	testing.IsolationSuite
 	backend      mockBackend
+	pool         mockPool
 	providers    mockProviderRegistry
 	watcher      mockWatcher
 	statusSetter mockStatusSetter
@@ -41,13 +42,15 @@ func (s *ModelUpgraderSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 	}
 	s.backend = mockBackend{
-		models: map[names.ModelTag]*mockModel{
-			modelTag1: {cloud: "foo", v: 0},
-			modelTag2: {cloud: "bar", v: 1},
-		},
 		clouds: map[string]cloud.Cloud{
 			"foo": {Type: "foo-provider"},
 			"bar": {Type: "bar-provider"},
+		},
+	}
+	s.pool = mockPool{
+		models: map[string]*mockModel{
+			modelTag1.Id(): {cloud: "foo", v: 0},
+			modelTag2.Id(): {cloud: "bar", v: 1},
 		},
 	}
 	s.providers = mockProviderRegistry{
@@ -60,19 +63,19 @@ func (s *ModelUpgraderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelUpgraderSuite) TestAuthController(c *gc.C) {
-	_, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	_, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelUpgraderSuite) TestAuthNonController(c *gc.C) {
 	s.authorizer.Controller = false
 	s.authorizer.Tag = names.NewUserTag("admin")
-	_, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	_, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
 func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelEnvironVersion(params.Entities{
 		Entities: []params.Entity{
@@ -91,17 +94,17 @@ func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 			Error: &params.Error{Message: `"machine-0" is not a valid model tag`},
 		}},
 	})
-	s.backend.CheckCalls(c, []testing.StubCall{
-		{"GetModel", []interface{}{modelTag1}},
-		{"GetModel", []interface{}{modelTag2}},
+	s.pool.CheckCalls(c, []testing.StubCall{
+		{"GetModel", []interface{}{modelTag1.Id()}},
+		{"GetModel", []interface{}{modelTag2.Id()}},
 	})
-	s.backend.models[modelTag1].CheckCallNames(c, "EnvironVersion")
-	s.backend.models[modelTag2].CheckCallNames(c, "EnvironVersion")
+	s.pool.models[modelTag1.Id()].CheckCallNames(c, "EnvironVersion")
+	s.pool.models[modelTag2.Id()].CheckCallNames(c, "EnvironVersion")
 }
 
 func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	s.providers.SetErrors(nil, errors.New("blargh"))
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelTargetEnvironVersion(params.Entities{
 		Entities: []params.Entity{
@@ -121,13 +124,15 @@ func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 		}},
 	})
 	s.backend.CheckCalls(c, []testing.StubCall{
-		{"GetModel", []interface{}{modelTag1}},
 		{"Cloud", []interface{}{"foo"}},
-		{"GetModel", []interface{}{modelTag2}},
 		{"Cloud", []interface{}{"bar"}},
 	})
-	s.backend.models[modelTag1].CheckCallNames(c, "Cloud")
-	s.backend.models[modelTag2].CheckCallNames(c, "Cloud")
+	s.pool.CheckCalls(c, []testing.StubCall{
+		{"GetModel", []interface{}{modelTag1.Id()}},
+		{"GetModel", []interface{}{modelTag2.Id()}},
+	})
+	s.pool.models[modelTag1.Id()].CheckCallNames(c, "Cloud")
+	s.pool.models[modelTag2.Id()].CheckCallNames(c, "Cloud")
 	s.providers.CheckCalls(c, []testing.StubCall{
 		{"Provider", []interface{}{"foo-provider"}},
 		{"Provider", []interface{}{"bar-provider"}},
@@ -136,7 +141,7 @@ func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 }
 
 func (s *ModelUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelEnvironVersion(params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{
@@ -151,10 +156,10 @@ func (s *ModelUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
 			{&params.Error{Message: `"machine-0" is not a valid model tag`}},
 		},
 	})
-	s.backend.CheckCalls(c, []testing.StubCall{
-		{"GetModel", []interface{}{modelTag1}},
+	s.pool.CheckCalls(c, []testing.StubCall{
+		{"GetModel", []interface{}{modelTag1.Id()}},
 	})
-	s.backend.models[modelTag1].CheckCalls(c, []testing.StubCall{
+	s.pool.models[modelTag1.Id()].CheckCalls(c, []testing.StubCall{
 		{"SetEnvironVersion", []interface{}{int(1)}},
 	})
 }
@@ -176,13 +181,13 @@ func (s *ModelUpgraderSuite) TestSetModelStatus(c *gc.C) {
 		},
 	}
 
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, s.statusSetter.results)
 	s.backend.CheckNoCalls(c)
-	s.backend.models[modelTag1].CheckNoCalls(c)
+	s.pool.models[modelTag1.Id()].CheckNoCalls(c)
 	s.statusSetter.CheckCalls(c, []testing.StubCall{
 		{"SetStatus", []interface{}{args}},
 	})
@@ -191,7 +196,6 @@ func (s *ModelUpgraderSuite) TestSetModelStatus(c *gc.C) {
 type mockBackend struct {
 	testing.Stub
 	clouds map[string]cloud.Cloud
-	models map[names.ModelTag]*mockModel
 }
 
 func (b *mockBackend) Cloud(name string) (cloud.Cloud, error) {
@@ -199,9 +203,14 @@ func (b *mockBackend) Cloud(name string) (cloud.Cloud, error) {
 	return b.clouds[name], b.NextErr()
 }
 
-func (b *mockBackend) GetModel(tag names.ModelTag) (modelupgrader.Model, error) {
-	b.MethodCall(b, "GetModel", tag)
-	return b.models[tag], b.NextErr()
+type mockPool struct {
+	testing.Stub
+	models map[string]*mockModel
+}
+
+func (p *mockPool) GetModel(uuid string) (modelupgrader.Model, func(), error) {
+	p.MethodCall(p, "GetModel", uuid)
+	return p.models[uuid], func() {}, p.NextErr()
 }
 
 type mockModel struct {

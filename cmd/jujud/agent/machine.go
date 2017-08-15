@@ -1125,7 +1125,7 @@ func (a *MachineAgent) startStateWorkers(
 			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
 				w, err := modelworkermanager.New(modelworkermanager.Config{
 					ControllerUUID: st.ControllerUUID(),
-					Backend:        modelworkermanager.BackendShim{st},
+					Backend:        st,
 					NewWorker:      a.startModelWorkers,
 					ErrorDelay:     jworker.RestartDelay,
 				})

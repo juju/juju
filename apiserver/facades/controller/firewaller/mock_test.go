@@ -109,12 +109,6 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return nil, errors.NotImplementedf("FindEntity")
 }
 
-func (st *mockState) GetModel(tag names.ModelTag) (*state.Model, error) {
-	st.MethodCall(st, "GetModel", tag)
-	// TODO - implement when remaining firewaller tests become unit tests
-	return nil, errors.NotImplementedf("GetModel")
-}
-
 type mockWatcher struct {
 	testing.Stub
 	tomb.Tomb

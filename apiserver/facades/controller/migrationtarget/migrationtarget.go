@@ -26,9 +26,9 @@ import (
 type API struct {
 	addresser
 	state      *state.State
+	pool       *state.StatePool
 	authorizer facade.Authorizer
 	resources  facade.Resources
-	pool       *state.StatePool
 	getEnviron stateenvirons.NewEnvironFunc
 }
 
@@ -36,6 +36,11 @@ type API struct {
 // methods that we choose to expose in the MigrationTarget facade.
 type addresser interface {
 	CACert() params.BytesResult
+}
+
+// NewFacade is used for API registration.
+func NewFacade(ctx facade.Context) (*API, error) {
+	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New))
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc for testing
@@ -49,17 +54,12 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, 
 	addresser := common.NewAPIAddresser(st, ctx.Resources())
 	return &API{
 		state:      st,
+		pool:       ctx.StatePool(),
 		authorizer: auth,
 		resources:  ctx.Resources(),
-		pool:       ctx.StatePool(),
 		getEnviron: getEnviron,
 		addresser:  addresser,
 	}, nil
-}
-
-// NewFacade is used for API registration.
-func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New))
 }
 
 func checkAuth(authorizer facade.Authorizer, st *state.State) error {
@@ -113,43 +113,44 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	return err
 }
 
-func (api *API) getModel(modelTag string) (*state.Model, error) {
+func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
 	tag, err := names.ParseModelTag(modelTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	model, err := api.state.GetModel(tag)
+	model, release, err := api.pool.GetModel(tag.Id())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return model, nil
+	return model, func() { release() }, nil
 }
 
-func (api *API) getImportingModel(args params.ModelArgs) (*state.Model, error) {
-	model, err := api.getModel(args.ModelTag)
+func (api *API) getImportingModel(args params.ModelArgs) (*state.Model, func(), error) {
+	model, release, err := api.getModel(args.ModelTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	if model.MigrationMode() != state.MigrationModeImporting {
-		return nil, errors.New("migration mode for the model is not importing")
+		release()
+		return nil, nil, errors.New("migration mode for the model is not importing")
 	}
-	return model, nil
+	return model, release, nil
 }
 
 // Abort removes the specified model from the database. It is an error to
 // attempt to Abort a model that has a migration mode other than importing.
 func (api *API) Abort(args params.ModelArgs) error {
-	model, err := api.getImportingModel(args)
+	model, releaseModel, err := api.getImportingModel(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer releaseModel()
 
-	st, err := api.state.ForModel(model.ModelTag())
+	st, releaseSt, err := api.pool.Get(model.UUID())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer st.Close()
-
+	defer releaseSt()
 	return st.RemoveImportingModelDocs()
 }
 
@@ -157,10 +158,11 @@ func (api *API) Abort(args params.ModelArgs) error {
 // is ready for use. It is an error to attempt to Abort a model that
 // has a migration mode other than importing.
 func (api *API) Activate(args params.ModelArgs) error {
-	model, err := api.getImportingModel(args)
+	model, release, err := api.getImportingModel(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer release()
 
 	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
 		return errors.Trace(err)
@@ -187,10 +189,12 @@ func (api *API) Activate(args params.ModelArgs) error {
 //
 // Returns the zero time if no logs have been transferred.
 func (api *API) LatestLogTime(args params.ModelArgs) (time.Time, error) {
-	model, err := api.getModel(args.ModelTag)
+	model, release, err := api.getModel(args.ModelTag)
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
+	defer release()
+
 	tracker := state.NewLastSentLogTracker(api.state, model.UUID(), "migration-logtransfer")
 	defer tracker.Close()
 	_, timestamp, err := tracker.Get()
@@ -208,11 +212,11 @@ func (api *API) LatestLogTime(args params.ModelArgs) (time.Time, error) {
 // being destroyed if the source controller is destroyed after the
 // model is migrated away.
 func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
-	model, err := api.getModel(args.ModelTag)
+	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	st, release, err := api.pool.Get(model.UUID())
+	st, release, err := api.pool.Get(tag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -221,5 +225,5 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.AdoptResources(model.ControllerUUID(), args.SourceControllerVersion))
+	return errors.Trace(env.AdoptResources(st.ControllerUUID(), args.SourceControllerVersion))
 }

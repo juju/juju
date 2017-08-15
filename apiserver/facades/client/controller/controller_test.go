@@ -123,11 +123,12 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	// The results are sorted.
 	expected := []string{"controller", "no-access", "owned", "user"}
 	var obtained []string
-	for _, env := range response.UserModels {
-		obtained = append(obtained, env.Name)
-		stateEnv, err := s.State.GetModel(names.NewModelTag(env.UUID))
+	for _, userModel := range response.UserModels {
+		obtained = append(obtained, userModel.Name)
+		stateModel, release, err := s.StatePool.GetModel(userModel.UUID)
 		c.Assert(err, jc.ErrorIsNil)
-		s.checkEnvironmentMatches(c, env.Model, stateEnv)
+		defer release()
+		s.checkEnvironmentMatches(c, userModel.Model, stateModel)
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
@@ -495,7 +496,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Check(out.Results[0].Error, gc.IsNil)
 
 	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
-	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
+	c.Check(out.Results[1].Error, gc.ErrorMatches, "model not found")
 }
 
 func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {

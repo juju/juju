@@ -1383,14 +1383,13 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 
 	st, releaser, err := b.getState(modelUUID)
 	if err != nil {
-		_, modelErr := b.st.GetModel(names.NewModelTag(modelUUID))
-		if errors.IsNotFound(modelErr) {
+		if exists, modelErr := b.st.ModelExists(modelUUID); exists && modelErr == nil {
 			// The entity's model is gone so remove the entity
 			// from the store.
 			doc.removed(all, modelUUID, id, nil)
 			return nil
 		}
-		return errors.Trace(err)
+		return errors.Trace(err) // prioritise getState error
 	}
 	defer releaser()
 

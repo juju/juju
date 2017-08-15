@@ -5,7 +5,6 @@ package cloud_test
 
 import (
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/dummy"
 )
 
 type instanceTypesSuite struct{}
@@ -28,14 +26,15 @@ var _ = gc.Suite(&instanceTypesSuite{})
 var over9kCPUCores uint64 = 9001
 
 func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
-	backend := mockBackend{
-		cloudSpec: environs.CloudSpec{},
+	backend := &mockBackend{}
+	ctlrBackend := &mockBackend{
+		cloud: jujucloud.Cloud{Name: "aws"},
 	}
-	authorizer := testing.FakeAuthorizer{Tag: names.NewUserTag("admin"),
+	authorizer := &testing.FakeAuthorizer{Tag: names.NewUserTag("admin"),
 		Controller: true}
+
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
-	failureCons := constraints.Value{}
-	env := mockEnviron{
+	env := &mockEnviron{
 		results: map[constraints.Value]instances.InstanceTypesWithCostMetadata{
 			itCons: instances.InstanceTypesWithCostMetadata{
 				CostUnit:     "USD/h",
@@ -46,8 +45,16 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	api := cloud.NewCloudTestingAPI(&backend, authorizer)
+	fakeEnvironGet := func(
+		st environs.EnvironConfigGetter,
+		newEnviron environs.NewEnvironFunc,
+	) (environs.Environ, error) {
+		return env, nil
+	}
 
+	api := cloud.NewCloudTestingAPI(backend, ctlrBackend, authorizer)
+
+	failureCons := constraints.Value{}
 	cons := params.CloudInstanceTypesConstraints{
 		Constraints: []params.CloudInstanceTypesConstraint{
 			{CloudTag: "cloud-aws",
@@ -59,11 +66,6 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			{CloudTag: "cloud-gce",
 				CloudRegion: "a-region",
 				Constraints: &itCons}},
-	}
-	fakeEnvironGet := func(st environs.EnvironConfigGetter,
-		newEnviron environs.NewEnvironFunc,
-	) (environs.Environ, error) {
-		return &env, nil
 	}
 	r, err := cloud.InstanceTypes(api, fakeEnvironGet, cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,30 +86,17 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	c.Assert(r.Results, gc.DeepEquals, expected)
 }
 
-func (*mockBackend) GetModel(t names.ModelTag) (cloud.Model, error) {
-	return &mockModel{cloud: "aws"}, nil
-}
-
 func (*mockBackend) ModelConfig() (*config.Config, error) {
 	return nil, nil
 }
 
-func (fb *mockBackend) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
-	fb.MethodCall(fb, "CloudSpec")
-	if err := fb.NextErr(); err != nil {
-		return environs.CloudSpec{}, err
-	}
-	return fb.cloudSpec, nil
-}
-
-func (fb *mockBackend) CloudCredential(tag names.CloudCredentialTag) (jujucloud.Credential, error) {
+func (b *mockBackend) CloudCredential(tag names.CloudCredentialTag) (jujucloud.Credential, error) {
 	return jujucloud.Credential{}, nil
 }
 
 type mockEnviron struct {
 	environs.Environ
 	cloud.Backend
-	jujutesting.Stub
 
 	results map[constraints.Value]instances.InstanceTypesWithCostMetadata
 }
@@ -118,12 +107,4 @@ func (m *mockEnviron) InstanceTypes(c constraints.Value) (instances.InstanceType
 		return instances.InstanceTypesWithCostMetadata{}, errors.NotFoundf("Instances matching constraint %v", c)
 	}
 	return it, nil
-}
-
-func (mockModel) ModelTag() names.ModelTag {
-	return names.NewModelTag("beef1beef1-0000-0000-000011112222")
-}
-
-func (*mockModel) Config() (*config.Config, error) {
-	return config.New(config.UseDefaults, dummy.SampleConfig())
 }

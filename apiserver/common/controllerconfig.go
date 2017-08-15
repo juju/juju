@@ -68,11 +68,11 @@ type controllerStateShim struct {
 // ControllerInfo returns the external controller details for the specified model.
 func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, CACert string, _ error) {
 	// First see if the requested model UUID is hosted by this controller.
-	_, err := s.State.GetModel(names.NewModelTag(modelUUID))
-	if err != nil && !errors.IsNotFound(err) {
+	modelExists, err := s.State.ModelExists(modelUUID)
+	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	if err == nil {
+	if modelExists {
 		addr, err := apiAddresses(s.State)
 		if err != nil {
 			return nil, "", errors.Trace(err)

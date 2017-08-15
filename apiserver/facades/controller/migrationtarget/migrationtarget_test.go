@@ -125,8 +125,9 @@ func (s *Suite) TestImport(c *gc.C) {
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 	// Check the model was imported.
-	model, err := s.State.GetModel(tag)
+	model, release, err := s.StatePool.GetModel(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
+	defer release()
 	c.Assert(model.Name(), gc.Equals, "some-model")
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 }
@@ -139,8 +140,9 @@ func (s *Suite) TestAbort(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The model should no longer exist.
-	_, err = s.State.GetModel(tag)
-	c.Assert(err, gc.ErrorMatches, `model not found`)
+	exists, err := s.State.ModelExists(tag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsFalse)
 }
 
 func (s *Suite) TestAbortNotATag(c *gc.C) {
@@ -174,9 +176,9 @@ func (s *Suite) TestActivate(c *gc.C) {
 	err := api.Activate(params.ModelArgs{ModelTag: tag.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The model should no longer exist.
-	model, err := s.State.GetModel(tag)
+	model, release, err := s.StatePool.GetModel(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
+	defer release()
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 }
 
@@ -259,9 +261,9 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, *facadetest.Context, error) {
 	ctx := facadetest.Context{
 		State_:     s.State,
+		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
-		StatePool_: state.NewStatePool(s.State),
 	}
 	api, err := migrationtarget.NewAPI(ctx, environFunc)
 	return api, &ctx, err

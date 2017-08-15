@@ -4,8 +4,6 @@
 package upgrades
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -15,7 +13,6 @@ import (
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
-	AllModels() ([]Model, error)
 	ControllerUUID() string
 
 	StripLocalUserDomain() error
@@ -51,27 +48,6 @@ func NewStateBackend(st *state.State, pool *state.StatePool) StateBackend {
 type stateBackend struct {
 	st   *state.State
 	pool *state.StatePool
-}
-
-func (s stateBackend) AllModels() ([]Model, error) {
-	modelUUIDs, err := s.st.AllModelUUIDs()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]Model, 0, len(modelUUIDs))
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := s.pool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, &modelShim{st, model})
-	}
-	return out, nil
 }
 
 func (s stateBackend) ControllerUUID() string {

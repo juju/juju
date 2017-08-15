@@ -43,7 +43,7 @@ type validateArgs struct {
 //
 // It returns the validated model UUID.
 func validateModelUUID(args validateArgs) (string, error) {
-	ssState := args.statePool.SystemState()
+	controllerModelUUID := args.statePool.SystemState().ModelUUID()
 	if args.modelUUID == "" {
 		// We allow the modelUUID to be empty so that:
 		//    TODO: server a limited API at the root (empty modelUUID)
@@ -52,9 +52,9 @@ func validateModelUUID(args validateArgs) (string, error) {
 		if args.strict {
 			return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 		}
-		return ssState.ModelUUID(), nil
+		return controllerModelUUID, nil
 	}
-	if args.modelUUID == ssState.ModelUUID() {
+	if args.modelUUID == controllerModelUUID {
 		return args.modelUUID, nil
 	}
 	if args.controllerModelOnly {
@@ -63,9 +63,11 @@ func validateModelUUID(args validateArgs) (string, error) {
 	if !names.IsValidModel(args.modelUUID) {
 		return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 	}
-	modelTag := names.NewModelTag(args.modelUUID)
-	if _, err := ssState.GetModel(modelTag); err != nil {
+
+	_, release, err := args.statePool.GetModel(args.modelUUID)
+	if err != nil {
 		return "", errors.Wrap(err, common.UnknownModelError(args.modelUUID))
 	}
+	release()
 	return args.modelUUID, nil
 }
