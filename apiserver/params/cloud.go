@@ -44,12 +44,6 @@ type CloudsResult struct {
 	Clouds map[string]Cloud `json:"clouds,omitempty"`
 }
 
-// AddCredentialArgs contains a credential to be added with its name
-type AddCredentialArgs struct {
-	Credential    CloudCredential `json:"credential"`
-	CredentialTag string          `json:"credential-tag"`
-}
-
 // CloudCredential contains a cloud credential
 // possibly with secrets redacted.
 type CloudCredential struct {
@@ -86,14 +80,13 @@ type UserClouds struct {
 	UserClouds []UserCloud `json:"user-clouds,omitempty"`
 }
 
-// UpdateCloudCredentials contains a set of tagged cloud credentials.
-type UpdateCloudCredentials struct {
-	Credentials []UpdateCloudCredential `json:"credentials,omitempty"`
+// TaggedCredentials contains a set of tagged cloud credentials.
+type TaggedCredentials struct {
+	Credentials []TaggedCredential `json:"credentials,omitempty"`
 }
 
-// UpdateCloudCredential contains a cloud credential and its tag,
-// for updating in state.
-type UpdateCloudCredential struct {
+// TaggedCredential contains a cloud credential and its tag.
+type TaggedCredential struct {
 	Tag        string          `json:"tag"`
 	Credential CloudCredential `json:"credential"`
 }

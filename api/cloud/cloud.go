@@ -107,8 +107,8 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 // UpdateCredential updates a cloud credentials.
 func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
 	var results params.ErrorResults
-	args := params.UpdateCloudCredentials{
-		Credentials: []params.UpdateCloudCredential{{
+	args := params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
 			Credential: params.CloudCredential{
 				AuthType:   string(credential.AuthType()),
@@ -161,16 +161,21 @@ func (c *Client) AddCredential(tag string, credential jujucloud.Credential) erro
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return errors.NotImplementedf("AddCredential() (need v2+, have v%d)", bestVer)
 	}
+	var results params.ErrorResults
 	cloudCredential := params.CloudCredential{
 		AuthType:   string(credential.AuthType()),
 		Attributes: credential.Attributes(),
 	}
-	args := params.AddCredentialArgs{CredentialTag: tag, Credential: cloudCredential}
-	err := c.facade.FacadeCall("AddCredential", args, nil)
-	if err != nil {
+	args := params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
+			Tag:        tag,
+			Credential: cloudCredential,
+		},
+		}}
+	if err := c.facade.FacadeCall("AddCredentials", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-	return nil
+	return results.OneError()
 }
 
 func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
