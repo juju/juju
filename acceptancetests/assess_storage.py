@@ -11,8 +11,10 @@ import os
 import sys
 import time
 
-from deploy_stack import (
-    BootstrapManager,
+from deploy_stack import BootstrapManager
+from distutils.version import (
+    LooseVersion,
+    StrictVersion,
 )
 from jujucharm import (
     Charm,
@@ -26,6 +28,7 @@ from utility import (
     temp_dir,
 )
 from jujupy.version_client import ModelClient2_1
+from jujupy.client import get_stripped_version_number
 
 
 __metaclass__ = type
@@ -76,6 +79,17 @@ storage_pool_1x["ebs-ssd"] = {
     "provider": "ebs",
     "attrs": {"volume-type": "ssd"}
     }
+
+
+def after_2dot3(client_version):
+    # LooseVersion considers 2.3-somealpha to be newer than 2.3.0.
+    # Attempt strict versioning first.
+    client_version = get_stripped_version_number(client_version)
+    try:
+        return StrictVersion(client_version) >= StrictVersion('2.3.0')
+    except ValueError:
+        pass
+    return LooseVersion(client_version) >= LooseVersion('2.3.0')
 
 
 def wait_for_storage_detach(client, storage_id, interval, timeout):
@@ -350,15 +364,16 @@ def assess_storage(client, charm_series):
     log.info('Filesystem tmpfs PASSED')
 
     client.remove_service('dummy-storage-np')
-    # data/4 is a persistent storage, detach is required before removal.
-    wait_for_storage_detach(
-        client, storage_id='data/4', interval=15, timeout=60)
-    # data/4 is a persistent storage, need to be removed, otherwise it will
-    # interfere the next test result.
-    client.get_juju_output(
-        'remove-storage', 'data/4', include_e=False, merge_stderr=True)
-    wait_for_storage_removal(
-        client, storage_id='data/4', interval=15, timeout=90)
+    # persistent storage feature requires Juju 2.3+
+    # data/4 is persistent in Juju 2.3+, detach is required before removal,
+    # it needs to be removed otherwise will interfere the next test result.
+    if after_2dot3(client.version):
+        wait_for_storage_detach(
+            client, storage_id='data/4', interval=15, timeout=60)
+        client.get_juju_output(
+            'remove-storage', 'data/4', include_e=False, merge_stderr=True)
+        wait_for_storage_removal(
+            client, storage_id='data/4', interval=15, timeout=90)
 
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
