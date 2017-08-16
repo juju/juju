@@ -193,14 +193,14 @@ func (st resourceState) SetUnitResource(unitName, userID string, chRes charmreso
 }
 
 // AddPendingResource stores the resource in the Juju model.
-func (st resourceState) AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
+func (st resourceState) AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (pendingID string, err error) {
 	pendingID, err = newPendingID()
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
 	logger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
 
-	if _, err := st.setResource(pendingID, applicationID, userID, chRes, r); err != nil {
+	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil); err != nil {
 		return "", errors.Trace(err)
 	}
 

@@ -26,7 +26,7 @@ type Resources interface {
 	// "pending" state. It will stay pending (and unavailable) until
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
-	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (string, error)
 
 	// GetResource returns the identified resource.
 	GetResource(applicationID, name string) (resource.Resource, error)

@@ -4,8 +4,6 @@
 package resources
 
 import (
-	"io"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -34,7 +32,7 @@ type Backend interface {
 	// "pending" state. It will stay pending (and unavailable) until
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
-	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (string, error)
 }
 
 // CharmStore exposes the functionality of the charm store as needed here.
@@ -318,8 +316,7 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 
 func (f Facade) addPendingResource(applicationID string, chRes charmresource.Resource) (pendingID string, err error) {
 	userID := ""
-	var reader io.Reader
-	pendingID, err = f.store.AddPendingResource(applicationID, userID, chRes, reader)
+	pendingID, err = f.store.AddPendingResource(applicationID, userID, chRes)
 	if err != nil {
 		return "", errors.Annotatef(err, "while adding pending resource info for %q", chRes.Name)
 	}
