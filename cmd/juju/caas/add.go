@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -252,9 +253,10 @@ func (c *AddCAASCommand) addCredentialToController(apiClient CloudAPI, newCreden
 		return errors.Trace(err)
 	}
 
-	cloudCredTagString := fmt.Sprintf("cloudcred-%s_%s_%s", c.caasName, currentAccountDetails.User, credentialName)
+	cloudCredTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s",
+		c.caasName, currentAccountDetails.User, credentialName))
 
-	if err := apiClient.AddCredential(cloudCredTagString, newCredential); err != nil {
+	if err := apiClient.AddCredential(cloudCredTag.String(), newCredential); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
