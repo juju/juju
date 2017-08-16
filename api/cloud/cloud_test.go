@@ -354,9 +354,6 @@ func (s *cloudSuite) TestAddCredentialNotInV1API(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "AddCredential")
 				return nil
 			},
 		),
@@ -381,7 +378,12 @@ func (s *cloudSuite) TestAddCredentialV2API(c *gc.C) {
 				called = true
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "AddCredential")
+				c.Check(request, gc.Equals, "AddCredentials")
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				*result.(*params.ErrorResults) = params.ErrorResults{
+					Results: []params.ErrorResult{{}},
+				}
+
 				return nil
 			},
 		),
