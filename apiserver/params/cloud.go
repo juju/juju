@@ -80,14 +80,13 @@ type UserClouds struct {
 	UserClouds []UserCloud `json:"user-clouds,omitempty"`
 }
 
-// UpdateCloudCredentials contains a set of tagged cloud credentials.
-type UpdateCloudCredentials struct {
-	Credentials []UpdateCloudCredential `json:"credentials,omitempty"`
+// TaggedCredentials contains a set of tagged cloud credentials.
+type TaggedCredentials struct {
+	Credentials []TaggedCredential `json:"credentials,omitempty"`
 }
 
-// UpdateCloudCredential contains a cloud credential and its tag,
-// for updating in state.
-type UpdateCloudCredential struct {
+// TaggedCredential contains a cloud credential and its tag.
+type TaggedCredential struct {
 	Tag        string          `json:"tag"`
 	Credential CloudCredential `json:"credential"`
 }

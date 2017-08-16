@@ -66,7 +66,7 @@ func (f *fakeCloudMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string
 }
 
 type fakeCloudAPI struct {
-	caas.AddCloudAPI
+	caas.CloudAPI
 	jujutesting.Stub
 	authTypes   []cloud.AuthType
 	credentials []names.CloudCredentialTag
@@ -99,7 +99,7 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 
 func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool) *caas.AddCAASCommand {
 	return caas.NewAddCAASCommandForTest(s.store, &fakeAPIConnection{},
-		func(caller base.APICallCloser) caas.AddCloudAPI {
+		func(caller base.APICallCloser) caas.CloudAPI {
 			return s.fakeCloudAPI
 		},
 		func(caasType string) (caascfg.ClientConfigFunc, error) {

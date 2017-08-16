@@ -107,8 +107,8 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 // UpdateCredential updates a cloud credentials.
 func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
 	var results params.ErrorResults
-	args := params.UpdateCloudCredentials{
-		Credentials: []params.UpdateCloudCredential{{
+	args := params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
 			Credential: params.CloudCredential{
 				AuthType:   string(credential.AuthType()),
@@ -153,6 +153,29 @@ func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCr
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil
+}
+
+// AddCredential adds a credential to the controller with a given tag.
+// This can be a credential for a cloud that is not the same cloud as the controller's host.
+func (c *Client) AddCredential(tag string, credential jujucloud.Credential) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return errors.NotImplementedf("AddCredential() (need v2+, have v%d)", bestVer)
+	}
+	var results params.ErrorResults
+	cloudCredential := params.CloudCredential{
+		AuthType:   string(credential.AuthType()),
+		Attributes: credential.Attributes(),
+	}
+	args := params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
+			Tag:        tag,
+			Credential: cloudCredential,
+		},
+		}}
+	if err := c.facade.FacadeCall("AddCredentials", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }
 
 func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
