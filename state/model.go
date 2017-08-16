@@ -579,9 +579,7 @@ func (m *Model) Owner() names.UserTag {
 
 // Status returns the status of the model.
 func (m *Model) Status() (status.StatusInfo, error) {
-	db, closer := m.modelDatabase()
-	defer closer()
-	status, err := getStatus(db, m.globalKey(), "model")
+	status, err := getStatus(m.st.db(), m.globalKey(), "model")
 	if err != nil {
 		return status, err
 	}
@@ -593,9 +591,7 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 	if !status.ValidModelStatus(sInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
 	}
-	db, closer := m.modelDatabase()
-	defer closer()
-	return setStatus(db, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "model",
 		globalKey: m.globalKey(),
 		status:    sInfo.Status,
@@ -609,10 +605,8 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 // or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this application.
 func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
-	db, closer := m.modelDatabase()
-	defer closer()
 	args := &statusHistoryArgs{
-		db:        db,
+		db:        m.st.db(),
 		globalKey: m.globalKey(),
 		filter:    filter,
 	}
@@ -621,9 +615,7 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
-	db, closer := m.modelDatabase()
-	defer closer()
-	return getModelConfig(db)
+	return getModelConfig(m.st.db())
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
@@ -795,9 +787,7 @@ func (m *Model) refresh(uuid string) error {
 
 // Users returns a slice of all users for this model.
 func (m *Model) Users() ([]permission.UserAccess, error) {
-	db, dbCloser := m.modelDatabase()
-	defer dbCloser()
-	coll, closer := db.GetCollection(modelUsersC)
+	coll, closer := m.st.db().GetCollection(modelUsersC)
 	defer closer()
 
 	var userDocs []userAccessDoc
@@ -973,10 +963,8 @@ func (m *Model) destroyOps(
 			// The model is non-empty, and the user has not specified
 			// whether storage should be destroyed or released. Make
 			// sure there are no filesystems or volumes in the model.
-			db, closer := m.modelDatabase()
-			defer closer()
 			storageOps, err := checkModelEntityRefsNoPersistentStorage(
-				db, modelEntityRefs,
+				m.st.db(), modelEntityRefs,
 			)
 			if err != nil {
 				return nil, err
@@ -1427,10 +1415,4 @@ func checkModelActive(st *State) error {
 		return errors.Errorf("model %q is being migrated", model.Name())
 	}
 	return nil
-}
-
-// modelDatabase returns a Database scoped to the model's UUID,
-// and a function that will close the database when called.
-func (m *Model) modelDatabase() (Database, func()) {
-	return m.st.db().CopyForModel(m.UUID())
 }
