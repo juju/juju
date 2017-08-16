@@ -21,8 +21,8 @@ type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
 	AddPendingResources(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
 
-	// AddPendingResource uploads data and metadata for a pending resource for the given application.
-	AddPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
+	// UploadPendingResource uploads data and metadata for a pending resource for the given application.
+	UploadPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
 }
 
 // DeployResourcesArgs holds the arguments to DeployResources().
@@ -188,7 +188,7 @@ func (d deployUploader) uploadFile(resourcename, filename string) (id string, er
 		Origin: charmresource.OriginUpload,
 	}
 
-	id, err = d.client.AddPendingResource(d.applicationID, res, filename, f)
+	id, err = d.client.UploadPendingResource(d.applicationID, res, filename, f)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

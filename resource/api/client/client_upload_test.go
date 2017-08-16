@@ -123,7 +123,7 @@ func (s *UploadSuite) TestPendingResourceOkay(c *gc.C) {
 	s.facade.pendingIDs = []string{expected}
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	uploadID, err := cl.AddPendingResource("a-application", res[0].Resource, "file.zip", reader)
+	uploadID, err := cl.UploadPendingResource("a-application", res[0].Resource, "file.zip", reader)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
@@ -158,7 +158,7 @@ func (s *UploadSuite) TestPendingResourceNoFile(c *gc.C) {
 	s.facade.pendingIDs = []string{expected}
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	uploadID, err := cl.AddPendingResource("a-application", res[0].Resource, "file.zip", nil)
+	uploadID, err := cl.UploadPendingResource("a-application", res[0].Resource, "file.zip", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
@@ -172,7 +172,7 @@ func (s *UploadSuite) TestPendingResourceBadService(c *gc.C) {
 	s.facade.FacadeCallFn = nil
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	_, err := cl.AddPendingResource("???", res[0].Resource, "file.zip", nil)
+	_, err := cl.UploadPendingResource("???", res[0].Resource, "file.zip", nil)
 
 	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
 	s.stub.CheckNoCalls(c)
@@ -187,7 +187,7 @@ func (s *UploadSuite) TestPendingResourceBadRequest(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, failure)
 
-	_, err := cl.AddPendingResource("a-application", chRes, "file.zip", reader)
+	_, err := cl.UploadPendingResource("a-application", chRes, "file.zip", reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "FacadeCall", "Read")
@@ -202,7 +202,7 @@ func (s *UploadSuite) TestPendingResourceRequestFailed(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, nil, nil, nil, failure)
 
-	_, err := cl.AddPendingResource("a-application", res[0].Resource, "file.zip", reader)
+	_, err := cl.UploadPendingResource("a-application", res[0].Resource, "file.zip", reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c,
