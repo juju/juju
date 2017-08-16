@@ -105,6 +105,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": formatListTabular,
+		"summary": formatListSummary,
 	})
 }
 
@@ -186,26 +187,37 @@ type ListAPI interface {
 
 // ListOfferItem defines the serialization behaviour of an offer item in endpoints list.
 type ListOfferItem struct {
+	// OfferName is the name of the offer.
+	OfferName string `yaml:"-" json:"-"`
+
 	// ApplicationName is the application backing this offer.
-	ApplicationName string `yaml:"-" json:"-"`
+	ApplicationName string `yaml:"application" json:"application"`
 
 	// Store is the controller hosting this offer.
 	Source string `yaml:"store,omitempty" json:"store,omitempty"`
 
-	// CharmName is the charm name of this application.
-	CharmName string `yaml:"charm,omitempty" json:"charm,omitempty"`
+	// CharmURL is the charm URL of this application.
+	CharmURL string `yaml:"charm,omitempty" json:"charm,omitempty"`
 
-	// UsersCount is the count of how many users are connected to this shared application.
-	UsersCount int `yaml:"connected,omitempty" json:"connected,omitempty"`
-
-	// Location is part of Juju location where this application is shared relative to the store.
-	Location string `yaml:"url" json:"url"`
+	// OfferURL is part of Juju location where this offer is shared relative to the store.
+	OfferURL string `yaml:"offer-url" json:"offer-url"`
 
 	// Endpoints is a list of application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
+
+	// Connections holds details of connections to the offer.
+	Connections []offerConnectionStatus `yaml:"connections,omitempty" json:"connections,omitempty"`
 }
 
 type offeredApplications map[string]ListOfferItem
+
+type offerConnectionStatus struct {
+	SourceModelUUID string `json:"source-model-uuid" yaml:"source-model-uuid"`
+	Username        string `json:"username" yaml:"username"`
+	RelationId      int    `json:"relation-id" yaml:"relation-id"`
+	Endpoint        string `json:"endpoint" yaml:"endpoint"`
+	Status          string `json:"status" yaml:"status"`
+}
 
 func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
 	result := make(offeredApplications)
@@ -226,12 +238,21 @@ func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOff
 
 func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
+		OfferName:       offer.OfferName,
 		ApplicationName: offer.ApplicationName,
 		Source:          url.Source,
-		CharmName:       offer.CharmName,
-		Location:        offer.OfferURL,
-		UsersCount:      offer.ConnectedCount,
+		CharmURL:        offer.CharmURL,
+		OfferURL:        offer.OfferURL,
 		Endpoints:       convertCharmEndpoints(offer.Endpoints...),
+	}
+	for _, conn := range offer.Connections {
+		item.Connections = append(item.Connections, offerConnectionStatus{
+			SourceModelUUID: conn.SourceModelUUID,
+			Username:        conn.Username,
+			RelationId:      conn.RelationId,
+			Endpoint:        conn.Endpoint,
+			Status:          conn.Status,
+		})
 	}
 	return item
 }
@@ -244,7 +265,7 @@ func convertCharmEndpoints(relations ...charm.Relation) map[string]RemoteEndpoin
 	}
 	output := make(map[string]RemoteEndpoint, len(relations))
 	for _, one := range relations {
-		output[one.Name] = RemoteEndpoint{one.Interface, string(one.Role)}
+		output[one.Name] = RemoteEndpoint{one.Name, one.Interface, string(one.Role)}
 	}
 	return output
 }

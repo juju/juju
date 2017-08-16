@@ -95,6 +95,9 @@ type Relation interface {
 	// Endpoints returns the endpoints that constitute the relation.
 	Endpoints() []state.Endpoint
 
+	// Endpoint returns the endpoint of the relation for the named application.
+	Endpoint(appName string) (state.Endpoint, error)
+
 	// Unit returns a RelationUnit for the unit with the supplied ID.
 	Unit(unitId string) (RelationUnit, error)
 

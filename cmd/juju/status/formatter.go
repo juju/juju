@@ -5,7 +5,6 @@ package status
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/juju/utils/series"
@@ -290,8 +289,9 @@ func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.Rem
 func (sf *statusFormatter) formatOffer(name string, offer params.ApplicationOfferStatus) offerStatus {
 	out := offerStatus{
 		Err:             offer.Err,
-		ApplicationURL:  offer.ApplicationURL,
 		ApplicationName: offer.ApplicationName,
+		CharmURL:        offer.CharmURL,
+		ConnectedCount:  offer.ConnectedCount,
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
 	for alias, ep := range offer.Endpoints {
@@ -301,43 +301,7 @@ func (sf *statusFormatter) formatOffer(name string, offer params.ApplicationOffe
 			Role:      string(ep.Role),
 		}
 	}
-	for id, conn := range offer.Connections {
-		if conn.Err != nil {
-			out.Connections = append(out.Connections, offerConnectionStatus{Err: conn.Err})
-			continue
-		}
-		sourceModelUUID := "unknown"
-		if sourceModel, err := names.ParseModelTag(conn.SourceModelTag); err == nil {
-			sourceModelUUID = sourceModel.Id()
-		}
-		connStatus := offerConnectionStatus{
-			SourceModelUUID: sourceModelUUID,
-			RelationId:      id,
-			Username:        conn.Username,
-			Endpoint:        conn.Endpoint,
-			Status:          conn.Status,
-		}
-		out.Connections = append(out.Connections, connStatus)
-	}
-	sort.Sort(byUserRelationId(out.Connections))
 	return out
-}
-
-type byUserRelationId []offerConnectionStatus
-
-func (b byUserRelationId) Len() int {
-	return len(b)
-}
-
-func (b byUserRelationId) Less(i, j int) bool {
-	if b[i].Username == b[j].Username {
-		return b[i].RelationId < b[j].RelationId
-	}
-	return b[i].Username < b[j].Username
-}
-
-func (b byUserRelationId) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
 }
 
 type unitFormatInfo struct {

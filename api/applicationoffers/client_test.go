@@ -142,8 +142,10 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 				results.Results = []params.ApplicationOfferDetails{{
 					ApplicationOffer: offer,
 					ApplicationName:  "db2-app",
-					CharmName:        "db2",
-					ConnectedCount:   3,
+					CharmURL:         "cs:db2-5",
+					Connections: []params.OfferConnection{
+						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3, Endpoint: "db", Status: "active"},
+					},
 				}}
 			}
 			return nil
@@ -159,8 +161,10 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			OfferName:       offerName,
 			Endpoints:       []charm.Relation{{Name: "endPointA"}},
 			ApplicationName: "db2-app",
-			CharmName:       "db2",
-			ConnectedCount:  3,
+			CharmURL:        "cs:db2-5",
+			Connections: []jujucrossmodel.OfferConnection{
+				{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3, Endpoint: "db", Status: "active"},
+			},
 		}}})
 }
 

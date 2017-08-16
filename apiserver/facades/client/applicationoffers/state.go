@@ -61,7 +61,7 @@ type Backend interface {
 	Charm(*charm.URL) (commoncrossmodel.Charm, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
-	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
+	OfferConnections(string) ([]OfferConnection, error)
 	Space(string) (Space, error)
 
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
@@ -195,15 +195,25 @@ type modelShim struct {
 	*state.Model
 }
 
-func (s *stateShim) RemoteConnectionStatus(offerUUID string) (RemoteConnectionStatus, error) {
-	status, err := s.st.RemoteConnectionStatus(offerUUID)
-	return &remoteConnectionStatusShim{status}, err
+func (s *stateShim) OfferConnections(offerUUID string) ([]OfferConnection, error) {
+	conns, err := s.st.OfferConnections(offerUUID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]OfferConnection, len(conns))
+	for i, oc := range conns {
+		result[i] = offerConnectionShim{oc}
+	}
+	return result, nil
 }
 
-type RemoteConnectionStatus interface {
-	ConnectionCount() int
+type OfferConnection interface {
+	SourceModelUUID() string
+	UserName() string
+	RelationKey() string
+	RelationId() int
 }
 
-type remoteConnectionStatusShim struct {
-	*state.RemoteConnectionStatus
+type offerConnectionShim struct {
+	*state.OfferConnection
 }

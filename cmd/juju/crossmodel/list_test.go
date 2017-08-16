@@ -38,7 +38,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.applications = []model.ApplicationOfferDetailsResult{
-		{Result: s.createOfferItem("hosted-db2", "myctrl", 0)},
+		{Result: s.createOfferItem("hosted-db2", "myctrl", nil)},
 	}
 
 	s.mockAPI = &mockListAPI{
@@ -81,29 +81,31 @@ func (s *ListSuite) TestListFilterArgs(c *gc.C) {
 }
 
 func (s *ListSuite) TestListFormatError(c *gc.C) {
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdi^%", "different_store", 33)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdi^%", "different_store", nil)})
 
 	_, err := s.runList(c, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to format.*")
 }
 
-func (s *ListSuite) TestList(c *gc.C) {
+func (s *ListSuite) TestListSummary(c *gc.C) {
+	// For summary output, we don't care about the content, just the count.
+	conns1 := []model.OfferConnection{{}, {}, {}}
+	conns2 := []model.OfferConnection{{}, {}}
 	// Insert in random order to check sorting.
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", 33)})
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("adiff-db2", "vendor", 23)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", conns1)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("adiff-db2", "vendor", conns2)})
 
 	s.assertValidList(
 		c,
-		nil,
-		// Default format is tabular
+		[]string{"--format", "summary"},
 		`
-Application     Charm  Connected  Store           URL                                  Endpoint  Interface  Role
-app-zdiff-db2   db2    33         differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
-                                                                                       mysql     db2        requirer
-app-hosted-db2  db2    0          myctrl          myctrl:fred/model.hosted-db2         log       http       provider
-                                                                                       mysql     db2        requirer
-app-adiff-db2   db2    23         vendor          vendor:fred/model.adiff-db2          log       http       provider
-                                                                                       mysql     db2        requirer
+Offer       Application     Charm     Connected  Store           URL                                  Endpoint  Interface  Role
+zdiff-db2   app-zdiff-db2   cs:db2-5  3          differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
+                                                                                                      mysql     db2        requirer
+hosted-db2  app-hosted-db2  cs:db2-5  0          myctrl          myctrl:fred/model.hosted-db2         log       http       provider
+                                                                                                      mysql     db2        requirer
+adiff-db2   app-adiff-db2   cs:db2-5  2          vendor          vendor:fred/model.adiff-db2          log       http       provider
+                                                                                                      mysql     db2        requirer
 
 `[1:],
 		"",
@@ -116,14 +118,72 @@ func (s *ListSuite) TestListWithErrors(c *gc.C) {
 
 	s.assertValidList(
 		c,
-		nil,
+		[]string{"--format", "summary"},
 		`
-Application     Charm  Connected  Store   URL                           Endpoint  Interface  Role
-app-hosted-db2  db2    0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
-                                                                        mysql     db2        requirer
+Offer       Application     Charm     Connected  Store   URL                           Endpoint  Interface  Role
+hosted-db2  app-hosted-db2  cs:db2-5  0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
+                                                                                       mysql     db2        requirer
 
 `[1:],
 		msg,
+	)
+}
+
+func (s *ListSuite) TestListTabular(c *gc.C) {
+	// For summary output, we don't care about the content, just the count.
+	conns1 := []model.OfferConnection{
+		{
+			SourceModelUUID: "model-uuid1",
+			Username:        "mary",
+			RelationId:      2,
+			Endpoint:        "db",
+			Status:          "active",
+		}, {
+			SourceModelUUID: "model-uuid2",
+			Username:        "fred",
+			RelationId:      1,
+			Endpoint:        "server",
+			Status:          "active",
+		}, {
+			SourceModelUUID: "model-uuid3",
+			Username:        "mary",
+			RelationId:      1,
+			Endpoint:        "server",
+			Status:          "active",
+		},
+	}
+	conns2 := []model.OfferConnection{
+		{
+			SourceModelUUID: "model-uuid3",
+			Username:        "mary",
+			RelationId:      3,
+			Endpoint:        "db",
+			Status:          "active",
+		},
+	}
+	// Insert in random order to check sorting.
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", conns1)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("adiff-db2", "vendor", conns2)})
+	s.applications[1].Result.Endpoints = []charm.Relation{
+		{Name: "db", Interface: "db2", Role: charm.RoleProvider},
+		{Name: "server", Interface: "mysql", Role: charm.RoleProvider},
+	}
+	s.applications[2].Result.Endpoints = []charm.Relation{
+		{Name: "db", Interface: "db2", Role: charm.RoleProvider},
+	}
+
+	s.assertValidList(
+		c,
+		[]string{"--format", "tabular"},
+		`
+Offer      User  Relation id  Status  Endpoint  Interface  Role
+zdiff-db2  fred  1            active  server    mysql      provider
+           mary  1            active  server    mysql      provider
+           mary  2            active  db        db2        provider
+adiff-db2  mary  3            active  db        db2        provider
+
+`[1:],
+		"",
 	)
 }
 
@@ -131,32 +191,59 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	// Since applications are in the map and ordering is unreliable, ensure that there is only one endpoint.
 	// We only need one to demonstrate display anyway :D
 	s.applications[0].Result.Endpoints = []charm.Relation{{Name: "mysql", Interface: "db2", Role: charm.RoleRequirer}}
+	s.applications[0].Result.Connections = []model.OfferConnection{
+		{
+			SourceModelUUID: "model-uuid",
+			Username:        "mary",
+			Status:          "active",
+			Endpoint:        "db",
+		},
+		{
+			SourceModelUUID: "another-model-uuid",
+			Username:        "fred",
+			Status:          "active",
+			RelationId:      2,
+			Endpoint:        "http",
+		},
+	}
 
 	s.assertValidList(
 		c,
 		[]string{"--format", "yaml"},
 		`
 hosted-db2:
+  application: app-hosted-db2
   store: myctrl
-  charm: db2
-  url: myctrl:fred/model.hosted-db2
+  charm: cs:db2-5
+  offer-url: myctrl:fred/model.hosted-db2
   endpoints:
     mysql:
       interface: db2
       role: requirer
+  connections:
+  - source-model-uuid: model-uuid
+    username: mary
+    relation-id: 0
+    endpoint: db
+    status: active
+  - source-model-uuid: another-model-uuid
+    username: fred
+    relation-id: 2
+    endpoint: http
+    status: active
 `[1:],
 		"",
 	)
 }
 
-func (s *ListSuite) createOfferItem(name, store string, count int) *model.ApplicationOfferDetails {
+func (s *ListSuite) createOfferItem(name, store string, connections []model.OfferConnection) *model.ApplicationOfferDetails {
 	return &model.ApplicationOfferDetails{
 		ApplicationName: "app-" + name,
 		OfferName:       name,
 		OfferURL:        fmt.Sprintf("%s:%s.%s", store, "fred/model", name),
-		CharmName:       "db2",
+		CharmURL:        "cs:db2-5",
 		Endpoints:       s.endpoints,
-		ConnectedCount:  count,
+		Connections:     connections,
 	}
 }
 

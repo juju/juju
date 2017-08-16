@@ -27,6 +27,9 @@ func (c *RemoteEndpointsCommandBase) NewRemoteEndpointsAPI(controllerName string
 // RemoteEndpoint defines the serialization behaviour of remote endpoints.
 // This is used in map-style yaml output where remote endpoint name is the key.
 type RemoteEndpoint struct {
+	// Name is the endpoint name.
+	Name string `yaml:"-" json:"-"`
+
 	// Interface is relation interface.
 	Interface string `yaml:"interface" json:"interface"`
 
@@ -42,7 +45,7 @@ func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) map[string]Re
 	}
 	output := make(map[string]RemoteEndpoint, len(apiEndpoints))
 	for _, one := range apiEndpoints {
-		output[one.Name] = RemoteEndpoint{one.Interface, string(one.Role)}
+		output[one.Name] = RemoteEndpoint{one.Name, one.Interface, string(one.Role)}
 	}
 	return output
 }
