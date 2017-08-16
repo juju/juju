@@ -173,16 +173,17 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "UpdateCredentials")
 			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			c.Assert(a, jc.DeepEquals, params.TaggedCredentials{Credentials: []params.TaggedCredential{{
-				Tag: "cloudcred-foo_bob_bar",
-				Credential: params.CloudCredential{
-					AuthType: "userpass",
-					Attributes: map[string]string{
-						"username": "admin",
-						"password": "adm1n",
+			c.Assert(a, jc.DeepEquals, params.TaggedCredentials{
+				Credentials: []params.TaggedCredential{{
+					Tag: "cloudcred-foo_bob_bar",
+					Credential: params.CloudCredential{
+						AuthType: "userpass",
+						Attributes: map[string]string{
+							"username": "admin",
+							"password": "adm1n",
+						},
 					},
-				},
-			}}})
+				}}})
 			*result.(*params.ErrorResults) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
