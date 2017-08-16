@@ -32,6 +32,7 @@ type Backend interface {
 	AddRelation(...state.Endpoint) (Relation, error)
 	Charm(*charm.URL) (Charm, error)
 	EndpointsRelation(...state.Endpoint) (Relation, error)
+	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
@@ -218,6 +219,14 @@ func (s stateShim) Charm(curl *charm.URL) (Charm, error) {
 
 func (s stateShim) EndpointsRelation(eps ...state.Endpoint) (Relation, error) {
 	r, err := s.State.EndpointsRelation(eps...)
+	if err != nil {
+		return nil, err
+	}
+	return stateRelationShim{r}, nil
+}
+
+func (s stateShim) Relation(id int) (Relation, error) {
+	r, err := s.State.Relation(id)
 	if err != nil {
 		return nil, err
 	}
