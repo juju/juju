@@ -239,8 +239,15 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					},
 					Access: "admin",
 				},
-				CharmName:      "db2",
-				ConnectedCount: 5,
+				ApplicationName: "test",
+				CharmURL:        "cs:db2-2",
+				Connections: []params.OfferConnection{{
+					SourceModelTag: testing.ModelTag.String(),
+					RelationId:     1,
+					Endpoint:       "db",
+					Username:       "fred",
+					Status:         "active",
+				}},
 			},
 		},
 	})
@@ -313,7 +320,6 @@ func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
 func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []params.ApplicationOfferResult) {
 	s.setupOffers(c, "")
 	filter := params.ApplicationURLs{[]string{url}}
-	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -508,7 +514,6 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 
 	s.mockState.model = model
 	s.mockState.allmodels = []applicationoffers.Model{model, anotherModel}
-	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
@@ -551,7 +556,6 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
 		},
 	}
-	anotherState.connStatus = &mockConnectionStatus{count: 5}
 	anotherState.users.Add(user.Name())
 	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
@@ -752,10 +756,10 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"db2": &mockApplication{
+			name:  "db2",
 			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db2": "myspace"}},
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred"}
-	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
@@ -789,6 +793,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockStatePool.st["uuid2"] = anotherState
 	anotherState.applications = map[string]crossmodel.Application{
 		"mysql": &mockApplication{
+			name:  "mysql",
 			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"mysql": "anotherspace"}},
 		"postgresql": &mockApplication{
 			charm: ch, curl: charm.MustParseURL("postgresql-2"), bindings: map[string]string{"postgresql": "anotherspace"}},
@@ -801,7 +806,25 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		},
 	}
 	anotherState.model = &mockModel{uuid: "uuid2", name: "another", owner: "mary"}
-	anotherState.connStatus = &mockConnectionStatus{count: 15}
+	s.mockState.relations["hosted-mysql:server wordpress:db"] = &mockRelation{
+		id: 1,
+		endpoint: state.Endpoint{
+			ApplicationName: "mysql",
+			Relation: charm.Relation{
+				Name:      "server",
+				Interface: "mysql",
+				Role:      "provider",
+			},
+		},
+	}
+	s.mockState.connections = []applicationoffers.OfferConnection{
+		&mockOfferConnection{
+			username:    "fred",
+			modelUUID:   testing.ModelTag.Id(),
+			relationKey: "hosted-db2:db wordpress:db",
+			relationId:  1,
+		},
+	}
 	anotherState.users.Add(user.Name())
 	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-mysql"), user, permission.ReadAccess)
 	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql"), user, permission.AdminAccess)
@@ -1077,6 +1100,7 @@ func (s *consumeSuite) setupOffer() {
 		users:             set.NewStrings(),
 		accessPerms:       make(map[offerAccess]permission.Access),
 		spaces:            make(map[string]applicationoffers.Space),
+		relations:         make(map[string]crossmodel.Relation),
 	}
 	s.mockStatePool.st[modelUUID] = st
 	anOffer := jujucrossmodel.ApplicationOffer{

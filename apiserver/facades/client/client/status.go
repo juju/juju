@@ -184,12 +184,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 		// Only admins can see offer details.
 		if err := c.checkIsAdmin(); err == nil {
-			if context.offerConnections, err =
-				fetchOfferConnections(c.api.stateAccessor); err != nil {
-				return noStatus, errors.Annotate(err, "could not fetch offer connections")
-			}
 			if context.offers, err =
-				fetchOffers(c.api.stateAccessor); err != nil {
+				fetchOffers(c.api.stateAccessor, context.applications); err != nil {
 				return noStatus, errors.Annotate(err, "could not fetch application offers")
 			}
 		}
@@ -214,7 +210,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	logger.Debugf("Applications: %v", context.applications)
 	logger.Debugf("Remote applications: %v", context.consumerRemoteApplications)
 	logger.Debugf("Offers: %v", context.offers)
-	logger.Debugf("Offer connections: %v", context.offerConnections)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -394,9 +389,6 @@ type statusContext struct {
 	// offers: offer name -> offer
 	offers map[string]offerStatus
 
-	// offerConnections: relationId -> offer connection
-	offerConnections map[int]*state.OfferConnection
-
 	relations     map[string][]*state.Relation
 	relationsById map[int]*state.Relation
 	units         map[string]map[string]*state.Unit
@@ -567,41 +559,37 @@ func fetchConsumerRemoteApplications(st Backend) (map[string]*state.RemoteApplic
 }
 
 // fetchOfferConnections returns a map from relation id to offer connection.
-func fetchOffers(st Backend) (map[string]offerStatus, error) {
+func fetchOffers(st Backend, applications map[string]*state.Application) (map[string]offerStatus, error) {
 	offersMap := make(map[string]offerStatus)
 	offers, err := st.AllApplicationOffers()
 	if err != nil {
 		return nil, err
 	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
 	for _, offer := range offers {
-		offersMap[offer.OfferName] = offerStatus{
+		offerInfo := offerStatus{
 			ApplicationOffer: crossmodel.ApplicationOffer{
 				OfferName:       offer.OfferName,
 				OfferUUID:       offer.OfferUUID,
 				ApplicationName: offer.ApplicationName,
 				Endpoints:       offer.Endpoints,
 			},
-			offerURL: crossmodel.MakeURL(model.Owner().Name(), model.Name(), offer.OfferName, ""),
 		}
+		app, ok := applications[offer.ApplicationName]
+		if !ok {
+			continue
+		}
+		curl, _ := app.CharmURL()
+		offerInfo.charmURL = curl.String()
+		rc, err := st.RemoteConnectionStatus(offer.OfferUUID)
+		if err != nil && !errors.IsNotFound(err) {
+			offerInfo.err = err
+			continue
+		} else if err == nil {
+			offerInfo.connectedCount = rc.ConnectionCount()
+		}
+		offersMap[offer.OfferName] = offerInfo
 	}
 	return offersMap, nil
-}
-
-// fetchOfferConnections returns a map from relation id to offer connection.
-func fetchOfferConnections(st Backend) (map[int]*state.OfferConnection, error) {
-	connMap := make(map[int]*state.OfferConnection)
-	conns, err := st.AllOfferConnections()
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range conns {
-		connMap[c.RelationId()] = c
-	}
-	return connMap, nil
 }
 
 // fetchRelations returns a map of all relations keyed by application name,
@@ -981,19 +969,21 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 
 type offerStatus struct {
 	crossmodel.ApplicationOffer
-	offerURL string
+	err            error
+	charmURL       string
+	connectedCount int
 }
 
 func (context *statusContext) processOffers() map[string]params.ApplicationOfferStatus {
 	offers := make(map[string]params.ApplicationOfferStatus)
-	offersByUUID := make(map[string]params.ApplicationOfferStatus)
 	for name, offer := range context.offers {
 		offerStatus := params.ApplicationOfferStatus{
+			Err:             offer.err,
 			ApplicationName: offer.ApplicationName,
 			OfferName:       offer.OfferName,
-			ApplicationURL:  offer.offerURL,
+			CharmURL:        offer.charmURL,
 			Endpoints:       make(map[string]params.RemoteEndpoint),
-			Connections:     make(map[int]params.OfferConnectionStatus),
+			ConnectedCount:  offer.connectedCount,
 		}
 		for name, ep := range offer.Endpoints {
 			offerStatus.Endpoints[name] = params.RemoteEndpoint{
@@ -1003,37 +993,8 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 			}
 		}
 		offers[name] = offerStatus
-		offersByUUID[offer.OfferUUID] = offerStatus
-	}
-	for relId, conn := range context.offerConnections {
-		offer, ok := offersByUUID[conn.OfferUUID()]
-		if !ok {
-			continue
-		}
-		connStatus := context.processOfferConnection(conn, offer.ApplicationName)
-		offer.Connections[relId] = connStatus
-		offers[offer.OfferName] = offer
 	}
 	return offers
-}
-
-func (context *statusContext) processOfferConnection(conn *state.OfferConnection, appName string) (status params.OfferConnectionStatus) {
-	status.SourceModelTag = names.NewModelTag(conn.SourceModelUUID()).String()
-	status.Username = conn.UserName()
-	rel, ok := context.relationsById[conn.RelationId()]
-	if !ok {
-		status.Err = errors.NotFoundf("relation id %d", conn.RelationId())
-		return
-	}
-	ep, err := rel.Endpoint(appName)
-	if err != nil {
-		status.Err = err
-		return
-	}
-	status.Endpoint = ep.Name
-	// TODO(wallyworld)
-	status.Status = "active"
-	return status
 }
 
 func isColorStatus(code state.MeterStatusCode) bool {

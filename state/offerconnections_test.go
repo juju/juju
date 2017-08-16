@@ -41,7 +41,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
 
-	all, err := anotherState.AllOfferConnections()
+	all, err := anotherState.OfferConnections("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 1)
 	c.Assert(all[0].SourceModelUUID(), gc.Equals, testing.ModelTag.Id())

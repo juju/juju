@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -56,6 +57,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		accessPerms:       make(map[offerAccess]permission.Access),
 		spaces:            make(map[string]applicationoffers.Space),
+		relations:         make(map[string]crossmodel.Relation),
 	}
 	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
 }
@@ -93,12 +95,31 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
+			name:  "test",
 			charm: ch, curl: charm.MustParseURL("db2-2"),
 			bindings: map[string]string{"db2": "myspace"},
 		},
 	}
 	s.mockState.model = &mockModel{uuid: coretesting.ModelTag.Id(), name: "prod", owner: "fred"}
-	s.mockState.connStatus = &mockConnectionStatus{count: 5}
+	s.mockState.relations["hosted-db2:db wordpress:db"] = &mockRelation{
+		id: 1,
+		endpoint: state.Endpoint{
+			ApplicationName: "test",
+			Relation: charm.Relation{
+				Name:      "db",
+				Interface: "db2",
+				Role:      "provider",
+			},
+		},
+	}
+	s.mockState.connections = []applicationoffers.OfferConnection{
+		&mockOfferConnection{
+			username:    "fred",
+			modelUUID:   coretesting.ModelTag.Id(),
+			relationKey: "hosted-db2:db wordpress:db",
+			relationId:  1,
+		},
+	}
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",

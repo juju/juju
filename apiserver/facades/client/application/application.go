@@ -965,19 +965,28 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	return params.AddRelationResults{Endpoints: outEps}, nil
 }
 
-// DestroyRelation removes the relation between the specified endpoints.
-func (api *API) DestroyRelation(args params.DestroyRelation) error {
+// DestroyRelation removes the relation between the
+// specified endpoints or an id.
+func (api *API) DestroyRelation(args params.DestroyRelation) (err error) {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	eps, err := api.backend.InferEndpoints(args.Endpoints...)
-	if err != nil {
-		return err
+	var (
+		rel Relation
+		eps []state.Endpoint
+	)
+	if len(args.Endpoints) > 0 {
+		eps, err = api.backend.InferEndpoints(args.Endpoints...)
+		if err != nil {
+			return err
+		}
+		rel, err = api.backend.EndpointsRelation(eps...)
+	} else {
+		rel, err = api.backend.Relation(args.RelationId)
 	}
-	rel, err := api.backend.EndpointsRelation(eps...)
 	if err != nil {
 		return err
 	}

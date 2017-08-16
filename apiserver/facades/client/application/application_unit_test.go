@@ -250,6 +250,21 @@ func (s *ApplicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 	s.relation.CheckNoCalls(c)
 }
 
+func (s *ApplicationSuite) TestDestroyRelationId(c *gc.C) {
+	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
+	c.Assert(err, jc.ErrorIsNil)
+	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
+	s.backend.CheckCallNames(c, "ModelTag", "Relation")
+	s.backend.CheckCall(c, 1, "Relation", 123)
+	s.relation.CheckCallNames(c, "Destroy")
+}
+
+func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
+	s.backend.SetErrors(nil, errors.NotFoundf(`relation "123"`))
+	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
+	c.Assert(err, gc.ErrorMatches, `relation "123" not found`)
+}
+
 func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	results, err := s.api.DestroyApplication(params.Entities{
 		Entities: []params.Entity{

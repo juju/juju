@@ -329,6 +329,17 @@ func (m *mockBackend) EndpointsRelation(endpoints ...state.Endpoint) (applicatio
 	return nil, errors.NotFoundf("relation")
 }
 
+func (m *mockBackend) Relation(id int) (application.Relation, error) {
+	m.MethodCall(m, "Relation", id)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	if m.relation != nil {
+		return m.relation, nil
+	}
+	return nil, errors.NotFoundf("relation")
+}
+
 func (m *mockBackend) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
 	m.MethodCall(m, "UnitStorageAttachments", tag)
 	if err := m.NextErr(); err != nil {

@@ -22,13 +22,14 @@ type CloudV1 interface {
 	Cloud(args params.Entities) (params.CloudResults, error)
 	DefaultCloud() (params.StringResult, error)
 	UserCredentials(args params.UserClouds) (params.StringsResults, error)
-	UpdateCredentials(args params.UpdateCloudCredentials) (params.ErrorResults, error)
+	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
 	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
 	Credential(args params.Entities) (params.CloudCredentialResults, error)
 }
 
 type CloudV2 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
 }
 
 type CloudAPI struct {
@@ -193,8 +194,47 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 	return results, nil
 }
 
+// AddCredentials adds new credentials.
+// In contrast to UpdateCredentials() below, the new credentials can be
+// for a cloud that the controller does not manage (this is required
+// for CAAS models)
+func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
+
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Credentials)),
+	}
+
+	authFunc, err := api.getCredentialsAuthFunc()
+	if err != nil {
+		return results, err
+	}
+	for i, arg := range args.Credentials {
+		tag, err := names.ParseCloudCredentialTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
+		// to change this auth check.
+		if !authFunc(tag.Owner()) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		in := cloud.NewCredential(
+			cloud.AuthType(arg.Credential.AuthType),
+			arg.Credential.Attributes,
+		)
+		if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
+}
+
 // UpdateCredentials updates a set of cloud credentials.
-func (api *CloudAPI) UpdateCredentials(args params.UpdateCloudCredentials) (params.ErrorResults, error) {
+func (api *CloudAPI) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -337,6 +377,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 	return results, nil
 }
 
+// AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
 	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
 	if err != nil {

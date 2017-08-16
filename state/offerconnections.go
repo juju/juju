@@ -157,15 +157,15 @@ func (st *State) AddOfferConnection(args AddOfferConnectionParams) (_ *OfferConn
 	return &OfferConnection{doc: offerConnectionDoc}, nil
 }
 
-// AllOfferConnections returns all the offer connections in the model.
-func (st *State) AllOfferConnections() (conns []*OfferConnection, err error) {
+// OfferConnections returns the offer connections for an offer.
+func (st *State) OfferConnections(offerUUID string) (conns []*OfferConnection, err error) {
 	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
 	defer closer()
 
 	connDocs := []offerConnectionDoc{}
-	err = offerConnectionCollection.Find(bson.D{}).All(&connDocs)
+	err = offerConnectionCollection.Find(bson.D{{"offer-uuid", offerUUID}}).All(&connDocs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all offer connections")
+		return nil, errors.Errorf("cannot get the offer connections for %v", offerUUID)
 	}
 	for _, v := range connDocs {
 		conns = append(conns, newOfferConnection(st, &v))

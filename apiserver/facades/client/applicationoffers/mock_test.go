@@ -250,12 +250,40 @@ func (m *mockSubnet) AvailabilityZones() []string {
 	return m.zones
 }
 
-type mockConnectionStatus struct {
-	count int
+type mockRelation struct {
+	crossmodel.Relation
+	id       int
+	endpoint state.Endpoint
 }
 
-func (m *mockConnectionStatus) ConnectionCount() int {
-	return m.count
+func (m *mockRelation) Endpoint(appName string) (state.Endpoint, error) {
+	if m.endpoint.ApplicationName != appName {
+		return state.Endpoint{}, errors.NotFoundf("endpoint for %q", appName)
+	}
+	return m.endpoint, nil
+}
+
+type mockOfferConnection struct {
+	modelUUID   string
+	username    string
+	relationKey string
+	relationId  int
+}
+
+func (m *mockOfferConnection) SourceModelUUID() string {
+	return m.modelUUID
+}
+
+func (m *mockOfferConnection) UserName() string {
+	return m.username
+}
+
+func (m *mockOfferConnection) RelationKey() string {
+	return m.relationKey
+}
+
+func (m *mockOfferConnection) RelationId() int {
+	return m.relationId
 }
 
 type mockApplicationOffers struct {
@@ -288,7 +316,8 @@ type mockState struct {
 	applications      map[string]crossmodel.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
 	spaces            map[string]applicationoffers.Space
-	connStatus        applicationoffers.RemoteConnectionStatus
+	relations         map[string]crossmodel.Relation
+	connections       []applicationoffers.OfferConnection
 	accessPerms       map[offerAccess]permission.Access
 }
 
@@ -352,8 +381,16 @@ func (m *mockState) AllModelUUIDs() ([]string, error) {
 	return out, nil
 }
 
-func (m *mockState) RemoteConnectionStatus(offerName string) (applicationoffers.RemoteConnectionStatus, error) {
-	return m.connStatus, nil
+func (m *mockState) KeyRelation(key string) (crossmodel.Relation, error) {
+	rel, ok := m.relations[key]
+	if !ok {
+		return nil, errors.NotFoundf("relation key %v", key)
+	}
+	return rel, nil
+}
+
+func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.OfferConnection, error) {
+	return m.connections, nil
 }
 
 func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {

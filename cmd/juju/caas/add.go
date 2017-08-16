@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -32,8 +33,10 @@ type CloudMetadataStore interface {
 }
 
 // Implemented by cloudapi.Client
-type AddCloudAPI interface {
+type CloudAPI interface {
 	AddCloud(cloud.Cloud) error
+	AddCredential(tag string, credential cloud.Credential) error
+	Close() error
 }
 
 var usageAddCAASSummary = `
@@ -62,7 +65,7 @@ type AddCAASCommand struct {
 
 	cloudMetadataStore    CloudMetadataStore
 	apiRoot               api.Connection
-	newCloudAPI           func(base.APICallCloser) AddCloudAPI
+	newCloudAPI           func(base.APICallCloser) CloudAPI
 	newClientConfigReader func(string) (caascfg.ClientConfigFunc, error)
 }
 
@@ -70,7 +73,7 @@ type AddCAASCommand struct {
 func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
 	return &AddCAASCommand{
 		cloudMetadataStore: cloudMetadataStore,
-		newCloudAPI: func(caller base.APICallCloser) AddCloudAPI {
+		newCloudAPI: func(caller base.APICallCloser) CloudAPI {
 			return cloudapi.NewClient(caller)
 		},
 		newClientConfigReader: func(caasType string) (caascfg.ClientConfigFunc, error) {
@@ -78,7 +81,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
 		},
 	}
 }
-func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) AddCloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) *AddCAASCommand {
+func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) *AddCAASCommand {
 	return &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
 		apiRoot:               apiRoot,
@@ -173,6 +176,10 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	if err := c.addCredentialToController(cloudClient, defaultCredential, defaultContext.CredentialName); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -219,7 +226,7 @@ func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
 
-func addCloudToController(apiClient AddCloudAPI, newCloud cloud.Cloud) error {
+func addCloudToController(apiClient CloudAPI, newCloud cloud.Cloud) error {
 	err := apiClient.AddCloud(newCloud)
 	if err != nil {
 		return errors.Trace(err)
@@ -235,6 +242,21 @@ func addCredentialToLocal(cloudName string, newCredential cloud.Credential, cred
 	newCredentials.AuthCredentials[credentialName] = newCredential
 	err := store.UpdateCredential(cloudName, *newCredentials)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *AddCAASCommand) addCredentialToController(apiClient CloudAPI, newCredential cloud.Credential, credentialName string) error {
+	currentAccountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	cloudCredTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s",
+		c.caasName, currentAccountDetails.User, credentialName))
+
+	if err := apiClient.AddCredential(cloudCredTag.String(), newCredential); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

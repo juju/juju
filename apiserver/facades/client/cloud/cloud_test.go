@@ -152,7 +152,7 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
 	s.authorizer.Tag = names.NewUserTag("bruce")
-	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
+	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "machine-0",
 	}, {
 		Tag: "cloudcred-meep_admin_whatever",
@@ -195,7 +195,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
-	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
+	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{
 			AuthType:   "oauth1",
@@ -307,6 +307,25 @@ func (s *cloudSuite) TestAddCloudInV2(c *gc.C) {
 		Endpoint:  "fake-endpoint",
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	})
+}
+
+func (s *cloudSuite) TestAddCredentialInV2(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	paramsCreds := params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+		Tag: "cloudcred-fake_fake_fake",
+		Credential: params.CloudCredential{
+			AuthType:   "userpass",
+			Attributes: map[string]string{},
+		}},
+	}}
+	results, err := s.apiv2.AddCredentials(paramsCreds)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential")
+	s.backend.CheckCall(c, 1, "UpdateCloudCredential",
+		names.NewCloudCredentialTag("fake/fake/fake"),
+		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{}))
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
 type mockBackend struct {

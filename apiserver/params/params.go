@@ -124,9 +124,11 @@ type AddRelationResults struct {
 }
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.
-// The endpoints specified are unordered.
+// A relation is identified by either endpoints or id.
+// The endpoints, if specified, are unordered.
 type DestroyRelation struct {
-	Endpoints []string `json:"endpoints"`
+	Endpoints  []string `json:"endpoints,omitempty"`
+	RelationId int      `json:"relation-id"`
 }
 
 // AddCharm holds the arguments for making an AddCharm API call.

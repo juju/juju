@@ -155,10 +155,11 @@ type offerStatusNoMarshal offerStatus
 
 type offerStatus struct {
 	Err             error                     `json:"-" yaml:",omitempty"`
-	ApplicationURL  string                    `json:"application-url" yaml:"application-url"`
-	ApplicationName string                    `json:"application-name" yaml:"application-name"`
+	OfferName       string                    `json:"-" yaml:",omitempty"`
+	ApplicationName string                    `json:"application" yaml:"application"`
+	CharmURL        string                    `json:"charm,omitempty" yaml:"charm,omitempty"`
+	ConnectedCount  int                       `json:"connected-count,omitempty" yaml:"connected-count,omitempty"`
 	Endpoints       map[string]remoteEndpoint `json:"endpoints" yaml:"endpoints"`
-	Connections     []offerConnectionStatus   `json:"connections" yaml:"connections"`
 }
 
 func (s offerStatus) MarshalJSON() ([]byte, error) {
@@ -173,15 +174,6 @@ func (s offerStatus) MarshalYAML() (interface{}, error) {
 		return errorStatus{s.Err.Error()}, nil
 	}
 	return offerStatusNoMarshal(s), nil
-}
-
-type offerConnectionStatus struct {
-	Err             error  `json:"-" yaml:",omitempty"`
-	SourceModelUUID string `json:"source-model-uuid" yaml:"source-model-uuid"`
-	Username        string `json:"username" yaml:"username"`
-	RelationId      int    `json:"relation-id" yaml:"relation-id"`
-	Endpoint        string `json:"endpoint" yaml:"endpoint"`
-	Status          string `json:"status" yaml:"status"`
 }
 
 type meterStatus struct {

@@ -173,16 +173,17 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "UpdateCredentials")
 			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			c.Assert(a, jc.DeepEquals, params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
-				Tag: "cloudcred-foo_bob_bar",
-				Credential: params.CloudCredential{
-					AuthType: "userpass",
-					Attributes: map[string]string{
-						"username": "admin",
-						"password": "adm1n",
+			c.Assert(a, jc.DeepEquals, params.TaggedCredentials{
+				Credentials: []params.TaggedCredential{{
+					Tag: "cloudcred-foo_bob_bar",
+					Credential: params.CloudCredential{
+						AuthType: "userpass",
+						Attributes: map[string]string{
+							"username": "admin",
+							"password": "adm1n",
+						},
 					},
-				},
-			}}})
+				}}})
 			*result.(*params.ErrorResults) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
@@ -340,6 +341,59 @@ func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *cloudSuite) TestAddCredentialNotInV1API(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return nil
+			},
+		),
+		BestVersion: 1,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCredential("cloudcred-acloud-user-credname",
+		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{}))
+
+	c.Assert(err, gc.ErrorMatches, "AddCredential\\(\\).* not implemented")
+}
+
+func (s *cloudSuite) TestAddCredentialV2API(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "AddCredentials")
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				*result.(*params.ErrorResults) = params.ErrorResults{
+					Results: []params.ErrorResult{{}},
+				}
+
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCredential("cloudcred-acloud-user-credname",
+		cloud.NewCredential(cloud.UserPassAuthType,
+			map[string]string{}))
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)

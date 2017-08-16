@@ -77,10 +77,10 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]cro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return convertListResultsToModel(applicationOffers.Results), nil
+	return convertListResultsToModel(applicationOffers.Results)
 }
 
-func convertListResultsToModel(items []params.ApplicationOfferDetails) []crossmodel.ApplicationOfferDetailsResult {
+func convertListResultsToModel(items []params.ApplicationOfferDetails) ([]crossmodel.ApplicationOfferDetailsResult, error) {
 	result := make([]crossmodel.ApplicationOfferDetailsResult, len(items))
 	for i, one := range items {
 		eps := make([]charm.Relation, len(one.Endpoints))
@@ -94,13 +94,25 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) []crossmo
 		result[i].Result = &crossmodel.ApplicationOfferDetails{
 			ApplicationName: one.ApplicationName,
 			OfferName:       one.OfferName,
-			CharmName:       one.CharmName,
-			ConnectedCount:  one.ConnectedCount,
+			CharmURL:        one.CharmURL,
 			OfferURL:        one.OfferURL,
 			Endpoints:       eps,
 		}
+		for _, oc := range one.Connections {
+			modelTag, err := names.ParseModelTag(oc.SourceModelTag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			result[i].Result.Connections = append(result[i].Result.Connections, crossmodel.OfferConnection{
+				SourceModelUUID: modelTag.Id(),
+				Username:        oc.Username,
+				Endpoint:        oc.Endpoint,
+				RelationId:      oc.RelationId,
+				Status:          oc.Status,
+			})
+		}
 	}
-	return result
+	return result, nil
 }
 
 // GrantOffer grants a user access to the specified offers.

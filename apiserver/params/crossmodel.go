@@ -55,9 +55,18 @@ type ApplicationOffer struct {
 // including details about how it has been deployed.
 type ApplicationOfferDetails struct {
 	ApplicationOffer
-	ApplicationName string `json:"application-name"`
-	CharmName       string `json:"charm-name"`
-	ConnectedCount  int    `json:"connected-count"`
+	ApplicationName string            `json:"application-name"`
+	CharmURL        string            `json:"charm-url"`
+	Connections     []OfferConnection `json:"connections,omitempty"`
+}
+
+// OfferConnection holds details about a connection to an offer.
+type OfferConnection struct {
+	SourceModelTag string `json:"source-model-tag"`
+	RelationId     int    `json:"relation-id"`
+	Username       string `json:"username"`
+	Endpoint       string `json:"endpoint"`
+	Status         string `json:"status"`
 }
 
 // ListApplicationOffersResults is a result of listing application offers.

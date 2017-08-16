@@ -13,11 +13,11 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -183,36 +183,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	p()
 	printMachines(tw, fs.Machines)
 
-	connCount := 0
-	for _, offer := range fs.Offers {
-		connCount += len(offer.Connections)
-	}
-	if connCount > 0 {
-		outputHeaders("Offer", "User", "Relation id", "Status", "Endpoint", "Interface", "Role")
-		for _, offerName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Offers)) {
-			offer := fs.Offers[offerName]
-			// Record the details of each offer endpoint keyed on name
-			// but with the alias recorded against the endpoint since
-			// that's what we print.
-			endpoints := make(map[string]remoteEndpoint)
-			for alias, ep := range offer.Endpoints {
-				aliasedEp := ep
-				aliasedEp.Name = alias
-				endpoints[ep.Name] = ep
-			}
-			for _, conn := range offer.Connections {
-				w.Print(offerName)
-				if conn.Err != nil {
-					w.Printf("(%s)\n", conn.Err)
-					continue
-				}
-				w.Print(conn.Username, conn.RelationId)
-				w.PrintColor(relationStatusColor(relation.Status(conn.Status)), conn.Status)
-				connEp := endpoints[conn.Endpoint]
-				w.Println(connEp.Name, connEp.Interface, connEp.Role)
-			}
-		}
-		tw.Flush()
+	if err := printOffers(tw, fs.Offers); err != nil {
+		w.Println(err.Error())
 	}
 
 	if len(fs.Relations) > 0 {
@@ -233,13 +205,46 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	return nil
 }
 
-func relationStatusColor(status relation.Status) *ansiterm.Context {
-	switch status {
-	case relation.Active:
-		return output.GoodHighlight
-	case relation.Revoked:
-		return output.WarningHighlight
+type offerItems []offerStatus
+
+// printOffers prints a tabular summary of the offers.
+func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
+	if len(offers) == 0 {
+		return nil
 	}
+	w := output.Wrapper{tw}
+	w.Println()
+
+	w.Println("Offer", "Application", "Charm", "Rev", "Connected", "Endpoint", "Interface", "Role")
+	for _, offerName := range utils.SortStringsNaturally(stringKeysFromMap(offers)) {
+		offer := offers[offerName]
+		// Sort endpoints alphabetically.
+		endpoints := []string{}
+		for endpoint, _ := range offer.Endpoints {
+			endpoints = append(endpoints, endpoint)
+		}
+		sort.Strings(endpoints)
+
+		for i, endpointName := range endpoints {
+
+			endpoint := offer.Endpoints[endpointName]
+			if i == 0 {
+				// As there is some information about offer and its endpoints,
+				// only display offer information once when the first endpoint is displayed.
+				curl, err := charm.ParseURL(offer.CharmURL)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				w.Println(offerName, offer.ApplicationName, curl.Name, fmt.Sprint(curl.Revision),
+					fmt.Sprint(offer.ConnectedCount), endpointName, endpoint.Interface, endpoint.Role)
+				continue
+			}
+			// Subsequent lines only need to display endpoint information.
+			// This will display less noise.
+			w.Println("", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
+		}
+	}
+	tw.Flush()
 	return nil
 }
 
