@@ -1109,7 +1109,8 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	return relations, nil
 }
 
-func unitApp(unitName string) string {
+// unitAppName returns the name of the Application, given a Units name.
+func unitAppName(unitName string) string {
 	unitParts := strings.Split(unitName, "/")
 	return unitParts[0]
 }
@@ -1118,11 +1119,11 @@ func extractPrincipalUnitApp(scopeKeyParts []string) (string, bool) {
 	if len(scopeKeyParts) < 5 {
 		return "", false
 	}
-	return unitApp(scopeKeyParts[2]), true
+	return unitAppName(scopeKeyParts[2]), true
 }
 
 func otherEndIsSubordinate(relation *relationUnitCountInfo, unitName, modelUUID string, applications map[string]bool) (bool, error) {
-	app, err := relation.otherEnd(unitApp(unitName))
+	app, err := relation.otherEnd(unitAppName(unitName))
 	if err != nil {
 		return false, errors.Trace(err)
 	}

@@ -96,6 +96,7 @@ const (
 	CodeDischargeRequired         = "macaroon discharge required"
 	CodeRedirect                  = "redirection required"
 	CodeRetry                     = "retry"
+	CodeIncompatibleSeries        = "incompatible series"
 )
 
 // ErrCode returns the error code associated with
@@ -248,4 +249,8 @@ func IsMethodNotAllowed(err error) bool {
 
 func IsRedirect(err error) bool {
 	return ErrCode(err) == CodeRedirect
+}
+
+func IsCodeIncompatibleSeries(err error) bool {
+	return ErrCode(err) == CodeIncompatibleSeries
 }

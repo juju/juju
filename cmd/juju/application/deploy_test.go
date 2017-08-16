@@ -216,7 +216,7 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
 	_, err := runDeploy(c, path, "--series", "quantal")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty`)
+	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty,xenial,yakkety`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {

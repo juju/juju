@@ -1,0 +1,17 @@
+name: multi-series-subordinate
+summary: "That's a dummy subordinate charm with multi-series."
+description: |
+    This is a longer description which
+    potentially contains multiple lines.
+subordinate: true
+series:
+    - precise
+    - trusty
+    - yakkety
+provides:
+    multi-client:
+       interface: logging
+requires:
+    multi-directory:
+       interface: logging
+       scope: container

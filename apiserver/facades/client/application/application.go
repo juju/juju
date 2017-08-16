@@ -7,6 +7,7 @@
 package application
 
 import (
+	"fmt"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
@@ -33,8 +34,14 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv4 provides the Application API facade for versions 1-4.
+type APIv4 struct {
+	*API
+}
+
 // API implements the application interface and is the concrete
-// implementation of the api end point.
+// implementation of the api end point. API provides the
+// Application API facades for versions 1-4.
 type API struct {
 	backend    Backend
 	authorizer facade.Authorizer
@@ -50,6 +57,16 @@ type API struct {
 
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 	getEnviron            stateenvirons.NewEnvironFunc
+}
+
+// NewFacadeV4 provides the signature required for facade registration
+// for versions 1-4.
+func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
+	api, err := NewFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv4{api}, nil
 }
 
 // NewFacade provides the signature required for facade registration.
@@ -339,6 +356,48 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 		return app.SetConstraints(*args.Constraints)
 	}
 	return nil
+}
+
+// UpdateApplicationSeries updates the application series. Series for
+// subordinates updated too.
+func (api *API) UpdateApplicationSeries(args params.ApplicationUpdateSeriesArgs) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := api.updateOneApplicationSeries(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *API) updateOneApplicationSeries(arg params.ApplicationUpdateSeriesArg) error {
+	if arg.Series == "" {
+		return &params.Error{
+			Message: "series missing from args",
+			Code:    params.CodeBadRequest,
+		}
+	}
+	app, err := api.backend.Application(arg.ApplicationName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !app.IsPrincipal() {
+		return &params.Error{
+			Message: fmt.Sprintf("%q is a subordinate application, update-series not supported", arg.ApplicationName),
+			Code:    params.CodeNotSupported,
+		}
+	}
+	if arg.Series == app.Series() {
+		return nil // no-op
+	}
+	return app.UpdateApplicationSeries(arg.Series, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.

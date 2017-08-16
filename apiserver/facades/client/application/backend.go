@@ -71,6 +71,7 @@ type Application interface {
 	SetExposed() error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
+	UpdateApplicationSeries(string, bool) error
 	UpdateConfigSettings(charm.Settings) error
 }
 

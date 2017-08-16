@@ -921,6 +921,276 @@ func (s *ApplicationSuite) TestUpdateConfigSettings(c *gc.C) {
 	}
 }
 
+func (s *ApplicationSuite) TestUpdateApplicationSeries(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+	err := app.UpdateApplicationSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "trusty")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesToStart(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+	err := app.UpdateApplicationSeries("precise", false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "precise")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				unit, err := app.AddUnit(state.AddUnitParams{})
+				c.Assert(err, jc.ErrorIsNil)
+				err = unit.AssignToNewMachine()
+				c.Assert(err, jc.ErrorIsNil)
+
+				ops := []txn.Op{{
+					C:      state.ApplicationsC,
+					Id:     state.DocID(s.State, "multi-series"),
+					Update: bson.D{{"$set", bson.D{{"series", "trusty"}}}},
+				}}
+				err = state.RunTransaction(s.State, ops)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+			After: func() {
+				assertApplicationSeriesUpdate(c, app, "trusty")
+			},
+		},
+	).Check()
+
+	err := app.UpdateApplicationSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "trusty")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
+				cfg := state.SetCharmConfig{Charm: v2}
+				err := app.SetCharm(cfg)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	// Trusty is listed in only version 1 of the charm.
+	err := app.UpdateApplicationSeries("trusty", false)
+	c.Assert(err, gc.ErrorMatches, "cannot update series for \"multi-series\" to trusty: series \"trusty\" not supported by charm, supported series are: precise,xenial")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
+				cfg := state.SetCharmConfig{Charm: v2}
+				err := app.SetCharm(cfg)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	// Xenial is listed in both revisions of the charm.
+	err := app.UpdateApplicationSeries("xenial", false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "xenial")
+}
+
+func (s *ApplicationSuite) setupMultiSeriesUnitWithSubordinate(c *gc.C) (*state.Application, *state.Application) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+	subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
+	subApp := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate", subCh)
+
+	eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = subApp.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return app, subApp
+}
+
+func assertApplicationSeriesUpdate(c *gc.C, a *state.Application, series string) {
+	err := a.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a.Series(), gc.Equals, series)
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinate(c *gc.C) {
+	app, subApp := s.setupMultiSeriesUnitWithSubordinate(c)
+	err := app.UpdateApplicationSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "trusty")
+	assertApplicationSeriesUpdate(c, subApp, "trusty")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.C) {
+	app, subApp := s.setupMultiSeriesUnitWithSubordinate(c)
+	err := app.UpdateApplicationSeries("xenial", false)
+	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	assertApplicationSeriesUpdate(c, app, "precise")
+	assertApplicationSeriesUpdate(c, subApp, "precise")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateForce(c *gc.C) {
+	app, subApp := s.setupMultiSeriesUnitWithSubordinate(c)
+	err := app.UpdateApplicationSeries("xenial", true)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "xenial")
+	assertApplicationSeriesUpdate(c, subApp, "xenial")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesUnitCountChange(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(units), gc.Equals, 0)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				// Add a subordinate and unit
+				subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
+				_ = state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate", subCh)
+
+				eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := s.State.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+
+				unit, err := app.AddUnit(state.AddUnitParams{})
+				c.Assert(err, jc.ErrorIsNil)
+				err = unit.AssignToNewMachine()
+				c.Assert(err, jc.ErrorIsNil)
+
+				ru, err := rel.Unit(unit)
+				c.Assert(err, jc.ErrorIsNil)
+				err = ru.EnterScope(nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	err = app.UpdateApplicationSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "trusty")
+
+	units, err = app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(units), gc.Equals, 1)
+	subApp, err := s.State.Application("multi-series-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, subApp, "trusty")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinate(c *gc.C) {
+	app, subApp := s.setupMultiSeriesUnitWithSubordinate(c)
+	unit, err := s.State.Unit("multi-series/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.SubordinateNames(), gc.DeepEquals, []string{"multi-series-subordinate/0"})
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				// Add 2nd subordinate
+				subCh2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate2")
+				subApp2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate2", subCh2)
+				c.Assert(subApp2.Series(), gc.Equals, "precise")
+
+				eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate2")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := s.State.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = unit.Refresh()
+				c.Assert(err, jc.ErrorIsNil)
+				relUnit, err := rel.Unit(unit)
+				c.Assert(err, jc.ErrorIsNil)
+				err = relUnit.EnterScope(nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	err = app.UpdateApplicationSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "trusty")
+	assertApplicationSeriesUpdate(c, subApp, "trusty")
+
+	subApp2, err := s.State.Application("multi-series-subordinate2")
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, subApp2, "trusty")
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompatible(c *gc.C) {
+	app, subApp := s.setupMultiSeriesUnitWithSubordinate(c)
+	unit, err := s.State.Unit("multi-series/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.SubordinateNames(), gc.DeepEquals, []string{"multi-series-subordinate/0"})
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				// Add 2nd subordinate
+				subCh2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate2")
+				subApp2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate2", subCh2)
+				c.Assert(subApp2.Series(), gc.Equals, "precise")
+
+				eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate2")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := s.State.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = unit.Refresh()
+				c.Assert(err, jc.ErrorIsNil)
+				relUnit, err := rel.Unit(unit)
+				c.Assert(err, jc.ErrorIsNil)
+				err = relUnit.EnterScope(nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	err = app.UpdateApplicationSeries("yakkety", false)
+	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	//c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, app, "precise")
+	assertApplicationSeriesUpdate(c, subApp, "precise")
+
+	subApp2, err := s.State.Application("multi-series-subordinate2")
+	c.Assert(err, jc.ErrorIsNil)
+	assertApplicationSeriesUpdate(c, subApp2, "precise")
+}
+
 func assertNoSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm) {
 	_, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)

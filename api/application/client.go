@@ -241,6 +241,24 @@ func (c *Client) Update(args params.ApplicationUpdate) error {
 	return c.facade.FacadeCall("Update", args, nil)
 }
 
+// UpdateApplicationSeries updates the application series in the db.
+func (c *Client) UpdateApplicationSeries(appName, series string, force bool) error {
+	args := params.ApplicationUpdateSeriesArgs{
+		Args: []params.ApplicationUpdateSeriesArg{{
+			ApplicationName: appName,
+			Force:           force,
+			Series:          series,
+		}},
+	}
+
+	results := new(params.ErrorResults)
+	err := c.facade.FacadeCall("UpdateApplicationSeries", args, results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
 // AddUnitsParams contains parameters for the AddUnits API method.
 type AddUnitsParams struct {
 	// ApplicationName is the name of the application to which units

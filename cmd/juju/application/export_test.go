@@ -71,6 +71,15 @@ func NewConsumeCommandForTest(
 	return modelcmd.Wrap(c)
 }
 
+func NewUpdateSeriesCommandForTest(
+	api updateSeriesAPI,
+) modelcmd.ModelCommand {
+	cmd := &updateSeriesCommand{
+		updateSeriesClient: api,
+	}
+	return modelcmd.Wrap(cmd)
+}
+
 type Patcher interface {
 	PatchValue(dest, value interface{})
 }

@@ -5,9 +5,7 @@ description: |
     potentially contains multiple lines.
 series:
     - precise
-    - trusty
     - xenial
-    - yakkety
 provides:
     multi-directory:
            interface: logging
