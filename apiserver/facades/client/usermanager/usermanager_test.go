@@ -883,7 +883,7 @@ func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 }
 
-func (s *userManagerSuite) TestResetPasswordForSelf(c *gc.C) {
+func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 	alex, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
@@ -903,17 +903,36 @@ func (s *userManagerSuite) TestResetPasswordForSelf(c *gc.C) {
 func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
+	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
-	_, err = usermanager.ResetPassword(args)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: alex.Tag().String()},
+		{Tag: barb.Tag().String()},
+	}}
+	results, err := usermanager.ResetPassword(args)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
+	err = barb.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
+		params.AddUserResult{
+			Tag:       alex.Tag().String(),
+			SecretKey: alex.SecretKey(),
+		},
+		params.AddUserResult{
+			Tag:   barb.Tag().String(),
+			Error: common.ServerError(common.ErrPerm),
+		},
+	})
+
+	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
+	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
@@ -960,4 +979,10 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 		},
 	})
 	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestResetPasswordEmpty(c *gc.C) {
+	results, err := s.usermanager.ResetPassword(params.Entities{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 0)
 }

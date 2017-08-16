@@ -402,9 +402,6 @@ func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserRe
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if !isSuperUser {
-		return result, common.ErrPerm
-	}
 
 	result.Results = make([]params.AddUserResult, len(args.Entities))
 	for i, arg := range args.Entities {
@@ -414,12 +411,16 @@ func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserRe
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		key, err := user.ResetPassword()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+		if isSuperUser || api.apiUser == user.Tag() {
+			key, err := user.ResetPassword()
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			result.Results[i].SecretKey = key
+		} else {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 		}
-		result.Results[i].SecretKey = key
 	}
 	return result, nil
 }
