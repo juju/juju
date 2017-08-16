@@ -191,8 +191,8 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 	return results, nil
 }
 
-// AddCredential adds a new credential.
-// In contrast to UpdateCredentials() below, the new credential can be
+// AddCredentials adds new credentials.
+// In contrast to UpdateCredentials() below, the new credentials can be
 // for a cloud that the controller does not manage (this is required
 // for CAAS models)
 func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
