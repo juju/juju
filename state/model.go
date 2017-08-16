@@ -882,8 +882,7 @@ func (m *Model) Destroy(args DestroyModelParams) (err error) {
 
 		return ops, nil
 	}
-
-	return m.st.db().RunFor(m.UUID(), buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // errModelNotAlive is a signal emitted from destroyOps to indicate
