@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -214,4 +215,58 @@ func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *gc.C) {
 func (s *usermanagerSuite) TestSetUserPasswordBadName(c *gc.C) {
 	err := s.usermanager.SetPassword("not!good", "new-password")
 	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
+}
+
+func (s *usermanagerSuite) TestResetPasswordResponseError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("boom")
+	})
+	client := usermanager.NewClient(apiCaller)
+	_, err := client.ResetPassword("foobar")
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *usermanagerSuite) TestResetPassword(c *gc.C) {
+	key := []byte("no cats or dragons here")
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "UserManager")
+		c.Assert(request, gc.Equals, "ResetPassword")
+		args, ok := arg.(params.Entities)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args, gc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "user-foobar"}},
+		})
+
+		if results, k := result.(*params.AddUserResults); k {
+			keys := []params.AddUserResult{
+				{
+					Tag:       "user-foobar",
+					SecretKey: key,
+				},
+			}
+			results.Results = keys
+		}
+		return nil
+	})
+	client := usermanager.NewClient(apiCaller)
+	result, err := client.ResetPassword("foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, key)
+}
+
+func (s *usermanagerSuite) TestResetPasswordInvalidUsername(c *gc.C) {
+	_, err := s.usermanager.ResetPassword("not/valid")
+	c.Assert(err, gc.ErrorMatches, `invalid user name "not/valid"`)
+}
+
+func (s *usermanagerSuite) TestResetPasswordResultCount(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if results, k := result.(*params.AddUserResults); k {
+			results.Results = make([]params.AddUserResult, 2)
+		}
+		return nil
+	})
+	client := usermanager.NewClient(apiCaller)
+	_, err := client.ResetPassword("foobar")
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }

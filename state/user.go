@@ -552,8 +552,8 @@ func (u *User) ResetPassword() ([]byte, error) {
 		if u.IsDisabled() {
 			return nil, fmt.Errorf("user deactivated")
 		}
-
-		key, err := generateSecretKey()
+		var err error
+		key, err = generateSecretKey()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

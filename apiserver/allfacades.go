@@ -233,7 +233,7 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 6, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
-	reg("UserManager", 1, usermanager.NewUserManagerAPI)
+	reg("UserManager", 2, usermanager.NewUserManagerAPI)
 
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
