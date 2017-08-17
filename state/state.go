@@ -906,7 +906,11 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	case names.RelationTag:
 		return st.KeyRelation(id)
 	case names.ActionTag:
-		return st.ActionByTag(tag)
+		env, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return env.ActionByTag(tag)
 	case names.CharmTag:
 		if url, err := charm.ParseURL(id); err != nil {
 			logger.Warningf("Parsing charm URL %q failed: %v", id, err)

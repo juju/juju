@@ -34,6 +34,7 @@ type ActionSuite struct {
 	unit2             *state.Unit
 	charmlessUnit     *state.Unit
 	actionlessUnit    *state.Unit
+	model             *state.Model
 }
 
 var _ = gc.Suite(&ActionSuite{})
@@ -79,6 +80,9 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.actionlessUnit.Series(), gc.Equals, "quantal")
 
 	err = s.actionlessUnit.SetCharmURL(actionlessSURL)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -153,8 +157,12 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 			ch, _ := s.State.Charm(curl)
 			schema := ch.Actions()
 			c.Logf("Schema for unit %q:\n%#v", t.whichUnit.Name(), schema)
+
 			// verify we can get it back out by Id
-			action, err := s.State.Action(a.Id())
+			model, err := s.State.Model()
+			c.Assert(err, jc.ErrorIsNil)
+
+			action, err := model.Action(a.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(action, gc.NotNil)
 			c.Check(action.Id(), gc.Equals, a.Id())
@@ -301,7 +309,7 @@ func (s *ActionSuite) TestEnqueueActionRequiresName(c *gc.C) {
 	name := ""
 
 	// verify can not enqueue an Action without a name
-	_, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
+	_, err := s.model.EnqueueAction(s.unit.Tag(), name, nil)
 	c.Assert(err, gc.ErrorMatches, "action name required")
 }
 
@@ -325,12 +333,15 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// verify we can Fail one, retrieve the other, and they're not mixed up
-	action1, err := s.State.Action(a1.Id())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	action1, err := model.Action(a1.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = action1.Finish(state.ActionResults{Status: state.ActionFailed})
 	c.Assert(err, jc.ErrorIsNil)
 
-	action2, err := s.State.Action(a2.Id())
+	action2, err := model.Action(a2.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action2.Parameters(), jc.DeepEquals, params2)
 
@@ -389,7 +400,10 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	a, err := unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	action, err := s.State.Action(a.Id())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	action, err := model.Action(a.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure no action results for this action
@@ -436,7 +450,10 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	a, err := unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	action, err := s.State.Action(a.Id())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	action, err := model.Action(a.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure no action results for this action
@@ -484,11 +501,11 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	}
 
 	for _, action := range actions {
-		_, err := s.State.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	tags := s.State.FindActionTagsByPrefix(prefix)
+	tags := s.model.FindActionTagsByPrefix(prefix)
 
 	c.Assert(len(tags), gc.Equals, len(actions))
 	for i, tag := range tags {
@@ -510,11 +527,11 @@ func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
 	}
 
 	for _, action := range actions {
-		_, err := s.State.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	results, err := s.State.FindActionsByName("action-1")
+	results, err := s.model.FindActionsByName("action-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(results), gc.Equals, 2)
@@ -765,8 +782,11 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	fa3, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// fail the middle one
-	action, err := s.State.Action(fa2.Id())
+	action, err := model.Action(fa2.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: "die scum"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -820,7 +840,10 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 		a, err := tcase.receiver.AddAction(tcase.name, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		action, err := s.State.Action(a.Id())
+		model, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
+
+		action, err := model.Action(a.Id())
 		c.Assert(err, jc.ErrorIsNil)
 
 		_, err = action.Finish(state.ActionResults{Status: tcase.status})

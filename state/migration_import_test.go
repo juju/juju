@@ -981,15 +981,19 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+
+	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, newSt := s.importModel(c)
+	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModel, newState := s.importModel(c)
 	defer func() {
-		c.Assert(newSt.Close(), jc.ErrorIsNil)
+		c.Assert(newState.Close(), jc.ErrorIsNil)
 	}()
 
-	actions, _ := newSt.AllActions()
+	actions, _ := newModel.AllActions()
 	c.Assert(actions, gc.HasLen, 1)
 	action := actions[0]
 	c.Check(action.Receiver(), gc.Equals, machine.Id())

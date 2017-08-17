@@ -1800,7 +1800,13 @@ func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action
 	if err != nil {
 		return nil, err
 	}
-	return m.st.EnqueueAction(m.Tag(), name, payloadWithDefaults)
+
+	model, err := m.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return model.EnqueueAction(m.Tag(), name, payloadWithDefaults)
 }
 
 // CancelAction is part of the ActionReceiver interface.

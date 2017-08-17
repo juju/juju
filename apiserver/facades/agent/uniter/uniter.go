@@ -938,7 +938,12 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionResults, error) 
 		return params.ActionResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
+	m, err := u.st.Model()
+	if err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
 	return common.Actions(args, actionFn), nil
 }
 
@@ -949,7 +954,12 @@ func (u *UniterAPI) BeginActions(args params.Entities) (params.ErrorResults, err
 		return params.ErrorResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
+	m, err := u.st.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
 	return common.BeginActions(args, actionFn), nil
 }
 
@@ -960,7 +970,12 @@ func (u *UniterAPI) FinishActions(args params.ActionExecutionResults) (params.Er
 		return params.ErrorResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
+	m, err := u.st.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
 	return common.FinishActions(args, actionFn), nil
 }
 

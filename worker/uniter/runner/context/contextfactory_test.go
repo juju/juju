@@ -62,6 +62,12 @@ func (s *ContextFactorySuite) setUpCacheMethods(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ContextFactorySuite) Model(c *gc.C) *state.Model {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	return m
+}
+
 func (s *ContextFactorySuite) updateCache(relId int, unitName string, settings params.Settings) {
 	context.UpdateCachedSettings(s.factory, relId, unitName, settings)
 }
@@ -141,7 +147,7 @@ func (s *ContextFactorySuite) TestNewCommandContextLeadershipContext(c *gc.C) {
 func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
 	s.testLeadershipContextWiring(c, func() *context.HookContext {
 		s.SetCharm(c, "dummy")
-		action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
+		action, err := s.Model(c).EnqueueAction(s.unit.Tag(), "snapshot", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		actionData := &context.ActionData{
@@ -237,7 +243,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 
 func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
+	action, err := s.Model(c).EnqueueAction(s.unit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionData := &context.ActionData{

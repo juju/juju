@@ -89,7 +89,11 @@ func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 			currentResult.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		action, err := a.state.ActionByTag(actionTag)
+		m, err := a.state.Model()
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+		action, err := m.ActionByTag(actionTag)
 		if err != nil {
 			currentResult.Error = common.ServerError(common.ErrBadId)
 			continue
@@ -113,7 +117,11 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 
 	response := params.FindTagsResults{Matches: make(map[string][]params.Entity)}
 	for _, prefix := range arg.Prefixes {
-		found := a.state.FindActionTagsByPrefix(prefix)
+		m, err := a.state.Model()
+		if err != nil {
+			return params.FindTagsResults{}, errors.Trace(err)
+		}
+		found := m.FindActionTagsByPrefix(prefix)
 		matches := make([]params.Entity, len(found))
 		for i, tag := range found {
 			matches[i] = params.Entity{Tag: tag.String()}
@@ -133,7 +141,12 @@ func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.Ac
 		currentResult := &response.Actions[i]
 		currentResult.Name = name
 
-		actions, err := a.state.FindActionsByName(name)
+		m, err := a.state.Model()
+		if err != nil {
+			return params.ActionsByNames{}, errors.Trace(err)
+		}
+
+		actions, err := m.FindActionsByName(name)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue
@@ -253,7 +266,13 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 			currentResult.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		action, err := a.state.ActionByTag(actionTag)
+
+		m, err := a.state.Model()
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+
+		action, err := m.ActionByTag(actionTag)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue
