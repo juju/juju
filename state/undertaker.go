@@ -48,6 +48,11 @@ func (st *State) ProcessDyingModel() (err error) {
 				"life":          Dead,
 				"time-of-death": st.NowToTheSecond(),
 			}},
+		}, {
+			// Cleanup the owner:envName unique key.
+			C:      usermodelnameC,
+			Id:     model.uniqueIndexID(),
+			Remove: true,
 		}}
 		return ops, nil
 	}

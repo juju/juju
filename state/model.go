@@ -835,6 +835,10 @@ func (m *Model) isControllerModel() bool {
 	return m.globalState.controllerModelTag.Id() == m.doc.UUID
 }
 
+func (m *Model) uniqueIndexID() string {
+	return userModelNameIndex(m.doc.Owner, m.doc.Name)
+}
+
 // Destroy sets the models's lifecycle to Dying, preventing
 // addition of services or machines to state. If called on
 // an empty hosted model, the lifecycle will be advanced
@@ -1004,18 +1008,25 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		{"life", nextLife},
 		{"time-of-dying", timeOfDying},
 	}
+	var ops []txn.Op
 	if nextLife == Dead {
 		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
 			"time-of-death", timeOfDying,
 		})
+		ops = append(ops, txn.Op{
+			// Cleanup the owner:envName unique key.
+			C:      usermodelnameC,
+			Id:     m.uniqueIndexID(),
+			Remove: true,
+		})
 	}
 
-	ops := []txn.Op{{
+	ops = append(ops, txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", modelUpdateValues}},
-	}}
+	})
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op

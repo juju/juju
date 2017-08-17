@@ -346,6 +346,18 @@ func UserModelNameIndex(username, modelName string) string {
 	return userModelNameIndex(username, modelName)
 }
 
+func (m *Model) UniqueIndexExists() bool {
+	db, dbCloser := m.modelDatabase()
+	defer dbCloser()
+	coll, closer := db.GetCollection(usermodelnameC)
+	defer closer()
+
+	var doc bson.M
+	err := coll.FindId(m.uniqueIndexID()).One(&doc)
+
+	return err == nil
+}
+
 func DocID(st *State, id string) string {
 	return st.docID(id)
 }
@@ -399,13 +411,17 @@ func SequenceEnsure(st *State, name string, nextVal int) error {
 	return updater.ensure(nextVal)
 }
 
-func SetModelLifeDead(st *State, modelUUID string) error {
+func (m *Model) SetDead() error {
 	ops := []txn.Op{{
 		C:      modelsC,
-		Id:     modelUUID,
+		Id:     m.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}, {
+		C:      usermodelnameC,
+		Id:     m.uniqueIndexID(),
+		Remove: true,
 	}}
-	return st.runTransaction(ops)
+	return m.globalState.db().RunTransaction(ops)
 }
 
 func HostedModelCount(c *gc.C, st *State) int {

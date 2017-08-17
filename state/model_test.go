@@ -74,7 +74,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first model.
-	_, st1, err := s.State.NewModel(state.ModelArgs{
+	model, st1, err := s.State.NewModel(state.ModelArgs{
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -83,6 +83,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
+	c.Assert(model.UniqueIndexExists(), jc.IsTrue)
 
 	// Attempt to create another model with a different UUID but the
 	// same owner and name as the first.
@@ -104,14 +105,14 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
 	// Remove the first model.
-	env1, err := st1.Model()
+	model1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env1.Destroy()
+	err = model1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Destroy only sets the model to dying and RemoveAllModelDocs can
 	// only be called on a dead model. Normally, the environ's lifecycle
 	// would be set to dead after machines and services have been cleaned up.
-	err = state.SetModelLifeDead(st1, env1.ModelTag().Id())
+	err = model1.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -406,10 +407,12 @@ func (s *ModelSuite) TestDestroyControllerModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	env, err := st2.Model()
+	model, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = model.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	// Destroying an empty model also removes the name index doc.
+	c.Assert(model.UniqueIndexExists(), jc.IsFalse)
 }
 
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
@@ -614,6 +617,9 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	c.Assert(m.Destroy(), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dying)
+
+	// Since the model is only dying and not dead, the unique index is still there.
+	c.Assert(m.UniqueIndexExists(), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestDestroyModelAddServiceConcurrently(c *gc.C) {
@@ -671,27 +677,29 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 	// Add a service to prevent the model from transitioning directly to Dead.
 	// Add the service before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
-	svc := factory.NewFactory(st).MakeApplication(c, nil)
-	env, err := st.Model()
+	app := factory.NewFactory(st).MakeApplication(c, nil)
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ProcessDyingModel is called by a worker after Destroy is called. To
 	// avoid a race, we jump the gun here and test immediately after the
 	// environement was set to dead.
 	defer state.SetAfterHooks(c, st, func() {
-		c.Assert(env.Refresh(), jc.ErrorIsNil)
-		c.Assert(env.Life(), gc.Equals, state.Dying)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		c.Assert(model.Life(), gc.Equals, state.Dying)
 
-		err := svc.Destroy()
+		err := app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 
+		c.Check(model.UniqueIndexExists(), jc.IsTrue)
 		c.Assert(st.ProcessDyingModel(), jc.ErrorIsNil)
 
-		c.Assert(env.Refresh(), jc.ErrorIsNil)
-		c.Assert(env.Life(), gc.Equals, state.Dead)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		c.Assert(model.Life(), gc.Equals, state.Dead)
+		c.Check(model.UniqueIndexExists(), jc.IsFalse)
 	}).Check()
 
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(), jc.ErrorIsNil)
 }
 
 func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
