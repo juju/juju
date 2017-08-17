@@ -596,6 +596,32 @@ func (s *ResourcePersistenceSuite) TestRemoveResourcesCleansUpUniqueStoragePaths
 	c.Assert(cleanups[0].Insert.(*cleanupDoc).Prefix, gc.Equals, appResource.storagePath)
 }
 
+func (s *ResourcePersistenceSuite) TestRemovePendingAppResources(c *gc.C) {
+	_, appDoc1 := newPersistenceResource(c, "appa", "yipyip")
+	appDoc1.DocID += "#pending-freewifi"
+	appDoc1.PendingID = "freewifi"
+	appResource2, appDoc2 := newPersistenceResource(c, "appa", "momo")
+	appDoc2.DocID += "#pending-parallax"
+	appDoc2.PendingID = "parallax"
+	_, unitDoc := newPersistenceUnitResource(c, "appa", "appa/0", "momo")
+	unitDoc.DocID += "#pending-parallax"
+	unitDoc.PendingID = "parallax"
+	s.base.ReturnAll = []resourceDoc{appDoc1, appDoc2, unitDoc}
+	p := NewResourcePersistence(s.base)
+
+	ops, err := p.NewRemovePendingAppResourcesOps("appa", map[string]string{"momo": "parallax"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 2)
+	c.Assert(ops[0], gc.DeepEquals, txn.Op{
+		C:      resourcesC,
+		Id:     appDoc2.DocID,
+		Remove: true,
+	})
+	c.Assert(ops[1].Insert, gc.Not(gc.IsNil))
+	c.Assert(ops[1].Insert.(*cleanupDoc).Kind, gc.Equals, cleanupResourceBlob)
+	c.Assert(ops[1].Insert.(*cleanupDoc).Prefix, gc.Equals, appResource2.storagePath)
+}
+
 func newPersistenceUnitResources(c *gc.C, serviceID, unitID string, resources []resource.Resource) ([]resource.Resource, []resourceDoc) {
 	var unitResources []resource.Resource
 	var docs []resourceDoc

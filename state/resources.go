@@ -53,6 +53,11 @@ type Resources interface {
 	// service to the provided values.
 	SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error
 
+	// RemovePendingAppResources removes any pending application-level
+	// resources for the named application. This is used to clean up
+	// resources for a failed application deployment.
+	RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error
+
 	// TODO(ericsnow) Move this down to ResourcesPersistence.
 
 	// NewResolvePendingResourcesOps generates mongo transaction operations

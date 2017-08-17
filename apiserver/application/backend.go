@@ -37,6 +37,7 @@ type Backend interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
+	Resources() (Resources, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -118,6 +119,13 @@ type Model interface {
 	Owner() names.UserTag
 }
 
+// Resources defines a subset of the functionality provided by the
+// state.Resources type, as required by the application facade. See
+// the state.Resources type for details on the methods.
+type Resources interface {
+	RemovePendingAppResources(string, map[string]string) error
+}
+
 type stateShim struct {
 	*state.State
 }
@@ -197,6 +205,10 @@ func (s stateShim) AllModels() ([]Model, error) {
 		result[i] = stateModelShim{m}
 	}
 	return result, nil
+}
+
+func (s stateShim) Resources() (Resources, error) {
+	return s.State.Resources()
 }
 
 type stateApplicationShim struct {
