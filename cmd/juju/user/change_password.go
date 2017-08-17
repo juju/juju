@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -27,16 +28,27 @@ const userChangePasswordDoc = `
 The user is, by default, the current user. The latter can be confirmed with
 the ` + "`juju show-user`" + ` command.
 
-A controller administrator can change the password for another user (on
-that controller).
+A controller administrator can change the password for another user 
+on the specified controller. If no controller is specified, current controller
+will be used.
+
+A controller administrator can also reset the password for another user.
+This will invalidate previously set user password (if any) or 
+previously issued registration tokens. 
+Succefull password reset will result in a new registration token. 
+
 
 Examples:
 
     juju change-user-password
     juju change-user-password bob
+    juju change-user-password bob --reset
+    juju change-user-password -c another-known-controller
+    juju change-user-password bob --controller another-known-controller
 
 See also:
     add-user
+    register
 
 `
 
@@ -51,7 +63,19 @@ type changePasswordCommand struct {
 	modelcmd.ControllerCommandBase
 	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error)
 	api              ChangePasswordAPI
-	User             string
+
+	// Input arguments
+	User  string
+	Reset bool
+
+	// Internally initialised and used during run
+	controllerName string
+	userTag        names.UserTag
+	accountDetails *jujuclient.AccountDetails
+}
+
+func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.Reset, "reset", false, "Reset user password")
 }
 
 // Info implements Command.Info.
@@ -78,11 +102,15 @@ func (c *changePasswordCommand) Init(args []string) error {
 // password command uses.
 type ChangePasswordAPI interface {
 	SetPassword(username, password string) error
+	ResetPassword(username string) ([]byte, error)
 	Close() error
 }
 
 // Run implements Command.Run.
 func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
+	if err := c.prepareRun(); err != nil {
+		return errors.Trace(err)
+	}
 	if c.api == nil {
 		api, err := c.NewUserManagerAPIClient()
 		if err != nil {
@@ -92,78 +120,126 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
+	if c.Reset {
+		return c.resetUserPassword(ctx)
+	}
+	return c.updateUserPassword(ctx)
+}
+
+func (c *changePasswordCommand) prepareRun() error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.controllerName = controllerName
+	c.accountDetails, err = c.ClientStore().AccountDetails(c.controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if c.User != "" {
+		if !names.IsValidUserName(c.User) {
+			return errors.NotValidf("user name %q", c.User)
+		}
+		c.userTag = names.NewUserTag(c.User)
+		if c.userTag.Id() != c.accountDetails.User {
+			// The account details don't correspond to the username
+			// being changed, so we don't need to update the account
+			// locally.
+			c.accountDetails = nil
+		}
+	} else {
+		if !names.IsValidUser(c.accountDetails.User) {
+			return errors.Errorf("invalid user in account %q", c.accountDetails.User)
+		}
+		c.userTag = names.NewUserTag(c.accountDetails.User)
+		if !c.userTag.IsLocal() {
+			return errors.Errorf("cannot %v password for external user %q", c.changeOrResetString(), c.userTag)
+		}
+	}
+	return nil
+}
+
+func (c *changePasswordCommand) changeOrResetString(past ...bool) string {
+	if c.Reset {
+		return "reset"
+	}
+	if len(past) != 0 && past[0] {
+		return "changed"
+	}
+	return "change"
+}
+
+func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
+	key, err := c.api.ResetPassword(c.userTag.Id())
+	if err != nil {
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+	base64RegistrationData, err := generateUserControllerAccessToken(
+		c.ControllerCommandBase,
+		c.userTag.Id(),
+		key,
+	)
+	if err != nil {
+		return errors.Annotate(err, "generating controller user access token")
+	}
+	fmt.Fprintf(ctx.Stdout, "New controller access token for this user is  %v\n", base64RegistrationData)
+	if err := c.updateClientStore(ctx, ""); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
 	newPassword, err := readAndConfirmPassword(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	store := c.ClientStore()
-	accountDetails, err := store.AccountDetails(controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var userTag names.UserTag
-	if c.User != "" {
-		if !names.IsValidUserName(c.User) {
-			return errors.NotValidf("user name %q", c.User)
-		}
-		userTag = names.NewUserTag(c.User)
-		if userTag.Id() != accountDetails.User {
-			// The account details don't correspond to the username
-			// being changed, so we don't need to update the account
-			// locally.
-			accountDetails = nil
-		}
-	} else {
-		if !names.IsValidUser(accountDetails.User) {
-			return errors.Errorf("invalid user in account %q", accountDetails.User)
-		}
-		userTag = names.NewUserTag(accountDetails.User)
-		if !userTag.IsLocal() {
-			return errors.Errorf("cannot change password for external user %q", userTag)
-		}
-	}
-	if err := c.api.SetPassword(userTag.Id(), newPassword); err != nil {
+	if err := c.api.SetPassword(c.userTag.Id(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-
-	if accountDetails == nil {
-		ctx.Infof("Password for %q has been updated.", c.User)
-	} else {
-		if accountDetails.Password != "" {
-			// Log back in with macaroon authentication, so we can
-			// discard the password without having to log back in
-			// immediately.
-			if err := c.recordMacaroon(accountDetails.User, newPassword); err != nil {
-				return errors.Annotate(err, "recording macaroon")
-			}
-			// Wipe the password from disk. In the event of an
-			// error occurring after SetPassword and before the
-			// account details being updated, the user will be
-			// able to recover by running "juju login".
-			accountDetails.Password = ""
-			if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
-				return errors.Annotate(err, "failed to update client credentials")
-			}
-		}
-		ctx.Infof("Your password has been updated.")
+	if err := c.updateClientStore(ctx, newPassword); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (c *changePasswordCommand) recordMacaroon(user, password string) error {
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
+func (c *changePasswordCommand) updateClientStore(ctx *cmd.Context, password string) error {
+	if c.accountDetails == nil {
+		ctx.Infof("Password for %q has been %v.", c.User, c.changeOrResetString(true))
+	} else {
+		if c.accountDetails.Password != "" {
+			if password != "" {
+				// Log back in with macaroon authentication, so we can
+				// discard the password without having to log back in
+				// immediately.
+				if err := c.recordMacaroon(password); err != nil {
+					return errors.Annotate(err, "recording macaroon")
+				}
+				// Wipe the password from disk. In the event of an
+				// error occurring after SetPassword and before the
+				// account details being updated, the user will be
+				// able to recover by running "juju login".
+				c.accountDetails.Password = ""
+				if err := c.ClientStore().UpdateAccount(c.controllerName, *c.accountDetails); err != nil {
+					return errors.Annotatef(err, "failed to %v client credentials", c.changeOrResetString())
+				}
+			} else {
+				if err := c.ClearControllerMacaroons(c.ClientStore(), c.controllerName); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+		ctx.Infof("Your password has been %v.", c.changeOrResetString(true))
 	}
-	accountDetails := &jujuclient.AccountDetails{User: user}
+	return nil
+}
+
+func (c *changePasswordCommand) recordMacaroon(password string) error {
+	accountDetails := &jujuclient.AccountDetails{User: c.accountDetails.User}
 	args, err := c.NewAPIConnectionParams(
-		c.ClientStore(), controllerName, "", accountDetails,
+		c.ClientStore(), c.controllerName, "", accountDetails,
 	)
 	if err != nil {
 		return errors.Trace(err)

@@ -55,10 +55,49 @@ func (s *UserSuite) TestUserChangePassword(c *gc.C) {
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
 	_, err = s.RunUserCommand(c, "not-dummy-secret\nnot-dummy-secret\n", "change-user-password")
 	c.Assert(err, jc.ErrorIsNil)
-	user.Refresh()
+	err = user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsFalse)
 	c.Assert(user.PasswordValid("not-dummy-secret"), jc.IsTrue)
+}
+
+func (s *UserSuite) TestUserResetPasswordForSelf(c *gc.C) {
+	user, err := s.State.User(s.AdminUserTag(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
+	context, err := s.RunUserCommand(c, "", "change-user-password", "--reset")
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.PasswordValid("dummy-secret"), jc.IsFalse)
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
+New controller access token for this user is  (.+)
+`[1:])
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+Your password has been reset.
+`[1:])
+}
+
+func (s *UserSuite) TestUserResetPasswordForOther(c *gc.C) {
+	username := "bob"
+	context := run(c, nil, "add-user", username, "Bob Dobbs")
+	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
+
+	context, err := s.RunUserCommand(c, "", "change-user-password", "--reset", username)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
+New controller access token for this user is  (.+)
+`[1:])
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+Password for "bob" has been reset.
+`[1:])
+}
+
+func (s *UserSuite) TestUserResetPasswordFail(c *gc.C) {
+	context, err := s.RunUserCommand(c, "", "change-user-password", "--reset", "bob")
+	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, "ERROR permission denied\n")
 }
 
 func (s *UserSuite) TestUserInfo(c *gc.C) {

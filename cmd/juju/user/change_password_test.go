@@ -55,6 +55,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {
 		args        []string
 		user        string
+		reset       bool
 		errorString string
 	}{
 		{
@@ -66,6 +67,9 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 			args:        []string{"--foobar"},
 			errorString: "flag provided but not defined: --foobar",
 		}, {
+			args:  []string{"--reset"},
+			reset: true,
+		}, {
 			args:        []string{"foobar", "extra"},
 			errorString: `unrecognized args: \["extra"\]`,
 		},
@@ -75,6 +79,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)
+			c.Check(command.Reset, gc.Equals, test.reset)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
 		}
@@ -93,7 +98,7 @@ func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
 new password: 
 type new password again: 
-Your password has been updated.
+Your password has been changed.
 `[1:])
 	// The command should have logged in without a password to get a macaroon.
 	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
@@ -116,13 +121,58 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	s.assertAPICalls(c, "other", "sekrit")
 }
 
+func (s *ChangePasswordCommandSuite) TestResetPassword(c *gc.C) {
+	s.mockAPI.key = []byte("no cats or dragons")
+	context, _, err := s.run(c, "--reset")
+	c.Assert(err, jc.ErrorIsNil)
+	s.mockAPI.CheckCall(c, 0, "ResetPassword", "current-user")
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
+New controller access token for this user is  (.+)
+`[1:])
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+Your password has been reset.
+`[1:])
+}
+
+func (s *ChangePasswordCommandSuite) TestResetPasswordFail(c *gc.C) {
+	s.mockAPI.SetErrors(errors.New("failed to do something"))
+	context, _, err := s.run(c, "--reset")
+	c.Assert(err, gc.ErrorMatches, "failed to do something")
+	s.mockAPI.CheckCall(c, 0, "ResetPassword", "current-user")
+	// TODO (anastasiamac 2017-08-17)
+	// should probably warn user that something did not go well enough
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+}
+
+func (s *ChangePasswordCommandSuite) TestResetOthersPassword(c *gc.C) {
+	// The checks for user existence and admin rights are tested
+	// at the apiserver level.
+	s.mockAPI.key = []byte("no cats or dragons")
+	context, _, err := s.run(c, "other", "--reset")
+	c.Assert(err, jc.ErrorIsNil)
+	s.mockAPI.CheckCall(c, 0, "ResetPassword", "other")
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
+New controller access token for this user is  (.+)
+`[1:])
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+Password for "other" has been reset.
+`[1:])
+}
+
 type mockChangePasswordAPI struct {
 	testing.Stub
+	key []byte
 }
 
 func (m *mockChangePasswordAPI) SetPassword(username, password string) error {
 	m.MethodCall(m, "SetPassword", username, password)
 	return m.NextErr()
+}
+
+func (m *mockChangePasswordAPI) ResetPassword(username string) ([]byte, error) {
+	m.MethodCall(m, "ResetPassword", username)
+	return m.key, m.NextErr()
 }
 
 func (*mockChangePasswordAPI) Close() error {
