@@ -88,9 +88,6 @@ type Database interface {
 	// transaction building function.
 	Run(transactions jujutxn.TransactionSource) error
 
-	// RunFor is like Run but runs the transaction for the model specified.
-	RunFor(modelUUID string, transactions jujutxn.TransactionSource) error
-
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
 	Schema() collectionSchema
@@ -379,15 +376,6 @@ func (db *database) RunRawTransaction(ops []txn.Op) error {
 // Run is part of the Database interface.
 func (db *database) Run(transactions jujutxn.TransactionSource) error {
 	runner, closer := db.TransactionRunner()
-	defer closer()
-	return runner.Run(transactions)
-}
-
-// RunFor is part of the Database interface.
-func (db *database) RunFor(modelUUID string, transactions jujutxn.TransactionSource) error {
-	newDB, dbcloser := db.CopyForModel(modelUUID)
-	defer dbcloser()
-	runner, closer := newDB.TransactionRunner()
 	defer closer()
 	return runner.Run(transactions)
 }
