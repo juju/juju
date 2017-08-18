@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher/watchertest"
 )
@@ -88,23 +87,6 @@ func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
 			Scope:     "global",
 		},
 	})
-}
-
-func (s *relationUnitSuite) TestPrivateAddress(c *gc.C) {
-	_, apiRelUnit := s.getRelationUnits(c)
-
-	// Try getting it first without an address set.
-	address, err := apiRelUnit.PrivateAddress()
-	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
-
-	// Set an address and try again.
-	err = s.wordpressMachine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	address, err = apiRelUnit.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
 func (s *relationUnitSuite) TestEnterScopeSuccessfully(c *gc.C) {

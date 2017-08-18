@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
@@ -1164,12 +1165,12 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 
 	var privateAddress network.Address
 
-	if spaces.Contains("") {
+	if spaces.Contains(environs.DefaultSpaceName) {
 		var err error
 		privateAddress, err = m.PrivateAddress()
 		if err != nil {
-			results[""] = MachineNetworkInfoResult{Error: errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())}
-			spaces.Remove("")
+			results[environs.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())}
+			spaces.Remove(environs.DefaultSpaceName)
 		}
 	}
 
@@ -1204,13 +1205,13 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 					results[space] = r
 				}
 			}
-			if spaces.Contains("") && privateAddress.Value == addr.Value() {
-				r := results[""]
+			if spaces.Contains(environs.DefaultSpaceName) && privateAddress.Value == addr.Value() {
+				r := results[environs.DefaultSpaceName]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
 					r.Error = err
 				} else {
-					results[""] = r
+					results[environs.DefaultSpaceName] = r
 				}
 			}
 		}
@@ -1218,13 +1219,13 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 
 	// For a spaceless environment we won't find a subnet that's linked to privateAddress,
 	// we have to work around that and at least return minimal information for --primary-address.
-	if r, filledPrivateAddress := results[""]; !filledPrivateAddress && spaces.Contains("") {
+	if r, filledPrivateAddress := results[environs.DefaultSpaceName]; !filledPrivateAddress && spaces.Contains(environs.DefaultSpaceName) {
 		r.NetworkInfos = []network.NetworkInfo{{
 			Addresses: []network.InterfaceAddress{{
 				Address: privateAddress.Value,
 			}},
 		}}
-		results[""] = r
+		results[environs.DefaultSpaceName] = r
 	}
 	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
 

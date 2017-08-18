@@ -469,13 +469,13 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	return node.Map(), nil
 }
 
-// SettingsAddress returns the address that should be set as
+// IngressAddress returns the address that should be set as
 // `private-address` in the settings for the this unit in the context
 // of this relation. Generally this will be the cloud-local address of
 // the unit, but if this is a cross-model relation then it will be the
 // public address. If this is cross-model and there's no public
 // address for the unit, return an error.
-func (ru *RelationUnit) SettingsAddress() (network.Address, error) {
+func (ru *RelationUnit) IngressAddress() (network.Address, error) {
 	unit, err := ru.st.Unit(ru.unitName)
 	if err != nil {
 		return network.Address{}, errors.Trace(err)

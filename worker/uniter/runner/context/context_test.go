@@ -96,7 +96,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	netInfo, err := ctx.NetworkInfo([]string{"unknown"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
-		"unknown": params.NetworkInfoResult{
+		"unknown": {
 			Error: &params.Error{
 				Message: "binding name \"unknown\" not defined by the unit's charm",
 			},
@@ -395,7 +395,7 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 
 func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
+		"data": {
 			params.StorageConstraints{},
 		},
 	}
@@ -409,7 +409,7 @@ var two = uint64(2)
 
 func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
+		"data": {
 			params.StorageConstraints{},
 			params.StorageConstraints{Count: &two},
 		},
@@ -423,8 +423,8 @@ func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 
 func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{params.StorageConstraints{}},
-		"diff": []params.StorageConstraints{
+		"data": {params.StorageConstraints{}},
+		"diff": {
 			params.StorageConstraints{Count: &two}},
 	}
 
