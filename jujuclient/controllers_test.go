@@ -27,7 +27,7 @@ var _ = gc.Suite(&ControllersSuite{})
 func (s *ControllersSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()
-	s.controllerName = "test.controller"
+	s.controllerName = "test-controller"
 	s.controller = jujuclient.ControllerDetails{
 		ControllerUUID: "test.uuid",
 		APIEndpoints:   []string{"test.api.endpoint"},

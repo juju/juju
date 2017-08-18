@@ -36,9 +36,8 @@ func ValidateAccountDetails(details AccountDetails) error {
 
 // ValidateControllerName validates the given controller name.
 func ValidateControllerName(name string) error {
-	// TODO(axw) define a regex for valid controller names.
-	if name == "" {
-		return errors.NotValidf("empty controller name")
+	if !names.IsValidControllerName(name) {
+		return errors.NotValidf("controller name %q", name)
 	}
 	return nil
 }
