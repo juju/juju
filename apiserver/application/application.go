@@ -164,6 +164,25 @@ func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, err
 	for i, arg := range args.Applications {
 		err := deployApplication(api.backend, api.stateCharm, arg, api.deployApplicationFunc)
 		result.Results[i].Error = common.ServerError(err)
+
+		if err != nil && len(arg.Resources) != 0 {
+			// Remove any pending resources - these would have been
+			// converted into real resources if the application had
+			// been created successfully, but will otherwise be
+			// leaked. lp:1705730
+			// TODO(babbageclunk): rework the deploy API so the
+			// resources are created transactionally to avoid needing
+			// to do this.
+			resources, err := api.backend.Resources()
+			if err != nil {
+				logger.Errorf("couldn't get backend.Resources")
+				continue
+			}
+			err = resources.RemovePendingAppResources(arg.ApplicationName, arg.Resources)
+			if err != nil {
+				logger.Errorf("couldn't remove pending resources for %q", arg.ApplicationName)
+			}
+		}
 	}
 	return result, nil
 }

@@ -55,6 +55,11 @@ type resourcePersistence interface {
 	// NewResolvePendingResourceOps generates mongo transaction operations
 	// to set the identified resource as active.
 	NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error)
+
+	// RemovePendingAppResources removes any pending application-level
+	// resources for an application. This is typically used in cleanup
+	// for a failed application deployment.
+	RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error
 }
 
 type resourceStorage interface {
@@ -117,6 +122,13 @@ func (st resourceState) ListPendingResources(applicationID string) ([]resource.R
 		return nil, errors.Trace(err)
 	}
 	return resources, err
+}
+
+// RemovePendingResources removes the pending application-level
+// resources for a specific application, normally in the case that the
+// application couln't be deployed.
+func (st resourceState) RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error {
+	return errors.Trace(st.persist.RemovePendingAppResources(applicationID, pendingIDs))
 }
 
 // GetResource returns the resource data for the identified resource.
@@ -193,14 +205,14 @@ func (st resourceState) SetUnitResource(unitName, userID string, chRes charmreso
 }
 
 // AddPendingResource stores the resource in the Juju model.
-func (st resourceState) AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
+func (st resourceState) AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (pendingID string, err error) {
 	pendingID, err = newPendingID()
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
 	logger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
 
-	if _, err := st.setResource(pendingID, applicationID, userID, chRes, r); err != nil {
+	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil); err != nil {
 		return "", errors.Trace(err)
 	}
 

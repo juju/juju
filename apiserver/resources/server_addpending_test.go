@@ -37,7 +37,7 @@ func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "AddPendingResource")
-	s.stub.CheckCall(c, 0, "AddPendingResource", "a-application", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 0, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -74,7 +74,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -113,7 +113,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -161,7 +161,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "ResourceInfo", "AddPendingResource")
-	s.stub.CheckCall(c, 3, "AddPendingResource", "a-application", "", expected, nil)
+	s.stub.CheckCall(c, 3, "AddPendingResource", "a-application", "", expected)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -204,7 +204,7 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -240,7 +240,7 @@ func (s *AddPendingResourcesSuite) TestLocalCharm(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "AddPendingResource")
-	s.stub.CheckCall(c, 0, "AddPendingResource", "a-application", "", expected, nil)
+	s.stub.CheckCall(c, 0, "AddPendingResource", "a-application", "", expected)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -280,7 +280,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -316,7 +316,7 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,

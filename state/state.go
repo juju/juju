@@ -992,6 +992,7 @@ type AddApplicationArgs struct {
 // they will be created automatically.
 func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
+
 	// Sanity checks.
 	if !names.IsValidApplication(args.Name) {
 		return nil, errors.Errorf("invalid name")

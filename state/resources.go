@@ -26,7 +26,7 @@ type Resources interface {
 	// "pending" state. It will stay pending (and unavailable) until
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
-	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (string, error)
 
 	// GetResource returns the identified resource.
 	GetResource(applicationID, name string) (resource.Resource, error)
@@ -52,6 +52,11 @@ type Resources interface {
 	// SetCharmStoreResources sets the "polled" resources for the
 	// service to the provided values.
 	SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error
+
+	// RemovePendingAppResources removes any pending application-level
+	// resources for the named application. This is used to clean up
+	// resources for a failed application deployment.
+	RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error
 
 	// TODO(ericsnow) Move this down to ResourcesPersistence.
 
