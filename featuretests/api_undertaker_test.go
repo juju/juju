@@ -80,7 +80,7 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
 	err = undertakerClient.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine \(model not empty\)`)
 }
 
 func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {

@@ -119,9 +119,9 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		nil, // ModelInfo
 		nil, // SetStatus
 		nil, // WatchModelResources,
-		errors.New("meh, will retry"), // ProcessDyingModel,
+		&params.Error{Code: params.CodeHasHostedModels},
 		nil, // SetStatus
-		errors.New("will retry again"), // ProcessDyingModel,
+		&params.Error{Code: params.CodeModelNotEmpty},
 		nil, // SetStatus
 		nil, // ProcessDyingModel,
 		nil, // SetStatus
@@ -143,6 +143,26 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		"SetStatus",
 		"Destroy",
 		"RemoveModel",
+	)
+}
+
+func (s *UndertakerSuite) TestProcessDyingModelErrorFatal(c *gc.C) {
+	s.fix.errors = []error{
+		nil, // ModelInfo
+		nil, // SetStatus
+		nil, // WatchModelResources,
+		errors.New("nope"),
+	}
+	s.fix.dirty = true
+	stub := s.fix.run(c, func(w worker.Worker) {
+		err := workertest.CheckKilled(c, w)
+		c.Check(err, gc.ErrorMatches, "nope")
+	})
+	stub.CheckCallNames(c,
+		"ModelInfo",
+		"SetStatus",
+		"WatchModelResources",
+		"ProcessDyingModel",
 	)
 }
 

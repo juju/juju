@@ -307,7 +307,7 @@ func (s *destroyTwoModelsSuite) TestDestroyControllerAfterNonControllerIsDestroy
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
 	err := common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
+	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -319,7 +319,7 @@ func (s *destroyTwoModelsSuite) TestDestroyControllerAfterNonControllerIsDestroy
 	// The hosted model is Dying, not Dead; we cannot destroy
 	// the controller model until all hosted models are Dead.
 	err = common.DestroyModel(s.modelManager, s.State.ModelTag())
-	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
+	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 
 	// Continue to take the hosted model down so we can
 	// destroy the controller model.
@@ -333,6 +333,8 @@ func (s *destroyTwoModelsSuite) TestDestroyControllerAfterNonControllerIsDestroy
 	otherEnv, err := s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
+	err = s.otherState.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

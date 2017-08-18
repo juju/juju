@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -902,7 +903,11 @@ var errModelNotAlive = errors.New("model is no longer alive")
 type hasHostedModelsError int
 
 func (e hasHostedModelsError) Error() string {
-	return fmt.Sprintf("hosting %d other models", e)
+	s := ""
+	if e != 1 {
+		s = "s"
+	}
+	return fmt.Sprintf("hosting %d other model"+s, e)
 }
 
 func IsHasHostedModelsError(err error) bool {
@@ -1057,6 +1062,47 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	return append(prereqOps, ops...), nil
 }
 
+type modelNotEmptyError struct {
+	machines     int
+	applications int
+	volumes      int
+	filesystems  int
+}
+
+// Error is part of the error interface.
+func (e modelNotEmptyError) Error() string {
+	msg := "model not empty, found "
+	plural := func(n int, thing string) string {
+		s := fmt.Sprintf("%d %s", n, thing)
+		if n != 1 {
+			s += "s"
+		}
+		return s
+	}
+	var contains []string
+	if n := e.machines; n > 0 {
+		contains = append(contains, plural(n, "machine"))
+	}
+	if n := e.applications; n > 0 {
+		contains = append(contains, plural(n, "application"))
+	}
+	if n := e.volumes; n > 0 {
+		contains = append(contains, plural(n, "volume"))
+	}
+	if n := e.filesystems; n > 0 {
+		contains = append(contains, plural(n, "filesystem"))
+	}
+	return msg + strings.Join(contains, ", ")
+}
+
+// IsModelNotEmptyError reports whether or not the given error was caused
+// due to an operation requiring a model to be empty, where the model is
+// non-empty.
+func IsModelNotEmptyError(err error) bool {
+	_, ok := errors.Cause(err).(modelNotEmptyError)
+	return ok
+}
+
 // checkEmpty checks that the machine is empty of any entities that may
 // require external resource cleanup. If the model is not empty, then
 // an error will be returned.
@@ -1071,25 +1117,17 @@ func (m *Model) checkEmpty() error {
 		}
 		return errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
-	// These errors could be potentially swallowed as we re-try to destroy model.
-	// Let's, at least, log them for observation.
-	if n := len(doc.Machines); n > 0 {
-		logger.Infof("model is still not empty, has machines: %v", doc.Machines)
-		return errors.Errorf("model not empty, found %d machine(s)", n)
+
+	err := modelNotEmptyError{
+		machines:     len(doc.Machines),
+		applications: len(doc.Applications),
+		volumes:      len(doc.Volumes),
+		filesystems:  len(doc.Filesystems),
 	}
-	if n := len(doc.Applications); n > 0 {
-		logger.Infof("model is still not empty, has applications: %v", doc.Applications)
-		return errors.Errorf("model not empty, found %d application(s)", n)
+	if err == (modelNotEmptyError{}) {
+		return nil
 	}
-	if n := len(doc.Volumes); n > 0 {
-		logger.Infof("model is still not empty, has volumes: %v", doc.Volumes)
-		return errors.Errorf("model not empty, found %d volume(s)", n)
-	}
-	if n := len(doc.Filesystems); n > 0 {
-		logger.Infof("model is still not empty, has file systems: %v", doc.Filesystems)
-		return errors.Errorf("model not empty, found %d filesystem(s)", n)
-	}
-	return nil
+	return err
 }
 
 func addModelMachineRefOp(st *State, machineId string) txn.Op {
