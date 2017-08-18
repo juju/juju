@@ -36,8 +36,12 @@ func ValidateAccountDetails(details AccountDetails) error {
 
 // ValidateControllerName validates the given controller name.
 func ValidateControllerName(name string) error {
-	if !names.IsValidControllerName(name) {
-		return errors.NotValidf("controller name %q", name)
+	// Note: the only validation we can do here is to check if no name was supplied.
+	// We can accept any names here, irrespective of names.IsValidControllerName
+	// since controller names can also be DNS names containing "." or
+	// any other character combinations.
+	if name == "" {
+		return errors.NotValidf("empty controller name")
 	}
 	return nil
 }

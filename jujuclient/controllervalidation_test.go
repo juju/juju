@@ -29,7 +29,7 @@ func (s *ControllerValidationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ControllerValidationSuite{})
 
 func (s *ControllerValidationSuite) TestValidateControllerName(c *gc.C) {
-	c.Assert(jujuclient.ValidateControllerName(""), gc.ErrorMatches, `controller name "" not valid`)
+	c.Assert(jujuclient.ValidateControllerName(""), gc.ErrorMatches, `empty controller name not valid`)
 }
 
 func (s *ControllerValidationSuite) TestValidateControllerDetailsNoControllerUUID(c *gc.C) {
