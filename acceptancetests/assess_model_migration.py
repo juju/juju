@@ -588,7 +588,7 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     controller.
     """
     test_model, application = deploy_simple_server_to_new_model(
-        source_client, 'rollmeback', deploy_subords=True)
+        source_client, 'rollmeback')
     if after_22beta4(source_client.version):
         test_model.juju(
             'migrate',
