@@ -41,7 +41,7 @@ type RegisterMeteredCharm struct {
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&r.IncreaseBudget, "increase-budget", 0, "increase model budget allocation by this amount")
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
-	f.BoolVar(&r.Development, "development", false, "deploy application in development mode")
+	f.BoolVar(&r.Development, "develop-commercial", false, "deploy application in development mode")
 }
 
 // RunPre is run before the deployment of an application.

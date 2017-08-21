@@ -938,7 +938,7 @@ func (s *DeployCharmStoreSuite) TestDevelopmentMode(c *gc.C) {
 			return fakeAPI, nil
 		},
 	}
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--development")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--develop-commercial")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
 
@@ -1352,7 +1352,7 @@ func (s *DeployUnitTestSuite) TestDeployLocalWithBundleConfig(c *gc.C) {
 
 	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
-	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil, false)
 
 	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--bundle-config", "somefile")
 	c.Check(err, gc.ErrorMatches, "flags provided but not supported when deploying a charm: --bundle-config")
@@ -1365,7 +1365,7 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.
 
 	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
-	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil, false)
 
 	context, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "trusty")
 	c.Check(err, jc.ErrorIsNil)
