@@ -134,8 +134,8 @@ def delete_instances(client, name_id, old_age=OLD_MACHINE_AGE, dry_run=False):
                 log.error('Cannot delete {}: {}'.format(node_name, e))
             except BaseHTTPError as e:
                 log.error('Cannot delete {}: {}'.format(node_name, e))
-            except
-                log.error('Unknown error {}: {}'.format(node_name, e))
+            except:
+                log.error('Unknown error {}'.format(node_name))
     return deleted_count
 
 
