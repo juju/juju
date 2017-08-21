@@ -179,6 +179,67 @@ func (s *volumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 	c.Assert(call[0].ID, gc.Equals, "a--volume-name")
 }
 
+func (s *volumeSourceSuite) TestReleaseVolumes(c *gc.C) {
+	s.FakeConn.GoogleDisk = s.BaseDisk
+
+	errs, err := s.source.ReleaseVolumes([]string{s.BaseDisk.Name})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.ErrorIsNil)
+
+	called, calls := s.FakeConn.WasCalled("SetDiskLabels")
+	c.Check(called, jc.IsTrue)
+	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls[0].ZoneName, gc.Equals, "home-zone")
+	c.Assert(calls[0].ID, gc.Equals, s.BaseDisk.Name)
+	c.Assert(calls[0].Labels, jc.DeepEquals, map[string]string{
+		"yodel": "eh",
+		// Note, no controller/model labels
+	})
+}
+
+func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
+	s.FakeConn.GoogleDisk = s.BaseDisk
+
+	c.Assert(s.source, gc.Implements, new(storage.VolumeImporter))
+	volumeInfo, err := s.source.(storage.VolumeImporter).ImportVolume(
+		s.BaseDisk.Name, map[string]string{
+			"juju-model-uuid":      "foo",
+			"juju-controller-uuid": "bar",
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(volumeInfo, jc.DeepEquals, storage.VolumeInfo{
+		VolumeId:   s.BaseDisk.Name,
+		Size:       1024,
+		Persistent: true,
+	})
+
+	called, calls := s.FakeConn.WasCalled("SetDiskLabels")
+	c.Check(called, jc.IsTrue)
+	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls[0].ZoneName, gc.Equals, "home-zone")
+	c.Assert(calls[0].ID, gc.Equals, s.BaseDisk.Name)
+	c.Assert(calls[0].Labels, jc.DeepEquals, map[string]string{
+		"juju-model-uuid":      "foo",
+		"juju-controller-uuid": "bar",
+		"yodel":                "eh", // other existing tags left alone
+	})
+}
+
+func (s *volumeSourceSuite) TestImportVolumeNotReady(c *gc.C) {
+	s.FakeConn.GoogleDisk = s.BaseDisk
+	s.FakeConn.GoogleDisk.Status = "floop"
+
+	_, err := s.source.(storage.VolumeImporter).ImportVolume(
+		s.BaseDisk.Name, map[string]string{},
+	)
+	c.Check(err, gc.ErrorMatches, `cannot import volume "`+s.BaseDisk.Name+`" with status "floop"`)
+
+	called, _ := s.FakeConn.WasCalled("SetDiskLabels")
+	c.Check(called, jc.IsFalse)
+}
+
 func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 	vols, err := s.source.ListVolumes()
