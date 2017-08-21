@@ -410,6 +410,23 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 	}, nil
 }
 
+// ImportVolume is part of the storage.VolumeImporter interface.
+func (s *cinderVolumeSource) ImportVolume(volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
+	volume, err := s.storageAdapter.GetVolume(volumeId)
+	if err != nil {
+		return storage.VolumeInfo{}, errors.Annotate(err, "getting volume")
+	}
+	if volume.Status != volumeStatusAvailable {
+		return storage.VolumeInfo{}, errors.Errorf(
+			"cannot import volume %q with status %q", volumeId, volume.Status,
+		)
+	}
+	if _, err := s.storageAdapter.SetVolumeMetadata(volumeId, resourceTags); err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "tagging volume %q", volumeId)
+	}
+	return cinderToJujuVolumeInfo(volume), nil
+}
+
 func waitVolume(
 	storageAdapter OpenstackStorage,
 	volumeId string,

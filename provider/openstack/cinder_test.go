@@ -463,6 +463,53 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 	c.Assert(numDestroyCalls, gc.Equals, 1)
 }
 
+func (s *cinderVolumeSourceSuite) TestImportVolume(c *gc.C) {
+	mockAdapter := &mockAdapter{
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			return &cinder.Volume{
+				ID:     volumeId,
+				Size:   mockVolSize / 1024,
+				Status: "available",
+			}, nil
+		},
+	}
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	c.Assert(volSource, gc.Implements, new(storage.VolumeImporter))
+
+	tags := map[string]string{
+		"a": "b",
+		"c": "d",
+	}
+	info, err := volSource.(storage.VolumeImporter).ImportVolume(mockVolId, tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, storage.VolumeInfo{
+		VolumeId:   mockVolId,
+		Size:       mockVolSize,
+		Persistent: true,
+	})
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
+		{"GetVolume", []interface{}{mockVolId}},
+		{"SetVolumeMetadata", []interface{}{mockVolId, tags}},
+	})
+}
+
+func (s *cinderVolumeSourceSuite) TestImportVolumeInUse(c *gc.C) {
+	mockAdapter := &mockAdapter{
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			return &cinder.Volume{
+				ID:     volumeId,
+				Status: "in-use",
+			}, nil
+		},
+	}
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	_, err := volSource.(storage.VolumeImporter).ImportVolume(mockVolId, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot import volume "0" with status "in-use"`)
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
+		{"GetVolume", []interface{}{mockVolId}},
+	})
+}
+
 type mockAdapter struct {
 	gitjujutesting.Stub
 	getVolume             func(string) (*cinder.Volume, error)
