@@ -708,6 +708,9 @@ func (s *ModelSuite) testDestroyModelDestroyStorage(c *gc.C, destroyStorage bool
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	imodel, err := m.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.Factory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: s.AddTestingCharm(c, "storage-block"),
@@ -717,20 +720,17 @@ func (s *ModelSuite) testDestroyModelDestroyStorage(c *gc.C, destroyStorage bool
 		}),
 	})
 
-	err = m.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
+	err = imodel.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Refresh(), jc.ErrorIsNil)
-	c.Assert(m.Life(), gc.Equals, state.Dying)
+	c.Assert(imodel.Refresh(), jc.ErrorIsNil)
+	c.Assert(imodel.Life(), gc.Equals, state.Dying)
 
 	assertNeedsCleanup(c, s.State)
 	assertCleanupRuns(c, s.State) // destroy application
 	assertCleanupRuns(c, s.State) // destroy unit
 	assertCleanupRuns(c, s.State) // destroy/release storage
 
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	volume, err := im.Volume(names.NewVolumeTag("0"))
+	volume, err := imodel.Volume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volume.Life(), gc.Equals, state.Dying)
 	c.Assert(volume.Releasing(), gc.Equals, !destroyStorage)
@@ -870,7 +870,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	im, err := st.IAASModel()
+	imodel, err := model.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := st.AddOneMachine(state.MachineTemplate{
@@ -885,25 +885,25 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystems, err := im.AllFilesystems()
+	filesystems, err := imodel.AllFilesystems()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystems, gc.HasLen, 1)
 
-	err = model.Destroy(state.DestroyModelParams{})
+	err = imodel.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
 
 	destroyStorage := true
-	c.Assert(model.Destroy(state.DestroyModelParams{
+	c.Assert(imodel.Destroy(state.DestroyModelParams{
 		DestroyStorage: &destroyStorage,
 	}), jc.ErrorIsNil)
 
-	err = im.DetachFilesystem(machine.MachineTag(), names.NewFilesystemTag("0"))
+	err = imodel.DetachFilesystem(machine.MachineTag(), names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = im.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0"))
+	err = imodel.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = im.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = imodel.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = im.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = imodel.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
@@ -921,7 +921,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	im, err := st.IAASModel()
+	imodel, err := model.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := st.AddOneMachine(state.MachineTemplate{
@@ -936,22 +936,22 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumes, err := im.AllVolumes()
+	volumes, err := imodel.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumes, gc.HasLen, 1)
 	volumeTag := volumes[0].VolumeTag()
 
-	err = model.Destroy(state.DestroyModelParams{})
+	err = imodel.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
 
 	destroyStorage := true
-	c.Assert(model.Destroy(state.DestroyModelParams{
+	c.Assert(imodel.Destroy(state.DestroyModelParams{
 		DestroyStorage: &destroyStorage,
 	}), jc.ErrorIsNil)
 
-	err = im.DetachVolume(machine.MachineTag(), volumeTag)
+	err = imodel.DetachVolume(machine.MachineTag(), volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = im.RemoveVolumeAttachment(machine.MachineTag(), volumeTag)
+	err = imodel.RemoveVolumeAttachment(machine.MachineTag(), volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
