@@ -282,22 +282,22 @@ func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Desc
 
 // DestroyVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
-	return destroyVolumes(s.storageAdapter, volumeIds), nil
+	return foreachVolume(s.storageAdapter, volumeIds, destroyVolume), nil
 }
 
 // ReleaseVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
-	return nil, errors.NotImplementedf("ReleaseVolumes")
+	return foreachVolume(s.storageAdapter, volumeIds, releaseVolume), nil
 }
 
-func destroyVolumes(storageAdapter OpenstackStorage, volumeIds []string) []error {
+func foreachVolume(storageAdapter OpenstackStorage, volumeIds []string, f func(OpenstackStorage, string) error) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volumeIds))
 	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			results[i] = destroyVolume(storageAdapter, volumeId)
+			results[i] = f(storageAdapter, volumeId)
 		}(i, volumeId)
 	}
 	wg.Wait()
@@ -354,6 +354,32 @@ func destroyVolume(storageAdapter OpenstackStorage, volumeId string) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func releaseVolume(storageAdapter OpenstackStorage, volumeId string) error {
+	logger.Debugf("releasing volume %q", volumeId)
+	_, err := waitVolume(storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
+		switch v.Status {
+		case volumeStatusAvailable, volumeStatusError:
+			return true, nil
+		case volumeStatusDeleting:
+			return false, errors.New("volume is being deleted")
+		case volumeStatusInUse:
+			return false, errors.New("volume still in-use")
+		}
+		// Not ready for releasing; keep waiting.
+		return false, nil
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot release volume %q", volumeId)
+	}
+	// Drop the model and controller tags from the volume.
+	tags := map[string]string{
+		tags.JujuModel:      "",
+		tags.JujuController: "",
+	}
+	_, err = storageAdapter.SetVolumeMetadata(volumeId, tags)
+	return errors.Annotate(err, "tagging volume")
 }
 
 // ValidateVolumeParams implements storage.VolumeSource.
