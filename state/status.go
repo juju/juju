@@ -19,6 +19,165 @@ import (
 	"github.com/juju/juju/status"
 )
 
+// ModelStatus holds all the current status values for a given model
+// and offers accessors for the various parts of a model.
+type ModelStatus struct {
+	model *Model
+	docs  map[string]statusDocWithID
+}
+
+// LoadModelStatus retrieves all the status documents for the model
+// at once. Used to primarily speed up status.
+func (m *Model) LoadModelStatus() (*ModelStatus, error) {
+	db, closer := m.modelDatabase()
+	defer closer()
+	statuses, closer := db.GetCollection(statusesC)
+	defer closer()
+
+	var docs []statusDocWithID
+	err := statuses.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to read status collection")
+	}
+
+	result := &ModelStatus{
+		model: m,
+		docs:  make(map[string]statusDocWithID),
+	}
+	for _, doc := range docs {
+		id := m.localID(doc.ID)
+		result.docs[id] = doc
+	}
+
+	return result, nil
+}
+
+func (m *ModelStatus) getDoc(key, badge string) (statusDocWithID, error) {
+	doc, found := m.docs[key]
+	if !found {
+		return statusDocWithID{}, errors.Annotate(errors.NotFoundf(badge), "cannot get status")
+	}
+	return doc, nil
+}
+
+func (m *ModelStatus) transform(doc statusDocWithID) status.StatusInfo {
+	return status.StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    utils.UnescapeKeys(doc.StatusData),
+		Since:   unixNanoToTime(doc.Updated),
+	}
+}
+
+func (m *ModelStatus) getStatus(key, badge string) (status.StatusInfo, error) {
+	doc, err := m.getDoc(key, badge)
+	if err != nil {
+		return status.StatusInfo{}, err
+	}
+	return m.transform(doc), nil
+}
+
+// Model returns the status of the model.
+func (m *ModelStatus) Model() (status.StatusInfo, error) {
+	return m.getStatus(m.model.globalKey(), "model")
+}
+
+// Application returns the status of the model.
+// The unitNames are needed due to the current weird implementation of
+// application status.
+func (m *ModelStatus) Application(appName string, unitNames []string) (status.StatusInfo, error) {
+	// This is kinda terrible, see notes in applcation.go for *Application.Status().
+	doc, err := m.getDoc(applicationGlobalKey(appName), "application")
+	if err != nil {
+		return status.StatusInfo{}, err
+	}
+	if doc.NeverSet {
+		// Get the status for the agents, and derive a status from that.
+		var unitStatuses []status.StatusInfo
+		for _, name := range unitNames {
+			unitStatus, err := m.UnitWorkload(name)
+			if err != nil {
+				errors.Annotatef(err, "deriving application status from %q", name)
+			}
+			unitStatuses = append(unitStatuses, unitStatus)
+		}
+		if len(unitStatuses) > 0 {
+			return deriveApplicationStatus(unitStatuses), nil
+		}
+
+	}
+	return m.transform(doc), nil
+}
+
+// MachineAgent returns the status of the machine agent.
+func (m *ModelStatus) MachineAgent(machineID string) (status.StatusInfo, error) {
+	return m.getStatus(machineGlobalKey(machineID), "machine")
+}
+
+// MachineInstance returns the status of the machine instance.
+func (m *ModelStatus) MachineInstance(machineID string) (status.StatusInfo, error) {
+	return m.getStatus(machineGlobalInstanceKey(machineID), "instance")
+}
+
+// FullUnitWorkloadVersion returns the full status info for the workload
+// version of a unit. This is used for selecting the workload version for
+// an application.
+func (m *ModelStatus) FullUnitWorkloadVersion(unitName string) (status.StatusInfo, error) {
+	return m.getStatus(globalWorkloadVersionKey(unitName), "workload")
+}
+
+// UnitWorkload returns the status of the machine instance.
+func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
+	info, err := m.getStatus(globalWorkloadVersionKey(unitName), "workload")
+	if err != nil {
+		return "", err
+	}
+	return info.Message, nil
+}
+
+// UnitWorkload returns the status of the machine instance.
+func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
+	// We do horrible things with unit status.
+	// See notes in unitagent.go.
+	info, err := m.getStatus(unitAgentGlobalKey(unitName), "agent")
+	if err != nil {
+		return info, err
+	}
+	if info.Status == status.Error {
+		return status.StatusInfo{
+			Status:  status.Idle,
+			Message: "",
+			Data:    map[string]interface{}{},
+			Since:   info.Since,
+		}, nil
+	}
+	return info, nil
+}
+
+// UnitWorkload returns the status of the machine instance.
+func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
+	// We do horrible things with unit status.
+	// See notes in unit.go.
+	info, err := m.getStatus(unitAgentGlobalKey(unitName), "unit")
+	if err != nil {
+		return info, err
+	} else if info.Status == status.Error {
+		return info, nil
+	}
+
+	return m.getStatus(unitGlobalKey(unitName), "workload")
+}
+
+type statusDocWithID struct {
+	ID         string                 `bson:"_id"`
+	ModelUUID  string                 `bson:"model-uuid"`
+	Status     status.Status          `bson:"status"`
+	StatusInfo string                 `bson:"statusinfo"`
+	StatusData map[string]interface{} `bson:"statusdata"`
+	Updated    int64                  `bson:"updated"`
+	NeverSet   bool                   `bson:"neverset"`
+}
+
 // statusDoc represents a entity status in Mongodb.  The implicit
 // _id field is explicitly set to the global key of the associated
 // entity in the document's creation transaction, but omitted to allow

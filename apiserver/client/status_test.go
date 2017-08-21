@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -82,38 +81,39 @@ type statusUnitTestSuite struct {
 func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c *gc.C) {
 	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("0")})
 	container := s.Factory.MakeMachineNested(c, host.Id(), nil)
-	machines := map[string][]*state.Machine{
-		host.Id(): {host, container},
-	}
 
-	// TODO(macgreagoir) Pass in more than nil
-	statuses := client.ProcessMachines(machines, nil, nil, nil)
-	c.Assert(statuses, gc.Not(gc.IsNil))
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(macgreagoir) Pass in more than nil
-	containerStatus := client.MakeMachineStatus(container, nil, nil, nil)
-	c.Check(statuses[host.Id()].Containers[container.Id()].Id, gc.Equals, containerStatus.Id)
+	c.Check(status.Machines, gc.HasLen, 1)
+	mStatus, ok := status.Machines[host.Id()]
+	c.Check(ok, jc.IsTrue)
+	c.Check(mStatus.Containers, gc.HasLen, 1)
+
+	_, ok = mStatus.Containers[container.Id()]
+	c.Check(ok, jc.IsTrue)
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
 	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
+	s.Factory.MakeMachineNested(c, host.Id(), nil)
 	lxdHost := s.Factory.MakeMachineNested(c, host.Id(), nil)
-	machines := map[string][]*state.Machine{
-		host.Id(): {
-			host,
-			lxdHost,
-			s.Factory.MakeMachineNested(c, lxdHost.Id(), nil),
-			s.Factory.MakeMachineNested(c, host.Id(), nil),
-		},
-	}
+	s.Factory.MakeMachineNested(c, lxdHost.Id(), nil)
 
-	// TODO(macgreagoir) Pass in more than nil
-	statuses := client.ProcessMachines(machines, nil, nil, nil)
-	c.Assert(statuses, gc.Not(gc.IsNil))
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	hostContainer := statuses[host.Id()].Containers
-	c.Check(hostContainer, gc.HasLen, 2)
-	c.Check(hostContainer[lxdHost.Id()].Containers, gc.HasLen, 1)
+	c.Check(status.Machines, gc.HasLen, 1)
+	mStatus, ok := status.Machines[host.Id()]
+	c.Check(ok, jc.IsTrue)
+	c.Check(mStatus.Containers, gc.HasLen, 2)
+
+	mStatus, ok = mStatus.Containers[lxdHost.Id()]
+	c.Check(ok, jc.IsTrue)
+
+	c.Check(mStatus.Containers, gc.HasLen, 1)
 }
 
 var testUnits = []struct {

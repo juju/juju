@@ -587,6 +587,16 @@ func (m *Model) Status() (status.StatusInfo, error) {
 	return status, nil
 }
 
+// localID returns the local id value by stripping off the model uuid prefix
+// if it is there.
+func (m *Model) localID(ID string) string {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != m.doc.UUID {
+		return ID
+	}
+	return localID
+}
+
 // SetStatus sets the status of the model.
 func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 	if !status.ValidModelStatus(sInfo.Status) {
@@ -790,6 +800,25 @@ func (m *Model) refresh(query mongo.Query) error {
 		return errors.NotFoundf("model")
 	}
 	return err
+}
+
+// AllUnits returns all units for a model, for all applications.
+func (m *Model) AllUnits() ([]*Unit, error) {
+	db, closer := m.modelDatabase()
+	defer closer()
+	coll, closer := db.GetCollection(unitsC)
+	defer closer()
+
+	docs := []unitDoc{}
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all units for model")
+	}
+	var units []*Unit
+	for i := range docs {
+		units = append(units, newUnit(m.globalState, &docs[i]))
+	}
+	return units, nil
 }
 
 // Users returns a slice of all users for this model.

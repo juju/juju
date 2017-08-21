@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -358,6 +359,32 @@ func (s *ModelSuite) TestConfigForOtherEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.Name(), gc.Equals, "other")
 	c.Assert(conf.UUID(), gc.Equals, otherEnv.UUID())
+}
+
+func (s *ModelSuite) TestAllUnits(c *gc.C) {
+	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "wordpress",
+	})
+	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "mysql",
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	units, err := model.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var names []string
+	for _, u := range units {
+		names = append(names, u.Name())
+	}
+	sort.Strings(names)
+	c.Assert(names, jc.DeepEquals, []string{
+		"mysql/0", "wordpress/0", "wordpress/1",
+	})
 }
 
 // createTestModelConfig returns a new model config and its UUID for testing.
