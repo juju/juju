@@ -501,15 +501,22 @@ func fetchAllApplicationsAndUnits(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	for _, app := range applications {
-		appUnitMap := make(map[string]*state.Unit)
-		for _, u := range units {
-			if u.ApplicationName() == app.Name() {
-				appUnitMap[u.Name()] = u
+	allUnitsByApp := make(map[string]map[string]*state.Unit)
+	for _, unit := range units {
+		appName := unit.ApplicationName()
+
+		if inner, found := allUnitsByApp[appName]; found {
+			inner[unit.Name()] = unit
+		} else {
+			allUnitsByApp[appName] = map[string]*state.Unit{
+				unit.Name(): unit,
 			}
 		}
-		if matchAny || len(appUnitMap) > 0 {
-			unitMap[app.Name()] = appUnitMap
+	}
+	for _, app := range applications {
+		appUnits := allUnitsByApp[app.Name()]
+		if matchAny || len(appUnits) > 0 {
+			unitMap[app.Name()] = appUnits
 			appMap[app.Name()] = app
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
