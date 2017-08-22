@@ -15,7 +15,11 @@ import (
 
 // GetOfferAccess gets the access permission for the specified user on an offer.
 func (st *State) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
-	perm, err := st.userPermission(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))
+	m, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	perm, err := m.userPermission(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))
 	if err != nil {
 		return "", errors.Trace(err)
 	}

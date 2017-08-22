@@ -26,7 +26,11 @@ func (p *statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 	closer := func() {
 		releaser()
 	}
-	return stateShim{st}, closer, err
+	model, err := st.Model()
+	if err != nil {
+		return stateShim{}, closer, err
+	}
+	return stateShim{st, model}, closer, err
 }
 
 func GetStatePool(pool *state.StatePool) StatePool {
@@ -40,6 +44,7 @@ func GetBackend(st *state.State) stateShim {
 
 type stateShim struct {
 	*state.State
+	*state.Model
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {
@@ -48,6 +53,19 @@ func (st stateShim) KeyRelation(key string) (Relation, error) {
 		return nil, errors.Trace(err)
 	}
 	return relationShim{r, st.State}, nil
+}
+
+// ControllerTag returns the tag of the controller in which we are operating.
+// This is a temporary transitional step. Eventually code using
+// crossmodel.Backend will only need to be passed a state.Model.
+func (st stateShim) ControllerTag() names.ControllerTag {
+	return st.Model.ControllerTag()
+}
+
+// ControllerTag returns the tag of the controller in which we are operating.
+// This is a temporary transitional step.
+func (st stateShim) ModelTag() names.ModelTag {
+	return st.Model.ModelTag()
 }
 
 type applicationShim struct {

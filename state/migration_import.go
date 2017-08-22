@@ -314,7 +314,7 @@ func (i *importer) modelUsers() error {
 	// the wrong DateCreated, so we remove it, and add in all the users we
 	// know about. It is also possible that the owner of the model no
 	// longer has access to the model due to changes over time.
-	if err := i.st.RemoveUserAccess(i.dbModel.Owner(), i.dbModel.ModelTag()); err != nil {
+	if err := i.dbModel.RemoveUserAccess(i.dbModel.Owner(), i.dbModel.ModelTag()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -341,7 +341,7 @@ func (i *importer) modelUsers() error {
 		if lastConnection.IsZero() {
 			continue
 		}
-		err := i.st.updateLastModelConnection(user.Name(), lastConnection)
+		err := i.dbModel.updateLastModelConnection(user.Name(), lastConnection)
 		if err != nil {
 			return errors.Trace(err)
 		}

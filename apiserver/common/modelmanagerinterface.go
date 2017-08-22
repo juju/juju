@@ -29,8 +29,6 @@ type ModelManagerBackend interface {
 	state.CloudAccessor
 
 	ModelUUID() string
-	ModelUUIDsForUser(names.UserTag) ([]string, error)
-	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
 	AllModelUUIDs() ([]string, error)
@@ -46,10 +44,6 @@ type ModelManagerBackend interface {
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
-	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
-	RemoveUserAccess(names.UserTag, names.Tag) error
-	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 	AllMachines() (machines []Machine, err error)
 	AllApplications() (applications []Application, err error)
 	AllFilesystems() ([]state.Filesystem, error)
@@ -58,10 +52,9 @@ type ModelManagerBackend interface {
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
 	ExportPartial(state.ExportConfig) (description.Model, error)
-	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
 	ReloadSpaces(environ environs.Environ) error
-	LastModelConnection(user names.UserTag) (time.Time, error)
+
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
@@ -95,6 +88,15 @@ type Model interface {
 	Name() string
 	UUID() string
 	ControllerUUID() string
+
+	ModelUUIDsForUser(names.UserTag) ([]string, error)
+	IsControllerAdmin(user names.UserTag) (bool, error)
+	LastModelConnection(user names.UserTag) (time.Time, error)
+	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
+	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
+	RemoveUserAccess(names.UserTag, names.Tag) error
+	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
+	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

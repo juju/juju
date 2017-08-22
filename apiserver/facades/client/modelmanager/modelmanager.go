@@ -576,7 +576,11 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := m.state.ModelUUIDsForUser(userTag)
+	model, err := m.state.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	modelUUIDs, err := model.ModelUUIDsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -589,7 +593,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		defer release()
 
 		var lastConn *time.Time
-		userLastConn, err := st.LastModelConnection(userTag)
+		userLastConn, err := model.LastModelConnection(userTag)
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)
@@ -787,7 +791,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 				continue
 			}
 
-			userInfo, err := common.ModelUserInfo(user, st)
+			userInfo, err := common.ModelUserInfo(user, model)
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
@@ -880,23 +884,28 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 
 		result.Results[i].Error = common.ServerError(
 			changeModelAccess(m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
+		// TODO MMCC: should we be passing in the model instead of m.state?
 	}
 	return result, nil
 }
 
 func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin bool, userTag names.UserTag) error {
+	model, err := st.Model()
 	if userIsAdmin {
 		// Just confirm that the model that has been given is a valid model.
-		_, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
+	} else {
+		if err != nil {
+			return common.ErrPerm
+		}
 	}
 
 	// Get the current user's ModelUser for the Model to see if the user has
 	// permission to grant or revoke permissions on the model.
-	currentUser, err := st.UserAccess(userTag, st.ModelTag())
+	currentUser, err := model.UserAccess(userTag, st.ModelTag())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// No, this user doesn't have permission.
@@ -923,11 +932,16 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		return errors.Trace(err)
 	}
 
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	switch action {
 	case params.GrantModelAccess:
-		_, err = st.AddModelUser(modelTag.Id(), state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+		_, err = model.AddModelUser(modelTag.Id(), state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 		if errors.IsAlreadyExists(err) {
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
+			modelUser, err := model.UserAccess(targetUserTag, modelTag)
 			if errors.IsNotFound(err) {
 				// Conflicts with prior check, must be inconsistent state.
 				err = txn.ErrExcessiveContention
@@ -940,7 +954,7 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			if modelUser.Access.EqualOrGreaterModelAccessThan(access) {
 				return errors.Errorf("user already has %q access or greater", access)
 			}
-			if _, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, access); err != nil {
+			if _, err = model.SetUserAccess(modelUser.UserTag, modelUser.Object, access); err != nil {
 				return errors.Annotate(err, "could not set model access for user")
 			}
 			return nil
@@ -951,23 +965,23 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		switch access {
 		case permission.ReadAccess:
 			// Revoking read access removes all access.
-			err := st.RemoveUserAccess(targetUserTag, modelTag)
+			err := model.RemoveUserAccess(targetUserTag, modelTag)
 			return errors.Annotate(err, "could not revoke model access")
 		case permission.WriteAccess:
 			// Revoking write access sets read-only.
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
+			modelUser, err := model.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.ReadAccess)
+			_, err = model.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.ReadAccess)
 			return errors.Annotate(err, "could not set model access to read-only")
 		case permission.AdminAccess:
 			// Revoking admin access sets read-write.
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
+			modelUser, err := model.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.WriteAccess)
+			_, err = model.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.WriteAccess)
 			return errors.Annotate(err, "could not set model access to read-write")
 
 		default:

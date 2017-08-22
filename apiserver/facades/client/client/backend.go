@@ -23,10 +23,8 @@ import (
 // allowing stubs to be created for testing.
 type Backend interface {
 	AbortCurrentUpgrade() error
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
-	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
@@ -58,7 +56,6 @@ type Backend interface {
 	ModelUUID() string
 	RemoteApplication(string) (*state.RemoteApplication, error)
 	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
-	RemoveUserAccess(names.UserTag, names.Tag) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number) error
 	SetModelConstraints(constraints.Value) error
@@ -66,6 +63,13 @@ type Backend interface {
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 	Watch(params state.WatchParams) *state.Multiwatcher
+}
+
+// Model contains the state.Model methods used in this package.
+type Model interface {
+	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
+	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
+	RemoveUserAccess(names.UserTag, names.Tag) error
 }
 
 // Pool contains the StatePool functionality used in this package.
@@ -95,6 +99,10 @@ func (s *stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return u, nil
+}
+
+func (s *stateShim) Watch(params state.WatchParams) *state.Multiwatcher {
+	return s.State.Watch(params)
 }
 
 func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {

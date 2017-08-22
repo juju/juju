@@ -24,7 +24,7 @@ type State interface {
 	AllModelUUIDs() ([]string, error)
 	AllUsers() ([]User, error)
 	ControllerTag() names.ControllerTag
-	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
+	Model() (*state.Model, error)
 }
 
 // Machine represents a machine in a Juju model.
@@ -39,6 +39,7 @@ type Model interface {
 	Life() state.Life
 	ModelTag() names.ModelTag
 	Status() (status.StatusInfo, error)
+	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 }
 
 // User represents a user known to the Juju controller.

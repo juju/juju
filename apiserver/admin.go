@@ -308,6 +308,10 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin bool) (*params.AuthUserInfo, error) {
 
 	modelAccess := permission.NoAccess
+	model, err := a.root.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// TODO(perrito666) remove the following section about everyone group
 	// when groups are implemented, this accounts only for the lack of a local
@@ -317,7 +321,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 	everyoneGroupAccess := permission.NoAccess
 	if !userTag.IsLocal() {
 		everyoneTag := names.NewUserTag(common.EveryoneTagName)
-		everyoneGroupUser, err := state.ControllerAccess(a.root.state, everyoneTag)
+		everyoneGroupUser, err := state.ControllerAccess(model, everyoneTag)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 		}
@@ -325,7 +329,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 	}
 
 	controllerAccess := permission.NoAccess
-	if controllerUser, err := state.ControllerAccess(a.root.state, userTag); err == nil {
+	if controllerUser, err := state.ControllerAccess(model, userTag); err == nil {
 		controllerAccess = controllerUser.Access
 	} else if errors.IsNotFound(err) {
 		controllerAccess = everyoneGroupAccess
@@ -339,7 +343,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		// admin.
 
 		var err error
-		modelAccess, err = a.root.state.UserPermission(userTag, a.root.state.ModelTag())
+		modelAccess, err = model.UserPermission(userTag, a.root.state.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, common.ErrPerm)
 		}
@@ -512,15 +516,19 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if !ok {
 		return f.st.FindEntity(tag)
 	}
+	model, err := f.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
+	modelUser, err := model.UserAccess(utag, f.st.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	// No model user found, so see if the user has been granted
 	// access to the controller.
 	if permission.IsEmptyUserAccess(modelUser) {
-		controllerUser, err := state.ControllerAccess(f.st, utag)
+		controllerUser, err := state.ControllerAccess(model, utag)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -531,7 +539,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		// everyone group.
 		if permission.IsEmptyUserAccess(controllerUser) && !utag.IsLocal() {
 			everyoneTag := names.NewUserTag(common.EveryoneTagName)
-			controllerUser, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
+			controllerUser, err = model.UserAccess(everyoneTag, f.st.ControllerTag())
 			if err != nil && !errors.IsNotFound(err) {
 				return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 			}
@@ -607,8 +615,14 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	// the local user last login time.
 	var err error
 	var t time.Time
+
+	model, err := u.st.Model()
+	if err != nil {
+		return t, errors.Trace(err)
+	}
+
 	if !permission.IsEmptyUserAccess(u.modelUser) {
-		t, err = u.st.LastModelConnection(u.modelUser.UserTag)
+		t, err = model.LastModelConnection(u.modelUser.UserTag)
 	} else {
 		err = state.NeverConnectedError("controller user")
 	}
@@ -633,7 +647,12 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
 		}
 
-		err = u.st.UpdateLastModelConnection(u.modelUser.UserTag)
+		model, err := u.st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = model.UpdateLastModelConnection(u.modelUser.UserTag)
 	}
 
 	if u.user != nil {

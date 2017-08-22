@@ -524,7 +524,11 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 }
 
 func modelInfo(st *state.State, user permission.UserAccess) (params.ModelUserInfo, error) {
-	return common.ModelUserInfo(user, st)
+	model, err := st.Model()
+	if err != nil {
+		return params.ModelUserInfo{}, errors.Trace(err)
+	}
+	return common.ModelUserInfo(user, model)
 }
 
 // ModelUserInfo returns information on all users in the model.

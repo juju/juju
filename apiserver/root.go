@@ -427,12 +427,22 @@ func (r *apiHandler) ConnectedModel() string {
 
 // HasPermission returns true if the logged in user can perform <operation> on <target>.
 func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserPermission, r.entity.Tag(), operation, target)
+	model, err := r.state.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	return common.HasPermission(model.UserPermission, r.entity.Tag(), operation, target)
 }
 
 // UserHasPermission returns true if the passed in user can perform <operation> on <target>.
 func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserPermission, user, operation, target)
+	model, err := r.state.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	return common.HasPermission(model.UserPermission, user, operation, target)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

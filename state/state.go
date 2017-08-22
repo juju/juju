@@ -179,8 +179,8 @@ func (st *State) ControllerOwner() (names.UserTag, error) {
 	return names.NewUserTag(owner), nil
 }
 
-func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
-	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
+func ControllerAccess(m *Model, tag names.Tag) (permission.UserAccess, error) {
+	return m.UserAccess(tag.(names.UserTag), m.st.controllerTag)
 }
 
 // RemoveAllModelDocs removes all documents from multi-model
