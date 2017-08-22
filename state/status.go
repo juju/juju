@@ -60,21 +60,12 @@ func (m *ModelStatus) getDoc(key, badge string) (statusDocWithID, error) {
 	return doc, nil
 }
 
-func (m *ModelStatus) transform(doc statusDocWithID) status.StatusInfo {
-	return status.StatusInfo{
-		Status:  doc.Status,
-		Message: doc.StatusInfo,
-		Data:    utils.UnescapeKeys(doc.StatusData),
-		Since:   unixNanoToTime(doc.Updated),
-	}
-}
-
 func (m *ModelStatus) getStatus(key, badge string) (status.StatusInfo, error) {
 	doc, err := m.getDoc(key, badge)
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
-	return m.transform(doc), nil
+	return doc.asStatusInfo(), nil
 }
 
 // Model returns the status of the model.
@@ -106,7 +97,7 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 		}
 
 	}
-	return m.transform(doc), nil
+	return doc.asStatusInfo(), nil
 }
 
 // MachineAgent returns the status of the machine agent.
@@ -176,6 +167,15 @@ type statusDocWithID struct {
 	StatusData map[string]interface{} `bson:"statusdata"`
 	Updated    int64                  `bson:"updated"`
 	NeverSet   bool                   `bson:"neverset"`
+}
+
+func (doc *statusDocWithID) asStatusInfo() status.StatusInfo {
+	return status.StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    utils.UnescapeKeys(doc.StatusData),
+		Since:   unixNanoToTime(doc.Updated),
+	}
 }
 
 // statusDoc represents a entity status in Mongodb.  The implicit
