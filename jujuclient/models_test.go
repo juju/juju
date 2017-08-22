@@ -104,27 +104,54 @@ func (s *ModelsSuite) TestSetCurrentModel(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
-	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
-	err := s.store.UpdateModel("new-controller", "admin/new-model", testModelDetails)
+	controllerName := "new-controller"
+	store := jujuclient.NewFileClientStore()
+	err := store.AddController(controllerName, jujuclient.ControllerDetails{
+		ControllerUUID: "abc",
+		CACert:         "woop",
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	models, err := s.store.AllModels("new-controller")
+	s.store = store
+	originalControllerModelCount := s.getControllerModelsCount(c, controllerName)
+
+	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
+	err = s.store.UpdateModel(controllerName, "admin/new-model", testModelDetails)
+	c.Assert(err, jc.ErrorIsNil)
+	models, err := s.store.AllModels(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, map[string]jujuclient.ModelDetails{
 		"admin/new-model": testModelDetails,
 	})
+	newControllerModelCount := s.getControllerModelsCount(c, controllerName)
+	c.Assert(newControllerModelCount-originalControllerModelCount, gc.Equals, 1)
+}
+
+func (s *ModelsSuite) getControllerModelsCount(c *gc.C, controllerName string) int {
+	wholeStore, ok := s.store.(jujuclient.ClientStore)
+	c.Assert(ok, jc.IsTrue)
+	details, err := wholeStore.ControllerByName(controllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	if details.ModelCount != nil {
+		return *details.ModelCount
+	}
+	return 0
 }
 
 func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C) {
+	controllerName := "kontroll"
+	originalControllerModelCount := s.getControllerModelsCount(c, controllerName)
 	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
-	err := s.store.UpdateModel("kontroll", "admin/new-model", testModelDetails)
+	err := s.store.UpdateModel(controllerName, "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
-	models, err := s.store.AllModels("kontroll")
+	models, err := s.store.AllModels(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, map[string]jujuclient.ModelDetails{
 		"admin/admin":     kontrollAdminModelDetails,
 		"admin/my-model":  kontrollMyModelModelDetails,
 		"admin/new-model": testModelDetails,
 	})
+	newControllerModelCount := s.getControllerModelsCount(c, controllerName)
+	c.Assert(newControllerModelCount-originalControllerModelCount, gc.Equals, 1)
 }
 
 func (s *ModelsSuite) TestUpdateModelOverwrites(c *gc.C) {
@@ -151,14 +178,18 @@ controllers:
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerName := "ctrl"
+	originalControllerModelCount := s.getControllerModelsCount(c, controllerName)
 	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
-	err = s.store.UpdateModel("ctrl", "admin/admin", testModelDetails)
+	err = s.store.UpdateModel(controllerName, "admin/admin", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
-	models, err := s.store.AllModels("ctrl")
+	models, err := s.store.AllModels(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, map[string]jujuclient.ModelDetails{
 		"admin/admin": testModelDetails,
 	})
+	newControllerModelCount := s.getControllerModelsCount(c, controllerName)
+	c.Assert(originalControllerModelCount, gc.Equals, newControllerModelCount)
 }
 
 func (s *ModelsSuite) TestRemoveModelNoFile(c *gc.C) {
@@ -179,20 +210,17 @@ func (s *ModelsSuite) TestRemoveModelNotFound(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestRemoveModel(c *gc.C) {
-	err := s.store.RemoveModel("kontroll", "admin/admin")
+	controllerName := "kontroll"
+	err := s.store.RemoveModel(controllerName, "admin/admin")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.store.ModelByName("kontroll", "admin/admin")
+	_, err = s.store.ModelByName(controllerName, "admin/admin")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.getControllerModelsCount(c, controllerName), gc.Equals, 1)
 }
 
 func (s *ModelsSuite) TestRemoveControllerRemovesModels(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
-	err := store.AddController("kontroll", jujuclient.ControllerDetails{
-		ControllerUUID: "abc",
-		CACert:         "woop",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = store.RemoveController("kontroll")
+	err := store.RemoveController("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
