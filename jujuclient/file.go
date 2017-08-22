@@ -121,7 +121,10 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 		return nil, errors.Annotatef(err, "cannot read controller %v", name)
 	}
 	defer releaser.Release()
+	return controllerDetails(name)
+}
 
+func controllerDetails(name string) (*ControllerDetails, error) {
 	controllers, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -185,7 +188,10 @@ func (s *store) UpdateController(name string, details ControllerDetails) error {
 		return errors.Annotatef(err, "cannot update controller %v", name)
 	}
 	defer releaser.Release()
+	return updateControllerDetails(name, details)
+}
 
+func updateControllerDetails(name string, details ControllerDetails) error {
 	all, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
 		return errors.Annotate(err, "cannot get controllers")
@@ -518,10 +524,9 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 	))
 }
 
-func updateModels(
-	controllerName string,
-	update func(*ControllerModels) (bool, error),
-) error {
+type modelUpdaterF func(storedModels *ControllerModels) (bool, error)
+
+func updateModels(controllerName string, update modelUpdaterF) error {
 	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return errors.Trace(err)
@@ -537,12 +542,33 @@ func updateModels(
 	if controllerModels.Models == nil {
 		controllerModels.Models = make(map[string]ModelDetails)
 	}
+	count := len(controllerModels.Models)
 	updated, err := update(controllerModels)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if updated {
+		newCount := len(controllerModels.Models)
+		if count != newCount {
+			err = updateControllerModelsCount(controllerName, newCount)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
 		return errors.Trace(WriteModelsFile(all))
+	}
+	return nil
+}
+
+func updateControllerModelsCount(controllerName string, newCount int) error {
+	details, err := controllerDetails(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	details.ModelCount = &newCount
+	err = updateControllerDetails(controllerName, *details)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -726,12 +752,6 @@ func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapC
 	cfg, ok := configs[controllerName]
 	if !ok {
 		return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
-	}
-	if cfg.CloudType == "" {
-		// TODO(axw) 2016-07-25 #1603841
-		// Drop this when we get to 2.0. This exists only for
-		// compatibility with previous beta releases.
-		cfg.CloudType, _ = cfg.Config["type"].(string)
 	}
 	return &cfg, nil
 }

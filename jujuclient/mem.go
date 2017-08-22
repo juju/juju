@@ -146,6 +146,16 @@ func (c *MemStore) UpdateController(name string, one ControllerDetails) error {
 	return nil
 }
 
+func (c *MemStore) updateControllerModelsCount(name string, modelsCount int) error {
+	if _, ok := c.Controllers[name]; !ok {
+		return errors.NotFoundf("controller %s", name)
+	}
+
+	details := c.Controllers[name]
+	details.ModelCount = &modelsCount
+	return c.UpdateController(name, details)
+}
+
 // RemoveController implements ControllerRemover.RemoveController
 func (c *MemStore) RemoveController(name string) error {
 	c.mu.Lock()
@@ -196,7 +206,12 @@ func (c *MemStore) UpdateModel(controller, model string, details ModelDetails) e
 		}
 		c.Models[controller] = controllerModels
 	}
+	count := len(controllerModels.Models)
 	controllerModels.Models[model] = details
+	if count != len(controllerModels.Models) {
+		// model was added
+		return c.updateControllerModelsCount(controller, len(controllerModels.Models))
+	}
 	return nil
 }
 
@@ -244,6 +259,7 @@ func (c *MemStore) RemoveModel(controller, model string) error {
 	if controllerModels.CurrentModel == model {
 		controllerModels.CurrentModel = ""
 	}
+	c.updateControllerModelsCount(controller, len(controllerModels.Models))
 	return nil
 }
 

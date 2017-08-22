@@ -65,6 +65,16 @@ var testControllerModels = map[string]*jujuclient.ControllerModels{
 	},
 }
 
+const testControllerModelsYaml = `
+controllers:
+  ctrl:
+    uuid: this-is-the-ctrl-test-uuid
+    model-count: 1
+  kontroll:
+    uuid: this-is-kontroll-uuid
+    model-count: 2
+`
+
 var kontrollAdminModelDetails = jujuclient.ModelDetails{"abc"}
 var kontrollMyModelModelDetails = jujuclient.ModelDetails{"def"}
 var ctrlAdminModelDetails = jujuclient.ModelDetails{"ghi"}
@@ -107,6 +117,13 @@ func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
 
 func writeTestModelsFile(c *gc.C) {
 	err := jujuclient.WriteModelsFile(testControllerModels)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// we also need corresponding controllers file since
+	// some model operations will affect stored controllers data.
+	controllers, err := jujuclient.ParseControllers([]byte(testControllerModelsYaml))
+	c.Assert(err, jc.ErrorIsNil)
+	err = jujuclient.WriteControllersFile(controllers)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
