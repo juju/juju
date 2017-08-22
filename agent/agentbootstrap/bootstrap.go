@@ -109,6 +109,7 @@ func InitializeState(
 	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			Owner:                   adminUser,
 			Config:                  args.ControllerModelConfig,
 			Constraints:             args.ModelConstraints,
@@ -201,6 +202,7 @@ func InitializeState(
 	}
 
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
 		Owner:                   adminUser,
 		Config:                  hostedModelConfig,
 		Constraints:             args.ModelConstraints,

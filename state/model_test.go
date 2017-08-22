@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -60,6 +61,7 @@ func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
 	owner := names.NewUserTag("non-existent@local")
 
 	_, _, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -75,6 +77,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 
 	// Create the first model.
 	_, st1, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -93,6 +96,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 		"uuid": newUUID.String(),
 	})
 	_, _, err = s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg2,
@@ -118,6 +122,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 
 	// We should now be able to create the other model.
 	model2, st2, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg2,
@@ -130,11 +135,27 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(st2, gc.NotNil)
 }
 
+func (s *ModelSuite) TestNewModelMissingType(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+	_, _, err := s.State.NewModel(state.ModelArgs{
+		// No type
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, gc.ErrorMatches, "empty Type not valid")
+
+}
+
 func (s *ModelSuite) TestNewModel(c *gc.C) {
 	cfg, uuid := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
 	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -147,11 +168,13 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	modelTag := names.NewModelTag(uuid)
 	assertModelMatches := func(model *state.Model) {
 		c.Assert(model.UUID(), gc.Equals, modelTag.Id())
+		c.Assert(model.Type(), gc.Equals, state.ModelTypeIAAS)
 		c.Assert(model.Tag(), gc.Equals, modelTag)
 		c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
 		c.Assert(model.Owner(), gc.Equals, owner)
 		c.Assert(model.Name(), gc.Equals, "testing")
 		c.Assert(model.Life(), gc.Equals, state.Alive)
+		c.Assert(model.CloudRegion(), gc.Equals, "dummy-region")
 	}
 	assertModelMatches(model)
 
@@ -178,11 +201,77 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSuite) TestNewModelCAAS(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+
+	cfg, uuid := s.createTestModelConfig(c)
+	modelTag := names.NewModelTag(uuid)
+	owner := names.NewUserTag("test@remote")
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeCAAS,
+		CloudName: "dummy",
+		Config:    cfg,
+		Owner:     owner,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	c.Assert(model.Type(), gc.Equals, state.ModelTypeCAAS)
+	c.Assert(model.UUID(), gc.Equals, modelTag.Id())
+	c.Assert(model.Tag(), gc.Equals, modelTag)
+	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
+	c.Assert(model.Owner(), gc.Equals, owner)
+	c.Assert(model.Name(), gc.Equals, "testing")
+	c.Assert(model.Life(), gc.Equals, state.Alive)
+	c.Assert(model.CloudRegion(), gc.Equals, "")
+}
+
+func (s *ModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	cfg, _ := s.createTestModelConfig(c)
+	_, _, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeCAAS,
+		CloudName:   "dummy",
+		CloudRegion: "fork",
+		Config:      cfg,
+		Owner:       names.NewUserTag("test@remote"),
+	})
+	c.Assert(err, gc.ErrorMatches, "CAAS model with CloudRegion not supported")
+}
+
+func (s *ModelSuite) TestNewModelCAASNeedsFeature(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+	_, _, err := s.State.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeCAAS,
+		CloudName: "dummy",
+		Config:    cfg,
+		Owner:     owner,
+	})
+	c.Assert(err, gc.ErrorMatches, "model type not supported")
+}
+
+func (s *ModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+	_, _, err := s.State.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeCAAS,
+		CloudName: "dummy",
+		Config:    cfg,
+		Owner:     owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, gc.ErrorMatches, "CAAS model with StorageProviderRegistry not valid")
+}
+
 func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
 	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",
 		Config:                  cfg,
@@ -201,6 +290,7 @@ func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
 	owner := names.NewUserTag("test@remote")
 
 	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -268,6 +358,7 @@ func (s *ModelSuite) TestSLA(c *gc.C) {
 	owner := names.NewUserTag("test@remote")
 
 	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -313,6 +404,7 @@ func (s *ModelSuite) TestMeterStatus(c *gc.C) {
 	owner := names.NewUserTag("test@remote")
 
 	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -1178,6 +1270,7 @@ func (s *ModelCloudValidationSuite) TestNewModelCloudNameMismatch(c *gc.C) {
 	defer st.Close()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeIAAS,
 		CloudName: "another",
 		Config:    cfg,
 		Owner:     owner,
@@ -1191,6 +1284,7 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
 	defer st.Close()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -1205,6 +1299,7 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
 	defer st.Close()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeIAAS,
 		CloudName: "dummy",
 		Config:    cfg,
 		Owner:     owner,
@@ -1225,6 +1320,7 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) 
 	unknownCredentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/unknown-credential")
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",
 		Config:                  cfg,
@@ -1246,6 +1342,7 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredential(c *gc.C) 
 	defer st.Close()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -1270,6 +1367,7 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEm
 	cfg, err := cfg.Apply(map[string]interface{}{"name": "whatever"})
 	c.Assert(err, jc.ErrorIsNil)
 	_, newSt, err := st.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeIAAS,
 		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
@@ -1288,6 +1386,7 @@ func (s *ModelCloudValidationSuite) TestNewModelOtherUserCloudCredential(c *gc.C
 	owner := factory.NewFactory(st).MakeUser(c, nil).UserTag()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		Config:                  cfg,
 		Owner:                   owner,
@@ -1320,6 +1419,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			Owner:                   owner,
 			Config:                  cfg,
 			CloudName:               "dummy",

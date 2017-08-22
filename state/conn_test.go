@@ -116,7 +116,11 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
 	_, otherState, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: otherOwner,
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       otherOwner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 

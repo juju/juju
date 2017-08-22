@@ -181,7 +181,10 @@ func (s *AnnotationsEnvSuite) createTestModel(c *gc.C) (*state.Model, *state.Sta
 	})
 	owner := names.NewUserTag("test@remote")
 	model, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

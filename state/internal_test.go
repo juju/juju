@@ -72,6 +72,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
+			Type:        ModelTypeIAAS,
 			CloudName:   "dummy",
 			CloudRegion: "dummy-region",
 			Owner:       s.owner,
@@ -118,6 +119,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 		"uuid": utils.MustNewUUID().String(),
 	})
 	_, st, err := s.state.NewModel(ModelArgs{
+		Type:        ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,

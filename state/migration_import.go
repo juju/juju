@@ -68,6 +68,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
+		Type:           ModelTypeIAAS,
 		CloudName:      model.Cloud(),
 		CloudRegion:    model.CloudRegion(),
 		Config:         cfg,

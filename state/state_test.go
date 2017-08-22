@@ -4703,6 +4703,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   owner,
 			Config:                  cfg,

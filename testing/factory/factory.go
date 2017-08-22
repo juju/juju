@@ -122,6 +122,7 @@ type MetricParams struct {
 }
 
 type ModelParams struct {
+	Type                    state.ModelType
 	Name                    string
 	Owner                   names.Tag
 	ConfigAttrs             testing.Attrs
@@ -610,6 +611,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params == nil {
 		params = new(ModelParams)
 	}
+	if params.Type == state.ModelType("") {
+		params.Type = state.ModelTypeIAAS
+	}
 	if params.Name == "" {
 		params.Name = uniqueString("testenv")
 	}
@@ -640,6 +644,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
+		Type:            params.Type,
 		CloudName:       params.CloudName,
 		CloudRegion:     params.CloudRegion,
 		CloudCredential: params.CloudCredential,
