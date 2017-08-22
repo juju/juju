@@ -1071,7 +1071,10 @@ class BootstrapManager:
                 artifacts_dir = os.path.join(self.log_dir,
                                              client.env.environment)
                 if not os.path.exists(artifacts_dir):
-                    os.makedirs(artifacts_dir)
+                    try:
+                        os.makedirs(artifacts_dir)
+                    except OSError:
+                        pass
                 dump_env_logs_known_hosts(
                     client, artifacts_dir, runtime_config, known_hosts)
 
