@@ -554,7 +554,9 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	conn := s.openAPIWithoutLogin(c, info)
 
 	var result params.LoginResult
-	request := &params.LoginRequest{}
+	request := &params.LoginRequest{
+		AuthTag: names.NewUserTag("jujuanonymous").String(),
+	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
@@ -578,7 +580,9 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 	conn := s.openAPIWithoutLogin(c, info)
 
 	var result params.LoginResult
-	request := &params.LoginRequest{}
+	request := &params.LoginRequest{
+		AuthTag: names.NewUserTag("jujuanonymous").String(),
+	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)

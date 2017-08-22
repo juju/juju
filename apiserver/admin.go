@@ -172,16 +172,24 @@ type authResult struct {
 
 func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	result := &authResult{
-		anonymousLogin:      req.AuthTag == "" && len(req.Macaroons) == 0,
 		controllerOnlyLogin: a.root.modelUUID == "",
+		userLogin:           true,
 	}
-	result.userLogin = !result.anonymousLogin
 
 	// Maybe rate limit non-user auth attempts.
 	machineAgent := false
 	if req.AuthTag != "" {
 		var err error
 		kind, err := names.TagKind(req.AuthTag)
+		// Check for anonymous user login.
+		if kind == names.UserTagKind {
+			userTag, err := names.ParseUserTag(req.AuthTag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			result.anonymousLogin = userTag.Id() == authentication.AnonymousUsername && len(req.Macaroons) == 0
+			result.userLogin = !result.anonymousLogin
+		}
 		if err != nil || kind != names.UserTagKind {
 			addCount := func(delta int64) {
 				atomic.AddInt64(&a.srv.loginAttempts, delta)

@@ -43,6 +43,9 @@ type UserAuthenticator struct {
 const (
 	usernameKey = "username"
 
+	// AnonymousUsername is used when making anonymous login requests.
+	AnonymousUsername = "jujuanonymous"
+
 	// LocalLoginInteractionTimeout is how long a user has to complete
 	// an interactive login before it is expired.
 	LocalLoginInteractionTimeout = 2 * time.Minute
