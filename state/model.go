@@ -1144,7 +1144,7 @@ func (m *Model) destroyOps(
 		}
 	} else {
 		if cloudCredential, ok := m.CloudCredential(); ok {
-			cloudCredentialRefOps, err := cloudCredentialDecRefOps(m.globalState, cloudCredential)
+			cloudCredentialRefOps, err := cloudCredentialDecRefOps(m.st, cloudCredential)
 			if err != nil {
 				return nil, errors.Annotate(err, "failed to decrement cloud credential refcount for destroyed model")
 			}
