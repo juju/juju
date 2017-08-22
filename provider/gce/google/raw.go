@@ -215,17 +215,17 @@ func (rc *rawConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	return errors.Trace(rc.waitOperation(project, op, attemptsLong))
 }
 
-func (rc *rawConn) ListDisks(project, zone string) ([]*compute.Disk, error) {
+func (rc *rawConn) ListDisks(project string) ([]*compute.Disk, error) {
 	ds := rc.Service.Disks
-	call := ds.List(project, zone)
+	call := ds.AggregatedList(project)
 	var results []*compute.Disk
 	for {
 		diskList, err := call.Do()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, disk := range diskList.Items {
-			results = append(results, disk)
+		for _, list := range diskList.Items {
+			results = append(results, list.Disks...)
 		}
 		if diskList.NextPageToken == "" {
 			break
@@ -253,6 +253,16 @@ func (rc *rawConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
 		return nil, errors.Annotatef(err, "cannot get disk %q at zone %q in project %q", id, zone, project)
 	}
 	return disk, nil
+}
+
+func (rc *rawConn) SetDiskLabels(project, zone, id, labelFingerprint string, labels map[string]string) error {
+	ds := rc.Service.Disks
+	call := ds.SetLabels(project, zone, id, &compute.ZoneSetLabelsRequest{
+		LabelFingerprint: labelFingerprint,
+		Labels:           labels,
+	})
+	_, err := call.Do()
+	return errors.Trace(err)
 }
 
 func (rc *rawConn) AttachDisk(project, zone, instanceId string, disk *compute.AttachedDisk) error {
