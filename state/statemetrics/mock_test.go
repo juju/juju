@@ -37,6 +37,19 @@ func (m *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePo
 	panic("model not found")
 }
 
+func (m *mockStatePool) GetModel(modelUUID string) (statemetrics.Model, state.StatePoolReleaser, error) {
+	m.MethodCall(m, "GetModel", modelUUID)
+	if err := m.NextErr(); err != nil {
+		return nil, nil, err
+	}
+	for _, m := range m.system.models {
+		if m.tag.Id() == modelUUID {
+			return m, func() bool { return true }, nil
+		}
+	}
+	panic("model not found")
+}
+
 type mockState struct {
 	statemetrics.State
 
@@ -45,14 +58,14 @@ type mockState struct {
 	users  []*mockUser
 }
 
-func (m *mockState) AllModels() ([]statemetrics.Model, error) {
-	m.MethodCall(m, "AllModels")
+func (m *mockState) AllModelUUIDs() ([]string, error) {
+	m.MethodCall(m, "AllModelsUUIDs")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	out := make([]statemetrics.Model, len(m.models))
+	out := make([]string, len(m.models))
 	for i, m := range m.models {
-		out[i] = m
+		out[i] = m.tag.Id()
 	}
 	return out, nil
 }
