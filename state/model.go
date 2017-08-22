@@ -42,6 +42,17 @@ const (
 	ModelTypeCAAS = ModelType("caas")
 )
 
+// ParseModelType turns a valid model type string into a ModelType
+// constant.
+func ParseModelType(raw string) (ModelType, error) {
+	for _, typ := range []ModelType{ModelTypeIAAS, ModelTypeCAAS} {
+		if raw == string(typ) {
+			return typ, nil
+		}
+	}
+	return "", errors.NotValidf("model type %v", raw)
+}
+
 // MigrationMode specifies where the Model is with respect to migration.
 type MigrationMode string
 
