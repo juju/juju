@@ -8,6 +8,7 @@ try:
     from contextlib import nested
 except ImportError:
     from contextlib import ExitStack as nested
+import errno
 import glob
 import logging
 import os
@@ -1070,11 +1071,11 @@ class BootstrapManager:
                     runtime_config = None
                 artifacts_dir = os.path.join(self.log_dir,
                                              client.env.environment)
-                if not os.path.exists(artifacts_dir):
-                    try:
-                        os.makedirs(artifacts_dir)
-                    except OSError:
-                        pass
+                try:
+                    os.makedirs(artifacts_dir)
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
                 dump_env_logs_known_hosts(
                     client, artifacts_dir, runtime_config, known_hosts)
 
