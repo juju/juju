@@ -471,22 +471,7 @@ def deploy_simple_resource_server(client, resource_contents=None):
 def migrate_model_to_controller(
         source_client, dest_client, include_user_name=False):
     log.info('Initiating migration process')
-    if include_user_name:
-        if after_22beta4(source_client.version):
-            model_name = '{}:{}/{}'.format(
-                source_client.env.controller.name,
-                source_client.env.user_name,
-                source_client.env.environment)
-        else:
-            model_name = '{}/{}'.format(
-                source_client.env.user_name, source_client.env.environment)
-    else:
-        if after_22beta4(source_client.version):
-            model_name = '{}:{}'.format(
-                source_client.env.controller.name,
-                source_client.env.environment)
-        else:
-            model_name = source_client.env.environment
+    model_name = get_full_model_name(source_client, include_user_name)
 
     if after_22beta4(source_client.version):
         source_client.juju(
@@ -498,10 +483,54 @@ def migrate_model_to_controller(
             'migrate', (model_name, dest_client.env.controller.name))
     migration_target_client = dest_client.clone(
         dest_client.env.clone(source_client.env.environment))
-    wait_for_model(migration_target_client, source_client.env.environment)
-    migration_target_client.wait_for_started()
-    wait_until_model_disappears(source_client, source_client.env.environment)
+
+    try:
+        wait_for_model(migration_target_client, source_client.env.environment)
+        migration_target_client.wait_for_started()
+        wait_until_model_disappears(
+            source_client, source_client.env.environment)
+    except JujuAssertionError as e:
+        # Attempt to show model details as it might log migration failure
+        # message.
+        log.error(
+            'Model failed to migrate. '
+            'Attempting show-model for affected models.')
+        try:
+            source_client.juju('show-model', (model_name), include_e=False)
+        except:
+            log.info('Ignoring failed output.')
+            pass
+
+        try:
+            source_client.juju(
+                'show-model',
+                get_full_model_name(migration_target_client, include_user_name),
+                include_e=False)
+        except:
+            log.info('Ignoring failed output.')
+            pass
+        raise e
     return migration_target_client
+
+
+def get_full_model_name(client, include_user_name):
+    # Construct model name based on rules of version + if username is needed.
+    if include_user_name:
+        if after_22beta4(client.version):
+            return '{}:{}/{}'.format(
+                client.env.controller.name,
+                client.env.user_name,
+                client.env.environment)
+        else:
+            return '{}/{}'.format(
+                client.env.user_name, client.env.environment)
+    else:
+        if after_22beta4(client.version):
+            return '{}:{}'.format(
+                client.env.controller.name,
+                client.env.environment)
+        else:
+            return client.env.environment
 
 
 def ensure_model_is_functional(client, application):

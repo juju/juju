@@ -60,8 +60,7 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
             test_stable_model, application = deploy_simple_server_to_new_model(
                 stable_client,
                 'version-migration',
-                resource_contents,
-                deploy_subords=False)
+                resource_contents)
             migration_target_client = migrate_model_to_controller(
                 test_stable_model, devel_client)
             assert_model_migrated_successfully(
