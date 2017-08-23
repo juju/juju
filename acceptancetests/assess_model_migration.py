@@ -381,21 +381,19 @@ def ensure_superuser_can_migrate_other_user_models(
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None, deploy_subords=True):
+        client, model_name, resource_contents=None):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
     application = deploy_simple_resource_server(new_model, resource_contents)
-    if deploy_subords:
-        _, deploy_complete = new_model.deploy('cs:ubuntu')
-        new_model.wait_for(deploy_complete)
-        new_model.deploy('cs:ntp')
-        new_model.juju('add-relation', ('ntp', application))
-        new_model.juju('add-relation', ('ntp', 'ubuntu'))
-        # Need to wait for the subordinate charms too.
-        new_model.wait_for(AllApplicationActive())
-        new_model.wait_for(AllApplicationWorkloads())
-        new_model.juju('status', ())
+    _, deploy_complete = new_model.deploy('cs:ubuntu')
+    new_model.wait_for(deploy_complete)
+    new_model.deploy('cs:ntp')
+    new_model.juju('add-relation', ('ntp', application))
+    new_model.juju('add-relation', ('ntp', 'ubuntu'))
+    # Need to wait for the subordinate charms too.
+    new_model.wait_for(AllApplicationActive())
+    new_model.wait_for(AllApplicationWorkloads())
     assert_deployed_charm_is_responding(new_model, resource_contents)
 
     return new_model, application
