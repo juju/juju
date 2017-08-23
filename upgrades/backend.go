@@ -41,13 +41,12 @@ type Model interface {
 }
 
 // NewStateBackend returns a new StateBackend using a *state.State object.
-func NewStateBackend(st *state.State, pool *state.StatePool) StateBackend {
-	return stateBackend{st, pool}
+func NewStateBackend(st *state.State) StateBackend {
+	return stateBackend{st}
 }
 
 type stateBackend struct {
-	st   *state.State
-	pool *state.StatePool
+	st *state.State
 }
 
 func (s stateBackend) ControllerUUID() string {
