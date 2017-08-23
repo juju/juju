@@ -136,7 +136,6 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	api, err := application.NewAPI(
 		&s.backend,
 		s.authorizer,
-		nil,
 		&s.blockChecker,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
