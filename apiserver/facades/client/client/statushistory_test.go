@@ -33,6 +33,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = client.NewClient(
 		s.st,
+		nil, // pool
 		nil, // modelconfig API
 		nil, // resources
 		authorizer,
