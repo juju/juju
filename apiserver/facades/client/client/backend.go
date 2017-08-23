@@ -19,18 +19,6 @@ import (
 	"github.com/juju/juju/status"
 )
 
-// Unit represents a state.Unit.
-type Unit interface {
-	status.StatusHistoryGetter
-	Life() state.Life
-	Destroy() (err error)
-	IsPrincipal() bool
-	PublicAddress() (network.Address, error)
-	PrivateAddress() (network.Address, error)
-	Resolve(retryHooks bool) error
-	AgentHistory() status.StatusHistoryGetter
-}
-
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
@@ -62,7 +50,6 @@ type Backend interface {
 	LatestMigration() (state.ModelMigration, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
-	GetModel(string) (*state.Model, func() bool, error)
 	Model() (*state.Model, error)
 	ModelConfig() (*config.Config, error)
 	ModelConfigValues() (config.ConfigValues, error)
@@ -81,16 +68,28 @@ type Backend interface {
 	Watch(params state.WatchParams) *state.Multiwatcher
 }
 
-func NewStateBackend(st *state.State, pool *state.StatePool) Backend {
-	return stateShim{st, pool}
+// Pool contains the StatePool functionality used in this package.
+type Pool interface {
+	GetModel(string) (*state.Model, func(), error)
+}
+
+// Unit represents a state.Unit.
+type Unit interface {
+	status.StatusHistoryGetter
+	Life() state.Life
+	Destroy() (err error)
+	IsPrincipal() bool
+	PublicAddress() (network.Address, error)
+	PrivateAddress() (network.Address, error)
+	Resolve(retryHooks bool) error
+	AgentHistory() status.StatusHistoryGetter
 }
 
 type stateShim struct {
 	*state.State
-	pool *state.StatePool
 }
 
-func (s stateShim) Unit(name string) (Unit, error) {
+func (s *stateShim) Unit(name string) (Unit, error) {
 	u, err := s.State.Unit(name)
 	if err != nil {
 		return nil, err
@@ -98,21 +97,19 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	return u, nil
 }
 
-func (s stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {
+func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {
 	offers := state.NewApplicationOffers(s.State)
 	return offers.AllApplicationOffers()
 }
 
-func (s stateShim) GetModel(uuid string) (*state.Model, func() bool, error) {
-	st, release, err := s.pool.Get(uuid)
+type poolShim struct {
+	pool *state.StatePool
+}
+
+func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {
+	model, release, err := p.pool.GetModel(uuid)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-
-	model, err := st.Model()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return model, release, nil
+	return model, func() { release() }, nil
 }

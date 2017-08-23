@@ -33,6 +33,7 @@ var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
 	stateAccessor Backend
+	pool          Pool
 	auth          facade.Authorizer
 	resources     facade.Resources
 	client        *Client
@@ -46,7 +47,7 @@ type API struct {
 // Until all code is refactored to use interfaces, we
 // need this helper to keep older code happy.
 func (api *API) state() *state.State {
-	return api.stateAccessor.(stateShim).State
+	return api.stateAccessor.(*stateShim).State
 }
 
 // caCerter implements the subset of common.APIAddresser
@@ -135,7 +136,8 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 	addresser := common.NewAPIAddresser(st, resources)
 	return NewClient(
-		NewStateBackend(st, ctx.StatePool()),
+		&stateShim{st},
+		&poolShim{ctx.StatePool()},
 		modelConfigAPI,
 		resources,
 		authorizer,
@@ -149,7 +151,8 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 
 // NewClient creates a new instance of the Client Facade.
 func NewClient(
-	st Backend,
+	backend Backend,
+	pool Pool,
 	modelConfigAPI *modelconfig.ModelConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -166,7 +169,8 @@ func NewClient(
 		ModelConfigAPI: modelConfigAPI,
 		caCerter:       caCerter,
 		api: &API{
-			stateAccessor: st,
+			stateAccessor: backend,
+			pool:          pool,
 			auth:          authorizer,
 			resources:     resources,
 			statusSetter:  statusSetter,
@@ -588,14 +592,15 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		}
 
 		for _, modelUUID := range modelUUIDs {
-			model, release, err := c.api.stateAccessor.GetModel(modelUUID)
+			model, release, err := c.api.pool.GetModel(modelUUID)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			defer release()
 			if mode := model.MigrationMode(); mode != state.MigrationModeNone {
+				release()
 				return errors.Errorf("model \"%s/%s\" is %s, upgrade blocked", model.Owner().Name(), model.Name(), mode)
 			}
+			release()
 		}
 	}
 
