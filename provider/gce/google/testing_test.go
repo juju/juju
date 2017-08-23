@@ -152,21 +152,23 @@ func StringPtr(val string) *string {
 type fakeCall struct {
 	FuncName string
 
-	ProjectID    string
-	Region       string
-	ZoneName     string
-	Name         string
-	ID           string
-	Prefix       string
-	Statuses     []string
-	Instance     *compute.Instance
-	InstValue    compute.Instance
-	Firewall     *compute.Firewall
-	InstanceId   string
-	AttachedDisk *compute.AttachedDisk
-	DeviceName   string
-	ComputeDisk  *compute.Disk
-	Metadata     *compute.Metadata
+	ProjectID        string
+	Region           string
+	ZoneName         string
+	Name             string
+	ID               string
+	Prefix           string
+	Statuses         []string
+	Instance         *compute.Instance
+	InstValue        compute.Instance
+	Firewall         *compute.Firewall
+	InstanceId       string
+	AttachedDisk     *compute.AttachedDisk
+	DeviceName       string
+	ComputeDisk      *compute.Disk
+	Metadata         *compute.Metadata
+	LabelFingerprint string
+	Labels           map[string]string
 }
 
 type fakeConn struct {
@@ -357,11 +359,10 @@ func (rc *fakeConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	return err
 }
 
-func (rc *fakeConn) ListDisks(project, zone string) ([]*compute.Disk, error) {
+func (rc *fakeConn) ListDisks(project string) ([]*compute.Disk, error) {
 	call := fakeCall{
 		FuncName:  "ListDisks",
 		ProjectID: project,
-		ZoneName:  zone,
 	}
 	rc.Calls = append(rc.Calls, call)
 
@@ -402,6 +403,24 @@ func (rc *fakeConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
 		err = nil
 	}
 	return rc.Disk, err
+}
+
+func (rc *fakeConn) SetDiskLabels(project, zone, id, labelFingerprint string, labels map[string]string) error {
+	call := fakeCall{
+		FuncName:         "SetDiskLabels",
+		ProjectID:        project,
+		ZoneName:         zone,
+		ID:               id,
+		LabelFingerprint: labelFingerprint,
+		Labels:           labels,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
 }
 
 func (rc *fakeConn) AttachDisk(project, zone, instanceId string, attachedDisk *compute.AttachedDisk) error {
