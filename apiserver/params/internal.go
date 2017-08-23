@@ -783,3 +783,18 @@ type ResourceUploadResult struct {
 	// Timestamp indicates when the resource was added to the model.
 	Timestamp time.Time `json:"timestamp"`
 }
+
+// UnitRefreshResult is used to return the latest values for attributes
+// on a unit.
+type UnitRefreshResult struct {
+	Life     Life
+	Resolved ResolvedMode
+	Series   string
+	Error    *Error
+}
+
+// UnitRefreshResults holds the results for any API call which ends
+// up returning a list of UnitRefreshResult.
+type UnitRefreshResults struct {
+	Results []UnitRefreshResult
+}

@@ -478,14 +478,11 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	if err := w.unit.Refresh(); err != nil {
 		return errors.Trace(err)
 	}
-	resolved, err := w.unit.Resolved()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current.Life = w.unit.Life()
-	w.current.ResolvedMode = resolved
+	w.current.ResolvedMode = w.unit.Resolved()
+	w.current.Series = w.unit.Series()
 	return nil
 }
 

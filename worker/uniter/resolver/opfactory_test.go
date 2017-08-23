@@ -83,11 +83,13 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ConfigVersion = 1
 	f.RemoteState.UpdateStatusVersion = 3
+	f.RemoteState.Series = "trusty"
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	f.RemoteState.ConfigVersion = 2
 	f.RemoteState.UpdateStatusVersion = 4
+	f.RemoteState.Series = "xenial"
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,6 +99,7 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	// was constructed.
 	c.Assert(f.LocalState.ConfigVersion, gc.Equals, 1)
 	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
+	c.Assert(f.LocalState.Series, gc.Equals, "trusty")
 }
 
 func (s *ResolverOpFactorySuite) TestLeaderSettingsChanged(c *gc.C) {

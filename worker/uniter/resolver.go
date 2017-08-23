@@ -260,7 +260,8 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
-	if localState.ConfigVersion != remoteState.ConfigVersion {
+	if localState.ConfigVersion != remoteState.ConfigVersion ||
+		localState.Series != remoteState.Series {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 

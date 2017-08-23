@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -19,9 +17,11 @@ import (
 
 // Unit represents a juju unit as seen by a uniter worker.
 type Unit struct {
-	st   *State
-	tag  names.UnitTag
-	life params.Life
+	st           *State
+	tag          names.UnitTag
+	life         params.Life
+	resolvedMode params.ResolvedMode
+	series       string
 }
 
 // Tag returns the unit's tag.
@@ -44,13 +44,39 @@ func (u *Unit) Life() params.Life {
 	return u.life
 }
 
+// Series returns the unit's series value.
+func (u *Unit) Series() string {
+	return u.series
+}
+
+// Resolved returns the unit's resolved mode value.
+func (u *Unit) Resolved() params.ResolvedMode {
+	return u.resolvedMode
+}
+
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.life(u.tag)
-	if err != nil {
-		return err
+	var results params.UnitRefreshResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: u.tag.String()},
+		},
 	}
-	u.life = life
+	err := u.st.facade.FacadeCall("Refresh", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+
+	u.life = result.Life
+	u.resolvedMode = result.Resolved
+	u.series = result.Series
 	return nil
 }
 
@@ -185,7 +211,7 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -224,7 +250,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -277,29 +303,6 @@ func (u *Unit) DestroyAllSubordinates() error {
 	return result.OneError()
 }
 
-// Resolved returns the resolved mode for the unit.
-//
-// NOTE: This differs from state.Unit.Resolved() by returning an
-// error as well, because it needs to make an API call
-func (u *Unit) Resolved() (params.ResolvedMode, error) {
-	var results params.ResolvedModeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall("Resolved", args, &results)
-	if err != nil {
-		return "", err
-	}
-	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", result.Error
-	}
-	return result.Mode, nil
-}
-
 // AssignedMachine returns the unit's assigned machine tag or an error
 // satisfying params.IsCodeNotAssigned when the unit has no assigned
 // machine..
@@ -317,7 +320,7 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 		return invalidTag, err
 	}
 	if len(results.Results) != 1 {
-		return invalidTag, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return invalidTag, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -341,7 +344,7 @@ func (u *Unit) PrincipalName() (string, bool, error) {
 		return "", false, err
 	}
 	if len(results.Results) != 1 {
-		return "", false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", false, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -369,7 +372,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 		return false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -396,7 +399,7 @@ func (u *Unit) PublicAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -423,7 +426,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -505,7 +508,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -525,7 +528,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 // An error will be returned if the unit is dead, or the charm URL not known.
 func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	if curl == nil {
-		return fmt.Errorf("charm URL cannot be nil")
+		return errors.Errorf("charm URL cannot be nil")
 	}
 	var result params.ErrorResults
 	args := params.EntitiesCharmURL{
@@ -567,7 +570,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -591,7 +594,7 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -614,7 +617,7 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -652,7 +655,7 @@ func (u *Unit) JoinedRelations() ([]names.RelationTag, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -701,7 +704,7 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

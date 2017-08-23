@@ -204,7 +204,7 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Dying)
 }
 
-func (s *unitSuite) TestRefresh(c *gc.C) {
+func (s *unitSuite) TestRefreshLife(c *gc.C) {
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	err := s.apiUnit.EnsureDead()
@@ -214,6 +214,37 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 	err = s.apiUnit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
+}
+
+func (s *unitSuite) TestRefreshResolve(c *gc.C) {
+	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	mode := s.apiUnit.Resolved()
+	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
+
+	err = s.apiUnit.ClearResolved()
+	c.Assert(err, jc.ErrorIsNil)
+	mode = s.apiUnit.Resolved()
+	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	mode = s.apiUnit.Resolved()
+	c.Assert(mode, gc.Equals, params.ResolvedNone)
+}
+
+func (s *unitSuite) TestRefreshSeries(c *gc.C) {
+	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
+	err := s.wordpressMachine.UpdateMachineSeries("xenial", true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiUnit.Series(), gc.Equals, "xenial")
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
@@ -305,22 +336,6 @@ func (s *unitSuite) TestSubordinateWatchRelations(c *gc.C) {
 
 	wc.AssertChange(loggingRel.Tag().Id())
 	wc.AssertNoChange()
-}
-
-func (s *unitSuite) TestResolve(c *gc.C) {
-	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mode, err := s.apiUnit.Resolved()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
-
-	err = s.apiUnit.ClearResolved()
-	c.Assert(err, jc.ErrorIsNil)
-
-	mode, err = s.apiUnit.Resolved()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, params.ResolvedNone)
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
@@ -457,7 +472,8 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		called++
 		if called == 1 {
-			*(result.(*params.LifeResults)) = params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}
+			*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
+				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}
 			return nil
 		}
 		c.Check(objType, gc.Equals, "Uniter")
