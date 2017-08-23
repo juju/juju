@@ -1590,7 +1590,7 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 			return errors.Annotate(err, "listing volumes")
 		}
 		volIds := volumeInfoToVolumeIds(cinderToJujuVolumeInfos(volumes))
-		errs := destroyVolumes(cinder.storageAdapter, volIds)
+		errs := foreachVolume(cinder.storageAdapter, volIds, destroyVolume)
 		for i, err := range errs {
 			if err == nil {
 				continue
