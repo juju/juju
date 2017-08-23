@@ -17,8 +17,11 @@ from assess_model_migration import (
     assert_model_migrated_successfully,
     deploy_simple_server_to_new_model,
     migrate_model_to_controller,
-)
-from jujupy.client import get_stripped_version_number
+    )
+from jujupy.client import (
+    BaseCondition,
+    get_stripped_version_number,
+    )
 from deploy_stack import (
     BootstrapManager,
     client_from_config,
@@ -52,8 +55,12 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
             stable_client = stable_bsm.client
             devel_client = devel_bsm.client
             resource_contents = get_random_string()
+            # Possible stable version doesn't handle migration subords (a fixed
+            # bug in later versions.)
             test_stable_model, application = deploy_simple_server_to_new_model(
-                stable_client, 'version-migration', resource_contents)
+                stable_client,
+                'version-migration',
+                resource_contents)
             migration_target_client = migrate_model_to_controller(
                 test_stable_model, devel_client)
             assert_model_migrated_successfully(
@@ -62,10 +69,23 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
             # Deploy another devel controller and attempt migration to it.
             another_bsm = get_new_devel_bootstrap_manager(args, devel_bsm)
             with another_bsm.existing_booted_context(args.upload_tools):
+                another_bsm.client.get_controller_client().wait_for(
+                    AllMachinesRunning())
                 another_migration_client = migrate_model_to_controller(
                     migration_target_client, another_bsm.client)
                 assert_model_migrated_successfully(
                     another_migration_client, application, resource_contents)
+
+
+class AllMachinesRunning(BaseCondition):
+
+    def iter_blocking_state(self, status):
+        for machine_no, status in status.iter_machines():
+            if status['machine-status']['current'] != 'running':
+                yield 'machine-{}'.format(machine_no), 'not-running'
+
+    def do_raise(self, model_name, status):
+        raise Exception('Timed out waiting for machines to be "running".')
 
 
 def get_new_devel_bootstrap_manager(args, devel_bsm):
