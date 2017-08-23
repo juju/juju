@@ -26,7 +26,7 @@ type PrecheckBackend interface {
 	AgentVersion() (version.Number, error)
 	NeedsCleanup() (bool, error)
 	Model() (PrecheckModel, error)
-	AllModels() ([]PrecheckModel, error)
+	AllModelUUIDs() ([]string, error)
 	IsUpgrading() (bool, error)
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
@@ -41,6 +41,12 @@ type PrecheckBackend interface {
 type PrecheckBackendCloser interface {
 	PrecheckBackend
 	Close() error
+}
+
+// Pool defines the interface to a StatePool used by the migration
+// prechecks.
+type Pool interface {
+	GetModel(string) (PrecheckModel, func(), error)
 }
 
 // PrecheckModel describes the state interface a model as needed by
@@ -148,7 +154,7 @@ func checkModel(backend PrecheckBackend) error {
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) error {
+func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.ModelInfo) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -186,11 +192,17 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 	}
 
 	// Check for conflicts with existing models
-	models, err := backend.AllModels()
+	modelUUIDs, err := backend.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "retrieving models")
 	}
-	for _, model := range models {
+	for _, modelUUID := range modelUUIDs {
+		model, release, err := pool.GetModel(modelUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer release()
+
 		// If the model is importing then it's probably left behind
 		// from a previous migration attempt. It will be removed
 		// before the next import.

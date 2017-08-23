@@ -396,8 +396,13 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(s.backend, new(failingPrecheckBackend),
-		s.resources, s.authorizer)
+	return migrationmaster.NewAPI(
+		s.backend,
+		new(failingPrecheckBackend),
+		nil, // pool
+		s.resources,
+		s.authorizer,
+	)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
