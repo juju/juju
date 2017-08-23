@@ -8,7 +8,6 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -24,7 +23,6 @@ type Backend interface {
 	storagecommon.StorageInterface
 
 	AllModelUUIDs() ([]string, error)
-	GetModel(string) (Model, func() bool, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
@@ -126,7 +124,6 @@ type Model interface {
 type stateShim struct {
 	*state.State
 	*state.IAASModel
-	pool *state.StatePool
 }
 
 type ExternalController state.ExternalController
@@ -137,15 +134,14 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 }
 
 // NewStateBackend converts a state.State into a Backend.
-func NewStateBackend(st *state.State, pool *state.StatePool) (Backend, error) {
+func NewStateBackend(st *state.State) (Backend, error) {
 	im, err := st.IAASModel()
 	if err != nil {
 		return nil, err
 	}
-	return stateShim{
+	return &stateShim{
 		State:     st,
 		IAASModel: im,
-		pool:      pool,
 	}, nil
 }
 
@@ -248,14 +244,6 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return stateUnitShim{u, s.State}, nil
-}
-
-func (s stateShim) GetModel(uuid string) (Model, func() bool, error) {
-	model, release, err := s.pool.GetModel(uuid)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return model, release, nil
 }
 
 type stateApplicationShim struct {
