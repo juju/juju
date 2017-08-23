@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -17,6 +18,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -31,21 +33,41 @@ func modelKey(modelUUID string) string {
 	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
 }
 
+// ModelType signals the type of a model - IAAS or CAAS
+type ModelType string
+
+const (
+	modelTypeNone = ModelType("")
+	ModelTypeIAAS = ModelType("iaas")
+	ModelTypeCAAS = ModelType("caas")
+)
+
+// ParseModelType turns a valid model type string into a ModelType
+// constant.
+func ParseModelType(raw string) (ModelType, error) {
+	for _, typ := range []ModelType{ModelTypeIAAS, ModelTypeCAAS} {
+		if raw == string(typ) {
+			return typ, nil
+		}
+	}
+	return "", errors.NotValidf("model type %v", raw)
+}
+
 // MigrationMode specifies where the Model is with respect to migration.
 type MigrationMode string
 
 const (
 	// MigrationModeNone is the default mode for a model and reflects
 	// that it isn't involved with a model migration.
-	MigrationModeNone MigrationMode = ""
+	MigrationModeNone = MigrationMode("")
 
 	// MigrationModeExporting reflects a model that is in the process of being
 	// exported from one controller to another.
-	MigrationModeExporting MigrationMode = "exporting"
+	MigrationModeExporting = MigrationMode("exporting")
 
 	// MigrationModeImporting reflects a model that is being imported into a
 	// controller, but is not yet fully active.
-	MigrationModeImporting MigrationMode = "importing"
+	MigrationModeImporting = MigrationMode("importing")
 )
 
 // Model represents the state of a model.
@@ -56,9 +78,10 @@ type Model struct {
 
 // modelDoc represents the internal state of the model in MongoDB.
 type modelDoc struct {
-	UUID           string `bson:"_id"`
-	Name           string
-	Life           Life
+	UUID           string        `bson:"_id"`
+	Name           string        `bson:"name"`
+	Type           ModelType     `bson:"type"`
+	Life           Life          `bson:"life"`
 	Owner          string        `bson:"owner"`
 	ControllerUUID string        `bson:"controller-uuid"`
 	MigrationMode  MigrationMode `bson:"migration-mode"`
@@ -223,6 +246,9 @@ func (st *State) ModelActive(uuid string) (bool, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
+	// Type specifies the general type of the model (IAAS or CAAS).
+	Type ModelType
+
 	// CloudName is the name of the cloud to which the model is deployed.
 	CloudName string
 
@@ -257,17 +283,29 @@ type ModelArgs struct {
 
 // Validate validates the ModelArgs.
 func (m ModelArgs) Validate() error {
+	if m.Type == modelTypeNone {
+		return errors.NotValidf("empty Type")
+	}
+	if m.Type == ModelTypeCAAS && !featureflag.Enabled(feature.CAAS) {
+		return errors.NotSupportedf("model type")
+	}
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")
 	}
 	if !names.IsValidCloud(m.CloudName) {
 		return errors.NotValidf("Cloud Name %q", m.CloudName)
 	}
+	if m.Type == ModelTypeCAAS && m.CloudRegion != "" {
+		return errors.NotSupportedf("CAAS model with CloudRegion")
+	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
 	}
-	if m.StorageProviderRegistry == nil {
+	if m.StorageProviderRegistry == nil && m.Type == ModelTypeIAAS {
 		return errors.NotValidf("nil StorageProviderRegistry")
+	}
+	if m.StorageProviderRegistry != nil && m.Type == ModelTypeCAAS {
+		return errors.NotValidf("CAAS model with StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
 	case MigrationModeNone, MigrationModeImporting:
@@ -306,9 +344,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+
+	var prereqOps []txn.Op
+
+	if args.Type == ModelTypeIAAS {
+		assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		prereqOps = append(prereqOps, assertCloudRegionOp)
 	}
 
 	// Ensure that the cloud credential is valid, or if one is not
@@ -325,6 +369,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	prereqOps = append(prereqOps, assertCloudCredentialOp)
 
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
@@ -358,10 +403,6 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
 
-	prereqOps := []txn.Op{
-		assertCloudRegionOp,
-		assertCloudCredentialOp,
-	}
 	ops := append(prereqOps, modelOps...)
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
@@ -526,6 +567,11 @@ func (m *Model) ControllerUUID() string {
 // Name returns the human friendly name of the model.
 func (m *Model) Name() string {
 	return m.doc.Name
+}
+
+// Type returns the human friendly name of the model.
+func (m *Model) Type() ModelType {
+	return m.doc.Type
 }
 
 // Cloud returns the name of the cloud to which the model is deployed.
@@ -1297,6 +1343,7 @@ func removeModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.O
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
 func createModelOp(
+	modelType ModelType,
 	owner names.UserTag,
 	name, uuid, controllerUUID, cloudName, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
@@ -1304,6 +1351,7 @@ func createModelOp(
 	environVersion int,
 ) txn.Op {
 	doc := &modelDoc{
+		Type:            modelType,
 		UUID:            uuid,
 		Name:            name,
 		Life:            Alive,

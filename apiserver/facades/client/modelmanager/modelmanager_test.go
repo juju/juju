@@ -237,6 +237,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	newModelArgs.StorageProviderRegistry = nil
 
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
 		Owner:       names.NewUserTag("admin"),
 		CloudName:   "some-cloud",
 		CloudRegion: "qux",

@@ -19,9 +19,9 @@ github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
-github.com/juju/bundlechanges	git	cd189848b313df50084de692b05861210022cf81	2017-08-02T17:04:42Z
+github.com/juju/bundlechanges	git	cd189848b313df50084de692b05861210022cf81	2017-07-31T02:12:50Z
 github.com/juju/cmd	git	ad2437ef0ef282ae26e482eb1e44c02532bae1ba	2017-06-22T12:53:07Z
-github.com/juju/description	git	a08158a2094914d9eb123bb4e19eb8c6d2c575ab	2017-08-11T02:30:02Z
+github.com/juju/description	git	fedf2abd05e6418e575dc2597ba2494bcc4024e1	2017-08-22T03:20:25Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
 github.com/juju/go-oracle-cloud	git	932a8cea00a1cd5cba3829a672c823955db674ae	2017-04-21T13:45:47Z
@@ -92,7 +92,7 @@ gopkg.in/errgo.v1	git	442357a80af5c6bf9b6d51ae791a39c3421004f3	2016-12-22T12:58:
 gopkg.in/goose.v2	git	54760fcc506e180a22bef75f111d5e0b7d9a7f41	2017-05-11T03:10:46Z
 gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
-gopkg.in/juju/charm.v6-unstable	git	514bb811b021ebeb3e7ffcf1c267e9803968f59d	2017-07-31T13:20:58Z
+gopkg.in/juju/charm.v6-unstable	git	514bb811b021ebeb3e7ffcf1c267e9803968f59d	2017-07-28T19:41:00Z
 gopkg.in/juju/charmrepo.v2-unstable	git	e79aa298df89ea887c9bffec46063c24bfb730f7	2016-11-17T15:25:28Z
 gopkg.in/juju/charmstore.v5-unstable	git	fd1eef3002fc6b6daff5e97efab6f5056d22dcc7	2016-09-16T10:09:07Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z

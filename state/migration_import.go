@@ -62,12 +62,18 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.New("can't import models with remote applications")
 	}
 
+	modelType, err := ParseModelType(model.Type())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	// Create the model.
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
+		Type:           modelType,
 		CloudName:      model.Cloud(),
 		CloudRegion:    model.CloudRegion(),
 		Config:         cfg,

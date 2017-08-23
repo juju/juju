@@ -125,6 +125,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
+	c.Assert(newModel.Type(), gc.Equals, original.Type())
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)

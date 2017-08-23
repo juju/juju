@@ -491,7 +491,11 @@ func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.
 		"uuid": uuidStr,
 	})
 	model, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

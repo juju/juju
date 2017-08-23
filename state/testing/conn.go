@@ -65,6 +65,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:        state.ModelTypeIAAS,
 			CloudName:   "dummy",
 			CloudRegion: "dummy-region",
 			Config:      args.InitialConfig,
