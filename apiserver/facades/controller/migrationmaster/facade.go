@@ -26,6 +26,7 @@ import (
 type API struct {
 	backend         Backend
 	precheckBackend migration.PrecheckBackend
+	pool            migration.Pool
 	authorizer      facade.Authorizer
 	resources       facade.Resources
 }
@@ -35,6 +36,7 @@ type API struct {
 func NewAPI(
 	backend Backend,
 	precheckBackend migration.PrecheckBackend,
+	pool migration.Pool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
@@ -44,6 +46,7 @@ func NewAPI(
 	return &API{
 		backend:         backend,
 		precheckBackend: precheckBackend,
+		pool:            pool,
 		authorizer:      authorizer,
 		resources:       resources,
 	}, nil

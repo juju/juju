@@ -333,11 +333,11 @@ func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) runPrecheck(backend migration.PrecheckBackend) error {
-	return migration.TargetPrecheck(backend, s.modelInfo)
+	return migration.TargetPrecheck(backend, nil, s.modelInfo)
 }
 
 func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
-	err := migration.TargetPrecheck(newHappyBackend(), s.modelInfo)
+	err := migration.TargetPrecheck(newHappyBackend(), nil, s.modelInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -348,7 +348,7 @@ func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *gc.C) {
 	sourceVersion.Patch++
 	s.modelInfo.AgentVersion = sourceVersion
 
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
 }
@@ -362,7 +362,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
 	sourceVersion.Patch = 0
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals,
 		`source controller has higher version than target controller (2.0.0 > 1.2.3)`)
 }
@@ -375,7 +375,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *gc.C) {
 	sourceVersion.Patch = 0
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals,
 		`source controller has higher version than target controller (1.3.0 > 1.2.3)`)
 }
@@ -387,7 +387,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *gc.C) {
 	sourceVersion.Patch++
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	c.Assert(migration.TargetPrecheck(backend, s.modelInfo), jc.ErrorIsNil)
+	c.Assert(migration.TargetPrecheck(backend, nil, s.modelInfo), jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
@@ -397,7 +397,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
 	sourceVersion.Build++
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	c.Assert(migration.TargetPrecheck(backend, s.modelInfo), jc.ErrorIsNil)
+	c.Assert(migration.TargetPrecheck(backend, nil, s.modelInfo), jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
@@ -407,13 +407,13 @@ func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
 	sourceVersion.Tag = "alpha"
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	c.Assert(migration.TargetPrecheck(backend, s.modelInfo), jc.ErrorIsNil)
+	c.Assert(migration.TargetPrecheck(backend, nil, s.modelInfo), jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "model is dying")
 }
 
@@ -429,7 +429,7 @@ func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
 	backend := &fakeBackend{
 		isUpgradingErr: errors.New("boom"),
 	}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "checking for upgrades: boom")
 }
 
@@ -437,19 +437,19 @@ func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
 	backend := &fakeBackend{
 		isUpgrading: true,
 	}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "upgrade in progress")
 }
 
 func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *gc.C) {
 	backend := &fakeBackend{migrationActiveErr: errors.New("boom")}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "checking for active migration: boom")
 }
 
 func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
 	backend := &fakeBackend{migrationActive: true}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "model is being migrated out of target controller")
 }
 
@@ -459,67 +459,80 @@ func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 
 func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 	backend := newBackendWithDyingMachine()
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
 }
 
 func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	backend := newBackendWithProvisioningMachine()
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
 func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	backend := newBackendWithDownMachineAgent()
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
-	backend := newFakeBackend()
-	backend.models = []migration.PrecheckModel{
-		&fakeModel{
-			name:  modelName,
-			owner: modelOwner,
+	pool := &fakePool{
+		models: []migration.PrecheckModel{
+			&fakeModel{
+				uuid:  "uuid",
+				name:  modelName,
+				owner: modelOwner,
+			},
 		},
 	}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	backend := newFakeBackend()
+	backend.models = pool.uuids()
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
 	c.Assert(err, gc.ErrorMatches, "model named \"model-name\" already exists")
 }
 
 func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
-	backend := newFakeBackend()
-	backend.models = []migration.PrecheckModel{
-		&fakeModel{name: modelName, owner: names.NewUserTag("someone.else")},
+	pool := &fakePool{
+		models: []migration.PrecheckModel{
+			&fakeModel{name: modelName, owner: names.NewUserTag("someone.else")},
+		},
 	}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	backend := newFakeBackend()
+	backend.models = pool.uuids()
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
-	backend := newFakeBackend()
-	backend.models = []migration.PrecheckModel{
-		&fakeModel{uuid: modelUUID},
+	pool := &fakePool{
+		models: []migration.PrecheckModel{
+			&fakeModel{uuid: modelUUID},
+		},
 	}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	backend := newFakeBackend()
+	backend.models = pool.uuids()
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "model with same UUID already exists (model-uuid)")
 }
 
 func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
-	backend := newFakeBackend()
-	backend.models = []migration.PrecheckModel{
-		&fakeModel{
-			uuid:          modelUUID,
-			migrationMode: state.MigrationModeImporting,
+	pool := &fakePool{
+		models: []migration.PrecheckModel{
+			&fakeModel{
+				uuid:          modelUUID,
+				migrationMode: state.MigrationModeImporting,
+			},
 		},
 	}
-	err := migration.TargetPrecheck(backend, s.modelInfo)
+	backend := newFakeBackend()
+	backend.models = pool.uuids()
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -632,7 +645,7 @@ type fakeBackend struct {
 	agentVersionErr error
 
 	model  fakeModel
-	models []migration.PrecheckModel
+	models []string
 
 	cleanupNeeded bool
 	cleanupErr    error
@@ -666,7 +679,7 @@ func (b *fakeBackend) Model() (migration.PrecheckModel, error) {
 	return &b.model, nil
 }
 
-func (b *fakeBackend) AllModels() ([]migration.PrecheckModel, error) {
+func (b *fakeBackend) AllModelUUIDs() ([]string, error) {
 	return b.models, nil
 }
 
@@ -708,6 +721,27 @@ func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackendCloser, erro
 		return b, nil
 	}
 	return b.controllerBackend, nil
+}
+
+type fakePool struct {
+	models []migration.PrecheckModel
+}
+
+func (p *fakePool) uuids() []string {
+	out := make([]string, len(p.models))
+	for i, model := range p.models {
+		out[i] = model.UUID()
+	}
+	return out
+}
+
+func (p *fakePool) GetModel(uuid string) (migration.PrecheckModel, func(), error) {
+	for _, model := range p.models {
+		if model.UUID() == uuid {
+			return model, func() {}, nil
+		}
+	}
+	return nil, nil, errors.NotFoundf("model %v", uuid)
 }
 
 type fakeModel struct {

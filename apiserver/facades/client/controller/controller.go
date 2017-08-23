@@ -397,7 +397,7 @@ func (c *ControllerAPIv3) initiateOneMigration(spec params.MigrationSpec) (strin
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, c.statePool, &targetInfo); err != nil {
+	if err := runMigrationPrechecks(hostedState, c.statePool.SystemState(), &targetInfo); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -453,9 +453,9 @@ func (c *ControllerAPIv3) ModifyControllerAccess(args params.ModifyControllerAcc
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
-var runMigrationPrechecks = func(st *state.State, pool *state.StatePool, targetInfo *coremigration.TargetInfo) error {
+var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
-	backend, err := migration.PrecheckShim(st, pool)
+	backend, err := migration.PrecheckShim(st)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
@@ -469,7 +469,7 @@ var runMigrationPrechecks = func(st *state.State, pool *state.StatePool, targetI
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer conn.Close()
-	modelInfo, err := makeModelInfo(st, pool.SystemState())
+	modelInfo, err := makeModelInfo(st, ctlrSt)
 	if err != nil {
 		return errors.Trace(err)
 	}

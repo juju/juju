@@ -12,14 +12,13 @@ import (
 )
 
 // PrecheckShim wraps a *state.State to implement PrecheckBackend.
-func PrecheckShim(st *state.State, pool *state.StatePool) (PrecheckBackend, error) {
+func PrecheckShim(st *state.State) (PrecheckBackend, error) {
 	rSt, err := st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &precheckShim{
 		State:       st,
-		pool:        pool,
 		resourcesSt: rSt,
 	}, nil
 }
@@ -28,7 +27,6 @@ func PrecheckShim(st *state.State, pool *state.StatePool) (PrecheckBackend, erro
 // inspection.
 type precheckShim struct {
 	*state.State
-	pool        *state.StatePool
 	resourcesSt state.Resources
 }
 
@@ -39,28 +37,6 @@ func (s *precheckShim) Model() (PrecheckModel, error) {
 		return nil, errors.Trace(err)
 	}
 	return model, nil
-}
-
-// AllModels implements PrecheckBackend.
-func (s *precheckShim) AllModels() ([]PrecheckModel, error) {
-	modelUUIDs, err := s.State.AllModelUUIDs()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]PrecheckModel, 0, len(modelUUIDs))
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := s.pool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, model)
-	}
-	return out, nil
 }
 
 // IsMigrationActive implements PrecheckBackend.
@@ -131,6 +107,23 @@ func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
 		State:       st,
 		resourcesSt: rSt,
 	}, nil
+}
+
+// PoolShim wraps a state.StatePool to produce a Pool.
+func PoolShim(pool *state.StatePool) Pool {
+	return &poolShim{pool}
+}
+
+type poolShim struct {
+	pool *state.StatePool
+}
+
+func (p *poolShim) GetModel(uuid string) (PrecheckModel, func(), error) {
+	model, release, err := p.pool.GetModel(uuid)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return model, func() { release() }, nil
 }
 
 // precheckAppShim implements PrecheckApplication.

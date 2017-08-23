@@ -16,11 +16,17 @@ import (
 // NewFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func NewFacade(ctx facade.Context) (*API, error) {
-	precheckBackend, err := migration.PrecheckShim(ctx.State(), ctx.StatePool())
+	precheckBackend, err := migration.PrecheckShim(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
-	return NewAPI(&backendShim{ctx.State()}, precheckBackend, ctx.Resources(), ctx.Auth())
+	return NewAPI(
+		&backendShim{ctx.State()},
+		precheckBackend,
+		migration.PoolShim(ctx.StatePool()),
+		ctx.Resources(),
+		ctx.Auth(),
+	)
 }
 
 // backendShim wraps a *state.State to implement Backend. It is
