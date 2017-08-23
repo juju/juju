@@ -15,12 +15,13 @@ import (
 type StatePool interface {
 	SystemState() State
 	Get(modelUUID string) (State, state.StatePoolReleaser, error)
+	GetModel(modelUUID string) (Model, state.StatePoolReleaser, error)
 }
 
 // State represents the global state managed by the Juju controller.
 type State interface {
 	AllMachines() ([]Machine, error)
-	AllModels() ([]Model, error)
+	AllModelUUIDs() ([]string, error)
 	AllUsers() ([]User, error)
 	ControllerTag() names.ControllerTag
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
@@ -54,24 +55,31 @@ func NewStatePool(pool *state.StatePool) StatePool {
 }
 
 type statePoolShim struct {
-	*state.StatePool
+	pool *state.StatePool
 }
 
 func (p statePoolShim) SystemState() State {
-	return stateShim{p.StatePool.SystemState(), p.StatePool}
+	return stateShim{p.pool.SystemState()}
 }
 
 func (p statePoolShim) Get(modelUUID string) (State, state.StatePoolReleaser, error) {
-	st, releaser, err := p.StatePool.Get(modelUUID)
+	st, releaser, err := p.pool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, err
 	}
-	return stateShim{st, p.StatePool}, releaser, nil
+	return stateShim{st}, releaser, nil
+}
+
+func (p statePoolShim) GetModel(modelUUID string) (Model, state.StatePoolReleaser, error) {
+	model, releaser, err := p.pool.GetModel(modelUUID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return model, releaser, nil
 }
 
 type stateShim struct {
 	*state.State
-	pool *state.StatePool
 }
 
 func (s stateShim) AllMachines() ([]Machine, error) {
@@ -84,27 +92,6 @@ func (s stateShim) AllMachines() ([]Machine, error) {
 		if m != nil {
 			out[i] = m
 		}
-	}
-	return out, nil
-}
-
-func (s stateShim) AllModels() ([]Model, error) {
-	modelUUIDs, err := s.State.AllModelUUIDs()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]Model, 0, len(modelUUIDs))
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := s.pool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer release()
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, model)
 	}
 	return out, nil
 }
