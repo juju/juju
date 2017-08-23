@@ -2,7 +2,7 @@ name: wordpress
 summary: "WordPress is a full featured web blogging tool, this charm deploys it."
 maintainer: Marco Ceppi <marco@ceppi.net>
 description: |
- This will install and setup WordPress optimized to run in the cloud. By default it will 
+ This will install and setup WordPress optimized to run in the cloud. By default it will
  place Ngnix and php-fpm configured to scale horizontally with Nginx's reverse proxy.
 categories: ["applications"]
 requires:
@@ -20,9 +20,7 @@ peers:
     interface: reversenginx
 series:
   - trusty
-  - precise
-  - utopic
-  - vivid
-  - wily
   - xenial
+  - zesty
+  - artful
 

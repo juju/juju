@@ -9,10 +9,8 @@ requires:
 categories:
   - misc
 series:
-  - xenial
   - trusty
-  - precise
-  - yakkety
+  - xenial
   - zesty
   - artful
 
