@@ -41,8 +41,8 @@ type MetricsManager interface {
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
 // implementation of the api end point.
 type MetricsManagerAPI struct {
-	state *state.State
-
+	state         *state.State
+	pool          *state.StatePool
 	accessEnviron common.GetAuthFunc
 	clock         clock.Clock
 }
@@ -50,12 +50,14 @@ type MetricsManagerAPI struct {
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
 
 // NewFacade wraps NewMetricsManagerAPI for API registration.
-func NewFacade(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*MetricsManagerAPI, error) {
-	return NewMetricsManagerAPI(st, resources, authorizer, clock.WallClock)
+func NewFacade(ctx facade.Context) (*MetricsManagerAPI, error) {
+	return NewMetricsManagerAPI(
+		ctx.State(),
+		ctx.Resources(),
+		ctx.Auth(),
+		ctx.StatePool(),
+		clock.WallClock,
+	)
 }
 
 // NewMetricsManagerAPI creates a new API endpoint for calling metrics manager functions.
@@ -63,6 +65,7 @@ func NewMetricsManagerAPI(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	pool *state.StatePool,
 	clock clock.Clock,
 ) (*MetricsManagerAPI, error) {
 	if !authorizer.AuthController() {
@@ -81,6 +84,7 @@ func NewMetricsManagerAPI(
 
 	return &MetricsManagerAPI{
 		state:         st,
+		pool:          pool,
 		accessEnviron: accessEnviron,
 		clock:         clock,
 	}, nil
@@ -113,13 +117,14 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 		}
 		modelState := api.state
 		if tag != api.state.ModelTag() {
-			modelState, err = api.state.ForModel(tag)
+			var release func() bool
+			modelState, release, err = api.pool.Get(tag.Id())
 			if err != nil {
 				err = errors.Annotatef(err, "failed to access state for %s", tag)
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
-			defer modelState.Close()
+			defer release()
 		}
 
 		err = modelState.CleanupOldMetrics()
@@ -212,13 +217,14 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		}
 		modelState := api.state
 		if tag != api.state.ModelTag() {
-			modelState, err = api.state.ForModel(tag)
+			var release func() bool
+			modelState, release, err = api.pool.Get(tag.Id())
 			if err != nil {
 				err = errors.Annotatef(err, "failed to access state for %s", tag)
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
-			defer modelState.Close()
+			defer release()
 		}
 		txVendorMetrics, err := transmitVendorMetrics(modelState)
 		if err != nil {
