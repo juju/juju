@@ -205,18 +205,24 @@ func (c *MemStore) SetModels(controller string, models map[string]ModelDetails) 
 	if err := ValidateControllerName(controller); err != nil {
 		return err
 	}
+	modelNames := set.NewStrings()
+	for modelName, details := range models {
+		if err := ValidateModel(modelName, details); err != nil {
+			return errors.Trace(err)
+		}
+		modelNames.Add(modelName)
+	}
+
 	controllerModels, ok := c.Models[controller]
 	if !ok {
 		controllerModels = &ControllerModels{
 			Models: make(map[string]ModelDetails),
 		}
 	}
-	updated, err := updateControllerModels(controllerModels, models)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if updated {
-		c.Models[controller] = controllerModels
+	controllerModels.Models = models
+	if controllerModels.CurrentModel != "" && !modelNames.Contains(controllerModels.CurrentModel) {
+		// Previously set current model has been removed.
+		controllerModels.CurrentModel = ""
 	}
 	return nil
 }

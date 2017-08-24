@@ -515,9 +515,9 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 	))
 }
 
-type modelUpdaterF func(storedModels *ControllerModels) (bool, error)
+type updateModelFunc func(storedModels *ControllerModels) (bool, error)
 
-func updateModels(controllerName string, update modelUpdaterF) error {
+func updateModels(controllerName string, update updateModelFunc) error {
 	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return errors.Trace(err)
@@ -549,6 +549,12 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 		return errors.Trace(err)
 	}
 
+	for modelName, details := range models {
+		if err := ValidateModel(modelName, details); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Trace(err)
@@ -556,7 +562,24 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 	defer releaser.Release()
 
 	err = updateModels(controllerName, func(storedModels *ControllerModels) (bool, error) {
-		return updateControllerModels(storedModels, models)
+		changed := len(storedModels.Models) != len(models)
+		// Add or update controller models based on a new collection.
+		for modelName, details := range models {
+			oldDetails, ok := storedModels.Models[modelName]
+			if ok && details == oldDetails {
+				continue
+			}
+			storedModels.Models[modelName] = details
+			changed = true
+		}
+		// Delete models that are not in the new collection.
+		for modelName, _ := range storedModels.Models {
+			if _, ok := models[modelName]; !ok {
+				delete(storedModels.Models, modelName)
+				changed = true
+			}
+		}
+		return changed, nil
 	})
 	if err != nil {
 		return errors.Trace(err)
