@@ -210,7 +210,7 @@ func (c *changePasswordCommand) updateClientStore(ctx *cmd.Context, password str
 		ctx.Infof("Password for %q has been %v.", c.User, c.changeOrResetString(true))
 	} else {
 		if c.accountDetails.Password != "" {
-			if password != "" {
+			if !c.Reset {
 				// Log back in with macaroon authentication, so we can
 				// discard the password without having to log back in
 				// immediately.
