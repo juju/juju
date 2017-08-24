@@ -317,6 +317,7 @@ type RelationResults struct {
 type RelationResult struct {
 	Error            *Error                `json:"error,omitempty"`
 	Life             Life                  `json:"life"`
+	Status           RelationStatusValue   `json:"status,omitempty"`
 	Id               int                   `json:"id"`
 	Key              string                `json:"key"`
 	Endpoint         multiwatcher.Endpoint `json:"endpoint"`

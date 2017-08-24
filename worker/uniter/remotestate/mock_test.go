@@ -282,8 +282,9 @@ func (s *mockService) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
 }
 
 type mockRelation struct {
-	id   int
-	life params.Life
+	id     int
+	life   params.Life
+	status params.RelationStatusValue
 }
 
 func (r *mockRelation) Id() int {
@@ -292,6 +293,10 @@ func (r *mockRelation) Id() int {
 
 func (r *mockRelation) Life() params.Life {
 	return r.life
+}
+
+func (r *mockRelation) Status() params.RelationStatusValue {
+	return r.status
 }
 
 type mockLeadershipTracker struct {

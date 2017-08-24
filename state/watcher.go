@@ -19,12 +19,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
-	corewatcher "github.com/juju/juju/watcher"
 
 	// TODO(fwereade): 2015-11-18 lp:1517428
 	//
@@ -85,13 +82,6 @@ type RelationUnitsWatcher interface {
 	// also api-ey; and the multiwatcher type was used directly in params
 	// anyway.)
 	Changes() <-chan params.RelationUnitsChange
-}
-
-// RelationStatusWatcher generates signals when the life or status
-// of a relation change.
-type RelationStatusWatcher interface {
-	Watcher
-	Changes() <-chan []corewatcher.RelationStatusChange
 }
 
 // newCommonWatcher exists so that all embedders have a place from which
@@ -375,7 +365,7 @@ func (im *IAASModel) WatchStorageAttachments(unit names.UnitTag) StringsWatcher 
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
-// lifecycles of units of s.
+// lifecycles of units of a.
 func (a *Application) WatchUnits() StringsWatcher {
 	members := bson.D{{"application", a.doc.Name}}
 	prefix := a.doc.Name + "/"
@@ -390,13 +380,13 @@ func (a *Application) WatchUnits() StringsWatcher {
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
-// lifecycles of relations involving s.
+// lifecycles of relations involving a.
 func (a *Application) WatchRelations() StringsWatcher {
 	return watchApplicationRelations(a.st, a.doc.Name)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
-// lifecycles of relations involving s.
+// lifecycles of relations involving a.
 func (s *RemoteApplication) WatchRelations() StringsWatcher {
 	return watchApplicationRelations(s.st, s.doc.Name)
 }
@@ -414,7 +404,7 @@ func watchApplicationRelations(backend modelBackend, applicationName string) Str
 	}
 
 	members := bson.D{{"endpoints.applicationname", applicationName}}
-	return newLifecycleWatcher(backend, relationsC, members, filter, nil)
+	return newRelationStatusWatcher(backend, members, filter)
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
@@ -1115,22 +1105,34 @@ type lifeStatus struct {
 // of the specified relations change.
 type relationStatusWatcher struct {
 	commonWatcher
-	relationKeys    set.Strings
+	members         bson.D
+	filter          func(key interface{}) bool
 	knownLifeStatus map[string]lifeStatus
-	out             chan []corewatcher.RelationStatusChange
+	out             chan []string
 }
 
 // WatchStatus returns a watcher that notifies of changes to the life
 // or status of the relation.
-func (r *Relation) WatchStatus() RelationStatusWatcher {
-	return newRelationStatusWatcher(r.st, r.doc.Key)
+func (r *Relation) WatchStatus() StringsWatcher {
+	filter := func(id interface{}) bool {
+		k, err := r.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return k == r.Tag().Id()
+	}
+	return newRelationStatusWatcher(r.st, nil, filter)
 }
 
-func newRelationStatusWatcher(backend modelBackend, keys ...string) RelationStatusWatcher {
+func newRelationStatusWatcher(backend modelBackend,
+	members bson.D,
+	filter func(key interface{}) bool,
+) StringsWatcher {
 	w := &relationStatusWatcher{
 		commonWatcher:   newCommonWatcher(backend),
-		out:             make(chan []corewatcher.RelationStatusChange),
-		relationKeys:    set.NewStrings(keys...),
+		out:             make(chan []string),
+		members:         members,
+		filter:          filter,
 		knownLifeStatus: make(map[string]lifeStatus),
 	}
 	go func() {
@@ -1144,7 +1146,7 @@ func newRelationStatusWatcher(backend modelBackend, keys ...string) RelationStat
 // Changes returns a channel that will receive the changes to
 // relation life or status. The first event on the
 // channel holds the initial state of the relations.
-func (w *relationStatusWatcher) Changes() <-chan []corewatcher.RelationStatusChange {
+func (w *relationStatusWatcher) Changes() <-chan []string {
 	return w.out
 }
 
@@ -1156,22 +1158,29 @@ type lifeStatusDoc struct {
 
 var lifeStatusFields = bson.D{{"_id", 1}, {"life", 1}, {"status", 1}}
 
-func (w *relationStatusWatcher) initial() (map[string]lifeStatus, error) {
+func (w *relationStatusWatcher) initial() (set.Strings, error) {
 	coll, closer := w.db.GetCollection(relationsC)
 	defer closer()
 
-	iter := coll.Find(bson.D{{"_id", bson.D{{"$in", w.relationKeys.Values()}}}}).Select(lifeStatusFields).Iter()
+	ids := make(set.Strings)
 	var doc lifeStatusDoc
+	iter := coll.Find(w.members).Select(lifeStatusFields).Iter()
 	for iter.Next(&doc) {
-		key := w.backend.localID(doc.Id)
+		// If no members criteria is specified, use the filter
+		// to reject any unsuitable initial elements.
+		if w.members == nil && w.filter != nil && !w.filter(doc.Id) {
+			continue
+		}
+		id := w.backend.localID(doc.Id)
+		ids.Add(id)
 		if doc.Life != Dead {
-			w.knownLifeStatus[key] = lifeStatus{doc.Life, doc.Status}
+			w.knownLifeStatus[id] = lifeStatus{doc.Life, doc.Status}
 		}
 	}
-	return w.knownLifeStatus, iter.Close()
+	return ids, nil
 }
 
-func (w *relationStatusWatcher) merge(updates map[interface{}]bool) (map[string]lifeStatus, error) {
+func (w *relationStatusWatcher) merge(keys set.Strings, updates map[interface{}]bool) error {
 	coll, closer := w.db.GetCollection(relationsC)
 	defer closer()
 
@@ -1185,10 +1194,10 @@ func (w *relationStatusWatcher) merge(updates map[interface{}]bool) (map[string]
 				changed = append(changed, docID)
 			} else {
 				key := w.backend.localID(docID)
-				latestLifeStatus[key] = lifeStatus{Dead, ""}
+				latestLifeStatus[key] = lifeStatus{Dead, status.Broken}
 			}
 		default:
-			return nil, errors.Errorf("id is not of type string, got %T", docID)
+			return errors.Errorf("id is not of type string, got %T", docID)
 		}
 	}
 
@@ -1203,7 +1212,7 @@ func (w *relationStatusWatcher) merge(updates map[interface{}]bool) (map[string]
 		latestLifeStatus[key] = lifeStatus{doc.Life, doc.Status}
 	}
 	if err := iter.Close(); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Now correlate the changes.
@@ -1218,36 +1227,22 @@ func (w *relationStatusWatcher) merge(updates map[interface{}]bool) (map[string]
 		case known && (newLifeStatus.life != oldLifeStatus.life || newLifeStatus.status != oldLifeStatus.status):
 			w.knownLifeStatus[key] = newLifeStatus
 		default:
-			// Only delete if neither life nor status have changed or !known and already gone.
-			delete(latestLifeStatus, key)
+			continue
 		}
+		keys.Add(key)
 	}
-	return latestLifeStatus, nil
-
+	return nil
 }
 
 func (w *relationStatusWatcher) loop() error {
 	in := make(chan watcher.Change)
-	filter := func(id interface{}) bool {
-		key := w.backend.localID(id.(string))
-		return w.relationKeys.Contains(key)
-	}
-	w.watcher.WatchCollectionWithFilter(relationsC, in, filter)
+	w.watcher.WatchCollectionWithFilter(relationsC, in, w.filter)
 	defer w.watcher.UnwatchCollection(relationsC, in)
 
-	knownLifeStatus, err := w.initial()
+	keys, err := w.initial()
 	if err != nil {
 		return err
 	}
-	var changes []corewatcher.RelationStatusChange
-	for key := range knownLifeStatus {
-		changes = append(changes, corewatcher.RelationStatusChange{
-			Key:    key,
-			Life:   life.Value(knownLifeStatus[key].life.String()),
-			Status: relation.Status(knownLifeStatus[key].status),
-		})
-	}
-
 	out := w.out
 	for {
 		select {
@@ -1255,28 +1250,20 @@ func (w *relationStatusWatcher) loop() error {
 			return tomb.ErrDying
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
-		case keys := <-in:
-			latest, ok := collect(keys, in, w.tomb.Dying())
+		case ch := <-in:
+			latest, ok := collect(ch, in, w.tomb.Dying())
 			if !ok {
 				return tomb.ErrDying
 			}
-			changedLifeStatus, err := w.merge(latest)
-			if err != nil {
+			if err := w.merge(keys, latest); err != nil {
 				return err
 			}
-			for key := range changedLifeStatus {
-				changes = append(changes, corewatcher.RelationStatusChange{
-					Key:    key,
-					Life:   life.Value(changedLifeStatus[key].life.String()),
-					Status: relation.Status(changedLifeStatus[key].status),
-				})
-			}
-			if len(changes) > 0 {
+			if !keys.IsEmpty() {
 				out = w.out
 			}
-		case out <- changes:
+		case out <- keys.Values():
 			out = nil
-			changes = []corewatcher.RelationStatusChange{}
+			keys = make(set.Strings)
 		}
 	}
 }

@@ -254,7 +254,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	}
 }
 
-func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relation, expected life.Value) {
+func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relation, expectedLife life.Value, expectedStatus relation.Status) {
 	// Export the relation so it can be found with a token.
 	re := s.State.RemoteEntities()
 	token, err := re.ExportLocalEntity(rel.Tag())
@@ -336,12 +336,12 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 	}
 
 	// Initial event.
-	assertChange(life.Alive, "")
+	assertChange(life.Alive, relation.Joined)
 
 	// Now change the relation, should trigger the watcher.
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(expected, "")
+	assertChange(expectedLife, expectedStatus)
 }
 
 func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
@@ -363,7 +363,7 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRelationStatusWatchResult(c, rel, life.Dying)
+	s.assertRelationStatusWatchResult(c, rel, life.Dying, relation.Joined)
 }
 
 func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
@@ -375,7 +375,7 @@ func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRelationStatusWatchResult(c, rel, life.Dead)
+	s.assertRelationStatusWatchResult(c, rel, life.Dead, relation.Broken)
 }
 
 type migrationSuite struct {

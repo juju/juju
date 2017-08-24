@@ -184,6 +184,20 @@ const (
 )
 
 const (
+	// Status values specific to relations.
+
+	// Joined is the normal status for a healthy, alive relation.
+	Joined Status = "joined"
+
+	// Broken is the status for when a relation life goes to Dead.
+	Broken Status = "broken"
+
+	// Revoked is used to signify that a relation is temporarily broken pending
+	// action to unrevoke it.
+	Revoked Status = "revoked"
+)
+
+const (
 	// Status values that are common to several entities.
 
 	// Destroying indicates that the entity is being destroyed.

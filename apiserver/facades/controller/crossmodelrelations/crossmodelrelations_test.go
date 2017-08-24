@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 )
 
 var _ = gc.Suite(&crossmodelRelationsSuite{})
@@ -63,11 +62,11 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		s.watchedRelations = relations
 		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil
 	}
-	relationStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, tag names.RelationTag) (state.RelationStatusWatcher, error) {
+	relationStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
 		c.Assert(s.st, gc.Equals, st)
 		s.watchedRelations = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
-		w := &mockRelationStatusWatcher{changes: make(chan []watcher.RelationStatusChange, 1)}
-		w.changes <- []watcher.RelationStatusChange{{}}
+		w := &mockRelationStatusWatcher{changes: make(chan []string, 1)}
+		w.changes <- []string{"db2:db django:db"}
 		return w, nil
 	}
 	var err error
@@ -342,6 +341,8 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 
 func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	rel := newMockRelation(1)
+	s.st.relations["db2:db django:db"] = rel
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
 		offerUUID:       "hosted-db2-uuid",
 		sourcemodelUUID: "source-model-uuid",
@@ -383,6 +384,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
 	})
 }

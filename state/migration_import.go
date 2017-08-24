@@ -1136,6 +1136,7 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		Id:        rel.Id(),
 		Endpoints: make([]Endpoint, len(endpoints)),
 		Life:      Alive,
+		Status:    status.Joined,
 	}
 	for i, ep := range endpoints {
 		doc.Endpoints[i] = Endpoint{

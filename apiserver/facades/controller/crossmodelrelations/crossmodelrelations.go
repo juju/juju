@@ -25,7 +25,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
 
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
-type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.RelationStatusWatcher, error)
+type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
@@ -345,7 +345,7 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 	return results, nil
 }
 
-func watchRelationStatus(st CrossModelRelationsState, tag names.RelationTag) (state.RelationStatusWatcher, error) {
+func watchRelationStatus(st CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
 	relation, err := st.KeyRelation(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -384,12 +384,14 @@ func (api *CrossModelRelationsAPI) WatchRelationsStatus(
 		}
 		results.Results[i].RelationStatusWatcherId = api.resources.Register(w)
 		changesParams := make([]params.RelationStatusChange, len(changes))
-		for j, ch := range changes {
-			changesParams[j] = params.RelationStatusChange{
-				Key:    ch.Key,
-				Life:   params.Life(ch.Life),
-				Status: params.RelationStatusValue(ch.Status),
+		for j, key := range changes {
+			change, err := commoncrossmodel.GetRelationStatusChange(api.st, key)
+			if err != nil {
+				results.Results[i].Error = common.ServerError(err)
+				changesParams = nil
+				break
 			}
+			changesParams[j] = *change
 		}
 		results.Results[i].Changes = changesParams
 	}
