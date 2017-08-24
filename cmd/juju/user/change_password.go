@@ -29,13 +29,15 @@ The user is, by default, the current user. The latter can be confirmed with
 the ` + "`juju show-user`" + ` command.
 
 A controller administrator can change the password for another user 
-on the specified controller. If no controller is specified, current controller
-will be used.
+on the specified controller. If no controller is specified, 
+the current controller will be used.
 
 A controller administrator can also reset the password for another user.
 This will invalidate previously set user password (if any) or 
 previously issued registration tokens. 
-Succefull password reset will result in a new registration token. 
+This will invalidate any password or registration string 
+that was previously issued, and issue a new registration string to be used with
+` + "`juju register`" + `.  
 
 
 Examples:
