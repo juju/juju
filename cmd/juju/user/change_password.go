@@ -187,7 +187,7 @@ func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
 		if c.accountDetails.Password != "" {
 			macaroonErr = c.ClearControllerMacaroons(c.ClientStore(), c.controllerName)
 			if macaroonErr != nil {
-				macaroonErr = errors.Annotatef(err, "could not clear macaroon")
+				macaroonErr = errors.Annotatef(err, "could not clear local credential cache")
 			} else {
 				ctx.Infof("Your password has been reset.")
 			}
