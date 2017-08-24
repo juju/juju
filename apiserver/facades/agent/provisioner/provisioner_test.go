@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -794,9 +795,7 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 
 func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 	// Add a machine with different series.
-	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
+	foobarMachine := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "foobar"})
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: foobarMachine.Tag().String()},
@@ -812,6 +811,34 @@ func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 			{Result: s.machines[0].Series()},
 			{Result: foobarMachine.Series()},
 			{Result: s.machines[2].Series()},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
+	// Add a machine with keep-instance = true.
+	foobarMachine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
+	err := foobarMachine.SetKeepInstance(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: foobarMachine.Tag().String()},
+		{Tag: s.machines[2].Tag().String()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "application-bar"},
+	}}
+	result, err := s.provisioner.KeepInstance(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Result: false},
+			{Result: true},
+			{Result: false},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

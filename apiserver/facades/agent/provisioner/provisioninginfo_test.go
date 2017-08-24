@@ -65,6 +65,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-0",
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
@@ -76,6 +77,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-5",
 				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-0",
@@ -153,6 +155,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-5",
 				},
 				SubnetsToZones: map[string][]string{
 					"subnet-1": []string{"zone1"},
@@ -221,6 +224,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 				Tags: map[string]string{
 					tags.JujuController:    coretesting.ControllerTag.Id(),
 					tags.JujuModel:         coretesting.ModelTag.Id(),
+					tags.JujuMachine:       "controller-machine-5",
 					tags.JujuUnitsDeployed: wordpressUnit.Name(),
 				},
 				// Ensure space names are translated to provider IDs, where
@@ -309,6 +313,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-5",
 				},
 				// volume-0 should not be included as it is not managed by
 				// the environ provider.
@@ -418,6 +423,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
+					tags.JujuMachine:    "controller-machine-0",
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxd/0")},

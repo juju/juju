@@ -180,3 +180,33 @@ func (s *MachinemanagerSuite) TestDestroyMachinesInvalidIds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
+
+func (s *MachinemanagerSuite) TestDestroyMachinesWithParams(c *gc.C) {
+	expectedResults := []params.DestroyMachineResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyMachineInfo{
+			DestroyedUnits:   []params.Entity{{Tag: "unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+		},
+	}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyMachineWithParams")
+		c.Assert(a, jc.DeepEquals, params.DestroyMachinesParams{
+			Keep:  true,
+			Force: true,
+			MachineTags: []string{
+				"machine-0",
+				"machine-0-lxd-1",
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
+		out := response.(*params.DestroyMachineResults)
+		*out = params.DestroyMachineResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyMachinesWithParams(true, true, "0", "0/lxd/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}

@@ -64,6 +64,10 @@ type ManifoldsConfig struct {
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
+
+	// UpdateLoggerConfig is a function that will save the specified
+	// config value as the logging config in the agent.conf file.
+	UpdateLoggerConfig func(string) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -165,8 +169,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// changes in environment config. We should only need one of
 		// these in a consolidated agent.
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config

@@ -203,9 +203,18 @@ type AddMachinesResult struct {
 }
 
 // DestroyMachines holds parameters for the DestroyMachines call.
+// This is the legacy params struct used with the client facade.
+// TODO(wallyworld) - remove in Juju 3.0
 type DestroyMachines struct {
 	MachineNames []string `json:"machine-names"`
 	Force        bool     `json:"force"`
+}
+
+// DestroyMachinesParams holds parameters for the DestroyMachinesWithParams call.
+type DestroyMachinesParams struct {
+	MachineTags []string `json:"machine-tags"`
+	Force       bool     `json:"force,omitempty"`
+	Keep        bool     `json:"keep,omitempty"`
 }
 
 // ApplicationsDeploy holds the parameters for deploying one or more applications.

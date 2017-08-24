@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 )
 
 // StatePool provides the subset of a state pool.
@@ -97,9 +96,9 @@ func (s stateShim) RemoveOfferAccess(offer names.ApplicationOfferTag, user names
 	return s.st.RemoveOfferAccess(offer, user)
 }
 
-func (s stateShim) NewStorage() storage.Storage {
-	return storage.NewStorage(s.st.ModelUUID(), s.st.MongoSession())
-}
+// func (s stateShim) NewStorage() storage.Storage {
+// 	return storage.NewStorage(s.st.ModelUUID(), s.st.MongoSession())
+// }
 
 func (s *stateShim) Space(name string) (Space, error) {
 	sp, err := s.st.Space(name)

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -231,15 +229,6 @@ func (a *machineAgentCmd) Init(args []string) error {
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 		Compress:   true,
-	}
-
-	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
-		logger.Infof("setting logging override to %q", loggingOverride)
-		loggo.DefaultContext().ResetLoggerLevels()
-		err := loggo.ConfigureLoggers(loggingOverride)
-		if err != nil {
-			logger.Errorf("setting logging override %v", err)
-		}
 	}
 
 	return nil
@@ -502,10 +491,8 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), jujuversion.Current, runtime.Compiler)
-	if flags := featureflag.String(); flags != "" {
-		logger.Warningf("developer feature flags enabled: %s", flags)
-	}
+	setupAgentLogging(a.CurrentConfig())
+
 	if err := introspection.WriteProfileFunctions(); err != nil {
 		// This isn't fatal, just annoying.
 		logger.Errorf("failed to write profile funcs: %v", err)
@@ -568,6 +555,12 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return a.startStateWorkers(st, reporter)
 		}
 		pubsubReporter := psworker.NewReporter()
+		updateAgentConfLogging := func(loggingConfig string) error {
+			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
+				setter.SetLoggingConfig(loggingConfig)
+				return nil
+			})
+		}
 		manifolds := machineManifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
@@ -588,6 +581,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PrometheusRegisterer: a.prometheusRegistry,
 			CentralHub:           a.centralHub,
 			PubSubReporter:       pubsubReporter,
+			UpdateLoggerConfig:   updateAgentConfLogging,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {

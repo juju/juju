@@ -6,11 +6,14 @@ package agent
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -79,4 +82,57 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 
 	// Tests should not try to use internet. Ensure base url is empty.
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
+}
+
+type agentLoggingSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&agentLoggingSuite{})
+
+func (*agentLoggingSuite) TestNoLoggingConfig(c *gc.C) {
+	f := &fakeLoggingConfig{}
+	initial := loggo.LoggerInfo()
+
+	setupAgentLogging(f)
+
+	c.Assert(loggo.LoggerInfo(), gc.Equals, initial)
+}
+
+func (*agentLoggingSuite) TestLoggingOverride(c *gc.C) {
+	f := &fakeLoggingConfig{
+		loggingOverride: "test=INFO",
+	}
+
+	setupAgentLogging(f)
+
+	c.Assert(loggo.LoggerInfo(), gc.Equals, "<root>=WARNING;test=INFO")
+}
+
+func (*agentLoggingSuite) TestLoggingConfig(c *gc.C) {
+	f := &fakeLoggingConfig{
+		loggingConfig: "test=INFO",
+	}
+
+	setupAgentLogging(f)
+
+	c.Assert(loggo.LoggerInfo(), gc.Equals, "<root>=WARNING;test=INFO")
+}
+
+type fakeLoggingConfig struct {
+	agent.Config
+
+	loggingConfig   string
+	loggingOverride string
+}
+
+func (f *fakeLoggingConfig) LoggingConfig() string {
+	return f.loggingConfig
+}
+
+func (f *fakeLoggingConfig) Value(key string) string {
+	if key == agent.LoggingOverride {
+		return f.loggingOverride
+	}
+	return ""
 }

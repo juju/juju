@@ -207,6 +207,10 @@ type instanceData struct {
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
 	AvailZone  *string     `bson:"availzone,omitempty"`
+
+	// KeepInstance is set to true if, on machine removal from Juju,
+	// the cloud instance should be retained.
+	KeepInstance bool `bson:"keep-instance,omitempty"`
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -267,6 +271,34 @@ func (m *Machine) Life() Life {
 // Jobs returns the responsibilities that must be fulfilled by m's agent.
 func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
+}
+
+// SetKeepInstance sets whether the cloud machine instance
+// will be retained when the machine is removed from Juju.
+// This is only relevant if an instance exists.
+func (m *Machine) SetKeepInstance(keepInstance bool) error {
+	ops := []txn.Op{{
+		C:      instanceDataC,
+		Id:     m.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"keep-instance", keepInstance}}}},
+	}}
+	if err := m.st.db().RunTransaction(ops); err != nil {
+		// If instance doc doesn't exist, that's ok; there's nothing to keep,
+		// but that's not an error we care about.
+		return errors.Annotatef(onAbort(err, nil), "cannot set KeepInstance on machine %v", m)
+	}
+	return nil
+}
+
+// KeepInstance reports whether a machine, when removed from
+// Juju, will cause the corresponding cloud instance to be stopped.
+func (m *Machine) KeepInstance() (bool, error) {
+	instData, err := getInstanceData(m.st, m.Id())
+	if err != nil {
+		return false, err
+	}
+	return instData.KeepInstance, nil
 }
 
 // WantsVote reports whether the machine is a controller
@@ -1148,6 +1180,16 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
+	}
+
+	coll, closer := m.st.db().GetCollection(instanceDataC)
+	defer closer()
+	count, err := coll.Find(bson.D{{"instanceid", id}}).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if count > 0 {
+		logger.Warningf("duplicate instance id %q already saved", id)
 	}
 
 	if characteristics == nil {

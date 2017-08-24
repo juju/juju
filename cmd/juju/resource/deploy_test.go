@@ -119,7 +119,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 		"store":  "id-store",
 	})
 
-	s.stub.CheckCallNames(c, "Stat", "AddPendingResources", "Open", "AddPendingResource")
+	s.stub.CheckCallNames(c, "Stat", "AddPendingResources", "Open", "UploadPendingResource")
 	expectedStore := []charmresource.Resource{
 		{
 			Meta:     du.resources["store"],
@@ -134,7 +134,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 		Meta:   du.resources["upload"],
 		Origin: charmresource.OriginUpload,
 	}
-	s.stub.CheckCall(c, 3, "AddPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
+	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
 }
 
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
@@ -230,7 +230,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 		"store":  "id-store",
 	})
 
-	s.stub.CheckCallNames(c, "Stat", "AddPendingResources", "Open", "AddPendingResource")
+	s.stub.CheckCallNames(c, "Stat", "AddPendingResources", "Open", "UploadPendingResource")
 	expectedStore := []charmresource.Resource{
 		{
 			Meta:     du.resources["store"],
@@ -245,7 +245,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 		Meta:   du.resources["upload"],
 		Origin: charmresource.OriginUpload,
 	}
-	s.stub.CheckCall(c, 3, "AddPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
+	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
 }
 
 func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
@@ -340,8 +340,8 @@ func (s uploadDeps) AddPendingResources(applicationID string, charmID charmstore
 	return ids, nil
 }
 
-func (s uploadDeps) AddPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
-	s.stub.AddCall("AddPendingResource", applicationID, resource, filename, r)
+func (s uploadDeps) UploadPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
+	s.stub.AddCall("UploadPendingResource", applicationID, resource, filename, r)
 	if err := s.stub.NextErr(); err != nil {
 		return "", err
 	}

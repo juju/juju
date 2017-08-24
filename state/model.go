@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -141,12 +142,11 @@ type modelMeterStatusdoc struct {
 	Info string `bson:"info"`
 }
 
-// modelEntityRefsDoc records references to the top-level entities
-// in the model.
-// (anastasiamac 2017-04-10) This is also used to determine if a model can be destroyed.
-// Consequently, any changes, especially additions of entities, here,
-// would need to be reflected, at least, in Model.checkEmpty(...) as well as
-// Model.destroyOps(...)
+// modelEntityRefsDoc records references to the top-level entities in the
+// model.  This is also used to determine if a model can be destroyed.
+// Consequently, any changes, especially additions of entities, here, would
+// need to be reflected, at least, in Model.checkModelEntityRefsEmpty(...) as
+// well as Model.destroyOps(...)
 type modelEntityRefsDoc struct {
 	UUID string `bson:"_id"`
 
@@ -586,6 +586,16 @@ func (m *Model) Status() (status.StatusInfo, error) {
 	return status, nil
 }
 
+// localID returns the local id value by stripping off the model uuid prefix
+// if it is there.
+func (m *Model) localID(ID string) string {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != m.doc.UUID {
+		return ID
+	}
+	return localID
+}
+
 // SetStatus sets the status of the model.
 func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 	if !status.ValidModelStatus(sInfo.Status) {
@@ -785,6 +795,23 @@ func (m *Model) refresh(uuid string) error {
 	return err
 }
 
+// AllUnits returns all units for a model, for all applications.
+func (m *Model) AllUnits() ([]*Unit, error) {
+	coll, closer := m.st.db().GetCollection(unitsC)
+	defer closer()
+
+	docs := []unitDoc{}
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all units for model")
+	}
+	var units []*Unit
+	for i := range docs {
+		units = append(units, newUnit(m.st, &docs[i]))
+	}
+	return units, nil
+}
+
 // Users returns a slice of all users for this model.
 func (m *Model) Users() ([]permission.UserAccess, error) {
 	coll, closer := m.st.db().GetCollection(modelUsersC)
@@ -850,6 +877,10 @@ type DestroyModelParams struct {
 	DestroyStorage *bool
 }
 
+func (m *Model) uniqueIndexID() string {
+	return userModelNameIndex(m.doc.Owner, m.doc.Name)
+}
+
 // Destroy sets the models's lifecycle to Dying, preventing
 // addition of services or machines to state. If called on
 // an empty hosted model, the lifecycle will be advanced
@@ -892,7 +923,11 @@ var errModelNotAlive = errors.New("model is no longer alive")
 type hasHostedModelsError int
 
 func (e hasHostedModelsError) Error() string {
-	return fmt.Sprintf("hosting %d other models", e)
+	s := ""
+	if e != 1 {
+		s = "s"
+	}
+	return fmt.Sprintf("hosting %d other model"+s, e)
 }
 
 // IsHasHostedModelsError reports whether or not the given error
@@ -920,7 +955,44 @@ func IsHasPersistentStorageError(err error) bool {
 }
 
 type modelNotEmptyError struct {
-	error
+	machines     int
+	applications int
+	volumes      int
+	filesystems  int
+}
+
+// Error is part of the error interface.
+func (e modelNotEmptyError) Error() string {
+	msg := "model not empty, found "
+	plural := func(n int, thing string) string {
+		s := fmt.Sprintf("%d %s", n, thing)
+		if n != 1 {
+			s += "s"
+		}
+		return s
+	}
+	var contains []string
+	if n := e.machines; n > 0 {
+		contains = append(contains, plural(n, "machine"))
+	}
+	if n := e.applications; n > 0 {
+		contains = append(contains, plural(n, "application"))
+	}
+	if n := e.volumes; n > 0 {
+		contains = append(contains, plural(n, "volume"))
+	}
+	if n := e.filesystems; n > 0 {
+		contains = append(contains, plural(n, "filesystem"))
+	}
+	return msg + strings.Join(contains, ", ")
+}
+
+// IsModelNotEmptyError reports whether or not the given error was caused
+// due to an operation requiring a model to be empty, where the model is
+// non-empty.
+func IsModelNotEmptyError(err error) bool {
+	_, ok := errors.Cause(err).(modelNotEmptyError)
+	return ok
 }
 
 // destroyOps returns the txn operations necessary to begin model
@@ -948,13 +1020,14 @@ func (m *Model) destroyOps(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model entity refs")
 	}
-	modelUUID := m.UUID()
 	isEmpty := true
+	modelUUID := m.UUID()
 	nextLife := Dying
+
 	prereqOps, err := checkModelEntityRefsEmpty(modelEntityRefs)
 	if err != nil {
 		if ensureEmpty {
-			return nil, modelNotEmptyError{err}
+			return nil, errors.Trace(err)
 		}
 		isEmpty = false
 		prereqOps = nil
@@ -1037,7 +1110,7 @@ func (m *Model) destroyOps(
 				prereqOps = append(prereqOps, ops...)
 				aliveEmpty++
 			default:
-				if _, ok := err.(modelNotEmptyError); !ok {
+				if !IsModelNotEmptyError(err) {
 					return nil, errors.Trace(err)
 				}
 				aliveNonEmpty++
@@ -1064,28 +1137,33 @@ func (m *Model) destroyOps(
 		)
 	}
 
-	ops := []txn.Op{{
+	timeOfDying := m.st.nowToTheSecond()
+	modelUpdateValues := bson.D{
+		{"life", nextLife},
+		{"time-of-dying", timeOfDying},
+	}
+	var ops []txn.Op
+	if nextLife == Dead {
+		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
+			"time-of-death", timeOfDying,
+		})
+		ops = append(ops, txn.Op{
+			// Cleanup the owner:envName unique key.
+			C:      usermodelnameC,
+			Id:     m.uniqueIndexID(),
+			Remove: true,
+		})
+	}
+
+	modelOp := txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
-	}}
-	if !destroyingController || nextLife == Dead {
-		timeOfDying := m.st.nowToTheSecond()
-		modelUpdateValues := bson.D{
-			{"life", nextLife},
-			{"time-of-dying", timeOfDying},
-		}
-		if nextLife == Dead {
-			modelUpdateValues = append(modelUpdateValues, bson.DocElem{
-				"time-of-death", timeOfDying,
-			})
-		}
-		ops[0].Update = bson.D{{"$set", modelUpdateValues}}
-	} else {
-		// We're destroying the controller, and we're not
-		// progressing the model directly to Dead. We leave
-		// it to the "models" cleanup to destroy the model.
 	}
+	if !destroyingController || nextLife == Dead {
+		modelOp.Update = bson.D{{"$set", modelUpdateValues}}
+	}
+	ops = append(ops, modelOp)
 	if destroyingController {
 		// We're destroying the controller model, and being asked
 		// to check the validity of destroying hosted models,
@@ -1158,22 +1236,16 @@ func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
 func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
 	// These errors could be potentially swallowed as we re-try to destroy model.
 	// Let's, at least, log them for observation.
-	if n := len(doc.Machines); n > 0 {
-		logger.Infof("model is still not empty, has machines: %v", doc.Machines)
-		return nil, errors.Errorf("model not empty, found %d machine(s)", n)
+	err := modelNotEmptyError{
+		machines:     len(doc.Machines),
+		applications: len(doc.Applications),
+		volumes:      len(doc.Volumes),
+		filesystems:  len(doc.Filesystems),
 	}
-	if n := len(doc.Applications); n > 0 {
-		logger.Infof("model is still not empty, has applications: %v", doc.Applications)
-		return nil, errors.Errorf("model not empty, found %d application(s)", n)
+	if err != (modelNotEmptyError{}) {
+		return nil, err
 	}
-	if n := len(doc.Volumes); n > 0 {
-		logger.Infof("model is still not empty, has volumes: %v", doc.Volumes)
-		return nil, errors.Errorf("model not empty, found %d volume(s)", n)
-	}
-	if n := len(doc.Filesystems); n > 0 {
-		logger.Infof("model is still not empty, has file systems: %v", doc.Filesystems)
-		return nil, errors.Errorf("model not empty, found %d filesystem(s)", n)
-	}
+
 	return []txn.Op{{
 		C:  modelEntityRefsC,
 		Id: doc.UUID,

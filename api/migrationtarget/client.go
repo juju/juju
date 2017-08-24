@@ -227,3 +227,19 @@ func (c *Client) AdoptResources(modelUUID string) error {
 func (c *Client) CACert() (string, error) {
 	return common.NewAPIAddresser(c.caller).CACert()
 }
+
+// CheckMachines compares the machines in state with the ones reported
+// by the provider and reports any discrepancies.
+func (c *Client) CheckMachines(modelUUID string) ([]error, error) {
+	var result params.ErrorResults
+	args := params.ModelArgs{names.NewModelTag(modelUUID).String()}
+	err := c.caller.FacadeCall("CheckMachines", args, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var results []error
+	for _, res := range result.Results {
+		results = append(results, errors.Errorf(res.Error.Message))
+	}
+	return results, nil
+}

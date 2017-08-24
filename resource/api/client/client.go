@@ -199,10 +199,9 @@ func newAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, c
 	return args, nil
 }
 
-// AddPendingResource sends the provided resource blob up to Juju
-// without making it available yet. For example, AddPendingResource()
-// is used before the application is deployed.
-func (c Client) AddPendingResource(applicationID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+// UploadPendingResource sends the provided resource blob up to Juju
+// and makes it available.
+func (c Client) UploadPendingResource(applicationID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
 		ApplicationID: applicationID,
 		Resources:     []charmresource.Resource{res},
