@@ -70,11 +70,11 @@ func (s *UserSuite) TestUserResetPasswordForSelf(c *gc.C) {
 	err = user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsFalse)
-	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
-New controller access token for this user is  (.+)
-`[1:])
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
 Your password has been reset.
+Please run:
+     juju register (.+)
 `[1:])
 }
 
@@ -85,11 +85,11 @@ func (s *UserSuite) TestUserResetPasswordForOther(c *gc.C) {
 
 	context, err := s.RunUserCommand(c, "", "change-user-password", "--reset", username)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
-New controller access token for this user is  (.+)
-`[1:])
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
 Password for "bob" has been reset.
+Ask the user to run:
+     juju register (.+)
 `[1:])
 }
 
