@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type MachineSuite struct {
@@ -110,6 +112,19 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 	rebootFlag, err = s.machine.GetRebootFlag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rebootFlag, jc.IsFalse)
+}
+
+func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
+	err := s.machine.SetProvisioned("1234", "nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetKeepInstance(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	keep, err := m.KeepInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keep, jc.IsTrue)
 }
 
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
@@ -935,6 +950,28 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 
 	// Check it with invalid nonce.
 	c.Assert(s.machine.CheckProvisioned("not-really"), jc.IsFalse)
+}
+
+func (s *MachineSuite) TestSetProvisionedDupInstanceId(c *gc.C) {
+	var logWriter loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("dupe-test", &logWriter), gc.IsNil)
+	s.AddCleanup(func(*gc.C) {
+		loggo.RemoveWriter("dupe-test")
+	})
+
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherMachine, _ := s.Factory.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
+	err = anotherMachine.SetProvisioned("umbrella/0", "another_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	found := false
+	for _, le := range logWriter.Log() {
+		if found = strings.Contains(le.Message, "duplicate instance id"); found == true {
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {

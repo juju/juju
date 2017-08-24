@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -217,4 +218,5 @@ func (s *statePoolSuite) TestGetRemovedNotAllowed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, err = s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %v has been removed", s.ModelUUID1))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

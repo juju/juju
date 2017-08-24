@@ -176,5 +176,7 @@ func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
 		"canadaeast":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"uksouth":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"ukwest":             {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"koreasouth":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"koreacentral":       {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 	})
 }

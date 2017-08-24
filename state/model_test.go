@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -76,7 +77,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first model.
-	_, st1, err := s.State.NewModel(state.ModelArgs{
+	model, st1, err := s.State.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -86,6 +87,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
+	c.Assert(model.UniqueIndexExists(), jc.IsTrue)
 
 	// Attempt to create another model with a different UUID but the
 	// same owner and name as the first.
@@ -115,7 +117,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	// Destroy only sets the model to dying and RemoveAllModelDocs can
 	// only be called on a dead model. Normally, the environ's lifecycle
 	// would be set to dead after machines and services have been cleaned up.
-	err = state.SetModelLifeDead(st1, model1.ModelTag().Id())
+	err = model1.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,6 +456,32 @@ func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 	c.Assert(conf.UUID(), gc.Equals, otherModel.UUID())
 }
 
+func (s *ModelSuite) TestAllUnits(c *gc.C) {
+	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "wordpress",
+	})
+	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "mysql",
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	units, err := model.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var names []string
+	for _, u := range units {
+		names = append(names, u.Name())
+	}
+	sort.Strings(names)
+	c.Assert(names, jc.DeepEquals, []string{
+		"mysql/0", "wordpress/0", "wordpress/1",
+	})
+}
+
 // createTestModelConfig returns a new model config and its UUID for testing.
 func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 	return createTestModelConfig(c, s.modelTag.Id())
@@ -505,6 +533,8 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	// Destroying an empty model also removes the name index doc.
+	c.Assert(model.UniqueIndexExists(), jc.IsFalse)
 }
 
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
@@ -514,7 +544,7 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
+	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 }
 
 func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
@@ -529,6 +559,7 @@ func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
 
 	hostedModel, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("model %s, life %s", hostedModel.UUID(), hostedModel.Life())
 	c.Assert(hostedModel.Life(), gc.Equals, state.Dead)
 }
 
@@ -564,6 +595,8 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 
 	c.Assert(model2.Refresh(), jc.ErrorIsNil)
 	c.Assert(model2.Life(), gc.Equals, state.Dead)
+	err = st2.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
@@ -616,7 +649,8 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	assertModel(controllerModel, s.State, state.Dying, 0, 0)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `one or more hosted models are not yet dead`)
+	c.Assert(err, jc.Satisfies, state.IsHasHostedModelsError)
+	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	assertCleanupCount(c, otherSt, 3)
 	assertAllMachinesDeadAndRemove(c, otherSt)
@@ -626,6 +660,12 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(otherModel.Life(), gc.Equals, state.Dead)
 
+	// Until the model is removed, we can't mark the controller model Dead.
+	err = s.State.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
+
+	err = otherSt.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dead)
@@ -696,7 +736,7 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
+	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 }
 
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
@@ -710,7 +750,7 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
+	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 }
 
 func (s *ModelSuite) TestDestroyControllerAlreadyDyingRaceNoOp(c *gc.C) {
@@ -744,6 +784,9 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dying)
+
+	// Since the model is only dying and not dead, the unique index is still there.
+	c.Assert(m.UniqueIndexExists(), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestDestroyModelPersistentStorage(c *gc.C) {
@@ -897,10 +940,12 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 		err := app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 
+		c.Check(model.UniqueIndexExists(), jc.IsTrue)
 		c.Assert(st.ProcessDyingModel(), jc.ErrorIsNil)
 
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		c.Assert(model.Life(), gc.Equals, state.Dead)
+		c.Check(model.UniqueIndexExists(), jc.IsFalse)
 	}).Check()
 
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -947,8 +992,8 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 	defer state.SetAfterHooks(c, st, func() {
 		assertModel(state.Dying, 1, 1)
 		err := st.ProcessDyingModel()
-		c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
-		assertModel(state.Dying, 1, 1)
+		c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
+		c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine, 1 application`)
 	}).Check()
 
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
@@ -1003,7 +1048,8 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
 	err = st.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume\(s\)`)
+	c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume, 1 filesystem`)
 }
 
 func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
@@ -1051,7 +1097,8 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
 	err = st.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume\(s\)`)
+	c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume`)
 }
 
 func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C) {
@@ -1067,7 +1114,8 @@ func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C
 	}), jc.ErrorIsNil)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `one or more hosted models are not yet dead`)
+	c.Assert(err, jc.Satisfies, state.IsHasHostedModelsError)
+	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dying)

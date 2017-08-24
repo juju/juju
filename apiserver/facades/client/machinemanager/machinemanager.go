@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.machinemanager")
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
@@ -39,6 +42,19 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	backend := &stateShim{State: st, IAASModel: im}
 	pool := &poolShim{ctx.StatePool()}
 	return NewMachineManagerAPI(backend, pool, ctx.Auth())
+}
+
+type MachineManagerAPIV4 struct {
+	*MachineManagerAPI
+}
+
+// NewFacadeV4 creates a new server-side MachineManager API facade.
+func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
+	machineManagerAPI, err := NewFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &MachineManagerAPIV4{machineManagerAPI}, nil
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -179,15 +195,24 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 
 // DestroyMachine removes a set of machines from the model.
 func (mm *MachineManagerAPI) DestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, false)
+	return mm.destroyMachine(args, false, false)
 }
 
 // ForceDestroyMachine forcibly removes a set of machines from the model.
 func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, true)
+	return mm.destroyMachine(args, true, false)
 }
 
-func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force bool) (params.DestroyMachineResults, error) {
+// DestroyMachineWithParams removes a set of machines from the model.
+func (mm *MachineManagerAPIV4) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
+	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
+	for i, tag := range args.MachineTags {
+		entities.Entities[i].Tag = tag
+	}
+	return mm.destroyMachine(entities, args.Force, args.Keep)
+}
+
+func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bool) (params.DestroyMachineResults, error) {
 	if err := mm.checkCanWrite(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
@@ -202,6 +227,12 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force bool) (p
 		machine, err := mm.st.Machine(machineTag.Id())
 		if err != nil {
 			return nil, err
+		}
+		if keep {
+			logger.Infof("destroy machine %v but keep instance", machineTag.Id())
+			if err := machine.SetKeepInstance(keep); err != nil {
+				return nil, err
+			}
 		}
 		var info params.DestroyMachineInfo
 		units, err := machine.Units()

@@ -77,14 +77,13 @@ func (*SourcePrecheckSuite) TestPendingResources(c *gc.C) {
 		resourcetesting.NewResource(c, nil, "blob", "foo", "body").Resource,
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, `resource "blob" is pending for application foo`)
-}
-
-func (*SourcePrecheckSuite) TestPendingResourcesError(c *gc.C) {
-	backend := newHappyBackend()
-	backend.pendingResourcesErr = errors.New("blam")
-	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, `checking resources: blam`)
+	// Pending resources shouldn't prevent a migration. If they exist
+	// alongside an application, they're remains of a previous failed
+	// deploy that haven't been cleaned up (see lp:1705730). If they
+	// exist without an application that indicates an impending
+	// application deployment - the migration exporter won't migrate
+	// pending resources.
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {

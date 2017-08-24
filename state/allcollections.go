@@ -246,8 +246,12 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with applications.
-		charmsC:       {},
-		applicationsC: {},
+		charmsC: {},
+		applicationsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 		unitsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "application"},
@@ -285,9 +289,13 @@ func allCollections() collectionSchema {
 		// These collections hold information associated with machines.
 		containerRefsC: {},
 		instanceDataC:  {},
-		machinesC:      {},
-		rebootC:        {},
-		sshHostKeysC:   {},
+		machinesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machineid"},
+			}},
+		},
+		rebootC:      {},
+		sshHostKeysC: {},
 
 		// This collection contains information from removed machines
 		// that needs to be cleaned up in the provider.
@@ -386,7 +394,11 @@ func allCollections() collectionSchema {
 
 		constraintsC:        {},
 		storageConstraintsC: {},
-		statusesC:           {},
+		statusesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "_id"},
+			}},
+		},
 		statusesHistoryC: {
 			rawAccess: true,
 			indexes: []mgo.Index{{

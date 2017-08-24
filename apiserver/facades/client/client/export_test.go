@@ -13,12 +13,6 @@ var (
 	MatchSubnet     = matchSubnet
 )
 
-// Status exports
-var (
-	ProcessMachines   = processMachines
-	MakeMachineStatus = makeMachineStatus
-)
-
 func SetNewEnviron(c *Client, newEnviron func() (environs.Environ, error)) {
 	c.newEnviron = newEnviron
 }

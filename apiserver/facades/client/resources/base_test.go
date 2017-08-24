@@ -99,8 +99,8 @@ func (s *stubDataStore) ListResources(service string) (resource.ServiceResources
 	return s.ReturnListResources, nil
 }
 
-func (s *stubDataStore) AddPendingResource(service, userID string, chRes charmresource.Resource, r io.Reader) (string, error) {
-	s.stub.AddCall("AddPendingResource", service, userID, chRes, r)
+func (s *stubDataStore) AddPendingResource(service, userID string, chRes charmresource.Resource) (string, error) {
+	s.stub.AddCall("AddPendingResource", service, userID, chRes)
 	if err := s.stub.NextErr(); err != nil {
 		return "", errors.Trace(err)
 	}

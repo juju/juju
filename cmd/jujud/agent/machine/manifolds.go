@@ -146,6 +146,10 @@ type ManifoldsConfig struct {
 	// PubSubReporter is the introspection reporter for the pubsub forwarding
 	// worker.
 	PubSubReporter psworker.Reporter
+
+	// UpdateLoggerConfig is a function that will save the specified
+	// config value as the logging config in the agent.conf file.
+	UpdateLoggerConfig func(string) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -398,8 +402,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// according to changes in environment config. We should only need
 		// one of these in a consolidated agent.
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the

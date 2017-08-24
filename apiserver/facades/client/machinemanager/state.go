@@ -44,6 +44,7 @@ type Machine interface {
 	Destroy() error
 	ForceDestroy() error
 	Units() ([]Unit, error)
+	SetKeepInstance(keepInstance bool) error
 }
 
 type stateShim struct {

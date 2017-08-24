@@ -255,6 +255,10 @@ func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
 	return errors.NotImplementedf("ForceDestroyMachines")
 }
 
+func (f *fakeAddMachineAPI) DestroyMachinesWithParams(force, keep bool, machines ...string) error {
+	return errors.NotImplementedf("ForceDestroyMachinesWithParams")
+}
+
 func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
 	return "", errors.NotImplementedf("ProvisioningScript")
 }

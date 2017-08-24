@@ -43,7 +43,14 @@ func registerFormat(format formatter) {
 // - Create a formatter for the new version (including a marshal() method);
 // - Call registerFormat in the new format's init() function.
 // - Change this to point to the new format;
-// - Remove the marshal() method from the old format;
+//
+// When a new format version is introduced there is going to need to be some
+// refactoring around the config writing when provisioning a machine as the
+// controller may well understand a config format that the model does not. So
+// when generating the agent.conf for the model's machine, it needs to be
+// written out in a format that the model can understand. Right now it will be
+// written out in the format that the controller understands, and that will
+// not continue to be correct.
 
 // currentFormat holds the current agent config version's formatter.
 var currentFormat = format_2_0

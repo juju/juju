@@ -15,8 +15,9 @@ import (
 
 type ModelStatusSuite struct {
 	ConnSuite
-	st    *state.State
-	model *state.Model
+	st      *state.State
+	model   *state.Model
+	factory *factory.Factory
 }
 
 var _ = gc.Suite(&ModelStatusSuite{})
@@ -27,6 +28,7 @@ func (s *ModelStatusSuite) SetUpTest(c *gc.C) {
 	m, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.model = m
+	s.factory = factory.NewFactory(s.st)
 }
 
 func (s *ModelStatusSuite) TearDownTest(c *gc.C) {
@@ -84,7 +86,7 @@ func (s *ModelStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	// Add a machine to the model to ensure it is non-empty
 	// when we destroy; this prevents the model from advancing
 	// directly to Dead.
-	factory.NewFactory(s.st).MakeMachine(c, nil)
+	s.factory.MakeMachine(c, nil)
 
 	err := s.model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,4 +151,138 @@ func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
 		},
 	})
 	c.Check(statusInfo.Since, gc.NotNil)
+}
+
+func (s *ModelStatusSuite) TestModelStatusForModel(c *gc.C) {
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := ms.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mInfo, err := s.model.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, mInfo)
+}
+
+func (s *ModelStatusSuite) TestMachineStatus(c *gc.C) {
+	machine := s.factory.MakeMachine(c, nil)
+
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msAgent, err := ms.MachineAgent(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	msInstance, err := ms.MachineInstance(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	mAgent, err := machine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	mInstance, err := machine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(msAgent, jc.DeepEquals, mAgent)
+	c.Assert(msInstance, jc.DeepEquals, mInstance)
+}
+
+func (s *ModelStatusSuite) TestUnitStatus(c *gc.C) {
+	unit := s.factory.MakeUnit(c, nil)
+
+	c.Assert(unit.SetWorkloadVersion("42.1"), jc.ErrorIsNil)
+	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}), jc.ErrorIsNil)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msAgent, err := ms.UnitAgent(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	msWorkload, err := ms.UnitWorkload(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	msWorkloadVersion, err := ms.UnitWorkloadVersion(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	uAgent, err := unit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	uWorkload, err := unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	uWorkloadVersion, err := unit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(msAgent, jc.DeepEquals, uAgent)
+	c.Check(msWorkload, jc.DeepEquals, uWorkload)
+	c.Check(msWorkloadVersion, jc.DeepEquals, uWorkloadVersion)
+}
+
+func (s *ModelStatusSuite) TestUnitStatusWeirdness(c *gc.C) {
+	unit := s.factory.MakeUnit(c, nil)
+
+	// When the agent status is in error, we show the workload status
+	// as an error, and the agent as idle
+	c.Assert(unit.SetStatus(status.StatusInfo{Status: status.Active}), jc.ErrorIsNil)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "OMG"}), jc.ErrorIsNil)
+
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msAgent, err := ms.UnitAgent(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	msWorkload, err := ms.UnitWorkload(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	uAgent, err := unit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	uWorkload, err := unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(msAgent, jc.DeepEquals, uAgent)
+	c.Check(msWorkload, jc.DeepEquals, uWorkload)
+
+	c.Check(msAgent.Status, gc.Equals, status.Idle)
+	c.Check(msWorkload.Status, gc.Equals, status.Error)
+}
+
+func (s *ModelStatusSuite) TestApplicationStatus(c *gc.C) {
+	unit := s.factory.MakeUnit(c, nil)
+	app, err := unit.Application()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	aStatus, err := app.Status()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msStatus, err := ms.Application(app.Name(), []string{unit.Name()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(msStatus, jc.DeepEquals, aStatus)
+}
+
+func (s *ModelStatusSuite) TestApplicationStatusWeirdness(c *gc.C) {
+	unit0 := s.factory.MakeUnit(c, nil)
+	app, err := unit0.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	unit1 := s.factory.MakeUnit(c, &factory.UnitParams{Application: app})
+
+	c.Assert(unit0.SetStatus(status.StatusInfo{Status: status.Active}), jc.ErrorIsNil)
+	c.Assert(unit1.SetStatus(status.StatusInfo{Status: status.Waiting}), jc.ErrorIsNil)
+
+	aStatus, err := app.Status()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msStatus, err := ms.Application(app.Name(), []string{unit0.Name(), unit1.Name()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Derived status should be waiting.
+	c.Check(msStatus.Status, gc.Equals, status.Waiting)
+	c.Check(msStatus, jc.DeepEquals, aStatus)
 }

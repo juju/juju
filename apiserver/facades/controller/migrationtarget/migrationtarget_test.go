@@ -22,11 +22,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type Suite struct {
@@ -70,13 +72,13 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 
 func (s *Suite) TestNotUser(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, _, err := s.newAPI(nil)
+	_, err := s.newAPI(nil)
 	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
 func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jrandomuser")
-	_, _, err := s.newAPI(nil)
+	_, err := s.newAPI(nil)
 	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
@@ -241,12 +243,11 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	defer st.Close()
 
 	env := mockEnviron{Stub: &testing.Stub{}}
-	api, ctx, err := s.newAPI(func(envSt *state.State) (environs.Environ, error) {
+	api, err := s.newAPI(func(envSt *state.State) (environs.Environ, error) {
 		c.Assert(envSt.ModelUUID(), gc.Equals, st.ModelUUID())
 		return &env, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer ctx.StatePool().Close()
 
 	err = api.AdoptResources(params.AdoptResourcesArgs{
 		ModelTag:                st.ModelTag().String(),
@@ -258,7 +259,147 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	env.Stub.CheckCall(c, 0, "AdoptResources", st.ControllerUUID(), version.MustParse("3.2.1"))
 }
 
-func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, *facadetest.Context, error) {
+func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	fact := factory.NewFactory(st)
+	fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "wind-up",
+	})
+	m := fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "birds",
+	})
+	c.Assert(m.Id(), gc.Equals, "1")
+
+	env := mockEnviron{
+		Stub:      &testing.Stub{},
+		instances: []*mockInstance{{id: "wind-up"}},
+	}
+	api := s.mustNewAPIWithEnviron(c, &env)
+
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: st.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `couldn't find instance "birds" for machine 1`)
+}
+
+func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	fact := factory.NewFactory(st)
+	fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "judith",
+	})
+	env := mockEnviron{
+		Stub: &testing.Stub{},
+		instances: []*mockInstance{
+			{id: "judith"},
+			{id: "analyse"},
+		},
+	}
+	api := s.mustNewAPIWithEnviron(c, &env)
+
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: st.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `no machine with instance "analyse"`)
+}
+
+func (s *Suite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	env := mockEnviron{Stub: &testing.Stub{}}
+	env.SetErrors(errors.Errorf("kablooie"))
+	api := s.mustNewAPIWithEnviron(c, &env)
+
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: st.ModelTag().String()})
+	c.Assert(err, gc.ErrorMatches, "kablooie")
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	fact := factory.NewFactory(st)
+	fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "eriatarka",
+	})
+	m := fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "volta",
+	})
+	c.Assert(m.Id(), gc.Equals, "1")
+
+	env := mockEnviron{
+		Stub: &testing.Stub{},
+		instances: []*mockInstance{
+			{id: "volta"},
+			{id: "eriatarka"},
+		},
+	}
+	api := s.mustNewAPIWithEnviron(c, &env)
+
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: st.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	fact := factory.NewFactory(st)
+	m := fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "birds",
+	})
+	fact.MakeMachineNested(c, m.Id(), nil)
+
+	env := mockEnviron{
+		Stub:      &testing.Stub{},
+		instances: []*mockInstance{{id: "birds"}},
+	}
+	api := s.mustNewAPIWithEnviron(c, &env)
+
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: st.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	fact := factory.NewFactory(st)
+	fact.MakeMachine(c, &factory.MachineParams{
+		InstanceId: "birds",
+	})
+	fact.MakeMachine(c, &factory.MachineParams{
+		Nonce: "manual:flibbertigibbert",
+	})
+
+	env := mockEnviron{
+		Stub:      &testing.Stub{},
+		instances: []*mockInstance{{id: "birds"}},
+	}
+	api := s.mustNewAPIWithEnviron(c, &env)
+
+	results, err := api.CheckMachines(
+		params.ModelArgs{ModelTag: st.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, error) {
 	ctx := facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -266,11 +407,20 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarg
 		Auth_:      s.authorizer,
 	}
 	api, err := migrationtarget.NewAPI(ctx, environFunc)
-	return api, &ctx, err
+	s.AddCleanup(func(*gc.C) { ctx.StatePool().Close() })
+	return api, err
 }
 
 func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
-	api, _, err := s.newAPI(nil)
+	api, err := s.newAPI(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return api
+}
+
+func (s *Suite) mustNewAPIWithEnviron(c *gc.C, env environs.Environ) *migrationtarget.API {
+	api, err := s.newAPI(func(*state.State) (environs.Environ, error) {
+		return env, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -301,9 +451,29 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 type mockEnviron struct {
 	environs.Environ
 	*testing.Stub
+
+	instances []*mockInstance
 }
 
 func (e *mockEnviron) AdoptResources(controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", controllerUUID, sourceVersion)
 	return e.NextErr()
+}
+
+func (e *mockEnviron) AllInstances() ([]instance.Instance, error) {
+	e.MethodCall(e, "AllInstances")
+	results := make([]instance.Instance, len(e.instances))
+	for i, instance := range e.instances {
+		results[i] = instance
+	}
+	return results, e.NextErr()
+}
+
+type mockInstance struct {
+	instance.Instance
+	id string
+}
+
+func (i *mockInstance) Id() instance.Id {
+	return instance.Id(i.id)
 }

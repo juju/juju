@@ -37,6 +37,9 @@ type Backend interface {
 	Unit(string) (Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
+	//	NewStorage() storage.Storage
+	//	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
+	Resources() (Resources, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -119,6 +122,13 @@ type Model interface {
 	Tag() names.Tag
 	Name() string
 	Owner() names.UserTag
+}
+
+// Resources defines a subset of the functionality provided by the
+// state.Resources type, as required by the application facade. See
+// the state.Resources type for details on the methods.
+type Resources interface {
+	RemovePendingAppResources(string, map[string]string) error
 }
 
 type stateShim struct {
@@ -244,6 +254,10 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return stateUnitShim{u, s.State}, nil
+}
+
+func (s stateShim) Resources() (Resources, error) {
+	return s.State.Resources()
 }
 
 type stateApplicationShim struct {

@@ -318,7 +318,12 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
-	fields := set.NewStrings(
+	ignored := set.NewStrings(
+		// KeepInstance is only set when a machine is
+		// dying/dead (to be removed).
+		"KeepInstance",
+	)
+	migrated := set.NewStrings(
 		// DocID is the env + machine id
 		"DocID",
 		"MachineId",
@@ -335,7 +340,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"Tags",
 		"AvailZone",
 	)
-	s.AssertExportedFields(c, instanceData{}, fields)
+	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {

@@ -432,7 +432,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		pendingID, err := rSt.AddPendingResource(params.Name, "", charmresource.Resource{
 			Meta:   res,
 			Origin: charmresource.OriginUpload,
-		}, nil)
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		resourceMap[name] = pendingID
 	}

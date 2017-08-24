@@ -234,6 +234,8 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}
+	machineId := fmt.Sprintf("%s-%s", cfg.Name(), m.Tag().String())
+	machineTags[tags.JujuMachine] = machineId
 	return machineTags, nil
 }
 

@@ -311,15 +311,6 @@ func checkApplications(backend PrecheckBackend) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-
-		resources, err := backend.ListPendingResources(app.Name())
-		if err != nil {
-			return errors.Annotate(err, "checking resources")
-		}
-		if len(resources) > 0 {
-			resName := resources[0].Name
-			return errors.Errorf("resource %q is pending for application %s", resName, app.Name())
-		}
 	}
 	return nil
 }

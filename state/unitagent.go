@@ -43,6 +43,7 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade): this should absolutely not be happpening in the model.
+	// TODO: when fixed, also fix code in status.go for UnitAgent.
 	if info.Status == status.Error {
 		return status.StatusInfo{
 			Status:  status.Idle,

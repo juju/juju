@@ -154,7 +154,7 @@ func (u *Undertaker) processDyingModel() error {
 	if err := u.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
-	defer watcher.Kill() // The watcher is not needed once this func returns.
+	defer watcher.Kill()
 
 	attempt := 1
 	for {
@@ -162,22 +162,20 @@ func (u *Undertaker) processDyingModel() error {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
 		case <-watcher.Changes():
-			// TODO(fwereade): this is wrong. If there's a time
-			// it's ok to ignore an error, it's when we know
-			// exactly what an error is/means. If there's a
-			// specific code for "not done yet", *that* is what
-			// we should be ignoring. But unknown errors are
-			// *unknown*, and we can't just assume that it's
-			// safe to continue.
 			err := u.config.Facade.ProcessDyingModel()
 			if err == nil {
 				// ProcessDyingModel succeeded. We're free to
 				// destroy any remaining environ resources.
 				return nil
 			}
-			// Yes, we ignore the error. See comment above. But let's at least
-			// surface it in status.
-			u.setStatus(status.Destroying, fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err))
+			if !params.IsCodeModelNotEmpty(err) && !params.IsCodeHasHostedModels(err) {
+				return errors.Trace(err)
+			}
+			// Retry once there are changes to the model's resources.
+			u.setStatus(
+				status.Destroying,
+				fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err),
+			)
 		}
 		attempt++
 	}

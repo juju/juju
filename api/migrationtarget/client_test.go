@@ -154,6 +154,26 @@ func (s *ClientSuite) TestAdoptResources(c *gc.C) {
 	})
 }
 
+func (s *ClientSuite) TestCheckMachines(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		target, ok := result.(*params.ErrorResults)
+		c.Assert(ok, jc.IsTrue)
+		*target = params.ErrorResults{Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "oops"}},
+			{Error: &params.Error{Message: "oh no"}},
+		}}
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+	client := migrationtarget.NewClient(apiCaller)
+	results, err := client.CheckMachines("django")
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0], gc.ErrorMatches, "oops")
+	c.Assert(results[1], gc.ErrorMatches, "oh no")
+	s.AssertModelCall(c, &stub, names.NewModelTag("django"), "CheckMachines", err, false)
+}
+
 func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	const charmBody = "charming"
 	curl := charm.MustParseURL("cs:~user/foo-2")

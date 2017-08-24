@@ -248,6 +248,11 @@ type Config interface {
 	// successfully run, which is also the same as the initially deployed version.
 	UpgradedToVersion() version.Number
 
+	// LoggingConfig returns the logging config for this agent. Initially this
+	// value is empty, but as the agent gets notified of model agent config
+	// changes this value is saved.
+	LoggingConfig() string
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -309,6 +314,9 @@ type configSetterOnly interface {
 	// SetMongoMemoryProfile sets the passed policy as the one to be
 	// used.
 	SetMongoMemoryProfile(mongo.MemoryProfile)
+
+	// SetLoggingConfig sets the logging config value for the agent.
+	SetLoggingConfig(string)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -365,6 +373,7 @@ type configInternal struct {
 	apiDetails         *connectionDetails
 	oldPassword        string
 	servingInfo        *params.StateServingInfo
+	loggingConfig      string
 	values             map[string]string
 	mongoVersion       string
 	mongoMemoryProfile string
@@ -576,6 +585,16 @@ func (c *configInternal) SetValue(key, value string) {
 	} else {
 		c.values[key] = value
 	}
+}
+
+// LoggingConfig implements Config.
+func (c *configInternal) LoggingConfig() string {
+	return c.loggingConfig
+}
+
+// SetLoggingConfig implements configSetterOnly.
+func (c *configInternal) SetLoggingConfig(value string) {
+	c.loggingConfig = value
 }
 
 func (c *configInternal) SetOldPassword(oldPassword string) {
