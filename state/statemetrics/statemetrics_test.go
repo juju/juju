@@ -22,7 +22,7 @@ import (
 
 type collectorSuite struct {
 	testing.IsolationSuite
-	pool      mockStatePool
+	pool      *mockStatePool
 	collector *statemetrics.Collector
 }
 
@@ -47,33 +47,32 @@ func (s *collectorSuite) SetUpTest(c *gc.C) {
 		controllerAccess: permission.ReadAccess,
 	}}
 
-	models := []*mockModel{{
-		tag:    names.NewModelTag("b266dff7-eee8-4297-b03a-4692796ec193"),
-		life:   state.Alive,
-		status: status.StatusInfo{Status: status.Available},
-		machines: []*mockMachine{{
-			life:           state.Alive,
-			agentStatus:    status.StatusInfo{Status: status.Started},
-			instanceStatus: status.StatusInfo{Status: status.Running},
+	s.pool = &mockStatePool{
+		models: []*mockModel{{
+			tag:    names.NewModelTag("b266dff7-eee8-4297-b03a-4692796ec193"),
+			life:   state.Alive,
+			status: status.StatusInfo{Status: status.Available},
+			machines: []*mockMachine{{
+				life:           state.Alive,
+				agentStatus:    status.StatusInfo{Status: status.Started},
+				instanceStatus: status.StatusInfo{Status: status.Running},
+			}},
+		}, {
+			tag:    names.NewModelTag("1ab5799e-e72d-4de7-b70d-499edfab0e5c"),
+			life:   state.Dying,
+			status: status.StatusInfo{Status: status.Destroying},
+			machines: []*mockMachine{{
+				life:           state.Alive,
+				agentStatus:    status.StatusInfo{Status: status.Error},
+				instanceStatus: status.StatusInfo{Status: status.ProvisioningError},
+			}},
 		}},
-	}, {
-		tag:    names.NewModelTag("1ab5799e-e72d-4de7-b70d-499edfab0e5c"),
-		life:   state.Dying,
-		status: status.StatusInfo{Status: status.Destroying},
-		machines: []*mockMachine{{
-			life:           state.Alive,
-			agentStatus:    status.StatusInfo{Status: status.Error},
-			instanceStatus: status.StatusInfo{Status: status.ProvisioningError},
-		}},
-	}}
-
-	s.pool = mockStatePool{
-		system: &mockState{
-			users:  users,
-			models: models,
-		},
 	}
-	s.collector = statemetrics.New(&s.pool)
+	s.pool.system = &mockState{
+		users:      users,
+		modelUUIDs: s.pool.modelUUIDs(),
+	}
+	s.collector = statemetrics.New(s.pool)
 }
 
 func (s *collectorSuite) TestDescribe(c *gc.C) {
