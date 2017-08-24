@@ -6,8 +6,6 @@ categories:
   - application
 series:
   - trusty
-  - precise
-  - utopic
-  - vivid
-  - wily
   - xenial
+  - zesty
+  - artful

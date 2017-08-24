@@ -8,8 +8,10 @@ description: |
 tags:
   - misc
 series:
-  - xenial
   - trusty
+  - xenial
+  - zesty
+  - artful
 subordinate: false
 peers:
   xplod:

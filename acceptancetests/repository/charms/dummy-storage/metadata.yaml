@@ -7,9 +7,10 @@ description: This dummy-storage charm is used for testing persistent storage.
 categories:
   - misc
 series:
-  - xenial
   - trusty
-  - precise
+  - xenial
+  - zesty
+  - artful
 storage:
   single-fs:
     type: filesystem

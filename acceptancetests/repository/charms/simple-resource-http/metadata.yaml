@@ -10,10 +10,9 @@ categories:
   - misc
 series:
   - trusty
-  - precise
   - xenial
-  - yakkety
   - zesty
+  - artful
 resources:
   index:
     type: file

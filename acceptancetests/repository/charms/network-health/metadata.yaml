@@ -7,9 +7,10 @@ tags:
   - misc
 subordinate: true
 series:
-  - xenial
   - trusty
-  - precise
+  - xenial
+  - zesty
+  - artful
 
 requires:
   juju-info:

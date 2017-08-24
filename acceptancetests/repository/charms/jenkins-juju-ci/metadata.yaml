@@ -15,7 +15,7 @@ requires:
 tags:
   - ci
 series:
-  - xenial
   - trusty
-  - precise
-  - yakkety
+  - xenial
+  - zesty
+  - artful
