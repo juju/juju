@@ -329,10 +329,7 @@ func (s *store) UpdateModel(controllerName, modelName string, details ModelDetai
 	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ValidateModelName(modelName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateModelDetails(details); err != nil {
+	if err := ValidateModel(modelName, details); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -518,10 +515,9 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 	))
 }
 
-func updateModels(
-	controllerName string,
-	update func(*ControllerModels) (bool, error),
-) error {
+type modelUpdaterF func(storedModels *ControllerModels) (bool, error)
+
+func updateModels(controllerName string, update modelUpdaterF) error {
 	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return errors.Trace(err)
@@ -543,6 +539,27 @@ func updateModels(
 	}
 	if updated {
 		return errors.Trace(WriteModelsFile(all))
+	}
+	return nil
+}
+
+// SetModels implements ModelUpdater.
+func (s *store) SetModels(controllerName string, models map[string]ModelDetails) error {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+
+	releaser, err := s.acquireLock()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer releaser.Release()
+
+	err = updateModels(controllerName, func(storedModels *ControllerModels) (bool, error) {
+		return updateControllerModels(storedModels, models)
+	})
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -726,12 +743,6 @@ func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapC
 	cfg, ok := configs[controllerName]
 	if !ok {
 		return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
-	}
-	if cfg.CloudType == "" {
-		// TODO(axw) 2016-07-25 #1603841
-		// Drop this when we get to 2.0. This exists only for
-		// compatibility with previous beta releases.
-		cfg.CloudType, _ = cfg.Config["type"].(string)
 	}
 	return &cfg, nil
 }

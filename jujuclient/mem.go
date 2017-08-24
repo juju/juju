@@ -183,10 +183,7 @@ func (c *MemStore) UpdateModel(controller, model string, details ModelDetails) e
 	if err := ValidateControllerName(controller); err != nil {
 		return err
 	}
-	if err := ValidateModelName(model); err != nil {
-		return err
-	}
-	if err := ValidateModelDetails(details); err != nil {
+	if err := ValidateModel(model, details); err != nil {
 		return err
 	}
 	controllerModels, ok := c.Models[controller]
@@ -197,6 +194,30 @@ func (c *MemStore) UpdateModel(controller, model string, details ModelDetails) e
 		c.Models[controller] = controllerModels
 	}
 	controllerModels.Models[model] = details
+	return nil
+}
+
+// SetModels implements ModelUpdater.
+func (c *MemStore) SetModels(controller string, models map[string]ModelDetails) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := ValidateControllerName(controller); err != nil {
+		return err
+	}
+	controllerModels, ok := c.Models[controller]
+	if !ok {
+		controllerModels = &ControllerModels{
+			Models: make(map[string]ModelDetails),
+		}
+	}
+	updated, err := updateControllerModels(controllerModels, models)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if updated {
+		c.Models[controller] = controllerModels
+	}
 	return nil
 }
 

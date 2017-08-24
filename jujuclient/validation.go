@@ -58,6 +58,17 @@ func ValidateModelName(name string) error {
 	return nil
 }
 
+// ValidateModel validates the given model name and details.
+func ValidateModel(name string, details ModelDetails) error {
+	if err := ValidateModelName(name); err != nil {
+		return err
+	}
+	if err := ValidateModelDetails(details); err != nil {
+		return err
+	}
+	return nil
+}
+
 // ValidateBootstrapConfig validates the given boostrap config.
 func ValidateBootstrapConfig(cfg BootstrapConfig) error {
 	if cfg.Cloud == "" {
