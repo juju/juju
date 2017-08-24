@@ -154,20 +154,17 @@ func (c *changePasswordCommand) prepareRun() error {
 		}
 		c.userTag = names.NewUserTag(c.accountDetails.User)
 		if !c.userTag.IsLocal() {
-			return errors.Errorf("cannot %v password for external user %q", c.changeOrResetString(), c.userTag)
+			return errors.Errorf("password for external user %q could not be %", c.changeOrResetString(), c.userTag)
 		}
 	}
 	return nil
 }
 
-func (c *changePasswordCommand) changeOrResetString(past ...bool) string {
+func (c *changePasswordCommand) changeOrResetString() string {
 	if c.Reset {
 		return "reset"
 	}
-	if len(past) != 0 && past[0] {
-		return "changed"
-	}
-	return "change"
+	return "changed"
 }
 
 func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
@@ -207,7 +204,7 @@ func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
 
 func (c *changePasswordCommand) updateClientStore(ctx *cmd.Context, password string) error {
 	if c.accountDetails == nil {
-		ctx.Infof("Password for %q has been %v.", c.User, c.changeOrResetString(true))
+		ctx.Infof("Password for %q has been %v.", c.User, c.changeOrResetString())
 	} else {
 		if c.accountDetails.Password != "" {
 			if !c.Reset {
@@ -223,7 +220,7 @@ func (c *changePasswordCommand) updateClientStore(ctx *cmd.Context, password str
 				// able to recover by running "juju login".
 				c.accountDetails.Password = ""
 				if err := c.ClientStore().UpdateAccount(c.controllerName, *c.accountDetails); err != nil {
-					return errors.Annotatef(err, "failed to %v client credentials", c.changeOrResetString())
+					return errors.Annotate(err, "failed to update client credentials")
 				}
 			} else {
 				if err := c.ClearControllerMacaroons(c.ClientStore(), c.controllerName); err != nil {
@@ -231,7 +228,7 @@ func (c *changePasswordCommand) updateClientStore(ctx *cmd.Context, password str
 				}
 			}
 		}
-		ctx.Infof("Your password has been %v.", c.changeOrResetString(true))
+		ctx.Infof("Your password has been %v.", c.changeOrResetString())
 	}
 	return nil
 }
