@@ -365,11 +365,11 @@ func (c *ControllerAPIv3) initiateOneMigration(spec params.MigrationSpec) (strin
 		return "", errors.NotFoundf("model")
 	}
 
-	hostedState, err := c.state.ForModel(modelTag)
+	hostedState, release, err := c.statePool.Get(modelTag.Id())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer hostedState.Close()
+	defer release()
 
 	// Construct target info.
 	specTarget := spec.TargetInfo
