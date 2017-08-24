@@ -127,11 +127,11 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *changePasswordCommand) prepareRun() error {
-	controllerName, err := c.ControllerName()
+	err := c.ensureControllerName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.controllerName = controllerName
+
 	c.accountDetails, err = c.ClientStore().AccountDetails(c.controllerName)
 	if err != nil {
 		return errors.Trace(err)
@@ -154,23 +154,44 @@ func (c *changePasswordCommand) prepareRun() error {
 		}
 		c.userTag = names.NewUserTag(c.accountDetails.User)
 		if !c.userTag.IsLocal() {
-			return errors.Errorf("password for external user %q could not be %v", c.userTag, c.changeOrResetString())
+			operation := "change"
+			if c.Reset {
+				operation = "reset"
+			}
+			return errors.Errorf("cannot %v password for external user %q", operation, c.userTag)
 		}
 	}
 	return nil
 }
 
-func (c *changePasswordCommand) changeOrResetString() string {
-	if c.Reset {
-		return "reset"
+func (c *changePasswordCommand) ensureControllerName() error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return "changed"
+	c.controllerName = controllerName
+	return nil
 }
 
 func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
 	key, err := c.api.ResetPassword(c.userTag.Id())
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+	var macaroonErr error
+	registerMsg := "Ask the user to run:"
+	if c.accountDetails == nil {
+		ctx.Infof("Password for %q has been reset.", c.User)
+	} else {
+		registerMsg = "Please run:"
+		if c.accountDetails.Password != "" {
+			macaroonErr = c.ClearControllerMacaroons(c.ClientStore(), c.controllerName)
+			if macaroonErr != nil {
+				macaroonErr = errors.Annotatef(err, "could not clear macaroon")
+			} else {
+				ctx.Infof("Your password has been reset.")
+			}
+		}
 	}
 	base64RegistrationData, err := generateUserControllerAccessToken(
 		c.ControllerCommandBase,
@@ -180,11 +201,9 @@ func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "generating controller user access token")
 	}
-	fmt.Fprintf(ctx.Stdout, "New controller access token for this user is  %v\n", base64RegistrationData)
-	if err := c.updateClientStore(ctx, ""); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	ctx.Infof(registerMsg)
+	ctx.Infof("     juju register %s\n", base64RegistrationData)
+	return macaroonErr
 }
 
 func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
@@ -196,39 +215,26 @@ func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {
 	if err := c.api.SetPassword(c.userTag.Id(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	if err := c.updateClientStore(ctx, newPassword); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (c *changePasswordCommand) updateClientStore(ctx *cmd.Context, password string) error {
 	if c.accountDetails == nil {
-		ctx.Infof("Password for %q has been %v.", c.User, c.changeOrResetString())
+		ctx.Infof("Password for %q has been changed.", c.User)
 	} else {
 		if c.accountDetails.Password != "" {
-			if !c.Reset {
-				// Log back in with macaroon authentication, so we can
-				// discard the password without having to log back in
-				// immediately.
-				if err := c.recordMacaroon(password); err != nil {
-					return errors.Annotate(err, "recording macaroon")
-				}
-				// Wipe the password from disk. In the event of an
-				// error occurring after SetPassword and before the
-				// account details being updated, the user will be
-				// able to recover by running "juju login".
-				c.accountDetails.Password = ""
-				if err := c.ClientStore().UpdateAccount(c.controllerName, *c.accountDetails); err != nil {
-					return errors.Annotate(err, "failed to update client credentials")
-				}
-			} else {
-				if err := c.ClearControllerMacaroons(c.ClientStore(), c.controllerName); err != nil {
-					return errors.Trace(err)
-				}
+			// Log back in with macaroon authentication, so we can
+			// discard the password without having to log back in
+			// immediately.
+			if err := c.recordMacaroon(newPassword); err != nil {
+				return errors.Annotate(err, "recording macaroon")
+			}
+			// Wipe the password from disk. In the event of an
+			// error occurring after SetPassword and before the
+			// account details being updated, the user will be
+			// able to recover by running "juju login".
+			c.accountDetails.Password = ""
+			if err := c.ClientStore().UpdateAccount(c.controllerName, *c.accountDetails); err != nil {
+				return errors.Annotate(err, "failed to update client credentials")
 			}
 		}
-		ctx.Infof("Your password has been %v.", c.changeOrResetString())
+		ctx.Infof("Your password has been changed.")
 	}
 	return nil
 }

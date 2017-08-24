@@ -126,11 +126,11 @@ func (s *ChangePasswordCommandSuite) TestResetPassword(c *gc.C) {
 	context, _, err := s.run(c, "--reset")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI.CheckCall(c, 0, "ResetPassword", "current-user")
-	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
-New controller access token for this user is  (.+)
-`[1:])
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
 Your password has been reset.
+Please run:
+     juju register (.+)
 `[1:])
 }
 
@@ -152,11 +152,11 @@ func (s *ChangePasswordCommandSuite) TestResetOthersPassword(c *gc.C) {
 	context, _, err := s.run(c, "other", "--reset")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI.CheckCall(c, 0, "ResetPassword", "other")
-	c.Assert(cmdtesting.Stdout(context), gc.Matches, `
-New controller access token for this user is  (.+)
-`[1:])
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
 Password for "other" has been reset.
+Ask the user to run:
+     juju register (.+)
 `[1:])
 }
 
