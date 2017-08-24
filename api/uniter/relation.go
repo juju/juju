@@ -23,6 +23,7 @@ type Relation struct {
 	tag      names.RelationTag
 	id       int
 	life     params.Life
+	status   params.RelationStatusValue
 	otherApp string
 }
 
@@ -49,6 +50,11 @@ func (r *Relation) Life() params.Life {
 	return r.life
 }
 
+// Status returns the relation's current status.
+func (r *Relation) Status() params.RelationStatusValue {
+	return r.status
+}
+
 // OtherApplication returns the name of the application on the other
 // end of the relation (from this unit's perspective).
 func (r *Relation) OtherApplication() string {
@@ -63,10 +69,11 @@ func (r *Relation) Refresh() error {
 	if err != nil {
 		return err
 	}
-	// NOTE: The life cycle information is the only
-	// thing that can change - id, tag and endpoint
+	// NOTE: The status and life cycle information are the only
+	// things that can change - id, tag and endpoint
 	// information are static.
 	r.life = result.Life
+	r.status = result.Status
 
 	return nil
 }

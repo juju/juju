@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -218,7 +219,8 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 // srvRelationStatusWatcher defines the API wrapping a state.RelationStatusWatcher.
 type srvRelationStatusWatcher struct {
 	watcherCommon
-	watcher state.RelationStatusWatcher
+	st      *state.State
+	watcher state.StringsWatcher
 }
 
 func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
@@ -231,12 +233,13 @@ func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(state.RelationStatusWatcher)
+	watcher, ok := resources.Get(id).(state.StringsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvRelationStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
+		st:            context.State(),
 		watcher:       watcher,
 	}, nil
 }
@@ -247,12 +250,14 @@ func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
 func (w *srvRelationStatusWatcher) Next() (params.RelationStatusWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
 		changesParams := make([]params.RelationStatusChange, len(changes))
-		for i, ch := range changes {
-			changesParams[i] = params.RelationStatusChange{
-				Key:    ch.Key,
-				Life:   params.Life(ch.Life),
-				Status: params.RelationStatusValue(ch.Status),
+		for i, key := range changes {
+			change, err := crossmodel.GetRelationStatusChange(crossmodel.GetBackend(w.st), key)
+			if err != nil {
+				return params.RelationStatusWatchResult{
+					Error: common.ServerError(err),
+				}, nil
 			}
+			changesParams[i] = *change
 		}
 		return params.RelationStatusWatchResult{
 			Changes: changesParams,

@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/status"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -38,13 +39,14 @@ func relationKey(endpoints []Endpoint) string {
 // relationDoc is the internal representation of a Relation in MongoDB.
 // Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
-	DocID     string     `bson:"_id"`
-	Key       string     `bson:"key"`
-	ModelUUID string     `bson:"model-uuid"`
-	Id        int        `bson:"id"`
-	Endpoints []Endpoint `bson:"endpoints"`
-	Life      Life       `bson:"life"`
-	UnitCount int        `bson:"unitcount"`
+	DocID     string        `bson:"_id"`
+	Key       string        `bson:"key"`
+	ModelUUID string        `bson:"model-uuid"`
+	Id        int           `bson:"id"`
+	Endpoints []Endpoint    `bson:"endpoints"`
+	Life      Life          `bson:"life"`
+	Status    status.Status `bson:"status"`
+	UnitCount int           `bson:"unitcount"`
 }
 
 // Relation represents a relation between one or two service endpoints.
@@ -97,6 +99,26 @@ func (r *Relation) Refresh() error {
 // Life returns the relation's current life state.
 func (r *Relation) Life() Life {
 	return r.doc.Life
+}
+
+// Status returns the relation's current status value.
+func (r *Relation) Status() status.Status {
+	return r.doc.Status
+}
+
+// SetStatus sets the status of the relation.
+func (r *Relation) SetStatus(value status.Status) error {
+	ops := []txn.Op{{
+		C:      relationsC,
+		Id:     r.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"status", value}}}},
+	}}
+	if err := r.st.db().RunTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set Status of relation %v: %v", r, onAbort(err, ErrDead))
+	}
+	r.doc.Status = value
+	return nil
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units

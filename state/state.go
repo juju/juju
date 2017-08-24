@@ -993,6 +993,7 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
+			Status:    status.Joined,
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,
@@ -1833,6 +1834,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
+			Status:    status.Joined,
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,

@@ -436,6 +436,7 @@ func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
 		"Key",
 		"Id",
 		"Endpoints",
+		"Status",
 		// Life isn't exported, only alive.
 		"Life",
 		// UnitCount isn't explicitly exported, but defined by the stored

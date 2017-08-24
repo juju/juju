@@ -206,6 +206,7 @@ func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
 		id:       result.Id,
 		tag:      relationTag,
 		life:     result.Life,
+		status:   result.Status,
 		st:       st,
 		otherApp: result.OtherApplication,
 	}, nil
@@ -298,6 +299,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 		id:       result.Id,
 		tag:      relationTag,
 		life:     result.Life,
+		status:   result.Status,
 		st:       st,
 		otherApp: result.OtherApplication,
 	}, nil

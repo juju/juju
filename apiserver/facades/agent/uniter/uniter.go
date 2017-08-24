@@ -1360,9 +1360,10 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 		otherAppName = otherEp.ApplicationName
 	}
 	return params.RelationResult{
-		Id:   rel.Id(),
-		Key:  rel.String(),
-		Life: params.Life(rel.Life().String()),
+		Id:     rel.Id(),
+		Key:    rel.String(),
+		Life:   params.Life(rel.Life().String()),
+		Status: params.RelationStatusValue(rel.Status()),
 		Endpoint: multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
 			Relation:        multiwatcher.NewCharmRelation(ep.Relation),

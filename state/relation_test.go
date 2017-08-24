@@ -10,9 +10,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -482,12 +482,19 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 
 	w := rel.WatchStatus()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewRelationStatusWatcherC(c, s.State, w)
-	wc.AssertChange(life.Alive, "")
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	// Initial event.
+	wc.AssertChange(rel.Tag().Id())
+	wc.AssertNoChange()
+
+	err = rel.SetStatus(status.Revoked)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(rel.Tag().Id())
+	wc.AssertNoChange()
 
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(life.Dying, "")
+	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 }
 
@@ -502,11 +509,30 @@ func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
 
 	w := rel.WatchStatus()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewRelationStatusWatcherC(c, s.State, w)
-	wc.AssertChange(life.Alive, "")
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(rel.Tag().Id())
 
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(life.Dead, "")
+	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
+}
+
+func (s *RelationSuite) TestStatus(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus := rel.Status()
+	c.Assert(relStatus, gc.Equals, status.Joined)
+	err = rel.SetStatus(status.Revoked)
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus = rel.Status()
+	c.Assert(relStatus, gc.Equals, status.Revoked)
 }

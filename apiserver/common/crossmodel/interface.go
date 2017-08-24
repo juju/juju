@@ -85,6 +85,9 @@ type Relation interface {
 	// Life returns the relation's current life state.
 	Life() state.Life
 
+	// Status returns the relation's current status.
+	Status() status.Status
+
 	// Tag returns the relation's tag.
 	Tag() names.Tag
 
@@ -107,7 +110,7 @@ type Relation interface {
 
 	// WatchStatus returns a watcher that notifies of changes to the life
 	// or status of the relation.
-	WatchStatus() state.RelationStatusWatcher
+	WatchStatus() state.StringsWatcher
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,

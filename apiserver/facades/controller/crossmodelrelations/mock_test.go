@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 )
 
 type mockStatePool struct {
@@ -243,10 +243,10 @@ func (w *mockWatcher) Stopped() bool {
 
 type mockRelationStatusWatcher struct {
 	*mockWatcher
-	changes chan []watcher.RelationStatusChange
+	changes chan []string
 }
 
-func (w *mockRelationStatusWatcher) Changes() <-chan []watcher.RelationStatusChange {
+func (w *mockRelationStatusWatcher) Changes() <-chan []string {
 	return w.changes
 }
 
@@ -289,6 +289,14 @@ func (r *mockRelation) Tag() names.Tag {
 func (r *mockRelation) Destroy() error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()
+}
+
+func (r *mockRelation) Life() state.Life {
+	return state.Alive
+}
+
+func (r *mockRelation) Status() status.Status {
+	return status.Revoked
 }
 
 func (r *mockRelation) RemoteUnit(unitId string) (commoncrossmodel.RelationUnit, error) {

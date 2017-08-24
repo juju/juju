@@ -285,6 +285,7 @@ const (
 type RelationStatusValue relation.Status
 
 const (
-	Active  RelationStatusValue = "active"
+	Joined  RelationStatusValue = "joined"
 	Revoked RelationStatusValue = "revoked"
+	Broken  RelationStatusValue = "broken"
 )

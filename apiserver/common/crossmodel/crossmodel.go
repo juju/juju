@@ -185,3 +185,27 @@ func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change 
 	_, err = backend.SaveIngressNetworks(rel.Tag().Id(), change.Networks)
 	return err
 }
+
+type relationGetter interface {
+	KeyRelation(string) (Relation, error)
+}
+
+// GetRelationStatusChange returns a status change struct for a specified relation key.
+func GetRelationStatusChange(st relationGetter, key string) (*params.RelationStatusChange, error) {
+	rel, err := st.KeyRelation(key)
+	if errors.IsNotFound(err) {
+		return &params.RelationStatusChange{
+			Key:    key,
+			Life:   params.Dead,
+			Status: params.Broken,
+		}, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &params.RelationStatusChange{
+		Key:    key,
+		Life:   params.Life(rel.Life().String()),
+		Status: params.RelationStatusValue(rel.Status()),
+	}, nil
+}

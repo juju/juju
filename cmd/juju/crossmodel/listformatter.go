@@ -133,10 +133,12 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 
 func relationStatusColor(status relation.Status) *ansiterm.Context {
 	switch status {
-	case relation.Active:
+	case relation.Joined:
 		return output.GoodHighlight
 	case relation.Revoked:
 		return output.WarningHighlight
+	case relation.Broken:
+		return output.ErrorHighlight
 	}
 	return nil
 }

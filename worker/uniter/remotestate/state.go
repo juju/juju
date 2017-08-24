@@ -68,6 +68,7 @@ type Application interface {
 type Relation interface {
 	Id() int
 	Life() params.Life
+	Status() params.RelationStatusValue
 }
 
 func NewAPIState(st *uniter.State) State {

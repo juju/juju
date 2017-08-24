@@ -558,6 +558,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			if _, ok := w.relations[relationTag]; ok {
 				relationSnapshot := w.current.Relations[rel.Id()]
 				relationSnapshot.Life = rel.Life()
+				relationSnapshot.Status = rel.Status()
 				w.current.Relations[rel.Id()] = relationSnapshot
 				continue
 			}
@@ -587,6 +588,7 @@ func (w *RemoteStateWatcher) watchRelationUnits(
 ) error {
 	relationSnapshot := RelationSnapshot{
 		Life:    rel.Life(),
+		Status:  rel.Status(),
 		Members: make(map[string]int64),
 	}
 	select {

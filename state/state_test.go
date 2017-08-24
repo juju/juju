@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -489,35 +488,6 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
-			about: "relation status",
-			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
-				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
-				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
-				mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlCharm})
-				eps, err := st.InferEndpoints("wordpress", "mysql")
-				c.Assert(err, jc.ErrorIsNil)
-				rel, err := st.AddRelation(eps...)
-				c.Assert(err, jc.ErrorIsNil)
-				u, err := mysql.AddUnit(state.AddUnitParams{})
-				c.Assert(err, jc.ErrorIsNil)
-				m := f.MakeMachine(c, &factory.MachineParams{})
-				err = u.AssignToMachine(m)
-				c.Assert(err, jc.ErrorIsNil)
-				relUnit, err := rel.Unit(u)
-				c.Assert(err, jc.ErrorIsNil)
-				err = relUnit.EnterScope(nil)
-				c.Assert(err, jc.ErrorIsNil)
-				return rel.WatchStatus()
-			},
-			triggerEvent: func(st *state.State) {
-				rel, err := st.KeyRelation("wordpress:db mysql:server")
-				c.Assert(err, jc.ErrorIsNil)
-				err = rel.Destroy()
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		}, {
 			about: "open ports",
 			getWatcher: func(st *state.State) interface{} {
 				return st.WatchOpenedPorts()
@@ -708,12 +678,6 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					// consume initial event
 					nwc.AssertOneChange()
 					nwc.AssertNoChange()
-				case statetesting.RelationStatusWatcher:
-					wc = statetesting.NewRelationStatusWatcherC(c, st, w)
-					rwc := wc.(statetesting.RelationStatusWatcherC)
-					// consume initial event
-					rwc.AssertChange(life.Alive, "")
-					rwc.AssertNoChange()
 				default:
 					c.Fatalf("unknown watcher type %T", w)
 				}
@@ -768,8 +732,6 @@ func (tw *TestWatcherC) AssertChanges() {
 		wc.AssertChanges()
 	case statetesting.NotifyWatcherC:
 		wc.AssertOneChange()
-	case statetesting.RelationStatusWatcherC:
-		wc.AssertOneChange()
 	default:
 		tw.c.Fatalf("unknown watcher type %T", wc)
 	}
@@ -781,8 +743,6 @@ func (tw *TestWatcherC) AssertNoChange() {
 		wc.AssertNoChange()
 	case statetesting.NotifyWatcherC:
 		wc.AssertNoChange()
-	case statetesting.RelationStatusWatcherC:
-		wc.AssertNoChange()
 	default:
 		tw.c.Fatalf("unknown watcher type %T", wc)
 	}
@@ -793,8 +753,6 @@ func (tw *TestWatcherC) Stop() {
 	case statetesting.StringsWatcherC:
 		statetesting.AssertStop(tw.c, wc.Watcher)
 	case statetesting.NotifyWatcherC:
-		statetesting.AssertStop(tw.c, wc.Watcher)
-	case statetesting.RelationStatusWatcherC:
 		statetesting.AssertStop(tw.c, wc.Watcher)
 	default:
 		tw.c.Fatalf("unknown watcher type %T", wc)

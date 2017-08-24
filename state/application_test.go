@@ -2392,6 +2392,11 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wpxWatcherC.AssertChange(relx.String())
 	wpxWatcherC.AssertNoChange()
+
+	err = relx.SetStatus(status.Revoked)
+	c.Assert(err, jc.ErrorIsNil)
+	wpxWatcherC.AssertChange(relx.String())
+	wpxWatcherC.AssertNoChange()
 }
 
 func removeAllUnits(c *gc.C, s *state.Application) {

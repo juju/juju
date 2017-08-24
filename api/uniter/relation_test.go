@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 )
 
 type relationSuite struct {
@@ -50,6 +51,7 @@ func (s *relationSuite) TestOtherApplication(c *gc.C) {
 
 func (s *relationSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiRelation.Status(), gc.Equals, params.Joined)
 
 	// EnterScope with mysqlUnit, so the relation will be set to dying
 	// when destroyed later.
@@ -62,17 +64,23 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	// Destroy it - should set it to dying.
 	err = s.stateRelation.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	// Update status as well.
+	err = s.stateRelation.SetStatus(status.Revoked)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiRelation.Status(), gc.Equals, params.Joined)
 
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiRelation.Status(), gc.Equals, params.Revoked)
 
 	// Leave scope with mysqlUnit, so the relation will be removed.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiRelation.Status(), gc.Equals, params.Revoked)
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
