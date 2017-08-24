@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 	"github.com/juju/juju/provider/azure/internal/azurecli"
 	jc "github.com/juju/testing/checkers"
@@ -115,7 +115,7 @@ func (s *azSuite) TestAzureTokenFromAccessToken(c *gc.C) {
 		TokenType:    "Bearer",
 	}
 	tok1 := tok.Token()
-	c.Assert(tok1, jc.DeepEquals, &azure.Token{
+	c.Assert(tok1, jc.DeepEquals, &adal.Token{
 		AccessToken: "0123456789",
 		Type:        "Bearer",
 	})

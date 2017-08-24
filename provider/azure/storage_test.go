@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure"
+	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -26,17 +27,23 @@ import (
 type storageSuite struct {
 	testing.BaseSuite
 
-	storageClient azuretesting.MockStorageClient
-	provider      storage.Provider
-	requests      []*http.Request
-	sender        azuretesting.Senders
+	datavhdsContainer azuretesting.MockStorageContainer
+	storageClient     azuretesting.MockStorageClient
+	provider          storage.Provider
+	requests          []*http.Request
+	sender            azuretesting.Senders
 }
 
 var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.storageClient = azuretesting.MockStorageClient{}
+	s.datavhdsContainer = azuretesting.MockStorageContainer{}
+	s.storageClient = azuretesting.MockStorageClient{
+		Containers: map[string]internalazurestorage.Container{
+			"datavhds": &s.datavhdsContainer,
+		},
+	}
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
 		Sender:                     &s.sender,
@@ -77,7 +84,7 @@ func (s *storageSuite) accountSender() *azuretesting.MockSender {
 		Name: to.StringPtr(storageAccountName),
 		Type: to.StringPtr("Standard_LRS"),
 		Tags: &envTags,
-		Properties: &armstorage.AccountProperties{
+		AccountProperties: &armstorage.AccountProperties{
 			PrimaryEndpoints: &armstorage.Endpoints{
 				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", storageAccountName)),
 			},
@@ -92,11 +99,11 @@ func (s *storageSuite) accountKeysSender() *azuretesting.MockSender {
 	keys := []armstorage.AccountKey{{
 		KeyName:     to.StringPtr(fakeStorageAccountKey + "-name"),
 		Value:       to.StringPtr(fakeStorageAccountKey),
-		Permissions: armstorage.FULL,
+		Permissions: armstorage.Full,
 	}, {
 		KeyName:     to.StringPtr("key2-name"),
 		Value:       to.StringPtr("key2"),
-		Permissions: armstorage.FULL,
+		Permissions: armstorage.Full,
 	}}
 	result := armstorage.AccountListKeysResult{Keys: &keys}
 	keysSender := azuretesting.NewSenderWithValue(&result)
@@ -169,17 +176,17 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 
 	virtualMachines := []compute.VirtualMachine{{
 		Name: to.StringPtr("machine-0"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{},
 		},
 	}, {
 		Name: to.StringPtr("machine-1"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{DataDisks: &machine1DataDisks},
 		},
 	}, {
 		Name: to.StringPtr("machine-2"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{DataDisks: &machine2DataDisks},
 		},
 	}}
@@ -239,7 +246,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Empty,
 	}}
-	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
+	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
 	assertRequestBody(c, s.requests[2], &virtualMachines[0])
 
 	machine1DataDisks = append(machine1DataDisks, compute.DataDisk{
@@ -257,28 +264,25 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
-	s.storageClient.ListBlobsFunc = func(
-		container string,
-		params azurestorage.ListBlobsParameters,
-	) (azurestorage.BlobListResponse, error) {
-		return azurestorage.BlobListResponse{
-			Blobs: []azurestorage.Blob{{
-				Name: "volume-1.vhd",
-				Properties: azurestorage.BlobProperties{
-					ContentLength: 1024 * 1024, // 1MiB
-				},
-			}, {
-				Name: "volume-0.vhd",
-				Properties: azurestorage.BlobProperties{
-					ContentLength: 1024 * 1024 * 1024 * 1024, // 1TiB
-				},
-			}, {
-				Name: "junk.vhd",
-			}, {
-				Name: "volume",
-			}},
-		}, nil
+	blob0 := &azuretesting.MockStorageBlob{
+		Name_: "volume-0.vhd",
+		Properties_: azurestorage.BlobProperties{
+			ContentLength: 1024 * 1024 * 1024 * 1024, // 1TiB
+		},
 	}
+	blob1 := &azuretesting.MockStorageBlob{
+		Name_: "volume-1.vhd",
+		Properties_: azurestorage.BlobProperties{
+			ContentLength: 1024 * 1024, // 1MiB
+		},
+	}
+	junkBlob := &azuretesting.MockStorageBlob{
+		Name_: "junk.vhd",
+	}
+	volumeBlob := &azuretesting.MockStorageBlob{
+		Name_: "volume",
+	}
+	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob1, blob0, junkBlob, volumeBlob}
 
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
@@ -287,12 +291,13 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	}
 	volumeIds, err := volumeSource.ListVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
+	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
 	s.storageClient.CheckCall(
 		c, 0, "NewClient", storageAccountName, fakeStorageAccountKey,
 		"storage.azurestack.local", azurestorage.DefaultAPIVersion, true,
 	)
-	s.storageClient.CheckCall(c, 1, "ListBlobs", "datavhds", azurestorage.ListBlobsParameters{})
+	s.storageClient.CheckCall(c, 1, "GetContainerReference", "datavhds")
+	s.datavhdsContainer.CheckCallNames(c, "Blobs")
 	c.Assert(volumeIds, jc.DeepEquals, []string{"volume-1", "volume-0"})
 }
 
@@ -307,30 +312,25 @@ func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 	_, err := volumeSource.ListVolumes()
 	c.Assert(err, gc.ErrorMatches, "listing volumes: getting storage client: no client for you")
 
-	s.storageClient.SetErrors(nil, errors.New("no blobs for you"))
+	s.datavhdsContainer.SetErrors(errors.New("no blobs for you"))
 	_, err = volumeSource.ListVolumes()
 	c.Assert(err, gc.ErrorMatches, "listing volumes: listing blobs: no blobs for you")
 }
 
 func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
-	s.storageClient.ListBlobsFunc = func(
-		container string,
-		params azurestorage.ListBlobsParameters,
-	) (azurestorage.BlobListResponse, error) {
-		return azurestorage.BlobListResponse{
-			Blobs: []azurestorage.Blob{{
-				Name: "volume-1.vhd",
-				Properties: azurestorage.BlobProperties{
-					ContentLength: 1024 * 1024, // 1MiB
-				},
-			}, {
-				Name: "volume-0.vhd",
-				Properties: azurestorage.BlobProperties{
-					ContentLength: 1024 * 1024 * 1024 * 1024, // 1TiB
-				},
-			}},
-		}, nil
+	blob0 := &azuretesting.MockStorageBlob{
+		Name_: "volume-0.vhd",
+		Properties_: azurestorage.BlobProperties{
+			ContentLength: 1024 * 1024 * 1024 * 1024, // 1TiB
+		},
 	}
+	blob1 := &azuretesting.MockStorageBlob{
+		Name_: "volume-1.vhd",
+		Properties_: azurestorage.BlobProperties{
+			ContentLength: 1024 * 1024, // 1MiB
+		},
+	}
+	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob1, blob0}
 
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
@@ -339,7 +339,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	}
 	results, err := volumeSource.DescribeVolumes([]string{"volume-0", "volume-1", "volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
-	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
+	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
 	s.storageClient.CheckCall(
 		c, 0, "NewClient", storageAccountName, fakeStorageAccountKey,
 		"storage.azurestack.local", azurestorage.DefaultAPIVersion, true,
@@ -368,6 +368,14 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
+	blob0 := &azuretesting.MockStorageBlob{
+		Name_: "volume-0.vhd",
+	}
+	blob1 := &azuretesting.MockStorageBlob{
+		Name_: "volume-42.vhd",
+	}
+	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob0, blob1}
+
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
 		s.accountSender(),
@@ -378,9 +386,11 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0], jc.ErrorIsNil)
 	c.Assert(results[1], jc.ErrorIsNil)
-	s.storageClient.CheckCallNames(c, "NewClient", "DeleteBlobIfExists", "DeleteBlobIfExists")
-	s.storageClient.CheckCall(c, 1, "DeleteBlobIfExists", "datavhds", "volume-0.vhd")
-	s.storageClient.CheckCall(c, 2, "DeleteBlobIfExists", "datavhds", "volume-42.vhd")
+	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
+	s.storageClient.CheckCall(c, 1, "GetContainerReference", "datavhds")
+	s.datavhdsContainer.CheckCallNames(c, "Blob", "Blob")
+	blob0.CheckCallNames(c, "DeleteIfExists")
+	blob1.CheckCallNames(c, "DeleteIfExists")
 }
 
 func (s *storageSuite) TestAttachVolumes(c *gc.C) {
@@ -433,17 +443,17 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 
 	virtualMachines := []compute.VirtualMachine{{
 		Name: to.StringPtr("machine-0"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{},
 		},
 	}, {
 		Name: to.StringPtr("machine-1"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{DataDisks: &machine1DataDisks},
 		},
 	}, {
 		Name: to.StringPtr("machine-2"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{DataDisks: &machine2DataDisks},
 		},
 	}}
@@ -497,7 +507,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Attach,
 	}}
-	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
+	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
 	assertRequestBody(c, s.requests[2], &virtualMachines[0])
 }
 
@@ -552,12 +562,12 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 
 	virtualMachines := []compute.VirtualMachine{{
 		Name: to.StringPtr("machine-0"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{DataDisks: &machine0DataDisks},
 		},
 	}, {
 		Name: to.StringPtr("machine-1"),
-		Properties: &compute.VirtualMachineProperties{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
 			StorageProfile: &compute.StorageProfile{},
 		},
 	}}
@@ -595,6 +605,6 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		machine0DataDisks[0],
 		machine0DataDisks[2],
 	}
-	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
+	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
 	assertRequestBody(c, s.requests[2], &virtualMachines[0])
 }
