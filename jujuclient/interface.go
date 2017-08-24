@@ -191,6 +191,11 @@ type ModelUpdater interface {
 	// Otherwise, it will be overwritten with the new details.
 	UpdateModel(controllerName, modelName string, details ModelDetails) error
 
+	// SetModels updates the list of currently stored controller
+	// models in model store - models will be added, updated or removed from the
+	// store based on the supplied models collection.
+	SetModels(controllerName string, models map[string]ModelDetails) error
+
 	// SetCurrentModel sets the name of the current model for
 	// the specified controller and account. If there exists no
 	// model with the specified names, an error satisfying
