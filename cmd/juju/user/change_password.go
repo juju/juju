@@ -33,8 +33,6 @@ on the specified controller. If no controller is specified,
 the current controller will be used.
 
 A controller administrator can also reset the password for another user.
-This will invalidate previously set user password (if any) or 
-previously issued registration tokens. 
 This will invalidate any password or registration string 
 that was previously issued, and issue a new registration string to be used with
 ` + "`juju register`" + `.  
