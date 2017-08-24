@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/worker/apicaller"
 )
 
@@ -50,6 +52,7 @@ func crossmodelFirewallerFacadeFunc(
 	connectionFunc apicaller.NewExternalControllerConnectionFunc,
 ) newCrossModelFacadeFunc {
 	return func(apiInfo *api.Info) (CrossModelFirewallerFacadeCloser, error) {
+		apiInfo.Tag = names.NewUserTag(authentication.AnonymousUsername)
 		conn, err := connectionFunc(apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
