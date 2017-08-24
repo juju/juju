@@ -156,7 +156,7 @@ func (c *changePasswordCommand) prepareRun() error {
 		}
 		c.userTag = names.NewUserTag(c.accountDetails.User)
 		if !c.userTag.IsLocal() {
-			return errors.Errorf("password for external user %q could not be %", c.changeOrResetString(), c.userTag)
+			return errors.Errorf("password for external user %q could not be %v", c.userTag, c.changeOrResetString())
 		}
 	}
 	return nil
