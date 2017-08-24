@@ -108,7 +108,10 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddModelUser(st.ModelUUID(),
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	model.AddModelUser(st.ModelUUID(),
 		state.UserAccessSpec{
 			User:        admin.UserTag(),
 			CreatedBy:   remoteUserTag,
@@ -595,14 +598,14 @@ func (s *controllerSuite) TestRevokeSuperuserLeavesAddModelAccess(c *gc.C) {
 	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
 	c.Assert(err, gc.IsNil)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
+	controllerUser, err := s.Model.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 
 	err = s.controllerRevoke(c, user.UserTag(), string(permission.SuperuserAccess))
 	c.Assert(err, gc.IsNil)
 
-	controllerUser, err = s.State.UserAccess(user.UserTag(), controllerUser.Object)
+	controllerUser, err = s.Model.UserAccess(user.UserTag(), controllerUser.Object)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 }
@@ -613,14 +616,14 @@ func (s *controllerSuite) TestRevokeAddModelLeavesLoginAccess(c *gc.C) {
 	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
+	controllerUser, err := s.Model.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 
 	err = s.controllerRevoke(c, user.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 
-	controllerUser, err = s.State.UserAccess(user.UserTag(), controllerUser.Object)
+	controllerUser, err = s.Model.UserAccess(user.UserTag(), controllerUser.Object)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 }
@@ -631,7 +634,7 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	_, err = s.State.UserAccess(user.UserTag(), ctag)
+	_, err = s.Model.UserAccess(user.UserTag(), ctag)
 
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
@@ -649,7 +652,7 @@ func (s *controllerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
+	controllerUser, err := s.Model.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 
@@ -665,7 +668,7 @@ func (s *controllerSuite) TestGrantControllerAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	controllerUser, err := s.State.UserAccess(userTag, ctag)
+	controllerUser, err := s.Model.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)

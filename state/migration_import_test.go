@@ -185,7 +185,7 @@ func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool,
 	if readOnly {
 		access = permission.ReadAccess
 	}
-	user, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
+	user, err := s.Model.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
 		User:      names.NewUserTag(name),
 		CreatedBy: s.Owner,
 		Access:    access,
@@ -205,14 +205,14 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser permiss
 	c.Assert(newUser.DateCreated, gc.Equals, oldUser.DateCreated)
 	c.Assert(newUser.Access, gc.Equals, newUser.Access)
 
-	connTime, err := s.State.LastModelConnection(oldUser.UserTag)
+	connTime, err := s.Model.LastModelConnection(oldUser.UserTag)
 	if state.IsNeverConnectedError(err) {
-		_, err := s.State.LastModelConnection(newUser.UserTag)
+		_, err := s.Model.LastModelConnection(newUser.UserTag)
 		// The new user should also return an error for last connection.
 		c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
-		newTime, err := s.State.LastModelConnection(newUser.UserTag)
+		newTime, err := s.Model.LastModelConnection(newUser.UserTag)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newTime, gc.Equals, connTime)
 	}
@@ -221,7 +221,7 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser permiss
 func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	// To be sure with this test, we create three env users, and remove
 	// the owner.
-	err := s.State.RemoveUserAccess(s.Owner, s.modelTag)
+	err := s.Model.RemoveUserAccess(s.Owner, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	lastConnection := state.NowToTheSecond(s.State)
@@ -230,11 +230,11 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
 	delta := s.newModelUser(c, "delta@external", true, coretesting.ZeroTime())
 
-	newModel, newSt := s.importModel(c)
+	newModel, _ := s.importModel(c)
 
 	// Check the import values of the users.
 	for _, user := range []permission.UserAccess{bravo, charlie, delta} {
-		newUser, err := newSt.UserAccess(user.UserTag, newModel.Tag())
+		newUser, err := newModel.UserAccess(user.UserTag, newModel.Tag())
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertUserEqual(c, newUser, user)
 	}

@@ -118,7 +118,7 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.UserAccess(testAdmin, s.State.ModelTag())
+	owner, err := s.Model.UserAccess(testAdmin, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
@@ -180,7 +180,12 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 }
 
 func lastConnPointer(c *gc.C, modelUser permission.UserAccess, st *state.State) *time.Time {
-	lastConn, err := st.LastModelConnection(modelUser.UserTag)
+	model, err := st.Model()
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	lastConn, err := model.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil
@@ -201,7 +206,7 @@ func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Res
 func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
 	// factory.MakeUser will create an ModelUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err := s.Model.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
 }

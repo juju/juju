@@ -24,7 +24,7 @@ type State interface {
 	AllModelUUIDs() ([]string, error)
 	AllUsers() ([]User, error)
 	ControllerTag() names.ControllerTag
-	Model() (*state.Model, error)
+	Model() (Model, error)
 }
 
 // Machine represents a machine in a Juju model.
@@ -109,4 +109,17 @@ func (s stateShim) AllUsers() ([]User, error) {
 		}
 	}
 	return out, nil
+}
+
+func (s stateShim) Model() (Model, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return modelShim{model}, nil
+}
+
+type modelShim struct {
+	*state.Model
 }

@@ -44,7 +44,7 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 
 	// Make the user a controller admin (required for migrations).
 	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	_, err := s.Model.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create an importing model to work with.

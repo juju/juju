@@ -83,7 +83,8 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 // AddControllerUser is a convenience funcation that adds
 // a controller user with the specified access.
 func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
-	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+
+	_, err := s.IAASModel.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag(username),
 		CreatedBy: s.AdminUserTag(c),
 		Access:    access,

@@ -32,7 +32,7 @@ func (s *ControllerUserSuite) TestDefaultAccessControllerUser(c *gc.C) {
 	t := user.Tag()
 	userTag := t.(names.UserTag)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	controllerUser, err := s.State.UserAccess(userTag, ctag)
+	controllerUser, err := s.Model.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 }
@@ -46,41 +46,41 @@ func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
 	t := user.Tag()
 	userTag := t.(names.UserTag)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	controllerUser, err := s.State.UserAccess(userTag, ctag)
+	controllerUser, err := s.Model.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 
-	s.State.SetUserAccess(userTag, ctag, permission.AddModelAccess)
+	s.Model.SetUserAccess(userTag, ctag, permission.AddModelAccess)
 
-	controllerUser, err = s.State.UserAccess(user.UserTag(), ctag)
+	controllerUser, err = s.Model.UserAccess(user.UserTag(), ctag)
 	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validUsername"})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	_, err := s.State.UserAccess(user.UserTag(), ctag)
+	_, err := s.Model.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.RemoveUserAccess(user.UserTag(), ctag)
+	err = s.Model.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.UserAccess(user.UserTag(), ctag)
+	_, err = s.Model.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUserSucceeds(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
+	err := s.Model.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
+	err := s.Model.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveUserAccess(user.UserTag(), ctag)
+	err = s.Model.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

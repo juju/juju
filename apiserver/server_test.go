@@ -477,7 +477,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 
 	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	access, err := s.State.UserPermission(user, ctag)
+	access, err := s.Model.UserPermission(user, ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.LoginAccess)
 	return u, ctag
@@ -501,7 +501,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
 	defer handler.Kill()
 
-	ua, err := s.State.SetUserAccess(user, ctag, permission.AddModelAccess)
+	ua, err := s.Model.SetUserAccess(user, ctag, permission.AddModelAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ua.Access, gc.Equals, permission.AddModelAccess)
 
@@ -517,7 +517,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
 	defer handler.Kill()
 
-	ua, err := s.State.SetUserAccess(user, ctag, permission.SuperuserAccess)
+	ua, err := s.Model.SetUserAccess(user, ctag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ua.Access, gc.Equals, permission.SuperuserAccess)
 
