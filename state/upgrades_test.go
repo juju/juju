@@ -1765,6 +1765,33 @@ func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestAddModelType(c *gc.C) {
+	models, closer := s.state.db().GetRawCollection(modelsC)
+	defer closer()
+
+	err := models.RemoveId(s.state.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = models.Insert(
+		bson.M{
+			"_id": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		}, bson.M{
+			"_id":  "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+			"type": "caas",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedModels := []bson.M{{
+		"_id":  "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "iaas",
+	}, {
+		"_id":  "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"type": "caas",
+	}}
+	s.assertUpgradedData(c, AddModelType,
+		expectUpgradedData{models, expectedModels})
+}
+
 func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(st *State) error) {
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
