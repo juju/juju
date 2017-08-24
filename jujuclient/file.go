@@ -18,7 +18,6 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
@@ -550,12 +549,10 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 		return errors.Trace(err)
 	}
 
-	modelNames := set.NewStrings()
 	for modelName, details := range models {
 		if err := ValidateModel(modelName, details); err != nil {
 			return errors.Trace(err)
 		}
-		modelNames.Add(modelName)
 	}
 
 	releaser, err := s.acquireLock()
@@ -579,14 +576,11 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 		for modelName, _ := range storedModels.Models {
 			if _, ok := models[modelName]; !ok {
 				delete(storedModels.Models, modelName)
-				changed = true
+				if storedModels.CurrentModel == modelName {
+					storedModels.CurrentModel = ""
+				}
 			}
 		}
-		if storedModels.CurrentModel != "" && !modelNames.Contains(storedModels.CurrentModel) {
-			// Previously set current model has been removed.
-			storedModels.CurrentModel = ""
-		}
-
 		return changed, nil
 	})
 	if err != nil {

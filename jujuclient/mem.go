@@ -220,8 +220,7 @@ func (c *MemStore) SetModels(controller string, models map[string]ModelDetails) 
 		}
 	}
 	controllerModels.Models = models
-	if controllerModels.CurrentModel != "" && !modelNames.Contains(controllerModels.CurrentModel) {
-		// Previously set current model has been removed.
+	if _, ok := models[controllerModels.CurrentModel]; !ok {
 		controllerModels.CurrentModel = ""
 	}
 	return nil
