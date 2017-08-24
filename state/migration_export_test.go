@@ -175,6 +175,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Type(), gc.Equals, string(dbModel.Type()))
 	c.Assert(model.Tag(), gc.Equals, dbModel.ModelTag())
 	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
 	dbModelCfg, err := dbModel.Config()

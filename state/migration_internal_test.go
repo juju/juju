@@ -222,6 +222,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// is created in the new controller (yay name changes).
 		"ControllerUUID",
 
+		"Type",
 		"MigrationMode",
 		"Owner",
 		"Cloud",

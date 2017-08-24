@@ -32,10 +32,10 @@ func (gce *Connection) createDisk(zone string, disk *compute.Disk) error {
 }
 
 // Disks implements storage section of gceConnection.
-func (gce *Connection) Disks(zone string) ([]*Disk, error) {
-	computeDisks, err := gce.raw.ListDisks(gce.projectID, zone)
+func (gce *Connection) Disks() ([]*Disk, error) {
+	computeDisks, err := gce.raw.ListDisks(gce.projectID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot list disks for zone %q", zone)
+		return nil, errors.Annotate(err, "cannot list disks")
 	}
 	disks := make([]*Disk, len(computeDisks))
 	for i, disk := range computeDisks {
@@ -57,6 +57,12 @@ func (gce *Connection) Disk(zone, name string) (*Disk, error) {
 		return nil, errors.Annotatef(err, "cannot get disk %q in zone %q", name, zone)
 	}
 	return NewDisk(d), nil
+}
+
+// SetDiskLabels implements storage section of gceConnection.
+func (gce *Connection) SetDiskLabels(zone, name, labelFingerprint string, labels map[string]string) error {
+	err := gce.raw.SetDiskLabels(gce.projectID, zone, name, labelFingerprint, labels)
+	return errors.Annotatef(err, "cannot update labels for disk %q in zone %q", name, zone)
 }
 
 // deviceName will generate a device name from the passed

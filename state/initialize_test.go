@@ -97,6 +97,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			Owner:                   owner,
 			Config:                  cfg,
 			CloudName:               "dummy",
@@ -194,6 +195,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   owner,
 			Config:                  modelCfg,
@@ -231,6 +233,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   owner,
 			Config:                  cfg,
@@ -287,6 +290,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   owner,
 			Config:                  cfg,
@@ -347,6 +351,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			CloudRegion:             "dummy-region",
 			Owner:                   owner,
@@ -399,6 +404,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   names.NewLocalUserTag("initialize-admin"),
 			Config:                  modelCfg,
@@ -441,6 +447,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   owner,
 			Config:                  cfg,
@@ -503,6 +510,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   owner,
 			Config:                  cfg,
@@ -561,6 +569,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			CloudName:               "dummy",
 			Owner:                   owner,
 			Config:                  cfg,

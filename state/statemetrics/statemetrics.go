@@ -137,13 +137,12 @@ func (c *Collector) updateMetrics() {
 	defer logger.Tracef("updated state metrics")
 
 	st := c.pool.SystemState()
-	models, err := st.AllModels()
+	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
 		logger.Debugf("error getting models: %v", err)
 		c.scrapeErrors.Inc()
-		models = nil
 	}
-	for _, m := range models {
+	for _, m := range modelUUIDs {
 		c.updateModelMetrics(m)
 	}
 
@@ -181,7 +180,14 @@ func (c *Collector) updateMetrics() {
 	}
 }
 
-func (c *Collector) updateModelMetrics(model Model) {
+func (c *Collector) updateModelMetrics(modelUUID string) {
+	model, release, err := c.pool.GetModel(modelUUID)
+	if err != nil {
+		logger.Debugf("error getting model: %v", err)
+		return
+	}
+	defer release()
+
 	modelStatus, err := model.Status()
 	if err != nil {
 		if errors.IsNotFound(err) {

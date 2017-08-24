@@ -240,12 +240,11 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID s
 		return nil, errors.Errorf("os %s is not supported on the gce provider", os.String())
 	}
 	dSpec := google.DiskSpec{
-		Series:      ser,
-		SizeHintGB:  size,
-		ImageURL:    imageURL + spec.Image.Id,
-		Boot:        true,
-		AutoDelete:  true,
-		Description: eUUID,
+		Series:     ser,
+		SizeHintGB: size,
+		ImageURL:   imageURL + spec.Image.Id,
+		Boot:       true,
+		AutoDelete: true,
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"

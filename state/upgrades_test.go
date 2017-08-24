@@ -83,6 +83,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 
 	err = coll.Insert(
 		modelDoc{
+			Type:            ModelTypeIAAS,
 			UUID:            "0000-dead-beaf-0001",
 			Owner:           "user-admin@local",
 			Name:            "controller",
@@ -93,6 +94,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 			EnvironVersion:  0,
 		},
 		modelDoc{
+			Type:            ModelTypeIAAS,
 			UUID:            "0000-dead-beaf-0002",
 			Owner:           "user-mary@external",
 			Name:            "default",
@@ -112,6 +114,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 
 	expected := []bson.M{{
 		"_id":              "0000-dead-beaf-0001",
+		"type":             "iaas",
 		"owner":            "user-admin",
 		"cloud":            "cloud-aws",
 		"name":             "controller",
@@ -125,6 +128,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"environ-version":  0,
 	}, {
 		"_id":              "0000-dead-beaf-0002",
+		"type":             "iaas",
 		"owner":            "user-mary@external",
 		"cloud":            "cloud-aws",
 		"name":             "default",
@@ -981,6 +985,7 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr testing.Attrs) *Sta
 	m, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	_, st, err := s.state.NewModel(ModelArgs{
+		Type:        ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
@@ -1758,6 +1763,33 @@ func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
 	s.assertUpgradedData(c, AddModelEnvironVersion,
 		expectUpgradedData{models, expectedModels},
 	)
+}
+
+func (s *upgradesSuite) TestAddModelType(c *gc.C) {
+	models, closer := s.state.db().GetRawCollection(modelsC)
+	defer closer()
+
+	err := models.RemoveId(s.state.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = models.Insert(
+		bson.M{
+			"_id": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		}, bson.M{
+			"_id":  "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+			"type": "caas",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedModels := []bson.M{{
+		"_id":  "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "iaas",
+	}, {
+		"_id":  "deadbeef-0bad-400d-8000-4b1d0d06f00e",
+		"type": "caas",
+	}}
+	s.assertUpgradedData(c, AddModelType,
+		expectUpgradedData{models, expectedModels})
 }
 
 func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(st *State) error) {

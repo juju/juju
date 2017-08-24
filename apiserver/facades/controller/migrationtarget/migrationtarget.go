@@ -84,12 +84,13 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	backend, err := migration.PrecheckShim(api.state, api.pool)
+	backend, err := migration.PrecheckShim(api.state)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
 	return migration.TargetPrecheck(
 		backend,
+		migration.PoolShim(api.pool),
 		coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,

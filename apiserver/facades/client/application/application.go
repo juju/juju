@@ -8,6 +8,7 @@ package application
 
 import (
 	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
@@ -47,8 +48,6 @@ type API struct {
 	authorizer facade.Authorizer
 	check      BlockChecker
 
-	statePool *state.StatePool
-
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
 	// should pass a charm.Charm and charm.URL back into
@@ -71,7 +70,7 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 
 // NewFacade provides the signature required for facade registration.
 func NewFacade(ctx facade.Context) (*API, error) {
-	backend, err := NewStateBackend(ctx.State(), ctx.StatePool())
+	backend, err := NewStateBackend(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
 	}
@@ -80,7 +79,6 @@ func NewFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(
 		backend,
 		ctx.Auth(),
-		ctx.StatePool(),
 		blockChecker,
 		stateCharm,
 		DeployApplication,
@@ -91,7 +89,6 @@ func NewFacade(ctx facade.Context) (*API, error) {
 func NewAPI(
 	backend Backend,
 	authorizer facade.Authorizer,
-	statePool *state.StatePool,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
@@ -104,7 +101,6 @@ func NewAPI(
 		authorizer:            authorizer,
 		check:                 blockChecker,
 		stateCharm:            stateCharm,
-		statePool:             statePool,
 		deployApplicationFunc: deployApplication,
 	}, nil
 }

@@ -17,44 +17,66 @@ import (
 type mockStatePool struct {
 	testing.Stub
 	system *mockState
+	models []*mockModel
 }
 
-func (m *mockStatePool) SystemState() statemetrics.State {
-	return m.system
+func (p *mockStatePool) SystemState() statemetrics.State {
+	return p.system
 }
 
-func (m *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePoolReleaser, error) {
-	m.MethodCall(m, "Get", modelUUID)
-	if err := m.NextErr(); err != nil {
+func (p *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePoolReleaser, error) {
+	p.MethodCall(p, "Get", modelUUID)
+	if err := p.NextErr(); err != nil {
 		return nil, nil, err
 	}
-	for _, m := range m.system.models {
+	for _, m := range p.models {
 		if m.tag.Id() == modelUUID {
-			st := mockModelState{mockModel: m}
+			st := &mockState{
+				model:      m,
+				modelUUIDs: p.modelUUIDs(),
+			}
 			return st, st.release, nil
 		}
 	}
 	panic("model not found")
 }
 
-type mockState struct {
-	statemetrics.State
-
-	testing.Stub
-	models []*mockModel
-	users  []*mockUser
+func (p *mockStatePool) GetModel(modelUUID string) (statemetrics.Model, state.StatePoolReleaser, error) {
+	p.MethodCall(p, "GetModel", modelUUID)
+	if err := p.NextErr(); err != nil {
+		return nil, nil, err
+	}
+	for _, m := range p.models {
+		if m.tag.Id() == modelUUID {
+			return m, func() bool { return true }, nil
+		}
+	}
+	panic("model not found")
 }
 
-func (m *mockState) AllModels() ([]statemetrics.Model, error) {
-	m.MethodCall(m, "AllModels")
+func (p *mockStatePool) modelUUIDs() []string {
+	out := make([]string, len(p.models))
+	for i, m := range p.models {
+		out[i] = m.tag.Id()
+	}
+	return out
+}
+
+type mockState struct {
+	statemetrics.State
+	testing.Stub
+
+	model      *mockModel
+	modelUUIDs []string
+	users      []*mockUser
+}
+
+func (m *mockState) AllModelUUIDs() ([]string, error) {
+	m.MethodCall(m, "AllModelsUUIDs")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	out := make([]statemetrics.Model, len(m.models))
-	for i, m := range m.models {
-		out[i] = m
-	}
-	return out, nil
+	return m.modelUUIDs, nil
 }
 
 func (m *mockState) AllUsers() ([]statemetrics.User, error) {
@@ -87,24 +109,19 @@ func (m *mockState) UserAccess(subject names.UserTag, object names.Tag) (permiss
 	panic("subject not found")
 }
 
-type mockModelState struct {
-	statemetrics.State
-	*mockModel
-}
-
-func (m *mockModelState) release() bool {
+func (m *mockState) release() bool {
 	m.MethodCall(m, "release")
 	return false
 }
 
-func (m mockModelState) AllMachines() ([]statemetrics.Machine, error) {
+func (m *mockState) AllMachines() ([]statemetrics.Machine, error) {
 	m.MethodCall(m, "AllMachines")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	out := make([]statemetrics.Machine, len(m.machines))
-	for i, m := range m.machines {
-		out[i] = m
+	out := make([]statemetrics.Machine, len(m.model.machines))
+	for i, machine := range m.model.machines {
+		out[i] = machine
 	}
 	return out, nil
 }

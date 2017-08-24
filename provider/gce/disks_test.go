@@ -181,20 +181,13 @@ func (s *volumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 
 func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
 	vols, err := s.source.ListVolumes()
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
 
-	azsCalled, call := s.FakeConn.WasCalled("AvailabilityZones")
-	c.Check(call, gc.HasLen, 1)
-	c.Assert(azsCalled, jc.IsTrue)
-	c.Assert(call[0].Region, gc.Equals, "")
-
 	disksCalled, call := s.FakeConn.WasCalled("Disks")
 	c.Check(call, gc.HasLen, 1)
 	c.Assert(disksCalled, jc.IsTrue)
-	c.Assert(call[0].ZoneName, gc.Equals, "home-zone")
 }
 
 func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
@@ -205,28 +198,14 @@ func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
 		Status:      google.StatusReady,
 		Size:        1024,
 		Description: "a-different-model-uuid",
+		Labels: map[string]string{
+			"juju-model-uuid": "foo",
+		},
 	}
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
 	vols, err := s.source.ListVolumes()
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
-}
-
-func (s *volumeSourceSuite) TestListVolumesListsEmptyUUIDVolumes(c *gc.C) {
-	otherDisk := &google.Disk{
-		Id:          1234568,
-		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Zone:        "home-zone",
-		Status:      google.StatusReady,
-		Size:        1024,
-		Description: "",
-	}
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
-	vols, err := s.source.ListVolumes()
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 2)
 }
 
 func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *gc.C) {
@@ -239,7 +218,6 @@ func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *gc
 		Description: "",
 	}
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
 	vols, err := s.source.ListVolumes()
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)

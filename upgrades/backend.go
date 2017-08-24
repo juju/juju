@@ -31,6 +31,7 @@ type StateBackend interface {
 	AddUpdateStatusHookSettings() error
 	CorrectRelationUnitCounts() error
 	AddModelEnvironVersion() error
+	AddModelType() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -41,13 +42,12 @@ type Model interface {
 }
 
 // NewStateBackend returns a new StateBackend using a *state.State object.
-func NewStateBackend(st *state.State, pool *state.StatePool) StateBackend {
-	return stateBackend{st, pool}
+func NewStateBackend(st *state.State) StateBackend {
+	return stateBackend{st}
 }
 
 type stateBackend struct {
-	st   *state.State
-	pool *state.StatePool
+	st *state.State
 }
 
 func (s stateBackend) ControllerUUID() string {
@@ -116,6 +116,10 @@ func (s stateBackend) CorrectRelationUnitCounts() error {
 
 func (s stateBackend) AddModelEnvironVersion() error {
 	return state.AddModelEnvironVersion(s.st)
+}
+
+func (s stateBackend) AddModelType() error {
+	return state.AddModelType(s.st)
 }
 
 type modelShim struct {

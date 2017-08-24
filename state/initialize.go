@@ -297,11 +297,13 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 
 	// Create the default storage pools for the model.
-	defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
-	if err != nil {
-		return nil, modelStatusDoc, errors.Trace(err)
+	if args.StorageProviderRegistry != nil {
+		defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
+		if err != nil {
+			return nil, modelStatusDoc, errors.Trace(err)
+		}
+		ops = append(ops, defaultStoragePoolsOps...)
 	}
-	ops = append(ops, defaultStoragePoolsOps...)
 
 	// Create the final map of config attributes for the model.
 	// If we have ControllerInheritedConfig passed in, that means state
@@ -341,6 +343,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
 		createModelOp(
+			args.Type,
 			args.Owner,
 			args.Config.Name(),
 			modelUUID, controllerUUID,

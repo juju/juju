@@ -205,12 +205,18 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	// Storage
 	eUUID := s.Env.Config().UUID()
 	s.BaseDisk = &google.Disk{
-		Id:          1234567,
-		Name:        "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Zone:        "home-zone",
-		Status:      google.StatusReady,
-		Size:        1024,
-		Description: eUUID,
+		Id:               1234567,
+		Name:             "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:             "home-zone",
+		Status:           google.StatusReady,
+		Size:             1024,
+		Description:      eUUID,
+		LabelFingerprint: "foo",
+		Labels: map[string]string{
+			"yodel":                "eh",
+			"juju-model-uuid":      eUUID,
+			"juju-controller-uuid": s.ControllerUUID,
+		},
 	}
 }
 
@@ -463,22 +469,24 @@ func (fe *fakeEnviron) FindInstanceSpec(
 type fakeConnCall struct {
 	FuncName string
 
-	ID           string
-	IDs          []string
-	ZoneName     string
-	ZoneNames    []string
-	Prefix       string
-	Statuses     []string
-	InstanceSpec google.InstanceSpec
-	FirewallName string
-	Rules        []network.IngressRule
-	Region       string
-	Disks        []google.DiskSpec
-	VolumeName   string
-	InstanceId   string
-	Mode         string
-	Key          string
-	Value        string
+	ID               string
+	IDs              []string
+	ZoneName         string
+	ZoneNames        []string
+	Prefix           string
+	Statuses         []string
+	InstanceSpec     google.InstanceSpec
+	FirewallName     string
+	Rules            []network.IngressRule
+	Region           string
+	Disks            []google.DiskSpec
+	VolumeName       string
+	InstanceId       string
+	Mode             string
+	Key              string
+	Value            string
+	LabelFingerprint string
+	Labels           map[string]string
 }
 
 type fakeConn struct {
@@ -618,10 +626,9 @@ func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*google
 	return fc.GoogleDisks, fc.err()
 }
 
-func (fc *fakeConn) Disks(zone string) ([]*google.Disk, error) {
+func (fc *fakeConn) Disks() ([]*google.Disk, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "Disks",
-		ZoneName: zone,
 	})
 	return fc.GoogleDisks, fc.err()
 }
@@ -642,6 +649,17 @@ func (fc *fakeConn) Disk(zone, id string) (*google.Disk, error) {
 		ID:       id,
 	})
 	return fc.GoogleDisk, fc.err()
+}
+
+func (fc *fakeConn) SetDiskLabels(zone, id, labelFingerprint string, labels map[string]string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:         "SetDiskLabels",
+		ZoneName:         zone,
+		ID:               id,
+		LabelFingerprint: labelFingerprint,
+		Labels:           labels,
+	})
+	return fc.err()
 }
 
 func (fc *fakeConn) AttachDisk(zone, volumeName, instanceId string, mode google.DiskMode) (*google.AttachedDisk, error) {

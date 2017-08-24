@@ -95,6 +95,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
+		Type:               string(dbModel.Type()),
 		Cloud:              dbModel.Cloud(),
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),

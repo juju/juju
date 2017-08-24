@@ -41,7 +41,7 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 	s.clock = jujutesting.NewClock(time.Now())
-	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.clock)
+	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.StatePool, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
@@ -66,7 +66,8 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc
 		anAuthoriser := s.authorizer
 		anAuthoriser.Controller = test.environManager
 		anAuthoriser.Tag = test.tag
-		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser, jujutesting.NewClock(time.Now()))
+		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil,
+			anAuthoriser, s.StatePool, jujutesting.NewClock(time.Now()))
 		if test.expectedError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(endPoint, gc.NotNil)

@@ -1168,3 +1168,33 @@ func AddModelEnvironVersion(st *State) error {
 	}
 	return st.db().RunTransaction(ops)
 }
+
+// AddModelType adds a "type" field to model documents which don't
+// have one. The "iaas" type is used.
+func AddModelType(st *State) error {
+	coll, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	var doc struct {
+		UUID string `bson:"_id"`
+		Type string `bson:"type"`
+	}
+
+	var ops []txn.Op
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		if doc.Type != "" {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      modelsC,
+			Id:     doc.UUID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"type", "iaas"}}}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction(ops)
+}
