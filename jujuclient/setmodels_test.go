@@ -125,6 +125,20 @@ func (s *SetModelsSuite) TestSetModelsAddUpdateDeleteCombination(c *gc.C) {
 	s.assertSetModels(c, after)
 }
 
+func (s *SetModelsSuite) TestSetModelsUpdatesCurrentModel(c *gc.C) {
+	before := map[string]jujuclient.ModelDetails{
+		"admin/delete-model": s.assertUpdateModel(c, "admin/delete-model", "test.model.uuid"),
+	}
+	s.store.SetCurrentModel(s.controllerName, "admin/delete-model")
+
+	storedModels, err := s.store.AllModels(s.controllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storedModels, gc.DeepEquals, before)
+	s.assertSetModels(c, nil)
+	_, err = s.store.CurrentModel(s.controllerName)
+	c.Assert(err, gc.ErrorMatches, "current model for controller test.controller not found")
+}
+
 func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *gc.C) {
 	before := map[string]jujuclient.ModelDetails{
 		"admin/new-model": s.assertUpdateModel(c, "admin/new-model", "test.model.uuid"),
