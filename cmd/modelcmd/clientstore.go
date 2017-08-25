@@ -60,6 +60,19 @@ func (s QualifyingClientStore) UpdateModel(controllerName, modelName string, det
 }
 
 // Implements jujuclient.ModelUpdater.
+func (s QualifyingClientStore) SetModels(controllerName string, models map[string]jujuclient.ModelDetails) error {
+	qualified := make(map[string]jujuclient.ModelDetails, len(models))
+	for name, details := range models {
+		modelName, err := s.QualifiedModelName(controllerName, name)
+		if err != nil {
+			return errors.Annotatef(err, "updating model %q", name)
+		}
+		qualified[modelName] = details
+	}
+	return s.ClientStore.SetModels(controllerName, models)
+}
+
+// Implements jujuclient.ModelUpdater.
 func (s QualifyingClientStore) SetCurrentModel(controllerName, modelName string) error {
 	modelName, err := s.QualifiedModelName(controllerName, modelName)
 	if err != nil {

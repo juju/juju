@@ -158,15 +158,8 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, model := range models {
-		owner := names.NewUserTag(model.Owner)
-		if err := c.store.UpdateModel(
-			controllerName,
-			jujuclient.JoinOwnerModelName(owner, model.Name),
-			jujuclient.ModelDetails{model.UUID},
-		); err != nil {
-			return errors.Annotate(err, "storing model details")
-		}
+	if err := c.SetControllerModels(c.store, controllerName, models); err != nil {
+		return errors.Annotate(err, "storing model details")
 	}
 	if err := c.store.SetCurrentController(controllerName); err != nil {
 		return errors.Trace(err)

@@ -277,13 +277,22 @@ func (c *CommandBase) doRefreshModels(store jujuclient.ClientStore, controllerNa
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := c.SetControllerModels(store, controllerName, models); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *CommandBase) SetControllerModels(store jujuclient.ClientStore, controllerName string, models []base.UserModel) error {
+	modelsToStore := make(map[string]jujuclient.ModelDetails, len(models))
 	for _, model := range models {
 		modelDetails := jujuclient.ModelDetails{model.UUID}
 		owner := names.NewUserTag(model.Owner)
 		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
-		if err := store.UpdateModel(controllerName, modelName, modelDetails); err != nil {
-			return errors.Trace(err)
-		}
+		modelsToStore[modelName] = modelDetails
+	}
+	if err := store.SetModels(controllerName, modelsToStore); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
