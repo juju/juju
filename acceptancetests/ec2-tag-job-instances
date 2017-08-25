@@ -1,3 +1,4 @@
 #!/bin/bash
 set -eu
-euca-create-tags "$@" --tag job_name=$JOB_NAME
+TESTING_EC2_REGION=${TESTING_EC2_REGION:"us-east-1"}
+euca-create-tags "$@" --region $TESTING_EC2_REGION --tag job_name=$JOB_NAME

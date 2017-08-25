@@ -1,10 +1,11 @@
 #!/bin/bash
 set -eu
+TESTING_EC2_REGION=${TESTING_EC2_REGION:"us-east-1"}
 instance_name=''
 echo -n Waiting for instance name >&2
 while [ -z "$instance_name" ]; do
   sleep 1
-  instance_name=$(euca-describe-instances $1|sed '/^INSTANCE/!d'|cut -f 4)
+  instance_name=$(euca-describe-instances --region $TESTING_EC2_REGION $1|sed '/^INSTANCE/!d'|cut -f 4)
   echo -n . >&2
 done
 echo >&2

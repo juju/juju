@@ -106,7 +106,7 @@ node('juju-core-slave-b') {
             parallel(
                 'Xenial': {
                     try {
-                        withEnv(["JUJU_HOME=${cloud_city}"]){
+                        withEnv(["JUJU_HOME=${cloud_city}", "TESTING_EC2_REGION=us-west-1"]){
                             sh("""
                             . $JUJU_HOME/juju-qa.jujuci && . $JUJU_HOME/ec2rc >2 /dev/null && \\
                             ${scripts_dir}/run-unit-tests c4.4xlarge $xenial_ami --local "$tarfile" --use-tmpfs --use-ppa ppa:juju/golang --force-archive
