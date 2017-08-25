@@ -205,12 +205,10 @@ func (c *MemStore) SetModels(controller string, models map[string]ModelDetails) 
 	if err := ValidateControllerName(controller); err != nil {
 		return err
 	}
-	modelNames := set.NewStrings()
 	for modelName, details := range models {
 		if err := ValidateModel(modelName, details); err != nil {
 			return errors.Trace(err)
 		}
-		modelNames.Add(modelName)
 	}
 
 	controllerModels, ok := c.Models[controller]
@@ -218,6 +216,7 @@ func (c *MemStore) SetModels(controller string, models map[string]ModelDetails) 
 		controllerModels = &ControllerModels{
 			Models: make(map[string]ModelDetails),
 		}
+		c.Models[controller] = controllerModels
 	}
 	controllerModels.Models = models
 	if _, ok := models[controllerModels.CurrentModel]; !ok {
@@ -319,7 +318,7 @@ func (c *MemStore) ModelByName(controller, model string) (*ModelDetails, error) 
 	}
 	controllerModels, ok := c.Models[controller]
 	if !ok {
-		return nil, errors.NotFoundf("models for controller %s", controller)
+		return nil, errors.NotFoundf("model %s:%s", controller, model)
 	}
 	details, ok := controllerModels.Models[model]
 	if !ok {

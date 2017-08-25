@@ -466,8 +466,9 @@ func (s *store) ModelByName(controllerName, modelName string) (*ModelDetails, er
 	controllerModels, ok := all[controllerName]
 	if !ok {
 		return nil, errors.NotFoundf(
-			"models for controller %s",
+			"model %s:%s",
 			controllerName,
+			modelName,
 		)
 	}
 	details, ok := controllerModels.Models[modelName]

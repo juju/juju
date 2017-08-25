@@ -242,15 +242,8 @@ use "juju unregister %s" to remove the existing controller.`[1:], c.domain, c.co
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, model := range models {
-		owner := names.NewUserTag(model.Owner)
-		if err := store.UpdateModel(
-			c.controllerName,
-			jujuclient.JoinOwnerModelName(owner, model.Name),
-			jujuclient.ModelDetails{model.UUID},
-		); err != nil {
-			return errors.Annotate(err, "storing model details")
-		}
+	if err := c.SetControllerModels(store, c.controllerName, models); err != nil {
+		return errors.Annotate(err, "storing model details")
 	}
 	fmt.Fprintf(
 		ctx.Stderr, "Welcome, %s. You are now logged into %q.\n",
