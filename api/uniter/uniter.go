@@ -69,12 +69,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV6 creates a new client-side Uniter facade, version 6
-var newStateV6 = newStateForVersionFn(6)
+// newStateV7 creates a new client-side Uniter facade, version 7
+var newStateV7 = newStateForVersionFn(7)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV6
+var NewState = newStateV7
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.

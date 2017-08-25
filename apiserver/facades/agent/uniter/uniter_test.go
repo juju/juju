@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujufactory "github.com/juju/juju/testing/factory"
 )
@@ -1792,6 +1793,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "1.2.3.4",
+		"ingress-address": "1.2.3.4",
 	})
 }
 
@@ -2654,6 +2656,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "4.3.2.1",
+		"ingress-address": "4.3.2.1",
 	})
 }
 
@@ -2690,6 +2693,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "1.2.3.4",
+		"ingress-address": "1.2.3.4",
 	})
 }
 
@@ -3576,6 +3580,55 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 				InterfaceName: "eth0.100",
 				Addresses: []params.InterfaceAddress{
 					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
+				},
+			},
+		},
+	}
+
+	result, err := s.base.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"server": expectedInfo,
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
+	// If a network info call is made in the context of a relation, and the
+	// endpoint of that relation is not bound, or bound to the default space, we
+	// provide the ingress address relevant to the relation.
+	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
+	_, err := s.base.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		SourceModel: coretesting.ModelTag,
+		Name:        "wordpress-remote",
+		Endpoints:   []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.base.addRelation(c, "mysql", "wordpress-remote")
+	mysqlRelUnit, err := rel.Unit(s.base.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, mysqlRelUnit, true)
+
+	relId := rel.Id()
+	args := params.NetworkInfoParams{
+		Unit:       s.base.mysqlUnit.Tag().String(),
+		Bindings:   []string{"server"},
+		RelationId: &relId,
+	}
+
+	// Since it is a remote relation, the expected address is set to the
+	// machine's public address.
+	expectedAddress, err := s.base.machine1.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				Addresses: []params.InterfaceAddress{
+					{Address: expectedAddress.Value},
 				},
 			},
 		},

@@ -389,7 +389,7 @@ func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
 
 // TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead
 // UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
-// API.
+// API. We need to retain until V4 of the Uniter API is removed.
 type UnitsNetworkConfig struct {
 	Args []UnitNetworkConfig `json:"args"`
 }
@@ -699,6 +699,7 @@ type NetworkInfoResults struct {
 
 // NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
 type NetworkInfoParams struct {
-	Unit     string   `json:"unit"`
-	Bindings []string `json:"bindings"`
+	Unit       string   `json:"unit"`
+	RelationId *int     `json:"relation-id,omitempty"`
+	Bindings   []string `json:"bindings"`
 }

@@ -811,7 +811,7 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationSc
 	}
 }
 
-func (s *RelationUnitSuite) TestSettingsAddress(c *gc.C) {
+func (s *RelationUnitSuite) TestIngressAddress(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -825,13 +825,13 @@ func (s *RelationUnitSuite) TestSettingsAddress(c *gc.C) {
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
 
-	address, err := prr.pru0.SettingsAddress()
+	address, err := prr.pru0.IngressAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
 }
 
-func (s *RelationUnitSuite) TestSettingsAddressRemoteRelation(c *gc.C) {
+func (s *RelationUnitSuite) TestIngressAddressRemoteRelation(c *gc.C) {
 	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -845,13 +845,13 @@ func (s *RelationUnitSuite) TestSettingsAddressRemoteRelation(c *gc.C) {
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
 
-	address, err := prr.rru0.SettingsAddress()
+	address, err := prr.rru0.IngressAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("4.3.2.1", network.ScopePublic))
 }
 
-func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationNoPublicAddr(c *gc.C) {
+func (s *RelationUnitSuite) TestIngressAddressRemoteRelationNoPublicAddr(c *gc.C) {
 	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -864,12 +864,12 @@ func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationNoPublicAddr(c *gc.
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 
-	address, err := prr.rru0.SettingsAddress()
+	address, err := prr.rru0.IngressAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
 }
 
-func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationEgressCidrs(c *gc.C) {
+func (s *RelationUnitSuite) TestIngressAddressRemoteRelationEgressCidrs(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-cidrs": "192.168.1.0/32"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	prr := newRemoteProReqRelation(c, &s.ConnSuite)
@@ -885,7 +885,7 @@ func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationEgressCidrs(c *gc.C
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
 
-	address, err := prr.rru0.SettingsAddress()
+	address, err := prr.rru0.IngressAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("192.168.1.0", network.ScopePublic))

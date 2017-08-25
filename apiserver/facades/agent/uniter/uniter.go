@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -29,7 +30,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v6) of the Uniter API.
+// UniterAPI implements the latest version (v7) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -51,11 +52,16 @@ type UniterAPI struct {
 	StorageAPI
 }
 
+// UniterAPIV6 adds NetworkInfo as a preferred method to calling NetworkConfig.
+type UniterAPIV6 struct {
+	UniterAPI
+}
+
 // UniterAPIV5 returns a RelationResultsV5 instead of RelationResults
 // from Relation and RelationById - elements don't have an
 // OtherApplication field.
 type UniterAPIV5 struct {
-	UniterAPI
+	UniterAPIV6
 }
 
 // UniterAPIV4 has old WatchApplicationRelations and NetworkConfig
@@ -156,14 +162,25 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 	}, nil
 }
 
-// NewUniterAPIV5 creates an instance of the V5 uniter API.
-func NewUniterAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV5, error) {
+// NewUniterAPIV6 creates an instance of the V6 uniter API.
+func NewUniterAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV6, error) {
 	uniterAPI, err := NewUniterAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV5{
+	return &UniterAPIV6{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV5 creates an instance of the V5 uniter API.
+func NewUniterAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV5, error) {
+	uniterAPI, err := NewUniterAPIV6(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV5{
+		UniterAPIV6: *uniterAPI,
 	}, nil
 }
 
@@ -1073,15 +1090,22 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 
 		settings := map[string]interface{}{}
-		settingsAddress, err := relUnit.SettingsAddress()
+		ingressAddress, err := relUnit.IngressAddress()
 		if err == nil {
-			// Construct the settings, passing the unit's address (we
-			// already know it). Normally this will be the private
-			// address, but if this relation is to a remote application it
-			// might be the public one.
-			settings["private-address"] = settingsAddress.Value
+			// private-address is historically a cloud local address for the machine.
+			// Existing charms are built to ask for this attribute from relation
+			// settings to find out what address to use to connect to the app
+			// on the other side of a relation. For cross model scenarios, we'll
+			// replace this with possibly a public address; we expect to fix more
+			// charms than we break - breakage will not occur for correctly written
+			// charms, since the semantics of this value dictates the use case described.
+			// Any other use goes against the intended purpose of this value.
+			settings["private-address"] = ingressAddress.Value
+			// ingress-address is the preferred settings attribute name as it more accurately
+			// reflects the purpose of the attribute value. We'll deprecate private-address.
+			settings["ingress-address"] = ingressAddress.Value
 		} else {
-			logger.Warningf("cannot set private-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
+			logger.Warningf("cannot set ingress-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
 		}
 		return relUnit.EnterScope(settings)
 	}
@@ -1646,8 +1670,46 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		}
 	}
 
-	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
+	var defaultSpaceInfo *network.NetworkInfo
+	if args.RelationId != nil {
+		// We're in a relation context.
+		rel, err := u.st.Relation(*args.RelationId)
+		if err != nil {
+			return params.NetworkInfoResults{}, err
+		}
+		endpoint, err := rel.Endpoint(unit.ApplicationName())
+		if err != nil {
+			return params.NetworkInfoResults{}, err
+		}
+		boundSpace, err := unit.GetSpaceForBinding(endpoint.Name)
+		if err != nil && !errors.IsNotValid(err) {
+			return params.NetworkInfoResults{}, err
+		}
+		// If the endpoint for this relation is not bound to a space, or
+		// is bound to the default space, we need to set the address info
+		// for the default space to the correct cross model ingress address.
+		if boundSpace == environs.DefaultSpaceName || err != nil {
+			ru, err := u.getRelationUnit(canAccess, rel.Tag().String(), unitTag)
+			if err != nil {
+				return params.NetworkInfoResults{}, err
+			}
+			address, err := ru.IngressAddress()
+			logger.Debugf("address for relation %v is %v", rel.Tag().Id(), address)
+			spaces.Remove(environs.DefaultSpaceName)
+			defaultSpaceInfo = &network.NetworkInfo{
+				Addresses: []network.InterfaceAddress{{
+					Address: address.Value,
+				}},
+			}
+		}
+	}
 
+	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
+	if defaultSpaceInfo != nil {
+		networkInfos[environs.DefaultSpaceName] = state.MachineNetworkInfoResult{
+			NetworkInfos: []network.NetworkInfo{*defaultSpaceInfo},
+		}
+	}
 	for binding, space := range bindingsToSpace {
 		result.Results[binding] = networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
 	}

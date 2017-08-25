@@ -15,10 +15,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -377,44 +378,6 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
-func (s *unitSuite) TestNetworkConfig(c *gc.C) {
-	c.Skip("dimitern: temporarily disabled to pass a CI run until it can be fixed like its apiserver/uniter counterpart")
-
-	// Set some provider addresses bound to both "public" and "internal"
-	// spaces.
-	addresses := []network.Address{
-		network.NewAddressOnSpace("public", "8.8.8.8"),
-		network.NewAddressOnSpace("", "8.8.4.4"),
-		network.NewAddressOnSpace("internal", "10.0.0.1"),
-		network.NewAddressOnSpace("internal", "10.0.0.2"),
-		network.NewAddressOnSpace("public", "fc00::1"),
-	}
-	err := s.wordpressMachine.SetProviderAddresses(addresses...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	netConfig, err := s.apiUnit.NetworkConfig("db") // relation name, bound to "internal"
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
-		{Address: "10.0.0.1"},
-		{Address: "10.0.0.2"},
-	})
-
-	netConfig, err = s.apiUnit.NetworkConfig("admin-api") // extra-binding name, bound to "public"
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
-		{Address: "8.8.8.8"},
-		{Address: "fc00::1"},
-	})
-
-	netConfig, err = s.apiUnit.NetworkConfig("unknown")
-	c.Assert(err, gc.ErrorMatches, `binding name "unknown" not defined by the unit's charm`)
-	c.Assert(netConfig, gc.IsNil)
-
-	netConfig, err = s.apiUnit.NetworkConfig("")
-	c.Assert(err, gc.ErrorMatches, "binding name cannot be empty")
-	c.Assert(netConfig, gc.IsNil)
-}
-
 func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "AvailabilityZone",
 		func(result interface{}) error {
@@ -486,6 +449,44 @@ func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.NotNil)
 	c.Assert(curl.String(), gc.Equals, s.wordpressCharm.String())
+}
+
+func (s *unitSuite) TestNetworkInfo(c *gc.C) {
+	var called int
+	relId := 2
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		called++
+		if called == 1 {
+			*(result.(*params.LifeResults)) = params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}
+			return nil
+		}
+		c.Check(objType, gc.Equals, "Uniter")
+		c.Check(version, gc.Equals, expectedVersion)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "NetworkInfo")
+		c.Check(arg, gc.DeepEquals, params.NetworkInfoParams{
+			Unit:       "unit-mysql-0",
+			Bindings:   []string{"server"},
+			RelationId: &relId,
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.NetworkInfoResults{})
+		*(result.(*params.NetworkInfoResults)) = params.NetworkInfoResults{
+			Results: map[string]params.NetworkInfoResult{
+				"db": {
+					Error: &params.Error{Message: "FAIL"},
+				}},
+		}
+		return nil
+	})
+
+	ut := names.NewUnitTag("mysql/0")
+	st := uniter.NewState(apiCaller, ut)
+	unit, err := st.Unit(ut)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := unit.NetworkInfo([]string{"server"}, &relId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result["db"].Error, gc.ErrorMatches, "FAIL")
+	c.Assert(called, gc.Equals, 2)
 }
 
 func (s *unitSuite) TestConfigSettings(c *gc.C) {
@@ -825,7 +826,7 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 }
 
 type unitMetricBatchesSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 
 	st      api.Connection
 	uniter  *uniter.State

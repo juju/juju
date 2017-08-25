@@ -795,11 +795,6 @@ func (ctx *HookContext) killCharmHook() error {
 	}
 }
 
-// NetworkConfig returns the network config for the given bindingName.
-func (ctx *HookContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
-	return ctx.unit.NetworkConfig(bindingName)
-}
-
 // UnitWorkloadVersion returns the version of the workload reported by
 // the current unit.
 func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
@@ -839,5 +834,9 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 
 // NetworkInfo returns the network info for the given bindingNames.
 func (ctx *HookContext) NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error) {
-	return ctx.unit.NetworkInfo(bindingNames)
+	var relId *int
+	if ctx.relationId != -1 {
+		relId = &ctx.relationId
+	}
+	return ctx.unit.NetworkInfo(bindingNames, relId)
 }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -2561,6 +2562,7 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 	return statusHistory(args)
 }
 
+// GetSpaceForBinding returns the space name associated with the specified endpoint.
 func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 	app, err := u.Application()
 	if err != nil {
@@ -2574,10 +2576,10 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 	boundSpace, known := bindings[bindingName]
 	if !known {
 		// If default binding is not explicitly defined we'll use default space
-		if bindingName == "" {
-			return "", nil
+		if bindingName == environs.DefaultSpaceName {
+			return environs.DefaultSpaceName, nil
 		}
-		return "", errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
+		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", bindingName))
 	}
 	return boundSpace, nil
 }

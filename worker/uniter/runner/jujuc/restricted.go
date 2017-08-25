@@ -64,11 +64,6 @@ func (*RestrictedContext) ClosePorts(protocol string, fromPort, toPort int) erro
 // OpenedPorts implements jujuc.Context.
 func (*RestrictedContext) OpenedPorts() []network.PortRange { return nil }
 
-// NetworkConfig implements jujuc.Context.
-func (*RestrictedContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
-	return nil, ErrRestrictedContext
-}
-
 // NetworkInfo implements jujuc.Context.
 func (*RestrictedContext) NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error) {
 	return map[string]params.NetworkInfoResult{}, ErrRestrictedContext
