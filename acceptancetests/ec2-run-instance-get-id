@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-TESTING_EC2_REGION=${TESTING_EC2_REGION:"us-east-1"}
+TESTING_EC2_REGION=${TESTING_EC2_REGION:-"us-east-1"}
 RUN_OUTPUT=$(euca-run-instances --region $TESTING_EC2_REGION -k id_rsa -t $INSTANCE_TYPE $AMI_IMAGE "$@")
 if [ $? -ne 0 ]; then
   exit 1

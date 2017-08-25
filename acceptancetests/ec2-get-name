@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-TESTING_EC2_REGION=${TESTING_EC2_REGION:"us-east-1"}
+TESTING_EC2_REGION=${TESTING_EC2_REGION:-"us-east-1"}
 instance_name=''
 echo -n Waiting for instance name >&2
 while [ -z "$instance_name" ]; do
