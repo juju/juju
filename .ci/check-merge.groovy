@@ -101,7 +101,7 @@ node('juju-core-slave-b') {
                 print("Using build tarball: $tarfile")
             }
             xenial_ami = sh(
-                script: "${scripts_dir}/get_ami.py xenial amd64 --virt hvm",
+                script: "${scripts_dir}/get_ami.py xenial amd64 --virt hvm --region us-west-1",
                 returnStdout: true).trim()
             parallel(
                 'Xenial': {
