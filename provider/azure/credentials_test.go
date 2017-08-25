@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"io"
 
-	arazure "github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -120,16 +121,16 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	c.Assert(calls[0].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: &arazure.Token{
+		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account-id|https://graph.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: &arazure.Token{
+		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account-id|https://arm.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		SubscriptionId: "test-account-id",
 		TenantId:       "tenant-id",
 	})
@@ -218,16 +219,16 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 	c.Assert(calls[0].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: &arazure.Token{
+		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account1-id|https://graph.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: &arazure.Token{
+		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account1-id|https://arm.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		SubscriptionId: "test-account1-id",
 		TenantId:       "tenant-id",
 	})
@@ -235,16 +236,16 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 	c.Assert(calls[1].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: &arazure.Token{
+		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account2-id|https://graph.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: &arazure.Token{
+		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account2-id|https://arm.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		SubscriptionId: "test-account2-id",
 		TenantId:       "tenant-id",
 	})
@@ -300,16 +301,16 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 	c.Assert(calls[0].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
-		GraphAuthorizer: &arazure.Token{
+		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account1-id|https://graph.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		ResourceManagerEndpoint:   "https://arm.invalid/",
 		ResourceManagerResourceId: "https://arm.invalid/",
-		ResourceManagerAuthorizer: &arazure.Token{
+		ResourceManagerAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
 			AccessToken: "test-account1-id|https://arm.invalid/|access-token",
 			Type:        "Bearer",
-		},
+		}),
 		SubscriptionId: "test-account1-id",
 		TenantId:       "tenant-id",
 	})

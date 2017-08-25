@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/authorization"
 	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -128,7 +128,7 @@ type ServicePrincipalCreator struct {
 // and SubscriptionId need to be specified in params, the other values
 // will be derived.
 func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params ServicePrincipalParams) (appid, password string, _ error) {
-	subscriptionsClient := subscriptions.Client{
+	subscriptionsClient := subscriptions.GroupClient{
 		subscriptions.NewWithBaseURI(params.ResourceManagerEndpoint),
 	}
 	useragent.UpdateClient(&subscriptionsClient.Client)
@@ -144,7 +144,8 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 		return "", "", errors.Trace(err)
 	}
 
-	client := autorest.NewClientWithUserAgent(useragent.JujuPrefix())
+	client := autorest.NewClientWithUserAgent("")
+	useragent.UpdateClient(&client)
 	client.Sender = c.Sender
 	setClientInspectors(&client, c.RequestInspector, "azure.autorest")
 
@@ -155,12 +156,12 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 	fmt.Fprintln(stderr, "Initiating interactive authentication.")
 	fmt.Fprintln(stderr)
 	clientId := jujuApplicationId
-	deviceCode, err := azure.InitiateDeviceAuth(&client, *oauthConfig, clientId, params.ResourceManagerResourceId)
+	deviceCode, err := adal.InitiateDeviceAuth(&client, *oauthConfig, clientId, params.ResourceManagerResourceId)
 	if err != nil {
 		return "", "", errors.Annotate(err, "initiating interactive authentication")
 	}
 	fmt.Fprintln(stderr, to.String(deviceCode.Message)+"\n")
-	token, err := azure.WaitForUserCompletion(&client, deviceCode)
+	token, err := adal.WaitForUserCompletion(&client, deviceCode)
 	if err != nil {
 		return "", "", errors.Annotate(err, "waiting for interactive authentication to completed")
 	}
@@ -169,7 +170,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 	// requests to Active Directory and Resource Manager. These tokens
 	// are only valid for a short amount of time, so we must create a
 	// service principal password that can be used to obtain new tokens.
-	armSpt, err := azure.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, params.ResourceManagerResourceId, *token)
+	armSpt, err := adal.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, params.ResourceManagerResourceId, *token)
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary ARM service principal token")
 	}
@@ -182,7 +183,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 	// can use the token for both APIs.
 	graphToken := armSpt.Token
 	graphToken.Resource = params.GraphResourceId
-	graphSpt, err := azure.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, params.GraphResourceId, graphToken)
+	graphSpt, err := adal.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, params.GraphResourceId, graphToken)
 	if err != nil {
 		return "", "", errors.Annotate(err, "creating temporary Graph service principal token")
 	}
@@ -190,8 +191,8 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 	if err := graphSpt.Refresh(); err != nil {
 		return "", "", errors.Trace(err)
 	}
-	params.GraphAuthorizer = graphSpt
-	params.ResourceManagerAuthorizer = armSpt
+	params.GraphAuthorizer = autorest.NewBearerAuthorizer(graphSpt)
+	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(armSpt)
 	params.TenantId = tenantId
 
 	userObject, err := ad.UsersClient{params.directoryClient(c.Sender, c.RequestInspector)}.GetCurrentUser()

@@ -5,7 +5,7 @@ package azureauth
 
 import (
 	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 )
 
@@ -13,10 +13,10 @@ import (
 // manager endpoint and subscription ID. This will make a request to the
 // resource manager API to discover the Active Directory tenant ID.
 func OAuthConfig(
-	client subscriptions.Client,
+	client subscriptions.GroupClient,
 	resourceManagerEndpoint string,
 	subscriptionId string,
-) (*azure.OAuthConfig, string, error) {
+) (*adal.OAuthConfig, string, error) {
 	authURI, err := DiscoverAuthorizationURI(client, subscriptionId)
 	if err != nil {
 		return nil, "", errors.Annotate(err, "detecting auth URI")
@@ -32,8 +32,7 @@ func OAuthConfig(
 	authURI.Path = ""
 	adEndpoint := authURI.String()
 
-	cloudEnv := azure.Environment{ActiveDirectoryEndpoint: adEndpoint}
-	oauthConfig, err := cloudEnv.OAuthConfigForTenant(tenantId)
+	oauthConfig, err := adal.NewOAuthConfig(adEndpoint, tenantId)
 	if err != nil {
 		return nil, "", errors.Annotate(err, "getting OAuth configuration")
 	}

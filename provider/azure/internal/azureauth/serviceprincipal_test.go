@@ -13,7 +13,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/arm/authorization"
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/testing"
@@ -40,7 +40,7 @@ type InteractiveSuite struct {
 var _ = gc.Suite(&InteractiveSuite{})
 
 func deviceCodeSender() autorest.Sender {
-	return azuretesting.NewSenderWithValue(azure.DeviceCode{
+	return azuretesting.NewSenderWithValue(adal.DeviceCode{
 		DeviceCode: to.StringPtr("device-code"),
 		Interval:   to.Int64Ptr(1), // 1 second between polls
 		Message:    to.StringPtr("open your browser, etc."),
@@ -48,7 +48,7 @@ func deviceCodeSender() autorest.Sender {
 }
 
 func tokenSender() autorest.Sender {
-	return azuretesting.NewSenderWithValue(azure.Token{
+	return azuretesting.NewSenderWithValue(adal.Token{
 		RefreshToken: "refresh-token",
 		ExpiresOn:    fmt.Sprint(time.Now().Add(time.Hour).Unix()),
 	})

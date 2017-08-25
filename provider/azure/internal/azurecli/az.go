@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
@@ -85,10 +85,10 @@ type AccessToken struct {
 	TokenType    string `json:"tokenType"`
 }
 
-// Token creates an azure.Token from the AccessToken. This token can be
+// Token creates an adal.Token from the AccessToken. This token can be
 // used with go-autorest to access azure endpoints.
-func (t AccessToken) Token() *azure.Token {
-	return &azure.Token{
+func (t AccessToken) Token() *adal.Token {
+	return &adal.Token{
 		AccessToken: t.AccessToken,
 		Type:        t.TokenType,
 	}

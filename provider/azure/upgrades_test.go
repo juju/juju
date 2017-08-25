@@ -68,34 +68,34 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	// and the API rule is not needed for non-controller models.
 	customRule := network.SecurityRule{
 		Name: to.StringPtr("machine-0-tcp-1234"),
-		Properties: &network.SecurityRulePropertiesFormat{
+		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("custom rule"),
-			Protocol:                 network.TCP,
+			Protocol:                 network.SecurityRuleProtocolTCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
 			DestinationAddressPrefix: to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1234"),
-			Access:                   network.Allow,
+			Access:                   network.SecurityRuleAccessAllow,
 			Priority:                 to.Int32Ptr(102),
-			Direction:                network.Inbound,
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	}
 	securityRules := []network.SecurityRule{{
 		Name: to.StringPtr("JujuAPIInbound"),
-		Properties: &network.SecurityRulePropertiesFormat{
+		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("Allow API connections to controller machines"),
-			Protocol:                 network.TCP,
+			Protocol:                 network.SecurityRuleProtocolTCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
 			DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
 			DestinationPortRange:     to.StringPtr("17777"),
-			Access:                   network.Allow,
+			Access:                   network.SecurityRuleAccessAllow,
 			Priority:                 to.Int32Ptr(101),
-			Direction:                network.Inbound,
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	}, customRule}
 	nsg := network.SecurityGroup{
-		Properties: &network.SecurityGroupPropertiesFormat{
+		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
 			SecurityRules: &securityRules,
 		},
 	}
@@ -112,22 +112,22 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 
 	expectedSecurityRules := []network.SecurityRule{{
 		Name: to.StringPtr("SSHInbound"),
-		Properties: &network.SecurityRulePropertiesFormat{
+		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("Allow SSH access to all machines"),
-			Protocol:                 network.TCP,
+			Protocol:                 network.SecurityRuleProtocolTCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
 			DestinationAddressPrefix: to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("22"),
-			Access:                   network.Allow,
+			Access:                   network.SecurityRuleAccessAllow,
 			Priority:                 to.Int32Ptr(100),
-			Direction:                network.Inbound,
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	}, customRule}
 	nsgId := `[resourceId('Microsoft.Network/networkSecurityGroups', 'juju-internal-nsg')]`
 	subnets := []network.Subnet{{
 		Name: to.StringPtr("juju-internal-subnet"),
-		Properties: &network.SubnetPropertiesFormat{
+		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 			AddressPrefix: to.StringPtr("192.168.0.0/20"),
 			NetworkSecurityGroup: &network.SecurityGroup{
 				ID: to.StringPtr(nsgId),
@@ -135,7 +135,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 		},
 	}, {
 		Name: to.StringPtr("juju-controller-subnet"),
-		Properties: &network.SubnetPropertiesFormat{
+		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 			AddressPrefix: to.StringPtr("192.168.16.0/20"),
 			NetworkSecurityGroup: &network.SecurityGroup{
 				ID: to.StringPtr(nsgId),
@@ -144,28 +144,25 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	}}
 	addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
 	templateResources := []armtemplates.Resource{{
-		APIVersion: network.APIVersion,
-		Type:       "Microsoft.Network/networkSecurityGroups",
-		Name:       "juju-internal-nsg",
-		Location:   "westus",
+		Type:     "Microsoft.Network/networkSecurityGroups",
+		Name:     "juju-internal-nsg",
+		Location: "westus",
 		Properties: &network.SecurityGroupPropertiesFormat{
 			SecurityRules: &expectedSecurityRules,
 		},
 	}, {
-		APIVersion: network.APIVersion,
-		Type:       "Microsoft.Network/virtualNetworks",
-		Name:       "juju-internal-network",
-		Location:   "westus",
+		Type:     "Microsoft.Network/virtualNetworks",
+		Name:     "juju-internal-network",
+		Location: "westus",
 		Properties: &network.VirtualNetworkPropertiesFormat{
 			AddressSpace: &network.AddressSpace{&addressPrefixes},
 			Subnets:      &subnets,
 		},
 		DependsOn: []string{nsgId},
 	}, {
-		APIVersion: storage.APIVersion,
-		Type:       "Microsoft.Storage/storageAccounts",
-		Name:       storageAccountName,
-		Location:   "westus",
+		Type:     "Microsoft.Storage/storageAccounts",
+		Name:     storageAccountName,
+		Location: "westus",
 		StorageSku: &storage.Sku{
 			Name: storage.SkuName("Standard_LRS"),
 		},
