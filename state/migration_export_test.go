@@ -57,9 +57,7 @@ type MigrationBaseSuite struct {
 }
 
 func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
-	dbModel, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.UpdateLatestToolsVersion(latestTools)
+	err := s.Model.UpdateLatestToolsVersion(latestTools)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -155,9 +153,7 @@ func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description
 }
 
 func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
-	stModel, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetAnnotations(stModel, testAnnotations)
+	err := s.Model.SetAnnotations(s.Model, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
@@ -167,18 +163,16 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 	environVersion := 123
-	err = stModel.SetEnvironVersion(environVersion)
+	err = s.Model.SetEnvironVersion(environVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	dbModel, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(model.Tag(), gc.Equals, dbModel.ModelTag())
-	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
-	dbModelCfg, err := dbModel.Config()
+	c.Assert(model.Type(), gc.Equals, string(s.Model.Type()))
+	c.Assert(model.Tag(), gc.Equals, s.Model.ModelTag())
+	c.Assert(model.Owner(), gc.Equals, s.Model.Owner())
+	dbModelCfg, err := s.Model.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
 	modelCfg := model.Config()
@@ -287,7 +281,8 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 		Constraints: cons,
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
-	err := s.State.SetAnnotations(machine1, testAnnotations)
+
+	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, machine1, status.Started, addedHistoryCount)
 
@@ -393,7 +388,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetAnnotations(application, testAnnotations)
+	err = s.Model.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
@@ -452,7 +447,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 		err = unit.SetWorkloadVersion(version)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err = s.State.SetAnnotations(unit, testAnnotations)
+	err = s.Model.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
 	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)

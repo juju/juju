@@ -28,6 +28,7 @@ type StateWithWallClockSuite struct {
 	NewPolicy                 state.NewPolicyFunc
 	Controller                *state.Controller
 	State                     *state.State
+	Model                     *state.Model
 	IAASModel                 *state.IAASModel
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
@@ -57,6 +58,10 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 		s.State.Close()
 		s.Controller.Close()
 	})
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.Model = model
 
 	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)

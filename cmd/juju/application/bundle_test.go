@@ -964,7 +964,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
 	expectedCons, err := constraints.Parse("cores=4 mem=4G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, expectedCons)
-	ann, err := s.State.Annotations(m)
+	ann, err := s.IAASModel.Annotations(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{"foo": "bar"})
 }
@@ -1226,7 +1226,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.Application("django")
 	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.State.Annotations(svc)
+	ann, err := s.IAASModel.Annotations(svc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{
 		"key1": "value1",
@@ -1234,7 +1234,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
 	})
 	m, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	ann, err = s.State.Annotations(m)
+	ann, err = s.IAASModel.Annotations(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{"foo": "bar"})
 
@@ -1253,13 +1253,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
                 annotations: {answer: 42}
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	ann, err = s.State.Annotations(svc)
+	ann, err = s.IAASModel.Annotations(svc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{
 		"key1": "new value!",
 		"key2": "value2",
 	})
-	ann, err = s.State.Annotations(m)
+	ann, err = s.IAASModel.Annotations(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{
 		"foo":    "bar",

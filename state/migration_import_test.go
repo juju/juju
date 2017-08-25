@@ -90,8 +90,8 @@ func (s *MigrationImportSuite) importModel(c *gc.C, transform ...func(map[string
 	return newModel, newSt
 }
 
-func (s *MigrationImportSuite) assertAnnotations(c *gc.C, newSt *state.State, entity state.GlobalEntity) {
-	annotations, err := newSt.Annotations(entity)
+func (s *MigrationImportSuite) assertAnnotations(c *gc.C, model *state.Model, entity state.GlobalEntity) {
+	annotations, err := model.Annotations(entity)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(annotations, jc.DeepEquals, testAnnotations)
 }
@@ -112,7 +112,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	err = original.SetEnvironVersion(environVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetAnnotations(original, testAnnotations)
+	err = s.Model.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export()
@@ -130,7 +130,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 	c.Assert(newModel.EnvironVersion(), gc.Equals, environVersion)
-	s.assertAnnotations(c, newSt, newModel)
+	s.assertAnnotations(c, newModel, newModel)
 
 	statusInfo, err := newModel.Status()
 	c.Check(err, jc.ErrorIsNil)
@@ -332,7 +332,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: cons,
 	})
-	err := s.State.SetAnnotations(machine1, testAnnotations)
+	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, machine1, status.Started, 5)
 
@@ -347,7 +347,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allMachines, gc.HasLen, 2)
 
-	_, newSt := s.importModel(c)
+	newModel, newSt := s.importModel(c)
 
 	importedMachines, err := newSt.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -368,7 +368,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(parentId, gc.Equals, parent.Id())
 	c.Assert(isContainer, jc.IsTrue)
 
-	s.assertAnnotations(c, newSt, parent)
+	s.assertAnnotations(c, newModel, parent)
 	s.checkStatusHistory(c, machine1, parent, 5)
 
 	newCons, err := parent.Constraints()
@@ -433,7 +433,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
 	c.Assert(application.SetExposed(), jc.ErrorIsNil)
-	err = s.State.SetAnnotations(application, testAnnotations)
+	err = s.Model.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, application, status.Active, 5)
 
@@ -441,7 +441,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allApplications, gc.HasLen, 1)
 
-	_, newSt := s.importModel(c)
+	newModel, newSt := s.importModel(c)
 
 	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -467,7 +467,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
-	s.assertAnnotations(c, newSt, imported)
+	s.assertAnnotations(c, newModel, imported)
 	s.checkStatusHistory(c, application, imported, 5)
 
 	newCons, err := imported.Constraints()
@@ -614,12 +614,12 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Val
 	c.Assert(err, jc.ErrorIsNil)
 	err = exported.SetWorkloadVersion("amethyst")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetAnnotations(exported, testAnnotations)
+	err = s.Model.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, exported, status.Active, 5)
 	s.primeStatusHistory(c, exported.Agent(), status.Idle, 5)
 
-	_, newSt := s.importModel(c)
+	newModel, newSt := s.importModel(c)
 
 	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -652,7 +652,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Val
 	meterStatus, err := imported.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
-	s.assertAnnotations(c, newSt, imported)
+	s.assertAnnotations(c, newModel, imported)
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
 	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)
