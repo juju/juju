@@ -297,7 +297,7 @@ func (c *MemStore) CurrentModel(controller string) (string, error) {
 	}
 	controllerModels, ok := c.Models[controller]
 	if !ok {
-		return "", errors.NotFoundf("models for controller %s", controller)
+		return "", errors.NotFoundf("current model for controller %s", controller)
 	}
 	if controllerModels.CurrentModel == "" {
 		return "", errors.NotFoundf("current model for controller %s", controller)

@@ -153,38 +153,34 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot list models")
 	}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
 	// And now get the full details of the models.
-	paramsModelInfo, err := c.getModelInfo(models)
+	modelInfo, modelsToStore, err := c.getModelInfo(controllerName, now, models)
 	if err != nil {
 		return errors.Annotate(err, "cannot get model details")
 	}
-
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	now := time.Now()
-	modelInfo := make([]common.ModelInfo, 0, len(models))
-	for _, info := range paramsModelInfo {
-		model, err := common.ModelInfoFromParams(info, now)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		model.ControllerName = controllerName
-		modelInfo = append(modelInfo, model)
+	// update client store here too...
+	if err := c.ClientStore().SetModels(controllerName, modelsToStore); err != nil {
+		return errors.Trace(err)
 	}
 
 	modelSet := ModelSet{Models: modelInfo}
 	current, err := c.ClientStore().CurrentModel(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	modelSet.CurrentModelQualified = current
-	modelSet.CurrentModel = current
-	if c.user != "" {
-		userForListing := names.NewUserTag(c.user)
-		unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
-		if err == nil {
-			modelSet.CurrentModel = common.OwnerQualifiedModelName(
-				unqualifiedModelName, owner, userForListing,
-			)
+	if err == nil || errors.IsNotFound(err) {
+		// It is not a problem if we could not get current model -
+		// it could have been destroyed since last time we've used this client.
+		// However, if we do find it, we'd want to mark it in the output.
+		modelSet.CurrentModelQualified = current
+		modelSet.CurrentModel = current
+		if c.user != "" {
+			userForListing := names.NewUserTag(c.user)
+			unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
+			if err == nil {
+				modelSet.CurrentModel = common.OwnerQualifiedModelName(
+					unqualifiedModelName, owner, userForListing,
+				)
+			}
 		}
 	}
 
@@ -200,10 +196,10 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.ModelInfo, error) {
+func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, map[string]jujuclient.ModelDetails, error) {
 	client, err := c.getModelManagerAPI()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -213,10 +209,11 @@ func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.Mode
 	}
 	results, err := client.ModelInfo(tags)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	info := []params.ModelInfo{}
+	info := []common.ModelInfo{}
+	modelsToStore := map[string]jujuclient.ModelDetails{}
 	for i, result := range results {
 		if result.Error != nil {
 			if params.IsCodeUnauthorized(result.Error) {
@@ -225,14 +222,23 @@ func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.Mode
 				// to query its details.
 				continue
 			}
-			return nil, errors.Annotatef(
+			return nil, nil, errors.Annotatef(
 				result.Error, "getting model %s (%q) info",
 				userModels[i].UUID, userModels[i].Name,
 			)
 		}
-		info = append(info, *result.Result)
+
+		model, err := common.ModelInfoFromParams(*result.Result, now)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		model.ControllerName = controllerName
+		info = append(info, model)
+
+		// prepare this model for store
+		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
 	}
-	return info, nil
+	return info, modelsToStore, nil
 }
 
 func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
