@@ -249,6 +249,10 @@ func (v *volumeSource) DestroyVolumes(volNames []string) ([]error, error) {
 	return v.foreachVolume(volNames, v.destroyOneVolume), nil
 }
 
+func (v *volumeSource) ReleaseVolumes(volNames []string) ([]error, error) {
+	return v.foreachVolume(volNames, v.releaseOneVolume), nil
+}
+
 func (v *volumeSource) foreachVolume(volNames []string, f func(string) error) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volNames))
@@ -261,10 +265,6 @@ func (v *volumeSource) foreachVolume(volNames []string, f func(string) error) []
 	}
 	wg.Wait()
 	return results
-}
-
-func (v *volumeSource) ReleaseVolumes(volNames []string) ([]error, error) {
-	return nil, errors.NotImplementedf("ReleaseVolumes")
 }
 
 func parseVolumeId(volName string) (string, string, error) {
@@ -293,6 +293,37 @@ func (v *volumeSource) destroyOneVolume(volName string) error {
 	return nil
 }
 
+func (v *volumeSource) releaseOneVolume(volName string) error {
+	zone, _, err := parseVolumeId(volName)
+	if err != nil {
+		return errors.Annotatef(err, "invalid volume id %q", volName)
+	}
+	disk, err := v.gce.Disk(zone, volName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	switch disk.Status {
+	case google.StatusReady, google.StatusFailed:
+	default:
+		return errors.Errorf(
+			"cannot release volume %q with status %q",
+			volName, disk.Status,
+		)
+	}
+	if len(disk.AttachedInstances) > 0 {
+		return errors.Errorf(
+			"cannot release volume %q, attached to instances %q",
+			volName, disk.AttachedInstances,
+		)
+	}
+	delete(disk.Labels, tags.JujuController)
+	delete(disk.Labels, tags.JujuModel)
+	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
+		return errors.Annotatef(err, "cannot remove labels from volume %q", volName)
+	}
+	return nil
+}
+
 func (v *volumeSource) ListVolumes() ([]string, error) {
 	var volumes []string
 	disks, err := v.gce.Disks()
@@ -309,6 +340,38 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 		volumes = append(volumes, disk.Name)
 	}
 	return volumes, nil
+}
+
+// ImportVolume is specified on the storage.VolumeImporter interface.
+func (v *volumeSource) ImportVolume(volName string, tags map[string]string) (storage.VolumeInfo, error) {
+	zone, _, err := parseVolumeId(volName)
+	if err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
+	}
+	disk, err := v.gce.Disk(zone, volName)
+	if err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
+	}
+	if disk.Status != google.StatusReady {
+		return storage.VolumeInfo{}, errors.Errorf(
+			"cannot import volume %q with status %q",
+			volName, disk.Status,
+		)
+	}
+	if disk.Labels == nil {
+		disk.Labels = make(map[string]string)
+	}
+	for k, v := range resourceTagsToDiskLabels(tags) {
+		disk.Labels[k] = v
+	}
+	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot update labels on volume %q", volName)
+	}
+	return storage.VolumeInfo{
+		VolumeId:   disk.Name,
+		Size:       disk.Size,
+		Persistent: true,
+	}, nil
 }
 
 func (v *volumeSource) DescribeVolumes(volNames []string) ([]storage.DescribeVolumesResult, error) {
