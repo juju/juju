@@ -238,7 +238,7 @@ func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
 	}
 	controllerModels, ok := c.Models[controllerName]
 	if !ok {
-		return errors.NotFoundf("models for controller %s", controllerName)
+		return errors.NotFoundf("model %s:%s", controllerName, modelName)
 	}
 	if _, ok := controllerModels.Models[modelName]; !ok {
 		return errors.NotFoundf("model %s:%s", controllerName, modelName)
