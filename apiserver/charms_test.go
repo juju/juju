@@ -416,7 +416,7 @@ func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 
 func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	_, err := s.Model.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newSt := s.Factory.MakeModel(c, nil)
@@ -444,7 +444,7 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 
 func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	_, err := s.Model.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	migratedModel := s.Factory.MakeModel(c, nil)

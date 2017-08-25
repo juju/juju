@@ -443,7 +443,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		probablyUpdateStatusHistory(newSt.db(), modelGlobalKey, modelStatusDoc)
 	}
 
-	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
+	_, err = newModel.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
@@ -885,7 +885,7 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 				continue
 			}
 		}
-		mu, err := NewModelUserAccess(m.st, doc)
+		mu, err := NewModelUserAccess(m, doc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -72,8 +72,12 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 		// users cannot read the system key.
 		return common.ErrPerm
 	}
+	model, err := api.state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	ok, err := common.HasPermission(
-		api.state.UserPermission,
+		model.UserPermission,
 		api.apiUser,
 		permission.ReadAccess,
 		api.state.ModelTag(),

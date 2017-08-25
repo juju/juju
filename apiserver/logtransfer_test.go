@@ -303,7 +303,7 @@ func assertTrackerTime(c *gc.C, tracker *state.LastSentLogTracker, expected time
 
 func (s *logtransferSuite) setUserAccess(c *gc.C, level permission.Access) {
 	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, level)
+	_, err := s.Model.SetUserAccess(s.userTag, controllerTag, level)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

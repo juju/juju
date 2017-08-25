@@ -130,7 +130,7 @@ func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 			},
 		}
 
-		lastConn, err := st.LastModelConnection(s.apiUser)
+		lastConn, err := model.LastModelConnection(s.apiUser)
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)
@@ -303,6 +303,11 @@ func (c *ControllerAPIv3) GetControllerAccess(req params.Entities) (params.UserA
 		return results, errors.Trace(err)
 	}
 
+	model, err := c.state.Model()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
 	users := req.Entities
 	results.Results = make([]params.UserAccessResult, len(users))
 	for i, user := range users {
@@ -315,7 +320,8 @@ func (c *ControllerAPIv3) GetControllerAccess(req params.Entities) (params.UserA
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		access, err := c.state.UserPermission(userTag, c.state.ControllerTag())
+
+		access, err := model.UserPermission(userTag, c.state.ControllerTag())
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -535,10 +541,14 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 }
 
 func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+	accessorModel, err := accessor.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = accessorModel.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 	if errors.IsAlreadyExists(err) {
 		controllerTag := accessor.ControllerTag()
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		controllerUser, err := accessorModel.UserAccess(targetUserTag, controllerTag)
 		if errors.IsNotFound(err) {
 			// Conflicts with prior check, must be inconsistent state.
 			err = txn.ErrExcessiveContention
@@ -551,7 +561,7 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 		if controllerUser.Access.EqualOrGreaterControllerAccessThan(access) {
 			return errors.Errorf("user already has %q access or greater", access)
 		}
-		if _, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, access); err != nil {
+		if _, err = accessorModel.SetUserAccess(controllerUser.UserTag, controllerUser.Object, access); err != nil {
 			return errors.Annotate(err, "could not set controller access for user")
 		}
 		return nil
@@ -565,26 +575,31 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 
 func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	controllerTag := accessor.ControllerTag()
+	model, err := accessor.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	switch access {
 	case permission.LoginAccess:
 		// Revoking login access removes all access.
-		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
+		err := model.RemoveUserAccess(targetUserTag, controllerTag)
 		return errors.Annotate(err, "could not revoke controller access")
 	case permission.AddModelAccess:
 		// Revoking add-model access sets login.
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		controllerUser, err := model.UserAccess(targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
+		_, err = model.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
 		return errors.Annotate(err, "could not set controller access to read-only")
 	case permission.SuperuserAccess:
 		// Revoking superuser sets add-model.
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		controllerUser, err := model.UserAccess(targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.AddModelAccess)
+		_, err = model.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.AddModelAccess)
 		return errors.Annotate(err, "could not set controller access to add-model")
 
 	default:

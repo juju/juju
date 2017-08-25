@@ -5,6 +5,7 @@ package statemetrics_test
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/testing"
@@ -46,29 +47,34 @@ func (s *collectorSuite) SetUpTest(c *gc.C) {
 		disabled:         true,
 		controllerAccess: permission.ReadAccess,
 	}}
-
-	s.pool = &mockStatePool{
-		models: []*mockModel{{
-			tag:    names.NewModelTag("b266dff7-eee8-4297-b03a-4692796ec193"),
-			life:   state.Alive,
-			status: status.StatusInfo{Status: status.Available},
-			machines: []*mockMachine{{
-				life:           state.Alive,
-				agentStatus:    status.StatusInfo{Status: status.Started},
-				instanceStatus: status.StatusInfo{Status: status.Running},
-			}},
-		}, {
-			tag:    names.NewModelTag("1ab5799e-e72d-4de7-b70d-499edfab0e5c"),
-			life:   state.Dying,
-			status: status.StatusInfo{Status: status.Destroying},
-			machines: []*mockMachine{{
-				life:           state.Alive,
-				agentStatus:    status.StatusInfo{Status: status.Error},
-				instanceStatus: status.StatusInfo{Status: status.ProvisioningError},
-			}},
+	connectedModel := mockModel{
+		tag:    names.NewModelTag("b266dff7-eee8-4297-b03a-4692796ec193"),
+		life:   state.Alive,
+		status: status.StatusInfo{Status: status.Available},
+		machines: []*mockMachine{{
+			life:           state.Alive,
+			agentStatus:    status.StatusInfo{Status: status.Started},
+			instanceStatus: status.StatusInfo{Status: status.Running},
 		}},
+		users: users,
+	}
+	s.pool = &mockStatePool{
+		models: []*mockModel{
+			&connectedModel,
+			{
+				tag:    names.NewModelTag("1ab5799e-e72d-4de7-b70d-499edfab0e5c"),
+				life:   state.Dying,
+				status: status.StatusInfo{Status: status.Destroying},
+				machines: []*mockMachine{{
+					life:           state.Alive,
+					agentStatus:    status.StatusInfo{Status: status.Error},
+					instanceStatus: status.StatusInfo{Status: status.ProvisioningError},
+				}},
+				users: users,
+			}},
 	}
 	s.pool.system = &mockState{
+		model:      &connectedModel,
 		users:      users,
 		modelUUIDs: s.pool.modelUUIDs(),
 	}
@@ -119,6 +125,7 @@ func (s *collectorSuite) collect(c *gc.C) ([]prometheus.Metric, []dto.Metric) {
 func (s *collectorSuite) checkExpected(c *gc.C, actual, expected []dto.Metric) {
 	c.Assert(actual, gc.HasLen, len(expected))
 	for i, dm := range actual {
+		fmt.Println("actual metric #%d: %+v", i, dm)
 		var found bool
 		for i, m := range expected {
 			if !reflect.DeepEqual(dm, m) {

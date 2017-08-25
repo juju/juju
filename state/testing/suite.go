@@ -28,6 +28,7 @@ type StateSuite struct {
 	Controller                *state.Controller
 	State                     *state.State
 	StatePool                 *state.StatePool
+	Model                     *state.Model
 	IAASModel                 *state.IAASModel
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
@@ -69,6 +70,10 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 
 	s.StatePool = state.NewStatePool(s.State)
 	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
+
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.Model = m
 
 	im, err := s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)

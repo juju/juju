@@ -41,9 +41,13 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	// Users with "superuser" access on the controller,
 	// or "read" access on the controller model, can
 	// access these endpoints.
+	model, err := st.Model()
+	if err != nil {
+		return err
+	}
 
 	ok, err := common.HasPermission(
-		st.UserPermission,
+		model.UserPermission,
 		entity.Tag(),
 		permission.SuperuserAccess,
 		st.ControllerTag(),
@@ -56,7 +60,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	}
 
 	ok, err = common.HasPermission(
-		st.UserPermission,
+		model.UserPermission,
 		entity.Tag(),
 		permission.ReadAccess,
 		names.NewModelTag(st.ControllerModelUUID()),

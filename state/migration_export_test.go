@@ -207,13 +207,13 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond(s.State)
-	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
+	owner, err := s.Model.UserAccess(s.Owner, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
+	bob, err := s.Model.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
 		Access:    permission.ReadAccess,

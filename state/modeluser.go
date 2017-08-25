@@ -30,12 +30,12 @@ type modelUserLastConnectionDoc struct {
 }
 
 // setModelAccess changes the user's access permissions on the model.
-func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUUID string) error {
+func (m *Model) setModelAccess(access permission.Access, userGlobalKey, modelUUID string) error {
 	if err := permission.ValidateModelAccess(access); err != nil {
 		return errors.Trace(err)
 	}
 	op := updatePermissionOp(modelKey(modelUUID), userGlobalKey, access)
-	err := st.db().RunTransactionFor(modelUUID, []txn.Op{op})
+	err := m.st.db().RunTransactionFor(modelUUID, []txn.Op{op})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("existing permissions")
 	}
@@ -44,13 +44,13 @@ func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUU
 
 // LastModelConnection returns when this User last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
-func (st *State) LastModelConnection(user names.UserTag) (time.Time, error) {
-	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
+func (m *Model) LastModelConnection(user names.UserTag) (time.Time, error) {
+	lastConnections, closer := m.st.db().GetRawCollection(modelUserLastConnectionC)
 	defer closer()
 
 	username := user.Id()
 	var lastConn modelUserLastConnectionDoc
-	err := lastConnections.FindId(st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
+	err := lastConnections.FindId(m.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			err = errors.Wrap(err, NeverConnectedError(username))
@@ -78,12 +78,12 @@ func IsNeverConnectedError(err error) bool {
 }
 
 // UpdateLastModelConnection updates the last connection time of the model user.
-func (st *State) UpdateLastModelConnection(user names.UserTag) error {
-	return st.updateLastModelConnection(user, st.nowToTheSecond())
+func (m *Model) UpdateLastModelConnection(user names.UserTag) error {
+	return m.updateLastModelConnection(user, m.st.nowToTheSecond())
 }
 
-func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) error {
-	lastConnections, closer := st.db().GetCollection(modelUserLastConnectionC)
+func (m *Model) updateLastModelConnection(user names.UserTag, when time.Time) error {
+	lastConnections, closer := m.st.db().GetCollection(modelUserLastConnectionC)
 	defer closer()
 
 	lastConnectionsW := lastConnections.Writeable()
@@ -94,8 +94,8 @@ func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) e
 	session.SetSafe(&mgo.Safe{})
 
 	lastConn := modelUserLastConnectionDoc{
-		ID:             st.docID(strings.ToLower(user.Id())),
-		ModelUUID:      st.ModelUUID(),
+		ID:             m.st.docID(strings.ToLower(user.Id())),
+		ModelUUID:      m.UUID(),
 		UserName:       user.Id(),
 		LastConnection: when,
 	}
@@ -103,10 +103,10 @@ func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) e
 	return errors.Trace(err)
 }
 
-// ModelUser a model userAccessDoc.
-func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc, error) {
+// ModelUser returns a userAccessDoc for the given model.
+func (m *Model) modelUser(modelUUID string, user names.UserTag) (userAccessDoc, error) {
 	modelUser := userAccessDoc{}
-	modelUsers, closer := st.db().GetCollectionFor(modelUUID, modelUsersC)
+	modelUsers, closer := m.st.db().GetCollectionFor(modelUUID, modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Id())
@@ -158,9 +158,9 @@ func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
 }
 
 // removeModelUser removes a user from the database.
-func (st *State) removeModelUser(user names.UserTag) error {
-	ops := removeModelUserOps(st.ModelUUID(), user)
-	err := st.db().RunTransaction(ops)
+func (m *Model) removeModelUser(user names.UserTag) error {
+	ops := removeModelUserOps(m.UUID(), user)
+	err := m.st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Id()))
 	}
@@ -170,15 +170,15 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-// ModelUUIDsForUser returns a list of models that the user is able to
-// access.
+// ModelUUIDsForUser returns a list of UUIDs of models that the user
+// is able to access.
 // Results are sorted by (name, owner).
-func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
+func (m *Model) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 	// Consider the controller permissions overriding Model permission, for
 	// this case the only relevant one is superuser.
 	// The mgo query below wont work for superuser case because it needs at
 	// least one model user per model.
-	access, err := st.UserAccess(user, st.controllerTag)
+	access, err := m.UserAccess(user, m.st.controllerTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -186,7 +186,7 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 	var modelUUIDs []string
 	if access.Access == permission.SuperuserAccess {
 		var err error
-		modelUUIDs, err = st.AllModelUUIDs()
+		modelUUIDs, err = m.st.AllModelUUIDs()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -195,7 +195,7 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 		// the models that a particular user can see is to look through the
 		// model user collection. A raw collection is required to support
 		// queries across multiple models.
-		modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
+		modelUsers, userCloser := m.st.db().GetRawCollection(modelUsersC)
 		defer userCloser()
 
 		var userSlice []userAccessDoc
@@ -208,7 +208,7 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 		}
 	}
 
-	modelsColl, close := st.db().GetCollection(modelsC)
+	modelsColl, close := m.st.db().GetCollection(modelsC)
 	defer close()
 	query := modelsColl.Find(bson.M{
 		"_id":            bson.M{"$in": modelUUIDs},
@@ -228,8 +228,8 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 }
 
 // IsControllerAdmin returns true if the user specified has Super User Access.
-func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
-	ua, err := st.UserAccess(user, st.ControllerTag())
+func (m *Model) IsControllerAdmin(user names.UserTag) (bool, error) {
+	ua, err := m.UserAccess(user, m.st.ControllerTag())
 	if errors.IsNotFound(err) {
 		return false, nil
 	}

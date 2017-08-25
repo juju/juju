@@ -134,7 +134,13 @@ func (ctxt *httpContext) stateForMigration(
 	if !st.IsController() {
 		return nil, nil, errors.BadRequestf("model is not controller model")
 	}
-	admin, err := st.IsControllerAdmin(user.Tag().(names.UserTag))
+
+	controllerModel, err := st.Model()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	admin, err := controllerModel.IsControllerAdmin(user.Tag().(names.UserTag))
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

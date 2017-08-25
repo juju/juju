@@ -26,6 +26,7 @@ type InitializeSuite struct {
 	gitjujutesting.MgoSuite
 	testing.BaseSuite
 	State *state.State
+	Model *state.Model
 }
 
 var _ = gc.Suite(&InitializeSuite{})
@@ -55,6 +56,8 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
+	s.Model, err = st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
@@ -151,7 +154,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Tag(), gc.Equals, owner)
 	// Check that the owner has an ModelUser created for the bootstrapped model.
-	modelUser, err := s.State.UserAccess(model.Owner(), model.Tag())
+	modelUser, err := s.Model.UserAccess(model.Owner(), model.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserTag, gc.Equals, owner)
 	c.Assert(modelUser.Object, gc.Equals, model.Tag())

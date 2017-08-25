@@ -40,7 +40,7 @@ type userAccessTarget struct {
 }
 
 // AddModelUser adds a new user for the model identified by modelUUID to the database.
-func (st *State) AddModelUser(modelUUID string, spec UserAccessSpec) (permission.UserAccess, error) {
+func (m *Model) AddModelUser(modelUUID string, spec UserAccessSpec) (permission.UserAccess, error) {
 	if err := permission.ValidateModelAccess(spec.Access); err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "adding model user")
 	}
@@ -48,21 +48,21 @@ func (st *State) AddModelUser(modelUUID string, spec UserAccessSpec) (permission
 		uuid:      modelUUID,
 		globalKey: modelGlobalKey,
 	}
-	return st.addUserAccess(spec, target)
+	return m.addUserAccess(spec, target)
 }
 
 // AddControllerUser adds a new user for the curent controller to the database.
-func (st *State) AddControllerUser(spec UserAccessSpec) (permission.UserAccess, error) {
+func (m *Model) AddControllerUser(spec UserAccessSpec) (permission.UserAccess, error) {
 	if err := permission.ValidateControllerAccess(spec.Access); err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "adding controller user")
 	}
-	return st.addUserAccess(spec, userAccessTarget{globalKey: controllerGlobalKey})
+	return m.addUserAccess(spec, userAccessTarget{globalKey: controllerGlobalKey})
 }
 
-func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (permission.UserAccess, error) {
+func (m *Model) addUserAccess(spec UserAccessSpec, target userAccessTarget) (permission.UserAccess, error) {
 	// Ensure local user exists in state before adding them as an model user.
 	if spec.User.IsLocal() {
-		localUser, err := st.User(spec.User)
+		localUser, err := m.st.User(spec.User)
 		if err != nil {
 			return permission.UserAccess{}, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", spec.User.Name()))
 		}
@@ -73,7 +73,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 
 	// Ensure local createdBy user exists.
 	if spec.CreatedBy.IsLocal() {
-		if _, err := st.User(spec.CreatedBy); err != nil {
+		if _, err := m.st.User(spec.CreatedBy); err != nil {
 			return permission.UserAccess{}, errors.Annotatef(err, "createdBy user %q does not exist locally", spec.CreatedBy.Name())
 		}
 	}
@@ -89,29 +89,29 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			st.nowToTheSecond(),
+			m.st.nowToTheSecond(),
 			spec.Access)
 		targetTag = names.NewModelTag(target.uuid)
 	case controllerGlobalKey:
 		ops = createControllerUserOps(
-			st.ControllerUUID(),
+			m.st.ControllerUUID(),
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			st.nowToTheSecond(),
+			m.st.nowToTheSecond(),
 			spec.Access)
-		targetTag = st.controllerTag
+		targetTag = m.st.controllerTag
 	default:
 		return permission.UserAccess{}, errors.NotSupportedf("user access global key %q", target.globalKey)
 	}
-	err = st.db().RunTransactionFor(target.uuid, ops)
+	err = m.st.db().RunTransactionFor(target.uuid, ops)
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("user access %q", spec.User.Id())
 	}
 	if err != nil {
 		return permission.UserAccess{}, errors.Trace(err)
 	}
-	return st.UserAccess(spec.User, targetTag)
+	return m.UserAccess(spec.User, targetTag)
 }
 
 // userAccessID returns the document id of the user access.
@@ -122,8 +122,8 @@ func userAccessID(user names.UserTag) string {
 
 // NewModelUserAccess returns a new permission.UserAccess for the given userDoc and
 // current Model.
-func NewModelUserAccess(st *State, userDoc userAccessDoc) (permission.UserAccess, error) {
-	perm, err := st.userPermission(modelKey(userDoc.ObjectUUID), userGlobalKey(strings.ToLower(userDoc.UserName)))
+func NewModelUserAccess(m *Model, userDoc userAccessDoc) (permission.UserAccess, error) {
+	perm, err := m.userPermission(modelKey(userDoc.ObjectUUID), userGlobalKey(strings.ToLower(userDoc.UserName)))
 	if err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "obtaining model permission")
 	}
@@ -132,8 +132,8 @@ func NewModelUserAccess(st *State, userDoc userAccessDoc) (permission.UserAccess
 
 // NewControllerUserAccess returns a new permission.UserAccess for the given userDoc and
 // current Controller.
-func NewControllerUserAccess(st *State, userDoc userAccessDoc) (permission.UserAccess, error) {
-	perm, err := st.controllerUserPermission(controllerKey(st.ControllerUUID()), userGlobalKey(strings.ToLower(userDoc.UserName)))
+func NewControllerUserAccess(m *Model, userDoc userAccessDoc) (permission.UserAccess, error) {
+	perm, err := m.controllerUserPermission(controllerKey(m.st.ControllerUUID()), userGlobalKey(strings.ToLower(userDoc.UserName)))
 	if err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "obtaining controller permission")
 	}
@@ -141,20 +141,20 @@ func NewControllerUserAccess(st *State, userDoc userAccessDoc) (permission.UserA
 }
 
 // UserPermission returns the access permission for the passed subject and target.
-func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
+func (m *Model) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
 	switch target.Kind() {
 	case names.ModelTagKind, names.ControllerTagKind:
-		access, err := st.UserAccess(subject, target)
+		access, err := m.UserAccess(subject, target)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 		return access.Access, nil
 	case names.ApplicationOfferTagKind:
-		offerUUID, err := applicationOfferUUID(st, target.Id())
+		offerUUID, err := applicationOfferUUID(m.st, target.Id())
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-		return st.GetOfferAccess(offerUUID, subject)
+		return m.st.GetOfferAccess(offerUUID, subject)
 	default:
 		return "", errors.NotValidf("%q as a target", target.Kind())
 	}
@@ -174,9 +174,9 @@ func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag
 }
 
 // UserAccess returns a new permission.UserAccess for the passed subject and target.
-func (st *State) UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
+func (m *Model) UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	if subject.IsLocal() {
-		_, err := st.User(subject)
+		_, err := m.st.User(subject)
 		if err != nil {
 			return permission.UserAccess{}, errors.Trace(err)
 		}
@@ -188,14 +188,14 @@ func (st *State) UserAccess(subject names.UserTag, target names.Tag) (permission
 	)
 	switch target.Kind() {
 	case names.ModelTagKind:
-		userDoc, err = st.modelUser(target.Id(), subject)
+		userDoc, err = m.modelUser(target.Id(), subject)
 		if err == nil {
-			return NewModelUserAccess(st, userDoc)
+			return NewModelUserAccess(m, userDoc)
 		}
 	case names.ControllerTagKind:
-		userDoc, err = st.controllerUser(subject)
+		userDoc, err = m.st.controllerUser(subject)
 		if err == nil {
-			return NewControllerUserAccess(st, userDoc)
+			return NewControllerUserAccess(m, userDoc)
 		}
 	default:
 		return permission.UserAccess{}, errors.NotValidf("%q as a target", target.Kind())
@@ -204,32 +204,32 @@ func (st *State) UserAccess(subject names.UserTag, target names.Tag) (permission
 }
 
 // SetUserAccess sets <access> level on <target> to <subject>.
-func (st *State) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
+func (m *Model) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
 	err := access.Validate()
 	if err != nil {
 		return permission.UserAccess{}, errors.Trace(err)
 	}
 	switch target.Kind() {
 	case names.ModelTagKind:
-		err = st.setModelAccess(access, userGlobalKey(userAccessID(subject)), target.Id())
+		err = m.setModelAccess(access, userGlobalKey(userAccessID(subject)), target.Id())
 	case names.ControllerTagKind:
-		err = st.setControllerAccess(access, userGlobalKey(userAccessID(subject)))
+		err = m.st.setControllerAccess(access, userGlobalKey(userAccessID(subject)))
 	default:
 		return permission.UserAccess{}, errors.NotValidf("%q as a target", target.Kind())
 	}
 	if err != nil {
 		return permission.UserAccess{}, errors.Trace(err)
 	}
-	return st.UserAccess(subject, target)
+	return m.UserAccess(subject, target)
 }
 
 // RemoveUserAccess removes access for subject to the passed tag.
-func (st *State) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
+func (m *Model) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
 	switch target.Kind() {
 	case names.ModelTagKind:
-		return errors.Trace(st.removeModelUser(subject))
+		return errors.Trace(m.removeModelUser(subject))
 	case names.ControllerTagKind:
-		return errors.Trace(st.removeControllerUser(subject))
+		return errors.Trace(m.st.removeControllerUser(subject))
 	}
 	return errors.NotValidf("%q as a target", target.Kind())
 }

@@ -82,7 +82,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			Status: status.Available,
 			Since:  &time.Time{},
 		},
-		users: []*mockModelUser{{
+		modelUsers: []*mockModelUser{{
 			userName: "admin",
 			access:   permission.AdminAccess,
 		}, {
@@ -107,7 +107,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			Status: status.Destroying,
 			Since:  &time.Time{},
 		},
-		users: []*mockModelUser{{
+		modelUsers: []*mockModelUser{{
 			userName: "admin",
 			access:   permission.AdminAccess,
 		}, {
@@ -302,7 +302,7 @@ func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
-	s.st.model.users = nil
+	s.st.model.modelUsers = nil
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `permission denied`)
 }
 
@@ -604,11 +604,6 @@ func (st *mockState) GetModel(modelUUID string) (common.Model, func() bool, erro
 	return st.model, func() bool { return true }, st.NextErr()
 }
 
-func (st *mockState) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
-	st.MethodCall(st, "ModelUUIDsForUser", user)
-	return nil, st.NextErr()
-}
-
 func (st *mockState) AllApplications() ([]common.Application, error) {
 	st.MethodCall(st, "AllApplications")
 	return nil, st.NextErr()
@@ -622,27 +617,6 @@ func (st *mockState) AllVolumes() ([]state.Volume, error) {
 func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
 	st.MethodCall(st, "AllFilesystems")
 	return nil, st.NextErr()
-}
-
-func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
-	st.MethodCall(st, "IsControllerAdmin", user)
-	if st.controllerModel == nil {
-		return user.Id() == "admin", st.NextErr()
-	}
-	if st.controllerModel.users == nil {
-		return user.Id() == "admin", st.NextErr()
-	}
-
-	for _, u := range st.controllerModel.users {
-		if user.Name() == u.userName && u.access == permission.AdminAccess {
-			nextErr := st.NextErr()
-			if user.Name() != "admin" {
-				panic(user.Name())
-			}
-			return true, nextErr
-		}
-	}
-	return false, st.NextErr()
 }
 
 func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
@@ -716,51 +690,6 @@ func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Creden
 func (st *mockState) Close() error {
 	st.MethodCall(st, "Close")
 	return st.NextErr()
-}
-
-func (st *mockState) AddModelUser(modelUUID string, spec state.UserAccessSpec) (permission.UserAccess, error) {
-	st.MethodCall(st, "AddModelUser", modelUUID, spec)
-	return permission.UserAccess{}, st.NextErr()
-}
-
-func (st *mockState) AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
-	st.MethodCall(st, "AddControllerUser", spec)
-	return permission.UserAccess{}, st.NextErr()
-}
-
-func (st *mockState) RemoveModelUser(tag names.UserTag) error {
-	st.MethodCall(st, "RemoveModelUser", tag)
-	return st.NextErr()
-}
-
-func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
-	st.MethodCall(st, "ModelUser", tag, target)
-	for _, user := range st.users {
-		if user.UserTag != tag {
-			continue
-		}
-		nextErr := st.NextErr()
-		if nextErr != nil {
-			return permission.UserAccess{}, nextErr
-		}
-		return user, nil
-	}
-	return permission.UserAccess{}, st.NextErr()
-}
-
-func (st *mockState) LastModelConnection(user names.UserTag) (time.Time, error) {
-	st.MethodCall(st, "LastModelConnection", user)
-	return time.Time{}, st.NextErr()
-}
-
-func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
-	st.MethodCall(st, "RemoveUserAccess", subject, target)
-	return st.NextErr()
-}
-
-func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
-	st.MethodCall(st, "SetUserAccess", subject, target, access)
-	return permission.UserAccess{}, st.NextErr()
 }
 
 func (st *mockState) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
@@ -916,7 +845,8 @@ type mockModel struct {
 	tag             names.ModelTag
 	status          status.StatusInfo
 	cfg             *config.Config
-	users           []*mockModelUser
+	modelUsers      []*mockModelUser
+	userAccesses    []permission.UserAccess
 	migrationStatus state.MigrationMode
 	controllerUUID  string
 }
@@ -966,9 +896,9 @@ func (m *mockModel) Users() ([]permission.UserAccess, error) {
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	users := make([]permission.UserAccess, len(m.users))
-	for i, user := range m.users {
-		users[i] = permission.UserAccess{
+	modelUsers := make([]permission.UserAccess, len(m.modelUsers))
+	for i, user := range m.modelUsers {
+		modelUsers[i] = permission.UserAccess{
 			UserID:      strings.ToLower(user.userName),
 			UserTag:     names.NewUserTag(user.userName),
 			Object:      m.ModelTag(),
@@ -977,7 +907,7 @@ func (m *mockModel) Users() ([]permission.UserAccess, error) {
 			UserName:    user.userName,
 		}
 	}
-	return users, nil
+	return modelUsers, nil
 }
 
 func (m *mockModel) Destroy(args state.DestroyModelParams) error {
@@ -1013,6 +943,74 @@ func (m *mockModel) Name() string {
 func (m *mockModel) MigrationMode() state.MigrationMode {
 	m.MethodCall(m, "MigrationMode")
 	return m.migrationStatus
+}
+
+func (m *mockModel) AddModelUser(modelUUID string, spec state.UserAccessSpec) (permission.UserAccess, error) {
+	m.MethodCall(m, "AddModelUser", modelUUID, spec)
+	return permission.UserAccess{}, m.NextErr()
+}
+
+func (m *mockModel) AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
+	m.MethodCall(m, "AddControllerUser", spec)
+	return permission.UserAccess{}, m.NextErr()
+}
+
+func (m *mockModel) RemoveModelUser(tag names.UserTag) error {
+	m.MethodCall(m, "RemoveModelUser", tag)
+	return m.NextErr()
+}
+
+func (m *mockModel) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
+	m.MethodCall(m, "ModelUser", tag, target)
+	for _, user := range m.userAccesses {
+		if user.UserTag != tag {
+			continue
+		}
+		nextErr := m.NextErr()
+		if nextErr != nil {
+			return permission.UserAccess{}, nextErr
+		}
+		return user, nil
+	}
+	return permission.UserAccess{}, m.NextErr()
+}
+
+func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
+	m.MethodCall(m, "LastModelConnection", user)
+	return time.Time{}, m.NextErr()
+}
+
+func (m *mockModel) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
+	m.MethodCall(m, "RemoveUserAccess", subject, target)
+	return m.NextErr()
+}
+
+func (m *mockModel) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
+	m.MethodCall(m, "SetUserAccess", subject, target, access)
+	return permission.UserAccess{}, m.NextErr()
+}
+
+func (m *mockModel) IsControllerAdmin(user names.UserTag) (bool, error) {
+	m.MethodCall(m, "IsControllerAdmin", user)
+	if m.modelUsers == nil {
+		return user.Id() == "admin", m.NextErr()
+	}
+
+	for _, u := range m.modelUsers {
+		if user.Name() == u.userName && u.access == permission.AdminAccess {
+			nextErr := m.NextErr()
+			if user.Name() != "admin" {
+				panic(user.Name())
+			}
+			return true, nextErr
+		}
+	}
+	return false, m.NextErr()
+}
+
+func (m *mockModel) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
+	m.MethodCall(m, "ModelUUIDsForUser", user)
+	return nil, m.NextErr()
 }
 
 type mockModelUser struct {

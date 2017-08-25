@@ -156,9 +156,17 @@ func (c *Collector) updateMetrics() {
 		c.scrapeErrors.Inc()
 		localUsers = nil
 	}
+	model, err := st.Model()
+	if err != nil {
+		logger.Debugf("error getting model: %v", err)
+		c.scrapeErrors.Inc()
+		localUsers = nil
+	}
+
 	for _, u := range localUsers {
 		userTag := u.UserTag()
-		access, err := st.UserAccess(userTag, controllerTag)
+
+		access, err := model.UserAccess(userTag, controllerTag)
 		if err != nil && !errors.IsNotFound(err) {
 			logger.Debugf("error getting controller user access: %v", err)
 			c.scrapeErrors.Inc()

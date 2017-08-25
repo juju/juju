@@ -72,7 +72,7 @@ type mockState struct {
 }
 
 func (m *mockState) AllModelUUIDs() ([]string, error) {
-	m.MethodCall(m, "AllModelsUUIDs")
+	m.MethodCall(m, "AllModelUUIDs")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
@@ -96,19 +96,6 @@ func (m *mockState) ControllerTag() names.ControllerTag {
 	return coretesting.ControllerTag
 }
 
-func (m *mockState) UserAccess(subject names.UserTag, object names.Tag) (permission.UserAccess, error) {
-	m.MethodCall(m, "UserAccess", subject, object)
-	if err := m.NextErr(); err != nil {
-		return permission.UserAccess{}, err
-	}
-	for _, u := range m.users {
-		if u.tag == subject {
-			return permission.UserAccess{Access: u.controllerAccess}, nil
-		}
-	}
-	panic("subject not found")
-}
-
 func (m *mockState) release() bool {
 	m.MethodCall(m, "release")
 	return false
@@ -126,12 +113,17 @@ func (m *mockState) AllMachines() ([]statemetrics.Machine, error) {
 	return out, nil
 }
 
+func (m *mockState) Model() (statemetrics.Model, error) {
+	return m.model, nil
+}
+
 type mockModel struct {
 	testing.Stub
 	tag      names.ModelTag
 	life     state.Life
 	status   status.StatusInfo
 	machines []*mockMachine
+	users    []*mockUser
 }
 
 func (m *mockModel) Life() state.Life {
@@ -150,6 +142,19 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 		return status.StatusInfo{}, err
 	}
 	return m.status, nil
+}
+
+func (m *mockModel) UserAccess(subject names.UserTag, object names.Tag) (permission.UserAccess, error) {
+	m.MethodCall(m, "UserAccess", subject, object)
+	if err := m.NextErr(); err != nil {
+		return permission.UserAccess{}, err
+	}
+	for _, u := range m.users {
+		if u.tag == subject {
+			return permission.UserAccess{Access: u.controllerAccess}, nil
+		}
+	}
+	panic("subject not found")
 }
 
 type mockUser struct {

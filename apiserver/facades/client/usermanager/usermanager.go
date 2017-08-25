@@ -256,9 +256,14 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		return results, errors.Trace(err)
 	}
 
+	model, err := api.state.Model()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
 	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
 		// Lookup the access the specified user has to the controller.
-		access, err := common.GetPermission(api.state.UserPermission, userTag, api.state.ControllerTag())
+		access, err := common.GetPermission(model.UserPermission, userTag, api.state.ControllerTag())
 		if err == nil {
 			result.Result.Access = string(access)
 		} else if err != nil && !errors.IsNotFound(err) {

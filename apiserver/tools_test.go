@@ -200,7 +200,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 
 func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	_, err := s.Model.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make some fake tools.
@@ -239,7 +239,7 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 
 func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	_, err := s.Model.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make some fake tools.

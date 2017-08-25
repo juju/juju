@@ -2594,7 +2594,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 
 	// Add a model user whose permissions should get removed
 	// when the model is.
-	_, err = s.State.AddModelUser(
+	_, err = s.Model.AddModelUser(
 		s.State.ModelUUID(),
 		state.UserAccessSpec{
 			User:      names.NewUserTag("amelia@external"),
