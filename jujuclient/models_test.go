@@ -32,13 +32,13 @@ func (s *ModelsSuite) TestModelByNameNoFile(c *gc.C) {
 	err := os.Remove(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	details, err := s.store.ModelByName("not-found", "admin/admin")
-	c.Assert(err, gc.ErrorMatches, "models for controller not-found not found")
+	c.Assert(err, gc.ErrorMatches, "model not-found:admin/admin not found")
 	c.Assert(details, gc.IsNil)
 }
 
 func (s *ModelsSuite) TestModelByNameControllerNotFound(c *gc.C) {
 	details, err := s.store.ModelByName("not-found", "admin/admin")
-	c.Assert(err, gc.ErrorMatches, "models for controller not-found not found")
+	c.Assert(err, gc.ErrorMatches, "model not-found:admin/admin not found")
 	c.Assert(details, gc.IsNil)
 }
 
