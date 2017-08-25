@@ -44,13 +44,13 @@ func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUU
 
 // LastModelConnection returns when this User last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
-func (st *State) LastModelConnection(user names.UserTag) (time.Time, error) {
-	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
+func (m *Model) LastModelConnection(user names.UserTag) (time.Time, error) {
+	lastConnections, closer := m.st.db().GetRawCollection(modelUserLastConnectionC)
 	defer closer()
 
 	username := user.Id()
 	var lastConn modelUserLastConnectionDoc
-	err := lastConnections.FindId(st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
+	err := lastConnections.FindId(m.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			err = errors.Wrap(err, NeverConnectedError(username))
@@ -78,12 +78,12 @@ func IsNeverConnectedError(err error) bool {
 }
 
 // UpdateLastModelConnection updates the last connection time of the model user.
-func (st *State) UpdateLastModelConnection(user names.UserTag) error {
-	return st.updateLastModelConnection(user, st.nowToTheSecond())
+func (m *Model) UpdateLastModelConnection(user names.UserTag) error {
+	return m.updateLastModelConnection(user, m.st.nowToTheSecond())
 }
 
-func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) error {
-	lastConnections, closer := st.db().GetCollection(modelUserLastConnectionC)
+func (m *Model) updateLastModelConnection(user names.UserTag, when time.Time) error {
+	lastConnections, closer := m.st.db().GetCollection(modelUserLastConnectionC)
 	defer closer()
 
 	lastConnectionsW := lastConnections.Writeable()
@@ -94,8 +94,8 @@ func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) e
 	session.SetSafe(&mgo.Safe{})
 
 	lastConn := modelUserLastConnectionDoc{
-		ID:             st.docID(strings.ToLower(user.Id())),
-		ModelUUID:      st.ModelUUID(),
+		ID:             m.st.docID(strings.ToLower(user.Id())),
+		ModelUUID:      m.UUID(),
 		UserName:       user.Id(),
 		LastConnection: when,
 	}

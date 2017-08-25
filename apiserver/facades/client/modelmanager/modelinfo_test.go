@@ -718,20 +718,11 @@ func (st *mockState) Close() error {
 	return st.NextErr()
 }
 
-func (st *mockState) AddModelUser(modelUUID string, spec state.UserAccessSpec) (permission.UserAccess, error) {
-	st.MethodCall(st, "AddModelUser", modelUUID, spec)
-	return permission.UserAccess{}, st.NextErr()
-}
-
 func (st *mockState) AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
 	st.MethodCall(st, "AddControllerUser", spec)
 	return permission.UserAccess{}, st.NextErr()
 }
 
-func (st *mockState) RemoveModelUser(tag names.UserTag) error {
-	st.MethodCall(st, "RemoveModelUser", tag)
-	return st.NextErr()
-}
 
 func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	st.MethodCall(st, "ModelUser", tag, target)
@@ -746,11 +737,6 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 		return user, nil
 	}
 	return permission.UserAccess{}, st.NextErr()
-}
-
-func (st *mockState) LastModelConnection(user names.UserTag) (time.Time, error) {
-	st.MethodCall(st, "LastModelConnection", user)
-	return time.Time{}, st.NextErr()
 }
 
 func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
@@ -1015,6 +1001,14 @@ func (m *mockModel) MigrationMode() state.MigrationMode {
 	return m.migrationStatus
 }
 
+func (m *mockModel) AddUser(spec state.UserAccessSpec) (permission.UserAccess, error) {
+	m.MethodCall(m, "AddUser", spec)
+	return permission.UserAccess{}, m.NextErr()
+}
+func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
+	m.MethodCall(m, "LastModelConnection", user)
+	return time.Time{}, m.NextErr()
+}
 type mockModelUser struct {
 	gitjujutesting.Stub
 	userName       string

@@ -207,7 +207,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
+	bob, err := s.Model.AddUser(state.UserAccessSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
 		Access:    permission.ReadAccess,

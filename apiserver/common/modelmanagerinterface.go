@@ -46,7 +46,6 @@ type ModelManagerBackend interface {
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
-	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
@@ -61,7 +60,6 @@ type ModelManagerBackend interface {
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
 	ReloadSpaces(environ environs.Environ) error
-	LastModelConnection(user names.UserTag) (time.Time, error)
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
@@ -95,6 +93,8 @@ type Model interface {
 	Name() string
 	UUID() string
 	ControllerUUID() string
+	LastModelConnection(user names.UserTag) (time.Time, error)
+	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

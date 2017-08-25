@@ -180,7 +180,12 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 }
 
 func lastConnPointer(c *gc.C, modelUser permission.UserAccess, st *state.State) *time.Time {
-	lastConn, err := st.LastModelConnection(modelUser.UserTag)
+	model, err := st.Model()
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	lastConn, err := model.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil

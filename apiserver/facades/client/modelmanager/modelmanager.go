@@ -588,8 +588,13 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		}
 		defer release()
 
+		model, err := st.Model()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
 		var lastConn *time.Time
-		userLastConn, err := st.LastModelConnection(userTag)
+		userLastConn, err := model.LastModelConnection(userTag)
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)
@@ -598,7 +603,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 			lastConn = &userLastConn
 		}
 
-		model, err := st.Model()
+		model, err = st.Model()
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -787,7 +792,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 				continue
 			}
 
-			userInfo, err := common.ModelUserInfo(user, st)
+			userInfo, err := common.ModelUserInfo(user, model)
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
@@ -923,9 +928,14 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		return errors.Trace(err)
 	}
 
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	switch action {
 	case params.GrantModelAccess:
-		_, err = st.AddModelUser(modelTag.Id(), state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+		_, err = model.AddUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 		if errors.IsAlreadyExists(err) {
 			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if errors.IsNotFound(err) {

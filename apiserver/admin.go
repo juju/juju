@@ -615,8 +615,14 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	// the local user last login time.
 	var err error
 	var t time.Time
+
+	model, err := u.st.Model()
+	if err != nil {
+		return t, errors.Trace(err)
+	}
+
 	if !permission.IsEmptyUserAccess(u.modelUser) {
-		t, err = u.st.LastModelConnection(u.modelUser.UserTag)
+		t, err = model.LastModelConnection(u.modelUser.UserTag)
 	} else {
 		err = state.NeverConnectedError("controller user")
 	}
@@ -641,7 +647,12 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
 		}
 
-		err = u.st.UpdateLastModelConnection(u.modelUser.UserTag)
+		model, err := u.st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = model.UpdateLastModelConnection(u.modelUser.UserTag)
 	}
 
 	if u.user != nil {

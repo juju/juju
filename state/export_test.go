@@ -484,7 +484,12 @@ func MakeActionIdConverter(st *State) func(string) (string, error) {
 }
 
 func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time.Time) error {
-	return st.updateLastModelConnection(e.UserTag, when)
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return model.updateLastModelConnection(e.UserTag, when)
 }
 
 func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
