@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var getState = func(st *state.State) annotationAccess {
-	return stateShim{st}
-}
-
 // Annotations defines the methods on the service API end point.
 type Annotations interface {
 	Get(args params.Entities) params.AnnotationsGetResults
@@ -37,13 +33,15 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &API{
-		access:     getState(st),
+		access:     &stateShim{st, model},
 		authorizer: authorizer,
 	}, nil
 }
@@ -131,7 +129,7 @@ func (api *API) getEntityAnnotations(entityTag string) (map[string]string, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	annotations, err := api.access.GetAnnotations(entity)
+	annotations, err := api.access.Annotations(entity)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

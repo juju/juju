@@ -58,6 +58,8 @@ type allWatcherBaseSuite struct {
 // all(Model)WatcherStateBacking.GetAll.
 func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, includeOffers bool) (entities entityInfoSlice) {
 	modelUUID := st.ModelUUID()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
 	}
@@ -129,7 +131,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		},
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
-	err = st.SetAnnotations(wordpress, pairs)
+	err = model.SetAnnotations(wordpress, pairs)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
 		ModelUUID:   modelUUID,
@@ -194,7 +196,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			},
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
-		err = st.SetAnnotations(wu, pairs)
+		err = model.SetAnnotations(wu, pairs)
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
 			ModelUUID:   modelUUID,
@@ -1139,7 +1141,10 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = st.SetAnnotations(m, map[string]string{"foo": "bar"})
+				model, err := st.Model()
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = model.SetAnnotations(m, map[string]string{"foo": "bar"})
 				c.Assert(err, jc.ErrorIsNil)
 				return 1
 			},
@@ -2014,7 +2019,9 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = st.SetAnnotations(m, map[string]string{"foo": "bar", "arble": "baz"})
+			model, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			err = model.SetAnnotations(m, map[string]string{"foo": "bar", "arble": "baz"})
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2033,7 +2040,9 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = st.SetAnnotations(m, map[string]string{
+			model, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			err = model.SetAnnotations(m, map[string]string{
 				"arble":  "khroomph",
 				"pretty": "",
 				"new":    "attr",

@@ -122,6 +122,11 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
 
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
@@ -136,7 +141,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 	addresser := common.NewAPIAddresser(st, resources)
 	return NewClient(
-		&stateShim{st},
+		&stateShim{st, model},
 		&poolShim{ctx.StatePool()},
 		modelConfigAPI,
 		resources,

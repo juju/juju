@@ -87,6 +87,15 @@ type Unit interface {
 
 type stateShim struct {
 	*state.State
+	model *state.Model
+}
+
+func (s *stateShim) Annotations(entity state.GlobalEntity) (map[string]string, error) {
+	return s.model.Annotations(entity)
+}
+
+func (s *stateShim) SetAnnotations(entity state.GlobalEntity, ann map[string]string) error {
+	return s.model.SetAnnotations(entity, ann)
 }
 
 func (s *stateShim) Unit(name string) (Unit, error) {

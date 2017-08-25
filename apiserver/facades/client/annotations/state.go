@@ -10,28 +10,19 @@ import (
 )
 
 type annotationAccess interface {
-	FindEntity(tag names.Tag) (state.Entity, error)
-	GetAnnotations(entity state.GlobalEntity) (map[string]string, error)
-	SetAnnotations(entity state.GlobalEntity, annotations map[string]string) error
 	ModelTag() names.ModelTag
+	FindEntity(tag names.Tag) (state.Entity, error)
+	Annotations(entity state.GlobalEntity) (map[string]string, error)
+	SetAnnotations(entity state.GlobalEntity, annotations map[string]string) error
 }
 
 type stateShim struct {
-	state *state.State
+	// TODO(menn0) - once FindEntity goes to Model, the embedded State
+	// can go from here. The ModelTag method below can also go.
+	*state.State
+	*state.Model
 }
 
-func (s stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
-	return s.state.FindEntity(tag)
-}
-
-func (s stateShim) GetAnnotations(entity state.GlobalEntity) (map[string]string, error) {
-	return s.state.Annotations(entity)
-}
-
-func (s stateShim) SetAnnotations(entity state.GlobalEntity, annotations map[string]string) error {
-	return s.state.SetAnnotations(entity, annotations)
-}
-
-func (s stateShim) ModelTag() names.ModelTag {
-	return s.state.ModelTag()
+func (s *stateShim) ModelTag() names.ModelTag {
+	return s.Model.ModelTag()
 }

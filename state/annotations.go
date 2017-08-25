@@ -27,7 +27,7 @@ type annotatorDoc struct {
 }
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
-func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]string) (err error) {
+func (m *Model) SetAnnotations(entity GlobalEntity, annotations map[string]string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot update annotations on %s", entity.Tag())
 	if len(annotations) == 0 {
 		return nil
@@ -54,7 +54,7 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		annotations, closer := st.db().GetCollection(annotationsC)
+		annotations, closer := m.st.db().GetCollection(annotationsC)
 		defer closer()
 		if count, err := annotations.FindId(entity.globalKey()).Count(); err != nil {
 			return nil, err
@@ -63,17 +63,17 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 			if attempt != 0 {
 				return nil, fmt.Errorf("%s no longer exists", entity.Tag())
 			}
-			return insertAnnotationsOps(st, entity, toInsert)
+			return insertAnnotationsOps(m.st, entity, toInsert)
 		}
-		return updateAnnotations(st, entity, toUpdate, toRemove), nil
+		return updateAnnotations(m.st, entity, toUpdate, toRemove), nil
 	}
-	return st.db().Run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // Annotations returns all the annotations corresponding to an entity.
-func (st *State) Annotations(entity GlobalEntity) (map[string]string, error) {
+func (m *Model) Annotations(entity GlobalEntity) (map[string]string, error) {
 	doc := new(annotatorDoc)
-	annotations, closer := st.db().GetCollection(annotationsC)
+	annotations, closer := m.st.db().GetCollection(annotationsC)
 	defer closer()
 	err := annotations.FindId(entity.globalKey()).One(doc)
 	if err == mgo.ErrNotFound {
@@ -88,8 +88,8 @@ func (st *State) Annotations(entity GlobalEntity) (map[string]string, error) {
 
 // Annotation returns the annotation value corresponding to the given key.
 // If the requested annotation is not found, an empty string is returned.
-func (st *State) Annotation(entity GlobalEntity, key string) (string, error) {
-	ann, err := st.Annotations(entity)
+func (m *Model) Annotation(entity GlobalEntity, key string) (string, error) {
+	ann, err := m.Annotations(entity)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

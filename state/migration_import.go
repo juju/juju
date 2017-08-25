@@ -251,7 +251,7 @@ func (i *importer) modelExtras() error {
 	}
 
 	if annotations := i.model.Annotations(); len(annotations) > 0 {
-		if err := i.st.SetAnnotations(i.dbModel, annotations); err != nil {
+		if err := i.im.SetAnnotations(i.dbModel, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -430,7 +430,7 @@ func (i *importer) machine(m description.Machine) error {
 
 	machine := newMachine(i.st, mdoc)
 	if annotations := m.Annotations(); len(annotations) > 0 {
-		if err := i.st.SetAnnotations(machine, annotations); err != nil {
+		if err := i.im.SetAnnotations(machine, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -781,7 +781,7 @@ func (i *importer) application(a description.Application) error {
 	}
 
 	if annotations := a.Annotations(); len(annotations) > 0 {
-		if err := i.st.SetAnnotations(app, annotations); err != nil {
+		if err := i.im.SetAnnotations(app, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -948,7 +948,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 
 	unit := newUnit(i.st, udoc)
 	if annotations := u.Annotations(); len(annotations) > 0 {
-		if err := i.st.SetAnnotations(unit, annotations); err != nil {
+		if err := i.im.SetAnnotations(unit, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
