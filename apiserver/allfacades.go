@@ -181,6 +181,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Pinger", 1, NewPinger)
 	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
+	reg("Provisioner", 4, provisioner.NewProvisionerAPI)
 	reg("ProxyUpdater", 1, proxyupdater.NewAPI)
 	reg("Reboot", 2, reboot.NewRebootAPI)
 
