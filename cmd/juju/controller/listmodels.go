@@ -156,11 +156,15 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	// And now get the full details of the models.
-	modelInfo, modelsToStore, err := c.getModelInfo(controllerName, now, models)
+	modelInfo, err := c.getModelInfo(controllerName, now, models)
 	if err != nil {
 		return errors.Annotate(err, "cannot get model details")
 	}
 	// update client store here too...
+	modelsToStore := make(map[string]jujuclient.ModelDetails, len(modelInfo))
+	for _, model := range modelInfo {
+		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
+	}
 	if err := c.ClientStore().SetModels(controllerName, modelsToStore); err != nil {
 		return errors.Trace(err)
 	}
@@ -196,10 +200,10 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, map[string]jujuclient.ModelDetails, error) {
+func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, error) {
 	client, err := c.getModelManagerAPI()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -209,11 +213,10 @@ func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userM
 	}
 	results, err := client.ModelInfo(tags)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	info := []common.ModelInfo{}
-	modelsToStore := map[string]jujuclient.ModelDetails{}
 	for i, result := range results {
 		if result.Error != nil {
 			if params.IsCodeUnauthorized(result.Error) {
@@ -222,7 +225,7 @@ func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userM
 				// to query its details.
 				continue
 			}
-			return nil, nil, errors.Annotatef(
+			return nil, errors.Annotatef(
 				result.Error, "getting model %s (%q) info",
 				userModels[i].UUID, userModels[i].Name,
 			)
@@ -230,15 +233,12 @@ func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userM
 
 		model, err := common.ModelInfoFromParams(*result.Result, now)
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		model.ControllerName = controllerName
 		info = append(info, model)
-
-		// prepare this model for store
-		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
 	}
-	return info, modelsToStore, nil
+	return info, nil
 }
 
 func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
