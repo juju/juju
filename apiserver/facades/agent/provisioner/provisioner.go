@@ -348,6 +348,38 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
+// AvailabilityZone returns a provider-specific availability zone for each given machine entity
+func (p *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, tag)
+		if err == nil {
+			hc, err := machine.HardwareCharacteristics()
+			if err == nil {
+				if hc.AvailabilityZone != nil {
+					result.Results[i].Result = *hc.AvailabilityZone
+				} else {
+					result.Results[i].Result = ""
+				}
+			} else {
+				result.Results[i].Error = common.ServerError(err)
+			}
+		}
+	}
+	return result, nil
+}
+
 // KeepInstance returns the keep-instance value for each given machine entity.
 func (p *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
