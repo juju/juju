@@ -452,7 +452,7 @@ func (cfg *InstanceConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
 		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.StatePort)),
+			"juju-mongodb", strconv.Itoa(cfg.Bootstrap.StateServingInfo.StatePort)),
 		)
 	}
 	if cfg.Controller != nil {
@@ -465,7 +465,7 @@ func (cfg *InstanceConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
 		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort)),
+			"juju-apiserver", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort)),
 		)
 	}
 	if cfg.APIInfo != nil {
@@ -477,7 +477,7 @@ func (cfg *InstanceConfig) APIHostAddrs() []string {
 func (cfg *InstanceConfig) APIHosts() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
-		hosts = append(hosts, "localhost")
+		hosts = append(hosts, "juju-apiserver")
 	}
 	if cfg.APIInfo != nil {
 		for _, addr := range cfg.APIInfo.Addrs {

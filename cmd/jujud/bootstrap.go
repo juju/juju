@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
@@ -234,6 +235,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// Extend hosts file with juju-mongodb and juju-apiserver names
+	utils.AddHostnames([]byte("juju-apiserver juju-mongodb"))
+
 	if err := c.startMongo(addrs, agentConfig); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
@@ -345,7 +349,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
 	dialInfo.Addrs = []string{
-		net.JoinHostPort("localhost", fmt.Sprint(servingInfo.StatePort)),
+		net.JoinHostPort("juju-mongodb", fmt.Sprint(servingInfo.StatePort)),
 	}
 
 	logger.Debugf("calling ensureMongoServer")
