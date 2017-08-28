@@ -153,38 +153,38 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot list models")
 	}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
 	// And now get the full details of the models.
-	paramsModelInfo, err := c.getModelInfo(models)
+	modelInfo, err := c.getModelInfo(controllerName, now, models)
 	if err != nil {
 		return errors.Annotate(err, "cannot get model details")
 	}
-
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	now := time.Now()
-	modelInfo := make([]common.ModelInfo, 0, len(models))
-	for _, info := range paramsModelInfo {
-		model, err := common.ModelInfoFromParams(info, now)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		model.ControllerName = controllerName
-		modelInfo = append(modelInfo, model)
+	// update client store here too...
+	modelsToStore := make(map[string]jujuclient.ModelDetails, len(modelInfo))
+	for _, model := range modelInfo {
+		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
+	}
+	if err := c.ClientStore().SetModels(controllerName, modelsToStore); err != nil {
+		return errors.Trace(err)
 	}
 
 	modelSet := ModelSet{Models: modelInfo}
 	current, err := c.ClientStore().CurrentModel(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	modelSet.CurrentModelQualified = current
-	modelSet.CurrentModel = current
-	if c.user != "" {
-		userForListing := names.NewUserTag(c.user)
-		unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
-		if err == nil {
-			modelSet.CurrentModel = common.OwnerQualifiedModelName(
-				unqualifiedModelName, owner, userForListing,
-			)
+	if err == nil || errors.IsNotFound(err) {
+		// It is not a problem if we could not get current model -
+		// it could have been destroyed since last time we've used this client.
+		// However, if we do find it, we'd want to mark it in the output.
+		modelSet.CurrentModelQualified = current
+		modelSet.CurrentModel = current
+		if c.user != "" {
+			userForListing := names.NewUserTag(c.user)
+			unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
+			if err == nil {
+				modelSet.CurrentModel = common.OwnerQualifiedModelName(
+					unqualifiedModelName, owner, userForListing,
+				)
+			}
 		}
 	}
 
@@ -200,7 +200,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.ModelInfo, error) {
+func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, error) {
 	client, err := c.getModelManagerAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -216,7 +216,7 @@ func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.Mode
 		return nil, errors.Trace(err)
 	}
 
-	info := []params.ModelInfo{}
+	info := []common.ModelInfo{}
 	for i, result := range results {
 		if result.Error != nil {
 			if params.IsCodeUnauthorized(result.Error) {
@@ -230,7 +230,13 @@ func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.Mode
 				userModels[i].UUID, userModels[i].Name,
 			)
 		}
-		info = append(info, *result.Result)
+
+		model, err := common.ModelInfoFromParams(*result.Result, now)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		model.ControllerName = controllerName
+		info = append(info, model)
 	}
 	return info, nil
 }

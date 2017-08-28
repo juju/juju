@@ -248,6 +248,7 @@ func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestAllModels(c *gc.C) {
+	c.Assert(s.store.Models["fake"].Models, gc.HasLen, 0)
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
@@ -259,6 +260,11 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
+	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{
+		"admin/test-model1":           jujuclient.ModelDetails{"test-model1-UUID"},
+		"carlotta/test-model2":        jujuclient.ModelDetails{"test-model2-UUID"},
+		"daiwik@external/test-model3": jujuclient.ModelDetails{"test-model3-UUID"},
+	})
 }
 
 func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
@@ -306,6 +312,7 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
+	c.Assert(s.store.Models["fake"].Models, gc.HasLen, 0)
 	s.api.denyAccess = true
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,6 +323,10 @@ func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
 		"test-model1*          dummy         active  read    2015-03-20\n"+
 		"carlotta/test-model2  dummy         active  write   2015-03-01\n"+
 		"\n")
+	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{
+		"admin/test-model1":    jujuclient.ModelDetails{"test-model1-UUID"},
+		"carlotta/test-model2": jujuclient.ModelDetails{"test-model2-UUID"},
+	})
 }
 
 func (s *ModelsSuite) TestUnrecognizedArg(c *gc.C) {
