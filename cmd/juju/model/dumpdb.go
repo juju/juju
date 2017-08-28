@@ -9,22 +9,20 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
 
 // NewDumpDBCommand returns a fully constructed dump-db command.
 func NewDumpDBCommand() cmd.Command {
-	return modelcmd.WrapController(&dumpDBCommand{})
+	return modelcmd.Wrap(&dumpDBCommand{})
 }
 
 type dumpDBCommand struct {
-	// TODO(rog) change to use ModelCommandBase.
-	modelcmd.ControllerCommandBase
+	modelcmd.ModelCommandBase
 	out cmd.Output
 	api DumpDBAPI
-
-	model string
 }
 
 const dumpDBHelpDoc = `
@@ -33,7 +31,7 @@ dump-db returns all that is stored in the database for the specified model.
 Examples:
 
     juju dump-db
-    juju dump-db mymodel
+    juju dump-db -m mymodel
 
 See also:
     models
@@ -43,7 +41,6 @@ See also:
 func (c *dumpDBCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "dump-db",
-		Args:    "[model-name]",
 		Purpose: "Displays the mongo documents for of the model.",
 		Doc:     dumpDBHelpDoc,
 	}
@@ -51,16 +48,12 @@ func (c *dumpDBCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.
 func (c *dumpDBCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ControllerCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.
 func (c *dumpDBCommand) Init(args []string) error {
-	if len(args) == 1 {
-		c.model = args[0]
-		return nil
-	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -74,39 +67,22 @@ func (c *dumpDBCommand) getAPI() (DumpDBAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewModelManagerAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelmanager.NewClient(root), nil
 }
 
 // Run implements Command.
 func (c *dumpDBCommand) Run(ctx *cmd.Context) error {
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	// TODO(rog) this could be taken care of by ModelCommandBase.
-	store := c.ClientStore()
-	if c.model == "" {
-		c.model, err = store.CurrentModel(controllerName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	modelDetails, err := store.ModelByName(controllerName, c.model)
-	if errors.IsNotFound(err) {
-		if err := c.ControllerCommandBase.RefreshModels(store, controllerName); err != nil {
-			return errors.Annotate(err, "refreshing models cache")
-		}
-		// Now try again.
-		modelDetails, err = store.ModelByName(controllerName, c.model)
-	}
+	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}

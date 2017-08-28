@@ -54,14 +54,14 @@ func NewShowCommandForTest(api ShowModelAPI, refreshFunc func(jujuclient.ClientS
 func NewDumpCommandForTest(api DumpModelAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &dumpCommand{api: api}
 	cmd.SetClientStore(store)
-	return modelcmd.WrapController(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewDumpDBCommandForTest returns a DumpDBCommand with the api provided as specified.
 func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &dumpDBCommand{api: api}
 	cmd.SetClientStore(store)
-	return modelcmd.WrapController(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
