@@ -9,7 +9,6 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -71,11 +70,7 @@ func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelmanager.NewClient(root), nil
+	return c.ModelCommandBase.NewModelManagerAPIClient()
 }
 
 // Run implements Command.
