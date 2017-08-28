@@ -100,6 +100,13 @@ func (c *dumpDBCommand) Run(ctx *cmd.Context) error {
 	}
 
 	modelDetails, err := store.ModelByName(controllerName, c.model)
+	if errors.IsNotFound(err) {
+		if err := c.ControllerCommandBase.RefreshModels(store, controllerName); err != nil {
+			return errors.Annotate(err, "refreshing models cache")
+		}
+		// Now try again.
+		modelDetails, err = store.ModelByName(controllerName, c.model)
+	}
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
