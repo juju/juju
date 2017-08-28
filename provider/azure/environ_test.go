@@ -1193,6 +1193,30 @@ func (s *environSuite) TestAllInstancesResourceGroupNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environSuite) TestAllInstancesIgnoresCommonDeployment(c *gc.C) {
+	env := s.openEnviron(c)
+
+	dependencies := []resources.Dependency{{
+		ID: to.StringPtr("whatever"),
+	}}
+	deployments := []resources.DeploymentExtended{{
+		// common deployment should be ignored
+		Name: to.StringPtr("common"),
+		Properties: &resources.DeploymentPropertiesExtended{
+			ProvisioningState: to.StringPtr("Succeeded"),
+			Dependencies:      &dependencies,
+		},
+	}}
+	result := resources.DeploymentListResult{Value: &deployments}
+	s.sender = azuretesting.Senders{
+		s.makeSender("/deployments", result),
+	}
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 0)
+}
+
 func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	env := s.openEnviron(c)
 	sender0 := mocks.NewSender()
