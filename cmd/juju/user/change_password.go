@@ -103,6 +103,7 @@ func (c *changePasswordCommand) Init(args []string) error {
 type ChangePasswordAPI interface {
 	SetPassword(username, password string) error
 	ResetPassword(username string) ([]byte, error)
+	BestAPIVersion() int
 	Close() error
 }
 
@@ -117,10 +118,13 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		c.api = api
-		defer c.api.Close()
 	}
+	defer c.api.Close()
 
 	if c.Reset {
+		if c.api.BestAPIVersion() < 2 {
+			return errors.NotSupportedf("on this juju controller, reset password")
+		}
 		return c.resetUserPassword(ctx)
 	}
 	return c.updateUserPassword(ctx)
