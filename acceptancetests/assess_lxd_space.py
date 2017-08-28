@@ -22,11 +22,13 @@
 """
 
 from __future__ import print_function
+
 import argparse
 import json
 import logging
 import os
 import sys
+
 from jujucharm import local_charm_path
 
 from deploy_stack import (
