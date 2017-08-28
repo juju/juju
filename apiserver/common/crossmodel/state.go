@@ -39,7 +39,12 @@ func GetStatePool(pool *state.StatePool) StatePool {
 
 // GetBackend wraps a State to provide a Backend interface implementation.
 func GetBackend(st *state.State) stateShim {
-	return stateShim{State: st}
+	model, err := st.Model()
+	if err != nil {
+		logger.Errorf("called GetBackend on a State with no Model.")
+		return stateShim{}
+	}
+	return stateShim{State: st, Model: model}
 }
 
 type stateShim struct {
