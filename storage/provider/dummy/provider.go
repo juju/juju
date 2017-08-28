@@ -25,6 +25,10 @@ type StorageProvider struct {
 	// dynamic provisioning.
 	IsDynamic bool
 
+	// IsReleasable defines whether or not the provider reports that it
+	// supports releasing storage.
+	IsReleasable bool
+
 	// DefaultPools_ will be returned by DefaultPools.
 	DefaultPools_ []*storage.Config
 
@@ -91,6 +95,12 @@ func (p *StorageProvider) Scope() storage.Scope {
 func (p *StorageProvider) Dynamic() bool {
 	p.MethodCall(p, "Dynamic")
 	return p.IsDynamic
+}
+
+// Releasable is defined on storage.Provider.
+func (p *StorageProvider) Releasable() bool {
+	p.MethodCall(p, "Releasable")
+	return p.IsReleasable
 }
 
 // DefaultPool is defined on storage.Provider.

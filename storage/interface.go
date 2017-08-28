@@ -72,6 +72,11 @@ type Provider interface {
 	// created at the time a machine is provisioned.
 	Dynamic() bool
 
+	// Releasable reports whether or not the storage provider is capable
+	// of releasing dynamic storage, with either ReleaseVolumes or
+	// ReleaseFilesystems.
+	Releasable() bool
+
 	// DefaultPools returns the default storage pools for this provider,
 	// to register in each new model.
 	DefaultPools() []*Config

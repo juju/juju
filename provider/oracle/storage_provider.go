@@ -54,6 +54,12 @@ func (s storageProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (s storageProvider) Releasable() bool {
+	// TODO(axw) support releasing Oracle storage volumes.
+	return false
+}
+
 // DefaultPools  is defined on the storage.Provider interface.
 func (s storageProvider) DefaultPools() []*storage.Config {
 	latencyPool, _ := storage.NewConfig("oracle-latency", oracleStorageProvideType, map[string]interface{}{

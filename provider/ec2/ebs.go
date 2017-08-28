@@ -219,6 +219,11 @@ func (e *ebsProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (*ebsProvider) Releasable() bool {
+	return true
+}
+
 // DefaultPools is defined on the Provider interface.
 func (e *ebsProvider) DefaultPools() []*storage.Config {
 	ssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{

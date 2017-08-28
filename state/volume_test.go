@@ -580,6 +580,31 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 	c.Assert(volume.Releasing(), jc.IsTrue)
 }
 
+func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeUnreleasable(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped-unreleasable")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	volume := s.storageInstanceVolume(c, storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volume.Releasing(), jc.IsFalse)
+	err = s.IAASModel.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.IAASModel.ReleaseStorageInstance(storageTag, true)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot release storage "data/0": storage provider "modelscoped-unreleasable" does not support releasing storage`,
+	)
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The volume should should still be alive.
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Alive)
+	c.Assert(volume.Releasing(), jc.IsFalse)
+}
+
 func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)

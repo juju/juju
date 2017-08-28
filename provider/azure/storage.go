@@ -101,6 +101,16 @@ func (e *azureStorageProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is part of the Provider interface.
+func (e *azureStorageProvider) Releasable() bool {
+	// NOTE(axw) Azure storage is currently tied to a model, and cannot
+	// be released or imported. To support releasing and importing, we'll
+	// need several things:
+	//  - for the provider to use managed disks
+	//  - for Azure to support moving managed disks between resource groups
+	return false
+}
+
 // DefaultPools is part of the Provider interface.
 func (e *azureStorageProvider) DefaultPools() []*storage.Config {
 	return nil

@@ -56,6 +56,10 @@ func (g *storageProvider) Dynamic() bool {
 	return true
 }
 
+func (e *storageProvider) Releasable() bool {
+	return true
+}
+
 func (g *storageProvider) DefaultPools() []*storage.Config {
 	// TODO(perrito666) Add explicit pools.
 	return nil

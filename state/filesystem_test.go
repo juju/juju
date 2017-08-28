@@ -627,6 +627,30 @@ func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemReleasing(c *
 	c.Assert(filesystem.Releasing(), jc.IsTrue)
 }
 
+func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemUnreleasable(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-unreleasable")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystem.Releasing(), jc.IsFalse)
+	err = s.IAASModel.SetFilesystemInfo(filesystem.FilesystemTag(), state.FilesystemInfo{FilesystemId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.IAASModel.ReleaseStorageInstance(storageTag, true)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot release storage "data/0": storage provider "modelscoped-unreleasable" does not support releasing storage`)
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The filesystem should should be dying, and releasing.
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(filesystem.Life(), gc.Equals, state.Alive)
+	c.Assert(filesystem.Releasing(), jc.IsFalse)
+}
+
 func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoFilesystemNotProvisioned(c *gc.C) {
 	_, filesystemAttachment, _, _ := s.addUnitWithFilesystemUnprovisioned(c, "rootfs", false)
 	err := s.IAASModel.SetFilesystemAttachmentInfo(

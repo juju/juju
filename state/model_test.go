@@ -871,6 +871,32 @@ func (s *ModelSuite) testDestroyModelDestroyStorage(c *gc.C, destroyStorage bool
 	c.Assert(volume.Releasing(), gc.Equals, !destroyStorage)
 }
 
+func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasable(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	imodel, err := m.IAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.Factory.MakeApplication(c, &factory.ApplicationParams{
+			Charm: s.AddTestingCharm(c, "storage-block"),
+			Storage: map[string]state.StorageConstraints{
+				"data": {Count: 1, Size: 1024, Pool: "modelscoped-unreleasable"},
+			},
+		}),
+	})
+
+	destroyStorage := false
+	err = imodel.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
+	c.Assert(err, gc.ErrorMatches,
+		`failed to destroy model: cannot release volume 0: `+
+			`storage provider "modelscoped-unreleasable" does not support releasing storage`)
+	c.Assert(imodel.Refresh(), jc.ErrorIsNil)
+	c.Assert(imodel.Life(), gc.Equals, state.Alive)
+	assertDoesNotNeedCleanup(c, s.State)
+}
+
 func (s *ModelSuite) TestDestroyModelAddServiceConcurrently(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()

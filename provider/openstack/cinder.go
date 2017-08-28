@@ -146,6 +146,11 @@ func (p *cinderProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (*cinderProvider) Releasable() bool {
+	return true
+}
+
 // DefaultPools implements storage.Provider.
 func (p *cinderProvider) DefaultPools() []*storage.Config {
 	return nil

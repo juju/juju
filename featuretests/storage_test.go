@@ -248,6 +248,8 @@ modelscoped:
   provider: modelscoped
 modelscoped-block:
   provider: modelscoped-block
+modelscoped-unreleasable:
+  provider: modelscoped-unreleasable
 rootfs:
   provider: rootfs
 static:
@@ -262,15 +264,16 @@ func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
 	stdout, _, err := runPoolList(c)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-Name               Provider           Attrs
-block              loop               it=works
-loop               loop               
-machinescoped      machinescoped      
-modelscoped        modelscoped        
-modelscoped-block  modelscoped-block  
-rootfs             rootfs             
-static             static             
-tmpfs              tmpfs              
+Name                      Provider                  Attrs
+block                     loop                      it=works
+loop                      loop                      
+machinescoped             machinescoped             
+modelscoped               modelscoped               
+modelscoped-block         modelscoped-block         
+modelscoped-unreleasable  modelscoped-unreleasable  
+rootfs                    rootfs                    
+static                    static                    
+tmpfs                     tmpfs                     
 
 `[1:]
 	c.Assert(stdout, gc.Equals, expected)
