@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var pairsRE = regexp.MustCompile(`([A-Z]+)=(?:"(.*?)")`)
+var pairsRE = regexp.MustCompile(`([A-Z:]+)=(?:"(.*?)")`)
 
 const (
 	// values for the TYPE column that we care about
@@ -43,6 +43,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		"FSTYPE",     // filesystem type
 		"TYPE",       // device type
 		"MOUNTPOINT", // moint point
+		"MAJ:MIN",    // major/minor device numbers
 	}
 
 	logger.Tracef("executing lsblk")
@@ -64,6 +65,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		pairs := pairsRE.FindAllStringSubmatch(s.Text(), -1)
 		var dev storage.BlockDevice
 		var deviceType string
+		var majorMinor string
 		for _, pair := range pairs {
 			switch pair[1] {
 			case "KNAME":
@@ -87,6 +89,8 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 				deviceType = pair[2]
 			case "MOUNTPOINT":
 				dev.MountPoint = pair[2]
+			case "MAJ:MIN":
+				majorMinor = pair[2]
 			default:
 				logger.Debugf("unexpected field from lsblk: %q", pair[1])
 			}
@@ -96,7 +100,14 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		// dmraid, crypt, etc., but this is enough to cover bases
 		// for now.
 		switch deviceType {
-		case typeDisk, typeLoop:
+		case typeLoop:
+		case typeDisk:
+			// Floppy disks, which have major device number 2,
+			// should be ignored.
+			if strings.HasPrefix(majorMinor, "2:") {
+				logger.Tracef("ignoring flopping disk device: %+v", dev)
+				continue
+			}
 		default:
 			logger.Tracef("ignoring %q type device: %+v", deviceType, dev)
 			continue
@@ -111,7 +122,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 			// host, but the devices will typically not be present.
 			continue
 		} else if err != nil {
-			logger.Infof("could not check if %q is in use: %v", dev.DeviceName, err)
+			logger.Debugf("could not check if %q is in use: %v", dev.DeviceName, err)
 			// We cannot detect, so err on the side of caution and default to
 			// "in use" so the device cannot be used.
 			dev.InUse = true
