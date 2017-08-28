@@ -22,16 +22,17 @@
 """
 
 from __future__ import print_function
-
-import os
-import sys
+import argparse
 import json
 import logging
-import argparse
-
+import os
+import sys
 from jujucharm import local_charm_path
-from deploy_stack import BootstrapManager
 
+from deploy_stack import (
+    BootstrapManager,
+    test_on_controller,
+    )
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
@@ -156,9 +157,8 @@ def assert_app_status(client, charm_name, expected):
 
     if app_status != expected:
         raise JujuAssertionError(
-            'App status is incorrect. '\
-            'Found: {}\nExpected: {}\n.'.format(
-            app_status, expected))
+            'App status is incorrect. '
+            'Found: {}; Expected: {}'.format(app_status, expected))
     else:
         log.info('The current status of app {} is: {}; Expected: {}'.format(
         charm_name, app_status, expected))
@@ -199,8 +199,7 @@ def main(argv=None):
         # it's meaningless to run it on other substrates.
         log.error('Incorrect substrate, should be AWS.')
         sys.exit(1)
-    with bs_manager.booted_context(args.upload_tools):
-        assess_lxd_container_space(bs_manager.client)
+    test_on_controller(assess_lxd_container_space, args)
     return 0
 
 
