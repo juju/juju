@@ -210,10 +210,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ModelUUID", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
-		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
-		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
-		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
-		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
 		{"AllMachines", nil},
 		{"LatestMigration", nil},
 	})
@@ -237,6 +233,10 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ModelTag", nil},
 		{"ModelTag", nil},
 		{"ModelTag", nil},
+		{"LastModelConnection", []interface{}{names.NewUserTag("admin")}},
+		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
+		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
+		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
 	})
 }
 

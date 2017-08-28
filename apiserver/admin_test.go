@@ -440,7 +440,7 @@ func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 	info.ModelTag = s.State.ModelTag()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	err := s.Model.RemoveUserAccess(user.UserTag(), ctag)
+	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()

@@ -205,13 +205,20 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ReloadSpaces",
 		"GetBackend",
 		"Model",
-		"LastModelConnection",
-		"LastModelConnection",
-		"LastModelConnection",
 		"AllMachines",
 		"LatestMigration",
 		"Close",
 	)
+
+	// Check that Model.LastModelConnection is called three times
+	// without making the test depend on other calls to Model
+	n := 0
+	for _, call := range s.st.model.Calls() {
+		if call.FuncName == "LastModelConnection" {
+			n = n + 1
+		}
+	}
+	c.Assert(n, gc.Equals, 3)
 
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
@@ -1187,7 +1194,7 @@ func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser permission.UserAccess, userTag, creatorTag names.UserTag) {
 	c.Assert(modelUser.UserTag, gc.Equals, userTag)
 	c.Assert(modelUser.CreatedBy, gc.Equals, creatorTag)
-	_, err := s.State.LastModelConnection(modelUser.UserTag)
+	_, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 }
 

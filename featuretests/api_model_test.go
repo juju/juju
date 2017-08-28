@@ -51,7 +51,7 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	modelUser, err := s.State.UserAccess(user, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName, gc.Equals, user.Id())
-	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
+	lastConn, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -91,18 +91,18 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 			UserName:       owner.UserName,
 			DisplayName:    owner.DisplayName,
 			Access:         "admin",
-			LastConnection: lastConnPointer(c, s.State, owner),
+			LastConnection: lastConnPointer(c, mod, owner),
 		}, {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
 			Access:         "admin",
-			LastConnection: lastConnPointer(c, s.State, modelUser),
+			LastConnection: lastConnPointer(c, mod, modelUser),
 		},
 	})
 }
 
-func lastConnPointer(c *gc.C, st *state.State, modelUser permission.UserAccess) *time.Time {
-	lastConn, err := st.LastModelConnection(modelUser.UserTag)
+func lastConnPointer(c *gc.C, mod *state.Model, modelUser permission.UserAccess) *time.Time {
+	lastConn, err := mod.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil
