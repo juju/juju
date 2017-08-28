@@ -723,7 +723,6 @@ func (st *mockState) AddControllerUser(spec state.UserAccessSpec) (permission.Us
 	return permission.UserAccess{}, st.NextErr()
 }
 
-
 func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	st.MethodCall(st, "ModelUser", tag, target)
 	for _, user := range st.users {
@@ -1009,6 +1008,7 @@ func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 	m.MethodCall(m, "LastModelConnection", user)
 	return time.Time{}, m.NextErr()
 }
+
 type mockModelUser struct {
 	gitjujutesting.Stub
 	userName       string
