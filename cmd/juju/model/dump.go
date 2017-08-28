@@ -15,16 +15,14 @@ import (
 
 // NewDumpCommand returns a fully constructed dump-model command.
 func NewDumpCommand() cmd.Command {
-	return modelcmd.WrapController(&dumpCommand{})
+	return modelcmd.Wrap(&dumpCommand{})
 }
 
 type dumpCommand struct {
-	// TODO(rog) change to use ModelCommandBase.
-	modelcmd.ControllerCommandBase
+	modelcmd.ModelCommandBase
 	out cmd.Output
 	api DumpModelAPI
 
-	model      string
 	simplified bool
 }
 
@@ -35,7 +33,7 @@ resulting YAML to stdout.
 Examples:
 
     juju dump-model
-    juju dump-model mymodel
+    juju dump-model -m mymodel
 
 See also:
     models
@@ -45,7 +43,6 @@ See also:
 func (c *dumpCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "dump-model",
-		Args:    "[model-name]",
 		Purpose: "Displays the database agnostic representation of the model.",
 		Doc:     dumpModelHelpDoc,
 	}
@@ -53,17 +50,13 @@ func (c *dumpCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.
 func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ControllerCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.BoolVar(&c.simplified, "simplified", false, "Dump a simplified partial model")
 }
 
 // Init implements Command.
 func (c *dumpCommand) Init(args []string) error {
-	if len(args) == 1 {
-		c.model = args[0]
-		return nil
-	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -77,30 +70,18 @@ func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewModelManagerAPIClient()
+	return c.ModelCommandBase.NewModelManagerAPIClient()
 }
 
 // Run implements Command.
 func (c *dumpCommand) Run(ctx *cmd.Context) error {
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	store := c.ClientStore()
-	if c.model == "" {
-		c.model, err = store.CurrentModel(controllerName)
-		if err != nil {
-			return err
-		}
-	}
-
-	modelDetails, err := store.ModelByName(controllerName, c.model)
+	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}

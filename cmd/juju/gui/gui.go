@@ -105,13 +105,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelName, err := c.ModelName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(rog) It looks like this won't work if the model isn't locally
-	// cached already.
-	details, err := store.ModelByName(controllerName, modelName)
+	modelName, details, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve model details: please make sure you switched to a valid model")
 	}

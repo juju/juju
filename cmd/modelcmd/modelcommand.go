@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -274,6 +275,16 @@ func (c *ModelCommandBase) CurrentAccountDetails() (*jujuclient.AccountDetails, 
 		return nil, errors.Trace(err)
 	}
 	return c.ClientStore().AccountDetails(controllerName)
+}
+
+// NewModelManagerAPIClient returns an API client for the
+// ModelManager on the current controller using the current credentials.
+func (c *ModelCommandBase) NewModelManagerAPIClient() (*modelmanager.Client, error) {
+	root, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelmanager.NewClient(root), nil
 }
 
 // WrapOption specifies an option to the Wrap function.
