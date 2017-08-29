@@ -82,14 +82,14 @@ controllers:
     models:
       controller:
         uuid: ghi
-    current-model: controller
+    current-model: admin/controller
   mallards:
     models:
       model0:
         uuid: abc
       my-model:
         uuid: def
-    current-model: my-model
+    current-model: admin/my-model
 `
 
 const testAccountsYaml = `

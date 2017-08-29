@@ -134,6 +134,11 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 	if err != nil {
 		return err
 	}
+	// Update client store.
+	if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
+		return errors.Trace(err)
+	}
+
 	var controllerModelUUID string
 	modelTags := make([]names.ModelTag, len(allModels))
 	for i, m := range allModels {
