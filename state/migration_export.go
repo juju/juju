@@ -1098,7 +1098,13 @@ func (e *exporter) actions() error {
 	if e.cfg.SkipActions {
 		return nil
 	}
-	actions, err := e.st.AllActions()
+
+	m, err := e.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	actions, err := m.AllActions()
 	if err != nil {
 		return errors.Trace(err)
 	}

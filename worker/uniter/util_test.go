@@ -856,7 +856,9 @@ type waitActionResults struct {
 }
 
 func (s waitActionResults) step(c *gc.C, ctx *context) {
-	resultsWatcher := ctx.st.WatchActionResults()
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	resultsWatcher := m.WatchActionResults()
 	defer func() {
 		c.Assert(resultsWatcher.Stop(), gc.IsNil)
 	}()
@@ -963,7 +965,9 @@ type addAction struct {
 }
 
 func (s addAction) step(c *gc.C, ctx *context) {
-	_, err := ctx.st.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = m.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

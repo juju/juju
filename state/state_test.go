@@ -76,6 +76,7 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 
 type StateSuite struct {
 	ConnSuite
+	model *state.Model
 }
 
 var _ = gc.Suite(&StateSuite{})
@@ -88,6 +89,10 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.model = model
 }
 
 func (s *StateSuite) TestOpenController(c *gc.C) {
@@ -925,9 +930,7 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy(state.DestroyModelParams{})
+	err := s.model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -935,22 +938,18 @@ func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(model.Life(), gc.Equals, state.Alive)
-		c.Assert(model.Destroy(state.DestroyModelParams{}), gc.IsNil)
+		c.Assert(s.model.Life(), gc.Equals, state.Alive)
+		c.Assert(s.model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentMigrating(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeExporting)
+	err := s.model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1525,9 +1524,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// Check that services cannot be added if the model is initially Dying.
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeExporting)
+	err := s.model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is being migrated`)
@@ -1578,15 +1575,13 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 func (s *StateSuite) TestAddApplicationEnvironmentDyingAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingApplication(c, "s0", charm)
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	// Check that services cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(model.Life(), gc.Equals, state.Alive)
-		c.Assert(model.Destroy(state.DestroyModelParams{}), gc.IsNil)
+		c.Assert(s.model.Life(), gc.Equals, state.Alive)
+		c.Assert(s.model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
@@ -2044,8 +2039,7 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Alive model...
-	alive, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	alive := s.model
 
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
@@ -2589,9 +2583,6 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add a model user whose permissions should get removed
 	// when the model is.
 	_, err = s.State.AddModelUser(
@@ -2603,7 +2594,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return state.UserModelNameIndex(model.Owner().Id(), model.Name())
+	return state.UserModelNameIndex(s.model.Owner().Id(), s.model.Name())
 }
 
 type checkUserModelNameArgs struct {
@@ -2648,8 +2639,7 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 }
 
 func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	st := s.State
 
 	userModelKey := s.insertFakeModelDocs(c, st)
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: true})
@@ -2699,20 +2689,28 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	userModelKey := s.insertFakeModelDocs(c, st)
-	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
+	c.Assert(state.HostedModelCount(c, st), gc.Equals, 1)
 
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeImporting)
+
+	err = m.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveImportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// remove suite state
+	err = s.State.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
-	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+	c.Assert(state.HostedModelCount(c, st), gc.Equals, 0)
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
@@ -2726,8 +2724,10 @@ func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
 func (s *StateSuite) TestRemoveExportingModelDocsFailsImporting(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
+
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2743,10 +2743,17 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveExportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test that we can not find the user:envName unique index
@@ -2761,6 +2768,7 @@ func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2780,6 +2788,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2818,6 +2827,7 @@ func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogTrackers(c *gc.C) {
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3108,12 +3118,9 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
 
-	// model tag is dynamically generated
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	findEntityTests = append([]findEntityTest{}, findEntityTests...)
 	findEntityTests = append(findEntityTests, findEntityTest{
-		tag: names.NewModelTag(model.UUID()),
+		tag: names.NewModelTag(s.model.UUID()),
 	})
 
 	for i, test := range findEntityTests {
@@ -3129,7 +3136,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				// TODO(axw) 2013-12-04 #1257587
 				// We *should* only be able to get the entity with its tag, but
 				// for backwards-compatibility we accept any non-UUID tag.
-				c.Assert(e.Tag(), gc.Equals, model.Tag())
+				c.Assert(e.Tag(), gc.Equals, s.model.Tag())
 			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
 				expected := test.tag.(names.UserTag).Id()
@@ -3181,7 +3188,8 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.State.Action(f.Id())
+
+	action, err := s.model.Action(f.Id())
 	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, action.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3198,12 +3206,10 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseModelTag(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, model.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, s.model.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "models")
-	c.Assert(id, gc.Equals, model.UUID())
+	c.Assert(id, gc.Equals, s.model.UUID())
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {

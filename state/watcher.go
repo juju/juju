@@ -2431,15 +2431,15 @@ func makeControllerIdFilter(st *State) func(interface{}) bool {
 
 // WatchActionResults starts and returns a StringsWatcher that
 // notifies on new ActionResults being added.
-func (st *State) WatchActionResults() StringsWatcher {
-	return st.WatchActionResultsFilteredBy()
+func (m *Model) WatchActionResults() StringsWatcher {
+	return m.WatchActionResultsFilteredBy()
 }
 
 // WatchActionResultsFilteredBy starts and returns a StringsWatcher
 // that notifies on new ActionResults being added for the ActionRecevers
 // being watched.
-func (st *State) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newActionStatusWatcher(st, receivers, []ActionStatus{ActionCompleted, ActionCancelled, ActionFailed}...)
+func (m *Model) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
+	return newActionStatusWatcher(m.st, receivers, []ActionStatus{ActionCompleted, ActionCancelled, ActionFailed}...)
 }
 
 // openedPortsWatcher notifies of changes in the openedPorts

@@ -2356,7 +2356,13 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, e
 	if err != nil {
 		return nil, err
 	}
-	return u.st.EnqueueAction(u.Tag(), name, payloadWithDefaults)
+
+	model, err := u.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return model.EnqueueAction(u.Tag(), name, payloadWithDefaults)
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.

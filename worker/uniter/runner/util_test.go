@@ -42,6 +42,7 @@ type ContextSuite struct {
 	membership     map[int][]string
 
 	st      api.Connection
+	model   *state.Model
 	service *state.Application
 	machine *state.Machine
 	unit    *state.Unit
@@ -82,6 +83,8 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	s.model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.paths = runnertesting.NewRealPaths(c)

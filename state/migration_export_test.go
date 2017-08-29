@@ -945,12 +945,15 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
-
 	actions := model.Actions()
 	c.Assert(actions, gc.HasLen, 1)
 	action := actions[0]
@@ -964,9 +967,12 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+
+	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipActions: true,
 	})
