@@ -128,7 +128,6 @@ func (s *ChangePasswordCommandSuite) TestResetPassword(c *gc.C) {
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"BestAPIVersion", nil},
 		{"ResetPassword", []interface{}{"current-user"}},
-		{"Close", nil},
 	})
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
@@ -145,7 +144,6 @@ func (s *ChangePasswordCommandSuite) TestResetPasswordFail(c *gc.C) {
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"BestAPIVersion", nil},
 		{"ResetPassword", []interface{}{"current-user"}},
-		{"Close", nil},
 	})
 	// TODO (anastasiamac 2017-08-17)
 	// should probably warn user that something did not go well enough
@@ -162,7 +160,6 @@ func (s *ChangePasswordCommandSuite) TestResetOthersPassword(c *gc.C) {
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"BestAPIVersion", nil},
 		{"ResetPassword", []interface{}{"other"}},
-		{"Close", nil},
 	})
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
@@ -178,7 +175,6 @@ func (s *ChangePasswordCommandSuite) TestResetPasswordOldAPI(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "on this juju controller, reset password not supported")
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"BestAPIVersion", nil},
-		{"Close", nil},
 	})
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")

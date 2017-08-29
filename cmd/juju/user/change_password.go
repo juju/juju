@@ -118,8 +118,8 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		c.api = api
+		defer c.api.Close()
 	}
-	defer c.api.Close()
 
 	if c.Reset {
 		if c.api.BestAPIVersion() < 2 {
