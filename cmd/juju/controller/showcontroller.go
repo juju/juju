@@ -144,6 +144,12 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			details.Errors = append(details.Errors, err.Error())
 			continue
 		}
+		// Update client store.
+		if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
+			details.Errors = append(details.Errors, err.Error())
+			continue
+		}
+
 		modelTags := make([]names.ModelTag, len(allModels))
 		var controllerModelUUID string
 		for i, m := range allModels {

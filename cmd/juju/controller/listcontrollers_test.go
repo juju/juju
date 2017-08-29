@@ -34,33 +34,44 @@ func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
 }
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
+	store := s.createTestClientStore(c)
+	delete(store.Accounts, "aws-test")
+	originallyInStore := &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"model0":   jujuclient.ModelDetails{ModelUUID: "abc"},
+			"my-model": jujuclient.ModelDetails{ModelUUID: "def"},
+		},
+	}
+	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
+
 	s.expectedOutput = `
 Use --refresh flag with this command to see the latest information.
 
-Controller           Model       User   Access     Cloud/Region        Models  Machines  HA  Version
-aws-test             controller  -      -          aws/us-east-1            2         5   -  2.0.1      
-mallards*            my-model    admin  superuser  mallards/mallards1       -         -   -  (unknown)  
-mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
+Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
+aws-test             admin/controller  -      -          aws/us-east-1            2         5   -  2.0.1      
+mallards*            my-model          admin  superuser  mallards/mallards1       -         -   -  (unknown)  
+mark-test-prodstack  -                 admin  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
 
-	store := s.createTestClientStore(c)
-	delete(store.Accounts, "aws-test")
 	s.assertListControllers(c)
+	// Check store was not updated.
+	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
 }
 
 func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
-	s.createTestClientStore(c)
-	s.api = func(controllerNamee string) controller.ControllerAccessAPI {
-		fakeController := &fakeController{
-			controllerName: controllerNamee,
-			modelNames: map[string]string{
-				"abc": "controller",
-				"def": "my-model",
-				"ghi": "controller",
-			},
-			store: s.store,
-		}
+	store := s.createTestClientStore(c)
+	originallyInStore := &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"model0":   jujuclient.ModelDetails{ModelUUID: "abc"},
+			"my-model": jujuclient.ModelDetails{ModelUUID: "def"},
+		},
+	}
+	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
+	s.api = func(controllerName string) controller.ControllerAccessAPI {
+		fakeController := &fakeController{controllerName: controllerName}
 		return fakeController
 	}
 	s.expectedOutput = `
@@ -71,19 +82,19 @@ mark-test-prodstack  -           admin  (unknown)  prodstack                -   
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
+	// Check store was updated.
+	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/controller": jujuclient.ModelDetails{ModelUUID: "abc"},
+			"admin/my-model":   jujuclient.ModelDetails{ModelUUID: "def"},
+		},
+	})
 }
 
 func (s *ListControllersSuite) setupAPIForControllerMachines() {
 	s.api = func(controllerName string) controller.ControllerAccessAPI {
-		fakeController := &fakeController{
-			controllerName: controllerName,
-			modelNames: map[string]string{
-				"abc": "controller",
-				"def": "my-model",
-				"ghi": "controller",
-			},
-			store: s.store,
-		}
+		fakeController := &fakeController{controllerName: controllerName}
 		switch controllerName {
 		case "aws-test":
 			fakeController.machines = map[string][]base.Machine{
@@ -92,16 +103,13 @@ func (s *ListControllersSuite) setupAPIForControllerMachines() {
 					{Id: "2", HasVote: true, WantsVote: true, Status: "down"},
 					{Id: "3", HasVote: false, WantsVote: true, Status: "active"},
 				},
-				"abc": {
-					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
-				},
-				"def": {
-					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
-				},
 			}
 		case "mallards":
 			fakeController.machines = map[string][]base.Machine{
 				"abc": {
+					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+				},
+				"def": {
 					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
 				},
 			}
