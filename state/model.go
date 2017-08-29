@@ -363,7 +363,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	assertCloudCredentialOp, err := validateCloudCredential(
+	assertCloudCredentialOp, hasNonEmptyAuth, err := validateCloudCredential(
 		controllerCloud, cloudCredentials, args.CloudCredential,
 	)
 	if err != nil {
@@ -404,6 +404,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	ops := append(prereqOps, modelOps...)
+
+	if hasNonEmptyAuth {
+		cloudCredentialRefOp, err := cloudCredentialIncRefOp(newSt, args.CloudCredential)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "failed to increment cloud credential refcount for new model")
+		}
+		ops = append(ops, cloudCredentialRefOp)
+	}
+
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 
@@ -485,17 +494,18 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 
 // validateCloudCredential validates the given cloud credential
 // name against the provided cloud definition and credentials,
-// and returns a txn.Op to include in a transaction to assert the
-// same. A user is supplied, for which access to the credential
+// and returns whether a cloud credential with non-empty auth was matched, and
+// a txn.Op to include in a transaction to assert the same. A user is supplied,
+// for which access to the credential
 // will be asserted.
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
 	cloudCredentials map[string]jujucloud.Credential,
 	cloudCredential names.CloudCredentialTag,
-) (txn.Op, error) {
+) (txn.Op, bool, error) {
 	if cloudCredential != (names.CloudCredentialTag{}) {
 		if cloudCredential.Cloud().Id() != cloud.Name {
-			return txn.Op{}, errors.NotValidf("credential %q", cloudCredential.Id())
+			return txn.Op{}, false, errors.NotValidf("credential %q", cloudCredential.Id())
 		}
 		var found bool
 		for tag := range cloudCredentials {
@@ -505,7 +515,7 @@ func validateCloudCredential(
 			}
 		}
 		if !found {
-			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredential.Id())
+			return txn.Op{}, false, errors.NotFoundf("credential %q", cloudCredential.Id())
 		}
 		// NOTE(axw) if we add ACLs for credentials,
 		// we'll need to check access here. The map
@@ -515,7 +525,7 @@ func validateCloudCredential(
 			C:      cloudCredentialsC,
 			Id:     cloudCredentialDocID(cloudCredential),
 			Assert: txn.DocExists,
-		}, nil
+		}, true, nil
 	}
 	var hasEmptyAuth bool
 	for _, authType := range cloud.AuthTypes {
@@ -526,13 +536,13 @@ func validateCloudCredential(
 		break
 	}
 	if !hasEmptyAuth {
-		return txn.Op{}, errors.NotValidf("missing CloudCredential")
+		return txn.Op{}, false, errors.NotValidf("missing CloudCredential")
 	}
 	return txn.Op{
 		C:      cloudsC,
 		Id:     cloud.Name,
 		Assert: bson.D{{"auth-types", string(jujucloud.EmptyAuthType)}},
-	}, nil
+	}, false, nil
 }
 
 // Tag returns a name identifying the model.
@@ -1256,7 +1266,16 @@ func (m *Model) destroyOps(
 				*args.DestroyStorage,
 			))
 		}
+	} else {
+		if cloudCredential, ok := m.CloudCredential(); ok {
+			cloudCredentialRefOps, err := cloudCredentialDecRefOps(m.st, cloudCredential)
+			if err != nil {
+				return nil, errors.Annotate(err, "failed to decrement cloud credential refcount for destroyed model")
+			}
+			ops = append(ops, cloudCredentialRefOps...)
+		}
 	}
+
 	return append(prereqOps, ops...), nil
 }
 

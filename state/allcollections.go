@@ -269,8 +269,9 @@ func allCollections() collectionSchema {
 		assignUnitC: {},
 
 		// meterStatusC is the collection used to store meter status information.
-		meterStatusC: {},
-		refcountsC:   {},
+		meterStatusC:     {},
+		globalrefcountsC: {global: true},
+		refcountsC:       {},
 		relationsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.relationname"},
@@ -519,6 +520,7 @@ const (
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	refcountsC               = "refcounts"
+	globalrefcountsC         = "globalrefcounts"
 	sshHostKeysC             = "sshhostkeys"
 	spacesC                  = "spaces"
 	statusesC                = "statuses"

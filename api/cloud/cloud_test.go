@@ -202,6 +202,36 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *cloudSuite) TestRemoveCredential(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Cloud")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "RemoveCredentials")
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+				Tag: "cloudcred-foo_bob_bar",
+			}}})
+			*result.(*params.ErrorResults) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
+			called = true
+			return nil
+		},
+	)
+
+	client := cloudapi.NewClient(apiCaller)
+	tag := names.NewCloudCredentialTag("foo/bob/bar")
+	err := client.RemoveCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
 	var called bool
 	apiCaller := basetesting.APICallerFunc(

@@ -271,8 +271,17 @@ func (api *CloudAPI) UpdateCredentials(args params.TaggedCredentials) (params.Er
 	return results, nil
 }
 
-// RevokeCredentials revokes a set of cloud credentials.
+// RemoveCredentials removes a set of cloud credentials unless they are in use.
+func (api *CloudAPI) RemoveCredentials(args params.Entities) (params.ErrorResults, error) {
+	return api.removeCredentials(args, false)
+}
+
+// RevokeCredentials revokes a set of cloud credentials, removing them unconditionally.
 func (api *CloudAPI) RevokeCredentials(args params.Entities) (params.ErrorResults, error) {
+	return api.removeCredentials(args, true)
+}
+
+func (api *CloudAPI) removeCredentials(args params.Entities, force bool) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -292,7 +301,7 @@ func (api *CloudAPI) RevokeCredentials(args params.Entities) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if err := api.backend.RemoveCloudCredential(tag); err != nil {
+		if err := api.backend.RemoveCloudCredential(tag, force); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
 	}

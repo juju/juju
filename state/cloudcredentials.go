@@ -28,6 +28,10 @@ type cloudCredentialDoc struct {
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
 
+func cloudCredentialGlobalKey(tag names.CloudCredentialTag) string {
+	return "cloudcredential#" + cloudCredentialDocID(tag)
+}
+
 // CloudCredential returns the cloud credential for the given tag.
 func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
 	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
@@ -96,6 +100,16 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 			ops = append(ops, updateCloudCredentialOp(tag, credential))
 		} else {
 			ops = append(ops, createCloudCredentialOp(tag, credential))
+			cloudCredKey := cloudCredentialGlobalKey(tag)
+			refcounts, closer := st.db().GetCollection(globalrefcountsC)
+			defer closer()
+
+			refOp, required, err := nsRefcounts.LazyCreateOp(refcounts, cloudCredKey)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if required {
+				ops = append(ops, refOp)
+			}
 		}
 		return ops, nil
 	}
@@ -106,7 +120,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 }
 
 // RemoveCloudCredential removes a cloud credential with the given tag.
-func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag) error {
+func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag, force bool) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		_, err := st.CloudCredential(tag)
 		if errors.IsNotFound(err) {
@@ -115,7 +129,30 @@ func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag) error {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return removeCloudCredentialOps(tag), nil
+		ops := removeCloudCredentialOps(tag)
+
+		cloudCredKey := cloudCredentialGlobalKey(tag)
+		if !force {
+			refcounts, closer := st.db().GetCollection(globalrefcountsC)
+			defer closer()
+			refOp, err := nsRefcounts.RemoveOp(refcounts, cloudCredKey, 0)
+			if errors.Cause(err) == errRefcountChanged {
+				_, nmodels, currentOpErr := nsRefcounts.CurrentOp(refcounts, cloudCredKey)
+				if currentOpErr != nil {
+					logger.Errorf("failed to read cloud credential model refcount: %v", err)
+					return nil, errors.Annotatef(err, "cannot remove cloud credential %q, may still be in use", tag)
+				}
+				return nil, errors.Annotatef(err, "cannot remove cloud credential %q, still in use by %d models",
+					tag, nmodels)
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, refOp)
+		} else {
+			ops = append(ops, nsRefcounts.JustRemoveOp(globalrefcountsC, cloudCredKey, -1))
+			// TODO(cmars): clear references from models with this credential
+		}
+		return ops, nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "removing cloud credential")
@@ -248,4 +285,25 @@ func (st *State) WatchCredential(cred names.CloudCredentialTag) NotifyWatcher {
 		return id == cloudCredentialDocID(cred)
 	}
 	return newNotifyCollWatcher(st, cloudCredentialsC, filter)
+}
+
+func cloudCredentialIncRefOp(st modelBackend, tag names.CloudCredentialTag) (txn.Op, error) {
+	refcounts, closer := st.db().GetCollection(globalrefcountsC)
+	defer closer()
+
+	refKey := cloudCredentialGlobalKey(tag)
+	op, err := nsRefcounts.CreateOrIncRefOp(refcounts, refKey, 1)
+	return op, errors.Annotate(err, "increment cloudcredentials reference")
+}
+
+func cloudCredentialDecRefOps(st modelBackend, tag names.CloudCredentialTag) ([]txn.Op, error) {
+	refcounts, closer := st.db().GetCollection(globalrefcountsC)
+	defer closer()
+
+	refKey := cloudCredentialGlobalKey(tag)
+	op, err := nsRefcounts.AliveDecRefOp(refcounts, refKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "decrement cloudcredentials reference")
+	}
+	return []txn.Op{op}, nil
 }

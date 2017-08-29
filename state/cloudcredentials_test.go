@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type CloudCredentialsSuite struct {
@@ -157,7 +158,83 @@ func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove it.
-	err = s.State.RemoveCloudCredential(tag)
+	err = s.State.RemoveCloudCredential(tag, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check it.
+	_, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CloudCredentialsSuite) TestRemoveCredentialsInUse(c *gc.C) {
+	tag := names.NewCloudCredentialTag("dummy/bob/bobcred1")
+	cred := cloud.NewCredential(cloud.EmptyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	err := s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "bob",
+	})
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name:            "test",
+		Owner:           names.NewUserTag("bob"),
+		CloudName:       "dummy",
+		CloudCredential: tag,
+	})
+	defer st.Close()
+
+	// Try to remove the cloud credential nicely. Can't because a model is using it.
+	err = s.State.RemoveCloudCredential(tag, false)
+	c.Assert(err, gc.ErrorMatches, "removing cloud credential: cannot remove cloud credential \"cloudcred-dummy_bob_bobcred1\", still in use by 1 models: refcount changed")
+
+	// Check it. Still there.
+	_, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroy the model.
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Removes nicely now.
+	err = s.State.RemoveCloudCredential(tag, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check it.
+	_, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CloudCredentialsSuite) TestRevokeCredentialsInUse(c *gc.C) {
+	tag := names.NewCloudCredentialTag("dummy/bob/bobcred1")
+	cred := cloud.NewCredential(cloud.EmptyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	err := s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "bob",
+	})
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name:            "test",
+		Owner:           names.NewUserTag("bob"),
+		CloudName:       "dummy",
+		CloudCredential: tag,
+	})
+	defer st.Close()
+
+	// Remove the cloud credential forcefully.
+	err = s.State.RemoveCloudCredential(tag, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check it.
@@ -191,7 +268,7 @@ func (s *CloudCredentialsSuite) TestWatchCredential(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Remove.
-	err = s.State.RemoveCloudCredential(cred)
+	err = s.State.RemoveCloudCredential(cred, false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

@@ -232,6 +232,34 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 	s.backend.CheckCall(
 		c, 1, "RemoveCloudCredential",
 		names.NewCloudCredentialTag("meep/bruce/three"),
+		true,
+	)
+}
+
+func (s *cloudSuite) TestRemoveCredentials(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("bruce")
+	results, err := s.api.RemoveCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "cloudcred-meep_admin_whatever",
+	}, {
+		Tag: "cloudcred-meep_bruce_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid cloudcred tag`,
+	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: params.CodeUnauthorized,
+	})
+	c.Assert(results.Results[2].Error, gc.IsNil)
+
+	s.backend.CheckCall(
+		c, 1, "RemoveCloudCredential",
+		names.NewCloudCredentialTag("meep/bruce/three"),
+		false,
 	)
 }
 
@@ -368,8 +396,8 @@ func (st *mockBackend) UpdateCloudCredential(tag names.CloudCredentialTag, cred 
 	return st.NextErr()
 }
 
-func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error {
-	st.MethodCall(st, "RemoveCloudCredential", tag)
+func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag, force bool) error {
+	st.MethodCall(st, "RemoveCloudCredential", tag, force)
 	return st.NextErr()
 }
 

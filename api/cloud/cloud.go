@@ -122,7 +122,21 @@ func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujuc
 	return results.OneError()
 }
 
-// RevokeCredential revokes/deletes a cloud credential.
+// RemoveCredential removes a cloud credential if no models are using it.
+func (c *Client) RemoveCredential(tag names.CloudCredentialTag) error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	}
+	if err := c.facade.FacadeCall("RemoveCredentials", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// RevokeCredential unconditionally revokes/deletes a cloud credential.
 func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
 	var results params.ErrorResults
 	args := params.Entities{
