@@ -813,6 +813,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			Interface: relationInterface,
 			Scope:     string(scope),
 			Endpoints: eps,
+			Status:    relation.Status().String(),
 		}
 		out = append(out, relStatus)
 	}

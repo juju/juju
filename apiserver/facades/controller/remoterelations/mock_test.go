@@ -253,6 +253,11 @@ func (r *mockRelation) Life() state.Life {
 	return r.life
 }
 
+func (r *mockRelation) Status() status.Status {
+	r.MethodCall(r, "Status")
+	return status.Joined
+}
+
 func (r *mockRelation) Unit(unitId string) (common.RelationUnit, error) {
 	r.MethodCall(r, "Unit", unitId)
 	if err := r.NextErr(); err != nil {

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -259,7 +260,8 @@ type mockBackend struct {
 	remoteApplications         map[string]application.RemoteApplication
 	spaces                     map[string]application.Space
 	endpoints                  *[]state.Endpoint
-	relation                   *mockRelation
+	relations                  map[int]*mockRelation
+	offerConnections           map[string]application.OfferConnection
 	unitStorageAttachments     map[string][]state.StorageAttachment
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
@@ -323,8 +325,8 @@ func (m *mockBackend) EndpointsRelation(endpoints ...state.Endpoint) (applicatio
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	if m.relation != nil {
-		return m.relation, nil
+	if rel, ok := m.relations[123]; ok {
+		return rel, nil
 	}
 	return nil, errors.NotFoundf("relation")
 }
@@ -334,10 +336,25 @@ func (m *mockBackend) Relation(id int) (application.Relation, error) {
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	if m.relation != nil {
-		return m.relation, nil
+	if rel, ok := m.relations[id]; ok {
+		return rel, nil
 	}
 	return nil, errors.NotFoundf("relation")
+}
+
+type mockOfferConnection struct {
+	application.OfferConnection
+}
+
+func (m *mockBackend) OfferConnectionForRelation(key string) (application.OfferConnection, error) {
+	m.MethodCall(m, "OfferConnectionForRelation", key)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	if oc, ok := m.offerConnections[key]; ok {
+		return oc, nil
+	}
+	return nil, errors.NotFoundf("offer connection for relation")
 }
 
 func (m *mockBackend) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
@@ -498,6 +515,18 @@ func (c *mockBlockChecker) RemoveAllowed() error {
 type mockRelation struct {
 	application.Relation
 	jtesting.Stub
+
+	tag    names.Tag
+	status status.Status
+}
+
+func (r *mockRelation) Tag() names.Tag {
+	return r.tag
+}
+
+func (r *mockRelation) SetStatus(status status.Status) error {
+	r.status = status
+	return nil
 }
 
 func (r *mockRelation) Destroy() error {

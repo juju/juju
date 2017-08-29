@@ -127,7 +127,6 @@ func (w *relationUnitsWorker) relationUnitsChangeEvent(
 	// Construct the event to send to the remote model.
 	event := &params.RemoteRelationChangeEvent{
 		RelationToken:    w.remoteRelationToken,
-		Life:             params.Alive,
 		ApplicationToken: w.applicationToken,
 		Macaroons:        macaroon.Slice{w.macaroon},
 		DepartedUnits:    make([]int, len(change.Departed)),

@@ -192,9 +192,9 @@ const (
 	// Broken is the status for when a relation life goes to Dead.
 	Broken Status = "broken"
 
-	// Revoked is used to signify that a relation is temporarily broken pending
-	// action to unrevoke it.
-	Revoked Status = "revoked"
+	// Suspended is used to signify that a relation is temporarily broken pending
+	// action to resume it.
+	Suspended Status = "suspended"
 )
 
 const (

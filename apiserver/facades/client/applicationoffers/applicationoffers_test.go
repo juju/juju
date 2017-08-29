@@ -246,7 +246,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					RelationId:     1,
 					Endpoint:       "db",
 					Username:       "fred",
-					Status:         "active",
+					Status:         "joined",
 				}},
 			},
 		},

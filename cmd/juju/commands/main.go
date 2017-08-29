@@ -279,6 +279,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(crossmodel.NewListEndpointsCommand())
 		r.Register(crossmodel.NewFindEndpointsCommand())
 		r.Register(application.NewConsumeCommand())
+		r.Register(application.NewSuspendRelationCommand())
+		r.Register(application.NewResumeRelationCommand())
 	}
 
 	// Destruction commands.

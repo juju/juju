@@ -111,6 +111,7 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	for id, relationSnapshot := range w.current.Relations {
 		relationSnapshotCopy := RelationSnapshot{
 			Life:    relationSnapshot.Life,
+			Status:  relationSnapshot.Status,
 			Members: make(map[string]int64),
 		}
 		for name, version := range relationSnapshot.Members {
@@ -560,6 +561,19 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 				relationSnapshot.Life = rel.Life()
 				relationSnapshot.Status = rel.Status()
 				w.current.Relations[rel.Id()] = relationSnapshot
+				if rel.Status() == params.Suspended {
+					// Relation has been revoked, so stop the listeners here.
+					// The relation itself is retained in the current relations
+					// in the revoked state so that departed/broken hooks can run.
+					if ruw, ok := w.relations[relationTag]; ok {
+						worker.Stop(ruw)
+						delete(w.relations, relationTag)
+					}
+				}
+				continue
+			}
+			// If the relation status is revoked, we don't need to watch it.
+			if rel.Status() == params.Suspended {
 				continue
 			}
 			ruw, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())

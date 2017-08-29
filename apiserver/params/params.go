@@ -131,6 +131,18 @@ type DestroyRelation struct {
 	RelationId int      `json:"relation-id"`
 }
 
+// RelationStatusArgs holds the parameters for updating the status
+// of one or more relations.
+type RelationStatusArgs struct {
+	Args []RelationStatusArg `json:"args"`
+}
+
+// RelationStatusArg holds the new status value for a relation.
+type RelationStatusArg struct {
+	RelationId int                 `json:"relation-id"`
+	Status     RelationStatusValue `json:"status"`
+}
+
 // AddCharm holds the arguments for making an AddCharm API call.
 type AddCharm struct {
 	URL     string `json:"url"`

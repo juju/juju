@@ -82,6 +82,22 @@ func NewUpdateSeriesCommandForTest(
 	return modelcmd.Wrap(cmd)
 }
 
+// NewSuspendRelationCommandForTest returns a SuspendRelationCommand with the api provided as specified.
+func NewSuspendRelationCommandForTest(api SetRelationStatusAPI) modelcmd.ModelCommand {
+	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationStatusAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewResumeRelationCommandForTest returns a ResumeRelationCommand with the api provided as specified.
+func NewResumeRelationCommandForTest(api SetRelationStatusAPI) modelcmd.ModelCommand {
+	cmd := &resumeRelationCommand{newAPIFunc: func() (SetRelationStatusAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
 type Patcher interface {
 	PatchValue(dest, value interface{})
 }

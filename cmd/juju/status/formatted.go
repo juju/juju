@@ -277,4 +277,5 @@ type relationStatus struct {
 	Requirer  string
 	Interface string
 	Type      string
+	Status    string
 }

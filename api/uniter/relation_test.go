@@ -65,7 +65,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	err = s.stateRelation.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Update status as well.
-	err = s.stateRelation.SetStatus(status.Revoked)
+	err = s.stateRelation.SetStatus(status.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
 	c.Assert(s.apiRelation.Status(), gc.Equals, params.Joined)
@@ -73,14 +73,14 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
-	c.Assert(s.apiRelation.Status(), gc.Equals, params.Revoked)
+	c.Assert(s.apiRelation.Status(), gc.Equals, params.Suspended)
 
 	// Leave scope with mysqlUnit, so the relation will be removed.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
-	c.Assert(s.apiRelation.Status(), gc.Equals, params.Revoked)
+	c.Assert(s.apiRelation.Status(), gc.Equals, params.Suspended)
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }

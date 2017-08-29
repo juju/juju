@@ -202,14 +202,15 @@ func (r *relations) NextHook(
 			continue
 		}
 		var remoteBroken bool
-		if remoteState.Life == params.Dying || relationSnapshot.Life == params.Dying {
+		if remoteState.Life == params.Dying ||
+			relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
 			relationSnapshot = remotestate.RelationSnapshot{}
 			remoteBroken = true
 			// TODO(axw) if relation is implicit, leave scope & remove.
 		}
-		// If either the unit or the relation are Dying,
+		// If either the unit or the relation are Dying, or the relation becomes suspended,
 		// then the relation should be broken.
-		hook, err := nextRelationHook(relationer.dir.State(), relationSnapshot, remoteBroken)
+		hook, err := nextRelationHook(relationer.dir, relationSnapshot, remoteBroken)
 		if err == resolver.ErrNoOperation {
 			continue
 		}
@@ -223,11 +224,12 @@ func (r *relations) NextHook(
 // if the states do not refer to the same relation; or ErrRelationUpToDate if
 // no hooks need to be executed.
 func nextRelationHook(
-	local *State,
+	dir *StateDir,
 	remote remotestate.RelationSnapshot,
 	remoteBroken bool,
 ) (hook.Info, error) {
 
+	local := dir.State()
 	// If there's a guaranteed next hook, return that.
 	relationId := local.RelationId
 	if local.ChangedPending != "" {
@@ -270,6 +272,11 @@ func nextRelationHook(
 
 	// If the relation's meant to be broken, break it.
 	if remoteBroken {
+		if !dir.Exists() {
+			// The relation may have been revoked and then removed, so we
+			// don't want to run the hook twice.
+			return hook.Info{}, resolver.ErrNoOperation
+		}
 		return hook.Info{
 			Kind:       hooks.RelationBroken,
 			RelationId: relationId,
@@ -370,10 +377,10 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 	for id, relationSnapshot := range remote {
 		if _, found := r.relationers[id]; found {
 			// We've seen this relation before. The only changes
-			// we care about are to the lifecycle state, and to
-			// the member settings versions. We handle differences
-			// in settings in nextRelationHook.
-			if relationSnapshot.Life == params.Dying {
+			// we care about are to the lifecycle state or status,
+			// and to the member settings versions. We handle
+			// differences in settings in nextRelationHook.
+			if relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
 				}
@@ -382,7 +389,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 		}
 		// Relations that are not alive are simply skipped, because they
 		// were not previously known anyway.
-		if relationSnapshot.Life != params.Alive {
+		if relationSnapshot.Life != params.Alive || relationSnapshot.Status != params.Joined {
 			continue
 		}
 		rel, err := r.st.RelationById(id)

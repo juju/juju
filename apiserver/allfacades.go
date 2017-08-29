@@ -127,7 +127,7 @@ func AllFacades() *facade.Registry {
 	reg("Application", 2, application.NewFacadeV4)
 	reg("Application", 3, application.NewFacadeV4)
 	reg("Application", 4, application.NewFacadeV4)
-	reg("Application", 5, application.NewFacade) // adds AttachStorage & UpdateApplicationSeries
+	reg("Application", 5, application.NewFacade) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
 
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 1, backups.NewFacade)

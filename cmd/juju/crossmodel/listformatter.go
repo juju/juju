@@ -123,7 +123,7 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 			}
 			connEp := endpoints[conn.Endpoint]
 			w.Print(conn.Username, conn.RelationId)
-			w.PrintColor(relationStatusColor(relation.Status(conn.Status)), conn.Status)
+			w.PrintColor(RelationStatusColor(relation.Status(conn.Status)), conn.Status)
 			w.Println(connEp.Name, connEp.Interface, connEp.Role)
 		}
 	}
@@ -131,11 +131,12 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 	return nil
 }
 
-func relationStatusColor(status relation.Status) *ansiterm.Context {
+// RelationStatusColor returns a context used to print the status with the relevant color.
+func RelationStatusColor(status relation.Status) *ansiterm.Context {
 	switch status {
 	case relation.Joined:
 		return output.GoodHighlight
-	case relation.Revoked:
+	case relation.Suspended:
 		return output.WarningHighlight
 	case relation.Broken:
 		return output.ErrorHighlight

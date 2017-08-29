@@ -294,10 +294,10 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
-		storageTag0: remotestate.StorageSnapshot{
+		storageTag0: {
 			Life: params.Alive,
 		},
-		storageTag1: remotestate.StorageSnapshot{
+		storageTag1: {
 			Life:     params.Dying,
 			Kind:     params.StorageKindBlock,
 			Attached: true,
@@ -318,7 +318,7 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	s.st.unit.storageWatcher.changes <- []string{"blob/1"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
-		storageTag0: remotestate.StorageSnapshot{
+		storageTag0: {
 			Life:     params.Dying,
 			Attached: true,
 			Kind:     params.StorageKindFilesystem,
@@ -350,7 +350,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
-		storageTag0: remotestate.StorageSnapshot{
+		storageTag0: {
 			Life: params.Alive,
 		},
 	})
@@ -367,7 +367,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
-		storageTag0: remotestate.StorageSnapshot{
+		storageTag0: {
 			Life: params.Dying,
 		},
 	})
@@ -396,7 +396,7 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
-		storageTag0: remotestate.StorageSnapshot{
+		storageTag0: {
 			Life: params.Dying,
 		},
 	})
@@ -432,7 +432,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		id: 123, life: params.Alive,
+		id: 123, life: params.Alive, status: params.Joined,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
@@ -448,8 +448,9 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 		s.watcher.Snapshot().Relations,
 		jc.DeepEquals,
 		map[int]remotestate.RelationSnapshot{
-			123: remotestate.RelationSnapshot{
+			123: {
 				Life:    params.Alive,
+				Status:  params.Joined,
 				Members: map[string]int64{"mysql/1": 1, "mysql/2": 2},
 			},
 		},
@@ -468,6 +469,29 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations, gc.HasLen, 0)
+	c.Assert(s.st.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
+}
+
+func (s *WatcherSuite) TestRelationsRevoked(c *gc.C) {
+	signalAll(s.st, s.leadership)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	relationTag := names.NewRelationTag("mysql:db wordpress:db")
+	s.st.relations[relationTag] = &mockRelation{
+		id: 123, life: params.Alive, status: params.Joined,
+	}
+	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
+	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
+	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
+	}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	s.st.relations[relationTag].status = params.Suspended
+	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Relations[123].Status, gc.Equals, params.Suspended)
 	c.Assert(s.st.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
 }
 

@@ -487,7 +487,7 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 
-	err = rel.SetStatus(status.Revoked)
+	err = rel.SetStatus(status.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -529,10 +529,10 @@ func (s *RelationSuite) TestStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relStatus := rel.Status()
 	c.Assert(relStatus, gc.Equals, status.Joined)
-	err = rel.SetStatus(status.Revoked)
+	err = rel.SetStatus(status.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	relStatus = rel.Status()
-	c.Assert(relStatus, gc.Equals, status.Revoked)
+	c.Assert(relStatus, gc.Equals, status.Suspended)
 }
