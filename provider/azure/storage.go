@@ -564,11 +564,7 @@ func (v *azureVolumeSource) detachVolume(
 			continue
 		}
 		dataDisks = append(dataDisks[:i], dataDisks[i+1:]...)
-		if len(dataDisks) == 0 {
-			vm.StorageProfile.DataDisks = nil
-		} else {
-			*vm.StorageProfile.DataDisks = dataDisks
-		}
+		vm.StorageProfile.DataDisks = &dataDisks
 		return true
 	}
 	return false

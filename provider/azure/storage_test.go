@@ -608,3 +608,63 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
 	assertRequestBody(c, s.requests[2], &virtualMachines[0])
 }
+
+func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
+	// machine-0 has a one data disk: volume-0.
+	machine0DataDisks := []compute.DataDisk{{
+		Lun:  to.Int32Ptr(0),
+		Name: to.StringPtr("volume-0"),
+		Vhd: &compute.VirtualHardDisk{
+			URI: to.StringPtr(fmt.Sprintf(
+				"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
+				storageAccountName,
+			)),
+		},
+	}}
+
+	params := []storage.VolumeAttachmentParams{{
+		AttachmentParams: storage.AttachmentParams{
+			Provider:   "azure",
+			Machine:    names.NewMachineTag("0"),
+			InstanceId: instance.Id("machine-0"),
+		},
+		Volume:   names.NewVolumeTag("0"),
+		VolumeId: "volume-0",
+	}}
+
+	virtualMachines := []compute.VirtualMachine{{
+		Name: to.StringPtr("machine-0"),
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{DataDisks: &machine0DataDisks},
+		},
+	}}
+
+	// There should be a one API call to list VMs, and one update to the VM.
+	virtualMachinesSender := azuretesting.NewSenderWithValue(compute.VirtualMachineListResult{
+		Value: &virtualMachines,
+	})
+	virtualMachinesSender.PathPattern = `.*/Microsoft\.Compute/virtualMachines`
+	updateVirtualMachine0Sender := azuretesting.NewSenderWithValue(&compute.VirtualMachine{})
+	updateVirtualMachine0Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-0`
+	volumeSource := s.volumeSource(c)
+	s.sender = azuretesting.Senders{
+		virtualMachinesSender,
+		s.accountSender(),
+		updateVirtualMachine0Sender,
+	}
+
+	results, err := volumeSource.DetachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, len(params))
+	c.Assert(results[0], jc.ErrorIsNil)
+
+	// Validate HTTP request bodies.
+	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list storage accounts
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // update machine-0
+
+	machine0DataDisks = []compute.DataDisk{}
+	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
+	assertRequestBody(c, s.requests[2], &virtualMachines[0])
+}
