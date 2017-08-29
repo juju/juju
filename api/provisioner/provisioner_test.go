@@ -9,6 +9,7 @@
 package provisioner_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -355,6 +356,36 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	series, err = apiMachine.Series()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "quantal")
+}
+
+func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
+	// Create a fresh machine, since machine 0 is already provisioned.
+	template := state.MachineTemplate{
+		Series: "xenial",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	notProvisionedMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiMachine, err := s.provisioner.Machine(notProvisionedMachine.Tag().(names.MachineTag))
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceId, err := apiMachine.InstanceId()
+	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
+	c.Assert(instanceId, gc.Equals, instance.Id(""))
+
+	availabilityZone := "ru-north-siberia"
+	hwChars := instance.MustParseHardware(fmt.Sprintf("availability-zone=%s", availabilityZone))
+
+	err = apiMachine.SetInstanceInfo(
+		"azinst", "nonce", &hwChars, nil, nil, nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	retAvailabilityZone, err := apiMachine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(availabilityZone, gc.Equals, retAvailabilityZone)
 }
 
 func (s *provisionerSuite) TestKeepInstance(c *gc.C) {

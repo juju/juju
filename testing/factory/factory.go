@@ -348,6 +348,10 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 		Filesystems: params.Filesystems,
 		Constraints: params.Constraints,
 	}
+
+	if params.Characteristics != nil {
+		machineTemplate.HardwareCharacteristics = *params.Characteristics
+	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	if setProvisioned {
