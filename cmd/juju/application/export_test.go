@@ -72,10 +72,12 @@ func NewConsumeCommandForTest(
 }
 
 func NewUpdateSeriesCommandForTest(
-	api updateSeriesAPI,
+	appAPI updateApplicationSeriesAPI,
+	machAPI updateMachineSeriesAPI,
 ) modelcmd.ModelCommand {
 	cmd := &updateSeriesCommand{
-		updateSeriesClient: api,
+		updateApplicationSeriesClient: appAPI,
+		updateMachineSeriesClient:     machAPI,
 	}
 	return modelcmd.Wrap(cmd)
 }

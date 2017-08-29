@@ -243,11 +243,11 @@ func (c *Client) Update(args params.ApplicationUpdate) error {
 
 // UpdateApplicationSeries updates the application series in the db.
 func (c *Client) UpdateApplicationSeries(appName, series string, force bool) error {
-	args := params.ApplicationUpdateSeriesArgs{
-		Args: []params.ApplicationUpdateSeriesArg{{
-			ApplicationName: appName,
-			Force:           force,
-			Series:          series,
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewApplicationTag(appName).String()},
+			Force:  force,
+			Series: series,
 		}},
 	}
 

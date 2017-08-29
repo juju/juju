@@ -290,3 +290,43 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	}
 	return params.DestroyMachineResults{results}, nil
 }
+
+// UpdateMachineSeries updates the series of the given machine(s) as well as all
+// units and subordintes installed on the machine(s).
+func (mm *MachineManagerAPIV4) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+	if err := mm.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
+	if err := mm.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := mm.updateOneMachineSeries(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (mm *MachineManagerAPIV4) updateOneMachineSeries(arg params.UpdateSeriesArg) error {
+	if arg.Series == "" {
+		return &params.Error{
+			Message: "series missing from args",
+			Code:    params.CodeBadRequest,
+		}
+	}
+	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if arg.Series == machine.Series() {
+		return nil // no-op
+	}
+	return machine.UpdateMachineSeries(arg.Series, arg.Force)
+}

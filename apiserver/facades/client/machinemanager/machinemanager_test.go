@@ -5,6 +5,7 @@ package machinemanager_test
 
 import (
 	"github.com/juju/errors"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -27,6 +28,13 @@ type MachineManagerSuite struct {
 	st         *mockState
 	pool       *mockPool
 	api        *machinemanager.MachineManagerAPI
+}
+
+func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authorizer.Tag = user
+	mm, err := machinemanager.NewMachineManagerAPI(s.st, s.pool, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api = mm
 }
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
@@ -168,12 +176,151 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
 	})
 }
 
+func (s *MachineManagerSuite) setupUpdateMachineSeries(c *gc.C) {
+	s.st.machines = map[string]*mockMachine{
+		"0": &mockMachine{series: "trusty"},
+		"1": &mockMachine{series: "trusty"},
+	}
+}
+
+func (s *MachineManagerSuite) TestUpdateMachineSeries(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	results, err := apiV4.UpdateMachineSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{
+				{
+					Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+					Series: "xenial",
+				}, {
+					Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+					Series: "xenial",
+					Force:  true,
+				}, {
+					Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
+					Series: "trusty",
+				}, {
+					Entity: params.Entity{Tag: names.NewMachineTag("76").String()},
+					Series: "trusty",
+				}, {
+					Entity: params.Entity{Tag: names.NewUnitTag("mysql/0").String()},
+					Series: "trusty",
+				},
+			}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{}, {}, {},
+			{Error: &params.Error{Message: "machine 76 not found", Code: "not found"}},
+			{Error: &params.Error{Message: "\"unit-mysql-0\" is not a valid machine tag", Code: ""}},
+		}})
+
+	mach := s.st.machines["0"]
+	mach.CheckCall(c, 0, "Series")
+	mach.CheckCall(c, 1, "UpdateMachineSeries", "xenial", false)
+	mach.CheckCall(c, 3, "UpdateMachineSeries", "xenial", true)
+	mach = s.st.machines["1"]
+	mach.CheckCall(c, 0, "Series")
+	c.Assert(len(mach.Calls()), gc.Equals, 1)
+}
+
+func (s *MachineManagerSuite) TestUpdateMachineSeriesNoSeries(c *gc.C) {
+	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	results, err := apiV4.UpdateMachineSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{{
+				Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+			}},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeBadRequest,
+			Message: `series missing from args`,
+		},
+	})
+}
+
+func (s *MachineManagerSuite) TestUpdateMachineSeriesNoParams(c *gc.C) {
+	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	results, err := apiV4.UpdateMachineSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
+}
+
+func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	results, err := apiV4.UpdateMachineSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{{
+				Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+				Series: "xenial",
+			}},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeIncompatibleSeries,
+			Message: "series \"xenial\" not supported by charm, supported series are: yakkety,zesty",
+		},
+	})
+}
+
+func (s *MachineManagerSuite) TestUpdateMachineSeriesBlockedChanges(c *gc.C) {
+	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	s.st.blockMsg = "TestUpdateMachineSeriesBlockedChanges"
+	s.st.block = state.ChangeBlock
+	_, err := apiV4.UpdateMachineSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{{
+				Entity: params.Entity{
+					Tag: names.NewMachineTag("0").String()},
+				Series: "xenial",
+			}},
+		},
+	)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
+		Message: "TestUpdateMachineSeriesBlockedChanges",
+		Code:    "operation is blocked",
+	})
+}
+
+func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
+	user := names.NewUserTag("fred")
+	s.setAPIUser(c, user)
+	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	_, err := apiV4.UpdateMachineSeries(
+		params.UpdateSeriesArgs{
+			Args: []params.UpdateSeriesArg{{
+				Entity: params.Entity{
+					Tag: names.NewMachineTag("0").String()},
+				Series: "xenial",
+			}},
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
 type mockState struct {
 	machinemanager.Backend
 	calls            int
 	machineTemplates []state.MachineTemplate
 	machines         map[string]*mockMachine
 	err              error
+	blockMsg         string
+	block            state.BlockType
 }
 
 func (st *mockState) AddOneMachine(template state.MachineTemplate) (*state.Machine, error) {
@@ -184,7 +331,11 @@ func (st *mockState) AddOneMachine(template state.MachineTemplate) (*state.Machi
 }
 
 func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return &mockBlock{}, false, nil
+	if st.block == t {
+		return &mockBlock{t: t, m: st.blockMsg}, true, nil
+	} else {
+		return nil, false, nil
+	}
 }
 
 func (st *mockState) ModelTag() names.ModelTag {
@@ -236,6 +387,8 @@ func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageA
 
 type mockBlock struct {
 	state.Block
+	t state.BlockType
+	m string
 }
 
 func (st *mockBlock) Id() string {
@@ -251,7 +404,7 @@ func (st *mockBlock) Type() state.BlockType {
 }
 
 func (st *mockBlock) Message() string {
-	return "not allowed"
+	return st.m
 }
 
 func (st *mockBlock) ModelUUID() string {
@@ -259,7 +412,11 @@ func (st *mockBlock) ModelUUID() string {
 }
 
 type mockMachine struct {
-	keep bool
+	jtesting.Stub
+	machinemanager.Machine
+
+	keep   bool
+	series string
 }
 
 func (m *mockMachine) Destroy() error {
@@ -275,12 +432,22 @@ func (m *mockMachine) SetKeepInstance(keep bool) error {
 	return nil
 }
 
+func (m *mockMachine) Series() string {
+	m.MethodCall(m, "Series")
+	return m.series
+}
+
 func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
 	return []machinemanager.Unit{
 		&mockUnit{names.NewUnitTag("foo/0")},
 		&mockUnit{names.NewUnitTag("foo/1")},
 		&mockUnit{names.NewUnitTag("foo/2")},
 	}, nil
+}
+
+func (m *mockMachine) UpdateMachineSeries(series string, force bool) error {
+	m.MethodCall(m, "UpdateMachineSeries", series, force)
+	return m.NextErr()
 }
 
 type mockUnit struct {

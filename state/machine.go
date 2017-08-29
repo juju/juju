@@ -1874,3 +1874,73 @@ func (m *Machine) PendingActions() ([]Action, error) {
 func (m *Machine) RunningActions() ([]Action, error) {
 	return m.st.matchingActionsRunning(m)
 }
+
+// UpdateMachineSeries updates the series for the Machine.
+func (m *Machine) UpdateMachineSeries(series string, force bool) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Exit early if the Machine series doesn't need to change.
+		if m.Series() == series {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		principals := m.Principals() // unit names
+		verifiedUnits, err := m.verifyUnitsSeries(principals, series, force)
+		if err != nil {
+			return nil, err
+		}
+
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"life", Alive}, {"principals", principals}},
+			Update: bson.D{{"$set", bson.D{{"series", series}}}},
+		}}
+		for _, unit := range verifiedUnits {
+			curl, _ := unit.CharmURL()
+			ops = append(ops, txn.Op{
+				C:  unitsC,
+				Id: unit.doc.DocID,
+				Assert: bson.D{{"life", Alive},
+					{"charmurl", curl},
+					{"subordinates", unit.SubordinateNames()}},
+				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+			})
+		}
+
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "cannot update series for %q to %s", m, series)
+}
+
+func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
+	results := []*Unit{}
+	for _, u := range unitNames {
+		unit, err := m.st.Unit(u)
+		if err != nil {
+			return nil, err
+		}
+		app, err := unit.Application()
+		if err != nil {
+			return nil, err
+		}
+		err = app.VerifySupportedSeries(series, force)
+		if err != nil {
+			return nil, err
+		}
+
+		subordinates := unit.SubordinateNames()
+		subUnits, err := m.verifyUnitsSeries(subordinates, series, force)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, unit)
+		results = append(results, subUnits...)
+	}
+	return results, nil
+}
