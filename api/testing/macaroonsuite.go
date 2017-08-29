@@ -68,6 +68,12 @@ func (s *MacaroonSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
+// DischargerLocation returns the URL of the third party caveat
+// discharger.
+func (s *MacaroonSuite) DischargerLocation() string {
+	return s.discharger.Location()
+}
+
 // AddModelUser is a convenience function that adds an external
 // user to the current model. It will panic
 // if the user name is local.

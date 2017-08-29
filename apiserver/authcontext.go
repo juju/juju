@@ -209,7 +209,7 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
-// for loginAuthCtxt.externalMacaroonAuth.
+// for authCtxt.externalMacaroonAuth.
 func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonAuthenticator, error) {
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
@@ -219,15 +219,18 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	if idURL == "" {
 		return nil, errMacaroonAuthNotConfigured
 	}
+	var locator bakery.PublicKeyLocator
 	// The identity server has been configured,
 	// so configure the bakery service appropriately.
 	idPK := controllerCfg.IdentityPublicKey()
-	if idPK == nil {
-		// No public key supplied - retrieve it from the identity manager.
-		idPK, err = httpbakery.PublicKeyForLocation(http.DefaultClient, idURL)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get identity public key")
-		}
+	if idPK != nil {
+		locator = bakery.PublicKeyLocatorMap{idURL: idPK}
+	} else {
+		// No public key supplied - retrieve it from the identity manager on demand.
+		// Note that we don't fetch it immediately because then we'll fail
+		// forever if the initial fetch fails (because newExternalMacaroonAuth
+		// only ever called once).
+		locator = httpbakery.NewPublicKeyRing(nil, nil)
 	}
 	// We pass in nil for the storage, which leads to in-memory storage
 	// being used. We only use in-memory storage for now, since we never
@@ -236,7 +239,7 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	// TODO(axw) we should store the key in mongo, so that multiple servers
 	// can authenticate. That will require that we encode the server's ID
 	// in the macaroon ID so that servers don't overwrite each others' keys.
-	svc, _, err := newBakeryService(st, nil, bakery.PublicKeyLocatorMap{idURL: idPK})
+	svc, _, err := newBakeryService(st, nil, locator)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make bakery service")
 	}

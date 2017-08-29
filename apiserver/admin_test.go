@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"sync"
@@ -899,6 +900,38 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
+func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
+	const remoteUser = "test@somewhere"
+	s.AddModelUser(c, remoteUser)
+	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
+	s.DischargerLogin = func() string {
+		return "test@somewhere"
+	}
+	info, srv := newServer(c, s.pool)
+	defer assertStop(c, srv)
+	workingTransport := http.DefaultTransport
+	failingTransport := errorTransport{
+		fallback: workingTransport,
+		url:      s.DischargerLocation() + "/publickey",
+		err:      errors.New("some error"),
+	}
+	s.PatchValue(&http.DefaultTransport, failingTransport)
+	_, err := s.login(c, info)
+	c.Assert(err, gc.ErrorMatches, `.*: some error`)
+
+	http.DefaultTransport = workingTransport
+
+	// The error doesn't stick around.
+	_, err = s.login(c, info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Once we've succeeded, we shouldn't try again.
+	http.DefaultTransport = failingTransport
+
+	_, err = s.login(c, info)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
 	// Note that currently we cannot use macaroon auth
 	// to log into the controller rather than a model
@@ -931,10 +964,10 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 		request params.LoginRequest
 		result  params.LoginResult
 	)
-	// Request needs at least one macaroon to avoid an anonymous login.
-	request.Macaroons = info.Macaroons
 	err := client.APICall("Admin", 3, "", "Login", &request, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	if err != nil {
+		return params.LoginResult{}, errors.Annotatef(err, "cannot log in")
+	}
 
 	cookieURL := &url.URL{
 		Scheme: "https",
@@ -1254,4 +1287,23 @@ func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
 
 	err = apiState.APICall("Admin", 2, "", "Login", struct{}{}, nil)
 	c.Assert(err, gc.ErrorMatches, ".*this version of Juju does not support login from old clients.*")
+}
+
+// errorTransport implements http.RoundTripper by always
+// returning the given error from RoundTrip when it visits
+// the given URL (otherwise it uses the fallback transport.
+type errorTransport struct {
+	err      error
+	url      string
+	fallback http.RoundTripper
+}
+
+func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.String() == t.url {
+		if req.Body != nil {
+			req.Body.Close()
+		}
+		return nil, t.err
+	}
+	return t.fallback.RoundTrip(req)
 }
