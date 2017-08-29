@@ -816,6 +816,41 @@ func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 	})
 }
 
+func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
+	availabilityZone := "ru-north-siberia"
+	emptyAz := ""
+	hcWithAZ := instance.HardwareCharacteristics{AvailabilityZone: &availabilityZone}
+	hcWithEmptyAZ := instance.HardwareCharacteristics{AvailabilityZone: &emptyAz}
+	hcWithNilAz := instance.HardwareCharacteristics{AvailabilityZone: nil}
+
+	// add machines with different availability zones: string, empty string, nil
+	azMachine, _ := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Characteristics: &hcWithAZ,
+	})
+
+	emptyAzMachine, _ := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Characteristics: &hcWithEmptyAZ,
+	})
+
+	nilAzMachine, _ := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Characteristics: &hcWithNilAz,
+	})
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: azMachine.Tag().String()},
+		{Tag: emptyAzMachine.Tag().String()},
+		{Tag: nilAzMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.AvailabilityZone(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: availabilityZone},
+			{Result: emptyAz},
+			{Result: emptyAz},
+		},
+	})
+}
+
 func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 	// Add a machine with keep-instance = true.
 	foobarMachine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
