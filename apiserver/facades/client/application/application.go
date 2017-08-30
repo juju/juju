@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/status"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -1010,6 +1011,39 @@ func (api *API) DestroyRelation(args params.DestroyRelation) (err error) {
 		return err
 	}
 	return rel.Destroy()
+}
+
+// SetRelationStatus updates the status of the specified relations.
+func (api *API) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorResults, error) {
+	var statusResults params.ErrorResults
+	if err := api.checkCanWrite(); err != nil {
+		return statusResults, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return statusResults, errors.Trace(err)
+	}
+
+	changeOne := func(arg params.RelationStatusArg) error {
+		rel, err := api.backend.Relation(arg.RelationId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = api.backend.OfferConnectionForRelation(rel.Tag().Id())
+		if errors.IsNotFound(err) {
+			return errors.Errorf("cannot set status for %q which is not associated with an offer", rel.Tag().Id())
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return rel.SetStatus(status.Status(arg.Status))
+	}
+	results := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		err := changeOne(arg)
+		results[i].Error = common.ServerError(err)
+	}
+	statusResults.Results = results
+	return statusResults, nil
 }
 
 // Consume adds remote applications to the model without creating any

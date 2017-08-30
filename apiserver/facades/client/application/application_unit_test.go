@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -72,7 +73,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		{ApplicationName: "postgresql"},
 		{ApplicationName: "bar"},
 	}
-	s.relation = mockRelation{}
+	s.relation = mockRelation{tag: names.NewRelationTag("wordpress:db mysql:db")}
 	s.backend = mockBackend{
 		controllers: make(map[string]crossmodel.ControllerInfo),
 		applications: map[string]application.Application{
@@ -121,7 +122,10 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			},
 		},
 		endpoints: &s.endpoints,
-		relation:  &s.relation,
+		relations: map[int]*mockRelation{
+			123: &s.relation,
+		},
+		offerConnections: make(map[string]application.OfferConnection),
 		unitStorageAttachments: map[string][]state.StorageAttachment{
 			"postgresql/0": {
 				&mockStorageAttachment{
@@ -405,6 +409,68 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 		AttachStorage:   []string{"volume-0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `"volume-0" is not a valid storage tag`)
+}
+
+func (s *ApplicationSuite) TestSetRelationStatus(c *gc.C) {
+	s.backend.offerConnections["wordpress:db mysql:db"] = &mockOfferConnection{}
+	results, err := s.api.SetRelationStatus(params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{{
+			RelationId: 123,
+			Status:     params.Joined,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+	c.Assert(s.relation.status, gc.Equals, status.Joined)
+}
+
+func (s *ApplicationSuite) TestSetNonOfferRelationStatus(c *gc.C) {
+	s.backend.relations[123].tag = names.NewRelationTag("mediawiki:db mysql:db")
+	results, err := s.api.SetRelationStatus(params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{{
+			RelationId: 123,
+			Status:     params.Joined,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.ErrorMatches, `cannot set status for "mediawiki:db mysql:db" which is not associated with an offer`)
+}
+
+func (s *ApplicationSuite) TestBlockSetRelationStatus(c *gc.C) {
+	s.blockChecker.SetErrors(errors.New("blocked"))
+	_, err := s.api.SetRelationStatus(params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{{
+			RelationId: 123,
+			Status:     params.Joined,
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, "blocked")
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.relation.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestSetRelationStatusPermissionDenied(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	api, err := application.NewAPI(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = api.SetRelationStatus(params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{{
+			RelationId: 123,
+			Status:     params.Joined,
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.relation.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {

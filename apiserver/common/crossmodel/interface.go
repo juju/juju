@@ -88,6 +88,9 @@ type Relation interface {
 	// Status returns the relation's current status.
 	Status() status.Status
 
+	// SetStatus updates the relation's status.
+	SetStatus(status.Status) error
+
 	// Tag returns the relation's tag.
 	Tag() names.Tag
 

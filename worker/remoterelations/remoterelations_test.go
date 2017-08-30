@@ -308,7 +308,6 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 				Unit:     "unit-unit-1"}}}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life:             params.Alive,
 				ApplicationToken: "token-django",
 				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
@@ -344,7 +343,6 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 				Macaroons:     macaroon.Slice{mac}}}}},
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life:             params.Alive,
 				ApplicationToken: "token-offer-db2-uuid",
 				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{

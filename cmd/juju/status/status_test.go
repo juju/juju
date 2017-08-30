@@ -1190,7 +1190,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "mysql", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1279,7 +1279,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "mysql", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1506,9 +1506,9 @@ var statusTests = []testCase{
 		setMachineStatus{"4", status.Started, ""},
 		addAliveUnit{"private", "4"},
 
-		relateServices{"project", "mysql"},
-		relateServices{"project", "varnish"},
-		relateServices{"private", "mysql"},
+		relateServices{"project", "mysql", ""},
+		relateServices{"project", "varnish", ""},
+		relateServices{"private", "mysql", ""},
 
 		expect{
 			"multiples services with relations between some of them",
@@ -1773,9 +1773,9 @@ var statusTests = []testCase{
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", ""},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -2800,7 +2800,7 @@ var statusTests = []testCase{
 
 		addCharm{"mysql"},
 		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
-		relateServices{"wordpress", "hosted-mysql"},
+		relateServices{"wordpress", "hosted-mysql", ""},
 
 		expect{
 			"a remote application",
@@ -3596,12 +3596,15 @@ func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 
 type relateServices struct {
 	ep1, ep2 string
+	status   string
 }
 
 func (rs relateServices) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints(rs.ep1, rs.ep2)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = ctx.st.AddRelation(eps...)
+	rel, err := ctx.st.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.Status(rs.status))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3888,9 +3891,9 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", ""},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
@@ -3959,9 +3962,9 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", ""},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -4040,9 +4043,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", "suspended"},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
@@ -4063,7 +4066,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 
 		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", owner: "admin", endpoints: []string{"server"}},
 		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
-		relateServices{"remote-wordpress", "mysql"},
+		relateServices{"remote-wordpress", "mysql", ""},
 		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},
 	}
 	for _, s := range steps {
@@ -4105,10 +4108,10 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1          server    mysql      provider
 
-Relation provider      Requirer                   Interface  Type
-mysql:juju-info        logging:info               juju-info  subordinate
-mysql:server           wordpress:db               mysql      regular
-wordpress:logging-dir  logging:logging-directory  logging    subordinate
+Relation provider      Requirer                   Interface  Type         Message
+mysql:juju-info        logging:info               juju-info  subordinate             
+mysql:server           wordpress:db               mysql      regular      suspended  
+wordpress:logging-dir  logging:logging-directory  logging    subordinate             
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)
@@ -4292,11 +4295,11 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And the service is exposed
 		setServiceExposed{"logging", true},
 		// And the "wordpress" service is related to the "mysql" service
-		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "mysql", ""},
 		// And the "wordpress" service is related to the "logging" service
-		relateServices{"wordpress", "logging"},
+		relateServices{"wordpress", "logging", ""},
 		// And the "mysql" service is related to the "logging" service
-		relateServices{"mysql", "logging"},
+		relateServices{"mysql", "logging", ""},
 		// And the "logging" service is a subordinate to unit 0 of the "wordpress" service
 		addSubordinate{"wordpress/0", "logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},

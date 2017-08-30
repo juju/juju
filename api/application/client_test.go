@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -508,6 +509,28 @@ func (s *applicationSuite) TestDestroyRelationId(c *gc.C) {
 		return nil
 	})
 	err := client.DestroyRelationId(123)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestSetRelationStatus(c *gc.C) {
+	called := false
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Assert(request, gc.Equals, "SetRelationStatus")
+		c.Assert(a, jc.DeepEquals, params.RelationStatusArgs{
+			Args: []params.RelationStatusArg{{
+				RelationId: 123,
+				Status:     "suspended",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*result.(*params.ErrorResults) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		called = true
+		return nil
+	})
+	err := client.SetRelationStatus(123, relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

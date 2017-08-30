@@ -170,6 +170,7 @@ type RelationStatus struct {
 	Interface string           `json:"interface"`
 	Scope     string           `json:"scope"`
 	Endpoints []EndpointStatus `json:"endpoints"`
+	Status    string           `json:"status"`
 }
 
 // EndpointStatus holds status info about a single endpoint.
@@ -281,11 +282,11 @@ const (
 	Dead  Life = "dead"
 )
 
-// RelationStatusValue describes the status of a relation ("active" or "revoked").
+// RelationStatusValue describes the status of a relation.
 type RelationStatusValue relation.Status
 
 const (
-	Joined  RelationStatusValue = "joined"
-	Revoked RelationStatusValue = "revoked"
-	Broken  RelationStatusValue = "broken"
+	Joined    RelationStatusValue = "joined"
+	Suspended RelationStatusValue = "suspended"
+	Broken    RelationStatusValue = "broken"
 )

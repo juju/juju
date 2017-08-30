@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -180,8 +181,11 @@ func (st *State) OfferConnectionForRelation(relationKey string) (*OfferConnectio
 
 	var connDoc offerConnectionDoc
 	err := offerConnectionCollection.Find(bson.D{{"relation-key", relationKey}}).One(&connDoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("offer connection for relation %q", relationKey)
+	}
 	if err != nil {
-		return nil, errors.Errorf("cannot get offer connection details for relation %q", relationKey)
+		return nil, errors.Annotatef(err, "cannot get offer connection details for relation %q", relationKey)
 	}
 	return newOfferConnection(st, &connDoc), nil
 }

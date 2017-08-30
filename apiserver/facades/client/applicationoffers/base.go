@@ -153,8 +153,6 @@ func (api *BaseAPI) applicationOffersFromModel(
 					SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),
 					Username:       oc.UserName(),
 					RelationId:     oc.RelationId(),
-					// TODO(wallyworld)
-					Status: "active",
 				}
 				rel, err := backend.KeyRelation(oc.RelationKey())
 				if err != nil {
@@ -165,6 +163,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 					return nil, errors.Trace(err)
 				}
 				connDetails.Endpoint = ep.Name
+				connDetails.Status = string(rel.Status())
 				offer.Connections = append(offer.Connections, connDetails)
 			}
 		}

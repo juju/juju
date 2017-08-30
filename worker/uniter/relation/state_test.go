@@ -38,8 +38,12 @@ func (s *StateDirSuite) TestReadStateDirEmpty(c *gc.C) {
 	_, err = os.Stat(reldir)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
+	exists := dir.Exists()
+	c.Assert(exists, jc.IsFalse)
 	err = dir.Ensure()
 	c.Assert(err, jc.ErrorIsNil)
+	exists = dir.Exists()
+	c.Assert(exists, jc.IsTrue)
 	fi, err := os.Stat(reldir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fi, jc.Satisfies, os.FileInfo.IsDir)

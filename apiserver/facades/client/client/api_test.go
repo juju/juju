@@ -311,6 +311,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 			Interface: "logging",
 			Scope:     "container",
+			Status:    "joined",
 		},
 	},
 }

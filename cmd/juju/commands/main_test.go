@@ -558,7 +558,9 @@ var commandNamesBehindFlags = set.NewStrings(
 	"list-offers",
 	"offer",
 	"offers",
+	"resume-relation",
 	"show-endpoints",
+	"suspend-relation",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

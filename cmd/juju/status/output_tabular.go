@@ -16,8 +16,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -195,9 +197,15 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			}
 			return a.Provider < b.Provider
 		})
-		outputHeaders("Relation provider", "Requirer", "Interface", "Type")
+		outputHeaders("Relation provider", "Requirer", "Interface", "Type", "Message")
 		for _, r := range fs.Relations {
-			p(r.Provider, r.Requirer, r.Interface, r.Type)
+			status := ""
+			if r.Status != string(relation.Joined) {
+				status = r.Status
+			}
+			w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
+			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(status)), status)
+			w.Println()
 		}
 	}
 

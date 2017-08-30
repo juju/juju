@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // Backend defines the state functionality required by the application
@@ -37,9 +38,8 @@ type Backend interface {
 	Unit(string) (Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
-	//	NewStorage() storage.Storage
-	//	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 	Resources() (Resources, error)
+	OfferConnectionForRelation(string) (OfferConnection, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -96,7 +96,9 @@ type Machine interface {
 // details on the methods, see the methods on state.Relation with
 // the same names.
 type Relation interface {
+	Tag() names.Tag
 	Destroy() error
+	SetStatus(status status.Status) error
 	Endpoint(string) (state.Endpoint, error)
 }
 
@@ -258,6 +260,12 @@ func (s stateShim) Unit(name string) (Unit, error) {
 
 func (s stateShim) Resources() (Resources, error) {
 	return s.State.Resources()
+}
+
+type OfferConnection interface{}
+
+func (s stateShim) OfferConnectionForRelation(key string) (OfferConnection, error) {
+	return s.State.OfferConnectionForRelation(key)
 }
 
 type stateApplicationShim struct {

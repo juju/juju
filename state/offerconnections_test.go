@@ -75,3 +75,26 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
+
+func (s *offerConnectionsSuite) TestOfferConnectionForRelation(c *gc.C) {
+	oc, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      1,
+		RelationKey:     "rel-key",
+		Username:        "fred",
+		OfferUUID:       "offer-uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	_, err = anotherState.OfferConnectionForRelation("some-key")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	obtained, err := anotherState.OfferConnectionForRelation("rel-key")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained.RelationId(), gc.Equals, oc.RelationId())
+	c.Assert(obtained.RelationKey(), gc.Equals, oc.RelationKey())
+	c.Assert(obtained.OfferUUID(), gc.Equals, oc.OfferUUID())
+}

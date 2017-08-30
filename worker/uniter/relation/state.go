@@ -184,6 +184,12 @@ func (d *StateDir) Ensure() error {
 	return os.MkdirAll(d.path, 0755)
 }
 
+// Exists returns true if the directory for this state exists.
+func (d *StateDir) Exists() bool {
+	_, err := os.Stat(d.path)
+	return err == nil
+}
+
 // Write atomically writes to disk the relation state change in hi.
 // It must be called after the respective hook was executed successfully.
 // Write doesn't validate hi but guarantees that successive writes of

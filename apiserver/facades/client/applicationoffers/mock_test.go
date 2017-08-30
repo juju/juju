@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -254,6 +255,10 @@ type mockRelation struct {
 	crossmodel.Relation
 	id       int
 	endpoint state.Endpoint
+}
+
+func (m *mockRelation) Status() status.Status {
+	return status.Joined
 }
 
 func (m *mockRelation) Endpoint(appName string) (state.Endpoint, error) {

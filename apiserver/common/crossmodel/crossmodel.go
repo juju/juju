@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.crossmodel")
@@ -20,15 +21,24 @@ var logger = loggo.GetLogger("juju.apiserver.common.crossmodel")
 func PublishRelationChange(backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
 	logger.Debugf("publish into model %v change for %v: %+v", backend.ModelUUID(), relationTag, change)
 
+	dyingOrDead := change.Life != "" && change.Life != params.Alive
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
 	if errors.IsNotFound(err) {
-		if change.Life != params.Alive {
+		if dyingOrDead {
 			return nil
 		}
 	}
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Update the relation status if necessary.
+	relStatus := status.Status(change.Status)
+	if rel.Status() != relStatus && relStatus != "" {
+		if err := rel.SetStatus(relStatus); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Look up the application on the remote side of this relation
@@ -40,7 +50,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	logger.Debugf("application tag for token %+v is %v", change.ApplicationToken, applicationTag)
 
 	// If the remote model has destroyed the relation, do it here also.
-	if change.Life != params.Alive {
+	if dyingOrDead {
 		logger.Debugf("remote side of %v died", relationTag)
 		if err := rel.Destroy(); err != nil {
 			return errors.Trace(err)
