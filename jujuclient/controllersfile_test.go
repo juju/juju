@@ -4,6 +4,7 @@
 package jujuclient_test
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	jc "github.com/juju/testing/checkers"
@@ -105,4 +106,52 @@ func (s *ControllersFileSuite) TestParseControllerMetadataError(c *gc.C) {
 	controllers, err := jujuclient.ParseControllers([]byte("fail me now"))
 	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.Controllers")
 	c.Assert(controllers, gc.IsNil)
+}
+
+func (s *ControllersFileSuite) TestControllerFileOldFormat(c *gc.C) {
+	fileContent := `
+controllers:
+  aws-test:
+    uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    dns-cache: {example.com: [0.1.1.1, 0.2.2.2]}
+    ca-cert: this-is-aws-test-ca-cert
+    cloud: aws
+    region: us-east-1%v
+    controller-machine-count: 0
+    active-controller-machine-count: 0
+current-controller: aws-test
+`
+	modelCount := `
+    model-count: 2`
+	fileName := "controllers.yaml"
+
+	// Contains model-count.
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath(fileName), []byte(fmt.Sprintf(fileContent, modelCount)[1:]), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerStore := jujuclient.NewFileClientStore()
+	controllers, err := controllerStore.AllControllers()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedDetails := jujuclient.ControllerDetails{
+		ControllerUUID: "this-is-the-aws-test-uuid",
+		APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
+		DNSCache:       map[string][]string{"example.com": []string{"0.1.1.1", "0.2.2.2"}},
+		CACert:         "this-is-aws-test-ca-cert",
+		Cloud:          "aws",
+		CloudRegion:    "us-east-1",
+	}
+	c.Assert(controllers, gc.DeepEquals, map[string]jujuclient.ControllerDetails{
+		"aws-test": expectedDetails,
+	})
+
+	err = controllerStore.UpdateController("aws-test", expectedDetails)
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath(fileName))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Has no model-count reference.
+	c.Assert(string(data), gc.Equals, fmt.Sprintf(fileContent, "")[1:])
 }

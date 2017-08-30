@@ -160,8 +160,6 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 		return err
 	}
 
-	modelCount := len(allModels)
-	details.ModelCount = &modelCount
 	machineCount := 0
 	for _, s := range modelStatus {
 		machineCount += s.TotalMachineCount

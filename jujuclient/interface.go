@@ -58,11 +58,6 @@ type ControllerDetails struct {
 	// does not need to hit the server.
 	ActiveControllerMachineCount int `yaml:"active-controller-machine-count"`
 
-	// ModelCount is the number of models to which a user has access.
-	// It is cached here so under normal usage list-controllers
-	// does not need to hit the server.
-	ModelCount *int `yaml:"model-count,omitempty"`
-
 	// MachineCount is the number of machines in all models to
 	// which a user has access. It is cached here so under normal
 	// usage list-controllers does not need to hit the server.

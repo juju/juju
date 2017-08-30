@@ -49,8 +49,8 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 Use --refresh flag with this command to see the latest information.
 
 Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
-aws-test             admin/controller  -      -          aws/us-east-1            2         5   -  2.0.1      
-mallards*            my-model          admin  superuser  mallards/mallards1       -         -   -  (unknown)  
+aws-test             admin/controller  -      -          aws/us-east-1            1         5   -  2.0.1      
+mallards*            my-model          admin  superuser  mallards/mallards1       2         -   -  (unknown)  
 mark-test-prodstack  -                 admin  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
@@ -202,7 +202,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				Cloud:          "aws",
 				CloudRegion:    "us-east-1",
 				AgentVersion:   "2.0.1",
-				ModelCount:     intPtr(2),
+				ModelCount:     intPtr(1),
 				MachineCount:   intPtr(5),
 			},
 			"mallards": {
@@ -215,6 +215,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				CACert:         "this-is-another-ca-cert",
 				Cloud:          "mallards",
 				CloudRegion:    "mallards1",
+				ModelCount:     intPtr(2),
 			},
 			"mark-test-prodstack": {
 				ControllerUUID: "this-is-a-uuid",

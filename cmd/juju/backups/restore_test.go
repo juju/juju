@@ -252,9 +252,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		APIEndpoints:   []string{"10.0.0.1:17777"},
 		AgentVersion:   version.Current.String(),
-		// We won't get correct model and machine counts until
+		// We won't get correct machine count until
 		// we connect properly eventually.
-		ModelCount:             nil,
 		MachineCount:           nil,
 		ControllerMachineCount: 1,
 	})
