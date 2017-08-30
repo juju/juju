@@ -165,9 +165,6 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatus)
 		controllers[controllerName] = details
-		// Refresh local store for this controller
-		modelCount := len(allModels)
-		one.ModelCount = &modelCount
 		machineCount := 0
 		for _, s := range modelStatus {
 			machineCount += s.TotalMachineCount

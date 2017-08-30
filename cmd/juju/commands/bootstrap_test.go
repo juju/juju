@@ -490,7 +490,6 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *gc.C) {
 	c.Assert(currentController, gc.Equals, "dummy-cloud-region-1")
 	details, err := s.store.ControllerByName(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*details.ModelCount, gc.Equals, 2)
 	c.Assert(*details.MachineCount, gc.Equals, 1)
 	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
 }
@@ -534,7 +533,6 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	details, err := s.store.ControllerByName(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*details.ModelCount, gc.Equals, 2)
 	c.Assert(*details.MachineCount, gc.Equals, 1)
 	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
 }

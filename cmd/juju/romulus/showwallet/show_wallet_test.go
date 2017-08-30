@@ -175,11 +175,8 @@ func newMockClientStore() jujuclient.ClientStore {
 }
 
 func (s *mockClientStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
-	n := 3
 	return map[string]jujuclient.ControllerDetails{
-		"c": jujuclient.ControllerDetails{
-			ModelCount: &n,
-		},
+		"c": jujuclient.ControllerDetails{},
 	}, nil
 }
 
