@@ -2906,36 +2906,38 @@ func isLocalID(st modelBackend) func(interface{}) bool {
 	}
 }
 
-// relationIngressWatcher notifies of changes in the
-// relationIngress collection.
-type relationIngressWatcher struct {
+// relationNetworksWatcher notifies of changes in the
+// relationNetworks collection, either ingress of egress.
+type relationNetworksWatcher struct {
 	commonWatcher
 	key         string
+	direction   string
 	filter      func(key interface{}) bool
 	knownTxnRev int64
 	knownCidrs  set.Strings
 	out         chan []string
 }
 
-var _ Watcher = (*relationIngressWatcher)(nil)
+var _ Watcher = (*relationNetworksWatcher)(nil)
 
 // WatchRelationIngressNetworks starts and returns a StringsWatcher notifying
-// of changes to the relationIngress collection for the relation.
+// of changes to the relationNetworks collection for the relation.
 func (r *Relation) WatchRelationIngressNetworks() StringsWatcher {
-	return newrelationIngressWatcher(r.st, r.Tag().Id())
+	return newrelationNetworksWatcher(r.st, r.Tag().Id(), ingress)
 }
 
-func newrelationIngressWatcher(st modelBackend, relationKey string) StringsWatcher {
+func newrelationNetworksWatcher(st modelBackend, relationKey, direction string) StringsWatcher {
 	filter := func(id interface{}) bool {
 		k, err := st.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
-		return k == relationKey
+		return k == relationKey+":"+direction
 	}
-	w := &relationIngressWatcher{
+	w := &relationNetworksWatcher{
 		commonWatcher: newCommonWatcher(st),
 		key:           relationKey,
+		direction:     direction,
 		filter:        filter,
 		knownCidrs:    set.NewStrings(),
 		out:           make(chan []string),
@@ -2951,12 +2953,12 @@ func newrelationIngressWatcher(st modelBackend, relationKey string) StringsWatch
 
 // Changes returns the event channel for watching changes
 // to a relation's ingress networks.
-func (w *relationIngressWatcher) Changes() <-chan []string {
+func (w *relationNetworksWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *relationIngressWatcher) loadCIDRs() (bool, error) {
-	coll, closer := w.db.GetCollection(relationIngressC)
+func (w *relationNetworksWatcher) loadCIDRs() (bool, error) {
+	coll, closer := w.db.GetCollection(relationNetworksC)
 	defer closer()
 
 	var doc struct {
@@ -2964,7 +2966,7 @@ func (w *relationIngressWatcher) loadCIDRs() (bool, error) {
 		Id       string   `bson:"_id"`
 		CIDRs    []string `bson:"cidrs"`
 	}
-	err := coll.FindId(w.key).One(&doc)
+	err := coll.FindId(w.key + ":" + w.direction).One(&doc)
 	if err == mgo.ErrNotFound {
 		// Record deleted.
 		changed := w.knownCidrs.Size() > 0
@@ -2989,10 +2991,10 @@ func (w *relationIngressWatcher) loadCIDRs() (bool, error) {
 	return changed, nil
 }
 
-func (w *relationIngressWatcher) loop() error {
+func (w *relationNetworksWatcher) loop() error {
 	in := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(relationIngressC, in, w.filter)
-	defer w.watcher.UnwatchCollection(relationIngressC, in)
+	w.watcher.WatchCollectionWithFilter(relationNetworksC, in, w.filter)
+	defer w.watcher.UnwatchCollection(relationNetworksC, in)
 
 	var (
 		sentInitial bool

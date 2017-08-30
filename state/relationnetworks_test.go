@@ -1,0 +1,123 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state_test
+
+import (
+	"fmt"
+	"regexp"
+
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
+
+	"github.com/juju/errors"
+	"github.com/juju/juju/state"
+)
+
+type relationNetworksSuite struct {
+	ConnSuite
+	relationNetworks state.RelationNetworker
+	direction        string
+	relation         *state.Relation
+}
+
+type relationIngressNetworksSuite struct {
+	relationNetworksSuite
+}
+
+type relationEgressNetworksSuite struct {
+	relationNetworksSuite
+}
+
+var _ = gc.Suite(&relationIngressNetworksSuite{})
+var _ = gc.Suite(&relationEgressNetworksSuite{})
+
+func (s *relationNetworksSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	s.relation, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationIngressNetworksSuite) SetUpTest(c *gc.C) {
+	s.relationNetworksSuite.SetUpTest(c)
+	s.direction = "ingress"
+	s.relationNetworks = state.NewRelationIngressNetworks(s.State)
+}
+
+func (s *relationEgressNetworksSuite) SetUpTest(c *gc.C) {
+	s.relationNetworksSuite.SetUpTest(c)
+	s.direction = "egress"
+	s.relationNetworks = state.NewRelationEgressNetworks(s.State)
+}
+
+func (s *relationNetworksSuite) TestSaveMissingRelation(c *gc.C) {
+	_, err := s.relationNetworks.Save("wordpress:db something:database", []string{"192.168.1.0/32"})
+	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`"wordpress:db something:database" not found`))
+}
+
+func (s *relationNetworksSuite) TestSaveInvalidAddress(c *gc.C) {
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1"})
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`CIDR "192.168.1" not valid`))
+}
+
+func (s *relationNetworksSuite) assertSavedIngressInfo(c *gc.C, relationKey string, expectedCIDRS ...string) {
+	coll, closer := state.GetCollection(s.State, "relationNetworks")
+	defer closer()
+
+	var raw bson.M
+	err := coll.FindId(fmt.Sprintf("%v:%v", relationKey, s.direction)).One(&raw)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(raw["_id"], gc.Equals, fmt.Sprintf("%v:%v:%v", s.State.ModelUUID(), relationKey, s.direction))
+	var cidrs []string
+	for _, m := range raw["cidrs"].([]interface{}) {
+		cidrs = append(cidrs, m.(string))
+	}
+	c.Assert(cidrs, jc.SameContents, expectedCIDRS)
+}
+
+func (s *relationNetworksSuite) TestSave(c *gc.C) {
+	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
+	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"192.168.1.0/16"})
+	s.assertSavedIngressInfo(c, "wordpress:db mysql:server", "192.168.1.0/16")
+}
+
+func (s *relationNetworksSuite) TestSaveIdempotent(c *gc.C) {
+	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	rin, err = s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
+	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"192.168.1.0/16"})
+	s.assertSavedIngressInfo(c, "wordpress:db mysql:server", "192.168.1.0/16")
+}
+
+func (s *relationNetworksSuite) TestUpdateCIDRs(c *gc.C) {
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.relationNetworks.Save("wordpress:db mysql:server", []string{"10.0.0.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSavedIngressInfo(c, "wordpress:db mysql:server", "10.0.0.1/16")
+}
+
+func (s *relationIngressNetworksSuite) TestCrossContanination(c *gc.C) {
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = state.EgressNetworks(s.relation)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *relationEgressNetworksSuite) TestCrossContanination(c *gc.C) {
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = state.IngressNetworks(s.relation)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
