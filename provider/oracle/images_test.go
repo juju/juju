@@ -29,7 +29,7 @@ func (i imageSuite) TestGetImageNameWithErrors(c *gc.C) {
 	_, err := oracle.GetImageName(oracletesting.DefaultEnvironAPI, "")
 	c.Assert(err, gc.NotNil)
 
-	_, err = oracle.GetImageName(oracletesting.FakeEnvironAPI{
+	_, err = oracle.GetImageName(&oracletesting.FakeEnvironAPI{
 		FakeImager: oracletesting.FakeImager{
 			AllErr: errors.New("FakeImageListErr"),
 		}}, "0")
@@ -44,7 +44,7 @@ func (i imageSuite) TestCheckImageList(c *gc.C) {
 }
 
 func (i imageSuite) TestCheckImageListWithErrors(c *gc.C) {
-	_, err := oracle.CheckImageList(oracletesting.FakeEnvironAPI{
+	_, err := oracle.CheckImageList(&oracletesting.FakeEnvironAPI{
 		FakeImager: oracletesting.FakeImager{
 			AllErr: errors.New("FakeImageListErr"),
 		},

@@ -8,8 +8,10 @@ import (
 
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/response"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
@@ -18,9 +20,16 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type oracleVolumeSource struct{}
+type oracleVolumeSource struct {
+	testing.BaseSuite
+}
 
 var _ = gc.Suite(&oracleVolumeSource{})
+
+func (s *oracleVolumeSource) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	oracletesting.DefaultFakeStorageAPI.ResetCalls()
+}
 
 func (o *oracleVolumeSource) NewVolumeSource(
 	c *gc.C,
@@ -65,94 +74,72 @@ func (o *oracleVolumeSource) TestCreateVolumesWithEmptyParams(c *gc.C) {
 
 func (o *oracleVolumeSource) TestCreateVolumes(c *gc.C) {
 	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
-	result, err := source.CreateVolumes([]storage.VolumeParams{
+	results, err := source.CreateVolumes([]storage.VolumeParams{
 		storage.VolumeParams{
 			Size:     uint64(10000),
 			Provider: oracle.DefaultTypes[0],
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.NotNil)
-	for _, val := range result {
-		c.Assert(val.Error, gc.IsNil)
-	}
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, jc.ErrorIsNil)
 }
 
-func (o *oracleVolumeSource) TestCreateVolumesWithoutExist(c *gc.C) {
+func (o *oracleVolumeSource) TestCreateVolumesAlreadyExists(c *gc.C) {
 	source := o.NewVolumeSource(c, &oracletesting.FakeStorageAPI{
 		FakeComposer: oracletesting.FakeComposer{
 			Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
 		FakeStorageVolume: oracletesting.FakeStorageVolume{
-			StorageVolumeErr: &api.ErrNotFound{},
-			All:              oracletesting.DefaultAllStorageVolumes,
-			AllErr:           nil,
-			Create:           oracletesting.DefaultAllStorageVolumes.Result[0],
-			CreateErr:        nil,
-			DeleteErr:        nil,
+			StorageVolume: response.StorageVolume{
+				Name: "foo",
+				Size: 123 * 1024 * 1024,
+				Tags: []string{
+					"juju-model-uuid=some-uuid-things-with-magic",
+				},
+			},
+			CreateErr: &api.ErrStatusConflict{},
 		},
 	}, nil)
-	result, err := source.CreateVolumes([]storage.VolumeParams{
+	volumeTag := names.NewVolumeTag("666")
+	results, err := source.CreateVolumes([]storage.VolumeParams{{
+		Tag:      volumeTag,
+		Size:     uint64(10000),
+		Provider: oracle.DefaultTypes[0],
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(results[0].Volume, jc.DeepEquals, &storage.Volume{
+		volumeTag,
+		storage.VolumeInfo{
+			VolumeId:   "foo",
+			Size:       123,
+			Persistent: true,
+		},
+	})
+}
+
+func (o *oracleVolumeSource) TestCreateVolumeError(c *gc.C) {
+	fake := &oracletesting.FakeStorageAPI{
+		FakeComposer: oracletesting.FakeComposer{
+			Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+		},
+		FakeStorageVolume: oracletesting.FakeStorageVolume{
+			CreateErr: errors.New("FakeStorageVolumeErr"),
+		},
+	}
+	source := o.NewVolumeSource(c, fake, nil)
+	results, err := source.CreateVolumes([]storage.VolumeParams{
 		storage.VolumeParams{
 			Size:     uint64(10000),
 			Provider: oracle.DefaultTypes[0],
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.NotNil)
-}
-
-func (o *oracleVolumeSource) TestCreatevolumesWithErrors(c *gc.C) {
-	for _, fake := range []*oracletesting.FakeStorageAPI{
-		&oracletesting.FakeStorageAPI{
-			FakeComposer: oracletesting.FakeComposer{
-				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
-			},
-			FakeStorageVolume: oracletesting.FakeStorageVolume{
-				StorageVolumeErr: errors.New("FakeStroageVolumeErr"),
-				AllErr:           nil,
-				CreateErr:        nil,
-				DeleteErr:        nil,
-			},
-		},
-		&oracletesting.FakeStorageAPI{
-			FakeComposer: oracletesting.FakeComposer{
-				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
-			},
-			FakeStorageVolume: oracletesting.FakeStorageVolume{
-				StorageVolume: response.StorageVolume{
-					Size: 31231,
-				},
-				StorageVolumeErr: nil,
-				AllErr:           nil,
-				CreateErr:        nil,
-				DeleteErr:        nil,
-			},
-		},
-		&oracletesting.FakeStorageAPI{
-			FakeComposer: oracletesting.FakeComposer{
-				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
-			},
-			FakeStorageVolume: oracletesting.FakeStorageVolume{
-				StorageVolumeErr: &api.ErrNotFound{},
-				AllErr:           nil,
-				CreateErr:        errors.New("FakeStoraveVolumeErr"),
-				DeleteErr:        nil,
-			},
-		},
-	} {
-		source := o.NewVolumeSource(c, fake, nil)
-		results, err := source.CreateVolumes([]storage.VolumeParams{
-			storage.VolumeParams{
-				Size:     uint64(10000),
-				Provider: oracle.DefaultTypes[0],
-			},
-		})
-		c.Assert(err, gc.IsNil)
-		for _, val := range results {
-			c.Assert(val.Error, gc.NotNil)
-		}
-	}
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, gc.NotNil)
+	c.Assert(results[0].Error, gc.ErrorMatches, "FakeStorageVolumeErr")
 }
 
 func (o *oracleVolumeSource) TestListVolumes(c *gc.C) {
@@ -209,9 +196,9 @@ func (o *oracleVolumeSource) TestDescribeVolumesWithErrors(c *gc.C) {
 
 func (o *oracleVolumeSource) TestDestroyVolumes(c *gc.C) {
 	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
-	errs, err := source.DestroyVolumes([]string{})
+	errs, err := source.DestroyVolumes([]string{"foo"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(errs, gc.NotNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
 
 func (o *oracleVolumeSource) TestDestroyVolumesWithErrors(c *gc.C) {
@@ -231,8 +218,69 @@ func (o *oracleVolumeSource) TestDestroyVolumesWithErrors(c *gc.C) {
 		for _, val := range errs {
 			c.Assert(val, gc.NotNil)
 		}
-
 	}
+}
+
+func (o *oracleVolumeSource) TestReleaseVolumes(c *gc.C) {
+	o.PatchValue(
+		&oracletesting.DefaultFakeStorageAPI.StorageVolume.Tags,
+		[]string{"abc", "juju-model-uuid=foo", "bar=baz"},
+	)
+
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
+	errs, err := source.ReleaseVolumes([]string{"foo"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+
+	oracletesting.DefaultFakeStorageAPI.FakeStorageVolume.CheckCallNames(
+		c, "StorageVolumeDetails", "UpdateStorageVolume",
+	)
+	updateCall := oracletesting.DefaultFakeStorageAPI.FakeStorageVolume.Calls()[1]
+	arg0 := updateCall.Args[0].(api.StorageVolumeParams)
+	c.Assert(arg0.Tags, jc.DeepEquals, []string{"abc", "bar=baz"})
+}
+
+func (o *oracleVolumeSource) TestReleaseVolumesUnchanged(c *gc.C) {
+	// Volume has no tags, which means there's no update required.
+	o.PatchValue(
+		&oracletesting.DefaultFakeStorageAPI.StorageVolume.Tags,
+		[]string{},
+	)
+
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
+	errs, err := source.ReleaseVolumes([]string{"foo"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+
+	oracletesting.DefaultFakeStorageAPI.FakeStorageVolume.CheckCallNames(
+		c, "StorageVolumeDetails",
+	)
+}
+
+func (o *oracleVolumeSource) TestImportVolume(c *gc.C) {
+	// Volume has no tags, which means there's no update required.
+	o.PatchValue(
+		&oracletesting.DefaultFakeStorageAPI.StorageVolume.Tags,
+		[]string{"abc"},
+	)
+
+	source := o.NewVolumeSource(c, oracletesting.DefaultFakeStorageAPI, nil)
+	c.Assert(source, gc.Implements, new(storage.VolumeImporter))
+
+	info, err := source.(storage.VolumeImporter).ImportVolume("foo", map[string]string{"bar": "baz"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, storage.VolumeInfo{
+		VolumeId:   "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+		Size:       10,
+		Persistent: true,
+	})
+
+	oracletesting.DefaultFakeStorageAPI.FakeStorageVolume.CheckCallNames(
+		c, "StorageVolumeDetails", "UpdateStorageVolume",
+	)
+	updateCall := oracletesting.DefaultFakeStorageAPI.FakeStorageVolume.Calls()[1]
+	arg0 := updateCall.Args[0].(api.StorageVolumeParams)
+	c.Assert(arg0.Tags, jc.DeepEquals, []string{"abc", "bar=baz"})
 }
 
 func (o *oracleVolumeSource) TestValidateVolumeParamsWithError(c *gc.C) {

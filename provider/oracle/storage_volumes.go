@@ -6,6 +6,7 @@ package oracle
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,7 +77,6 @@ func (s *oracleVolumeSource) getStoragePool(attr map[string]interface{}) (ociCom
 // under the oracle cloud endpoint
 func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Volume, err error) {
 	var details ociResponse.StorageVolume
-
 	defer func() {
 		// gsamfira: not really sure if this is needed. The only relevant error
 		// on which we act is the one returned by the oracle API when creating
@@ -87,53 +87,24 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 			_ = s.api.DeleteStorageVolume(details.Name)
 		}
 	}()
+
 	// validate the parameters
 	if err := s.ValidateVolumeParams(p); err != nil {
 		return nil, errors.Trace(err)
 	}
 	name := s.resourceName(p.Tag.String())
 	size := mibToGib(p.Size)
-
-	// Some idempotence checks here.
-	details, err = s.api.StorageVolumeDetails(name)
-	if err != nil {
-		if !oci.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		// the storage volume exists and we should return it
-		// after we do some extra checks and parsing
-		if uint64(details.Size) != size {
-			// a disk with the same name but different characteristics
-			// exists on the cloud. Error out?
-			return nil, errors.Errorf("found duplicate disk: %q", name)
-		}
-		volume := storage.Volume{
-			p.Tag,
-			storage.VolumeInfo{
-				VolumeId:   details.Name,
-				Size:       uint64(details.Size) / 1024 / 1024 / 1024,
-				Persistent: true,
-			},
-		}
-		return &volume, nil
+	if size > maxVolumeSizeInGB || size < minVolumeSizeInGB {
+		return nil, errors.Errorf("invalid size for volume: %d", size)
 	}
-	// the storage volume does not exist and we should try and create
-	// one based on the storage volume parameters given
-	attr := p.Attributes
-	// fetch the storage pool for this volume
-	poolType, err := s.getStoragePool(attr)
+
+	poolType, err := s.getStoragePool(p.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	tags := []string{
-		p.Tag.String(),
-	}
+	volumeTags := []string{p.Tag.String()}
 	for k, v := range p.ResourceTags {
-		tags = append(tags, fmt.Sprintf("%s=%s", k, v))
-	}
-	if size > maxVolumeSizeInGB || size < minVolumeSizeInGB {
-		return nil, errors.Errorf("invalid size for volume: %d", size)
+		volumeTags = append(volumeTags, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	params := oci.StorageVolumeParams{
@@ -144,33 +115,43 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 			poolType,
 		},
 		Size: ociCommon.NewStorageSize(size, ociCommon.G),
-		Tags: tags,
+		Tags: volumeTags,
 	}
 	logger.Infof("creating volume: %v", params)
 	details, err = s.api.CreateStorageVolume(params)
-	if err != nil {
+	if oci.IsStatusConflict(err) {
+		// Volume already exists, so return its details.
+		conflictErr := err
+		details, err = s.api.StorageVolumeDetails(name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var modelTagValue string
+		for _, tag := range details.Tags {
+			prefix := tags.JujuModel + "="
+			if !strings.HasPrefix(tag, prefix) {
+				continue
+			}
+			modelTagValue = tag[len(prefix):]
+		}
+		if modelTagValue != s.modelUUID {
+			return nil, errors.Trace(conflictErr)
+		}
+		return &storage.Volume{p.Tag, makeVolumeInfo(details)}, nil
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("waiting for resource %v", details.Name)
 
 	// wait for the newly created volume to reach "Online" status
+	logger.Debugf("waiting for resource %v", details.Name)
 	if err := s.waitForResourceStatus(
 		s.fetchVolumeStatus,
 		string(details.Name),
 		string(ociCommon.VolumeOnline), 5*time.Minute); err != nil {
 		return nil, errors.Trace(err)
 	}
-	volume := &storage.Volume{
-		p.Tag,
-		storage.VolumeInfo{
-			VolumeId: details.Name,
-			// the API returns the size of the volume in bytes.
-			// convert to GiB
-			Size:       uint64(details.Size) / 1024 / 1024 / 1024,
-			Persistent: true,
-		},
-	}
-	logger.Infof("returning volume details: %v", volume)
+	volume := &storage.Volume{p.Tag, makeVolumeInfo(details)}
+	logger.Debugf("volume details: %v", volume)
 	return volume, nil
 }
 
@@ -219,14 +200,19 @@ func (s *oracleVolumeSource) fetchVolumeAttachmentStatus(name, desiredStatus str
 // the timeout is reached, or an error occurs.
 func (o *oracleVolumeSource) waitForResourceStatus(
 	fetch func(name string, desiredStatus string) (complete bool, err error),
-	name, state string, timeout time.Duration) error {
+	name, state string,
+	timeout time.Duration,
+) error {
 
-	timer := o.clock.NewTimer(timeout)
-	defer timer.Stop()
+	timeoutTimer := o.clock.NewTimer(timeout)
+	defer timeoutTimer.Stop()
+
+	retryTimer := o.clock.NewTimer(0)
+	defer retryTimer.Stop()
 
 	for {
 		select {
-		case <-o.clock.After(2 * time.Second):
+		case <-retryTimer.Chan():
 			done, err := fetch(name, state)
 			if err != nil {
 				return err
@@ -234,7 +220,8 @@ func (o *oracleVolumeSource) waitForResourceStatus(
 			if done {
 				return nil
 			}
-		case <-timer.Chan():
+			retryTimer.Reset(2 * time.Second)
+		case <-timeoutTimer.Chan():
 			return errors.Errorf(
 				"timed out waiting for resource %q to transition to %v",
 				name, state,
@@ -246,12 +233,10 @@ func (o *oracleVolumeSource) waitForResourceStatus(
 // ListVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) ListVolumes() ([]string, error) {
 	tag := fmt.Sprintf("%s=%s", tags.JujuModel, s.modelUUID)
-	filter := []oci.Filter{
-		oci.Filter{
-			Arg:   "tags",
-			Value: tag,
-		},
-	}
+	filter := []oci.Filter{{
+		Arg:   "tags",
+		Value: tag,
+	}}
 	volumes, err := s.api.AllStorageVolumes(filter)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing volumes")
@@ -272,12 +257,10 @@ func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.Describ
 	}
 
 	tag := fmt.Sprintf("%s=%s", tags.JujuModel, s.modelUUID)
-	filter := []oci.Filter{
-		oci.Filter{
-			Arg:   "tags",
-			Value: tag,
-		},
-	}
+	filter := []oci.Filter{{
+		Arg:   "tags",
+		Value: tag,
+	}}
 
 	result := make([]storage.DescribeVolumesResult, len(volIds), len(volIds))
 	volumes, err := s.api.AllStorageVolumes(filter)
@@ -290,15 +273,8 @@ func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.Describ
 	}
 	for i, volume := range volIds {
 		if vol, ok := asMap[volume]; ok {
-			volumeInfo := &storage.VolumeInfo{
-				VolumeId:   vol.Name,
-				Size:       uint64(vol.Size) / 1024 / 1024 / 1024,
-				Persistent: true,
-			}
-			v := storage.DescribeVolumesResult{
-				VolumeInfo: volumeInfo,
-			}
-			result[i] = v
+			volumeInfo := makeVolumeInfo(vol)
+			result[i].VolumeInfo = &volumeInfo
 		} else {
 			result[i].Error = errors.NotFoundf("%s", volume)
 		}
@@ -306,25 +282,121 @@ func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.Describ
 	return result, nil
 }
 
+func makeVolumeInfo(vol ociResponse.StorageVolume) storage.VolumeInfo {
+	return storage.VolumeInfo{
+		VolumeId: vol.Name,
+		// Oracle returns the size of the volume
+		// in bytes, VolumeInfo expects MiB.
+		Size:       uint64(vol.Size) / (1024 * 1024),
+		Persistent: true,
+	}
+}
+
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
+	return foreachVolume(volIds, s.api.DeleteStorageVolume), nil
+}
+
+// ReleaseVolumes is specified on the storage.VolumeSource interface.
+func (s *oracleVolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
+	releaseStorageVolume := func(volumeId string) error {
+		details, err := s.api.StorageVolumeDetails(volumeId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var newTags []string
+		for _, tag := range details.Tags {
+			fields := strings.Split(tag, "=")
+			if len(fields) != 2 {
+				newTags = append(newTags, tag)
+				continue
+			}
+			switch fields[0] {
+			case tags.JujuController, tags.JujuModel:
+			default:
+				newTags = append(newTags, tag)
+			}
+		}
+		if len(newTags) == len(details.Tags) {
+			return nil
+		}
+		details.Tags = newTags
+		return errors.Trace(s.updateVolume(volumeId, details))
+	}
+	return foreachVolume(volIds, releaseStorageVolume), nil
+}
+
+func foreachVolume(volIds []string, f func(string) error) []error {
 	results := make([]error, len(volIds))
 	wg := sync.WaitGroup{}
 	wg.Add(len(volIds))
 	for i, val := range volIds {
 		go func(volId string, idx int) {
 			defer wg.Done()
-			err := s.api.DeleteStorageVolume(volId)
-			results[idx] = err
+			results[idx] = f(volId)
 		}(val, i)
 	}
 	wg.Wait()
-	return results, nil
+	return results
 }
 
-// ReleaseVolumes is specified on the storage.VolumeSource interface.
-func (s *oracleVolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
-	return nil, errors.NotImplementedf("ReleaseVolumes")
+// ImportVolume is specified on the storage.VolumeImporter interface.
+func (s *oracleVolumeSource) ImportVolume(volumeId string, tags map[string]string) (storage.VolumeInfo, error) {
+	details, err := s.api.StorageVolumeDetails(volumeId)
+	if err != nil {
+		return storage.VolumeInfo{}, errors.Trace(err)
+	}
+	var newTags []string
+	for _, tag := range details.Tags {
+		fields := strings.Split(tag, "=")
+		if len(fields) != 2 {
+			newTags = append(newTags, tag)
+			continue
+		}
+		key, value := fields[0], fields[1]
+		if newValue, ok := tags[key]; !ok || newValue == value {
+			delete(tags, key)
+			newTags = append(newTags, tag)
+			continue
+		}
+		// The tag has changed; we'll add it in the loop below.
+	}
+	if len(tags) != 0 {
+		for key, value := range tags {
+			newTags = append(newTags, fmt.Sprintf("%s=%s", key, value))
+		}
+		details.Tags = newTags
+		if err := s.updateVolume(volumeId, details); err != nil {
+			return storage.VolumeInfo{}, errors.Trace(err)
+		}
+	}
+	return makeVolumeInfo(details), nil
+}
+
+func (s *oracleVolumeSource) updateVolume(volumeId string, details ociResponse.StorageVolume) error {
+	derefString := func(s *string) string {
+		if s != nil {
+			return *s
+		}
+		return ""
+	}
+	_, err := s.api.UpdateStorageVolume(
+		oci.StorageVolumeParams{
+			Bootable:         details.Bootable,
+			Description:      derefString(details.Description),
+			Imagelist:        details.Imagelist,
+			Imagelist_entry:  details.Imagelist_entry,
+			Name:             details.Name,
+			Properties:       details.Properties,
+			Size:             ociCommon.StorageSize(details.Size),
+			Snapshot:         derefString(details.Snapshot),
+			Snapshot_account: details.Snapshot_account,
+			Snapshot_id:      details.Snapshot_id,
+			Tags:             details.Tags,
+		},
+		volumeId,
+	)
+	return errors.Annotatef(err, "updating volume %q", volumeId)
 }
 
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.
