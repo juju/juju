@@ -869,8 +869,8 @@ func (s *RelationUnitSuite) TestIngressAddressRemoteRelationNoPublicAddr(c *gc.C
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
 }
 
-func (s *RelationUnitSuite) TestIngressAddressRemoteRelationEgressCidrs(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-cidrs": "192.168.1.0/32"}, nil)
+func (s *RelationUnitSuite) TestIngressAddressRemoteRelationEgressSubnets(c *gc.C) {
+	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.1.0/32"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	err = prr.ru0.AssignToNewMachine()

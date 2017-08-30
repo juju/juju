@@ -107,7 +107,7 @@ func (w *EgressAddressWatcher) initialise() error {
 	if err != nil {
 		return err
 	}
-	w.knownEgress = set.NewStrings(cfg.EgressCidrs()...)
+	w.knownEgress = set.NewStrings(cfg.EgressSubnets()...)
 	return nil
 }
 
@@ -184,7 +184,7 @@ func (w *EgressAddressWatcher) loop() error {
 			if err != nil {
 				return err
 			}
-			egress := set.NewStrings(cfg.EgressCidrs()...)
+			egress := set.NewStrings(cfg.EgressSubnets()...)
 			// Have the egress addresses changed.
 			if egress.Size() != w.knownEgress.Size() ||
 				egress.Difference(w.knownEgress).Size() != 0 || w.knownEgress.Difference(egress).Size() != 0 {

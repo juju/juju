@@ -401,7 +401,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 }
 
 func (s *addressWatcherSuite) TestEgressAddressConfigured(c *gc.C) {
-	s.st.configAttrs["egress-cidrs"] = "10.0.0.1/16"
+	s.st.configAttrs["egress-subnets"] = "10.0.0.1/16"
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
@@ -421,13 +421,13 @@ func (s *addressWatcherSuite) TestEgressAddressConfigured(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change user configured egress addresses.
-	s.st.configAttrs["egress-cidrs"] = "192.168.0.1/16"
+	s.st.configAttrs["egress-subnets"] = "192.168.0.1/16"
 	s.st.modelWatcher.changes <- struct{}{}
 	wc.AssertChange("192.168.0.1/16")
 	wc.AssertNoChange()
 
 	// Reset user configured egress addresses.
-	s.st.configAttrs["egress-cidrs"] = ""
+	s.st.configAttrs["egress-subnets"] = ""
 	s.st.modelWatcher.changes <- struct{}{}
 	wc.AssertChange("54.1.2.3/32")
 	wc.AssertNoChange()
