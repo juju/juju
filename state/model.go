@@ -1085,6 +1085,21 @@ func (m *Model) destroyOps(
 				m.st.db(), modelEntityRefs,
 			)
 			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			prereqOps = storageOps
+		} else if !*args.DestroyStorage {
+			// The model is non-empty, and the user has specified that
+			// storage should be released. Make sure the storage is
+			// all releasable.
+			im, err := m.IAASModel()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			storageOps, err := checkModelEntityRefsAllReleasableStorage(
+				im, modelEntityRefs,
+			)
+			if err != nil {
 				return nil, err
 			}
 			prereqOps = storageOps
@@ -1097,10 +1112,10 @@ func (m *Model) destroyOps(
 		}
 	}
 
-	if m.isControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil) {
+	if m.isControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
 		// This is the controller model, and we've not been instructed
-		// to destroy hosted models, or we've not been instructed how
-		// to remove storage.
+		// to destroy hosted models, or we've not been instructed to
+		// destroy storage.
 		//
 		// Check for any Dying or alive but non-empty models. If there
 		// are any and we have not been instructed to destroy them, we
@@ -1331,6 +1346,48 @@ func checkModelEntityRefsNoPersistentStorage(
 			return nil, hasPersistentStorageError{}
 		}
 	}
+	return noNewStorageModelEntityRefs(doc), nil
+}
+
+// checkModelEntityRefsAllReleasableStorage checks that there all
+// persistent storage in the model is releasable. If it is, then
+// txn.Ops are returned to assert the same; if it is not, then an
+// error is returned.
+func checkModelEntityRefsAllReleasableStorage(im *IAASModel, doc *modelEntityRefsDoc) ([]txn.Op, error) {
+	for _, volumeId := range doc.Volumes {
+		volumeTag := names.NewVolumeTag(volumeId)
+		volume, err := im.volumeByTag(volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !volume.Detachable() {
+			continue
+		}
+		if err := checkStoragePoolReleasable(im, volume.pool()); err != nil {
+			return nil, errors.Annotatef(err,
+				"cannot release %s", names.ReadableString(volumeTag),
+			)
+		}
+	}
+	for _, filesystemId := range doc.Filesystems {
+		filesystemTag := names.NewFilesystemTag(filesystemId)
+		filesystem, err := im.filesystemByTag(filesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !filesystem.Detachable() {
+			continue
+		}
+		if err := checkStoragePoolReleasable(im, filesystem.pool()); err != nil {
+			return nil, errors.Annotatef(err,
+				"cannot release %s", names.ReadableString(filesystemTag),
+			)
+		}
+	}
+	return noNewStorageModelEntityRefs(doc), nil
+}
+
+func noNewStorageModelEntityRefs(doc *modelEntityRefsDoc) []txn.Op {
 	noNewVolumes := bson.DocElem{
 		"volumes", bson.D{{
 			"$not", bson.D{{
@@ -1360,7 +1417,7 @@ func checkModelEntityRefsNoPersistentStorage(
 			noNewVolumes,
 			noNewFilesystems,
 		},
-	}}, nil
+	}}
 }
 
 func addModelMachineRefOp(mb modelBackend, machineId string) txn.Op {

@@ -83,6 +83,11 @@ func (*tmpfsProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (*tmpfsProvider) Releasable() bool {
+	return false
+}
+
 // DefaultPools is defined on the Provider interface.
 func (*tmpfsProvider) DefaultPools() []*storage.Config {
 	return nil

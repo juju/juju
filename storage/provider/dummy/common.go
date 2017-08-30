@@ -14,10 +14,17 @@ func StorageProviders() storage.ProviderRegistry {
 			"modelscoped": &StorageProvider{
 				StorageScope: storage.ScopeEnviron,
 				IsDynamic:    true,
+				IsReleasable: true,
+			},
+			"modelscoped-unreleasable": &StorageProvider{
+				StorageScope: storage.ScopeEnviron,
+				IsDynamic:    true,
+				IsReleasable: false,
 			},
 			"modelscoped-block": &StorageProvider{
 				StorageScope: storage.ScopeEnviron,
 				IsDynamic:    true,
+				IsReleasable: true,
 				SupportsFunc: func(k storage.StorageKind) bool {
 					return k == storage.StorageKindBlock
 				},

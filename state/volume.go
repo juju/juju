@@ -473,12 +473,23 @@ func isDetachableVolumeTag(db Database, tag names.VolumeTag) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return doc.MachineId == "", nil
+	return detachableVolumeDoc(&doc), nil
 }
 
 // Detachable reports whether or not the volume is detachable.
 func (v *volume) Detachable() bool {
-	return v.doc.MachineId == ""
+	return detachableVolumeDoc(&v.doc)
+}
+
+func (v *volume) pool() string {
+	if v.doc.Info != nil {
+		return v.doc.Info.Pool
+	}
+	return v.doc.Params.Pool
+}
+
+func detachableVolumeDoc(doc *volumeDoc) bool {
+	return doc.MachineId == ""
 }
 
 // isDetachableVolumePool reports whether or not the given storage

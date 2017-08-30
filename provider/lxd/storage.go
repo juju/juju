@@ -150,6 +150,11 @@ func (e *lxdStorageProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (*lxdStorageProvider) Releasable() bool {
+	return true
+}
+
 // DefaultPools is part of the Provider interface.
 func (e *lxdStorageProvider) DefaultPools() []*storage.Config {
 	zfsPool, _ := storage.NewConfig("lxd-zfs", lxdStorageProviderType, map[string]interface{}{

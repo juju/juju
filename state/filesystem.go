@@ -520,6 +520,13 @@ func (f *filesystem) Detachable() bool {
 	return f.doc.MachineId == ""
 }
 
+func (f *filesystem) pool() string {
+	if f.doc.Info != nil {
+		return f.doc.Info.Pool
+	}
+	return f.doc.Params.Pool
+}
+
 // isDetachableFilesystemPool reports whether or not the given
 // storage pool will create a filesystem that is not inherently
 // bound to a machine, and therefore can be detached.

@@ -114,6 +114,11 @@ func (maasStorageProvider) Dynamic() bool {
 	return false
 }
 
+// Releasable is defined on the Provider interface.
+func (maasStorageProvider) Releasable() bool {
+	return false
+}
+
 // DefaultPools is defined on the Provider interface.
 func (maasStorageProvider) DefaultPools() []*storage.Config {
 	return nil

@@ -373,6 +373,12 @@ func (im *IAASModel) destroyStorageInstanceOps(
 		ownerAssert = bson.DocElem{"owner", bson.D{{"$exists", false}}}
 	}
 
+	if releaseStorage {
+		if err := checkStoragePoolReleasable(im, s.Pool()); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	// There are still attachments: the storage instance will be removed
 	// when the last attachment is removed. We schedule a cleanup to destroy
 	// attachments.
@@ -396,6 +402,20 @@ func (im *IAASModel) destroyStorageInstanceOps(
 		Update: update,
 	})
 	return ops, nil
+}
+
+func checkStoragePoolReleasable(im *IAASModel, pool string) error {
+	providerType, provider, err := poolStorageProvider(im, pool)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !provider.Releasable() {
+		return errors.Errorf(
+			"storage provider %q does not support releasing storage",
+			providerType,
+		)
+	}
+	return nil
 }
 
 // removeStorageInstanceOps removes the storage instance with the given
