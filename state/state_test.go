@@ -4771,6 +4771,25 @@ func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *StateSuite) TestWatchRelationIngressNetworksIgnoresEgress(c *gc.C) {
+	rel := s.setUpWatchIngressScenario(c)
+	// Check initial event.
+	w := rel.WatchRelationIngressNetworks()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	relEgress := state.NewRelationEgressNetworks(s.State)
+	_, err := relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
 func (s *StateSuite) testOpenParams() state.OpenParams {
 	return state.OpenParams{
 		Clock:              clock.WallClock,

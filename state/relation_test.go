@@ -364,7 +364,7 @@ func assertOneRelation(c *gc.C, srv *state.Application, relId int, endpoints ...
 	return rel
 }
 
-func (s *RelationSuite) TestRemoveAlsoDeletesIngressNetworks(c *gc.C) {
+func (s *RelationSuite) TestRemoveAlsoDeletesNetworks(c *gc.C) {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,8 +377,13 @@ func (s *RelationSuite) TestRemoveAlsoDeletesIngressNetworks(c *gc.C) {
 	relIngress := state.NewRelationIngressNetworks(s.State)
 	_, err = relIngress.Save(relation.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
+	relEgress := state.NewRelationEgressNetworks(s.State)
+	_, err = relEgress.Save(relation.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
 	state.RemoveRelation(c, relation)
 	_, err = state.IngressNetworks(relation)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = state.EgressNetworks(relation)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

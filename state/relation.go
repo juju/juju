@@ -222,7 +222,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 		}
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
-		ops = append(ops, removeRelationIngressNetworksOps(r.st, r.doc.Key)...)
+		ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
 		re := r.st.RemoteEntities()
 		tokenOps := re.removeRemoteEntityOps(r.Tag())
 		ops = append(ops, tokenOps...)

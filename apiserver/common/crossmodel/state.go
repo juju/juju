@@ -121,9 +121,9 @@ func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Appli
 	return state.NewApplicationOffers(st.State).ApplicationOfferForUUID(offerUUID)
 }
 
-type RelationIngress state.RelationIngress
+type RelationNetworks state.RelationNetworks
 
-func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (RelationIngress, error) {
+func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (RelationNetworks, error) {
 	api := state.NewRelationIngressNetworks(s.State)
 	return api.Save(relationKey, cidrs)
 }

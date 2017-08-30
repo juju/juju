@@ -704,7 +704,16 @@ func RemoveRelation(c *gc.C, rel *Relation) {
 
 func IngressNetworks(rel *Relation) ([]string, error) {
 	relIngress := NewRelationIngressNetworks(rel.st)
-	doc, err := relIngress.ingressNetworks(rel.Tag().Id())
+	doc, err := relIngress.networks(rel.Tag().Id())
+	if err != nil {
+		return nil, err
+	}
+	return doc.CIDRS, nil
+}
+
+func EgressNetworks(rel *Relation) ([]string, error) {
+	relEgress := NewRelationEgressNetworks(rel.st)
+	doc, err := relEgress.networks(rel.Tag().Id())
 	if err != nil {
 		return nil, err
 	}
