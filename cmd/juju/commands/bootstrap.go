@@ -616,7 +616,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
 			MachineCount:           newInt(1),
 			ControllerMachineCount: newInt(1),
-			ModelCount:             newInt(2), // controller model + default model
 		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
