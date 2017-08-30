@@ -240,10 +240,6 @@ type UpdateControllerParams struct {
 	// PublicDNSName (when set) holds the public host name of the controller.
 	PublicDNSName *string
 
-	// ModelCount (when set) is the number of models visible to the user.
-	// TODO (anastasiamac) is this now needed since we no longer store controller models count?
-	ModelCount *int
-
 	// ControllerMachineCount (when set) is the total number of controller machines in the environment.
 	ControllerMachineCount *int
 
