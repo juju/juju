@@ -19,18 +19,18 @@ var usageUpdateCredentialSummary = `
 Updates a controller credential for a cloud.`[1:]
 
 var usageUpdateCredentialDetails = `
-Controller credentials are used for model operations and manipulations.
+Cloud credentials for controller are used for model operations and manipulations.
 Since it is common to have long-running models, it is also common to 
-have cloud credentials become invalid during models' lifetime.
-When this happens, a user must update the controller credential that 
-a model was created with to the new and valid details.
+have these cloud credentials become invalid during models' lifetime.
+When this happens, a user must update the cloud credential that 
+a model was created with to the new and valid details on controller.
 
 This command allows to update an existing, already-stored, named,
 cloud-specific controller credential.
 
 NOTE: 
-This is the only command that will allow you to manipulate 
-a controller credential. 
+This is the only command that will allow you to manipulate cloud
+credential for a controller. 
 All other credential related commands, such as 
 ` + "`add-credential`" + `, ` + "`remove-credential`" + ` and  ` + "`credentials`" + ` 
 deal with credentials stored locally on the client not on the controller.
