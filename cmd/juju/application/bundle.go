@@ -4,7 +4,9 @@
 package application
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -72,6 +74,10 @@ func deployBundle(
 	if bundleFilePath == "" {
 		verifyError = data.Verify(verifyConstraints, verifyStorage)
 	} else {
+		// Process includes in the bundle data.
+		if err := processBundleIncludes(bundleFilePath, data); err != nil {
+			return nil, errors.Annotate(err, "unable to process includes")
+		}
 		verifyError = data.VerifyLocal(bundleFilePath, verifyConstraints, verifyStorage)
 	}
 	if verifyError != nil {
@@ -880,4 +886,91 @@ func isErrRelationExists(err error) bool {
 	// TODO frankban (bug 1495952): do this check using the cause rather than
 	// the string when a specific cause is available.
 	return params.IsCodeAlreadyExists(err) || strings.HasSuffix(err.Error(), "relation already exists")
+}
+
+func processBundleIncludes(baseDir string, data *charm.BundleData) error {
+
+	for app, appData := range data.Applications {
+		for key, value := range appData.Options {
+			result, processed, err := processValue(baseDir, value)
+			if err != nil {
+				return errors.Annotatef(err, "processing options value %s for application %s", key, app)
+			}
+			if processed {
+				appData.Options[key] = result
+			}
+		}
+		for key, value := range appData.Annotations {
+			result, processed, err := processValue(baseDir, value)
+			if err != nil {
+				return errors.Annotatef(err, "processing annotation value %s for application %s", key, app)
+			}
+			if processed {
+				appData.Annotations[key] = result.(string)
+			}
+		}
+	}
+
+	for machine, machineData := range data.Machines {
+		for key, value := range machineData.Annotations {
+			result, processed, err := processValue(baseDir, value)
+			if err != nil {
+				return errors.Annotatef(err, "processing annotation value %s for machine %s", key, machine)
+			}
+			if processed {
+				machineData.Annotations[key] = result.(string)
+			}
+		}
+	}
+	return nil
+}
+
+func processValue(baseDir string, v interface{}) (interface{}, bool, error) {
+
+	const (
+		includeFile   = "include-file://"
+		includeBase64 = "include-base64://"
+	)
+
+	value, ok := v.(string)
+	if !ok {
+		// Not a string, just return it unchanged.
+		return v, false, nil
+	}
+
+	encode := false
+	readFile := false
+	filename := ""
+
+	if strings.HasPrefix(value, includeFile) {
+		readFile = true
+		filename = value[len(includeFile):]
+	} else if strings.HasPrefix(value, includeBase64) {
+		encode = true
+		readFile = true
+		filename = value[len(includeBase64):]
+	}
+
+	if !readFile {
+		// Unchanged, just return it.
+		return v, false, nil
+	}
+
+	if !filepath.IsAbs(filename) {
+		filename = filepath.Clean(filepath.Join(baseDir, filename))
+	}
+
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, false, errors.Annotate(err, "unable to read file")
+	}
+
+	var result string
+	if encode {
+		result = base64.StdEncoding.EncodeToString(bytes)
+	} else {
+		result = string(bytes)
+	}
+
+	return result, true, nil
 }
