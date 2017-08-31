@@ -426,3 +426,51 @@ iface br-xe0db55e41d5b inet6 static
 
 	s.checkBridge(input, expected[1:], c, map[string]string{"enxe0db55e41d5b": "br-xe0db55e41d5b"})
 }
+
+func (s *BridgeSuite) TestBridgeSuitePost(c *gc.C) {
+	input := `
+auto lo
+iface lo inet loopback
+    dns-search maas
+    dns-nameservers 10.10.20.21
+
+auto eno1
+iface eno1 inet static
+    address 10.10.33.3/22
+
+auto eno2
+iface eno2 inet static
+    address 10.10.21.3/22
+    post-up route add -net 10.0.0.0 netmask 255.0.0.0 gw 10.10.23.254 metric 0 || true
+    pre-down route del -net 10.0.0.0 netmask 255.0.0.0 gw 10.10.23.254 metric 0 || true
+    post-up route add -net 172.16.0.0 netmask 255.240.0.0 gw 10.10.23.254 metric 0 || true
+    pre-down route del -net 172.16.0.0 netmask 255.240.0.0 gw 10.10.23.254 metric 0 || true
+    post-up route add -net 192.168.0.0 netmask 255.255.0.0 gw 10.10.23.254 metric 0 || true
+    pre-down route del -net 192.168.0.0 netmask 255.255.0.0 gw 10.10.23.254 metric 0 || true
+`
+	expected := `
+auto lo
+iface lo inet loopback
+    dns-search maas
+    dns-nameservers 10.10.20.21
+
+auto eno1
+iface eno1 inet static
+    address 10.10.33.3/22
+
+auto eno2
+iface eno2 inet manual
+
+auto br-eno2
+iface br-eno2 inet static
+    address 10.10.21.3/22
+    post-up route add -net 10.0.0.0 netmask 255.0.0.0 gw 10.10.23.254 metric 0 || true
+    pre-down route del -net 10.0.0.0 netmask 255.0.0.0 gw 10.10.23.254 metric 0 || true
+    post-up route add -net 172.16.0.0 netmask 255.240.0.0 gw 10.10.23.254 metric 0 || true
+    pre-down route del -net 172.16.0.0 netmask 255.240.0.0 gw 10.10.23.254 metric 0 || true
+    post-up route add -net 192.168.0.0 netmask 255.255.0.0 gw 10.10.23.254 metric 0 || true
+    pre-down route del -net 192.168.0.0 netmask 255.255.0.0 gw 10.10.23.254 metric 0 || true
+    bridge_ports eno2`
+
+	s.checkBridge(input, expected[1:], c, map[string]string{"eno2": "br-eno2"})
+}
