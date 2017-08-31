@@ -137,7 +137,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.Listen(op)
 	s.op = op
 
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 

@@ -163,7 +163,9 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-	apiInfo.ModelTag = s.State.ModelTag()
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.ModelTag = model.ModelTag()
 	return apiInfo
 }
 
@@ -717,6 +719,8 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 	c.Assert(err, jc.ErrorIsNil)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -728,7 +732,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
 			Controller:        s.State.ControllerTag(),
-			Model:             s.State.ModelTag(),
+			Model:             model.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config

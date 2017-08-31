@@ -52,8 +52,12 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 		return nil, errors.Trace(err)
 	}
 
+	model, err := api.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	netEnviron, err := NetworkingEnvironFromModelConfig(
-		stateenvirons.EnvironConfigGetter{api.st},
+		stateenvirons.EnvironConfigGetter{api.st, model},
 	)
 	if errors.IsNotSupported(err) {
 		logger.Infof("provider network config not supported: %v", err)

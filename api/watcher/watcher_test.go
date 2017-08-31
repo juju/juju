@@ -195,7 +195,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{Entities: []params.Entity{{
-		Tag: s.State.ModelTag().String(),
+		Tag: s.IAASModel.ModelTag().String(),
 	}}}
 	err := s.stateAPI.APICall(
 		"StorageProvisioner",
@@ -293,7 +293,7 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 		Store:    store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.State.ModelTag(), rel.Tag()), nil,
+	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.IAASModel.ModelTag(), rel.Tag()), nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", rel.String()),
@@ -409,7 +409,11 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
-	apiInfo.ModelTag = hostedState.ModelTag()
+
+	hostedModel, err := hostedState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiInfo.ModelTag = hostedModel.ModelTag()
 	apiInfo.Nonce = nonce
 
 	apiConn, err := api.Open(apiInfo, api.DialOpts{})

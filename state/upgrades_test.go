@@ -1034,12 +1034,16 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg1, err := m1.ModelConfig()
+	model1, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := model1.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected1 := cfg1.AllAttrs()
 	expected1["resource-tags"] = ""
 
-	cfg2, err := m2.ModelConfig()
+	model2, err := m2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2, err := model2.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected2 := cfg2.AllAttrs()
 	expected2["update-status-hook-interval"] = "5m"
@@ -1814,12 +1818,16 @@ func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaul
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg1, err := m1.ModelConfig()
+	model1, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := model1.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected1 := cfg1.AllAttrs()
 	expected1["resource-tags"] = ""
 
-	cfg2, err := m2.ModelConfig()
+	model2, err := m2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2, err := model2.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected2 := cfg2.AllAttrs()
 	expected2[ageProp] = defaultAge

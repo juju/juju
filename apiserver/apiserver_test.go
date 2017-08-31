@@ -100,7 +100,7 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 	apiInfo.Password = password
 	apiInfo.Nonce = nonce
 	if !controllerOnly {
-		apiInfo.ModelTag = s.State.ModelTag()
+		apiInfo.ModelTag = s.IAASModel.ModelTag()
 	}
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)

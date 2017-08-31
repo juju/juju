@@ -1212,7 +1212,9 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) {
 	// get the model owner
 	testAdmin := names.NewUserTag("test-admin")
-	owner, err := st.UserAccess(testAdmin, st.ModelTag())
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	owner, err := st.UserAccess(testAdmin, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st)

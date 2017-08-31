@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -614,8 +615,9 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 // filling in sane defaults for missing values. If params is nil,
 // defaults are used for all values.
 //
-// By default the new model shares the same owner as the calling
-// Factory's model.
+// By default the new model shares the same owner as the calling Factory's
+// model. TODO(ericclaudejones) MakeModel should return the model itself rather
+// than the state.
 func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params == nil {
 		params = new(ModelParams)
@@ -642,8 +644,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	}
 	// It only makes sense to make an model with the same provider
 	// as the initial model, or things will break elsewhere.
-	currentCfg, err := factory.st.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	currentCfg := factory.currentCfg(c)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -678,4 +679,14 @@ func (factory *Factory) MakeSpace(c *gc.C, params *SpaceParams) *state.Space {
 	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.Subnets, params.IsPublic)
 	c.Assert(err, jc.ErrorIsNil)
 	return space
+}
+
+func (factory *Factory) currentCfg(c *gc.C) *config.Config {
+	model, err := factory.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	currentCfg, err := model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return currentCfg
 }

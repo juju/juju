@@ -27,6 +27,15 @@ type stateShim struct {
 	*state.State
 }
 
+func (st stateShim) ModelTag() names.ModelTag {
+	m, err := st.State.Model()
+	if err != nil {
+		return names.NewModelTag(st.State.ModelUUID())
+	}
+
+	return m.ModelTag()
+}
+
 // NewStateBackend creates a backend for the facade to use.
 func NewStateBackend(st *state.State) Backend {
 	return stateShim{st}

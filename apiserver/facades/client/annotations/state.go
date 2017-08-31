@@ -16,6 +16,9 @@ type annotationAccess interface {
 	SetAnnotations(entity state.GlobalEntity, annotations map[string]string) error
 }
 
+// TODO - CAAS(externalreality): After all relevant methods are moved from
+// state.State to state.Model this stateShim will likely embed only state.Model
+// and will be renamed.
 type stateShim struct {
 	// TODO(menn0) - once FindEntity goes to Model, the embedded State
 	// can go from here. The ModelTag method below can also go.
@@ -23,6 +26,6 @@ type stateShim struct {
 	*state.Model
 }
 
-func (s *stateShim) ModelTag() names.ModelTag {
+func (s stateShim) ModelTag() names.ModelTag {
 	return s.Model.ModelTag()
 }

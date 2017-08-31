@@ -21,20 +21,23 @@ type ModelWatcherFacade interface {
 type ModelWatcherTests struct {
 	facade ModelWatcherFacade
 	state  *state.State
+	model  *state.Model
 }
 
 func NewModelWatcherTests(
 	facade ModelWatcherFacade,
 	st *state.State,
+	m *state.Model,
 ) *ModelWatcherTests {
 	return &ModelWatcherTests{
 		facade: facade,
 		state:  st,
+		model:  m,
 	}
 }
 
 func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
-	envConfig, err := s.state.ModelConfig()
+	envConfig, err := s.model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	conf, err := s.facade.ModelConfig()
@@ -44,7 +47,7 @@ func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
 }
 
 func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
-	envConfig, err := s.state.ModelConfig()
+	envConfig, err := s.model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.facade.WatchForModelConfigChanges()

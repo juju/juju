@@ -128,14 +128,15 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st}
+	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	newEnviron := func() (environs.Environ, error) {
 		return environs.GetEnviron(configGetter, environs.New)
 	}
 	blockChecker := common.NewBlockChecker(st)
-	modelConfigAPI, err := modelconfig.NewModelConfigAPI(st, authorizer)
+	backend := modelconfig.NewStateBackend(st)
+	modelConfigAPI, err := modelconfig.NewModelConfigAPI(backend, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

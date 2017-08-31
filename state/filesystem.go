@@ -1074,7 +1074,7 @@ func (im *IAASModel) newFilesystemOps(doc filesystemDoc, status statusDoc) []txn
 
 func (im *IAASModel) filesystemParamsWithDefaults(params FilesystemParams, machineId string) (FilesystemParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := im.st.ModelConfig()
+		modelConfig, err := im.ModelConfig()
 		if err != nil {
 			return FilesystemParams{}, errors.Trace(err)
 		}

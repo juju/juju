@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright Canonical Ltd. 2013
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -26,6 +26,7 @@ type InitializeSuite struct {
 	gitjujutesting.MgoSuite
 	testing.BaseSuite
 	State *state.State
+	Model *state.Model
 }
 
 var _ = gc.Suite(&InitializeSuite{})
@@ -55,6 +56,10 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.Model = m
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
@@ -119,7 +124,9 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
-	modelTag := st.ModelTag()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
 
 	err = st.Close()
@@ -130,7 +137,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	cfg, err = s.State.ModelConfig()
+	cfg, err = s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := cfg.AllAttrs()
 	for k, v := range config.ConfigDefaults() {
@@ -250,7 +257,9 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
-	modelTag := st.ModelTag()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
 
 	err = st.Close()
@@ -273,7 +282,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	}
 	// Config as read from state has resources tags coerced to a map.
 	expected["resource-tags"] = map[string]string{}
-	cfg, err = s.State.ModelConfig()
+	cfg, err = s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 }
@@ -376,12 +385,12 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	st.Close()
 	ctlr.Close()
 
-	s.openState(c, st.ModelTag())
+	s.openState(c, names.NewModelTag(st.ModelUUID()))
 	err = s.State.UpdateModelConfig(update, remove)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	goodWithDefaults, err := config.New(config.UseDefaults, good.AllAttrs())
 	c.Assert(err, jc.ErrorIsNil)
@@ -464,7 +473,9 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
-	modelTag := st.ModelTag()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
 
 	err = st.Close()
@@ -528,7 +539,9 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
-	modelTag := st.ModelTag()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
 
 	err = st.Close()
@@ -587,7 +600,9 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
-	modelTag := st.ModelTag()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
 
 	err = st.Close()

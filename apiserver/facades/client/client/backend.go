@@ -89,6 +89,8 @@ type Unit interface {
 	AgentHistory() status.StatusHistoryGetter
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	model *state.Model
@@ -129,4 +131,21 @@ func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {
 		return nil, nil, errors.Trace(err)
 	}
 	return model, func() { release() }, nil
+}
+
+func (s stateShim) ModelConfig() (*config.Config, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cfg, nil
+}
+
+func (st stateShim) ModelTag() names.ModelTag {
+	return names.NewModelTag(st.State.ModelUUID())
 }

@@ -98,17 +98,21 @@ func (*controllerConfigSuite) TestControllerInfo(c *gc.C) {
 type controllerInfoSuite struct {
 	jujutesting.JujuConnSuite
 
-	localModel *state.State
+	localState *state.State
+	localModel *state.Model
 }
 
 var _ = gc.Suite(&controllerInfoSuite{})
 
 func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.localModel = s.Factory.MakeModel(c, nil)
+	s.localState = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) {
-		s.localModel.Close()
+		s.localState.Close()
 	})
+	model, err := s.localState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.localModel = model
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {

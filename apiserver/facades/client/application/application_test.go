@@ -2110,7 +2110,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "t0",
 	})
 	c.Assert(err, jc.ErrorIsNil)

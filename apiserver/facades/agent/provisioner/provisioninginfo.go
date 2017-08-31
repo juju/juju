@@ -129,7 +129,7 @@ func (p *ProvisionerAPI) machineVolumeParams(
 	if len(volumeAttachments) == 0 {
 		return nil, nil, nil
 	}
-	modelConfig, err := p.st.ModelConfig()
+	modelConfig, err := p.m.ModelConfig()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -222,7 +222,7 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := p.st.ModelConfig()
+	cfg, err := p.m.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

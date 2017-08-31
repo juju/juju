@@ -203,7 +203,10 @@ func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	c.Assert(st.ModelTag(), gc.Equals, s.modelTag)
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(m.ModelTag(), gc.Equals, s.modelTag)
 }
 
 func (s *StateSuite) TestModelUUID(c *gc.C) {
@@ -309,6 +312,7 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 type MultiModelStateSuite struct {
 	ConnSuite
 	OtherState *state.State
+	OtherModel *state.Model
 }
 
 func (s *MultiModelStateSuite) SetUpTest(c *gc.C) {
@@ -320,6 +324,9 @@ func (s *MultiModelStateSuite) SetUpTest(c *gc.C) {
 		return validator, nil
 	}
 	s.OtherState = s.Factory.MakeModel(c, nil)
+	m, err := s.OtherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.OtherModel = m
 }
 
 func (s *MultiModelStateSuite) TearDownTest(c *gc.C) {
@@ -425,7 +432,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "db2", SourceModel: s.State.ModelTag()})
+					Name: "db2", SourceModel: s.IAASModel.ModelTag()})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -455,7 +462,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			setUpState: func(st *state.State) bool {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherModel.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -474,7 +481,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			about: "relation ingress networks",
 			getWatcher: func(st *state.State) interface{} {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherModel.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -496,7 +503,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			about: "relation egress networks",
 			getWatcher: func(st *state.State) interface{} {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherModel.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -1555,7 +1562,7 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
@@ -1568,7 +1575,7 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", SourceModel: s.State.ModelTag()})
+			Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
@@ -2901,7 +2908,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
-	w := s.State.WatchForModelConfigChanges()
+	w := s.model.WatchForModelConfigChanges()
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -2927,7 +2934,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
-	w := s.State.WatchForModelConfigChanges()
+	w := s.model.WatchForModelConfigChanges()
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -3441,7 +3448,7 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	wc.AssertNoChange()
 
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: s.State.ModelTag(),
+		Name: "mysql", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3572,7 +3579,7 @@ func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
 
 func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3646,7 +3653,9 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 
 func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config.Config, string) {
 	// Get the agent-version set in the model.
-	envConfig, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3675,7 +3684,9 @@ func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name strin
 }
 
 func assertAgentVersion(c *gc.C, st *state.State, vers string) {
-	envConfig, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3764,7 +3775,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 
 func (s *StateSuite) TestSetModelAgentFailsIfUpgrading(c *gc.C) {
 	// Get the agent-version set in the model.
-	modelConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3793,7 +3804,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
 	// SetModelAgentVersion call failing.
 
 	// Get the agent-version set in the model.
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -4720,7 +4731,9 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	err = st.MongoSession().DB("admin").Login("admin", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = tryOpenState(st.ModelTag(), st.ControllerTag(), noAuthInfo)
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = tryOpenState(m.ModelTag(), st.ControllerTag(), noAuthInfo)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	// note: collections are set up in arbitrary order, proximate cause of
 	// failure may differ.
@@ -4734,13 +4747,13 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	// creating users. There were some checks for unsetting the
 	// password and then creating the state in an older version of
 	// this test, but they couldn't be made to work with 3.2.
-	err = tryOpenState(st.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
+	err = tryOpenState(m.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) setUpWatchRelationNetworkScenario(c *gc.C) *state.Relation {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: s.State.ModelTag(),
+		Name: "mysql", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

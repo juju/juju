@@ -40,10 +40,9 @@ var (
 	_ AgentEntity = (*Machine)(nil)
 	_ AgentEntity = (*Unit)(nil)
 
-	_ ModelAccessor = (*State)(nil)
-
-	_ UnitsWatcher = (*Machine)(nil)
-	_ UnitsWatcher = (*Application)(nil)
+	_ ModelAccessor = (*Model)(nil)
+	_ UnitsWatcher  = (*Machine)(nil)
+	_ UnitsWatcher  = (*Application)(nil)
 
 	_ ModelMachinesWatcher = (*State)(nil)
 

@@ -16,6 +16,9 @@ type blockAccess interface {
 	ModelTag() names.ModelTag
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
+	*state.Model
 }

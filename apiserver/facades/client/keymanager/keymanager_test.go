@@ -87,7 +87,11 @@ func (s *keyManagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
 func (s *keyManagerSuite) setAuthorisedKeysForModel(c *gc.C, st *state.State, keys string) {
 	err := st.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := st.ModelConfig()
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelConfig.AuthorizedKeys(), gc.Equals, keys)
 }
@@ -160,7 +164,10 @@ func (s *keyManagerSuite) assertModelKeys(c *gc.C, expected []string) {
 }
 
 func (s *keyManagerSuite) assertKeysForModel(c *gc.C, st *state.State, expected []string) {
-	envConfig, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	envConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	keys := envConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
@@ -211,10 +218,14 @@ func (s *keyManagerSuite) TestAddKeysSuperUser(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestAddKeysModelAdmin(c *gc.C) {
-	otherModel := s.Factory.MakeModel(c, nil)
-	defer otherModel.Close()
+	otherState := s.Factory.MakeModel(c, nil)
+	defer otherState.Close()
+
+	otherModel, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertAddKeys(c, otherModel, user.UserTag(), true)
+	s.assertAddKeys(c, otherState, user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestAddKeysModelOwner(c *gc.C) {
@@ -311,10 +322,14 @@ func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *gc.C) {
-	otherModel := s.Factory.MakeModel(c, nil)
-	defer otherModel.Close()
+	otherState := s.Factory.MakeModel(c, nil)
+	defer otherState.Close()
+
+	otherModel, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertDeleteKeys(c, otherModel, user.UserTag(), true)
+	s.assertDeleteKeys(c, otherState, user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysModelOwner(c *gc.C) {
@@ -494,10 +509,14 @@ func (s *keyManagerSuite) TestImportKeysSuperUser(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestImportKeysModelAdmin(c *gc.C) {
-	otherModel := s.Factory.MakeModel(c, nil)
-	defer otherModel.Close()
+	otherState := s.Factory.MakeModel(c, nil)
+	defer otherState.Close()
+
+	otherModel, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertImportKeys(c, otherModel, user.UserTag(), true)
+	s.assertImportKeys(c, otherState, user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestImportKeysModelOwner(c *gc.C) {

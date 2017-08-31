@@ -121,7 +121,7 @@ func (s *retryStrategySuite) TestRetryStrategy(c *gc.C) {
 func (s *retryStrategySuite) setRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
 }

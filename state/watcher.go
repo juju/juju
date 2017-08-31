@@ -1687,8 +1687,8 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
-func (st *State) WatchForModelConfigChanges() NotifyWatcher {
-	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
+func (model *Model) WatchForModelConfigChanges() NotifyWatcher {
+	return newEntityWatcher(model.st, settingsC, model.st.docID(modelGlobalKey))
 }
 
 // WatchModelEntityReferences returns a NotifyWatcher waiting for the Model

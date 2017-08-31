@@ -25,11 +25,11 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState)
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState, s.IAASModel.Model)
 }
 
 func (s *stateSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	providerType, err := s.uniter.ProviderType()

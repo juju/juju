@@ -46,13 +46,17 @@ type CrossModelRelationsAPI struct {
 // backed by global state.
 func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, err
+	}
 
 	return NewCrossModelRelationsAPI(
 		stateShim{
 			st:      ctx.State(),
 			Backend: commoncrossmodel.GetBackend(ctx.State()),
 		},
-		firewall.StateShim(ctx.State()),
+		firewall.StateShim(ctx.State(), model),
 		ctx.Resources(), ctx.Auth(), authCtxt.(*commoncrossmodel.AuthContext),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeStatus,
