@@ -53,7 +53,7 @@ import (
 const (
 	storageAccountName = "juju400d80004b1d0d06f00d"
 
-	computeAPIVersion = "2016-03-30"
+	computeAPIVersion = "2016-04-30-preview"
 	networkAPIVersion = "2017-03-01"
 	storageAPIVersion = "2016-12-01"
 )
@@ -351,6 +351,19 @@ func (s *environSuite) startInstanceSenders(bootstrap bool) azuretesting.Senders
 		// When starting an instance, we must wait for the common
 		// deployment to complete.
 		senders = append(senders, s.makeSender("/deployments/common", s.commonDeployment))
+
+		// If the deployment has any providers, then we assume
+		// storage accounts are in use, for unmanaged storage.
+		if s.commonDeployment.Properties.Providers != nil {
+			storageAccount := &storage.Account{
+				AccountProperties: &storage.AccountProperties{
+					PrimaryEndpoints: &storage.Endpoints{
+						Blob: to.StringPtr("https://blob.storage/"),
+					},
+				},
+			}
+			senders = append(senders, s.makeSender("/storageAccounts/juju400d80004b1d0d06f00d", storageAccount))
+		}
 	}
 	senders = append(senders, s.makeSender("/deployments/machine-0", s.deployment))
 	return senders
@@ -650,6 +663,32 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 			`common resource deployment status is "Failed"`)
 }
 
+func (s *environSuite) TestStartInstanceCommonDeploymentStorageAccount(c *gc.C) {
+	resourceTypes := []resources.ProviderResourceType{{
+		ResourceType: to.StringPtr("storageAccounts"),
+	}}
+	providers := []resources.Provider{{
+		Namespace:     to.StringPtr("Microsoft.Storage"),
+		ResourceTypes: &resourceTypes,
+	}}
+	s.commonDeployment.Properties.Providers = &providers
+
+	env := s.openEnviron(c)
+	senders := s.startInstanceSenders(false)
+	s.sender = senders
+	s.requests = nil
+
+	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		imageReference:   &quantalImageReference,
+		diskSizeGB:       32,
+		osProfile:        &s.linuxOsProfile,
+		instanceType:     "Standard_A1",
+		unmanagedStorage: true,
+	})
+}
+
 func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	// StartInstance waits for the "common" deployment to complete
 	// successfully before creating the VM deployment.
@@ -718,6 +757,7 @@ type assertStartInstanceRequestsParams struct {
 	diskSizeGB          int
 	osProfile           *compute.OSProfile
 	needsProviderInit   bool
+	unmanagedStorage    bool
 	instanceType        string
 }
 
@@ -832,19 +872,22 @@ func (s *environSuite) assertStartInstanceRequests(
 				Subnets:      &subnets,
 			},
 			DependsOn: []string{nsgId},
-		}, {
-			APIVersion: storageAPIVersion,
-			Type:       "Microsoft.Storage/storageAccounts",
-			Name:       storageAccountName,
-			Location:   "westus",
-			Tags:       to.StringMap(s.envTags),
-			StorageSku: &storage.Sku{
-				Name: storage.SkuName("Standard_LRS"),
-			},
 		}}...)
-		vmDependsOn = append(vmDependsOn,
-			`[resourceId('Microsoft.Storage/storageAccounts', '`+storageAccountName+`')]`,
-		)
+		if args.unmanagedStorage {
+			templateResources = append(templateResources, armtemplates.Resource{
+				APIVersion: storageAPIVersion,
+				Type:       "Microsoft.Storage/storageAccounts",
+				Name:       storageAccountName,
+				Location:   "westus",
+				Tags:       to.StringMap(s.envTags),
+				StorageSku: &storage.Sku{
+					Name: storage.SkuName("Standard_LRS"),
+				},
+			})
+			vmDependsOn = append(vmDependsOn,
+				`[resourceId('Microsoft.Storage/storageAccounts', '`+storageAccountName+`')]`,
+			)
+		}
 		nicDependsOn = append(nicDependsOn,
 			`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
 		)
@@ -856,17 +899,41 @@ func (s *environSuite) assertStartInstanceRequests(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
 			args.availabilitySetName,
 		)
+		var availabilitySetProperties interface{}
+		if !args.unmanagedStorage {
+			availabilitySetProperties = &compute.AvailabilitySetProperties{
+				Managed:                  to.BoolPtr(true),
+				PlatformFaultDomainCount: to.Int32Ptr(3),
+			}
+		}
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
 			Type:       "Microsoft.Compute/availabilitySets",
 			Name:       args.availabilitySetName,
 			Location:   "westus",
 			Tags:       to.StringMap(s.envTags),
+			Properties: availabilitySetProperties,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
 		}
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
+	}
+
+	osDisk := &compute.OSDisk{
+		Name:         to.StringPtr("machine-0"),
+		CreateOption: compute.FromImage,
+		Caching:      compute.ReadWrite,
+		DiskSizeGB:   to.Int32Ptr(int32(args.diskSizeGB)),
+	}
+	if args.unmanagedStorage {
+		osDisk.Vhd = &compute.VirtualHardDisk{
+			URI: to.StringPtr(`https://blob.storage/osvhds/machine-0.vhd`),
+		}
+	} else {
+		osDisk.ManagedDisk = &compute.ManagedDiskParameters{
+			StorageAccountType: "Standard_LRS",
+		}
 	}
 
 	templateResources = append(templateResources, []armtemplates.Resource{{
@@ -900,18 +967,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			},
 			StorageProfile: &compute.StorageProfile{
 				ImageReference: args.imageReference,
-				OsDisk: &compute.OSDisk{
-					Name:         to.StringPtr("machine-0"),
-					CreateOption: compute.FromImage,
-					Caching:      compute.ReadWrite,
-					Vhd: &compute.VirtualHardDisk{
-						URI: to.StringPtr(fmt.Sprintf(
-							`[concat(reference(resourceId('Microsoft.Storage/storageAccounts', '%s'), '%s').primaryEndpoints.blob, 'osvhds/machine-0.vhd')]`,
-							storageAccountName, storageAPIVersion,
-						)),
-					},
-					DiskSizeGB: to.Int32Ptr(int32(args.diskSizeGB)),
-				},
+				OsDisk:         osDisk,
 			},
 			OsProfile:       args.osProfile,
 			NetworkProfile:  &compute.NetworkProfile{&nics},
@@ -1228,6 +1284,7 @@ func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 		s.networkInterfacesSender(),                                                     // GET: no NICs
 		s.publicIPAddressesSender(),                                                     // GET: no public IPs
 		s.makeSender(".*/virtualMachines/machine-0", nil),                               // DELETE
+		s.makeSender(".*/disks/machine-0", nil),                                         // DELETE
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup()), // GET: no rules
 		s.makeSender(".*/deployments/machine-0", nil),                                   // DELETE
 	}
