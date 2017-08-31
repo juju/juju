@@ -47,7 +47,7 @@ type CharmAdder interface {
 
 type ApplicationAPI interface {
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
-	AddRelation(endpoints ...string) (*apiparams.AddRelationResults, error)
+	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)
 	Expose(application string) error
 	GetCharmURL(serviceName string) (*charm.URL, error)

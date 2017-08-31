@@ -550,10 +550,13 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if v, ok := cfg.defined[EgressSubnets].(string); ok && v != "" {
-		addresses := strings.Split(v, ",")
-		for _, addr := range addresses {
-			if _, _, err := net.ParseCIDR(strings.TrimSpace(addr)); err != nil {
-				return errors.Annotatef(err, "invalid egress address: %v", addr)
+		cidrs := strings.Split(v, ",")
+		for _, cidr := range cidrs {
+			if _, _, err := net.ParseCIDR(strings.TrimSpace(cidr)); err != nil {
+				return errors.Annotatef(err, "invalid egress subnet: %v", cidr)
+			}
+			if cidr == "0.0.0.0/0" {
+				return errors.Errorf("CIDR %q not allowed", cidr)
 			}
 		}
 	}

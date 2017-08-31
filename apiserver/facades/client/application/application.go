@@ -8,6 +8,7 @@ package application
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -950,7 +951,16 @@ func (api *API) SetConstraints(args params.SetConstraints) error {
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+func (api *API) AddRelation(args params.AddRelation) (_ params.AddRelationResults, err error) {
+	var rel Relation
+	defer func() {
+		if err != nil && rel != nil {
+			if err := rel.Destroy(); err != nil {
+				logger.Errorf("cannot destroy aborted relation %q: %v", rel.Tag().Id(), err)
+			}
+		}
+	}()
+
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
@@ -958,12 +968,24 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
 
+	// Validate any CIDRs.
+	for _, cidr := range args.ViaCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return params.AddRelationResults{}, errors.Trace(err)
+		}
+		if cidr == "0.0.0.0/0" {
+			return params.AddRelationResults{}, errors.Errorf("CIDR %q not allowed", cidr)
+		}
+	}
+
 	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
-	rel, err := api.backend.AddRelation(inEps...)
-	if err != nil {
+	if rel, err = api.backend.AddRelation(inEps...); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+	if _, err := api.backend.SaveEgressNetworks(rel.Tag().Id(), args.ViaCIDRs); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
 

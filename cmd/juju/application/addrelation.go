@@ -4,11 +4,13 @@
 package application
 
 import (
+	"net"
 	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
@@ -36,12 +38,20 @@ or
     <user name>/<model name>.<application name>[:<relation name>]
         where user/model is another model in the same controller
 
+For a cross model relation, if the consuming side is behind a firewall and/or NAT is used for outbound traffic,
+it is possible to use the --via option to inform the offering side the source of traffic so that any required
+firewall ports may be opened.
+
 Examples:
     $ juju add-relation wordpress mysql
         where "wordpress" and "mysql" will be internally expanded to "wordpress:db" and "mysql:server" respectively
 
     $ juju add-relation wordpress someone/prod.mysql
         where "wordpress" will be internally expanded to "wordpress:db"
+
+    $ juju add-relation wordpress someone/prod.mysql --via 192.168.0.0/16
+    
+    $ juju add-relation wordpress someone/prod.mysql --via 192.168.0.0/16,10.0.0.0/8
 
 `
 
@@ -55,7 +65,9 @@ func NewAddRelationCommand() cmd.Command {
 // addRelationCommand adds a relation between two application endpoints.
 type addRelationCommand struct {
 	modelcmd.ModelCommandBase
-	Endpoints         []string
+	endpoints         []string
+	viaCIDRs          []string
+	viaValue          string
 	remoteEndpoint    *crossmodel.ApplicationURL
 	addRelationAPI    applicationAddRelationAPI
 	consumeDetailsAPI applicationConsumeDetailsAPI
@@ -81,15 +93,26 @@ func (c *addRelationCommand) Init(args []string) error {
 	if err := c.validateEndpoints(args); err != nil {
 		return err
 	}
+	if err := c.validateCIDRs(); err != nil {
+		return err
+	}
+	if c.remoteEndpoint == nil && len(c.viaCIDRs) > 0 {
+		return errors.New("the --via option can only be used when relating to offers in a different model")
+	}
 	return nil
+}
+
+func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		f.StringVar(&c.viaValue, "via", "", "for cross model relations, specify the egress subnets for outbound traffic")
+	}
 }
 
 // applicationAddRelationAPI defines the API methods that application add relation command uses.
 type applicationAddRelationAPI interface {
 	Close() error
-	// CHECK
 	BestAPIVersion() int
-	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
+	AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
 	Consume(crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
@@ -133,7 +156,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	if c.remoteEndpoint != nil {
-		if client.BestAPIVersion() < 3 {
+		if client.BestAPIVersion() < 5 {
 			// old client does not have cross-model capability.
 			return errors.NotSupportedf("cannot add relation to %s: remote endpoints", c.remoteEndpoint.String())
 		}
@@ -142,7 +165,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	_, err = client.AddRelation(c.Endpoints...)
+	_, err = client.AddRelation(c.endpoints, c.viaCIDRs)
 	if params.IsCodeUnauthorized(err) {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
@@ -213,7 +236,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 					return errors.NotSupportedf("providing more than one remote endpoints")
 				}
 				c.remoteEndpoint = url
-				c.Endpoints = append(c.Endpoints, url.ApplicationName)
+				c.endpoints = append(c.endpoints, url.ApplicationName)
 				continue
 			}
 		}
@@ -221,7 +244,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 		if err := validateLocalEndpoint(endpoint, ":"); err != nil {
 			return err
 		}
-		c.Endpoints = append(c.Endpoints, endpoint)
+		c.endpoints = append(c.endpoints, endpoint)
 	}
 	return nil
 }
@@ -251,6 +274,23 @@ func validateLocalEndpoint(endpoint string, sep string) error {
 
 	if valid := names.IsValidApplication(applicationName); !valid {
 		return errors.NotValidf("application name %q", applicationName)
+	}
+	return nil
+}
+
+func (c *addRelationCommand) validateCIDRs() error {
+	if c.viaValue == "" {
+		return nil
+	}
+	c.viaCIDRs = strings.Split(
+		strings.Replace(c.viaValue, " ", "", -1), ",")
+	for _, cidr := range c.viaCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return err
+		}
+		if cidr == "0.0.0.0/0" {
+			return errors.Errorf("CIDR %q not allowed", cidr)
+		}
 	}
 	return nil
 }

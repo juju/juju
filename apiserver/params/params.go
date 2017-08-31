@@ -115,6 +115,7 @@ type ErrorResult struct {
 // The endpoints specified are unordered.
 type AddRelation struct {
 	Endpoints []string `json:"endpoints"`
+	ViaCIDRs  []string `json:"via-cidrs,omitempty"`
 }
 
 // AddRelationResults holds the results of a AddRelation call. The Endpoints

@@ -44,8 +44,11 @@ type EgressAddressWatcher struct {
 	// A map of known unit addresses, keyed on unit name.
 	known map[string]string
 
-	// A set of known egress cidrs
-	knownEgress set.Strings
+	// A set of known egress cidrs for the model.
+	knownModelEgress set.Strings
+
+	// A set of known egress cidrs for the relation.
+	knownRelationEgress set.Strings
 }
 
 // machineData holds the information we track at the machine level.
@@ -101,13 +104,12 @@ func (w *EgressAddressWatcher) initialise() error {
 		if err := w.trackUnit(u); err != nil {
 			return errors.Trace(err)
 		}
-
 	}
 	cfg, err := w.backend.ModelConfig()
 	if err != nil {
 		return err
 	}
-	w.knownEgress = set.NewStrings(cfg.EgressSubnets()...)
+	w.knownModelEgress = set.NewStrings(cfg.EgressSubnets()...)
 	return nil
 }
 
@@ -136,6 +138,17 @@ func (w *EgressAddressWatcher) loop() error {
 		return watcher.EnsureErr(mw)
 	}
 
+	rw := w.rel.WatchRelationEgressNetworks()
+	if err := w.catacomb.Add(rw); err != nil {
+		return errors.Trace(err)
+	}
+	// Consume initial event.
+	if networks, ok := <-rw.Changes(); !ok {
+		return watcher.EnsureErr(rw)
+	} else {
+		w.knownRelationEgress = set.NewStrings(networks...)
+	}
+
 	var (
 		sentInitial bool
 		out         chan<- []string
@@ -155,7 +168,12 @@ func (w *EgressAddressWatcher) loop() error {
 			var addressSet set.Strings
 			// Egress cidrs, if configured, override unit machine addresses.
 			if len(w.known) > 0 {
-				addressSet = set.NewStrings(w.knownEgress.Values()...)
+				// Try relation cidrs first.
+				addressSet = set.NewStrings(w.knownRelationEgress.Values()...)
+				if addressSet.Size() == 0 {
+					// If none of those, try model cidrs.
+					addressSet = set.NewStrings(w.knownModelEgress.Values()...)
+				}
 				if addressSet.Size() == 0 {
 					// No user configured egress so just use the unit addresses.
 					for _, addr := range w.known {
@@ -186,10 +204,22 @@ func (w *EgressAddressWatcher) loop() error {
 			}
 			egress := set.NewStrings(cfg.EgressSubnets()...)
 			// Have the egress addresses changed.
-			if egress.Size() != w.knownEgress.Size() ||
-				egress.Difference(w.knownEgress).Size() != 0 || w.knownEgress.Difference(egress).Size() != 0 {
+			if egress.Size() != w.knownModelEgress.Size() ||
+				egress.Difference(w.knownModelEgress).Size() != 0 || w.knownModelEgress.Difference(egress).Size() != 0 {
+				// We only care about model egress changes if there's no relation specific egress.
+				userConfiguredEgressChanged = w.knownRelationEgress.Size() == 0
+				w.knownModelEgress = egress
+			}
+		case changes, ok := <-rw.Changes():
+			if !ok {
+				return w.catacomb.ErrDying()
+			}
+			egress := set.NewStrings(changes...)
+			// Have the egress addresses changed.
+			if egress.Size() != w.knownRelationEgress.Size() ||
+				egress.Difference(w.knownRelationEgress).Size() != 0 || w.knownRelationEgress.Difference(egress).Size() != 0 {
 				userConfiguredEgressChanged = true
-				w.knownEgress = egress
+				w.knownRelationEgress = egress
 			}
 		case c, ok := <-ruw.Changes():
 			if !ok {

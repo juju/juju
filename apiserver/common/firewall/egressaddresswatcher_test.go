@@ -49,6 +49,8 @@ func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
 func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation {
 	rel := newMockRelation(123)
 	rel.ruwApp = "django"
+	// Initial event.
+	rel.ew.changes <- []string{}
 	s.st.relations["remote-db2:db django:db"] = rel
 	unit := newMockUnit("django/0")
 	unit.publicAddress = network.Address{Value: addr}
@@ -400,7 +402,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestEgressAddressConfigured(c *gc.C) {
+func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 	s.st.configAttrs["egress-subnets"] = "10.0.0.1/16"
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
@@ -430,6 +432,48 @@ func (s *addressWatcherSuite) TestEgressAddressConfigured(c *gc.C) {
 	s.st.configAttrs["egress-subnets"] = ""
 	s.st.modelWatcher.changes <- struct{}{}
 	wc.AssertChange("54.1.2.3/32")
+	wc.AssertNoChange()
+
+	// A not found unit doesn't trigger an event.
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"unknown/0": {},
+		},
+	}
+	wc.AssertNoChange()
+}
+
+func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
+	// Set up a model egress-address to ensure it is ignored when a relation one is used.
+	s.st.configAttrs["egress-subnets"] = "10.0.0.1/16"
+	rel := s.setupRelation(c, "54.1.2.3")
+	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+
+	// Initial event.
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// New relation ingress cidr.
+	rel.ew.changes <- []string{"192.168.0.0/8"}
+
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+		},
+	}
+	wc.AssertChange("192.168.0.0/8")
+	wc.AssertNoChange()
+
+	// Change model egress addresses, no change since relation overrides.
+	s.st.configAttrs["egress-subnets"] = "192.168.0.1/16"
+	s.st.modelWatcher.changes <- struct{}{}
+	wc.AssertNoChange()
+
+	rel.ew.changes <- []string{"10.1.2.0/8"}
+	wc.AssertChange("10.1.2.0/8")
 	wc.AssertNoChange()
 
 	// A not found unit doesn't trigger an event.

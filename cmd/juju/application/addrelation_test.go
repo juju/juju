@@ -26,7 +26,7 @@ type AddRelationSuite struct {
 func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockAddAPI{Stub: &testing.Stub{}}
-	s.mockAPI.addRelationFunc = func(endpoints ...string) (*params.AddRelationResults, error) {
+	s.mockAPI.addRelationFunc = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 		// At the moment, cmd implementation ignores the return values,
 		// so nil is an acceptable return for testing purposes.
 		return nil, s.mockAPI.NextErr()
@@ -59,7 +59,7 @@ func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *gc.C) {
 func (s *AddRelationSuite) TestAddRelationSuccess(c *gc.C) {
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -68,7 +68,7 @@ func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -76,7 +76,7 @@ func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
 	jtesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
-	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -94,7 +94,7 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 
 type mockAddAPI struct {
 	*testing.Stub
-	addRelationFunc func(endpoints ...string) (*params.AddRelationResults, error)
+	addRelationFunc func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
 }
 
 func (s mockAddAPI) Close() error {
@@ -102,14 +102,14 @@ func (s mockAddAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockAddAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	s.MethodCall(s, "AddRelation", endpoints)
-	return s.addRelationFunc(endpoints...)
+func (s mockAddAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+	s.MethodCall(s, "AddRelation", endpoints, viaCIDRs)
+	return s.addRelationFunc(endpoints, viaCIDRs)
 }
 
 func (s mockAddAPI) BestAPIVersion() int {
 	s.MethodCall(s, "BestAPIVersion")
-	return 2
+	return 4
 }
 
 func (mockAddAPI) Consume(crossmodel.ConsumeApplicationArgs) (string, error) {
