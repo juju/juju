@@ -7,6 +7,7 @@ import (
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
+	"github.com/juju/testing"
 
 	"github.com/juju/juju/provider/oracle"
 )
@@ -22,6 +23,8 @@ func (f FakeComposer) ComposeName(name string) string {
 
 // FakeStorageVolume implements the common.StorageVolumeAPI
 type FakeStorageVolume struct {
+	testing.Stub
+
 	StorageVolume    response.StorageVolume
 	StorageVolumeErr error
 	Create           response.StorageVolume
@@ -35,19 +38,28 @@ type FakeStorageVolume struct {
 
 var _ oracle.StorageAPI = (*FakeStorageAPI)(nil)
 
-func (f FakeStorageVolume) AllStorageVolumes([]api.Filter) (response.AllStorageVolumes, error) {
+func (f *FakeStorageVolume) AllStorageVolumes(filter []api.Filter) (response.AllStorageVolumes, error) {
+	f.MethodCall(f, "AllStorageVolumes", filter)
 	return f.All, f.AllErr
 }
-func (f FakeStorageVolume) StorageVolumeDetails(string) (response.StorageVolume, error) {
+
+func (f *FakeStorageVolume) StorageVolumeDetails(name string) (response.StorageVolume, error) {
+	f.MethodCall(f, "StorageVolumeDetails", name)
 	return f.StorageVolume, f.StorageVolumeErr
 }
-func (f FakeStorageVolume) CreateStorageVolume(api.StorageVolumeParams) (response.StorageVolume, error) {
+
+func (f *FakeStorageVolume) CreateStorageVolume(params api.StorageVolumeParams) (response.StorageVolume, error) {
+	f.MethodCall(f, "CreateStorageVolume", params)
 	return f.Create, f.CreateErr
 }
-func (f FakeStorageVolume) DeleteStorageVolume(string) error {
+
+func (f *FakeStorageVolume) DeleteStorageVolume(name string) error {
+	f.MethodCall(f, "DeleteStorageVolume", name)
 	return f.DeleteErr
 }
-func (f FakeStorageVolume) UpdateStorageVolume(api.StorageVolumeParams, string) (response.StorageVolume, error) {
+
+func (f *FakeStorageVolume) UpdateStorageVolume(params api.StorageVolumeParams, name string) (response.StorageVolume, error) {
+	f.MethodCall(f, "UpdateStorageVolume", params, name)
 	return f.Update, f.UpdateErr
 }
 
@@ -142,7 +154,7 @@ var (
 				Quota:            nil,
 				Readonly:         false,
 				Shared:           false,
-				Size:             10,
+				Size:             10485760,
 				Snapshot:         nil,
 				Snapshot_account: "",
 				Snapshot_id:      "",

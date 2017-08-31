@@ -68,7 +68,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		oracletesting.FakeEnvironAPI{
+		&oracletesting.FakeEnvironAPI{
 			FakeInstancer: oracletesting.FakeInstancer{
 				InstanceErr: errors.New("FakeInstanceErr"),
 			},
@@ -86,7 +86,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		oracletesting.FakeEnvironAPI{
+		&oracletesting.FakeEnvironAPI{
 			FakeInstance: oracletesting.FakeInstance{
 				AllErr: errors.New("FakeInstanceErr"),
 			},
@@ -115,7 +115,7 @@ func (e *environSuite) TestPrepareForBootstrapWithErrors(c *gc.C) {
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		oracletesting.FakeEnvironAPI{
+		&oracletesting.FakeEnvironAPI{
 			FakeAuthenticater: oracletesting.FakeAuthenticater{
 				AuthenticateErr: errors.New("FakeAuthenticateErr"),
 			},
@@ -180,7 +180,7 @@ func (e *environSuite) TestCreateWithErrors(c *gc.C) {
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		oracletesting.FakeEnvironAPI{
+		&oracletesting.FakeEnvironAPI{
 			FakeAuthenticater: oracletesting.FakeAuthenticater{
 				AuthenticateErr: errors.New("FakeAuthenticateErr"),
 			},
