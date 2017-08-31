@@ -469,9 +469,9 @@ func (c *Client) CharmRelations(application string) ([]string, error) {
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+func (c *Client) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
-	params := params.AddRelation{Endpoints: endpoints}
+	params := params.AddRelation{Endpoints: endpoints, ViaCIDRs: viaCIDRs}
 	err := c.facade.FacadeCall("AddRelation", params, &addRelRes)
 	return &addRelRes, err
 }

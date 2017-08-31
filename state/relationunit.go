@@ -495,7 +495,7 @@ func (ru *RelationUnit) IngressAddress() (network.Address, error) {
 	if err != nil {
 		return network.Address{}, errors.Trace(err)
 	}
-	cidrs := cfg.EgressCidrs()
+	cidrs := cfg.EgressSubnets()
 	if len(cidrs) > 0 {
 		ip, _, err := net.ParseCIDR(cidrs[0])
 		if err != nil {

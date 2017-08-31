@@ -838,3 +838,15 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) 
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
+
+func (s *ApplicationSuite) TestRemoteRelationBadCIDR(c *gc.C) {
+	endpoints := []string{"wordpress", "hosted-mysql:nope"}
+	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"bad.cidr"}})
+	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: bad.cidr`)
+}
+
+func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
+	endpoints := []string{"wordpress", "hosted-mysql:nope"}
+	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"0.0.0.0/0"}})
+	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
+}

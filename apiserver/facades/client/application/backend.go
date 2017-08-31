@@ -40,6 +40,7 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	Resources() (Resources, error)
 	OfferConnectionForRelation(string) (OfferConnection, error)
+	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -216,6 +217,11 @@ func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
 		return nil, err
 	}
 	return stateRelationShim{r}, nil
+}
+
+func (s stateShim) SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
+	api := state.NewRelationEgressNetworks(s.State)
+	return api.Save(relationKey, cidrs)
 }
 
 func (s stateShim) Charm(curl *charm.URL) (Charm, error) {

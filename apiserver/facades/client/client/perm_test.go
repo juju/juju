@@ -191,7 +191,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 }
 
 func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := application.NewClient(st).AddRelation("nosuch1", "nosuch2")
+	_, err := application.NewClient(st).AddRelation([]string{"nosuch1", "nosuch2"}, nil)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

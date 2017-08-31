@@ -534,3 +534,28 @@ func (s *applicationSuite) TestSetRelationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *applicationSuite) TestAddRelation(c *gc.C) {
+	called := false
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Assert(request, gc.Equals, "AddRelation")
+		c.Assert(a, jc.DeepEquals, params.AddRelation{
+			Endpoints: []string{"ep1", "ep2"},
+			ViaCIDRs:  []string{"cidr1", "cidr2"},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.AddRelationResults{})
+		*result.(*params.AddRelationResults) = params.AddRelationResults{
+			Endpoints: map[string]params.CharmRelation{
+				"ep1": {Name: "foo"},
+			},
+		}
+		called = true
+		return nil
+	})
+	results, err := client.AddRelation([]string{"ep1", "ep2"}, []string{"cidr1", "cidr2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(results.Endpoints, jc.DeepEquals, map[string]params.CharmRelation{
+		"ep1": {Name: "foo"},
+	})
+}

@@ -33,6 +33,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -2519,14 +2520,15 @@ func (s *applicationSuite) setupRelationScenario(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints []string) {
+func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints, viaCIDRs []string) {
 	s.setupRelationScenario(c)
-	res, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+
+	res, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: viaCIDRs})
 	c.Assert(err, jc.ErrorIsNil)
 	// Show that the relation was added.
-	wpSvc, err := s.State.Application("wordpress")
+	wpApp, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	rels, err := wpSvc.Relations()
+	rels, err := wpApp.Relations()
 	// There are 2 relations - the logging-wordpress one set up in the
 	// scenario and the one created in this test.
 	c.Assert(len(rels), gc.Equals, 2)
@@ -2557,16 +2559,16 @@ func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints []string) {
 
 func (s *applicationSuite) TestSuccessfullyAddRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
-	s.assertAddRelation(c, endpoints)
+	s.assertAddRelation(c, endpoints, nil)
 }
 
 func (s *applicationSuite) TestBlockDestroyAddRelation(c *gc.C) {
 	s.BlockDestroyModel(c, "TestBlockDestroyAddRelation")
-	s.assertAddRelation(c, []string{"wordpress", "mysql"})
+	s.assertAddRelation(c, []string{"wordpress", "mysql"}, nil)
 }
 func (s *applicationSuite) TestBlockRemoveAddRelation(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveAddRelation")
-	s.assertAddRelation(c, []string{"wordpress", "mysql"})
+	s.assertAddRelation(c, []string{"wordpress", "mysql"}, nil)
 }
 
 func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
@@ -2581,7 +2583,7 @@ func (s *applicationSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
 	// does not matter.  This is a repeat of the previous test with the application
 	// names swapped.
 	endpoints := []string{"mysql", "wordpress"}
-	s.assertAddRelation(c, endpoints)
+	s.assertAddRelation(c, endpoints, nil)
 }
 
 func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
@@ -2633,28 +2635,41 @@ func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
 func (s *applicationSuite) TestAddRemoteRelation(c *gc.C) {
 	s.setupRemoteApplication(c)
 	// There's already a wordpress in the scenario this assertion sets up.
-	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"})
+	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"}, nil)
 }
 
 func (s *applicationSuite) TestAddRemoteRelationWithRelName(c *gc.C) {
 	s.setupRemoteApplication(c)
-	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql:server"})
+	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql:server"}, nil)
+}
+
+func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
+	s.setupRemoteApplication(c)
+	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql:server"}, []string{"192.168.0.0/16"})
+
+	rel, err := s.State.KeyRelation("wordpress:db hosted-mysql:server")
+	c.Assert(err, jc.ErrorIsNil)
+	w := rel.WatchRelationEgressNetworks()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("192.168.0.0/16")
+	wc.AssertNoChange()
 }
 
 func (s *applicationSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
 	s.setupRemoteApplication(c)
 	endpoints := []string{"hosted-mysql"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 	s.setupRemoteApplication(c)
 	endpoints := []string{"wordpress", "hosted-mysql"}
-	s.assertAddRelation(c, endpoints)
+	s.assertAddRelation(c, endpoints, nil)
 
 	// And try to add it again.
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server already exists`))
 }
 
@@ -2663,7 +2678,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, `remote application "hosted-mysql" has no "nope" relation`)
 }
 
@@ -2685,13 +2700,13 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "hosted-db2"}
-	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	_, err = s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "unknown"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }

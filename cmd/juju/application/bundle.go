@@ -511,7 +511,8 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams) error {
 	ep1 := resolveRelation(p.Endpoint1, h.results)
 	ep2 := resolveRelation(p.Endpoint2, h.results)
-	_, err := h.api.AddRelation(ep1, ep2)
+	// TODO(wallyworld) - CMR support in bundles
+	_, err := h.api.AddRelation([]string{ep1, ep2}, nil)
 	if err == nil {
 		// A new relation has been established.
 		h.log.Infof("Related %q and %q", ep1, ep2)

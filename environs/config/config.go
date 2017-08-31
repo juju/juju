@@ -161,9 +161,9 @@ const (
 	// UpdateStatusHookInterval is how often to run the update-status hook.
 	UpdateStatusHookInterval = "update-status-hook-interval"
 
-	// EgressCidrs are the source addresses from which traffic from this model
+	// EgressSubnets are the source addresses from which traffic from this model
 	// originates if the model is deployed such that NAT or similar is in use.
-	EgressCidrs = "egress-cidrs"
+	EgressSubnets = "egress-subnets"
 
 	//
 	// Deprecated Settings Attributes
@@ -367,7 +367,7 @@ var defaultConfigValues = map[string]interface{}{
 	"test-mode":                false,
 	TransmitVendorMetricsKey:   true,
 	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
-	EgressCidrs:                "",
+	EgressSubnets:              "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -549,11 +549,14 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if v, ok := cfg.defined[EgressCidrs].(string); ok && v != "" {
-		addresses := strings.Split(v, ",")
-		for _, addr := range addresses {
-			if _, _, err := net.ParseCIDR(strings.TrimSpace(addr)); err != nil {
-				return errors.Annotatef(err, "invalid egress address: %v", addr)
+	if v, ok := cfg.defined[EgressSubnets].(string); ok && v != "" {
+		cidrs := strings.Split(v, ",")
+		for _, cidr := range cidrs {
+			if _, _, err := net.ParseCIDR(strings.TrimSpace(cidr)); err != nil {
+				return errors.Annotatef(err, "invalid egress subnet: %v", cidr)
+			}
+			if cidr == "0.0.0.0/0" {
+				return errors.Errorf("CIDR %q not allowed", cidr)
 			}
 		}
 	}
@@ -1023,10 +1026,10 @@ func (c *Config) UpdateStatusHookInterval() time.Duration {
 	return val
 }
 
-// EgressCidrs are the source addresses from which traffic from this model
+// EgressSubnets are the source addresses from which traffic from this model
 // originates if the model is deployed such that NAT or similar is in use.
-func (c *Config) EgressCidrs() []string {
-	raw := c.asString(EgressCidrs)
+func (c *Config) EgressSubnets() []string {
+	raw := c.asString(EgressSubnets)
 	if raw == "" {
 		return []string{}
 	}
@@ -1149,7 +1152,7 @@ var alwaysOptional = schema.Defaults{
 	MaxActionResultsAge:          schema.Omit,
 	MaxActionResultsSize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
-	EgressCidrs:                  schema.Omit,
+	EgressSubnets:                schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1546,7 +1549,7 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	EgressCidrs: {
+	EgressSubnets: {
 		Description: "Source address(es) for traffic originating from this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,

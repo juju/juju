@@ -1402,7 +1402,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		NumUnits:        1,
 	}).Returns([]string{"wordpress/0"}, error(nil))
 
-	fakeAPI.Call("AddRelation", "wordpress:db", "mysql:server").Returns(
+	fakeAPI.Call("AddRelation", []interface{}{"wordpress:db", "mysql:server"}, []interface{}{}).Returns(
 		&params.AddRelationResults{},
 		error(nil),
 	)
@@ -1577,8 +1577,8 @@ func (f *fakeDeployAPI) WatchAll() (*api.AllWatcher, error) {
 	return results[0].(*api.AllWatcher), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	results := f.MethodCall(f, "AddRelation", variadicStringToInterface(endpoints...)...)
+func (f *fakeDeployAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+	results := f.MethodCall(f, "AddRelation", stringToInterface(endpoints), stringToInterface(viaCIDRs))
 	return results[0].(*params.AddRelationResults), jujutesting.TypeAssertError(results[1])
 }
 
@@ -1622,7 +1622,7 @@ func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]
 	return results[0].([]params.AddMachinesResult), jujutesting.TypeAssertError(results[0])
 }
 
-func variadicStringToInterface(args ...string) []interface{} {
+func stringToInterface(args []string) []interface{} {
 	interfaceArgs := make([]interface{}, len(args))
 	for i, a := range args {
 		interfaceArgs[i] = a

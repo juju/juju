@@ -49,6 +49,7 @@ type Relation interface {
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 	UnitInScope(Unit) (bool, error)
 	WatchRelationIngressNetworks() state.StringsWatcher
+	WatchRelationEgressNetworks() state.StringsWatcher
 }
 
 type relationShim struct {

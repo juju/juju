@@ -493,6 +493,28 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
+			about: "relation egress networks",
+			getWatcher: func(st *state.State) interface{} {
+				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
+				eps, err := st.InferEndpoints("wordpress", "mysql")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := st.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+				return rel.WatchRelationEgressNetworks()
+			},
+			triggerEvent: func(st *state.State) {
+				relIngress := state.NewRelationEgressNetworks(st)
+				_, err := relIngress.Save("wordpress:db mysql:database", []string{"1.2.3.4/32", "4.3.2.1/16"})
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
 			about: "open ports",
 			getWatcher: func(st *state.State) interface{} {
 				return st.WatchOpenedPorts()
@@ -4717,7 +4739,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) setUpWatchIngressScenario(c *gc.C) *state.Relation {
+func (s *StateSuite) setUpWatchRelationNetworkScenario(c *gc.C) *state.Relation {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "mysql", SourceModel: s.State.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
@@ -4734,7 +4756,7 @@ func (s *StateSuite) setUpWatchIngressScenario(c *gc.C) *state.Relation {
 }
 
 func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
-	rel := s.setUpWatchIngressScenario(c)
+	rel := s.setUpWatchRelationNetworkScenario(c)
 	// Check initial event.
 	w := rel.WatchRelationIngressNetworks()
 	defer statetesting.AssertStop(c, w)
@@ -4772,7 +4794,7 @@ func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchRelationIngressNetworksIgnoresEgress(c *gc.C) {
-	rel := s.setUpWatchIngressScenario(c)
+	rel := s.setUpWatchRelationNetworkScenario(c)
 	// Check initial event.
 	w := rel.WatchRelationIngressNetworks()
 	defer statetesting.AssertStop(c, w)
@@ -4781,6 +4803,63 @@ func (s *StateSuite) TestWatchRelationIngressNetworksIgnoresEgress(c *gc.C) {
 	wc.AssertNoChange()
 
 	relEgress := state.NewRelationEgressNetworks(s.State)
+	_, err := relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchRelationEgressNetworks(c *gc.C) {
+	rel := s.setUpWatchRelationNetworkScenario(c)
+	// Check initial event.
+	w := rel.WatchRelationEgressNetworks()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Initial egress network creation.
+	relEgress := state.NewRelationEgressNetworks(s.State)
+	_, err := relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("1.2.3.4/32", "4.3.2.1/16")
+	wc.AssertNoChange()
+
+	// Update value.
+	_, err = relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("1.2.3.4/32")
+	wc.AssertNoChange()
+
+	// Same value.
+	_, err = relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Delete relation.
+	state.RemoveRelation(c, rel)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchRelationEgressNetworksIgnoresIngress(c *gc.C) {
+	rel := s.setUpWatchRelationNetworkScenario(c)
+	// Check initial event.
+	w := rel.WatchRelationEgressNetworks()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	relEgress := state.NewRelationIngressNetworks(s.State)
 	_, err := relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()

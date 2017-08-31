@@ -266,6 +266,7 @@ type mockRelation struct {
 	key       string
 	endpoints []state.Endpoint
 	ruw       *mockRelationUnitsWatcher
+	ew        *mockStringsWatcher
 	ruwApp    string
 	inScope   set.Strings
 }
@@ -274,6 +275,7 @@ func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
 		id:      id,
 		ruw:     newMockRelationUnitsWatcher(),
+		ew:      newMockStringsWatcher(),
 		inScope: make(set.Strings),
 	}
 }
@@ -297,6 +299,10 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 
 func (r *mockRelation) UnitInScope(u firewall.Unit) (bool, error) {
 	return r.inScope.Contains(u.Name()), nil
+}
+
+func (r *mockRelation) WatchRelationEgressNetworks() state.StringsWatcher {
+	return r.ew
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {

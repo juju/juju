@@ -47,6 +47,8 @@ func (s *FirewallSuite) SetUpTest(c *gc.C) {
 func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	db2Relation := newMockRelation(123)
 	db2Relation.ruwApp = "django"
+	// Initial event.
+	db2Relation.ew.changes <- []string{}
 	db2Relation.endpoints = []state.Endpoint{
 		{
 			ApplicationName: "django",
@@ -103,6 +105,8 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 
 func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *gc.C) {
 	db2Relation := newMockRelation(123)
+	// Initial event.
+	db2Relation.ew.changes <- []string{}
 	db2Relation.endpoints = []state.Endpoint{
 		{
 			ApplicationName: "db2",

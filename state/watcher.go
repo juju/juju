@@ -2921,9 +2921,15 @@ type relationNetworksWatcher struct {
 var _ Watcher = (*relationNetworksWatcher)(nil)
 
 // WatchRelationIngressNetworks starts and returns a StringsWatcher notifying
-// of changes to the relationNetworks collection for the relation.
+// of ingress changes to the relationNetworks collection for the relation.
 func (r *Relation) WatchRelationIngressNetworks() StringsWatcher {
 	return newrelationNetworksWatcher(r.st, r.Tag().Id(), ingress)
+}
+
+// WatchRelationEgressNetworks starts and returns a StringsWatcher notifying
+// of egress changes to the relationNetworks collection for the relation.
+func (r *Relation) WatchRelationEgressNetworks() StringsWatcher {
+	return newrelationNetworksWatcher(r.st, r.Tag().Id(), egress)
 }
 
 func newrelationNetworksWatcher(st modelBackend, relationKey, direction string) StringsWatcher {
