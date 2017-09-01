@@ -4,26 +4,19 @@
 package model
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/permission"
 )
 
 var usageGrantSummary = `
-Grants access level to a Juju user for a model or controller.`[1:]
-
-var usageGrantCmrSummary = `
 Grants access level to a Juju user for a model, controller, or application offer.`[1:]
 
 var usageGrantDetails = `
@@ -63,12 +56,7 @@ Grant user 'sam' 'read' access to models 'model1' and 'model2':
 Grant user 'maria' 'add-model' access to the controller:
 
     juju grant maria add-model
-%s
-See also: 
-    revoke
-    add-user`[1:]
 
-var usageGrantCmrDetails = `
 Grant user 'joe' 'read' access to application offer 'fred/prod.hosted-mysql':
 
     juju grant joe read fred/prod.hosted-mysql
@@ -80,12 +68,12 @@ Grant user 'jim' 'consume' access to application offer 'fred/prod.hosted-mysql':
 Grant user 'sam' 'read' access to application offers 'fred/prod.hosted-mysql' and 'mary/test.hosted-mysql':
 
     juju grant sam read fred/prod.hosted-mysql mary/test.hosted-mysql
-`
+
+See also: 
+    revoke
+    add-user`[1:]
 
 var usageRevokeSummary = `
-Revokes access from a Juju user for a model or controller.`[1:]
-
-var usageRevokeCmrSummary = `
 Revokes access from a Juju user for a model, controller, or application offer.`[1:]
 
 var usageRevokeDetails = `
@@ -107,11 +95,7 @@ Revoke 'write' access from user 'sam' for models 'model1' and 'model2':
 Revoke 'add-model' access from user 'maria' to the controller:
 
     juju revoke maria add-model
-%s
-See also: 
-    grant`[1:]
 
-var usageRevokeCmrDetails = `
 Revoke 'read' (and 'write') access from user 'joe' for application offer 'fred/prod.hosted-mysql':
 
     juju revoke joe read fred/prod.hosted-mysql
@@ -119,7 +103,9 @@ Revoke 'read' (and 'write') access from user 'joe' for application offer 'fred/p
 Revoke 'consume' access from user 'sam' for models 'fred/prod.hosted-mysql' and 'mary/test.hosted-mysql':
 
     juju revoke sam consume fred/prod.hosted-mysql mary/test.hosted-mysql
-`
+
+See also: 
+    grant`[1:]
 
 type accessCommand struct {
 	modelcmd.ControllerCommandBase
@@ -144,12 +130,10 @@ func (c *accessCommand) Init(args []string) error {
 	c.Access = args[1]
 	// The remaining args are either model names or offer names.
 	for _, arg := range args[2:] {
-		if featureflag.Enabled(feature.CrossModelRelations) {
-			url, err := crossmodel.ParseApplicationURL(arg)
-			if err == nil {
-				c.OfferURLs = append(c.OfferURLs, url)
-				continue
-			}
+		url, err := crossmodel.ParseApplicationURL(arg)
+		if err == nil {
+			c.OfferURLs = append(c.OfferURLs, url)
+			continue
 		}
 		maybeModelName := arg
 		if jujuclient.IsQualifiedModelName(maybeModelName) {
@@ -207,22 +191,11 @@ type grantCommand struct {
 
 // Info implements Command.Info.
 func (c *grantCommand) Info() *cmd.Info {
-	cmdArgs := "<user name> <permission> [<model name> ...]"
-	cmdSummary := usageGrantSummary
-	cmdDoc := usageGrantDetails
-	cmrDoc := ""
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		cmdArgs = "<user name> <permission> [<model name> ... | <offer url> ...]"
-		cmrDoc = usageGrantCmrDetails
-		cmdSummary = usageGrantCmrSummary
-	}
-	cmdDoc = fmt.Sprintf(cmdDoc, cmrDoc)
-
 	return &cmd.Info{
 		Name:    "grant",
-		Args:    cmdArgs,
-		Purpose: cmdSummary,
-		Doc:     cmdDoc,
+		Args:    "<user name> <permission> [<model name> ... | <offer url> ...]",
+		Purpose: usageGrantSummary,
+		Doc:     usageGrantDetails,
 	}
 }
 
@@ -333,22 +306,11 @@ type revokeCommand struct {
 
 // Info implements cmd.Command.
 func (c *revokeCommand) Info() *cmd.Info {
-	cmdArgs := "<user> <permission> [<model name> ...]"
-	cmdSummary := usageRevokeSummary
-	cmdDoc := usageRevokeDetails
-	cmrDoc := ""
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		cmdArgs = "<user name> <permission> [<model name> ... | <offer url> ...]"
-		cmdSummary = usageRevokeCmrSummary
-		cmrDoc = usageRevokeCmrDetails
-	}
-	cmdDoc = fmt.Sprintf(cmdDoc, cmrDoc)
-
 	return &cmd.Info{
 		Name:    "revoke",
-		Args:    cmdArgs,
-		Purpose: cmdSummary,
-		Doc:     cmdDoc,
+		Args:    "<user name> <permission> [<model name> ... | <offer url> ...]",
+		Purpose: usageRevokeSummary,
+		Doc:     usageRevokeDetails,
 	}
 }
 

@@ -81,7 +81,7 @@ func (c *offerCommand) NewApplicationOffersAPI() (*applicationoffers.Client, err
 func (c *offerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offer",
-		Purpose: "Offer application endpoints for use in other models",
+		Purpose: "Offer application endpoints for use in other models.",
 		Args:    "[model-name.]<application-name>:<endpoint-name>[,...] [offer-name]",
 		Doc:     offerCommandDoc,
 	}

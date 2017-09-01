@@ -91,7 +91,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offers",
 		Aliases: []string{"list-offers"},
-		Purpose: "Lists shared endpoints",
+		Purpose: "Lists shared endpoints.",
 		Doc:     listCommandDoc,
 	}
 }

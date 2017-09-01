@@ -10,14 +10,12 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/status"
 )
 
@@ -221,14 +219,12 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 			ops = append(ops, epOps...)
 		}
 	}
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
-		re := r.st.RemoteEntities()
-		tokenOps := re.removeRemoteEntityOps(r.Tag())
-		ops = append(ops, tokenOps...)
-		offerOps := removeOfferConnectionsForRelationOps(r.Id())
-		ops = append(ops, offerOps...)
-	}
+	ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
+	re := r.st.RemoteEntities()
+	tokenOps := re.removeRemoteEntityOps(r.Tag())
+	ops = append(ops, tokenOps...)
+	offerOps := removeOfferConnectionsForRelationOps(r.Id())
+	ops = append(ops, offerOps...)
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
 }
@@ -393,9 +389,6 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 // IsCrossModel returns whether this relation is a cross-model
 // relation.
 func (r *Relation) IsCrossModel() (bool, error) {
-	if !featureflag.Enabled(feature.CrossModelRelations) {
-		return false, nil
-	}
 	for _, ep := range r.Endpoints() {
 		_, err := r.st.RemoteApplication(ep.ApplicationName)
 		if err == nil {

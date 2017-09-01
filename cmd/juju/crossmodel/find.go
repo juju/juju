@@ -79,7 +79,7 @@ func (c *findCommand) Init(args []string) (err error) {
 func (c *findCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "find-endpoints",
-		Purpose: "Find offered application endpoints",
+		Purpose: "Find offered application endpoints.",
 		Doc:     findCommandDoc,
 	}
 }

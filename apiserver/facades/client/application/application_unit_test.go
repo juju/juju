@@ -18,7 +18,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -39,11 +38,6 @@ type ApplicationSuite struct {
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
-
-func (s *ApplicationSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
-	s.IsolationSuite.SetUpSuite(c)
-}
 
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
@@ -471,12 +465,6 @@ func (s *ApplicationSuite) TestSetRelationStatusPermissionDenied(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	s.relation.CheckNoCalls(c)
-}
-
-func (s *ApplicationSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	_, err := s.api.Consume(params.ConsumeApplicationArgs{})
-	c.Assert(err, gc.ErrorMatches, `set "cross-model" feature flag to enable consuming remote applications`)
 }
 
 func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {

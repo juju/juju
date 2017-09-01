@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -416,6 +415,7 @@ var commandNames = []string{
 	"clouds",
 	"collect-metrics",
 	"config",
+	"consume",
 	"controller-config",
 	"controllers",
 	"create-backup",
@@ -437,6 +437,7 @@ var commandNames = []string{
 	"enable-ha",
 	"enable-user",
 	"expose",
+	"find-endpoints",
 	"get-constraints",
 	"get-model-constraints",
 	"grant",
@@ -457,6 +458,7 @@ var commandNames = []string{
 	"list-disabled-commands",
 	"list-machines",
 	"list-models",
+	"list-offers",
 	"list-payloads",
 	"list-plans",
 	"list-regions",
@@ -477,6 +479,8 @@ var commandNames = []string{
 	"model-default",
 	"model-defaults",
 	"models",
+	"offer",
+	"offers",
 	"payloads",
 	"plans",
 	"regions",
@@ -497,6 +501,7 @@ var commandNames = []string{
 	"resolved",
 	"resources",
 	"restore-backup",
+	"resume-relation",
 	"retry-provisioning",
 	"revoke",
 	"run",
@@ -514,6 +519,7 @@ var commandNames = []string{
 	"show-backup",
 	"show-cloud",
 	"show-controller",
+	"show-endpoints",
 	"show-machine",
 	"show-model",
 	"show-status",
@@ -529,6 +535,7 @@ var commandNames = []string{
 	"storage",
 	"storage-pools",
 	"subnets",
+	"suspend-relation",
 	"switch",
 	"sync-tools",
 	"unexpose",
@@ -548,19 +555,12 @@ var commandNames = []string{
 
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
-	feature.CrossModelRelations,
+// Currently no feature flags.
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"consume",
-	"find-endpoints",
-	"list-offers",
-	"offer",
-	"offers",
-	"resume-relation",
-	"show-endpoints",
-	"suspend-relation",
+// Currently no commands behind feature flags.
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

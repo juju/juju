@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -183,17 +181,15 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		if context.consumerRemoteApplications, err =
-			fetchConsumerRemoteApplications(c.api.stateAccessor); err != nil {
-			return noStatus, errors.Annotate(err, "could not fetch remote applications")
-		}
-		// Only admins can see offer details.
-		if err := c.checkIsAdmin(); err == nil {
-			if context.offers, err =
-				fetchOffers(c.api.stateAccessor, context.applications); err != nil {
-				return noStatus, errors.Annotate(err, "could not fetch application offers")
-			}
+	if context.consumerRemoteApplications, err =
+		fetchConsumerRemoteApplications(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch remote applications")
+	}
+	// Only admins can see offer details.
+	if err := c.checkIsAdmin(); err == nil {
+		if context.offers, err =
+			fetchOffers(c.api.stateAccessor, context.applications); err != nil {
+			return noStatus, errors.Annotate(err, "could not fetch application offers")
 		}
 	}
 	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {

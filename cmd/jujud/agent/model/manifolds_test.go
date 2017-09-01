@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -55,6 +54,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"model-upgrader",
 		"not-alive-flag",
 		"not-dead-flag",
+		"remote-relations",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",
@@ -133,7 +133,6 @@ type ManifoldsCrossModelSuite struct {
 var _ = gc.Suite(&ManifoldsCrossModelSuite{})
 
 func (s *ManifoldsCrossModelSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.BaseSuite.SetUpTest(c)
 }
 

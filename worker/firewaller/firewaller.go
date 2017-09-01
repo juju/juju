@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
@@ -185,20 +183,6 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	return fw, nil
 }
 
-// stubWatcher is used when the cross model feature flag is not turned on.
-type stubWatcher struct {
-	watcher.StringsWatcher
-	changes watcher.StringsChannel
-}
-
-func (stubWatcher *stubWatcher) Stop() error {
-	return nil
-}
-
-func (stubWatcher *stubWatcher) Changes() watcher.StringsChannel {
-	return stubWatcher.changes
-}
-
 func (fw *Firewaller) setUp() error {
 	var err error
 	fw.machinesWatcher, err = fw.firewallerApi.WatchModelMachines()
@@ -217,16 +201,12 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := fw.catacomb.Add(fw.remoteRelationsWatcher); err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		fw.remoteRelationsWatcher = &stubWatcher{changes: make(watcher.StringsChannel)}
+	fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := fw.catacomb.Add(fw.remoteRelationsWatcher); err != nil {
+		return errors.Trace(err)
 	}
 
 	logger.Debugf("started watching opened port ranges for the model")

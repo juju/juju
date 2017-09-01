@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -1072,13 +1070,6 @@ func (api *API) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorR
 // relations.
 func (api *API) Consume(args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
 	var consumeResults params.ErrorResults
-	if !featureflag.Enabled(feature.CrossModelRelations) {
-		err := errors.Errorf(
-			"set %q feature flag to enable consuming remote applications",
-			feature.CrossModelRelations,
-		)
-		return consumeResults, err
-	}
 	if err := api.checkCanWrite(); err != nil {
 		return consumeResults, errors.Trace(err)
 	}
