@@ -615,6 +615,8 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"ProviderId",
 		"AvailabilityZone",
 		"ProviderNetworkId",
+		"FanLocalUnderlay",
+		"FanOverlay",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }

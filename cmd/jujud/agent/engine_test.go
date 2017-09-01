@@ -115,6 +115,7 @@ var (
 	notMigratingMachineWorkers = []string{
 		"api-address-updater",
 		"disk-manager",
+		"fan-configurer",
 		// "host-key-reporter", not stable, exits when done
 		"log-sender",
 		"logging-config-updater",

@@ -38,6 +38,13 @@ type SubnetInfo struct {
 	// SpaceName is the name of the space the subnet is associated with. It
 	// can be empty if the subnet is not associated with a space yet.
 	SpaceName string
+
+	// FanUnderlay is the CIDR of the local underlaying fan network, it allows easy
+	// identification of the device the FAN is running on. Empty if not a FAN subnet.
+	FanLocalUnderlay string
+
+	// FanOverlay is the CIDR of the complete FAN setup. Empty if not a FAN subnet.
+	FanOverlay string
 }
 
 type Subnet struct {
@@ -56,8 +63,10 @@ type subnetDoc struct {
 	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
 	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
 	// IsPublic to migration import/export.
-	IsPublic  bool   `bson:"is-public,omitempty"`
-	SpaceName string `bson:"space-name,omitempty"`
+	IsPublic         bool   `bson:"is-public,omitempty"`
+	SpaceName        string `bson:"space-name,omitempty"`
+	FanLocalUnderlay string `bson:"fan-local-underlay,omitempty"`
+	FanOverlay       string `bson:"fan-overlay,omitempty"`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.
@@ -78,6 +87,14 @@ func (s *Subnet) String() string {
 // GoString implements fmt.GoStringer.
 func (s *Subnet) GoString() string {
 	return s.String()
+}
+
+func (s *Subnet) FanOverlay() string {
+	return s.doc.FanOverlay
+}
+
+func (s *Subnet) FanLocalUnderlay() string {
+	return s.doc.FanLocalUnderlay
 }
 
 // EnsureDead sets the Life of the subnet to Dead, if it's Alive. If the subnet
@@ -270,6 +287,8 @@ func (st *State) addSubnetOps(args SubnetInfo) []txn.Op {
 		ProviderNetworkId: string(args.ProviderNetworkId),
 		AvailabilityZone:  args.AvailabilityZone,
 		SpaceName:         args.SpaceName,
+		FanLocalUnderlay:  args.FanLocalUnderlay,
+		FanOverlay:        args.FanOverlay,
 	}
 	ops := []txn.Op{
 		{
