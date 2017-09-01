@@ -100,6 +100,16 @@ func (s *relationNetworksSuite) TestSaveIdempotent(c *gc.C) {
 	s.assertSavedIngressInfo(c, "wordpress:db mysql:server", "192.168.1.0/16")
 }
 
+func (s *relationNetworksSuite) TestNetworks(c *gc.C) {
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.relationNetworks.Networks("wordpress:db mysql:server")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.CIDRS(), gc.DeepEquals, []string{"192.168.1.0/16"})
+	_, err = s.relationNetworks.Networks("mediawiki:db mysql:server")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *relationNetworksSuite) TestUpdateCIDRs(c *gc.C) {
 	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,13 +121,15 @@ func (s *relationNetworksSuite) TestUpdateCIDRs(c *gc.C) {
 func (s *relationIngressNetworksSuite) TestCrossContanination(c *gc.C) {
 	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = state.EgressNetworks(s.relation)
+	egress := state.NewRelationEgressNetworks(s.State)
+	_, err = egress.Networks(s.relation.Tag().Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *relationEgressNetworksSuite) TestCrossContanination(c *gc.C) {
 	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = state.IngressNetworks(s.relation)
+	ingress := state.NewRelationIngressNetworks(s.State)
+	_, err = ingress.Networks(s.relation.Tag().Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

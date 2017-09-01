@@ -381,9 +381,9 @@ func (s *RelationSuite) TestRemoveAlsoDeletesNetworks(c *gc.C) {
 	_, err = relEgress.Save(relation.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	state.RemoveRelation(c, relation)
-	_, err = state.IngressNetworks(relation)
+	_, err = relIngress.Networks(relation.Tag().Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = state.EgressNetworks(relation)
+	_, err = relEgress.Networks(relation.Tag().Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

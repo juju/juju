@@ -16,6 +16,7 @@ import (
 // RelationNetworks instances describe the ingress or egress
 // networks required for a cross model relation.
 type RelationNetworks interface {
+	Id() string
 	RelationKey() string
 	CIDRS() []string
 }
@@ -29,6 +30,11 @@ type relationNetworksDoc struct {
 type relationNetworks struct {
 	st  *State
 	doc relationNetworksDoc
+}
+
+// Id returns the id for the relation networks entity.
+func (r *relationNetworks) Id() string {
+	return r.doc.Id
 }
 
 // String returns r as a user-readable string.
@@ -49,6 +55,7 @@ func (r *relationNetworks) CIDRS() []string {
 // RelationNetworker instances provide access to relation networks in state.
 type RelationNetworker interface {
 	Save(relationKey string, cidrs []string) (RelationNetworks, error)
+	Networks(relationKey string) (RelationNetworks, error)
 }
 
 const (
@@ -108,7 +115,7 @@ func (rin *relationNetworksState) Save(relationKey string, cidrs []string) (Rela
 			Assert: txn.DocExists,
 		}
 
-		existing, err := rin.networks(relationKey)
+		existing, err := rin.Networks(relationKey)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -116,7 +123,7 @@ func (rin *relationNetworksState) Save(relationKey string, cidrs []string) (Rela
 		if err == nil {
 			ops = []txn.Op{{
 				C:      relationNetworksC,
-				Id:     existing.Id,
+				Id:     existing.Id(),
 				Assert: txn.DocExists,
 				Update: bson.D{
 					{"$set", bson.D{{"cidrs", cidrs}}},
@@ -143,7 +150,8 @@ func (rin *relationNetworksState) Save(relationKey string, cidrs []string) (Rela
 	}, nil
 }
 
-func (rin *relationNetworksState) networks(relationKey string) (*relationNetworksDoc, error) {
+// Networks returns the networks for the specfied relation.
+func (rin *relationNetworksState) Networks(relationKey string) (RelationNetworks, error) {
 	coll, closer := rin.st.db().GetCollection(relationNetworksC)
 	defer closer()
 
@@ -155,7 +163,10 @@ func (rin *relationNetworksState) networks(relationKey string) (*relationNetwork
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &doc, nil
+	return &relationNetworks{
+		st:  rin.st,
+		doc: doc,
+	}, nil
 }
 
 func removeRelationNetworksOps(st *State, relationKey string) []txn.Op {

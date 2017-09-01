@@ -702,24 +702,6 @@ func RemoveRelation(c *gc.C, rel *Relation) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func IngressNetworks(rel *Relation) ([]string, error) {
-	relIngress := NewRelationIngressNetworks(rel.st)
-	doc, err := relIngress.networks(rel.Tag().Id())
-	if err != nil {
-		return nil, err
-	}
-	return doc.CIDRS, nil
-}
-
-func EgressNetworks(rel *Relation) ([]string, error) {
-	relEgress := NewRelationEgressNetworks(rel.st)
-	doc, err := relEgress.networks(rel.Tag().Id())
-	if err != nil {
-		return nil, err
-	}
-	return doc.CIDRS, nil
-}
-
 func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
 	im, err := st.IAASModel()
 	if err != nil {

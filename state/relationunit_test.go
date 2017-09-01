@@ -869,28 +869,6 @@ func (s *RelationUnitSuite) TestIngressAddressRemoteRelationNoPublicAddr(c *gc.C
 	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
 }
 
-func (s *RelationUnitSuite) TestIngressAddressRemoteRelationEgressSubnets(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.1.0/32"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	prr := newRemoteProReqRelation(c, &s.ConnSuite)
-	err = prr.ru0.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := prr.ru0.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
-	)
-
-	address, err := prr.rru0.IngressAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("192.168.1.0", network.ScopePublic))
-}
-
 func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	rus := []*state.RelationUnit{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
