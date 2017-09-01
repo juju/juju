@@ -1046,6 +1046,38 @@ func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults
 	return result, nil
 }
 
+// Refresh retrieves the latest values for attributes on this unit.
+func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, error) {
+	result := params.UnitRefreshResults{
+		Results: make([]params.UnitRefreshResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := u.accessUnit()
+	if err != nil {
+		return params.UnitRefreshResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if canRead(tag) {
+			var unit *state.Unit
+			if unit, err = u.getUnit(tag); err == nil {
+				result.Results[i].Series = unit.Series()
+				result.Results[i].Life = params.Life(unit.Life().String())
+				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // CurrentModel returns the name and UUID for the current juju model.
 func (u *UniterAPI) CurrentModel() (params.ModelResult, error) {
 	result := params.ModelResult{}

@@ -112,8 +112,10 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 	switch info.Kind {
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
+		series := s.RemoteState.Series
 		op = onCommitWrapper{op, func() {
 			s.LocalState.ConfigVersion = v
+			s.LocalState.Series = series
 		}}
 	case hooks.LeaderSettingsChanged:
 		v := s.RemoteState.LeaderSettingsVersion

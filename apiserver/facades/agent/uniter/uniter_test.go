@@ -558,7 +558,7 @@ func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestResolved(c *gc.C) {
+func (s *uniterSuite) TestResolvedAPIV6(c *gc.C) {
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
 	mode := s.wordpressUnit.Resolved()
@@ -2802,6 +2802,36 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *uniterSuite) TestRefresh(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{s.wordpressUnit.Tag().String()},
+			{s.mysqlUnit.Tag().String()},
+			{s.mysql.Tag().String()},
+			{s.machine0.Tag().String()},
+			{"some-word"},
+		},
+	}
+	expect := params.UnitRefreshResults{
+		Results: []params.UnitRefreshResult{
+			{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	}
+	results, err := s.uniter.Refresh(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, expect)
+}
+
+func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
+	results, err := s.uniter.Refresh(params.Entities{Entities: []params.Entity{}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
 
 type unitMetricBatchesSuite struct {

@@ -150,6 +150,7 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 		ConfigVersion:         2, // config settings and addresses
 		LeaderSettingsVersion: 1,
 		Leader:                true,
+		Series:                "",
 	})
 }
 
@@ -167,6 +168,16 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().Life, gc.Equals, params.Dying)
+
+	s.st.unit.series = "trusty"
+	s.st.unit.unitWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().Series, gc.Equals, "trusty")
+
+	s.st.unit.resolved = params.ResolvedRetryHooks
+	s.st.unit.unitWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	assertOneChange()

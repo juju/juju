@@ -145,15 +145,15 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionResult, error)
 
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
-	life, err := st.life(tag)
+	unit := &Unit{
+		tag: tag,
+		st:  st,
+	}
+	err := unit.Refresh()
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{
-		tag:  tag,
-		life: life,
-		st:   st,
-	}, nil
+	return unit, nil
 }
 
 // Application returns an application state by tag.

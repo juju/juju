@@ -33,8 +33,9 @@ type State interface {
 type Unit interface {
 	Life() params.Life
 	Refresh() error
-	Resolved() (params.ResolvedMode, error)
+	Resolved() params.ResolvedMode
 	Application() (Application, error)
+	Series() string
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)

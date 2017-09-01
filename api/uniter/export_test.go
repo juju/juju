@@ -35,7 +35,13 @@ func PatchUnitResponse(p testing.Patcher, u *Unit, expectedRequest string, respo
 
 // CreateUnit creates uniter.Unit for tests.
 func CreateUnit(st *State, tag names.UnitTag) *Unit {
-	return &Unit{st, tag, params.Alive}
+	return &Unit{
+		st:           st,
+		tag:          tag,
+		life:         params.Alive,
+		resolvedMode: params.ResolvedNone,
+		series:       "trusty",
+	}
 }
 
 var NewStateV4 = newStateForVersionFn(4)

@@ -68,6 +68,9 @@ type Snapshot struct {
 	// Commands is the list of IDs of commands to be
 	// executed by this unit.
 	Commands []string
+
+	// Series is the current series running on the unit
+	Series string
 }
 
 type RelationSnapshot struct {
