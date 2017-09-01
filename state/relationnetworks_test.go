@@ -58,12 +58,12 @@ func (s *relationEgressNetworksSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *relationNetworksSuite) TestSaveMissingRelation(c *gc.C) {
-	_, err := s.relationNetworks.Save("wordpress:db something:database", []string{"192.168.1.0/32"})
+	_, err := s.relationNetworks.Save("wordpress:db something:database", false, []string{"192.168.1.0/32"})
 	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`"wordpress:db something:database" not found`))
 }
 
 func (s *relationNetworksSuite) TestSaveInvalidAddress(c *gc.C) {
-	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1"})
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1"})
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`CIDR "192.168.1" not valid`))
 }
 
@@ -72,9 +72,9 @@ func (s *relationNetworksSuite) assertSavedIngressInfo(c *gc.C, relationKey stri
 	defer closer()
 
 	var raw bson.M
-	err := coll.FindId(fmt.Sprintf("%v:%v", relationKey, s.direction)).One(&raw)
+	err := coll.FindId(fmt.Sprintf("%v:%v:default", relationKey, s.direction)).One(&raw)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(raw["_id"], gc.Equals, fmt.Sprintf("%v:%v:%v", s.State.ModelUUID(), relationKey, s.direction))
+	c.Assert(raw["_id"], gc.Equals, fmt.Sprintf("%v:%v:%v:default", s.State.ModelUUID(), relationKey, s.direction))
 	var cidrs []string
 	for _, m := range raw["cidrs"].([]interface{}) {
 		cidrs = append(cidrs, m.(string))
@@ -83,17 +83,29 @@ func (s *relationNetworksSuite) assertSavedIngressInfo(c *gc.C, relationKey stri
 }
 
 func (s *relationNetworksSuite) TestSave(c *gc.C) {
-	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
 	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"192.168.1.0/16"})
 	s.assertSavedIngressInfo(c, "wordpress:db mysql:server", "192.168.1.0/16")
 }
 
-func (s *relationNetworksSuite) TestSaveIdempotent(c *gc.C) {
-	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+func (s *relationNetworksSuite) TestSaveAdminOverrides(c *gc.C) {
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
-	rin, err = s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", true, []string{"10.2.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
+	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"10.2.0.0/16"})
+	result, err := s.relationNetworks.Networks("wordpress:db mysql:server")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.CIDRS(), jc.DeepEquals, []string{"10.2.0.0/16"})
+}
+
+func (s *relationNetworksSuite) TestSaveIdempotent(c *gc.C) {
+	rin, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	rin, err = s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
 	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"192.168.1.0/16"})
@@ -101,7 +113,7 @@ func (s *relationNetworksSuite) TestSaveIdempotent(c *gc.C) {
 }
 
 func (s *relationNetworksSuite) TestNetworks(c *gc.C) {
-	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.relationNetworks.Networks("wordpress:db mysql:server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,15 +123,15 @@ func (s *relationNetworksSuite) TestNetworks(c *gc.C) {
 }
 
 func (s *relationNetworksSuite) TestUpdateCIDRs(c *gc.C) {
-	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.relationNetworks.Save("wordpress:db mysql:server", []string{"10.0.0.1/16"})
+	_, err = s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"10.0.0.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSavedIngressInfo(c, "wordpress:db mysql:server", "10.0.0.1/16")
 }
 
 func (s *relationIngressNetworksSuite) TestCrossContanination(c *gc.C) {
-	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	egress := state.NewRelationEgressNetworks(s.State)
 	_, err = egress.Networks(s.relation.Tag().Id())
@@ -127,7 +139,7 @@ func (s *relationIngressNetworksSuite) TestCrossContanination(c *gc.C) {
 }
 
 func (s *relationEgressNetworksSuite) TestCrossContanination(c *gc.C) {
-	_, err := s.relationNetworks.Save("wordpress:db mysql:server", []string{"192.168.1.0/16"})
+	_, err := s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	ingress := state.NewRelationIngressNetworks(s.State)
 	_, err = ingress.Networks(s.relation.Tag().Id())

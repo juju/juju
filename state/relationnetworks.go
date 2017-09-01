@@ -54,14 +54,22 @@ func (r *relationNetworks) CIDRS() []string {
 
 // RelationNetworker instances provide access to relation networks in state.
 type RelationNetworker interface {
-	Save(relationKey string, cidrs []string) (RelationNetworks, error)
+	Save(relationKey string, adminOverride bool, cidrs []string) (RelationNetworks, error)
 	Networks(relationKey string) (RelationNetworks, error)
 }
 
 const (
 	ingress = "ingress"
 	egress  = "egress"
+
+	// relationNetworkDefault is a default, non-override network.
+	relationNetworkDefault = relationNetworkType("default")
+
+	// relationNetworkAdmin is a network that has been overridden by an admin.
+	relationNetworkAdmin = relationNetworkType("override")
 )
+
+type relationNetworkType string
 
 type relationNetworksState struct {
 	st        *State
@@ -80,20 +88,24 @@ func NewRelationEgressNetworks(st *State) *relationNetworksState {
 	return &relationNetworksState{st: st, direction: egress}
 }
 
-func relationNetworkDocID(relationKey, direction string) string {
-	return relationKey + ":" + direction
+func relationNetworkDocID(relationKey, direction string, label relationNetworkType) string {
+	return fmt.Sprintf("%v:%v:%v", relationKey, direction, label)
 }
 
 // Save stores the specified networks for the relation.
-func (rin *relationNetworksState) Save(relationKey string, cidrs []string) (RelationNetworks, error) {
+func (rin *relationNetworksState) Save(relationKey string, adminOverride bool, cidrs []string) (RelationNetworks, error) {
 	logger.Debugf("save %v networks for %v: %v", rin.direction, relationKey, cidrs)
 	for _, cidr := range cidrs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
 			return nil, errors.NotValidf("CIDR %q", cidr)
 		}
 	}
+	label := relationNetworkDefault
+	if adminOverride {
+		label = relationNetworkAdmin
+	}
 	doc := relationNetworksDoc{
-		Id:          rin.st.docID(relationNetworkDocID(relationKey, rin.direction)),
+		Id:          rin.st.docID(relationNetworkDocID(relationKey, rin.direction, label)),
 		RelationKey: relationKey,
 		CIDRS:       cidrs,
 	}
@@ -150,13 +162,16 @@ func (rin *relationNetworksState) Save(relationKey string, cidrs []string) (Rela
 	}, nil
 }
 
-// Networks returns the networks for the specfied relation.
+// Networks returns the networks for the specified relation.
 func (rin *relationNetworksState) Networks(relationKey string) (RelationNetworks, error) {
 	coll, closer := rin.st.db().GetCollection(relationNetworksC)
 	defer closer()
 
 	var doc relationNetworksDoc
-	err := coll.FindId(relationNetworkDocID(relationKey, rin.direction)).One(&doc)
+	err := coll.FindId(relationNetworkDocID(relationKey, rin.direction, relationNetworkAdmin)).One(&doc)
+	if err == mgo.ErrNotFound {
+		err = coll.FindId(relationNetworkDocID(relationKey, rin.direction, relationNetworkDefault)).One(&doc)
+	}
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("%v networks for relation %v", rin.direction, relationKey)
 	}
@@ -172,11 +187,19 @@ func (rin *relationNetworksState) Networks(relationKey string) (RelationNetworks
 func removeRelationNetworksOps(st *State, relationKey string) []txn.Op {
 	ops := []txn.Op{{
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, ingress)),
+		Id:     st.docID(relationNetworkDocID(relationKey, ingress, relationNetworkAdmin)),
 		Remove: true,
 	}, {
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, egress)),
+		Id:     st.docID(relationNetworkDocID(relationKey, ingress, relationNetworkDefault)),
+		Remove: true,
+	}, {
+		C:      relationNetworksC,
+		Id:     st.docID(relationNetworkDocID(relationKey, egress, relationNetworkAdmin)),
+		Remove: true,
+	}, {
+		C:      relationNetworksC,
+		Id:     st.docID(relationNetworkDocID(relationKey, egress, relationNetworkDefault)),
 		Remove: true,
 	}}
 	return ops

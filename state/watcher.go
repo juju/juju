@@ -2938,7 +2938,7 @@ func newrelationNetworksWatcher(st modelBackend, relationKey, direction string) 
 		if err != nil {
 			return false
 		}
-		return k == relationKey+":"+direction
+		return strings.HasPrefix(k, relationKey+":"+direction+":")
 	}
 	w := &relationNetworksWatcher{
 		commonWatcher: newCommonWatcher(st),
@@ -2972,7 +2972,10 @@ func (w *relationNetworksWatcher) loadCIDRs() (bool, error) {
 		Id       string   `bson:"_id"`
 		CIDRs    []string `bson:"cidrs"`
 	}
-	err := coll.FindId(w.key + ":" + w.direction).One(&doc)
+	err := coll.FindId(relationNetworkDocID(w.key, w.direction, relationNetworkAdmin)).One(&doc)
+	if err == mgo.ErrNotFound {
+		err = coll.FindId(relationNetworkDocID(w.key, w.direction, relationNetworkDefault)).One(&doc)
+	}
 	if err == mgo.ErrNotFound {
 		// Record deleted.
 		changed := w.knownCidrs.Size() > 0

@@ -125,7 +125,7 @@ type RelationNetworks state.RelationNetworks
 
 func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (RelationNetworks, error) {
 	api := state.NewRelationIngressNetworks(s.State)
-	return api.Save(relationKey, cidrs)
+	return api.Save(relationKey, false, cidrs)
 }
 
 type relationShim struct {

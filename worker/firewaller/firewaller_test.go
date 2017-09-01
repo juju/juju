@@ -942,7 +942,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 
 	// Save a new ingress network against the relation.
 	rin := state.NewRelationIngressNetworks(s.State)
-	_, err = rin.Save(rel.Tag().Id(), []string{"10.0.0.4/16"})
+	_, err = rin.Save(rel.Tag().Id(), false, []string{"10.0.0.4/16"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	//Ports opened.
@@ -954,11 +954,11 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
 
 	// Change should be sent when ingress networks disappear.
-	_, err = rin.Save(rel.Tag().Id(), nil)
+	_, err = rin.Save(rel.Tag().Id(), false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
 
-	_, err = rin.Save(rel.Tag().Id(), []string{"10.0.0.4/16"})
+	_, err = rin.Save(rel.Tag().Id(), false, []string{"10.0.0.4/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
 		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),

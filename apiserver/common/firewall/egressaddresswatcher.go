@@ -245,7 +245,8 @@ func (w *EgressAddressWatcher) loop() error {
 	}
 }
 
-// FormatAsCIDR formats the specified IP address as a CIDR.
+// FormatAsCIDR converts the specified IP addresses to
+// a slice of CIDRs.
 func FormatAsCIDR(addresses []string) []string {
 	result := make([]string, len(addresses))
 	for i, a := range addresses {

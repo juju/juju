@@ -221,7 +221,7 @@ func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
 
 func (s stateShim) SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
 	api := state.NewRelationEgressNetworks(s.State)
-	return api.Save(relationKey, cidrs)
+	return api.Save(relationKey, false, cidrs)
 }
 
 func (s stateShim) Charm(curl *charm.URL) (Charm, error) {

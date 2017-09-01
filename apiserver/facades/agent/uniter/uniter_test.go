@@ -2705,7 +2705,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	egress := state.NewRelationEgressNetworks(s.State)
-	_, err = egress.Save(relTag.Id(), []string{"10.0.0.0/16"})
+	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	thisUniter := s.makeMysqlUniter(c)
