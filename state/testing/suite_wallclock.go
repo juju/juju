@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -48,7 +47,6 @@ func (s *StateWithWallClockSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 

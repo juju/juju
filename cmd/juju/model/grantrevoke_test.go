@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -36,7 +35,6 @@ const (
 )
 
 func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeModelAPI = &fakeModelGrantRevokeAPI{}
 	s.fakeOffersAPI = &fakeOffersGrantRevokeAPI{}

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
@@ -21,10 +20,9 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 )
 
-const addRelationDocCrossModel = `
+const addRelationDoc = `
 Add a relation between 2 local application endpoints or a local endpoint and a remote application endpoint.
 Adding a relation between two remote application endpoints is not supported.
 
@@ -79,9 +77,7 @@ func (c *addRelationCommand) Info() *cmd.Info {
 		Aliases: []string{"relate"},
 		Args:    "<application1>[:<endpoint name1>] <application2>[:<endpoint name2>]",
 		Purpose: "Add a relation between two application endpoints.",
-	}
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		addCmd.Doc = addRelationDocCrossModel
+		Doc:     addRelationDoc,
 	}
 	return addCmd
 }
@@ -103,9 +99,7 @@ func (c *addRelationCommand) Init(args []string) error {
 }
 
 func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		f.StringVar(&c.viaValue, "via", "", "for cross model relations, specify the egress subnets for outbound traffic")
-	}
+	f.StringVar(&c.viaValue, "via", "", "for cross model relations, specify the egress subnets for outbound traffic")
 }
 
 // applicationAddRelationAPI defines the API methods that application add relation command uses.
@@ -227,18 +221,16 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 // If more than one remote endpoint are supplied, the input argument are considered invalid.
 func (c *addRelationCommand) validateEndpoints(all []string) error {
 	for _, endpoint := range all {
-		if featureflag.Enabled(feature.CrossModelRelations) {
-			// We can only determine if this is a remote endpoint with 100%.
-			// If we cannot parse it, it may still be a valid local endpoint...
-			// so ignoring parsing error,
-			if url, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
-				if c.remoteEndpoint != nil {
-					return errors.NotSupportedf("providing more than one remote endpoints")
-				}
-				c.remoteEndpoint = url
-				c.endpoints = append(c.endpoints, url.ApplicationName)
-				continue
+		// We can only determine if this is a remote endpoint with 100%.
+		// If we cannot parse it, it may still be a valid local endpoint...
+		// so ignoring parsing error,
+		if url, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
+			if c.remoteEndpoint != nil {
+				return errors.NotSupportedf("providing more than one remote endpoints")
 			}
+			c.remoteEndpoint = url
+			c.endpoints = append(c.endpoints, url.ApplicationName)
+			continue
 		}
 		// at this stage, we are assuming that this could be a local endpoint
 		if err := validateLocalEndpoint(endpoint, ":"); err != nil {

@@ -34,9 +34,6 @@ const ImageMetadata = "image-metadata"
 // DeveloperMode allows access to developer specific commands and behaviour.
 const DeveloperMode = "developer-mode"
 
-// CrossModelRelations allows cross model relations functionality.
-const CrossModelRelations = "cross-model"
-
 // StrictMigration will cause migration to error if there are unexported
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"

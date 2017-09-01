@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"
 )
@@ -22,7 +21,6 @@ type restrictControllerSuite struct {
 var _ = gc.Suite(&restrictControllerSuite{})
 
 func (s *restrictControllerSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingControllerOnlyRoot()
 }

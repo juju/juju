@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/worker.v1"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -327,15 +325,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			}},
 		})),
 	}
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
-			AgentName:                agentName,
-			APICallerName:            apiCallerName,
-			NewControllerConnection:  apicaller.NewExternalControllerConnection,
-			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
-			NewWorker:                remoterelations.NewWorker,
-		}))
-	}
+	result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
+		AgentName:                agentName,
+		APICallerName:            apiCallerName,
+		NewControllerConnection:  apicaller.NewExternalControllerConnection,
+		NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
+		NewWorker:                remoterelations.NewWorker,
+	}))
 	return result
 }
 

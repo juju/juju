@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -66,7 +65,6 @@ func (s *firewallerBaseSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.OsEnvSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 }

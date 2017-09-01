@@ -129,6 +129,7 @@ func AllFacades() *facade.Registry {
 	reg("Application", 4, application.NewFacadeV4)
 	reg("Application", 5, application.NewFacade) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
 
+	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 1, backups.NewFacade)
 	reg("Block", 2, block.NewAPI)
@@ -144,10 +145,12 @@ func AllFacades() *facade.Registry {
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
+	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
 	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)
+	reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
@@ -200,6 +203,7 @@ func AllFacades() *facade.Registry {
 	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
 	reg("ProxyUpdater", 1, proxyupdater.NewAPI)
 	reg("Reboot", 2, reboot.NewRebootAPI)
+	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 
 	reg("Resources", 1, resources.NewPublicFacade)
 	regHookContext(
@@ -236,13 +240,6 @@ func AllFacades() *facade.Registry {
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI)
-
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
-		reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
-		reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
-		reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
-	}
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher

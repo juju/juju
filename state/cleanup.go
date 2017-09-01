@@ -7,14 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/feature"
 )
 
 type cleanupKind string
@@ -317,10 +314,8 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
 func (st *State) cleanupApplicationsForDyingModel() (err error) {
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
-			return err
-		}
+	if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
+		return err
 	}
 	return st.removeApplicationsForDyingModel()
 }

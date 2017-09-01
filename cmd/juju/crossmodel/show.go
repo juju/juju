@@ -63,7 +63,7 @@ func (c *showCommand) Init(args []string) (err error) {
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-endpoints",
-		Purpose: "Shows offered applications' endpoints details",
+		Purpose: "Shows offered applications' endpoints details.",
 		Doc:     showCommandDoc,
 	}
 }

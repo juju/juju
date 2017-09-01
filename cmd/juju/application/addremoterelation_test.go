@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -178,7 +177,6 @@ type baseAddRemoteRelationSuite struct {
 }
 
 func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.RepoSuite.SetUpTest(c)
 	var err error
 	s.mac, err = macaroon.New(nil, "id", "loc")

@@ -4,10 +4,8 @@
 package state
 
 import (
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
@@ -417,6 +415,31 @@ func allCollections() collectionSchema {
 			global: true,
 		},
 
+		// Cross model relations collections.
+		applicationOffersC: {
+			indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
+		},
+		offerConnectionsC: {
+			indexes: []mgo.Index{{Key: []string{"model-uuid", "offer-name"}}},
+		},
+		remoteApplicationsC: {},
+		// remoteEntitiesC holds information about entities involved in
+		// cross-model relations.
+		remoteEntitiesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "token"},
+			}, {
+				Key: []string{"model-uuid"},
+			}},
+		},
+		// externalControllersC holds connection information for other
+		// controllers hosting models involved in cross-model relations.
+		externalControllersC: {
+			global: true,
+		},
+		// relationNetworksC holds required ingress or egress cidrs for remote relations.
+		relationNetworksC: {},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -428,35 +451,6 @@ func allCollections() collectionSchema {
 			global:    true,
 			rawAccess: true,
 		},
-	}
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		for name, details := range map[string]collectionInfo{
-			applicationOffersC: {
-				indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
-			},
-			offerConnectionsC: {
-				indexes: []mgo.Index{{Key: []string{"model-uuid", "offer-name"}}},
-			},
-			remoteApplicationsC: {},
-			// remoteEntitiesC holds information about entities involved in
-			// cross-model relations.
-			remoteEntitiesC: {
-				indexes: []mgo.Index{{
-					Key: []string{"model-uuid", "token"},
-				}, {
-					Key: []string{"model-uuid"},
-				}},
-			},
-			// externalControllersC holds connection information for other
-			// controllers hosting models involved in cross-model relations.
-			externalControllersC: {
-				global: true,
-			},
-			// relationNetworksC holds required ingress or egress cidrs for remote relations.
-			relationNetworksC: {},
-		} {
-			result[name] = details
-		}
 	}
 	return result
 }

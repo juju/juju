@@ -8,13 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -1208,7 +1206,7 @@ type backingEntityDoc interface {
 }
 
 func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
-	collections := makeAllWatcherCollectionInfo(
+	collectionNames := []string{
 		machinesC,
 		unitsC,
 		applicationsC,
@@ -1220,17 +1218,12 @@ func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
 		openedPortsC,
 		actionsC,
 		blocksC,
-	)
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		cmrCollections := []string{remoteApplicationsC}
-		if params.IncludeOffers {
-			cmrCollections = append(cmrCollections, applicationOffersC)
-		}
-		crossModelCollections := makeAllWatcherCollectionInfo(cmrCollections...)
-		for name, w := range crossModelCollections {
-			collections[name] = w
-		}
+		remoteApplicationsC,
 	}
+	if params.IncludeOffers {
+		collectionNames = append(collectionNames, applicationOffersC)
+	}
+	collections := makeAllWatcherCollectionInfo(collectionNames...)
 	return &allWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.txnLogWatcher(),
@@ -1309,13 +1302,8 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 		constraintsC,
 		settingsC,
 		openedPortsC,
+		remoteApplicationsC,
 	)
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		crossModelCollections := makeAllWatcherCollectionInfo(remoteApplicationsC)
-		for name, w := range crossModelCollections {
-			collections[name] = w
-		}
-	}
 	return &allModelWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.txnLogWatcher(),
