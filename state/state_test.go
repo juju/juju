@@ -489,7 +489,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				relIngress := state.NewRelationIngressNetworks(st)
-				_, err := relIngress.Save("wordpress:db mysql:database", []string{"1.2.3.4/32", "4.3.2.1/16"})
+				_, err := relIngress.Save("wordpress:db mysql:database", false, []string{"1.2.3.4/32", "4.3.2.1/16"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -511,7 +511,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				relIngress := state.NewRelationEgressNetworks(st)
-				_, err := relIngress.Save("wordpress:db mysql:database", []string{"1.2.3.4/32", "4.3.2.1/16"})
+				_, err := relIngress.Save("wordpress:db mysql:database", false, []string{"1.2.3.4/32", "4.3.2.1/16"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -4766,19 +4766,25 @@ func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
 
 	// Initial ingress network creation.
 	relIngress := state.NewRelationIngressNetworks(s.State)
-	_, err := relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	_, err := relIngress.Save(rel.Tag().Id(), false, []string{"1.2.3.4/32", "4.3.2.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1.2.3.4/32", "4.3.2.1/16")
 	wc.AssertNoChange()
 
 	// Update value.
-	_, err = relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	_, err = relIngress.Save(rel.Tag().Id(), false, []string{"1.2.3.4/32"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1.2.3.4/32")
 	wc.AssertNoChange()
 
+	// Update value, admin override.
+	_, err = relIngress.Save(rel.Tag().Id(), true, []string{"10.0.0.1/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("10.0.0.1/32")
+	wc.AssertNoChange()
+
 	// Same value.
-	_, err = relIngress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	_, err = relIngress.Save(rel.Tag().Id(), true, []string{"10.0.0.1/32"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -4803,7 +4809,7 @@ func (s *StateSuite) TestWatchRelationIngressNetworksIgnoresEgress(c *gc.C) {
 	wc.AssertNoChange()
 
 	relEgress := state.NewRelationEgressNetworks(s.State)
-	_, err := relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	_, err := relEgress.Save(rel.Tag().Id(), false, []string{"1.2.3.4/32", "4.3.2.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -4823,19 +4829,25 @@ func (s *StateSuite) TestWatchRelationEgressNetworks(c *gc.C) {
 
 	// Initial egress network creation.
 	relEgress := state.NewRelationEgressNetworks(s.State)
-	_, err := relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	_, err := relEgress.Save(rel.Tag().Id(), false, []string{"1.2.3.4/32", "4.3.2.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1.2.3.4/32", "4.3.2.1/16")
 	wc.AssertNoChange()
 
 	// Update value.
-	_, err = relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"1.2.3.4/32"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1.2.3.4/32")
 	wc.AssertNoChange()
 
+	// Update value, admin override.
+	_, err = relEgress.Save(rel.Tag().Id(), true, []string{"10.0.0.1/32"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("10.0.0.1/32")
+	wc.AssertNoChange()
+
 	// Same value.
-	_, err = relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32"})
+	_, err = relEgress.Save(rel.Tag().Id(), true, []string{"10.0.0.1/32"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -4860,7 +4872,7 @@ func (s *StateSuite) TestWatchRelationEgressNetworksIgnoresIngress(c *gc.C) {
 	wc.AssertNoChange()
 
 	relEgress := state.NewRelationIngressNetworks(s.State)
-	_, err := relEgress.Save(rel.Tag().Id(), []string{"1.2.3.4/32", "4.3.2.1/16"})
+	_, err := relEgress.Save(rel.Tag().Id(), false, []string{"1.2.3.4/32", "4.3.2.1/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

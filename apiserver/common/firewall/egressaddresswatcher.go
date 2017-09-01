@@ -182,7 +182,7 @@ func (w *EgressAddressWatcher) loop() error {
 				}
 			}
 			unitAddressesChanged = false
-			addresses = formatAsCIDR(addressSet.Values())
+			addresses = FormatAsCIDR(addressSet.Values())
 			out = w.out
 		}
 		userConfiguredEgressChanged = false
@@ -245,7 +245,9 @@ func (w *EgressAddressWatcher) loop() error {
 	}
 }
 
-func formatAsCIDR(addresses []string) []string {
+// FormatAsCIDR converts the specified IP addresses to
+// a slice of CIDRs.
+func FormatAsCIDR(addresses []string) []string {
 	result := make([]string, len(addresses))
 	for i, a := range addresses {
 		cidr := a

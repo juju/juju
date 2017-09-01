@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -1115,7 +1116,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	one := func(relTag string, unitTag names.UnitTag) error {
+	one := func(relTag string, unitTag names.UnitTag, modelSubnets []string) error {
 		rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
 		if err != nil {
 			return err
@@ -1154,7 +1155,29 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		} else {
 			logger.Warningf("cannot set ingress-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
 		}
+		egressNetworks := state.NewRelationEgressNetworks(u.st)
+		rn, err := egressNetworks.Networks(rel.Tag().Id())
+		if err == nil {
+			// egress-subnets are a slice of cidrs from which traffic
+			// on this side of the relation may originate.
+			settings["egress-subnets"] = rn.CIDRS()
+		} else if errors.IsNotFound(err) {
+			// No relation specific subnets, so maybe there's a model setting.
+			if len(modelSubnets) > 0 {
+				settings["egress-subnets"] = modelSubnets
+			} else if ingressAddress.Value != "" {
+				// We default to the ingress address.
+				cidrs := firewall.FormatAsCIDR([]string{ingressAddress.Value})
+				settings["egress-subnets"] = cidrs
+			}
+		} else {
+			logger.Warningf("cannot set egress-subnets for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
+		}
 		return relUnit.EnterScope(settings)
+	}
+	cfg, err := u.st.ModelConfig()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
@@ -1162,7 +1185,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = one(arg.Relation, tag)
+		err = one(arg.Relation, tag, cfg.EgressSubnets())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}

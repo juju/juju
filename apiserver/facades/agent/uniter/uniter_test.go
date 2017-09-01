@@ -1794,6 +1794,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "1.2.3.4",
 		"ingress-address": "1.2.3.4",
+		"egress-subnets":  []interface{}{"1.2.3.4/32"},
 	})
 }
 
@@ -2622,9 +2623,8 @@ func (s *uniterSuite) TestSLALevel(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StringResult{Result: "essential"})
 }
 
-func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
+func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.RelationUnit) {
 	s.makeRemoteWordpress(c)
-	thisUniter := s.makeMysqlUniter(c)
 
 	// Set mysql's addresses first.
 	err := s.machine1.SetProviderAddresses(
@@ -2641,8 +2641,15 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
 	relUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, false)
+	return rel.Tag(), relUnit
+}
+
+func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
+	relTag, relUnit := s.setupRemoteRelationScenario(c)
+
+	thisUniter := s.makeMysqlUniter(c)
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
 	result, err := thisUniter.EnterScope(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2657,29 +2664,22 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "4.3.2.1",
 		"ingress-address": "4.3.2.1",
+		"egress-subnets":  []interface{}{"4.3.2.1/32"},
 	})
 }
 
 func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
-	s.makeRemoteWordpress(c)
-	thisUniter := s.makeMysqlUniter(c)
+	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
-	// Set mysql's addresses first - no public address.
+	thisUniter := s.makeMysqlUniter(c)
+	// Set mysql's addresses - no public address.
 	err := s.machine1.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	eps, err := s.State.InferEndpoints("mysql", "remote-wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	relUnit, err := rel.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, false)
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
 	result, err := thisUniter.EnterScope(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2694,6 +2694,65 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "1.2.3.4",
 		"ingress-address": "1.2.3.4",
+		"egress-subnets":  []interface{}{"1.2.3.4/32"},
+	})
+}
+
+func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
+	relTag, relUnit := s.setupRemoteRelationScenario(c)
+
+	// Check model attributes are overridden by setting up a value.
+	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	egress := state.NewRelationEgressNetworks(s.State)
+	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	thisUniter := s.makeMysqlUniter(c)
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := thisUniter.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	// Verify the scope changes and settings.
+	s.assertInScope(c, relUnit, true)
+	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "4.3.2.1",
+		"ingress-address": "4.3.2.1",
+		"egress-subnets":  []interface{}{"10.0.0.0/16"},
+	})
+}
+
+func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
+	relTag, relUnit := s.setupRemoteRelationScenario(c)
+
+	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	thisUniter := s.makeMysqlUniter(c)
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := thisUniter.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	// Verify the scope changes and settings.
+	s.assertInScope(c, relUnit, true)
+	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "4.3.2.1",
+		"ingress-address": "4.3.2.1",
+		"egress-subnets":  []interface{}{"192.168.0.0/16"},
 	})
 }
 
