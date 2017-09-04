@@ -37,9 +37,10 @@ func (s *introspectionSuite) url(c *gc.C) string {
 
 func (s *introspectionSuite) TestAccess(c *gc.C) {
 	s.testAccess(c, "user-admin", "dummy-secret")
+	model, err := s.BackingState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
-	_, err := s.BackingState.AddModelUser(
-		s.BackingState.ModelTag().Id(),
+	_, err = model.AddUser(
 		state.UserAccessSpec{
 			User:      names.NewUserTag("bob"),
 			CreatedBy: names.NewUserTag("admin"),

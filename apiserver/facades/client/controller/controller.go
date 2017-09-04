@@ -130,7 +130,7 @@ func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 			},
 		}
 
-		lastConn, err := st.LastModelConnection(s.apiUser)
+		lastConn, err := model.LastModelConnection(s.apiUser)
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)

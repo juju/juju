@@ -881,7 +881,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	// The model user is also updated.
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := s.State.LastModelConnection(modelUser.UserTag)
+	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, gc.NotNil)
 	c.Assert(when.After(startTime), jc.IsTrue)

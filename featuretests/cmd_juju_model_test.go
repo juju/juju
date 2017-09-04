@@ -56,7 +56,7 @@ func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName, gc.Equals, user.Id())
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, s.AdminUserTag(c).Id())
-	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
+	lastConn, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }

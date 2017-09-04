@@ -72,7 +72,7 @@ type mockState struct {
 }
 
 func (m *mockState) AllModelUUIDs() ([]string, error) {
-	m.MethodCall(m, "AllModelsUUIDs")
+	m.MethodCall(m, "AllModelUUIDs")
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}

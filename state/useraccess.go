@@ -39,16 +39,16 @@ type userAccessTarget struct {
 	globalKey string
 }
 
-// AddModelUser adds a new user for the model identified by modelUUID to the database.
-func (st *State) AddModelUser(modelUUID string, spec UserAccessSpec) (permission.UserAccess, error) {
+// AddUser adds a new user for the model to the database.
+func (m *Model) AddUser(spec UserAccessSpec) (permission.UserAccess, error) {
 	if err := permission.ValidateModelAccess(spec.Access); err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "adding model user")
 	}
 	target := userAccessTarget{
-		uuid:      modelUUID,
+		uuid:      m.UUID(),
 		globalKey: modelGlobalKey,
 	}
-	return st.addUserAccess(spec, target)
+	return m.st.addUserAccess(spec, target)
 }
 
 // AddControllerUser adds a new user for the curent controller to the database.

@@ -341,7 +341,7 @@ func (i *importer) modelUsers() error {
 		if lastConnection.IsZero() {
 			continue
 		}
-		err := i.st.updateLastModelConnection(user.Name(), lastConnection)
+		err := i.dbModel.updateLastModelConnection(user.Name(), lastConnection)
 		if err != nil {
 			return errors.Trace(err)
 		}

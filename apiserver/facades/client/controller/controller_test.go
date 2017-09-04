@@ -108,7 +108,10 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddModelUser(st.ModelUUID(),
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	model.AddUser(
 		state.UserAccessSpec{
 			User:        admin.UserTag(),
 			CreatedBy:   remoteUserTag,

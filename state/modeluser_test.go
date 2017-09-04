@@ -33,8 +33,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 			NoModelUser: true,
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	modelUser, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -49,7 +48,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
 	c.Assert(modelUser.DateCreated.Equal(now) || modelUser.DateCreated.After(now), jc.IsTrue)
-	when, err := s.State.LastModelConnection(modelUser.UserTag)
+	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 
@@ -62,7 +61,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
 	c.Assert(modelUser.DateCreated.Equal(now) || modelUser.DateCreated.After(now), jc.IsTrue)
-	when, err = s.State.LastModelConnection(modelUser.UserTag)
+	when, err = s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 }
@@ -74,8 +73,7 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 			NoModelUser: true,
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	modelUser, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -101,8 +99,7 @@ func (s *ModelUserSuite) TestAddReadWriteModelUser(c *gc.C) {
 			NoModelUser: true,
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	modelUser, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -128,8 +125,7 @@ func (s *ModelUserSuite) TestAddAdminModelUser(c *gc.C) {
 			NoModelUser: true,
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	modelUser, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -155,8 +151,7 @@ func (s *ModelUserSuite) TestDefaultAccessModelUser(c *gc.C) {
 			NoModelUser: true,
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	modelUser, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -173,8 +168,7 @@ func (s *ModelUserSuite) TestSetAccessModelUser(c *gc.C) {
 			NoModelUser: true,
 		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	modelUser, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -193,8 +187,7 @@ func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	user, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	user, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      names.NewUserTag("Bob@RandomProvider"),
 			CreatedBy: model.Owner(),
@@ -210,8 +203,7 @@ func (s *ModelUserSuite) TestCaseSensitiveModelUserErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "Bob@ubuntuone"})
 
-	_, err = s.State.AddModelUser(
-		s.State.ModelUUID(),
+	_, err = s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      names.NewUserTag("boB@ubuntuone"),
 			CreatedBy: model.Owner(),
@@ -262,8 +254,7 @@ func (s *ModelUserSuite) TestAddModelDisplayName(c *gc.C) {
 
 func (s *ModelUserSuite) TestAddModelNoUserFails(c *gc.C) {
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	_, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	_, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      names.NewLocalUserTag("validusername"),
 			CreatedBy: createdBy.UserTag(),
@@ -274,8 +265,7 @@ func (s *ModelUserSuite) TestAddModelNoUserFails(c *gc.C) {
 
 func (s *ModelUserSuite) TestAddModelNoCreatedByUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	_, err := s.State.AddModelUser(
-		s.State.ModelUUID(),
+	_, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: names.NewLocalUserTag("createdby"),
@@ -308,9 +298,9 @@ func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateLastModelConnection(user.UserTag())
+	err = s.Model.UpdateLastModelConnection(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := s.State.LastModelConnection(modelUser.UserTag)
+	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	// It is possible that the update is done over a second boundary, so we need
 	// to check for after now as well as equal.
@@ -329,8 +319,9 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	// Create a second model and add the same user to this.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	modelUser2, err := st2.AddModelUser(
-		st2.ModelUUID(),
+	model2, err := st2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelUser2, err := model2.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: createdBy.UserTag(),
@@ -342,21 +333,21 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	// separate last connections.
 
 	// Connect modelUser and get last connection.
-	err = s.State.UpdateLastModelConnection(user.UserTag())
+	err = s.Model.UpdateLastModelConnection(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := s.State.LastModelConnection(modelUser.UserTag)
+	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 
 	// Try to get last connection for modelUser2. As they have never connected,
 	// we expect to get an error.
-	_, err = st2.LastModelConnection(modelUser2.UserTag)
+	_, err = model2.LastModelConnection(modelUser2.UserTag)
 	c.Assert(err, gc.ErrorMatches, `never connected: "validusername"`)
 
 	// Connect modelUser2 and get last connection.
-	err = s.State.UpdateLastModelConnection(modelUser2.UserTag)
+	err = s.Model.UpdateLastModelConnection(modelUser2.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
-	when, err = s.State.LastModelConnection(modelUser2.UserTag)
+	when, err = s.Model.LastModelConnection(modelUser2.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
@@ -386,7 +377,7 @@ func (s *ModelUserSuite) TestModelUUIDsForUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	access, err := s.State.UserAccess(user.UserTag(), modelTag)
-	when, err := st.LastModelConnection(access.UserTag)
+	when, err := s.Model.LastModelConnection(access.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 	c.Assert(st.Close(), jc.ErrorIsNil)
@@ -509,8 +500,7 @@ func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag) *state.Mo
 	newEnv, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.AddModelUser(
-		st.ModelUUID(),
+	_, err = newEnv.AddUser(
 		state.UserAccessSpec{
 			User: user, CreatedBy: newEnv.Owner(),
 			Access: permission.ReadAccess,

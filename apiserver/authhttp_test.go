@@ -239,8 +239,10 @@ func (s *authHTTPSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response
 func (s *authHTTPSuite) setupOtherModel(c *gc.C) *state.State {
 	modelState := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { modelState.Close() })
+	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	user := s.Factory.MakeUser(c, nil)
-	_, err := modelState.AddModelUser(modelState.ModelUUID(),
+	_, err = model.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: s.userTag,

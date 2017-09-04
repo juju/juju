@@ -93,6 +93,7 @@ type JujuConnSuite struct {
 	ControllerConfig   controller.Config
 	State              *state.State
 	StatePool          *state.StatePool
+	Model              *state.Model
 	IAASModel          *state.IAASModel
 	Environ            environs.Environ
 	APIState           api.Connection
@@ -398,6 +399,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	s.StatePool = state.NewStatePool(s.State)
 	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
+
+	s.Model, err = s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.IAASModel, err = s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
