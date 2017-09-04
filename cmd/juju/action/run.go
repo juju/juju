@@ -30,7 +30,7 @@ func NewRunCommand() cmd.Command {
 // params
 type runCommand struct {
 	ActionCommandBase
-	unitTag      names.UnitTag
+	unitTags     []names.UnitTag
 	actionName   string
 	paramsYAML   cmd.FileVar
 	parseStrings bool
@@ -133,53 +133,54 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *runCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "run-action",
-		Args:    "<unit> <action name> [key.key.key...=value]",
+		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
 		Purpose: "Queue an action for execution.",
 		Doc:     runDoc,
 	}
 }
 
-// Init gets the unit tag, and checks for other correct args.
+// Init gets the unit tag(s), action name and action arguments.
 func (c *runCommand) Init(args []string) error {
-	switch len(args) {
-	case 0:
-		return errors.New("no unit specified")
-	case 1:
-		return errors.New("no action specified")
-	default:
-		// Grab and verify the unit and action names.
-		unitName := args[0]
-		if !names.IsValidUnit(unitName) {
-			return errors.Errorf("invalid unit name %q", unitName)
+	var unitNames []string
+	for idx, arg := range args {
+		if names.IsValidUnit(arg) {
+			unitNames = args[:idx+1]
+		} else if ActionNameRule.MatchString(arg) {
+			c.actionName = arg
+			break
+		} else {
+			return errors.Errorf("invalid unit or action name %q", arg)
 		}
-		ActionName := args[1]
-		if valid := ActionNameRule.MatchString(ActionName); !valid {
-			return errors.Errorf("invalid action name %q", ActionName)
-		}
-		c.unitTag = names.NewUnitTag(unitName)
-		c.actionName = ActionName
-		if len(args) == 2 {
-			return nil
-		}
-		// Parse CLI key-value args if they exist.
-		c.args = make([][]string, 0)
-		for _, arg := range args[2:] {
-			thisArg := strings.SplitN(arg, "=", 2)
-			if len(thisArg) != 2 {
-				return errors.Errorf("argument %q must be of the form key...=value", arg)
-			}
-			keySlice := strings.Split(thisArg[0], ".")
-			// check each key for validity
-			for _, key := range keySlice {
-				if valid := keyRule.MatchString(key); !valid {
-					return errors.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
-				}
-			}
-			// c.args={..., [key, key, key, key, value]}
-			c.args = append(c.args, append(keySlice, thisArg[1]))
-		}
-		return nil
 	}
+	if len(unitNames) == 0 {
+		return errors.New("no unit specified")
+	}
+	if c.actionName == "" {
+		return errors.New("no action specified")
+	}
+	c.unitTags = make([]names.UnitTag, len(unitNames))
+	for idx, unitName := range unitNames {
+		c.unitTags[idx] = names.NewUnitTag(unitName)
+	}
+
+	// Parse CLI key-value args if they exist.
+	c.args = make([][]string, 0)
+	for _, arg := range args[len(unitNames)+1:] {
+		thisArg := strings.SplitN(arg, "=", 2)
+		if len(thisArg) != 2 {
+			return errors.Errorf("argument %q must be of the form key...=value", arg)
+		}
+		keySlice := strings.Split(thisArg[0], ".")
+		// check each key for validity
+		for _, key := range keySlice {
+			if valid := keyRule.MatchString(key); !valid {
+				return errors.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
+			}
+		}
+		// c.args={..., [key, key, key, key, value]}
+		c.args = append(c.args, append(keySlice, thisArg[1]))
+	}
+	return nil
 }
 
 func (c *runCommand) Run(ctx *cmd.Context) error {
@@ -242,42 +243,61 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
 
-	actionParam := params.Actions{
-		Actions: []params.Action{{
-			Receiver:   c.unitTag.String(),
-			Name:       c.actionName,
-			Parameters: actionParams,
-		}},
+	actions := make([]params.Action, len(c.unitTags))
+	for i, unitTag := range c.unitTags {
+		actions[i].Receiver = unitTag.String()
+		actions[i].Name = c.actionName
+		actions[i].Parameters = actionParams
 	}
-
-	results, err := api.Enqueue(actionParam)
+	results, err := api.Enqueue(params.Actions{Actions: actions})
 	if err != nil {
 		return err
 	}
-	if len(results.Results) != 1 {
+
+	if len(results.Results) != len(c.unitTags) {
 		return errors.New("illegal number of results returned")
 	}
 
-	result := results.Results[0]
+	for _, result := range results.Results {
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.Action == nil {
+			return errors.Errorf("action failed to enqueue on %q", result.Action.Receiver)
+		}
+		tag, err := names.ParseActionTag(result.Action.Tag)
+		if err != nil {
+			return err
+		}
 
-	if result.Error != nil {
-		return result.Error
+		// Legacy Juju 1.25 output format for a single unit, no wait.
+		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results.Results) == 1 {
+			output := map[string]string{"Action queued with id": tag.Id()}
+			return c.out.Write(ctx, output)
+		}
 	}
 
-	if result.Action == nil {
-		return errors.New("action failed to enqueue")
-	}
+	output := make(map[string]interface{}, len(results.Results))
 
-	tag, err := names.ParseActionTag(result.Action.Tag)
-	if err != nil {
-		return err
-	}
-
+	// Immediate return. This is the default, although rarely
+	// what cli users want. We should consider changing this
+	// default with Juju 3.0.
 	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
-		// Immediate return. This is the default, although rarely
-		// what cli users want. We should consider changing this
-		// default with Juju 3.0.
-		output := map[string]string{"Action queued with id": tag.Id()}
+		for _, result := range results.Results {
+			output[result.Action.Receiver] = result.Action.Tag
+			actionTag, err := names.ParseActionTag(result.Action.Tag)
+			if err != nil {
+				return err
+			}
+			unitTag, err := names.ParseUnitTag(result.Action.Receiver)
+			if err != nil {
+				return err
+			}
+			output[result.Action.Receiver] = map[string]string{
+				"id":   actionTag.Id(),
+				"unit": unitTag.Id(),
+			}
+		}
 		return c.out.Write(ctx, output)
 	}
 
@@ -290,11 +310,23 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		wait = time.NewTimer(c.wait.d)
 	}
 
-	result, err = GetActionResult(api, tag.Id(), wait)
-	if err != nil {
-		return errors.Trace(err)
+	for _, result := range results.Results {
+		tag, err := names.ParseActionTag(result.Action.Tag)
+		if err != nil {
+			return err
+		}
+		result, err = GetActionResult(api, tag.Id(), wait)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
+		if err != nil {
+			return err
+		}
+		d := FormatActionResult(result)
+		d["id"] = tag.Id()       // Action ID is required in case we timed out.
+		d["unit"] = unitTag.Id() // Formatted unit is nice to have.
+		output[result.Action.Receiver] = d
 	}
-	output := FormatActionResult(result)
-	output["action-id"] = tag.Id() // Action ID is required in case we timed out.
 	return c.out.Write(ctx, output)
 }
