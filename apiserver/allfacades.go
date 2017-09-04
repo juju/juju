@@ -240,7 +240,8 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 7, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
-	reg("UserManager", 2, usermanager.NewUserManagerAPI)
+	reg("UserManager", 1, usermanager.NewUserManagerAPI)
+	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher

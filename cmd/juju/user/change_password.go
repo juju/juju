@@ -122,6 +122,10 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Reset {
+		if c.User == "" || (c.accountDetails != nil && c.User == c.accountDetails.User) {
+			ctx.Infof("You cannot reset your own password.\nIf you want to change it, please call `juju change-user-password` without --reset option.")
+			return nil
+		}
 		if c.api.BestAPIVersion() < 2 {
 			return errors.NotSupportedf("on this juju controller, reset password")
 		}
@@ -182,21 +186,7 @@ func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	var macaroonErr error
-	registerMsg := "Ask the user to run:"
-	if c.accountDetails == nil {
-		ctx.Infof("Password for %q has been reset.", c.User)
-	} else {
-		registerMsg = "Please run:"
-		if c.accountDetails.Password != "" {
-			macaroonErr = c.ClearControllerMacaroons(c.ClientStore(), c.controllerName)
-			if macaroonErr != nil {
-				macaroonErr = errors.Annotatef(err, "could not clear local credential cache")
-			} else {
-				ctx.Infof("Your password has been reset.")
-			}
-		}
-	}
+	ctx.Infof("Password for %q has been reset.", c.User)
 	base64RegistrationData, err := generateUserControllerAccessToken(
 		c.ControllerCommandBase,
 		c.userTag.Id(),
@@ -205,9 +195,8 @@ func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "generating controller user access token")
 	}
-	ctx.Infof(registerMsg)
-	ctx.Infof("     juju register %s\n", base64RegistrationData)
-	return macaroonErr
+	ctx.Infof("Ask the user to run:\n     juju register %s\n", base64RegistrationData)
+	return nil
 }
 
 func (c *changePasswordCommand) updateUserPassword(ctx *cmd.Context) error {

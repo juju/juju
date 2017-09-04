@@ -121,29 +121,23 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	s.assertAPICalls(c, "other", "sekrit")
 }
 
-func (s *ChangePasswordCommandSuite) TestResetPassword(c *gc.C) {
-	s.mockAPI.key = []byte("no cats or dragons")
+func (s *ChangePasswordCommandSuite) TestResetSelfPasswordFail(c *gc.C) {
 	context, _, err := s.run(c, "--reset")
-	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCalls(c, []testing.StubCall{
-		{"BestAPIVersion", nil},
-		{"ResetPassword", []interface{}{"current-user"}},
-	})
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
-Your password has been reset.
-Please run:
-     juju register (.+)
-`[1:])
+	s.assertResetSelfPasswordFail(c, context, err)
+}
+
+func (s *ChangePasswordCommandSuite) TestResetSelfPasswordSpecifyYourselfFail(c *gc.C) {
+	context, _, err := s.run(c, "--reset", "current-user")
+	s.assertResetSelfPasswordFail(c, context, err)
 }
 
 func (s *ChangePasswordCommandSuite) TestResetPasswordFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New("failed to do something"))
-	context, _, err := s.run(c, "--reset")
+	context, _, err := s.run(c, "--reset", "other")
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"BestAPIVersion", nil},
-		{"ResetPassword", []interface{}{"current-user"}},
+		{"ResetPassword", []interface{}{"other"}},
 	})
 	// TODO (anastasiamac 2017-08-17)
 	// should probably warn user that something did not go well enough
@@ -171,13 +165,23 @@ Ask the user to run:
 
 func (s *ChangePasswordCommandSuite) TestResetPasswordOldAPI(c *gc.C) {
 	s.mockAPI.version = 1
-	context, _, err := s.run(c, "--reset")
+	context, _, err := s.run(c, "--reset", "other")
 	c.Assert(err, gc.ErrorMatches, "on this juju controller, reset password not supported")
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"BestAPIVersion", nil},
 	})
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+}
+
+func (s *ChangePasswordCommandSuite) assertResetSelfPasswordFail(c *gc.C, context *cmd.Context, err error) {
+	c.Assert(err, jc.ErrorIsNil)
+	s.mockAPI.CheckCalls(c, nil)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
+You cannot reset your own password.
+If you want to change it, please call `[1:]+"`juju change-user-password`"+` without --reset option.
+`)
 }
 
 type mockChangePasswordAPI struct {
