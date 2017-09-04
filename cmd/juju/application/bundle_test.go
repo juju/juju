@@ -4,6 +4,7 @@
 package application
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/api"
@@ -1277,4 +1279,157 @@ func (w mockAllWatcher) Next() ([]multiwatcher.Delta, error) {
 
 func (mockAllWatcher) Stop() error {
 	return nil
+}
+
+type ProcessIncludesSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&ProcessIncludesSuite{})
+
+func (*ProcessIncludesSuite) TestNonString(c *gc.C) {
+	value := 1234
+	result, changed, err := processValue("", value)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.Equals, value)
+}
+
+func (*ProcessIncludesSuite) TestSimpleString(c *gc.C) {
+	value := "simple"
+	result, changed, err := processValue("", value)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.Equals, value)
+}
+
+func (*ProcessIncludesSuite) TestMissingFile(c *gc.C) {
+	value := "include-file://simple"
+	result, changed, err := processValue("", value)
+
+	c.Check(err, gc.ErrorMatches, "unable to read file: open simple: no such file or directory")
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.IsNil)
+}
+
+func (*ProcessIncludesSuite) TestFileNameIsInDir(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestRelativePath(c *gc.C) {
+	dir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dir, "nested"), 0755), jc.ErrorIsNil)
+
+	filename := filepath.Join(dir, "nested", "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://./nested/content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestAbsolutePath(c *gc.C) {
+	dir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dir, "nested"), 0755), jc.ErrorIsNil)
+
+	filename := filepath.Join(dir, "nested", "content")
+	c.Check(filepath.IsAbs(filename), jc.IsTrue)
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://" + filename
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestBase64Encode(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-base64://content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	encoded := base64.StdEncoding.EncodeToString([]byte("testing"))
+	c.Check(result, gc.Equals, encoded)
+}
+
+func (*ProcessIncludesSuite) TestBundleReplacements(c *gc.C) {
+	bundleYAML := `
+        applications:
+            django:
+                charm: cs:django
+                num_units: 1
+                options:
+                    private: include-base64://sekrit.binary
+                annotations:
+                    key1: value1
+                    key2: value2
+                    key3: include-file://annotation
+                to: [1]
+            memcached:
+                charm: xenial/mem-47
+                num_units: 1
+        machines:
+            1:
+                annotations: {foo: bar, baz: "include-file://machine" }
+    `
+
+	baseDir := c.MkDir()
+	bundleFile := filepath.Join(baseDir, "bundle.yaml")
+	err := ioutil.WriteFile(bundleFile, []byte(bundleYAML), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "sekrit.binary"),
+			[]byte{42, 12, 0, 23, 8}, 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "annotation"),
+			[]byte("value3"), 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "machine"),
+			[]byte("wibble"), 0644),
+		jc.ErrorIsNil)
+
+	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = processBundleIncludes(baseDir, bundleData)
+	c.Assert(err, jc.ErrorIsNil)
+
+	django := bundleData.Applications["django"]
+	c.Check(django.Annotations["key1"], gc.Equals, "value1")
+	c.Check(django.Annotations["key2"], gc.Equals, "value2")
+	c.Check(django.Annotations["key3"], gc.Equals, "value3")
+	c.Check(django.Options["private"], gc.Equals, "KgwAFwg=")
+	annotations := bundleData.Machines["1"].Annotations
+	c.Check(annotations["foo"], gc.Equals, "bar")
+	c.Check(annotations["baz"], gc.Equals, "wibble")
 }
