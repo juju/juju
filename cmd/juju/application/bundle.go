@@ -55,7 +55,7 @@ type deploymentLogger interface {
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
 func deployBundle(
-	bundleFilePath string,
+	bundleDir string,
 	data *charm.BundleData,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
@@ -71,14 +71,14 @@ func deployBundle(
 		return err
 	}
 	var verifyError error
-	if bundleFilePath == "" {
+	if bundleDir == "" {
 		verifyError = data.Verify(verifyConstraints, verifyStorage)
 	} else {
 		// Process includes in the bundle data.
-		if err := processBundleIncludes(bundleFilePath, data); err != nil {
+		if err := processBundleIncludes(bundleDir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.VerifyLocal(bundleFilePath, verifyConstraints, verifyStorage)
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage)
 	}
 	if verifyError != nil {
 		if verr, ok := verifyError.(*charm.VerificationError); ok {
@@ -116,7 +116,7 @@ func deployBundle(
 
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
-		bundleDir:       bundleFilePath,
+		bundleDir:       bundleDir,
 		changes:         changes,
 		results:         make(map[string]string, numChanges),
 		channel:         channel,
