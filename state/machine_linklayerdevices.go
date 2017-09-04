@@ -606,7 +606,6 @@ type LinkLayerDeviceAddress struct {
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
 func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
-
 	if len(devicesAddresses) == 0 {
 		logger.Debugf("no device addresses to set")
 		return nil
@@ -951,6 +950,84 @@ func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDe
 // externally accessible may be returned if "" is listed as one of the desired
 // spaces.
 func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*LinkLayerDevice, error) {
+	addresses, err := m.AllAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	devices, err := m.AllLinkLayerDevices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	deviceByName := make(map[string]*LinkLayerDevice, len(devices))
+	for _, dev := range devices {
+		deviceByName[dev.Name()] = dev
+	}
+	requestedSpaces := set.NewStrings(spaces...)
+	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
+	processedDeviceNames := set.NewStrings()
+	includeDevice := func(spaceName string, device *LinkLayerDevice) {
+		spaceInfo, ok := spaceToDevices[spaceName]
+		if !ok {
+			spaceInfo = make(map[string]*LinkLayerDevice)
+			spaceToDevices[spaceName] = spaceInfo
+		}
+		spaceInfo[device.Name()] = device
+	}
+	// First pass, iterate the addresses, lookup the associated spaces, and
+	// gather the devices.
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		spaceName := ""
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// unknown subnets are considered part of the "unknown" space
+				spaceName = ""
+			} else {
+				// We don't understand the error, so error out for now
+				return nil, errors.Trace(err)
+			}
+		} else {
+			spaceName = subnet.SpaceName()
+		}
+		device, ok := deviceByName[addr.DeviceName()]
+		if !ok {
+			return nil, errors.Errorf("address %v for machine %q refers to a missing device %q",
+				addr, m.Id(), addr.DeviceName())
+		}
+		processedDeviceNames.Add(device.Name())
+		if device.Type() == LoopbackDevice {
+			// We skip loopback devices here
+			continue
+		}
+		includeDevice(spaceName, device)
+	}
+	// Now grab any devices we may have missed. For now, any device without an
+	// address must be in the "unknown" space.
+	for devName, device := range deviceByName {
+		if processedDeviceNames.Contains(devName) {
+			continue
+		}
+		// Loopback devices aren't considered part of the empty space
+		// Also, devices that are attached to another device also aren't
+		// considered to be in the unknown space.
+		if device.Type() == LoopbackDevice || device.ParentName() != "" {
+			continue
+		}
+		includeDevice("", device)
+	}
+	result := make(map[string][]*LinkLayerDevice, len(spaceToDevices))
+	for spaceName, deviceMap := range spaceToDevices {
+		if !requestedSpaces.Contains(spaceName) {
+			continue
+		}
+		result[spaceName] = deviceMapToSortedList(deviceMap)
+	}
+	return result, nil
+}
+
+// FanBridgesForSpaces takes a list of spaces and fan mapping and returns
+// the fan bridges for this machine that are on these spaces.
+func (m *Machine) FanBridgesForSpaces(spaces []string) (map[string][]*LinkLayerDevice, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)

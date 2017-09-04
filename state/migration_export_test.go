@@ -749,6 +749,8 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 		VLANTag:           64,
 		AvailabilityZone:  "bar",
 		SpaceName:         "bam",
+		FanLocalUnderlay:  "100.2.0.0/16",
+		FanOverlay:        "253.0.0.0/8",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -766,6 +768,8 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
+	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {

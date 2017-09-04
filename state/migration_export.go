@@ -1003,6 +1003,8 @@ func (e *exporter) subnets() error {
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			SpaceName:         subnet.SpaceName(),
+			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
+			FanOverlay:        subnet.FanOverlay(),
 		}
 		// TODO(babbageclunk): at the moment state.Subnet only stores
 		// one AZ.

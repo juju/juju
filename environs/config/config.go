@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/juju/network"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -164,6 +165,9 @@ const (
 	// EgressSubnets are the source addresses from which traffic from this model
 	// originates if the model is deployed such that NAT or similar is in use.
 	EgressSubnets = "egress-subnets"
+
+	// FanConfig defines the configuration for FAN network running in the model.
+	FanConfig = "fan-config"
 
 	//
 	// Deprecated Settings Attributes
@@ -368,6 +372,7 @@ var defaultConfigValues = map[string]interface{}{
 	TransmitVendorMetricsKey:   true,
 	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
 	EgressSubnets:              "",
+	FanConfig:                  "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -558,6 +563,13 @@ func Validate(cfg, old *Config) error {
 			if cidr == "0.0.0.0/0" {
 				return errors.Errorf("CIDR %q not allowed", cidr)
 			}
+		}
+	}
+
+	if v, ok := cfg.defined[FanConfig].(string); ok && v != "" {
+		_, err := network.ParseFanConfig(v)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -1042,6 +1054,12 @@ func (c *Config) EgressSubnets() []string {
 	return result
 }
 
+// FanConfig is the configuration of FAN network running in the model.
+func (c *Config) FanConfig() (network.FanConfig, error) {
+	// At this point we are sure that the line is valid.
+	return network.ParseFanConfig(c.asString(FanConfig))
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1153,6 +1171,7 @@ var alwaysOptional = schema.Defaults{
 	MaxActionResultsSize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
 	EgressSubnets:                schema.Omit,
+	FanConfig:                    schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1551,6 +1570,11 @@ data of the store. (default false)`,
 	},
 	EgressSubnets: {
 		Description: "Source address(es) for traffic originating from this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	FanConfig: {
+		Description: "Configuration for fan networking for this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

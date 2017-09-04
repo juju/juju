@@ -379,6 +379,25 @@ func (m *Machine) IsManual() (bool, error) {
 	return false, nil
 }
 
+// IsIsolated returns true if the machine networking should be ran by fan
+// TODO this returns true for all containers on models with FAN configured,
+// it should use value inherited from '--isolated' cmdline flag
+func (m *Machine) IsIsolated() bool {
+	if !m.IsContainer() {
+		return false
+	}
+	cfg, err := m.st.ModelConfig()
+	if err != nil {
+		logger.Errorf("Error getting model config %v", err)
+		return false
+	}
+	if fanConfig, err := cfg.FanConfig(); err == nil && len(fanConfig) > 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies errors.IsNotFound if the tools
 // have not yet been set.
@@ -1437,7 +1456,7 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 	privateAddress := m.doc.PreferredPrivateAddress
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
 	}
 	// Without an exact match, prefer a fallback match.
 	getAddr := func(addresses []address) network.Address {

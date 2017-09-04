@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/hostkeyreporter"
@@ -433,12 +434,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
+		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+		})),
+
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
-		// means.
+		// means. This worker needs to be launched after fanconfigurer
+		// so that it reports interfaces created by it.
 		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FanConfigurerName: fanConfigurerName,
 		})),
 
 		// The log sender is a leaf worker that sends log messages to some
@@ -568,4 +576,5 @@ const (
 	toolsVersionCheckerName  = "tools-version-checker"
 	machineActionName        = "machine-action-runner"
 	hostKeyReporterName      = "host-key-reporter"
+	fanConfigurerName        = "fan-configurer"
 )
