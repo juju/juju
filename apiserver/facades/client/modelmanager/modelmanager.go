@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
@@ -243,6 +244,33 @@ func (m *ModelManagerAPI) newModelConfig(
 	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
 }
 
+func (m *ModelManagerAPI) newCAASModelConfig(
+	cloudSpec environs.CloudSpec,
+	args params.ModelCreateArgs,
+) (*config.Config, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if args.Name == "" {
+		return nil, errors.NewNotValid(nil, "Name must be specified")
+	}
+
+	attrs := map[string]interface{}{
+		config.NameKey:         args.Name,
+		config.TypeKey:         "CAAS",
+		config.UUIDKey:         uuid.String(),
+		config.AgentVersionKey: jujuversion.Current.String(),
+	}
+
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating config from values failed")
+	}
+
+	return cfg, nil
+}
+
 // CreateModel creates a new model using the account and
 // model config specified in the args.
 func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
@@ -358,49 +386,71 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		return result, errors.Trace(err)
 	}
 
-	newConfig, err := m.newModelConfig(cloudSpec, args, controllerModel)
-	if err != nil {
-		return result, errors.Annotate(err, "failed to create config")
-	}
+	var model common.Model
+	var st common.ModelManagerBackend
 
-	// Create the Environ.
-	env, err := environs.New(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: newConfig,
-	})
-	if err != nil {
-		return result, errors.Annotate(err, "failed to open environ")
-	}
-	if err := env.Create(environs.CreateParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
-	}); err != nil {
-		return result, errors.Annotate(err, "failed to create environ")
-	}
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+	if jujucloud.CloudIsCAAS(cloud) {
+		newConfig, err := m.newCAASModelConfig(cloudSpec, args)
+		if err != nil {
+			return result, errors.Annotate(err, "failed to create config")
+		}
 
-	// NOTE: check the agent-version of the config, and if it is > the current
-	// version, it is not supported, also check existing tools, and if we don't
-	// have tools for that version, also die.
-	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:            state.ModelTypeIAAS,
-		CloudName:       cloudTag.Id(),
-		CloudRegion:     cloudRegionName,
-		CloudCredential: cloudCredentialTag,
-		Config:          newConfig,
-		Owner:           ownerTag,
-		StorageProviderRegistry: storageProviderRegistry,
-		EnvironVersion:          env.Provider().Version(),
-	})
-	if err != nil {
-		return result, errors.Annotate(err, "failed to create new model")
-	}
-	defer st.Close()
+		model, st, err = m.state.NewModel(state.ModelArgs{
+			Type:            state.ModelTypeCAAS,
+			CloudName:       cloudTag.Id(),
+			CloudCredential: cloudCredentialTag,
+			Config:          newConfig,
+			Owner:           ownerTag,
+		})
+		if err != nil {
+			return result, errors.Annotate(err, "failed to create new model")
+		}
+		defer st.Close()
+	} else {
+		newConfig, err := m.newModelConfig(cloudSpec, args, controllerModel)
+		if err != nil {
+			return result, errors.Annotate(err, "failed to create config")
+		}
 
-	if err = st.ReloadSpaces(env); err != nil {
-		if errors.IsNotSupported(err) {
-			logger.Debugf("Not performing spaces load on a non-networking environment")
-		} else {
-			return result, errors.Annotate(err, "Failed to perform spaces discovery")
+		// Create the Environ.
+		env, err := environs.New(environs.OpenParams{
+			Cloud:  cloudSpec,
+			Config: newConfig,
+		})
+		if err != nil {
+			return result, errors.Annotate(err, "failed to open environ")
+		}
+		if err := env.Create(environs.CreateParams{
+			ControllerUUID: controllerCfg.ControllerUUID(),
+		}); err != nil {
+			return result, errors.Annotate(err, "failed to create environ")
+		}
+		storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+
+		// NOTE: check the agent-version of the config, and if it is > the current
+		// version, it is not supported, also check existing tools, and if we don't
+		// have tools for that version, also die.
+		model, st, err = m.state.NewModel(state.ModelArgs{
+			Type:            state.ModelTypeIAAS,
+			CloudName:       cloudTag.Id(),
+			CloudRegion:     cloudRegionName,
+			CloudCredential: cloudCredentialTag,
+			Config:          newConfig,
+			Owner:           ownerTag,
+			StorageProviderRegistry: storageProviderRegistry,
+			EnvironVersion:          env.Provider().Version(),
+		})
+		if err != nil {
+			return result, errors.Annotate(err, "failed to create new model")
+		}
+		defer st.Close()
+
+		if err = st.ReloadSpaces(env); err != nil {
+			if errors.IsNotSupported(err) {
+				logger.Debugf("Not performing spaces load on a non-networking environment")
+			} else {
+				return result, errors.Annotate(err, "Failed to perform spaces discovery")
+			}
 		}
 	}
 

@@ -55,8 +55,10 @@ type modelManagerSuite struct {
 	gitjujutesting.IsolationSuite
 	st         *mockState
 	ctlrSt     *mockState
+	caasSt     *mockState
 	authoriser apiservertesting.FakeAuthorizer
 	api        *modelmanager.ModelManagerAPI
+	caasApi    *modelmanager.ModelManagerAPI
 }
 
 var _ = gc.Suite(&modelManagerSuite{})
@@ -76,6 +78,11 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			{Name: "some-region"},
 			{Name: "qux"},
 		},
+	}
+
+	mockK8sCloud := cloud.Cloud{
+		Type:      "kubernetes",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 	}
 
 	controllerModel := &mockModel{
@@ -153,12 +160,43 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
 	}
+
+	s.caasSt = &mockState{
+		cloud: mockK8sCloud,
+		clouds: map[names.CloudTag]cloud.Cloud{
+			names.NewCloudTag("k8s-cloud"): mockK8sCloud,
+		},
+		controllerModel: controllerModel,
+		model: &mockModel{
+			owner: names.NewUserTag("admin"),
+			life:  state.Alive,
+			tag:   coretesting.ModelTag,
+			cfg:   cfg,
+			status: status.StatusInfo{
+				Status: status.Available,
+				Since:  &time.Time{},
+			},
+			users: []*mockModelUser{{
+				userName: "admin",
+				access:   permission.AdminAccess,
+			}, {
+				userName: "add-model",
+				access:   permission.AdminAccess,
+			}},
+		},
+		cred:        cloud.NewEmptyCredential(),
+		modelConfig: coretesting.ModelConfig(c),
+	}
+
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
 	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
+	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	s.caasApi = caasApi
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
@@ -169,7 +207,11 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 }
 
 func (s *modelManagerSuite) getModelArgs(c *gc.C) state.ModelArgs {
-	for _, v := range s.st.Calls() {
+	return getModelArgsFor(c, s.st)
+}
+
+func getModelArgsFor(c *gc.C, mockState *mockState) state.ModelArgs {
+	for _, v := range mockState.Calls() {
 		if v.Args == nil {
 			continue
 		}
@@ -350,6 +392,69 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
+}
+
+func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
+	args := params.ModelCreateArgs{
+		Name:               "foo",
+		OwnerTag:           "user-admin",
+		Config:             map[string]interface{}{},
+		CloudTag:           "cloud-k8s-cloud",
+		CloudCredentialTag: "cloudcred-k8s-cloud_admin_some-credential",
+	}
+	_, err := s.caasApi.CreateModel(args)
+	c.Assert(err, jc.ErrorIsNil)
+	s.caasSt.CheckCallNames(c,
+		"ControllerTag",
+		"ModelUUID",
+		"ControllerTag",
+		"Cloud",
+		"CloudCredential",
+		"ControllerConfig",
+		"NewModel",
+		"GetBackend",
+		"Model",
+		"AllMachines",
+		"LatestMigration",
+		"Close",
+	)
+
+	// Check that Model.LastModelConnection is called just twice
+	// without making the test depend on other calls to Model
+	n := 0
+	for _, call := range s.caasSt.model.Calls() {
+		if call.FuncName == "LastModelConnection" {
+			n = n + 1
+		}
+	}
+	c.Assert(n, gc.Equals, 2)
+
+	// We cannot predict the UUID, because it's generated,
+	// so we just extract it and ensure that it's not the
+	// same as the controller UUID.
+	newModelArgs := getModelArgsFor(c, s.caasSt)
+	uuid := newModelArgs.Config.UUID()
+	c.Assert(uuid, gc.Not(gc.Equals), s.caasSt.controllerModel.cfg.UUID())
+
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":          "foo",
+		"type":          "CAAS",
+		"uuid":          uuid,
+		"agent-version": jujuversion.Current.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(newModelArgs.StorageProviderRegistry, gc.IsNil)
+
+	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
+		Type:      state.ModelTypeCAAS,
+		Owner:     names.NewUserTag("admin"),
+		CloudName: "k8s-cloud",
+		CloudCredential: names.NewCloudCredentialTag(
+			"k8s-cloud/admin/some-credential",
+		),
+		Config: cfg,
+	})
 }
 
 func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {

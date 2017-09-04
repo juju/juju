@@ -13,7 +13,7 @@ type IAASModel struct {
 
 	mb modelBackend
 
-	// TODO(jsing): This should be removed once things
+	// TODO(caas): This should be removed once things
 	// have been sufficiently untangled.
 	st *State
 }
@@ -30,7 +30,7 @@ func (m *Model) IAASModel() (*IAASModel, error) {
 
 // IAASModel returns an Infrastructure-As-A-Service (IAAS) model.
 //
-// TODO(menn0): This is a convenience helper only and will go away
+// TODO(caas): This is a convenience helper only and will go away
 // once most model related functionality has been moved from State to
 // Model/IAASModel. Model.IAASModel() should be preferred where-ever
 // possible.

@@ -195,6 +195,14 @@ type region struct {
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
 }
 
+var caasCloudTypes = map[string]bool{
+	"kubernetes": true,
+}
+
+func CloudIsCAAS(cloud Cloud) bool {
+	return caasCloudTypes[cloud.Type]
+}
+
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an
 // error satisfying errors.IsNotFound will be returned.
