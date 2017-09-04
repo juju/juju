@@ -440,6 +440,9 @@ func allCollections() collectionSchema {
 		// relationNetworksC holds required ingress or egress cidrs for remote relations.
 		relationNetworksC: {},
 
+		// firewallRulesC holds firewall rules for defined service types.
+		firewallRulesC: {},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -543,4 +546,5 @@ const (
 	remoteEntitiesC      = "remoteEntities"
 	externalControllersC = "externalControllers"
 	relationNetworksC    = "relationNetworks"
+	firewallRulesC       = "firewallRules"
 )

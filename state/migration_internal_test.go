@@ -191,6 +191,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		remoteEntitiesC,
 		externalControllersC,
 		relationNetworksC,
+		firewallRulesC,
 	)
 
 	envCollections := set.NewStrings()
