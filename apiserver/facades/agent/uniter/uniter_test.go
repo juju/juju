@@ -1794,7 +1794,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "1.2.3.4",
 		"ingress-address": "1.2.3.4",
-		"egress-subnets":  []interface{}{"1.2.3.4/32"},
+		"egress-subnets":  "1.2.3.4/32",
 	})
 }
 
@@ -2664,7 +2664,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "4.3.2.1",
 		"ingress-address": "4.3.2.1",
-		"egress-subnets":  []interface{}{"4.3.2.1/32"},
+		"egress-subnets":  "4.3.2.1/32",
 	})
 }
 
@@ -2694,7 +2694,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "1.2.3.4",
 		"ingress-address": "1.2.3.4",
-		"egress-subnets":  []interface{}{"1.2.3.4/32"},
+		"egress-subnets":  "1.2.3.4/32",
 	})
 }
 
@@ -2705,7 +2705,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	egress := state.NewRelationEgressNetworks(s.State)
-	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16"})
+	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16", "10.1.2.0/8"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	thisUniter := s.makeMysqlUniter(c)
@@ -2725,7 +2725,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "4.3.2.1",
 		"ingress-address": "4.3.2.1",
-		"egress-subnets":  []interface{}{"10.0.0.0/16"},
+		"egress-subnets":  "10.0.0.0/16,10.1.2.0/8",
 	})
 }
 
@@ -2752,7 +2752,7 @@ func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"private-address": "4.3.2.1",
 		"ingress-address": "4.3.2.1",
-		"egress-subnets":  []interface{}{"192.168.0.0/16"},
+		"egress-subnets":  "192.168.0.0/16",
 	})
 }
 

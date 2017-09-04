@@ -109,6 +109,7 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) ([]crossm
 				Endpoint:        oc.Endpoint,
 				RelationId:      oc.RelationId,
 				Status:          oc.Status,
+				IngressSubnets:  oc.IngressSubnets,
 			})
 		}
 	}

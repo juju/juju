@@ -398,6 +398,18 @@ func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.Offe
 	return m.connections, nil
 }
 
+type mockRelationNetworks struct {
+	state.RelationNetworks
+}
+
+func (m *mockRelationNetworks) CIDRS() []string {
+	return []string{"192.168.1.0/32", "10.0.0.0/8"}
+}
+
+func (m *mockState) IngressNetworks(relationKey string) (state.RelationNetworks, error) {
+	return &mockRelationNetworks{}, nil
+}
+
 func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
 	access, ok := m.accessPerms[offerAccess{user: user, offerUUID: offerUUID}]
 	if !ok {

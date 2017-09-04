@@ -150,6 +150,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 			RelationId:      1,
 			Endpoint:        "server",
 			Status:          "active",
+			IngressSubnets:  []string{"192.168.0.1/32", "10.0.0.0/8"},
 		},
 	}
 	conns2 := []model.OfferConnection{
@@ -176,11 +177,11 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		c,
 		[]string{"--format", "tabular"},
 		`
-Offer      User  Relation id  Status  Endpoint  Interface  Role
-zdiff-db2  fred  1            active  server    mysql      provider
-           mary  1            active  server    mysql      provider
-           mary  2            active  db        db2        provider
-adiff-db2  mary  3            active  db        db2        provider
+Offer      User  Relation id  Status  Endpoint  Interface  Role      Ingress subnets
+zdiff-db2  fred  1            active  server    mysql      provider  
+           mary  1            active  server    mysql      provider  192.168.0.1/32,10.0.0.0/8
+           mary  2            active  db        db2        provider  
+adiff-db2  mary  3            active  db        db2        provider  
 
 `[1:],
 		"",
@@ -204,6 +205,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 			Status:          "active",
 			RelationId:      2,
 			Endpoint:        "http",
+			IngressSubnets:  []string{"192.168.0.1/32", "10.0.0.0/8"},
 		},
 	}
 
@@ -231,6 +233,9 @@ hosted-db2:
     relation-id: 2
     endpoint: http
     status: active
+    ingress-subnets:
+    - 192.168.0.1/32
+    - 10.0.0.0/8
 `[1:],
 		"",
 	)

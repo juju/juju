@@ -67,7 +67,10 @@ type Backend interface {
 	ImportRemoteEntity(entity names.Tag, token string) error
 
 	// SaveIngressNetworks stores in state the ingress networks for the relation.
-	SaveIngressNetworks(relationKey string, cidrs []string) (RelationNetworks, error)
+	SaveIngressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
+
+	// Networks returns the networks for the specified relation.
+	IngressNetworks(relationKey string) (state.RelationNetworks, error)
 
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)

@@ -247,6 +247,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					Endpoint:       "db",
 					Username:       "fred",
 					Status:         "joined",
+					IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
 				}},
 			},
 		},

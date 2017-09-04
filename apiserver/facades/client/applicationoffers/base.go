@@ -164,6 +164,11 @@ func (api *BaseAPI) applicationOffersFromModel(
 				}
 				connDetails.Endpoint = ep.Name
 				connDetails.Status = string(rel.Status())
+				relIngress, err := backend.IngressNetworks(oc.RelationKey())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				connDetails.IngressSubnets = relIngress.CIDRS()
 				offer.Connections = append(offer.Connections, connDetails)
 			}
 		}

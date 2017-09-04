@@ -144,7 +144,10 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 					ApplicationName:  "db2-app",
 					CharmURL:         "cs:db2-5",
 					Connections: []params.OfferConnection{
-						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3, Endpoint: "db", Status: "active"},
+						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
+							Endpoint: "db", Status: "active",
+							IngressSubnets: []string{"10.0.0.0/8"},
+						},
 					},
 				}}
 			}
@@ -163,7 +166,10 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			ApplicationName: "db2-app",
 			CharmURL:        "cs:db2-5",
 			Connections: []jujucrossmodel.OfferConnection{
-				{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3, Endpoint: "db", Status: "active"},
+				{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3,
+					Endpoint: "db", Status: "active",
+					IngressSubnets: []string{"10.0.0.0/8"},
+				},
 			},
 		}}})
 }

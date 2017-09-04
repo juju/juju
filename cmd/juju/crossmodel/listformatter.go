@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
@@ -97,7 +98,7 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 	}
 	sort.Sort(allOffers)
 
-	w.Println("Offer", "User", "Relation id", "Status", "Endpoint", "Interface", "Role")
+	w.Println("Offer", "User", "Relation id", "Status", "Endpoint", "Interface", "Role", "Ingress subnets")
 	for _, offer := range allOffers {
 		// Sort endpoints alphabetically.
 		endpoints := []string{}
@@ -124,7 +125,7 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 			connEp := endpoints[conn.Endpoint]
 			w.Print(conn.Username, conn.RelationId)
 			w.PrintColor(RelationStatusColor(relation.Status(conn.Status)), conn.Status)
-			w.Println(connEp.Name, connEp.Interface, connEp.Role)
+			w.Println(connEp.Name, connEp.Interface, connEp.Role, strings.Join(conn.IngressSubnets, ","))
 		}
 	}
 	tw.Flush()
