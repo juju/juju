@@ -38,6 +38,8 @@ type containerManager struct {
 	namespace instance.Namespace
 	// A cached client.
 	client *lxdclient.Client
+	// a host machine's availability zone
+	availabilityZone string
 }
 
 // containerManager implements container.Manager.
@@ -75,10 +77,16 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		return nil, errors.Trace(err)
 	}
 
+	availabilityZone := conf.PopValue(container.ConfigAvailabilityZone)
+	if availabilityZone == "" {
+		logger.Infof("Availability zone will be empty for this container manager")
+	}
+
 	conf.WarnAboutUnused()
 	return &containerManager{
-		modelUUID: modelUUID,
-		namespace: namespace,
+		modelUUID:        modelUUID,
+		namespace:        namespace,
+		availabilityZone: availabilityZone,
 	}, nil
 }
 
@@ -94,7 +102,7 @@ func (manager *containerManager) CreateContainer(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+) (inst instance.Instance, hc *instance.HardwareCharacteristics, err error) {
 
 	defer func() {
 		if err != nil {
@@ -113,6 +121,8 @@ func (manager *containerManager) CreateContainer(
 	// It is only possible to provision LXD containers
 	// of the same architecture as the host.
 	hostArch := arch.HostArch()
+
+	hc = &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}
 
 	imageName, err := manager.client.EnsureImageExists(
 		series,
