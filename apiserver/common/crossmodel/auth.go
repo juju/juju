@@ -277,6 +277,10 @@ func (a *AuthContext) Authenticator(sourceModelUUID, offerUUID string) *authenti
 func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[string]string) (map[string]string, error) {
 	logger.Debugf("check %d macaroons with required attrs: %v", len(mac), requiredValues)
 	for _, m := range mac {
+		if m == nil {
+			logger.Warningf("unexpected nil cross model macaroon")
+			continue
+		}
 		logger.Debugf("- mac %s", m.Id())
 	}
 	declared := checkers.InferDeclared(mac)

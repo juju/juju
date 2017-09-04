@@ -212,11 +212,12 @@ type ListOfferItem struct {
 type offeredApplications map[string]ListOfferItem
 
 type offerConnectionStatus struct {
-	SourceModelUUID string `json:"source-model-uuid" yaml:"source-model-uuid"`
-	Username        string `json:"username" yaml:"username"`
-	RelationId      int    `json:"relation-id" yaml:"relation-id"`
-	Endpoint        string `json:"endpoint" yaml:"endpoint"`
-	Status          string `json:"status" yaml:"status"`
+	SourceModelUUID string   `json:"source-model-uuid" yaml:"source-model-uuid"`
+	Username        string   `json:"username" yaml:"username"`
+	RelationId      int      `json:"relation-id" yaml:"relation-id"`
+	Endpoint        string   `json:"endpoint" yaml:"endpoint"`
+	Status          string   `json:"status" yaml:"status"`
+	IngressSubnets  []string `json:"ingress-subnets,omitempty" yaml:"ingress-subnets,omitempty"`
 }
 
 func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
@@ -252,6 +253,7 @@ func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.App
 			RelationId:      conn.RelationId,
 			Endpoint:        conn.Endpoint,
 			Status:          conn.Status,
+			IngressSubnets:  conn.IngressSubnets,
 		})
 	}
 	return item

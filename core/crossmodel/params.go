@@ -46,6 +46,9 @@ type OfferConnection struct {
 
 	// Status is the status of the offer connection.
 	Status string
+
+	// IngressSubnets is the list of subnets from which traffic will originate.
+	IngressSubnets []string
 }
 
 // ApplicationOfferDetailsResult is a result of listing a remote application.

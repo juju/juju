@@ -7,6 +7,7 @@ package uniter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1155,23 +1156,27 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		} else {
 			logger.Warningf("cannot set ingress-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
 		}
+		var egressSubnets []string
 		egressNetworks := state.NewRelationEgressNetworks(u.st)
 		rn, err := egressNetworks.Networks(rel.Tag().Id())
 		if err == nil {
 			// egress-subnets are a slice of cidrs from which traffic
 			// on this side of the relation may originate.
-			settings["egress-subnets"] = rn.CIDRS()
+			egressSubnets = rn.CIDRS()
 		} else if errors.IsNotFound(err) {
 			// No relation specific subnets, so maybe there's a model setting.
 			if len(modelSubnets) > 0 {
-				settings["egress-subnets"] = modelSubnets
+				egressSubnets = modelSubnets
 			} else if ingressAddress.Value != "" {
 				// We default to the ingress address.
 				cidrs := firewall.FormatAsCIDR([]string{ingressAddress.Value})
-				settings["egress-subnets"] = cidrs
+				egressSubnets = cidrs
 			}
 		} else {
 			logger.Warningf("cannot set egress-subnets for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
+		}
+		if len(egressSubnets) > 0 {
+			settings["egress-subnets"] = strings.Join(egressSubnets, ",")
 		}
 		return relUnit.EnterScope(settings)
 	}

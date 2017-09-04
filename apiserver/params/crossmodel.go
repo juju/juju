@@ -62,11 +62,12 @@ type ApplicationOfferDetails struct {
 
 // OfferConnection holds details about a connection to an offer.
 type OfferConnection struct {
-	SourceModelTag string `json:"source-model-tag"`
-	RelationId     int    `json:"relation-id"`
-	Username       string `json:"username"`
-	Endpoint       string `json:"endpoint"`
-	Status         string `json:"status"`
+	SourceModelTag string   `json:"source-model-tag"`
+	RelationId     int      `json:"relation-id"`
+	Username       string   `json:"username"`
+	Endpoint       string   `json:"endpoint"`
+	Status         string   `json:"status"`
+	IngressSubnets []string `json:"ingress-subnets"`
 }
 
 // ListApplicationOffersResults is a result of listing application offers.
