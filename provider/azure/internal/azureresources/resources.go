@@ -1,6 +1,6 @@
-// Copyright 2017 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
+// This file is based on code from Azure/azure-sdk-for-go,
+// which is Copyright Microsoft Corporation. See the LICENSE
+// file in this directory for details.
 package resources
 
 import (
