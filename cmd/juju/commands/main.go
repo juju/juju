@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
@@ -281,6 +282,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewConsumeCommand())
 	r.Register(application.NewSuspendRelationCommand())
 	r.Register(application.NewResumeRelationCommand())
+
+	// Firewall rule commands.
+	r.Register(firewall.NewSetFirewallRuleCommand())
+	r.Register(firewall.NewListFirewallRulesCommand())
 
 	// Destruction commands.
 	r.Register(application.NewRemoveRelationCommand())

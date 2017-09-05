@@ -57,6 +57,7 @@ func init() {
 	gc.Suite(&CharmUpgradeSuite{})
 	gc.Suite(&ResourcesCmdSuite{})
 	gc.Suite(&cmdUpdateSeriesSuite{})
+	gc.Suite(&FirewallRulesSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.

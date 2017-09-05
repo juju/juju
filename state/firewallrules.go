@@ -89,21 +89,22 @@ func NewFirewallRules(st *State) *firewallRulesState {
 	return &firewallRulesState{st: st}
 }
 
-// Save stores the specified firewall rules.
-func (fw *firewallRulesState) Save(service WellKnownServiceType, whiteListCidrs, blackListCidrs []string) (*FirewallRule, error) {
-	if err := service.validate(); err != nil {
-		return nil, errors.Trace(err)
+// Save stores the specified firewall rule.
+func (fw *firewallRulesState) Save(rule FirewallRule) error {
+	if err := rule.WellKnownService.validate(); err != nil {
+		return errors.Trace(err)
 	}
-	for _, cidr := range append(whiteListCidrs, blackListCidrs...) {
+	for _, cidr := range append(rule.WhitelistCIDRs, rule.BlacklistCIDRs...) {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return nil, errors.NotValidf("CIDR %q", cidr)
+			return errors.NotValidf("CIDR %q", cidr)
 		}
 	}
+	serviceStr := string(rule.WellKnownService)
 	doc := firewallRulesDoc{
-		Id:               string(service),
-		WellKnownService: string(service),
-		WhitelistCIDRS:   whiteListCidrs,
-		BlacklistCIDRS:   blackListCidrs,
+		Id:               serviceStr,
+		WellKnownService: serviceStr,
+		WhitelistCIDRS:   rule.WhitelistCIDRs,
+		BlacklistCIDRS:   rule.BlacklistCIDRs,
 	}
 	buildTxn := func(int) ([]txn.Op, error) {
 		model, err := fw.st.Model()
@@ -114,7 +115,7 @@ func (fw *firewallRulesState) Save(service WellKnownServiceType, whiteListCidrs,
 			return nil, errors.Trace(err)
 		}
 
-		_, err = fw.Rule(service)
+		_, err = fw.Rule(rule.WellKnownService)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -122,16 +123,16 @@ func (fw *firewallRulesState) Save(service WellKnownServiceType, whiteListCidrs,
 		if err == nil {
 			ops = []txn.Op{{
 				C:      firewallRulesC,
-				Id:     string(service),
+				Id:     serviceStr,
 				Assert: txn.DocExists,
 				Update: bson.D{
-					{"$set", bson.D{{"whitelist-cidrs", whiteListCidrs}}},
-					{"$set", bson.D{{"blacklist-cidrs", blackListCidrs}}},
+					{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs}}},
+					{"$set", bson.D{{"blacklist-cidrs", rule.BlacklistCIDRs}}},
 				},
 			}, model.assertActiveOp()}
 		} else {
-			doc.WhitelistCIDRS = whiteListCidrs
-			doc.BlacklistCIDRS = blackListCidrs
+			doc.WhitelistCIDRS = rule.WhitelistCIDRs
+			doc.BlacklistCIDRS = rule.BlacklistCIDRs
 			ops = []txn.Op{{
 				C:      firewallRulesC,
 				Id:     doc.Id,
@@ -142,10 +143,10 @@ func (fw *firewallRulesState) Save(service WellKnownServiceType, whiteListCidrs,
 		return ops, nil
 	}
 	if err := fw.st.db().Run(buildTxn); err != nil {
-		return nil, errors.Annotate(err, "failed to create firewall rules")
+		return errors.Annotate(err, "failed to create firewall rules")
 	}
 
-	return doc.toRule(), nil
+	return nil
 }
 
 // Rule returns the firewall rule for the specified service.
