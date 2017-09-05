@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -1267,51 +1268,65 @@ func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 }
 
-func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.C) {
-	// Copy multi-series charm to path where we can deploy it from
-	charmsPath := c.MkDir()
-	charmDir := testcharms.Repo.ClonedDir(charmsPath, "multi-series")
-
-	cfgAttrs := map[string]interface{}{
+func (s *DeployUnitTestSuite) cfgAttrs() map[string]interface{} {
+	return map[string]interface{}{
 		"name": "name",
 		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type": "foo",
 	}
-	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+}
+
+func (s *DeployUnitTestSuite) fakeAPI() *fakeDeployAPI {
+	return vanillaFakeModelAPI(s.cfgAttrs())
+}
+
+func (s *DeployUnitTestSuite) makeCharmDir(c *gc.C, cloneCharm string) *charm.CharmDir {
+	charmsPath := c.MkDir()
+	return testcharms.Repo.ClonedDir(charmsPath, cloneCharm)
+}
+
+func (s *DeployUnitTestSuite) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) {
+		return fakeAPI, nil
+	}, nil)
+	cmd.SetClientStore(NewMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
+}
+
+func (s *DeployUnitTestSuite) TestDeployLocalWithBundleConfig(c *gc.C) {
+	charmDir := s.makeCharmDir(c, "multi-series")
+	fakeAPI := s.fakeAPI()
 
 	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
 	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1)
 
-	cmd := NewDeployCommandForTest(func() (DeployAPI, error) {
-		return fakeAPI, nil
-	}, nil)
-	cmd.SetClientStore(NewMockStore())
-	context, err := cmdtesting.RunCommand(c, cmd, charmDir.Path, "--series", "trusty")
-	c.Assert(err, jc.ErrorIsNil)
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--bundle-config", "somefile")
+	c.Check(err, gc.ErrorMatches, "flags provided but not supported when deploying a charm: --bundle-config")
+}
 
+func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.C) {
+	// Copy multi-series charm to path where we can deploy it from
+	charmDir := s.makeCharmDir(c, "multi-series")
+	fakeAPI := s.fakeAPI()
+
+	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
+	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1)
+
+	context, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "trusty")
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(context), gc.Equals, `Deploying charm "local:trusty/multi-series-1".`+"\n")
 }
 
 func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
-	charmsPath := c.MkDir()
-	charmDir := testcharms.Repo.ClonedDir(charmsPath, "multi-series")
-
-	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
-	}
+	charmDir := s.makeCharmDir(c, "multi-series")
 	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
-	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	fakeAPI := s.fakeAPI()
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
 	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), true, 1)
 
-	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
-		return fakeAPI, nil
-	}, nil)
-	deployCmd.SetClientStore(NewMockStore())
-	_, err := cmdtesting.RunCommand(c, deployCmd, charmDir.Path, "--series", "trusty")
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We never attempt to set metric credentials
@@ -1323,23 +1338,13 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 }
 
 func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C) {
-	charmsPath := c.MkDir()
-	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
-
-	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
-	})
+	charmDir := s.makeCharmDir(c, "dummy")
+	fakeAPI := s.fakeAPI()
 	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
 	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1)
 
-	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
-		return fakeAPI, nil
-	}, nil)
-	deployCmd.SetClientStore(NewMockStore())
-	context, err := cmdtesting.RunCommand(c, deployCmd, dummyURL.String())
+	context, err := s.runDeploy(c, fakeAPI, dummyURL.String())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(context), gc.Equals, ""+
@@ -1351,16 +1356,11 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C
 func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	bundleDir := testcharms.Repo.BundleArchive(c.MkDir(), "wordpress-simple")
 
-	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
-	}
-	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	fakeAPI := s.fakeAPI()
 	withAllWatcher(fakeAPI)
 
 	fakeBundleURL := charm.MustParseURL("cs:bundle/wordpress-simple")
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
+	cfg, err := config.New(config.NoDefaults, s.cfgAttrs())
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, fakeBundleURL, cfg)
 	fakeAPI.Call("GetBundle", fakeBundleURL).Returns(bundleDir, error(nil))

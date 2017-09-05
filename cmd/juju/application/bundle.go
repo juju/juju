@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -57,11 +58,16 @@ type deploymentLogger interface {
 func deployBundle(
 	bundleDir string,
 	data *charm.BundleData,
+	bundleConfigFile string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
 	log deploymentLogger,
 	bundleStorage map[string]map[string]storage.Constraints,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
+
+	if err := processBundleConfig(data, bundleConfigFile); err != nil {
+		return nil, err
+	}
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
@@ -973,4 +979,146 @@ func processValue(baseDir string, v interface{}) (interface{}, bool, error) {
 	}
 
 	return result, true, nil
+}
+
+type bundleConfig struct {
+	Applications map[string]*charm.ApplicationSpec `yaml:"applications"`
+	// TODO soon, add machine mapping and space mapping.
+}
+
+type bundleConfigValueExists struct {
+	Applications map[string]map[string]interface{} `yaml:"applications"`
+}
+
+func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
+	if bundleConfigFile == "" {
+		// Nothing to do here.
+		return nil
+	}
+
+	bundleConfigFile, err := utils.NormalizePath(bundleConfigFile)
+	if err != nil {
+		return errors.Annotate(err, "unable to normalise bundle-config file")
+	}
+	// Make sure the filename is absolute.
+	if !filepath.IsAbs(bundleConfigFile) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		bundleConfigFile = filepath.Clean(filepath.Join(cwd, bundleConfigFile))
+	}
+	content, err := ioutil.ReadFile(bundleConfigFile)
+	if err != nil {
+		return errors.Annotate(err, "unable to open bundle-config file")
+	}
+	baseDir := filepath.Dir(bundleConfigFile)
+
+	// Now that we have the content, attempt to deserialize into the bundleConfig.
+	var config bundleConfig
+	if err := yaml.Unmarshal(content, &config); err != nil {
+		return errors.Annotate(err, "unable to deserialize config structure")
+	}
+	// If this works, then this deserialisation should certainly succeed.
+	// Since we are only looking to overwrite the values in the underlying bundle
+	// for config values that are set, we need to know if they were actually set,
+	// and not just zero. The configCheck structure is a map that allows us to check
+	// if the fields were actually in the underlying YAML.
+	var configCheck bundleConfigValueExists
+	if err := yaml.Unmarshal(content, &configCheck); err != nil {
+		return errors.Annotate(err, "unable to deserialize config structure")
+	}
+	// Additional checks to make sure that only things that we know about
+	// are passed in as config.
+	var checkTopLevel map[string]interface{}
+	if err := yaml.Unmarshal(content, &checkTopLevel); err != nil {
+		return errors.Annotate(err, "unable to deserialize config structure")
+	}
+	for key := range checkTopLevel {
+		switch key {
+		case "applications":
+			// no-op, all good
+		default:
+			return errors.Errorf("unexpected key %q in config", key)
+		}
+	}
+
+	// We want to confirm that all the applications mentioned in the config
+	// actually exist in the bundle data.
+	for appName, bc := range config.Applications {
+		app, found := data.Applications[appName]
+		if !found {
+			return errors.Errorf("application %q from config not found in bundle", appName)
+		}
+
+		fieldCheck := configCheck.Applications[appName]
+
+		if _, set := fieldCheck["charm"]; set {
+			app.Charm = bc.Charm
+		}
+		if _, set := fieldCheck["series"]; set {
+			app.Series = bc.Series
+		}
+		if _, set := fieldCheck["resources"]; set {
+			if app.Resources == nil {
+				app.Resources = make(map[string]interface{})
+			}
+			for key, value := range bc.Resources {
+				app.Resources[key] = value
+			}
+		}
+		if _, set := fieldCheck["num_units"]; set {
+			app.NumUnits = bc.NumUnits
+		}
+		if _, set := fieldCheck["to"]; set {
+			app.To = bc.To
+		}
+		if _, set := fieldCheck["expose"]; set {
+			app.Expose = bc.Expose
+		}
+		if _, set := fieldCheck["options"]; set {
+			if app.Options == nil {
+				app.Options = make(map[string]interface{})
+			}
+			for key, value := range bc.Options {
+				result, _, err := processValue(baseDir, value)
+				if err != nil {
+					return errors.Annotatef(err, "processing config options value %s for application %s", key, appName)
+				}
+				app.Options[key] = result
+			}
+		}
+		if _, set := fieldCheck["annotations"]; set {
+			if app.Annotations == nil {
+				app.Annotations = make(map[string]string)
+			}
+			for key, value := range bc.Annotations {
+				result, _, err := processValue(baseDir, value)
+				if err != nil {
+					return errors.Annotatef(err, "processing config annotations value %s for application %s", key, appName)
+				}
+				app.Annotations[key] = result.(string)
+			}
+		}
+		if _, set := fieldCheck["constraints"]; set {
+			app.Constraints = bc.Constraints
+		}
+		if _, set := fieldCheck["storage"]; set {
+			if app.Storage == nil {
+				app.Storage = make(map[string]string)
+			}
+			for key, value := range bc.Storage {
+				app.Storage[key] = value
+			}
+		}
+		if _, set := fieldCheck["bindings"]; set {
+			if app.EndpointBindings == nil {
+				app.EndpointBindings = make(map[string]string)
+			}
+			for key, value := range bc.EndpointBindings {
+				app.EndpointBindings[key] = value
+			}
+		}
+	}
+	return nil
 }
