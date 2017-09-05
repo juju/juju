@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"strconv"
 	"time"
@@ -828,7 +829,75 @@ func (s *RelationUnitSuite) TestIngressAddress(c *gc.C) {
 	address, err := prr.pru0.IngressAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+	c.Assert(address, gc.DeepEquals, network.NewAddress("1.2.3.4"))
+}
+
+func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
+	for _, address := range addresses {
+		name := fmt.Sprintf("e%x", rand.Int31())
+		deviceArgs := state.LinkLayerDeviceArgs{
+			Name: name,
+			Type: state.EthernetDevice,
+		}
+		err := machine.SetLinkLayerDevices(deviceArgs)
+		c.Assert(err, jc.ErrorIsNil)
+		device, err := machine.LinkLayerDevice(name)
+		c.Assert(err, jc.ErrorIsNil)
+
+		addressesArg := state.LinkLayerDeviceAddress{
+			DeviceName:   name,
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  address,
+		}
+		err = machine.SetDevicesAddresses(addressesArg)
+		c.Assert(err, jc.ErrorIsNil)
+		deviceAddresses, err := device.Addresses()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(deviceAddresses, gc.HasLen, 1)
+	}
+}
+
+func (s *RelationUnitSuite) TestIngressAddressWithSpaces(c *gc.C) {
+	s.State.AddSubnet(state.SubnetInfo{CIDR: "1.2.0.0/16"})
+	s.State.AddSpace("space-1", "pid-1", []string{"1.2.0.0/16"}, false)
+	s.State.AddSubnet(state.SubnetInfo{CIDR: "2.2.0.0/16"})
+	s.State.AddSpace("space-2", "pid-2", []string{"2.2.0.0/16"}, false)
+	s.State.AddSubnet(state.SubnetInfo{CIDR: "3.2.0.0/16"})
+	s.State.AddSpace("space-3", "pid-3", []string{"2.2.0.0/16"}, false)
+	s.State.AddSubnet(state.SubnetInfo{CIDR: "4.3.0.0/16"})
+	s.State.AddSpace("public-4", "pid-4", []string{"4.3.0.0/16"}, true)
+
+	// We want to have all bindings set so that no actual binding is
+	// really set to the default.
+	bindings := map[string]string{
+		"":             "space-3",
+		"server-admin": "space-1",
+		"server":       "space-2",
+	}
+
+	prr := newProReqRelationWithBindings(c, &s.ConnSuite, charm.ScopeGlobal, bindings, nil)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses := []network.Address{
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("2.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("3.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	}
+	err = machine.SetProviderAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "3.2.3.4/16", "4.3.2.1/16")
+
+	address, err := prr.pru0.IngressAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(address, gc.DeepEquals, network.NewAddress("2.2.3.4"))
 }
 
 func (s *RelationUnitSuite) TestIngressAddressRemoteRelation(c *gc.C) {
@@ -983,6 +1052,17 @@ func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReq
 		rapp = s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
 		rapp = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	}
+	return newProReqRelationForApps(c, s, papp, rapp)
+}
+
+func newProReqRelationWithBindings(c *gc.C, s *ConnSuite, scope charm.RelationScope, pbindings, rbindings map[string]string) *ProReqRelation {
+	papp := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), pbindings)
+	var rapp *state.Application
+	if scope == charm.ScopeGlobal {
+		rapp = s.AddTestingApplicationWithBindings(c, "wordpress", s.AddTestingCharm(c, "wordpress"), rbindings)
+	} else {
+		rapp = s.AddTestingApplicationWithBindings(c, "logging", s.AddTestingCharm(c, "logging"), rbindings)
 	}
 	return newProReqRelationForApps(c, s, papp, rapp)
 }
