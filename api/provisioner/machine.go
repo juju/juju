@@ -227,6 +227,27 @@ func (m *Machine) Series() (string, error) {
 	return result.Result, nil
 }
 
+// AvailabilityZone returns an underlying provider's availability zone
+// for a machine
+func (m *Machine) AvailabilityZone() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("AvailabilityZone", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
+}
+
 // DistributionGroup returns a slice of instance.Ids
 // that belong to the same distribution group as this
 // Machine. The provisioner may use this information

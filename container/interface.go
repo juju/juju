@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	ConfigModelUUID = "model-uuid"
-	ConfigLogDir    = "log-dir"
+	ConfigModelUUID        = "model-uuid"
+	ConfigLogDir           = "log-dir"
+	ConfigAvailabilityZone = "availability-zone"
 )
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.

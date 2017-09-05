@@ -257,6 +257,13 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
+	availabilityZone, err := cs.machine.AvailabilityZone()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// pass host machine's availability zone to the container manager config
+	managerConfig[container.ConfigAvailabilityZone] = availabilityZone
+
 	switch containerType {
 	case instance.KVM:
 		manager, err := kvm.NewContainerManager(managerConfig)

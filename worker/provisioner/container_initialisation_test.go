@@ -340,7 +340,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
+func (s *ContainerSetupSuite) TestContainerInitInstDataError(c *gc.C) {
 	spec := mutex.Spec{
 		Name:  s.lockName,
 		Clock: clock.WallClock,
@@ -374,7 +374,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	abort := make(chan struct{})
 	close(abort)
 	err = handler.Handle(abort, []string{"0/lxd/0"})
-	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
+	c.Assert(err, gc.ErrorMatches, ".*initialising container infrastructure on host machine: instance data for machine.*not found")
 
 }
 
