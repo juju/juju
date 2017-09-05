@@ -4,7 +4,9 @@
 package application
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -53,13 +56,18 @@ type deploymentLogger interface {
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
 func deployBundle(
-	bundleFilePath string,
+	bundleDir string,
 	data *charm.BundleData,
+	bundleConfigFile string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
 	log deploymentLogger,
 	bundleStorage map[string]map[string]storage.Constraints,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
+
+	if err := processBundleConfig(data, bundleConfigFile); err != nil {
+		return nil, err
+	}
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
@@ -69,10 +77,14 @@ func deployBundle(
 		return err
 	}
 	var verifyError error
-	if bundleFilePath == "" {
+	if bundleDir == "" {
 		verifyError = data.Verify(verifyConstraints, verifyStorage)
 	} else {
-		verifyError = data.VerifyLocal(bundleFilePath, verifyConstraints, verifyStorage)
+		// Process includes in the bundle data.
+		if err := processBundleIncludes(bundleDir, data); err != nil {
+			return nil, errors.Annotate(err, "unable to process includes")
+		}
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage)
 	}
 	if verifyError != nil {
 		if verr, ok := verifyError.(*charm.VerificationError); ok {
@@ -110,7 +122,7 @@ func deployBundle(
 
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
-		bundleDir:       bundleFilePath,
+		bundleDir:       bundleDir,
 		changes:         changes,
 		results:         make(map[string]string, numChanges),
 		channel:         channel,
@@ -885,4 +897,233 @@ func isErrRelationExists(err error) bool {
 	// TODO frankban (bug 1495952): do this check using the cause rather than
 	// the string when a specific cause is available.
 	return params.IsCodeAlreadyExists(err) || strings.HasSuffix(err.Error(), "relation already exists")
+}
+
+func processBundleIncludes(baseDir string, data *charm.BundleData) error {
+
+	for app, appData := range data.Applications {
+		for key, value := range appData.Options {
+			result, processed, err := processValue(baseDir, value)
+			if err != nil {
+				return errors.Annotatef(err, "processing options value %s for application %s", key, app)
+			}
+			if processed {
+				appData.Options[key] = result
+			}
+		}
+		for key, value := range appData.Annotations {
+			result, processed, err := processValue(baseDir, value)
+			if err != nil {
+				return errors.Annotatef(err, "processing annotation value %s for application %s", key, app)
+			}
+			if processed {
+				appData.Annotations[key] = result.(string)
+			}
+		}
+	}
+
+	for machine, machineData := range data.Machines {
+		for key, value := range machineData.Annotations {
+			result, processed, err := processValue(baseDir, value)
+			if err != nil {
+				return errors.Annotatef(err, "processing annotation value %s for machine %s", key, machine)
+			}
+			if processed {
+				machineData.Annotations[key] = result.(string)
+			}
+		}
+	}
+	return nil
+}
+
+func processValue(baseDir string, v interface{}) (interface{}, bool, error) {
+
+	const (
+		includeFile   = "include-file://"
+		includeBase64 = "include-base64://"
+	)
+
+	value, ok := v.(string)
+	if !ok {
+		// Not a string, just return it unchanged.
+		return v, false, nil
+	}
+
+	encode := false
+	readFile := false
+	filename := ""
+
+	if strings.HasPrefix(value, includeFile) {
+		readFile = true
+		filename = value[len(includeFile):]
+	} else if strings.HasPrefix(value, includeBase64) {
+		encode = true
+		readFile = true
+		filename = value[len(includeBase64):]
+	}
+
+	if !readFile {
+		// Unchanged, just return it.
+		return v, false, nil
+	}
+
+	if !filepath.IsAbs(filename) {
+		filename = filepath.Clean(filepath.Join(baseDir, filename))
+	}
+
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, false, errors.Annotate(err, "unable to read file")
+	}
+
+	var result string
+	if encode {
+		result = base64.StdEncoding.EncodeToString(bytes)
+	} else {
+		result = string(bytes)
+	}
+
+	return result, true, nil
+}
+
+type bundleConfig struct {
+	Applications map[string]*charm.ApplicationSpec `yaml:"applications"`
+	// TODO soon, add machine mapping and space mapping.
+}
+
+type bundleConfigValueExists struct {
+	Applications map[string]map[string]interface{} `yaml:"applications"`
+}
+
+func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
+	if bundleConfigFile == "" {
+		// Nothing to do here.
+		return nil
+	}
+
+	bundleConfigFile, err := utils.NormalizePath(bundleConfigFile)
+	if err != nil {
+		return errors.Annotate(err, "unable to normalise bundle-config file")
+	}
+	// Make sure the filename is absolute.
+	if !filepath.IsAbs(bundleConfigFile) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		bundleConfigFile = filepath.Clean(filepath.Join(cwd, bundleConfigFile))
+	}
+	content, err := ioutil.ReadFile(bundleConfigFile)
+	if err != nil {
+		return errors.Annotate(err, "unable to open bundle-config file")
+	}
+	baseDir := filepath.Dir(bundleConfigFile)
+
+	// Now that we have the content, attempt to deserialize into the bundleConfig.
+	var config bundleConfig
+	if err := yaml.Unmarshal(content, &config); err != nil {
+		return errors.Annotate(err, "unable to deserialize config structure")
+	}
+	// If this works, then this deserialisation should certainly succeed.
+	// Since we are only looking to overwrite the values in the underlying bundle
+	// for config values that are set, we need to know if they were actually set,
+	// and not just zero. The configCheck structure is a map that allows us to check
+	// if the fields were actually in the underlying YAML.
+	var configCheck bundleConfigValueExists
+	if err := yaml.Unmarshal(content, &configCheck); err != nil {
+		return errors.Annotate(err, "unable to deserialize config structure")
+	}
+	// Additional checks to make sure that only things that we know about
+	// are passed in as config.
+	var checkTopLevel map[string]interface{}
+	if err := yaml.Unmarshal(content, &checkTopLevel); err != nil {
+		return errors.Annotate(err, "unable to deserialize config structure")
+	}
+	for key := range checkTopLevel {
+		switch key {
+		case "applications":
+			// no-op, all good
+		default:
+			return errors.Errorf("unexpected key %q in config", key)
+		}
+	}
+
+	// We want to confirm that all the applications mentioned in the config
+	// actually exist in the bundle data.
+	for appName, bc := range config.Applications {
+		app, found := data.Applications[appName]
+		if !found {
+			return errors.Errorf("application %q from config not found in bundle", appName)
+		}
+
+		fieldCheck := configCheck.Applications[appName]
+
+		if _, set := fieldCheck["charm"]; set {
+			app.Charm = bc.Charm
+		}
+		if _, set := fieldCheck["series"]; set {
+			app.Series = bc.Series
+		}
+		if _, set := fieldCheck["resources"]; set {
+			if app.Resources == nil {
+				app.Resources = make(map[string]interface{})
+			}
+			for key, value := range bc.Resources {
+				app.Resources[key] = value
+			}
+		}
+		if _, set := fieldCheck["num_units"]; set {
+			app.NumUnits = bc.NumUnits
+		}
+		if _, set := fieldCheck["to"]; set {
+			app.To = bc.To
+		}
+		if _, set := fieldCheck["expose"]; set {
+			app.Expose = bc.Expose
+		}
+		if _, set := fieldCheck["options"]; set {
+			if app.Options == nil {
+				app.Options = make(map[string]interface{})
+			}
+			for key, value := range bc.Options {
+				result, _, err := processValue(baseDir, value)
+				if err != nil {
+					return errors.Annotatef(err, "processing config options value %s for application %s", key, appName)
+				}
+				app.Options[key] = result
+			}
+		}
+		if _, set := fieldCheck["annotations"]; set {
+			if app.Annotations == nil {
+				app.Annotations = make(map[string]string)
+			}
+			for key, value := range bc.Annotations {
+				result, _, err := processValue(baseDir, value)
+				if err != nil {
+					return errors.Annotatef(err, "processing config annotations value %s for application %s", key, appName)
+				}
+				app.Annotations[key] = result.(string)
+			}
+		}
+		if _, set := fieldCheck["constraints"]; set {
+			app.Constraints = bc.Constraints
+		}
+		if _, set := fieldCheck["storage"]; set {
+			if app.Storage == nil {
+				app.Storage = make(map[string]string)
+			}
+			for key, value := range bc.Storage {
+				app.Storage[key] = value
+			}
+		}
+		if _, set := fieldCheck["bindings"]; set {
+			if app.EndpointBindings == nil {
+				app.EndpointBindings = make(map[string]string)
+			}
+			for key, value := range bc.EndpointBindings {
+				app.EndpointBindings[key] = value
+			}
+		}
+	}
+	return nil
 }
