@@ -387,6 +387,7 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 // ResetPassword resets password for supplied users by
 // invalidating current passwords (if any) and generating
 // new random secret keys which will be returned.
+// Users cannot reset their own password.
 func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserResults, error) {
 	var result params.AddUserResults
 
@@ -411,7 +412,7 @@ func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserRe
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if isSuperUser || api.apiUser == user.Tag() {
+		if isSuperUser && api.apiUser != user.Tag() {
 			key, err := user.ResetPassword()
 			if err != nil {
 				result.Results[i].Error = common.ServerError(err)

@@ -65,17 +65,18 @@ func (s *UserSuite) TestUserResetPasswordForSelf(c *gc.C) {
 	user, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
+
+	// Should not be able to reset own password
 	context, err := s.RunUserCommand(c, "", "change-user-password", "--reset")
 	c.Assert(err, jc.ErrorIsNil)
-	err = user.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.PasswordValid("dummy-secret"), jc.IsFalse)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Matches, `
-Your password has been reset.
-Please run:
-     juju register (.+)
-`[1:])
+You cannot reset your own password.
+If you want to change it, please call `[1:]+"`juju change-user-password`"+` without --reset option.
+`)
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
 }
 
 func (s *UserSuite) TestUserResetPasswordForOther(c *gc.C) {

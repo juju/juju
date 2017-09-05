@@ -895,9 +895,13 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Tag, gc.DeepEquals, alex.Tag().String())
-	c.Assert(results.Results[0].SecretKey, gc.DeepEquals, alex.SecretKey())
-	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsFalse)
+	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
+		params.AddUserResult{
+			Tag:   alex.Tag().String(),
+			Error: common.ServerError(common.ErrPerm),
+		},
+	})
+	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
@@ -922,8 +926,8 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		params.AddUserResult{
-			Tag:       alex.Tag().String(),
-			SecretKey: alex.SecretKey(),
+			Tag:   alex.Tag().String(),
+			Error: common.ServerError(common.ErrPerm),
 		},
 		params.AddUserResult{
 			Tag:   barb.Tag().String(),
@@ -931,7 +935,7 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 		},
 	})
 
-	c.Assert(alex.PasswordValid("password"), jc.IsFalse)
+	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
 }
 
