@@ -2618,7 +2618,9 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	userModelKey := s.insertFakeModelDocs(c, st)
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: true})
 
-	err := state.SetModelLifeDead(st, st.ModelUUID())
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveAllModelDocs()
@@ -2759,7 +2761,9 @@ func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	err := state.SetModelLifeDead(st, st.ModelUUID())
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	writeLogs(c, st, 5)

@@ -4,20 +4,25 @@
 package application
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -40,11 +45,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeploy(c, "bundle/wordpress-simple", "--config", "config.yaml")
-	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --config.")
+	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --config")
 	_, err = runDeploy(c, "bundle/wordpress-simple", "-n", "2")
-	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: -n.")
+	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: -n")
 	_, err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial", "--force")
-	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --force, --series.")
+	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --force, --series")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
@@ -280,6 +285,103 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: .*: access denied for user "client-username"`)
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
+	testcharms.UploadCharm(c, s.Client(), "trusty/starsay-42", "starsay")
+	bundleMeta := `
+        applications:
+            starsay:
+                charm: cs:starsay
+                num_units: 1
+                resources:
+                    store-resource: 0
+                    install-resource: 0
+                    upload-resource: 0
+    `
+	output, err := s.DeployBundleYAML(c, bundleMeta)
+	c.Assert(err, jc.ErrorIsNil)
+
+	lines := strings.Split(output, "\n")
+	expectedLines := strings.Split(strings.TrimSpace(`
+Deploying charm "cs:trusty/starsay-42"
+added resource install-resource
+added resource store-resource
+added resource upload-resource
+Deploy of bundle completed.
+    `), "\n")
+	c.Check(lines, gc.HasLen, len(expectedLines))
+	c.Check(lines[0], gc.Equals, expectedLines[0])
+	// The "added resource" lines are checked after we sort since
+	// the ordering of those lines is unknown.
+	sort.Strings(lines)
+	sort.Strings(expectedLines)
+
+	resourceHash := func(content string) charmresource.Fingerprint {
+		fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+		c.Assert(err, jc.ErrorIsNil)
+		return fp
+	}
+
+	c.Check(lines, jc.DeepEquals, expectedLines)
+	s.checkResources(c, "starsay", []resource.Resource{{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "install-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "gotta-have-it.txt",
+				Description: "get things started",
+			},
+			Origin:      charmresource.OriginStore,
+			Revision:    0,
+			Fingerprint: resourceHash("install-resource content"),
+			Size:        int64(len("install-resource content")),
+		},
+		ID:            "starsay/install-resource",
+		ApplicationID: "starsay",
+	}, {
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "store-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "filename.tgz",
+				Description: "One line that is useful when operators need to push it.",
+			},
+			Origin:      charmresource.OriginStore,
+			Fingerprint: resourceHash("store-resource content"),
+			Size:        int64(len("store-resource content")),
+			Revision:    0,
+		},
+		ID:            "starsay/store-resource",
+		ApplicationID: "starsay",
+	}, {
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "upload-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "somename.xml",
+				Description: "Who uses xml anymore?",
+			},
+			Origin:      charmresource.OriginStore,
+			Fingerprint: resourceHash("upload-resource content"),
+			Size:        int64(len("upload-resource content")),
+			Revision:    0,
+		},
+		ID:            "starsay/upload-resource",
+		ApplicationID: "starsay",
+	}})
+}
+
+func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceName string, expected []resource.Resource) {
+	_, err := s.State.Application("starsay")
+	c.Check(err, jc.ErrorIsNil)
+	st, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	svcResources, err := st.ListResources("starsay")
+	c.Assert(err, jc.ErrorIsNil)
+	resources := svcResources.Resources
+	resource.Sort(resources)
+	c.Assert(resources, jc.DeepEquals, expected)
+}
+
 type BundleDeployCharmStoreSuite struct {
 	charmStoreSuite
 }
@@ -298,7 +400,7 @@ func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
 // DeployBundleYAML uses the given bundle content to create a bundle in the
 // local repository and then deploy it. It returns the bundle deployment output
 // and error.
-func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string) (string, error) {
+func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string, extraArgs ...string) (string, error) {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
 	defer os.RemoveAll(bundlePath)
@@ -306,7 +408,8 @@ func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string) 
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	return runDeploy(c, bundlePath)
+	args := append([]string{bundlePath}, extraArgs...)
+	return runDeploy(c, args...)
 }
 
 var deployBundleErrorsTests = []struct {
@@ -518,6 +621,69 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 		"mysql/1":     "1",
 		"wordpress/0": "2",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c *gc.C) {
+	charmsPath := c.MkDir()
+	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
+	wordpressPath := testcharms.Repo.ClonedDirPath(charmsPath, "wordpress")
+	_, err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: xenial
+        applications:
+            wordpress:
+                charm: %s
+                num_units: 1
+            mysql:
+                charm: %s
+                num_units: 2
+        relations:
+            - ["wordpress:db", "mysql:server"]
+    `, wordpressPath, mysqlPath),
+		"--bundle-config", "missing-file")
+	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: open .*missing-file: no such file or directory")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleConfig(c *gc.C) {
+	configDir := c.MkDir()
+	configFile := filepath.Join(configDir, "config.yaml")
+	c.Assert(
+		ioutil.WriteFile(
+			configFile, []byte(`
+                applications:
+                    wordpress:
+                        options:
+                            blog-title: include-file://title
+            `), 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(configDir, "title"), []byte("magic bundle config"), 0644),
+		jc.ErrorIsNil)
+
+	charmsPath := c.MkDir()
+	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
+	wordpressPath := testcharms.Repo.ClonedDirPath(charmsPath, "wordpress")
+	_, err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: xenial
+        applications:
+            wordpress:
+                charm: %s
+                num_units: 1
+            mysql:
+                charm: %s
+                num_units: 2
+        relations:
+            - ["wordpress:db", "mysql:server"]
+    `, wordpressPath, mysqlPath),
+		"--bundle-config", configFile)
+
+	c.Assert(err, jc.ErrorIsNil)
+	// Now check the blog-title of the wordpress.	le")
+	wordpress, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := wordpress.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings["blog-title"], gc.Equals, "magic bundle config")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
@@ -1277,4 +1443,335 @@ func (w mockAllWatcher) Next() ([]multiwatcher.Delta, error) {
 
 func (mockAllWatcher) Stop() error {
 	return nil
+}
+
+type ProcessIncludesSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&ProcessIncludesSuite{})
+
+func (*ProcessIncludesSuite) TestNonString(c *gc.C) {
+	value := 1234
+	result, changed, err := processValue("", value)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.Equals, value)
+}
+
+func (*ProcessIncludesSuite) TestSimpleString(c *gc.C) {
+	value := "simple"
+	result, changed, err := processValue("", value)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.Equals, value)
+}
+
+func (*ProcessIncludesSuite) TestMissingFile(c *gc.C) {
+	value := "include-file://simple"
+	result, changed, err := processValue("", value)
+
+	c.Check(err, gc.ErrorMatches, "unable to read file: open simple: no such file or directory")
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.IsNil)
+}
+
+func (*ProcessIncludesSuite) TestFileNameIsInDir(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestRelativePath(c *gc.C) {
+	dir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dir, "nested"), 0755), jc.ErrorIsNil)
+
+	filename := filepath.Join(dir, "nested", "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://./nested/content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestAbsolutePath(c *gc.C) {
+	dir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dir, "nested"), 0755), jc.ErrorIsNil)
+
+	filename := filepath.Join(dir, "nested", "content")
+	c.Check(filepath.IsAbs(filename), jc.IsTrue)
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://" + filename
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestBase64Encode(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-base64://content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	encoded := base64.StdEncoding.EncodeToString([]byte("testing"))
+	c.Check(result, gc.Equals, encoded)
+}
+
+func (*ProcessIncludesSuite) TestBundleReplacements(c *gc.C) {
+	bundleYAML := `
+        applications:
+            django:
+                charm: cs:django
+                num_units: 1
+                options:
+                    private: include-base64://sekrit.binary
+                annotations:
+                    key1: value1
+                    key2: value2
+                    key3: include-file://annotation
+                to: [1]
+            memcached:
+                charm: xenial/mem-47
+                num_units: 1
+        machines:
+            1:
+                annotations: {foo: bar, baz: "include-file://machine" }
+    `
+
+	baseDir := c.MkDir()
+	bundleFile := filepath.Join(baseDir, "bundle.yaml")
+	err := ioutil.WriteFile(bundleFile, []byte(bundleYAML), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "sekrit.binary"),
+			[]byte{42, 12, 0, 23, 8}, 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "annotation"),
+			[]byte("value3"), 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "machine"),
+			[]byte("wibble"), 0644),
+		jc.ErrorIsNil)
+
+	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = processBundleIncludes(baseDir, bundleData)
+	c.Assert(err, jc.ErrorIsNil)
+
+	django := bundleData.Applications["django"]
+	c.Check(django.Annotations["key1"], gc.Equals, "value1")
+	c.Check(django.Annotations["key2"], gc.Equals, "value2")
+	c.Check(django.Annotations["key3"], gc.Equals, "value3")
+	c.Check(django.Options["private"], gc.Equals, "KgwAFwg=")
+	annotations := bundleData.Machines["1"].Annotations
+	c.Check(annotations["foo"], gc.Equals, "bar")
+	c.Check(annotations["baz"], gc.Equals, "wibble")
+}
+
+type ProcessBundleConfigSuite struct {
+	coretesting.BaseSuite
+
+	bundleData *charm.BundleData
+}
+
+var _ = gc.Suite(&ProcessBundleConfigSuite{})
+
+func (s *ProcessBundleConfigSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	baseBundle := `
+        applications:
+            django:
+                expose: true
+                charm: cs:django
+                num_units: 1
+                options:
+                    general: good
+                annotations:
+                    key1: value1
+                    key2: value2
+                to: [1]
+            memcached:
+                charm: xenial/mem-47
+                num_units: 1
+                options:
+                    key: value
+        machines:
+            1:
+                annotations: {foo: bar}`
+
+	baseDir := c.MkDir()
+	bundleFile := filepath.Join(baseDir, "bundle.yaml")
+	err := ioutil.WriteFile(bundleFile, []byte(baseBundle), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.bundleData, err = charmrepo.ReadBundleFile(bundleFile)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ProcessBundleConfigSuite) writeFile(c *gc.C, content string) string {
+	// Write the content to a file in a new directoryt and return the file.
+	baseDir := c.MkDir()
+	filename := filepath.Join(baseDir, "config.yaml")
+	err := ioutil.WriteFile(filename, []byte(content), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	return filename
+}
+
+func (s *ProcessBundleConfigSuite) TestNoFile(c *gc.C) {
+	err := processBundleConfig(s.bundleData, "")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ProcessBundleConfigSuite) TestBadFile(c *gc.C) {
+	err := processBundleConfig(s.bundleData, "bad")
+	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: open .*bad: no such file or directory")
+}
+
+func (s *ProcessBundleConfigSuite) TestGoodYAML(c *gc.C) {
+	filename := s.writeFile(c, "bad:\n\tindent")
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, gc.ErrorMatches, "unable to deserialize config structure: yaml: line 1: found character that cannot start any token")
+}
+
+func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
+	config := `
+        applications:
+            django:
+                expose: false
+                num_units: 0
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	django := s.bundleData.Applications["django"]
+
+	c.Check(django.Expose, jc.IsFalse)
+	c.Check(django.NumUnits, gc.Equals, 0)
+}
+
+func (s *ProcessBundleConfigSuite) TestUnknownConfigKey(c *gc.C) {
+	config := `
+        machines:
+            1: 2
+        applications:
+            django:
+                expose: false
+                num_units: 0
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, gc.ErrorMatches, `unexpected key "machines" in config`)
+}
+
+func (s *ProcessBundleConfigSuite) TestUnknownApplication(c *gc.C) {
+	config := `
+        applications:
+            wordpress:
+                expose: false
+                num_units: 0
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, gc.ErrorMatches, `application "wordpress" from config not found in bundle`)
+}
+
+func (s *ProcessBundleConfigSuite) TestIncludes(c *gc.C) {
+	config := `
+        applications:
+            django:
+                options:
+                    private: include-base64://sekrit.binary
+                annotations:
+                    key3: include-file://annotation
+    `
+	filename := s.writeFile(c, config)
+	baseDir := filepath.Dir(filename)
+
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "sekrit.binary"),
+			[]byte{42, 12, 0, 23, 8}, 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "annotation"),
+			[]byte("value3"), 0644),
+		jc.ErrorIsNil)
+
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	django := s.bundleData.Applications["django"]
+	c.Check(django.Annotations, jc.DeepEquals, map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3"})
+	c.Check(django.Options, jc.DeepEquals, map[string]interface{}{
+		"general": "good",
+		"private": "KgwAFwg="})
+}
+
+func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
+	// Note that we don't care about the actual values here
+	// as bundle validation is done after replacement.
+	config := `
+        applications:
+            django:
+                charm: cs:django-23
+                series: wisty
+                resources:
+                    something: or other
+                to:
+                  - 3
+                constraints: big machine
+                storage:
+                  disk: big
+                bindings:
+                  where: dmz
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	django := s.bundleData.Applications["django"]
+
+	c.Check(django.Charm, gc.Equals, "cs:django-23")
+	c.Check(django.Series, gc.Equals, "wisty")
+	c.Check(django.Resources, jc.DeepEquals, map[string]interface{}{
+		"something": "or other"})
+	c.Check(django.To, jc.DeepEquals, []string{"3"})
+	c.Check(django.Constraints, gc.Equals, "big machine")
+	c.Check(django.Storage, jc.DeepEquals, map[string]string{
+		"disk": "big"})
+	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
+		"where": "dmz"})
 }

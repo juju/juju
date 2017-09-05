@@ -6,6 +6,8 @@ package provisioner
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -25,6 +27,21 @@ type Machine struct {
 // Tag returns the machine's tag.
 func (m *Machine) Tag() names.Tag {
 	return m.tag
+}
+
+// ModelAgentVersion returns the agent version the machine's model is currently
+// running or an error.
+func (m *Machine) ModelAgentVersion() (*version.Number, error) {
+	mc, err := m.st.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if v, ok := mc.AgentVersion(); ok {
+		return &v, nil
+	}
+
+	return nil, errors.New("failed to get model's agent version.")
 }
 
 // MachineTag returns the identifier for the machine as the most specific type
@@ -278,6 +295,30 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 		return "", result.Error
 	}
 	return instance.Id(result.Result), nil
+}
+
+// KeepInstance returns the value of the keep-instance
+// for the machine.
+func (m *Machine) KeepInstance() (bool, error) {
+	var results params.BoolResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("KeepInstance", args, &results)
+	if err != nil {
+		return false, err
+	}
+	if len(results.Results) != 1 {
+		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		if params.IsCodeNotSupported(err) {
+			return false, errors.NewNotSupported(nil, "KeepInstance")
+		}
+		return false, result.Error
+	}
+	return result.Result, nil
 }
 
 // SetPassword sets the machine's password.

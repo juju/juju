@@ -237,15 +237,14 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	}
 
 	// Now remove remove the model.
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	id := userModelNameIndex(env.Owner().Id(), env.Name())
 	ops = []txn.Op{{
 		// Cleanup the owner:envName unique key.
 		C:      usermodelnameC,
-		Id:     id,
+		Id:     model.uniqueIndexID(),
 		Remove: true,
 	}, {
 		C:      modelEntityRefsC,
@@ -993,6 +992,7 @@ type AddApplicationArgs struct {
 // they will be created automatically.
 func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
+
 	// Sanity checks.
 	if !names.IsValidApplication(args.Name) {
 		return nil, errors.Errorf("invalid name")

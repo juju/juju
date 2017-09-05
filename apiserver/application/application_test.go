@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -394,6 +395,60 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.NotNil)
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
+}
+
+func (s *applicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFailure(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy-resource")
+	resources, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	pendingID, err := resources.AddPendingResource("haha/borken", "user", charmresource.Resource{
+		Meta:   charm.Meta().Resources["dummy"],
+		Origin: charmresource.OriginUpload,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "haha/borken",
+			NumUnits:        1,
+			CharmURL:        charm.URL().String(),
+			Resources:       map[string]string{"dummy": pendingID},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `cannot add application "haha/borken": invalid name`)
+
+	res, err := resources.ListPendingResources("haha/borken")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.HasLen, 0)
+}
+
+func (s *applicationSuite) TestApplicationDeploymentLeavesResourcesOnSuccess(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy-resource")
+	resources, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	pendingID, err := resources.AddPendingResource("unborken", "user", charmresource.Resource{
+		Meta:   charm.Meta().Resources["dummy"],
+		Origin: charmresource.OriginUpload,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "unborken",
+			NumUnits:        1,
+			CharmURL:        charm.URL().String(),
+			Resources:       map[string]string{"dummy": pendingID},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	res, err := resources.ListResources("unborken")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Resources, gc.HasLen, 1)
 }
 
 func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {

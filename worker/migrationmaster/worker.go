@@ -435,9 +435,25 @@ func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigrati
 		return coremigration.ABORT, nil
 	}
 
+	client, closer, err := w.openTargetAPI(status.TargetInfo)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
+	defer closer()
+
+	// Check that the provider and target controller agree about what
+	// machines belong to the migrated model.
+	ok, err = w.checkTargetMachines(client, status.ModelUUID)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
+	if !ok {
+		return coremigration.ABORT, nil
+	}
+
 	// Once all agents have validated, activate the model in the
 	// target controller.
-	err = w.activateModel(status.TargetInfo, status.ModelUUID)
+	err = w.activateModel(client, status.ModelUUID)
 	if err != nil {
 		w.setErrorStatus("model activation failed, %v", err)
 		return coremigration.ABORT, nil
@@ -445,17 +461,29 @@ func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigrati
 	return coremigration.SUCCESS, nil
 }
 
-func (w *Worker) activateModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
-	w.setInfoStatus("activating model in target controller")
-	conn, err := w.openAPIConn(targetInfo)
+func (w *Worker) checkTargetMachines(targetClient *migrationtarget.Client, modelUUID string) (bool, error) {
+	w.setInfoStatus("checking machines in migrated model")
+	results, err := targetClient.CheckMachines(modelUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	defer conn.Close()
+	if len(results) > 0 {
+		for _, resultErr := range results {
+			w.logger.Errorf(resultErr.Error())
+		}
+		plural := "s"
+		if len(results) == 1 {
+			plural = ""
+		}
+		w.setErrorStatus("machine sanity check failed, %d error%s found", len(results), plural)
+		return false, nil
+	}
+	return true, nil
+}
 
-	targetClient := migrationtarget.NewClient(conn)
-	err = targetClient.Activate(modelUUID)
-	return errors.Trace(err)
+func (w *Worker) activateModel(targetClient *migrationtarget.Client, modelUUID string) error {
+	w.setInfoStatus("activating model in target controller")
+	return errors.Trace(targetClient.Activate(modelUUID))
 }
 
 func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.Phase, error) {
@@ -819,6 +847,14 @@ func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 		msg += fmt.Sprintf(", %d failed", failed)
 	}
 	return msg
+}
+
+func (w *Worker) openTargetAPI(targetInfo coremigration.TargetInfo) (*migrationtarget.Client, func() error, error) {
+	conn, err := w.openAPIConn(targetInfo)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return migrationtarget.NewClient(conn), conn.Close, nil
 }
 
 func (w *Worker) openAPIConn(targetInfo coremigration.TargetInfo) (api.Connection, error) {

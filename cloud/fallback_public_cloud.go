@@ -176,6 +176,14 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      koreacentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net        
+      koreasouth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net        
   azure-china:
     type: azure
     description: Microsoft Azure China

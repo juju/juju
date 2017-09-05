@@ -68,7 +68,7 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 	if ok && item.remove {
 		// We don't want to allow increasing the refcount of a model
 		// that's been removed.
-		return nil, nil, errors.Errorf("model %v has been removed", modelUUID)
+		return nil, nil, errors.NewNotFound(nil, fmt.Sprintf("model %v has been removed", modelUUID))
 	}
 
 	p.sourceKey++

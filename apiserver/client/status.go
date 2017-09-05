@@ -172,8 +172,14 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	var noStatus params.FullStatus
 	var context statusContext
 	var err error
+	if context.model, err = c.api.stateAccessor.Model(); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch model")
+	}
+	if context.status, err = context.model.LoadModelStatus(); err != nil {
+		return noStatus, errors.Annotate(err, "could not load model status values")
+	}
 	if context.applications, context.units, context.latestCharms, err =
-		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
+		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
@@ -295,13 +301,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
 	return params.FullStatus{
-		Model: modelStatus,
-		Machines: processMachines(
-			context.machines,
-			context.ipAddresses,
-			context.spaces,
-			context.linkLayerDevices,
-		),
+		Model:              modelStatus,
+		Machines:           context.processMachines(),
 		Applications:       context.processApplications(),
 		RemoteApplications: context.processRemoteApplications(),
 		Relations:          context.processRelations(),
@@ -357,6 +358,8 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 }
 
 type statusContext struct {
+	model  *state.Model
+	status *state.ModelStatus
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
@@ -483,6 +486,7 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(
 	st Backend,
+	model *state.Model,
 	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
@@ -493,21 +497,30 @@ func fetchAllApplicationsAndUnits(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	for _, s := range applications {
-		units, err := s.AllUnits()
-		if err != nil {
-			return nil, nil, nil, err
+	units, err := model.AllUnits()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	allUnitsByApp := make(map[string]map[string]*state.Unit)
+	for _, unit := range units {
+		appName := unit.ApplicationName()
+
+		if inner, found := allUnitsByApp[appName]; found {
+			inner[unit.Name()] = unit
+		} else {
+			allUnitsByApp[appName] = map[string]*state.Unit{
+				unit.Name(): unit,
+			}
 		}
-		appUnitMap := make(map[string]*state.Unit)
-		for _, u := range units {
-			appUnitMap[u.Name()] = u
-		}
-		if matchAny || len(appUnitMap) > 0 {
-			unitMap[s.Name()] = appUnitMap
-			appMap[s.Name()] = s
+	}
+	for _, app := range applications {
+		appUnits := allUnitsByApp[app.Name()]
+		if matchAny || len(appUnits) > 0 {
+			unitMap[app.Name()] = appUnits
+			appMap[app.Name()] = app
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
-			charmURL, _ := s.CharmURL()
+			charmURL, _ := app.CharmURL()
 			if charmURL.Schema == "cs" {
 				latestCharms[*charmURL.WithRevision(-1)] = nil
 			}
@@ -574,15 +587,10 @@ func (m machineAndContainers) Containers(id string) []*state.Machine {
 	return m[id][1:]
 }
 
-func processMachines(
-	idToMachines map[string][]*state.Machine,
-	idToIpAddresses map[string][]*state.Address,
-	idToDeviceToSpaces map[string]map[string]set.Strings,
-	idToLinkLayerDevices map[string][]*state.LinkLayerDevice,
-) map[string]params.MachineStatus {
+func (c *statusContext) processMachines() map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
 	cache := make(map[string]params.MachineStatus)
-	for id, machines := range idToMachines {
+	for id, machines := range c.machines {
 
 		if len(machines) <= 0 {
 			continue
@@ -590,27 +598,18 @@ func processMachines(
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := makeMachineStatus(
-			tlMachine,
-			idToIpAddresses[tlMachine.Id()],
-			idToDeviceToSpaces[tlMachine.Id()],
-			idToLinkLayerDevices[tlMachine.Id()],
-		)
+		hostStatus := c.makeMachineStatus(tlMachine)
 		machinesMap[id] = hostStatus
 		cache[id] = hostStatus
 
 		for _, machine := range machines[1:] {
 			parent, ok := cache[state.ParentId(machine.Id())]
 			if !ok {
-				panic("We've broken an assumpution.")
+				logger.Errorf("programmer error, please file a bug, reference this whole log line: %q, %q", id, machine.Id())
+				continue
 			}
 
-			status := makeMachineStatus(
-				machine,
-				idToIpAddresses[machine.Id()],
-				idToDeviceToSpaces[machine.Id()],
-				idToLinkLayerDevices[machine.Id()],
-			)
+			status := c.makeMachineStatus(machine)
 			parent.Containers[machine.Id()] = status
 			cache[machine.Id()] = status
 		}
@@ -618,23 +617,24 @@ func processMachines(
 	return machinesMap
 }
 
-func makeMachineStatus(
-	machine *state.Machine,
-	ipAddresses []*state.Address,
-	spaces map[string]set.Strings,
-	linkLayerDevices []*state.LinkLayerDevice,
-) (status params.MachineStatus) {
+func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
+	machineID := machine.Id()
+	ipAddresses := c.ipAddresses[machineID]
+	spaces := c.spaces[machineID]
+	linkLayerDevices := c.linkLayerDevices[machineID]
+
 	var err error
 	status.Id = machine.Id()
-	agentStatus := processMachine(machine)
+	agentStatus := c.processMachine(machine)
 	status.AgentStatus = agentStatus
 
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	status.WantsVote = machine.WantsVote()
 	status.HasVote = machine.HasVote()
-	sInfo, err := machine.InstanceStatus()
+	sInfo, err := c.status.MachineInstance(machineID)
 	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInfo, err)
+	// TODO: fetch all instance data for machines in one go.
 	instid, err := machine.InstanceId()
 	if err == nil {
 		status.InstanceId = instid
@@ -710,6 +710,7 @@ func makeMachineStatus(
 			status.InstanceId = "error"
 		}
 	}
+	// TODO: preload all constraints.
 	constraints, err := machine.Constraints()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -718,6 +719,7 @@ func makeMachineStatus(
 	} else {
 		status.Constraints = constraints.String()
 	}
+	// TODO: preload all hardware characteristics.
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -833,7 +835,11 @@ func (context *statusContext) processApplication(application *state.Application)
 	if application.IsPrincipal() {
 		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String())
 	}
-	applicationStatus, err := application.Status()
+	var unitNames []string
+	for _, unit := range units {
+		unitNames = append(unitNames, unit.Name())
+	}
+	applicationStatus, err := context.status.Application(application.Name(), unitNames)
 	if err != nil {
 		processedStatus.Err = common.ServerError(err)
 		return processedStatus
@@ -851,20 +857,12 @@ func (context *statusContext) processApplication(application *state.Application)
 
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
-		statuses, err := unit.WorkloadVersionHistory().StatusHistory(
-			status.StatusHistoryFilter{Size: 1},
-		)
+		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
 		if err != nil {
 			processedStatus.Err = common.ServerError(err)
 			return processedStatus
 		}
-		// Even though we fully expect there to be historical values there,
-		// even the first should be the empty string, the status history
-		// collection is not added to in a transactional manner, so it may be
-		// not there even though we'd really like it to be. Such is mongo.
-		if len(statuses) > 0 {
-			versions = append(versions, statuses[0])
-		}
+		versions = append(versions, workloadVersion)
 	}
 	if len(versions) > 0 {
 		sort.Sort(bySinceDescending(versions))
@@ -961,14 +959,14 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	if applicationCharm != "" && curl != nil && curl.String() != applicationCharm {
 		result.Charm = curl.String()
 	}
-	workloadVersion, err := unit.WorkloadVersion()
+	workloadVersion, err := context.status.UnitWorkloadVersion(unit.Name())
 	if err == nil {
 		result.WorkloadVersion = workloadVersion
 	} else {
 		logger.Debugf("error fetching workload version: %v", err)
 	}
 
-	processUnitAndAgentStatus(unit, &result)
+	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		result.Subordinates = make(map[string]params.UnitStatus)
@@ -1047,13 +1045,42 @@ type lifer interface {
 	Life() state.Life
 }
 
+// contextUnit overloads the AgentStatus and Status calls to use the cached
+// status values, and delegates everything else to the Unit.
+// TODO: cache presence as well.
+type contextUnit struct {
+	*state.Unit
+	context *statusContext
+}
+
+// AgentStatus implements UnitStatusGetter.
+func (c *contextUnit) AgentStatus() (status.StatusInfo, error) {
+	return c.context.status.UnitAgent(c.Name())
+}
+
+// Status implements UnitStatusGetter.
+func (c *contextUnit) Status() (status.StatusInfo, error) {
+	return c.context.status.UnitWorkload(c.Name())
+}
+
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
-func processUnitAndAgentStatus(unit *state.Unit, unitStatus *params.UnitStatus) {
-	unitStatus.AgentStatus, unitStatus.WorkloadStatus = processUnit(unit)
+func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
+	wrapped := &contextUnit{unit, c}
+	agent, workload := common.UnitStatus(wrapped)
+	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
+	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)
+
+	agentStatus.Life = processLife(unit)
+
+	if t, err := unit.AgentTools(); err == nil {
+		agentStatus.Version = t.Version.Number.String()
+	}
+	return
 }
 
 // populateStatusFromStatusInfoAndErr creates AgentStatus from the typical output
 // of a status getter.
+// TODO: make this a function that just returns a type.
 func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo status.StatusInfo, err error) {
 	agent.Err = err
 	agent.Status = statusInfo.Status.String()
@@ -1062,30 +1089,30 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 	agent.Since = statusInfo.Since
 }
 
+// contextMachine overloads the Status call to use the cached status values,
+// and delegates everything else to the Machine.
+// TODO: cache presence as well.
+type contextMachine struct {
+	*state.Machine
+	context *statusContext
+}
+
+// Return the agent status for the machine.
+func (c *contextMachine) Status() (status.StatusInfo, error) {
+	return c.context.status.MachineAgent(c.Id())
+}
+
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func processMachine(machine *state.Machine) (out params.DetailedStatus) {
-	statusInfo, err := common.MachineStatus(machine)
+func (c *statusContext) processMachine(machine *state.Machine) (out params.DetailedStatus) {
+	wrapped := &contextMachine{machine, c}
+	statusInfo, err := common.MachineStatus(wrapped)
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
 	out.Life = processLife(machine)
 
 	if t, err := machine.AgentTools(); err == nil {
 		out.Version = t.Version.Number.String()
-	}
-	return
-}
-
-// processUnit retrieves version and status information for the given unit.
-func processUnit(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
-	agent, workload := common.UnitStatus(unit)
-	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
-	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)
-
-	agentStatus.Life = processLife(unit)
-
-	if t, err := unit.AgentTools(); err == nil {
-		agentStatus.Version = t.Version.Number.String()
 	}
 	return
 }

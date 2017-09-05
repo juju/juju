@@ -260,6 +260,10 @@ type DeployCommand struct {
 	// or a bundle name.
 	CharmOrBundle string
 
+	// BundleConfig refers to a config file that specifies application overrides, and
+	// in the near future, machine and space mappings.
+	BundleConfigFile string
+
 	// Channel holds the charmstore channel to use when obtaining
 	// the charm to be deployed.
 	Channel params.Channel
@@ -403,8 +407,7 @@ See also:
     spaces
     constraints
     add-unit
-    set-config
-    get-config
+    config
     set-constraints
     get-constraints
 `
@@ -445,7 +448,7 @@ var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
 	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
-	bundleOnlyFlags = []string{}
+	bundleOnlyFlags = []string{"bundle-config"}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -456,6 +459,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
+	f.StringVar(&c.BundleConfigFile, "bundle-config", "", "Config override values for a bundle")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
@@ -520,6 +524,7 @@ func (c *DeployCommand) deployBundle(
 	if _, err := deployBundle(
 		filePath,
 		data,
+		c.BundleConfigFile,
 		channel,
 		apiRoot,
 		ctx,
@@ -716,14 +721,14 @@ type deployFn func(*cmd.Context, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
 	if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("Flags provided but not supported when deploying a bundle: %s.", strings.Join(flags, ", "))
+		return errors.Errorf("flags provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
 
 func (c *DeployCommand) validateCharmFlags() error {
 	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
+		return errors.Errorf("flags provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
@@ -741,6 +746,9 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}
 
 	return func(ctx *cmd.Context, api DeployAPI) error {
+		if err := c.validateCharmFlags(); err != nil {
+			return errors.Trace(err)
+		}
 		formattedCharmURL := userCharmURL.String()
 		ctx.Infof("Located charm %q.", formattedCharmURL)
 		ctx.Infof("Deploying charm %q.", formattedCharmURL)
@@ -880,6 +888,10 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
+		if err := c.validateCharmFlags(); err != nil {
+			return errors.Trace(err)
+		}
+
 		if curl, err = apiRoot.AddLocalCharm(curl, ch); err != nil {
 			return errors.Trace(err)
 		}

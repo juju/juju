@@ -326,6 +326,16 @@ func (p ResourcePersistence) getStored(res resource.Resource) (storedResource, e
 	return stored, nil
 }
 
+// RemovePendingResources removes the pending application-level
+// resources for a specific application, normally in the case that the
+// application couln't be deployed.
+func (p ResourcePersistence) RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error {
+	buildTxn := func(int) ([]txn.Op, error) {
+		return p.NewRemovePendingAppResourcesOps(applicationID, pendingIDs)
+	}
+	return errors.Trace(p.base.Run(buildTxn))
+}
+
 // NewResolvePendingResourceOps generates mongo transaction operations
 // to set the identified resource as active.
 //
@@ -381,7 +391,34 @@ func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return removeResourcesAndStorageCleanupOps(docs), nil
+}
 
+// NewRemovePendingResourcesOps returns mgo transaction operations to
+// clean up pending resources for the application from state. We pass
+// in the pending IDs to avoid removing the wrong resources if there's
+// a race to deploy the same application.
+func (p ResourcePersistence) NewRemovePendingAppResourcesOps(applicationID string, pendingIDs map[string]string) ([]txn.Op, error) {
+	docs, err := p.resources(applicationID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	pending := make([]resourceDoc, 0, len(docs))
+	for _, doc := range docs {
+		if doc.UnitID != "" || doc.PendingID == "" {
+			continue
+		}
+		if pendingIDs[doc.Name] != doc.PendingID {
+			// This is a pending resource for a different deployment
+			// of an application with the same name.
+			continue
+		}
+		pending = append(pending, doc)
+	}
+	return removeResourcesAndStorageCleanupOps(pending), nil
+}
+
+func removeResourcesAndStorageCleanupOps(docs []resourceDoc) []txn.Op {
 	ops := newRemoveResourcesOps(docs)
 	seenPaths := set.NewStrings()
 	for _, doc := range docs {
@@ -392,5 +429,5 @@ func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.
 		ops = append(ops, newCleanupOp(cleanupResourceBlob, doc.StoragePath))
 		seenPaths.Add(doc.StoragePath)
 	}
-	return ops, nil
+	return ops
 }

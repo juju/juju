@@ -398,7 +398,7 @@ func (s *ModelUserSuite) TestDeadModelsForUser(c *gc.C) {
 	c.Assert(models, gc.HasLen, 1)
 	c.Assert(models[0].UUID(), gc.Equals, s.State.ModelUUID())
 
-	err = state.SetModelLifeDead(s.State, models[0].UUID())
+	err = models[0].SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 	models, err = s.State.ModelsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)

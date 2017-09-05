@@ -1422,6 +1422,13 @@ func (env *azureEnviron) allInstances(
 	azureInstances := make([]*azureInstance, 0, len(*deploymentsResult.Value))
 	for _, deployment := range *deploymentsResult.Value {
 		name := to.String(deployment.Name)
+		if _, err := names.ParseMachineTag(name); err != nil {
+			// Deployments we create for Juju machines are named
+			// with the machine tag. We also create a "common"
+			// deployment, so this will exclude that VM and any
+			// other stray deployment resources.
+			continue
+		}
 		if deployment.Properties == nil || deployment.Properties.Dependencies == nil {
 			continue
 		}

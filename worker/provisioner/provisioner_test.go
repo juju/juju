@@ -469,16 +469,21 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
+	currentVersion := version.MustParseBinary("1.2.3-quantal-amd64")
 
-	// Set a current version that does not match the
-	// agent-version in the environ config.
-	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
+	// The current version is determined by the current model's agent
+	// version when locating tools to provision an added unit
+	attrs := map[string]interface{}{
+		config.AgentVersionKey: currentVersion.Number.String(),
+	}
+	err = s.State.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
 	s.PatchValue(&series.MustHostSeries, func() string { return currentVersion.Series })
-	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.
-	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")
+	compatibleVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	ignoreVersion1 := version.MustParseBinary("1.2.4-quantal-arm64")
 	ignoreVersion2 := version.MustParseBinary("1.2.3-precise-arm64")
 	availableVersions := []version.Binary{
@@ -1251,6 +1256,36 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 	// Everything must die!
 	s.checkStopSomeInstances(c, []instance.Instance{i0, i1}, []instance.Instance{})
 	s.waitForRemovalMark(c, m0)
+}
+
+func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
+
+	task := s.newProvisionerTask(c,
+		config.HarvestAll,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
+	defer stop(c, task)
+
+	// Create two machines, one with keep-instance=true.
+	m0, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	i0 := s.checkStartInstance(c, m0)
+	m1, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	i1 := s.checkStartInstance(c, m1)
+	err = m1.SetKeepInstance(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Mark them both as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+	c.Assert(m1.EnsureDead(), gc.IsNil)
+
+	// Only one of the machines is stopped.
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.waitForRemovalMark(c, m0)
+	s.waitForRemovalMark(c, m1)
 }
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {

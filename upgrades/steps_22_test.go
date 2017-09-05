@@ -77,9 +77,3 @@ func (s *steps22Suite) TestSplitLogStep(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
-
-func (s *steps22Suite) TestAddModelEnvironVersionStep(c *gc.C) {
-	step := findStateStep(c, v220, "add environ-version to model docs")
-	// Logic for step itself is tested in state package.
-	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
-}

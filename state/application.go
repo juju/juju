@@ -1343,7 +1343,7 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	docs := []unitDoc{}
 	err = unitsCollection.Find(bson.D{{"application", application}}).All(&docs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all units from application %q: %v", application, err)
+		return nil, errors.Annotatef(err, "cannot get all units from application %q", application)
 	}
 	for i := range docs {
 		units = append(units, newUnit(st, &docs[i]))
@@ -1642,8 +1642,16 @@ func (a *Application) Status() (status.StatusInfo, error) {
 			return status.StatusInfo{}, err
 		}
 		logger.Tracef("application %q has %d units", a.Name(), len(units))
-		if len(units) > 0 {
-			return a.deriveStatus(units)
+		var unitStatuses []status.StatusInfo
+		for _, unit := range units {
+			unitStatus, err := unit.Status()
+			if err != nil {
+				return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", unit.Name())
+			}
+			unitStatuses = append(unitStatuses, unitStatus)
+		}
+		if len(unitStatuses) > 0 {
+			return deriveApplicationStatus(unitStatuses), nil
 		}
 	}
 	return getStatus(a.st.db(), a.globalKey(), "application")
@@ -1698,14 +1706,10 @@ func (a *Application) ApplicationAndUnitsStatus() (status.StatusInfo, map[string
 
 }
 
-func (a *Application) deriveStatus(units []*Unit) (status.StatusInfo, error) {
+func deriveApplicationStatus(statuses []status.StatusInfo) status.StatusInfo {
 	var result status.StatusInfo
-	for _, unit := range units {
+	for _, unitStatus := range statuses {
 		currentSeverity := statusServerities[result.Status]
-		unitStatus, err := unit.Status()
-		if err != nil {
-			return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", unit.Name())
-		}
 		unitSeverity := statusServerities[unitStatus.Status]
 		if unitSeverity > currentSeverity {
 			result.Status = unitStatus.Status
@@ -1714,7 +1718,7 @@ func (a *Application) deriveStatus(units []*Unit) (status.StatusInfo, error) {
 			result.Since = unitStatus.Since
 		}
 	}
-	return result, nil
+	return result
 }
 
 // statusSeverities holds status values with a severity measure.

@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -587,6 +588,16 @@ func (m *Model) Status() (status.StatusInfo, error) {
 	return status, nil
 }
 
+// localID returns the local id value by stripping off the model uuid prefix
+// if it is there.
+func (m *Model) localID(ID string) string {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != m.doc.UUID {
+		return ID
+	}
+	return localID
+}
+
 // SetStatus sets the status of the model.
 func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 	if !status.ValidModelStatus(sInfo.Status) {
@@ -792,6 +803,25 @@ func (m *Model) refresh(query mongo.Query) error {
 	return err
 }
 
+// AllUnits returns all units for a model, for all applications.
+func (m *Model) AllUnits() ([]*Unit, error) {
+	db, closer := m.modelDatabase()
+	defer closer()
+	coll, closer := db.GetCollection(unitsC)
+	defer closer()
+
+	docs := []unitDoc{}
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all units for model")
+	}
+	var units []*Unit
+	for i := range docs {
+		units = append(units, newUnit(m.globalState, &docs[i]))
+	}
+	return units, nil
+}
+
 // Users returns a slice of all users for this model.
 func (m *Model) Users() ([]permission.UserAccess, error) {
 	db, dbCloser := m.modelDatabase()
@@ -833,6 +863,10 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 
 func (m *Model) isControllerModel() bool {
 	return m.globalState.controllerModelTag.Id() == m.doc.UUID
+}
+
+func (m *Model) uniqueIndexID() string {
+	return userModelNameIndex(m.doc.Owner, m.doc.Name)
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
@@ -898,7 +932,11 @@ var errModelNotAlive = errors.New("model is no longer alive")
 type hasHostedModelsError int
 
 func (e hasHostedModelsError) Error() string {
-	return fmt.Sprintf("hosting %d other models", e)
+	s := ""
+	if e != 1 {
+		s = "s"
+	}
+	return fmt.Sprintf("hosting %d other model"+s, e)
 }
 
 func IsHasHostedModelsError(err error) bool {
@@ -1004,18 +1042,25 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		{"life", nextLife},
 		{"time-of-dying", timeOfDying},
 	}
+	var ops []txn.Op
 	if nextLife == Dead {
 		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
 			"time-of-death", timeOfDying,
 		})
+		ops = append(ops, txn.Op{
+			// Cleanup the owner:envName unique key.
+			C:      usermodelnameC,
+			Id:     m.uniqueIndexID(),
+			Remove: true,
+		})
 	}
 
-	ops := []txn.Op{{
+	ops = append(ops, txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", modelUpdateValues}},
-	}}
+	})
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op
@@ -1046,6 +1091,47 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	return append(prereqOps, ops...), nil
 }
 
+type modelNotEmptyError struct {
+	machines     int
+	applications int
+	volumes      int
+	filesystems  int
+}
+
+// Error is part of the error interface.
+func (e modelNotEmptyError) Error() string {
+	msg := "model not empty, found "
+	plural := func(n int, thing string) string {
+		s := fmt.Sprintf("%d %s", n, thing)
+		if n != 1 {
+			s += "s"
+		}
+		return s
+	}
+	var contains []string
+	if n := e.machines; n > 0 {
+		contains = append(contains, plural(n, "machine"))
+	}
+	if n := e.applications; n > 0 {
+		contains = append(contains, plural(n, "application"))
+	}
+	if n := e.volumes; n > 0 {
+		contains = append(contains, plural(n, "volume"))
+	}
+	if n := e.filesystems; n > 0 {
+		contains = append(contains, plural(n, "filesystem"))
+	}
+	return msg + strings.Join(contains, ", ")
+}
+
+// IsModelNotEmptyError reports whether or not the given error was caused
+// due to an operation requiring a model to be empty, where the model is
+// non-empty.
+func IsModelNotEmptyError(err error) bool {
+	_, ok := errors.Cause(err).(modelNotEmptyError)
+	return ok
+}
+
 // checkEmpty checks that the machine is empty of any entities that may
 // require external resource cleanup. If the model is not empty, then
 // an error will be returned.
@@ -1060,25 +1146,17 @@ func (m *Model) checkEmpty() error {
 		}
 		return errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
-	// These errors could be potentially swallowed as we re-try to destroy model.
-	// Let's, at least, log them for observation.
-	if n := len(doc.Machines); n > 0 {
-		logger.Infof("model is still not empty, has machines: %v", doc.Machines)
-		return errors.Errorf("model not empty, found %d machine(s)", n)
+
+	err := modelNotEmptyError{
+		machines:     len(doc.Machines),
+		applications: len(doc.Applications),
+		volumes:      len(doc.Volumes),
+		filesystems:  len(doc.Filesystems),
 	}
-	if n := len(doc.Applications); n > 0 {
-		logger.Infof("model is still not empty, has applications: %v", doc.Applications)
-		return errors.Errorf("model not empty, found %d application(s)", n)
+	if err == (modelNotEmptyError{}) {
+		return nil
 	}
-	if n := len(doc.Volumes); n > 0 {
-		logger.Infof("model is still not empty, has volumes: %v", doc.Volumes)
-		return errors.Errorf("model not empty, found %d volume(s)", n)
-	}
-	if n := len(doc.Filesystems); n > 0 {
-		logger.Infof("model is still not empty, has file systems: %v", doc.Filesystems)
-		return errors.Errorf("model not empty, found %d filesystem(s)", n)
-	}
-	return nil
+	return err
 }
 
 func addModelMachineRefOp(st *State, machineId string) txn.Op {

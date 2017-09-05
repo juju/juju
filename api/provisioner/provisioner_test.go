@@ -357,6 +357,16 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	c.Assert(series, gc.Equals, "quantal")
 }
 
+func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
+	err := s.machine.SetKeepInstance(true)
+	c.Assert(err, jc.ErrorIsNil)
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
+	c.Assert(err, jc.ErrorIsNil)
+	keep, err := apiMachine.KeepInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keep, jc.IsTrue)
+}
+
 func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)

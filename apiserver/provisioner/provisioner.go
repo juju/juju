@@ -348,6 +348,33 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
+// KeepInstance returns the keep-instance value for each given machine entity.
+func (p *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResults, error) {
+	result := params.BoolResults{
+
+		Results: make([]params.BoolResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, tag)
+		if err == nil {
+			keep, err := machine.KeepInstance()
+			result.Results[i].Result = keep
+			result.Results[i].Error = common.ServerError(err)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // DistributionGroup returns, for each given machine entity,
 // a slice of instance.Ids that belong to the same distribution
 // group as that machine. This information may be used to

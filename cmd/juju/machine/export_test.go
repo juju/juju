@@ -6,6 +6,7 @@ package machine
 import (
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
 )
@@ -45,9 +46,10 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand returns an RemoveCommand with the api provided as specified.
-func NewRemoveCommandForTest(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
+func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
 	cmd := &removeCommand{
-		api: api,
+		apiRoot:    apiRoot,
+		machineAPI: machineAPI,
 	}
 	return modelcmd.Wrap(cmd), &RemoveCommand{cmd}
 }
