@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -470,10 +471,10 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 
 // SettingsAddress returns the address that should be set as
 // `private-address` in the settings for the this unit in the context
-// of this relation. Generally this will be the cloud-local address of
-// the unit, but if this is a cross-model relation then it will be the
-// public address. If this is cross-model and there's no public
-// address for the unit, return an error.
+// of this relation. Generally this will be the address of the unit in
+// the space for the default binding, but if this is a cross-model
+// relation then it will be the public address. If this is cross-model
+// and there's no public address for the unit, return an error.
 func (ru *RelationUnit) SettingsAddress() (network.Address, error) {
 	unit, err := ru.st.Unit(ru.unitName)
 	if err != nil {
@@ -482,7 +483,26 @@ func (ru *RelationUnit) SettingsAddress() (network.Address, error) {
 	if crossmodel, err := ru.relation.IsCrossModel(); err != nil {
 		return network.Address{}, errors.Trace(err)
 	} else if !crossmodel {
-		return unit.PrivateAddress()
+		space, err := unit.GetSpaceForBinding("")
+		if err != nil {
+			return network.Address{}, errors.Trace(err)
+		}
+		m, err := unit.machine()
+		if err != nil {
+			return network.Address{}, errors.Trace(err)
+		}
+		networkInfos := m.GetNetworkInfoForSpaces(set.NewStrings(space))
+		info, ok := networkInfos[space]
+		if !ok || len(info.NetworkInfos) == 0 || len(info.NetworkInfos[0].Addresses) == 0 {
+			privateAddress, err := unit.PrivateAddress()
+			if err == nil {
+				logger.Warningf("Can't find an address for default binding space %q, falling back to units' private address %q", space, privateAddress.String())
+			}
+			return privateAddress, err
+		}
+		boundAddress := network.NewAddress(info.NetworkInfos[0].Addresses[0].Address)
+		logger.Debugf("Found an address for a default binding for an app - %v", boundAddress.String())
+		return boundAddress, nil
 	}
 
 	address, err := unit.PublicAddress()
