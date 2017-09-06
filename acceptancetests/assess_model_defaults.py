@@ -82,7 +82,7 @@ def assess_model_defaults_no_region(client, model_key, value):
     default = client.get_model_defaults(model_key)[model_key]['default']
     assess_model_defaults_case(
         client, model_key, value,
-        assemble_model_default(model_key, default, str(value)))
+        assemble_model_default(model_key, default, value))
 
 
 def assess_model_defaults_region(client, model_key, value,
@@ -103,11 +103,11 @@ def assess_model_defaults(client, other_region):
     if region is not None:
         log.info('Checking region model-defaults.')
         assess_model_defaults_region(
-            client, 'default-series', 'trusty', region=region)
+            client, 'default-series', 'xenial', region=region)
     if other_region is not None:
         log.info('Checking other region model-defaults.')
         assess_model_defaults_region(
-            client, 'default-series', 'trusty', region=other_region)
+            client, 'default-series', 'xenial', region=other_region)
 
 
 def parse_args(argv):
