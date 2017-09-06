@@ -516,16 +516,18 @@ type mockRelation struct {
 	application.Relation
 	jtesting.Stub
 
-	tag    names.Tag
-	status status.Status
+	tag     names.Tag
+	status  status.Status
+	message string
 }
 
 func (r *mockRelation) Tag() names.Tag {
 	return r.tag
 }
 
-func (r *mockRelation) SetStatus(status status.Status) error {
-	r.status = status
+func (r *mockRelation) SetStatus(status status.StatusInfo) error {
+	r.status = status.Status
+	r.message = status.Message
 	return nil
 }
 

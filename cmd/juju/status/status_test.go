@@ -3604,7 +3604,11 @@ func (rs relateServices) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetStatus(status.Status(rs.status))
+	s := rs.status
+	if s == "" {
+		s = "joined"
+	}
+	err = rel.SetStatus(status.StatusInfo{Status: status.Status(s)})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

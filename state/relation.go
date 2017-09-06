@@ -37,14 +37,13 @@ func relationKey(endpoints []Endpoint) string {
 // relationDoc is the internal representation of a Relation in MongoDB.
 // Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
-	DocID     string        `bson:"_id"`
-	Key       string        `bson:"key"`
-	ModelUUID string        `bson:"model-uuid"`
-	Id        int           `bson:"id"`
-	Endpoints []Endpoint    `bson:"endpoints"`
-	Life      Life          `bson:"life"`
-	Status    status.Status `bson:"status"`
-	UnitCount int           `bson:"unitcount"`
+	DocID     string     `bson:"_id"`
+	Key       string     `bson:"key"`
+	ModelUUID string     `bson:"model-uuid"`
+	Id        int        `bson:"id"`
+	Endpoints []Endpoint `bson:"endpoints"`
+	Life      Life       `bson:"life"`
+	UnitCount int        `bson:"unitcount"`
 }
 
 // Relation represents a relation between one or two service endpoints.
@@ -99,24 +98,34 @@ func (r *Relation) Life() Life {
 	return r.doc.Life
 }
 
-// Status returns the relation's current status value.
-func (r *Relation) Status() status.Status {
-	return r.doc.Status
+// Status returns the relation's current status data.
+func (r *Relation) Status() (status.StatusInfo, error) {
+	rStatus, err := getStatus(r.st.db(), r.globalScope(), "relation")
+	if err != nil {
+		return rStatus, err
+	}
+	return rStatus, nil
 }
 
 // SetStatus sets the status of the relation.
-func (r *Relation) SetStatus(value status.Status) error {
-	ops := []txn.Op{{
-		C:      relationsC,
-		Id:     r.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"status", value}}}},
-	}}
-	if err := r.st.db().RunTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set Status of relation %v: %v", r, onAbort(err, ErrDead))
+func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
+	switch statusInfo.Status {
+	case status.Joined, status.Suspended, status.Broken:
+	case status.Error:
+		if statusInfo.Message == "" {
+			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
+		}
+	default:
+		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	r.doc.Status = value
-	return nil
+	return setStatus(r.st.db(), setStatusParams{
+		badge:     "relation",
+		globalKey: r.globalScope(),
+		status:    statusInfo.Status,
+		message:   statusInfo.Message,
+		rawData:   statusInfo.Data,
+		updated:   timeOrNow(statusInfo.Since, r.st.clock()),
+	})
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units
@@ -219,6 +228,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 			ops = append(ops, epOps...)
 		}
 	}
+	ops = append(ops, removeStatusOp(r.st, r.globalScope()))
 	ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
 	re := r.st.RemoteEntities()
 	tokenOps := re.removeRemoteEntityOps(r.Tag())
@@ -436,7 +446,11 @@ func (r *Relation) unit(
 // globalScope returns the scope prefix for relation scope document keys
 // in the global scope.
 func (r *Relation) globalScope() string {
-	return fmt.Sprintf("r#%d", r.doc.Id)
+	return relationGlobalScope(r.doc.Id)
+}
+
+func relationGlobalScope(id int) string {
+	return fmt.Sprintf("r#%d", id)
 }
 
 // relationSettingsCleanupChange removes the settings doc.

@@ -62,12 +62,12 @@ type ApplicationOfferDetails struct {
 
 // OfferConnection holds details about a connection to an offer.
 type OfferConnection struct {
-	SourceModelTag string   `json:"source-model-tag"`
-	RelationId     int      `json:"relation-id"`
-	Username       string   `json:"username"`
-	Endpoint       string   `json:"endpoint"`
-	Status         string   `json:"status"`
-	IngressSubnets []string `json:"ingress-subnets"`
+	SourceModelTag string       `json:"source-model-tag"`
+	RelationId     int          `json:"relation-id"`
+	Username       string       `json:"username"`
+	Endpoint       string       `json:"endpoint"`
+	Status         EntityStatus `json:"status"`
+	IngressSubnets []string     `json:"ingress-subnets"`
 }
 
 // ListApplicationOffersResults is a result of listing application offers.
@@ -326,6 +326,9 @@ type RemoteRelationChangeEvent struct {
 	// Status is the current status of the relation.
 	Status RelationStatusValue `json:"status"`
 
+	// StatusMessage is the status message for the relation.
+	StatusMessage string `json:"status-message"`
+
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
@@ -347,6 +350,9 @@ type RelationStatusChange struct {
 
 	// Status is the status of the relation.
 	Status RelationStatusValue `json:"status"`
+
+	// StatusMessage is the status message.
+	StatusMessage string `json:"status-message"`
 }
 
 // RelationStatusWatchResult holds a RelationStatusWatcher id, baseline state

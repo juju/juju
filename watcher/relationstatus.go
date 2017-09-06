@@ -13,8 +13,11 @@ type RelationStatusChange struct {
 	// Key is the relation key of the changed relation.
 	Key string
 
-	// Status is the status of the relation, eg Active.
+	// Status is the status of the relation, eg joined.
 	Status relation.Status
+
+	// StatusMessage is the status message.
+	StatusMessage string
 
 	// Life is the relation life value, eg Alive.
 	Life life.Value

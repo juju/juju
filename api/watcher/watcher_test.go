@@ -329,6 +329,7 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 			c.Assert(changes, gc.HasLen, 1)
 			c.Check(changes[0].Life, gc.Equals, life)
 			c.Check(changes[0].Status, gc.Equals, status)
+			c.Check(changes[0].StatusMessage, gc.Equals, "")
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}

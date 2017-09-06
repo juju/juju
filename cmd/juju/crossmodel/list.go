@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -12,6 +13,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient"
@@ -206,18 +208,24 @@ type ListOfferItem struct {
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 
 	// Connections holds details of connections to the offer.
-	Connections []offerConnectionStatus `yaml:"connections,omitempty" json:"connections,omitempty"`
+	Connections []offerConnectionDetails `yaml:"connections,omitempty" json:"connections,omitempty"`
 }
 
 type offeredApplications map[string]ListOfferItem
 
 type offerConnectionStatus struct {
-	SourceModelUUID string   `json:"source-model-uuid" yaml:"source-model-uuid"`
-	Username        string   `json:"username" yaml:"username"`
-	RelationId      int      `json:"relation-id" yaml:"relation-id"`
-	Endpoint        string   `json:"endpoint" yaml:"endpoint"`
-	Status          string   `json:"status" yaml:"status"`
-	IngressSubnets  []string `json:"ingress-subnets,omitempty" yaml:"ingress-subnets,omitempty"`
+	Current string `json:"current" yaml:"current"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Since   string `json:"since,omitempty" yaml:"since,omitempty"`
+}
+
+type offerConnectionDetails struct {
+	SourceModelUUID string                `json:"source-model-uuid" yaml:"source-model-uuid"`
+	Username        string                `json:"username" yaml:"username"`
+	RelationId      int                   `json:"relation-id" yaml:"relation-id"`
+	Endpoint        string                `json:"endpoint" yaml:"endpoint"`
+	Status          offerConnectionStatus `json:"status" yaml:"status"`
+	IngressSubnets  []string              `json:"ingress-subnets,omitempty" yaml:"ingress-subnets,omitempty"`
 }
 
 func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
@@ -247,16 +255,27 @@ func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.App
 		Endpoints:       convertCharmEndpoints(offer.Endpoints...),
 	}
 	for _, conn := range offer.Connections {
-		item.Connections = append(item.Connections, offerConnectionStatus{
+		item.Connections = append(item.Connections, offerConnectionDetails{
 			SourceModelUUID: conn.SourceModelUUID,
 			Username:        conn.Username,
 			RelationId:      conn.RelationId,
 			Endpoint:        conn.Endpoint,
-			Status:          conn.Status,
-			IngressSubnets:  conn.IngressSubnets,
+			Status: offerConnectionStatus{
+				Current: conn.Status,
+				Message: conn.Message,
+				Since:   friendlyDuration(conn.Since),
+			},
+			IngressSubnets: conn.IngressSubnets,
 		})
 	}
 	return item
+}
+
+func friendlyDuration(when *time.Time) string {
+	if when == nil {
+		return ""
+	}
+	return common.UserFriendlyDuration(*when, time.Now())
 }
 
 // convertCharmEndpoints takes any number of charm relations and

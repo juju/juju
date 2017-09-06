@@ -692,6 +692,10 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
+	relStatus, err := rels[0].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Joined)
+
 	ru, err = rels[0].Unit(units[0])
 	c.Assert(err, jc.ErrorIsNil)
 

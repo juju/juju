@@ -257,8 +257,8 @@ type mockRelation struct {
 	endpoint state.Endpoint
 }
 
-func (m *mockRelation) Status() status.Status {
-	return status.Joined
+func (m *mockRelation) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.Joined}, nil
 }
 
 func (m *mockRelation) Endpoint(appName string) (state.Endpoint, error) {

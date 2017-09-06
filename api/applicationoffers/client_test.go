@@ -5,6 +5,7 @@ package applicationoffers_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -109,6 +110,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	}
 
 	called := false
+	since := time.Now()
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -145,7 +147,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 					CharmURL:         "cs:db2-5",
 					Connections: []params.OfferConnection{
 						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
-							Endpoint: "db", Status: "active",
+							Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
 							IngressSubnets: []string{"10.0.0.0/8"},
 						},
 					},
@@ -167,7 +169,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			CharmURL:        "cs:db2-5",
 			Connections: []jujucrossmodel.OfferConnection{
 				{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3,
-					Endpoint: "db", Status: "active",
+					Endpoint: "db", Status: "joined", Message: "message", Since: &since,
 					IngressSubnets: []string{"10.0.0.0/8"},
 				},
 			},

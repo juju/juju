@@ -613,6 +613,10 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+
+	// Make sure there is a status.
+	status := exRel.Status()
+	c.Check(status.Value(), gc.Equals, "joined")
 }
 
 func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {

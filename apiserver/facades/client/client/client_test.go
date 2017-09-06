@@ -465,6 +465,10 @@ func clearSinceTimes(status *params.FullStatus) {
 		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
 	}
+	for id, rel := range status.Relations {
+		rel.Status.Since = nil
+		status.Relations[id] = rel
+	}
 	status.Model.ModelStatus.Since = nil
 }
 

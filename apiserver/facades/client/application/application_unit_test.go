@@ -411,11 +411,13 @@ func (s *ApplicationSuite) TestSetRelationStatus(c *gc.C) {
 		Args: []params.RelationStatusArg{{
 			RelationId: 123,
 			Status:     params.Joined,
+			Message:    "a message",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 	c.Assert(s.relation.status, gc.Equals, status.Joined)
+	c.Assert(s.relation.message, gc.Equals, "a message")
 }
 
 func (s *ApplicationSuite) TestSetNonOfferRelationStatus(c *gc.C) {

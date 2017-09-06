@@ -170,7 +170,7 @@ type RelationStatus struct {
 	Interface string           `json:"interface"`
 	Scope     string           `json:"scope"`
 	Endpoints []EndpointStatus `json:"endpoints"`
-	Status    string           `json:"status"`
+	Status    DetailedStatus   `json:"status"`
 }
 
 // EndpointStatus holds status info about a single endpoint.

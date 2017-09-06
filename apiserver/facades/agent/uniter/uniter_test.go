@@ -276,7 +276,9 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Life(), gc.Equals, state.Alive)
-	c.Assert(rel.Status(), gc.Equals, status.Joined)
+	relStatus, err := rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Joined)
 
 	// Make the wordpressUnit dead.
 	err = s.wordpressUnit.EnsureDead()
@@ -1675,6 +1677,8 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	}}
 	result, err := s.uniter.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1682,7 +1686,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 				Id:     rel.Id(),
 				Key:    rel.String(),
 				Life:   params.Life(rel.Life().String()),
-				Status: params.RelationStatusValue(rel.Status()),
+				Status: params.RelationStatusValue(relStatus.Status),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
@@ -1714,6 +1718,8 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 	}
 	result, err := s.uniter.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1721,7 +1727,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 				Id:     rel.Id(),
 				Key:    rel.String(),
 				Life:   params.Life(rel.Life().String()),
-				Status: params.RelationStatusValue(rel.Status()),
+				Status: params.RelationStatusValue(relStatus.Status),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),

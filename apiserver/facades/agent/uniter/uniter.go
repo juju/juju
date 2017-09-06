@@ -1458,11 +1458,15 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 	for _, otherEp := range otherEndpoints {
 		otherAppName = otherEp.ApplicationName
 	}
+	relStatus, err := rel.Status()
+	if err != nil {
+		return nothing, err
+	}
 	return params.RelationResult{
 		Id:     rel.Id(),
 		Key:    rel.String(),
 		Life:   params.Life(rel.Life().String()),
-		Status: params.RelationStatusValue(rel.Status()),
+		Status: params.RelationStatusValue(relStatus.Status),
 		Endpoint: multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
 			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
