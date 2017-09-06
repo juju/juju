@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -640,7 +641,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--bundle-config", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: open .*missing-file: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: "+missingFileRegex("missing-file"))
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleConfig(c *gc.C) {
@@ -1473,7 +1474,7 @@ func (*ProcessIncludesSuite) TestMissingFile(c *gc.C) {
 	value := "include-file://simple"
 	result, changed, err := processValue("", value)
 
-	c.Check(err, gc.ErrorMatches, "unable to read file: open simple: no such file or directory")
+	c.Check(err, gc.ErrorMatches, "unable to read file: "+missingFileRegex("simple"))
 	c.Check(changed, jc.IsFalse)
 	c.Check(result, gc.IsNil)
 }
@@ -1655,7 +1656,7 @@ func (s *ProcessBundleConfigSuite) TestNoFile(c *gc.C) {
 
 func (s *ProcessBundleConfigSuite) TestBadFile(c *gc.C) {
 	err := processBundleConfig(s.bundleData, "bad")
-	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: open .*bad: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: "+missingFileRegex("bad"))
 }
 
 func (s *ProcessBundleConfigSuite) TestGoodYAML(c *gc.C) {
@@ -1774,4 +1775,12 @@ func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
 		"disk": "big"})
 	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
 		"where": "dmz"})
+}
+
+func missingFileRegex(filename string) string {
+	text := "no such file or directory"
+	if runtime.GOOS == "windows" {
+		text = "The system cannot find the file specified."
+	}
+	return fmt.Sprintf("open .*%s: %s", filename, text)
 }
