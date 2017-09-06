@@ -459,7 +459,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	}
 
 	update := false
-	requiredDNSNames := []string{"local", "juju-apiserver", "juju-mongodb"}
+	requiredDNSNames := []string{"localhost", "juju-apiserver", "juju-mongodb"}
 	for _, dnsName := range requiredDNSNames {
 		if dnsNames.Contains(dnsName) {
 			continue
