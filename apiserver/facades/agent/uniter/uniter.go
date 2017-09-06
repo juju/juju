@@ -1015,10 +1015,16 @@ func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResult
 	return result, nil
 }
 
-// JoinedRelations returns the tags of all relations for which each supplied unit
-// has entered scope. It should be called RelationsInScope, but it's not convenient
-// to make that change until we have versioned APIs.
-func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults, error) {
+// RelationsInScopeOrSuspended returns the tags of all relations for which each supplied unit
+// has entered scope.
+// TODO(wallyworld) - this API is replaced by RelationsInScopeOrSuspended
+func (u *UniterAPIV6) JoinedRelations(args params.Entities) (params.StringsResults, error) {
+	return u.UniterAPI.RelationsInScopeOrSuspended(args)
+}
+
+// RelationsInScopeOrSuspended returns the tags of all relations for which each supplied unit
+// has entered scope, or the relation is suspended.
+func (u *UniterAPI) RelationsInScopeOrSuspended(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
@@ -1040,7 +1046,7 @@ func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				result.Results[i].Result, err = relationsInScopeTags(unit)
+				result.Results[i].Result, err = relationsInScopeOrSuspendedTags(unit)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -1596,8 +1602,8 @@ func convertRelationSettings(settings map[string]interface{}) (params.Settings, 
 	return result, nil
 }
 
-func relationsInScopeTags(unit *state.Unit) ([]string, error) {
-	relations, err := unit.RelationsInScope()
+func relationsInScopeOrSuspendedTags(unit *state.Unit) ([]string, error) {
+	relations, err := unit.RelationsInScopeOrSuspended()
 	if err != nil {
 		return nil, err
 	}

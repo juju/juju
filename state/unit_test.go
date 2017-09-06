@@ -1513,17 +1513,24 @@ func (s *UnitSuite) TestRelations(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		assertEquals(actual, expect)
 	}
-	assertRelationsInScope := func(unit *state.Unit, expect ...*state.Relation) {
-		actual, err := unit.RelationsInScope()
+	assertRelationsInScopeOrSuspended := func(unit *state.Unit, expect ...*state.Relation) {
+		actual, err := unit.RelationsInScopeOrSuspended()
 		c.Assert(err, jc.ErrorIsNil)
 		assertEquals(actual, expect)
 	}
 	assertRelations := func(unit *state.Unit, expect ...*state.Relation) {
-		assertRelationsInScope(unit, expect...)
+		assertRelationsInScopeOrSuspended(unit, expect...)
 		assertRelationsJoined(unit, expect...)
 	}
 	assertRelations(wordpress0)
 	assertRelations(mysql0)
+
+	err = rel.SetStatus(status.StatusInfo{Status: status.Suspended})
+	c.Assert(err, jc.ErrorIsNil)
+	assertRelationsJoined(mysql0)
+	assertRelationsInScopeOrSuspended(mysql0, rel)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
+	c.Assert(err, jc.ErrorIsNil)
 
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1542,7 +1549,7 @@ func (s *UnitSuite) TestRelations(c *gc.C) {
 	err = mysql0ru.PrepareLeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	assertRelations(wordpress0, rel)
-	assertRelationsInScope(mysql0, rel)
+	assertRelationsInScopeOrSuspended(mysql0, rel)
 	assertRelationsJoined(mysql0)
 }
 

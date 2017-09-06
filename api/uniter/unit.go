@@ -644,13 +644,14 @@ func (u *Unit) RequestReboot() error {
 	return result.OneError()
 }
 
-// JoinedRelations returns the tags of the relations the unit has joined.
-func (u *Unit) JoinedRelations() ([]names.RelationTag, error) {
+// RelationsInScopeOrSuspended returns the tags of the relations the unit has joined
+// and entered scope, or the relation is suspended.
+func (u *Unit) RelationsInScopeOrSuspended() ([]names.RelationTag, error) {
 	var results params.StringsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("JoinedRelations", args, &results)
+	err := u.st.facade.FacadeCall("RelationsInScopeOrSuspended", args, &results)
 	if err != nil {
 		return nil, err
 	}

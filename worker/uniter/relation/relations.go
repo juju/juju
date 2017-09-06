@@ -112,19 +112,19 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 // the corresponding relations. It's only expected to be called while a
 // *relations is being created.
 func (r *relations) init() error {
-	joinedRelationTags, err := r.unit.JoinedRelations()
+	activeRelationTags, err := r.unit.RelationsInScopeOrSuspended()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
-	joinedRelations := make(map[int]*uniter.Relation)
-	for _, tag := range joinedRelationTags {
+	activeRelations := make(map[int]*uniter.Relation)
+	for _, tag := range activeRelationTags {
 		relation, err := r.st.Relation(tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		joinedRelations[relation.Id()] = relation
+		activeRelations[relation.Id()] = relation
 		orderedIds = append(orderedIds, relation.Id())
 	}
 	knownDirs, err := ReadAllStateDirs(r.relationsDir)
@@ -132,7 +132,7 @@ func (r *relations) init() error {
 		return errors.Trace(err)
 	}
 	for id, dir := range knownDirs {
-		if rel, ok := joinedRelations[id]; ok {
+		if rel, ok := activeRelations[id]; ok {
 			if err := r.add(rel, dir); err != nil {
 				return errors.Trace(err)
 			}
@@ -141,7 +141,7 @@ func (r *relations) init() error {
 		}
 	}
 	for _, id := range orderedIds {
-		rel := joinedRelations[id]
+		rel := activeRelations[id]
 		if _, ok := knownDirs[id]; ok {
 			continue
 		}
