@@ -31,6 +31,8 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+//go:generate go run ../../../../generate/filetoconst/filetoconst.go UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient
+
 // CreateVirtualMachineParams contains the parameters required for creating
 // a new virtual machine.
 type CreateVirtualMachineParams struct {
@@ -42,11 +44,8 @@ type CreateVirtualMachineParams struct {
 	// in which to create the VM.
 	Folder string
 
-	// OVAContentsDir is the directory containing the extracted OVA contents.
-	OVADir string
-
-	// OVF contains the OVF content.
-	OVF string
+	// VMDK is the URL to the VMDK to use.
+	//VMDK *url.URL
 
 	// UserData is the cloud-init user-data.
 	UserData string
@@ -90,6 +89,7 @@ type CreateVirtualMachineParams struct {
 
 // CreateVirtualMachine creates and powers on a new VM.
 //
+// TODO(axw) revise below
 // This method imports an OVF template using the vSphere API. This process
 // comprises the following steps:
 //   1. Download the OVA archive, extract it, and load the OVF file contained
@@ -114,12 +114,6 @@ func (c *Client) CreateVirtualMachine(
 	args CreateVirtualMachineParams,
 ) (*mo.VirtualMachine, error) {
 
-	args.UpdateProgress("creating import spec")
-	spec, err := c.createImportSpec(ctx, args)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating import spec")
-	}
-
 	// Locate the folder in which to create the VM.
 	finder, datacenter, err := c.finder(ctx)
 	if err != nil {
@@ -135,7 +129,20 @@ func (c *Client) CreateVirtualMachine(
 		return nil, errors.Trace(err)
 	}
 
+	// Select the datastore.
+	datastoreMo, err := c.selectDatastore(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	datastore := object.NewDatastore(c.client.Client, datastoreMo.Reference())
+	datastore.SetInventoryPath(path.Join(folders.DatastoreFolder.InventoryPath, datastoreMo.Name))
+
 	// Import the VApp.
+	args.UpdateProgress("creating import spec")
+	spec, err := c.createImportSpec(ctx, args, datastore)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating import spec")
+	}
 	args.UpdateProgress(fmt.Sprintf("creating VM %q", args.Name))
 	c.logger.Debugf("creating VM in folder %s", vmFolder)
 	rp := object.NewResourcePool(c.client.Client, *args.ComputeResource.ResourcePool)
@@ -143,57 +150,9 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to import vapp")
 	}
-
-	// Upload the VMDK.
-	info, err := lease.Wait(ctx, spec.FileItem)
+	info, err := lease.Wait(ctx, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	type uploadItem struct {
-		item types.OvfFileItem
-		url  *url.URL
-	}
-	var uploadItems []uploadItem
-	for _, device := range info.DeviceUrl {
-		for _, item := range spec.FileItem {
-			if device.ImportKey != item.DeviceId {
-				continue
-			}
-			u, err := c.client.Client.ParseURL(device.Url)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			uploadItems = append(uploadItems, uploadItem{
-				item: item,
-				url:  u,
-			})
-		}
-	}
-	leaseUpdaterContext := leaseUpdaterContext{lease: lease}
-	for _, item := range uploadItems {
-		leaseUpdaterContext.total += item.item.Size
-	}
-	for _, item := range uploadItems {
-		leaseUpdaterContext.size = item.item.Size
-		if err := uploadImage(
-			ctx,
-			c.client.Client,
-			item.item,
-			args.OVADir,
-			item.url,
-			args.UpdateProgress,
-			args.UpdateProgressInterval,
-			leaseUpdaterContext,
-			args.Clock,
-			c.logger,
-		); err != nil {
-			return nil, errors.Annotatef(
-				err, "uploading %s to %s",
-				filepath.Base(item.item.Path),
-				item.url,
-			)
-		}
-		leaseUpdaterContext.start += leaseUpdaterContext.size
 	}
 	if err := lease.Complete(ctx); err != nil {
 		return nil, errors.Trace(err)
@@ -220,6 +179,7 @@ func (c *Client) CreateVirtualMachine(
 func (c *Client) createImportSpec(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
+	datastore *object.Datastore,
 ) (*types.OvfCreateImportSpecResult, error) {
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: args.Name,
@@ -256,12 +216,8 @@ func (c *Client) createImportSpec(
 
 	ovfManager := ovf.NewManager(c.client.Client)
 	resourcePool := object.NewReference(c.client.Client, *args.ComputeResource.ResourcePool)
-	datastore, err := c.selectDatastore(ctx, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	spec, err := ovfManager.CreateImportSpec(ctx, args.OVF, resourcePool, datastore, cisp)
+	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, resourcePool, datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if spec.Error != nil {
@@ -283,30 +239,12 @@ func (c *Client) createImportSpec(
 			Reservation: cpuPower,
 		}
 	}
-	for _, d := range s.DeviceChange {
-		disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk)
-		if !ok {
-			continue
-		}
-		var rootDisk int64
-		if args.Constraints.RootDisk != nil {
-			rootDisk = int64(*args.Constraints.RootDisk) * 1024
-		}
-		if disk.CapacityInKB < rootDisk {
-			disk.CapacityInKB = rootDisk
-		}
-		// Set UnitNumber to -1 if it is unset in ovf file template
-		// (in this case it is parses as 0), because 0 causes an error
-		// for disk devices.
-		var unitNumber int32
-		if disk.UnitNumber != nil {
-			unitNumber = *disk.UnitNumber
-		}
-		if unitNumber == 0 {
-			unitNumber = -1
-			disk.UnitNumber = &unitNumber
-		}
+	if err := c.addRootDisk(s, args, datastore); err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	// We don't upload the VMDK, so clear out the file items.
+	spec.FileItem = nil
 
 	// Apply metadata. Note that we do not have the ability set create or
 	// apply tags that will show up in vCenter, as that requires a separate
@@ -329,10 +267,58 @@ func (c *Client) createImportSpec(
 	return spec, nil
 }
 
+func (c *Client) addRootDisk(
+	s *types.VirtualMachineConfigSpec,
+	args CreateVirtualMachineParams,
+	diskDatastore *object.Datastore,
+) error {
+	// TODO(axw)
+	vmdkName := "ubuntu-16.04-server-cloudimg-amd64-disk1.vmdk"
+	vmdkPath := diskDatastore.Path(vmdkName)
+	ds := diskDatastore.Reference()
+
+	for _, d := range s.DeviceChange {
+		deviceConfigSpec := d.GetVirtualDeviceConfigSpec()
+		existingDisk, ok := deviceConfigSpec.Device.(*types.VirtualDisk)
+		if !ok {
+			continue
+		}
+		// Create a linked disk to avoid copying the VMDK for each VM.
+		parentDisk := &types.VirtualDisk{
+			VirtualDevice: types.VirtualDevice{
+				Key:           existingDisk.VirtualDevice.Key,
+				ControllerKey: existingDisk.VirtualDevice.ControllerKey,
+				UnitNumber:    existingDisk.VirtualDevice.UnitNumber,
+				Backing: &types.VirtualDiskFlatVer2BackingInfo{
+					DiskMode:        string(types.VirtualDiskModePersistent),
+					ThinProvisioned: types.NewBool(true),
+					VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{
+						FileName:  vmdkPath,
+						Datastore: &ds,
+					},
+				},
+			},
+		}
+		var l object.VirtualDeviceList
+		disk := l.ChildDisk(parentDisk)
+		// TODO(axw) override root disk size. We need to
+		// fetch the size of the existing disk first.
+		//var rootDiskKB int64
+		//if args.Constraints.RootDisk != nil {
+		//	rootDiskKB = int64(*args.Constraints.RootDisk) * 1024
+		//}
+		//if disk.CapacityInKB < rootDiskKB {
+		//	disk.CapacityInKB = rootDiskKB
+		//}
+		deviceConfigSpec.Device = disk
+	}
+	return nil
+}
+
 func (c *Client) selectDatastore(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
-) (*object.Datastore, error) {
+) (*mo.Datastore, error) {
 	// Select a datastore. If the user specified one, use that; otherwise
 	// choose the first one in the list that is accessible.
 	refs := make([]types.ManagedObjectReference, len(args.ComputeResource.Datastore))
@@ -346,7 +332,7 @@ func (c *Client) selectDatastore(
 	if args.Datastore != "" {
 		for _, ds := range datastores {
 			if ds.Name == args.Datastore {
-				return object.NewDatastore(c.client.Client, ds.Reference()), nil
+				return &ds, nil
 			}
 		}
 		return nil, errors.Errorf("could not find datastore %q", args.Datastore)
@@ -354,7 +340,7 @@ func (c *Client) selectDatastore(
 	for _, ds := range datastores {
 		if ds.Summary.Accessible {
 			c.logger.Debugf("using datastore %q", ds.Name)
-			return object.NewDatastore(c.client.Client, ds.Reference()), nil
+			return &ds, nil
 		}
 	}
 	return nil, errors.New("could not find an accessible datastore")
