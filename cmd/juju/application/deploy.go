@@ -38,6 +38,10 @@ import (
 
 var planURL = "https://api.jujucharms.com/omnibus/v2"
 
+// machinesMap stores map from logical machines to existing machines
+var machinesMap map[string]string
+var machinesProvided map[string]bool
+
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm) (*charm.URL, error)
 	AddCharm(*charm.URL, params.Channel) error
@@ -276,6 +280,7 @@ type DeployCommand struct {
 	ConstraintsStr  string
 	Constraints     constraints.Value
 	BindToSpaces    string
+	MachinesMapStr  string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -451,7 +456,7 @@ var (
 		"bind", "config", "constraints", "force", "n", "num-units",
 		"series", "to", "resource", "attach-storage",
 	}
-	bundleOnlyFlags = []string{"bundle-config"}
+	bundleOnlyFlags = []string{"bundle-config", "machines"}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -469,6 +474,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
+	f.StringVar(&c.MachinesMapStr, "machines", "", "Map logical machines to existing machines (pre-created)")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -496,6 +502,9 @@ func (c *DeployCommand) Init(args []string) error {
 	}
 
 	if err := c.parseBind(); err != nil {
+		return err
+	}
+	if err := c.parseMachines(); err != nil {
 		return err
 	}
 	return c.UnitCommandBase.Init(args)
@@ -714,6 +723,43 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return block.ProcessBlockedError(deploy(ctx, apiRoot), block.BlockChange)
+}
+
+const parseMachinesErrorPrefix = "--machines must be in the form '<logical-name>=<target-name> ...'. "
+
+// parseMachines parses the --machines option. Valid forms are:
+//   e.g. "dbserver=0 webserver=1"
+func (c *DeployCommand) parseMachines() error {
+	mapping := make(map[string]string)
+	if c.MachinesMapStr == "" {
+		return nil
+	}
+
+	for _, s := range strings.Split(c.MachinesMapStr, " ") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+
+		v := strings.Split(s, "=")
+		var lmachine, tmachine string
+		switch len(v) {
+		case 1:
+			return errors.New(parseMachinesErrorPrefix)
+		case 2:
+			if v[0] == "" {
+				return errors.New(parseMachinesErrorPrefix + "Found = without target machine name.")
+			}
+			lmachine = v[0]
+			tmachine = v[1]
+		default:
+			return errors.New(parseMachinesErrorPrefix + "Found multiple = in binding. Did you forget to space-separate the binding list?")
+		}
+		mapping[lmachine] = tmachine
+       }
+	machinesMap = mapping
+	machinesProvided = make(map[string]bool)
+	return nil
 }
 
 func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {
