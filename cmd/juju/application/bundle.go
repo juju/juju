@@ -472,7 +472,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 	for _, application := range services {
 		for _, toMach := range h.data.Applications[application].To {
 			if targetMach, ok := machinesMap[toMach]; ok {
-				if ! machinesProvided[targetMach] {
+				if !machinesProvided[targetMach] {
 					h.results[id] = targetMach
 					machinesProvided[targetMach] = true
 					msg = application

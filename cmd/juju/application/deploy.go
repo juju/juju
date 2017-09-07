@@ -756,7 +756,7 @@ func (c *DeployCommand) parseMachines() error {
 			return errors.New(parseMachinesErrorPrefix + "Found multiple = in binding. Did you forget to space-separate the binding list?")
 		}
 		mapping[lmachine] = tmachine
-       }
+	}
 	machinesMap = mapping
 	machinesProvided = make(map[string]bool)
 	return nil
