@@ -144,6 +144,8 @@ func (r *relations) init() error {
 			}
 		} else {
 			switch relationStatusValues[id] {
+			// Relations which are not broken, eg just suspended or in error, may
+			// become active again so we keep the local state.
 			case relation.Joined, relation.Suspended, relation.Error:
 			default:
 				if err := dir.Remove(); err != nil {

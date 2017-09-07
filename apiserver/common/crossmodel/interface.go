@@ -110,9 +110,9 @@ type Relation interface {
 	// specified application in the relation.
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 
-	// WatchStatus returns a watcher that notifies of changes to the life
+	// WatchLifeStatus returns a watcher that notifies of changes to the life
 	// or status of the relation.
-	WatchStatus() state.StringsWatcher
+	WatchLifeStatus() state.StringsWatcher
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,

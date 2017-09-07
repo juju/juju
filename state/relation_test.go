@@ -491,7 +491,7 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchStatus()
+	w := rel.WatchLifeStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	// Initial event.
@@ -518,7 +518,7 @@ func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchStatus()
+	w := rel.WatchLifeStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(rel.Tag().Id())
