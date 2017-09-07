@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -112,18 +113,23 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 // the corresponding relations. It's only expected to be called while a
 // *relations is being created.
 func (r *relations) init() error {
-	activeRelationTags, err := r.unit.RelationsInScopeOrSuspended()
+	relationStatus, err := r.unit.RelationsStatus()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
 	activeRelations := make(map[int]*uniter.Relation)
-	for _, tag := range activeRelationTags {
-		relation, err := r.st.Relation(tag)
+	relationStatusValues := make(map[int]relation.Status)
+	for _, rs := range relationStatus {
+		if !rs.InScope {
+			continue
+		}
+		relation, err := r.st.Relation(rs.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		relationStatusValues[relation.Id()] = rs.Status
 		activeRelations[relation.Id()] = relation
 		orderedIds = append(orderedIds, relation.Id())
 	}
@@ -136,8 +142,14 @@ func (r *relations) init() error {
 			if err := r.add(rel, dir); err != nil {
 				return errors.Trace(err)
 			}
-		} else if err := dir.Remove(); err != nil {
-			return errors.Trace(err)
+		} else {
+			switch relationStatusValues[id] {
+			case relation.Joined, relation.Suspended, relation.Error:
+			default:
+				if err := dir.Remove(); err != nil {
+					return errors.Trace(err)
+				}
+			}
 		}
 	}
 	for _, id := range orderedIds {

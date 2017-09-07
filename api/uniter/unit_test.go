@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -658,25 +659,32 @@ func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {
 	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressApplication.Tag())
 }
 
-func (s *unitSuite) TestRelationsInScopeOrSuspended(c *gc.C) {
-	activeRelations, err := s.apiUnit.RelationsInScopeOrSuspended()
+func (s *unitSuite) TestRelationStatus(c *gc.C) {
+	relationStatus, err := s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeRelations, gc.HasLen, 0)
+	c.Assert(relationStatus, gc.HasLen, 0)
 
 	rel1, _, _ := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
-	activeRelations, err = s.apiUnit.RelationsInScopeOrSuspended()
+	relationStatus, err = s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeRelations, gc.DeepEquals, []names.RelationTag{
-		rel1.Tag().(names.RelationTag),
-	})
+	c.Assert(relationStatus, gc.DeepEquals, []uniter.RelationStatus{{
+		Tag:     rel1.Tag().(names.RelationTag),
+		InScope: true,
+		Status:  relation.Joined,
+	}})
 
 	rel2 := s.addRelationSuspended(c, "wordpress", "logging", s.wordpressUnit)
-	activeRelations, err = s.apiUnit.RelationsInScopeOrSuspended()
+	relationStatus, err = s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeRelations, jc.SameContents, []names.RelationTag{
-		rel1.Tag().(names.RelationTag),
-		rel2.Tag().(names.RelationTag),
-	})
+	c.Assert(relationStatus, jc.SameContents, []uniter.RelationStatus{{
+		Tag:     rel1.Tag().(names.RelationTag),
+		InScope: true,
+		Status:  relation.Joined,
+	}, {
+		Tag:     rel2.Tag().(names.RelationTag),
+		InScope: false,
+		Status:  relation.Suspended,
+	}})
 }
 
 func (s *unitSuite) TestWatchAddresses(c *gc.C) {

@@ -584,6 +584,27 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult `json:"results"`
 }
 
+// RelationUnitStatusResult holds details about scope and status
+// for a relation unit.
+type RelationUnitStatus struct {
+	RelationTag string              `json:"relation-tag"`
+	InScope     bool                `json:"in-scope"`
+	Status      RelationStatusValue `json:"status"`
+}
+
+// RelationUnitStatusResult holds details about scope and status for
+// relation units, and an error.
+type RelationUnitStatusResult struct {
+	RelationResults []RelationUnitStatus `json:"results"`
+	Error           *Error               `json:"error,omitempty"`
+}
+
+// RelationUnitStatusResults holds the results of a
+// uniter RelationStatus API call.
+type RelationUnitStatusResults struct {
+	Results []RelationUnitStatusResult `json:"results"`
+}
+
 // MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
 // changes and an error (if any).
 type MachineStorageIdsWatchResult struct {

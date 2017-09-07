@@ -1933,7 +1933,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, settings)
 }
 
-func (s *uniterSuite) TestRelationsInScopeOrSuspended(c *gc.C) {
+func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1955,9 +1955,18 @@ func (s *uniterSuite) TestRelationsInScopeOrSuspended(c *gc.C) {
 			{rel.Tag().String()},
 		},
 	}
-	expect := params.StringsResults{
-		Results: []params.StringsResult{
-			{Result: []string{rel.Tag().String(), rel2.Tag().String()}},
+	expect := params.RelationUnitStatusResults{
+		Results: []params.RelationUnitStatusResult{
+			{RelationResults: []params.RelationUnitStatus{{
+				RelationTag: rel.Tag().String(),
+				InScope:     true,
+				Status:      params.Joined,
+			}, {
+				RelationTag: rel2.Tag().String(),
+				InScope:     false,
+				Status:      params.Suspended,
+			}},
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1966,7 +1975,7 @@ func (s *uniterSuite) TestRelationsInScopeOrSuspended(c *gc.C) {
 		},
 	}
 	check := func() {
-		result, err := s.uniter.RelationsInScopeOrSuspended(args)
+		result, err := s.uniter.RelationsStatus(args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result, gc.DeepEquals, expect)
 	}

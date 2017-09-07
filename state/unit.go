@@ -690,25 +690,17 @@ func (u *Unit) RelationsJoined() ([]*Relation, error) {
 	})
 }
 
-// RelationsInScopeOrSuspended returns the relations for which the unit has entered scope
-// and not left it, as well as any suspended relations.
-func (u *Unit) RelationsInScopeOrSuspended() ([]*Relation, error) {
+// RelationsInScope returns the relations for which the unit has entered scope
+// and not left it.
+func (u *Unit) RelationsInScope() ([]*Relation, error) {
 	return u.relations(func(ru *RelationUnit) (bool, error) {
-		relStatus, err := ru.Relation().Status()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		inScope, err := ru.InScope()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		return inScope || relStatus.Status != status.Broken, nil
+		return ru.InScope()
 	})
 }
 
 type relationPredicate func(ru *RelationUnit) (bool, error)
 
-// relations implements RelationsJoined and RelationsInScopeOrSuspended.
+// relations implements RelationsJoined and RelationsInScope.
 func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 	candidates, err := applicationRelations(u.st, u.doc.Application)
 	if err != nil {
