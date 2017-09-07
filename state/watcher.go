@@ -418,7 +418,7 @@ func watchApplicationRelations(backend modelBackend, applicationName string) Str
 		if err != nil {
 			return false
 		}
-		k, err := backend.strictLocalID(doc.Id)
+		k, err := backend.strictLocalID(doc.DocId)
 		if err != nil {
 			return false
 		}
@@ -1192,7 +1192,7 @@ func (w *relationStatusWatcher) Changes() <-chan []string {
 }
 
 type relationIdDoc struct {
-	Id         string `bson:"_id"`
+	DocId      string `bson:"_id"`
 	RelationId int    `bson:"id"`
 	Life       Life   `bson:"life"`
 }
@@ -1228,10 +1228,10 @@ func (w *relationStatusWatcher) initial() (_ set.Strings, err error) {
 	for iter.Next(&idDoc) {
 		// If no members criteria is specified, use the filter
 		// to reject any unsuitable initial elements.
-		if w.relationKeyMatch == nil && !w.relationKeyFilter(idDoc.Id) {
+		if w.relationKeyMatch == nil && !w.relationKeyFilter(idDoc.DocId) {
 			continue
 		}
-		key := w.backend.localID(idDoc.Id)
+		key := w.backend.localID(idDoc.DocId)
 		keys.Add(key)
 
 		if idDoc.Life != Dead {
@@ -1254,7 +1254,7 @@ func (w *relationStatusWatcher) mergeLife(keys set.Strings, changed []string) (e
 	iter := relColl.Find(bson.D{{"_id", bson.D{{"$in", changed}}}}).Select(idFields).Iter()
 	var doc relationIdDoc
 	for iter.Next(&doc) {
-		key := w.backend.localID(doc.Id)
+		key := w.backend.localID(doc.DocId)
 		deadKeys.Remove(key)
 		relId := relationGlobalScope(doc.RelationId)
 		knownLifeStatus, known := w.knownLifeStatusById[relId]
@@ -1333,7 +1333,7 @@ func (w *relationStatusWatcher) merge(keys set.Strings, updates map[interface{}]
 		err = relColl.Find(bson.D{{"id", relId}}).One(&doc)
 		if err == nil {
 			newLifeStatus.life = doc.Life
-			key = w.backend.localID(doc.Id)
+			key = w.backend.localID(doc.DocId)
 		} else if err == mgo.ErrNotFound {
 			newLifeStatus.life = Dead
 		} else {
