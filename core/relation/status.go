@@ -6,6 +6,10 @@ package relation
 // Status describes the status of a relation.
 type Status string
 
+func (s Status) String() string {
+	return string(s)
+}
+
 const (
 	// Joined is the normal status for a healthy, alive relation.
 	Joined Status = "joined"

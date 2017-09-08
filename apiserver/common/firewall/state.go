@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // State provides the subset of global state required by the
@@ -45,6 +46,7 @@ func (st stateShim) KeyRelation(key string) (Relation, error) {
 }
 
 type Relation interface {
+	status.StatusSetter
 	Endpoints() []state.Endpoint
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 	UnitInScope(Unit) (bool, error)

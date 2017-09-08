@@ -5,12 +5,14 @@ package crossmodel
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
@@ -201,8 +203,69 @@ func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change 
 	}
 
 	logger.Debugf("relation %v requires ingress networks %v", rel, change.Networks)
+	if err := validateIngressNetworks(backend, change.Networks); err != nil {
+		return errors.Trace(err)
+	}
+
 	_, err = backend.SaveIngressNetworks(rel.Tag().Id(), change.Networks)
 	return err
+}
+
+func validateIngressNetworks(backend Backend, networks []string) error {
+	if len(networks) == 0 {
+		return nil
+	}
+
+	// Check that the required ingress is allowed.
+	rule, err := backend.FirewallRule(state.JujuApplicationOfferRule)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	var whitelistCIDRs, blacklistCIDRs, requestedCIDRs []*net.IPNet
+	if err := parseCIDRs(&whitelistCIDRs, rule.WhitelistCIDRs); err != nil {
+		return errors.Trace(err)
+	}
+	if err := parseCIDRs(&blacklistCIDRs, rule.BlacklistCIDRs); err != nil {
+		return errors.Trace(err)
+	}
+	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {
+		return errors.Trace(err)
+	}
+	if len(whitelistCIDRs) > 0 {
+		for _, n := range requestedCIDRs {
+			if !network.SubnetInAnyRange(whitelistCIDRs, n) {
+				return &params.Error{
+					Code:    params.CodeForbidden,
+					Message: fmt.Sprintf("subnet %v not in firewall whitelist", n),
+				}
+			}
+		}
+	}
+	if len(blacklistCIDRs) > 0 {
+		for _, n := range requestedCIDRs {
+			if network.SubnetInAnyRange(whitelistCIDRs, n) {
+				return &params.Error{
+					Code:    params.CodeForbidden,
+					Message: fmt.Sprintf("subnet %v in firewall blacklist", n),
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func parseCIDRs(cidrs *[]*net.IPNet, values []string) error {
+	for _, cidrStr := range values {
+		if _, ipNet, err := net.ParseCIDR(cidrStr); err != nil {
+			return err
+		} else {
+			*cidrs = append(*cidrs, ipNet)
+		}
+	}
+	return nil
 }
 
 type relationGetter interface {

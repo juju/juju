@@ -154,6 +154,11 @@ func (s stateShim) IngressNetworks(relationKey string) (state.RelationNetworks, 
 	return api.Networks(relationKey)
 }
 
+func (s stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+	api := state.NewFirewallRules(s.State)
+	return api.Rule(service)
+}
+
 type relationShim struct {
 	*state.Relation
 	st *state.State
