@@ -46,8 +46,8 @@ type ProvisionerTask interface {
 }
 
 type MachineGetter interface {
-	Machine(names.MachineTag) (*apiprovisioner.Machine, error)
-	MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error)
+	Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error)
+	MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error)
 }
 
 // ToolsFinder is an interface used for finding tools to run on
@@ -191,24 +191,24 @@ func (task *provisionerTask) SetHarvestMode(mode config.HarvestMode) {
 }
 
 func (task *provisionerTask) processMachinesWithTransientErrors() error {
-	machines, statusResults, err := task.machineGetter.MachinesWithTransientErrors()
+	results, err := task.machineGetter.MachinesWithTransientErrors()
 	if err != nil {
 		return nil
 	}
-	logger.Tracef("processMachinesWithTransientErrors(%v)", statusResults)
+	logger.Tracef("processMachinesWithTransientErrors(%v)", results)
 	var pending []*apiprovisioner.Machine
-	for i, statusResult := range statusResults {
-		if statusResult.Error != nil {
-			logger.Errorf("cannot retry provisioning of machine %q: %v", statusResult.Id, statusResult.Error)
+	for _, result := range results {
+		if result.Status.Error != nil {
+			logger.Errorf("cannot retry provisioning of machine %q: %v", result.Machine.Id, result.Status.Error)
 			continue
 		}
-		machine := machines[i]
+		machine := result.Machine
 		if err := machine.SetStatus(status.Pending, "", nil); err != nil {
-			logger.Errorf("cannot reset status of machine %q: %v", statusResult.Id, err)
+			logger.Errorf("cannot reset status of machine %q: %v", machine.Id, err)
 			continue
 		}
 		if err := machine.SetInstanceStatus(status.Provisioning, "", nil); err != nil {
-			logger.Errorf("cannot reset instance status of machine %q: %v", statusResult.Id, err)
+			logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id, err)
 			continue
 		}
 		task.machines[machine.Tag().String()] = machine
@@ -311,18 +311,23 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 	// Update the machines map with new data for each of the machines in the
 	// change list.
-	// TODO(thumper): update for API server later to get all machines in one go.
-	for _, id := range ids {
-		machineTag := names.NewMachineTag(id)
-		machine, err := task.machineGetter.Machine(machineTag)
+	machineTags := make([]names.MachineTag, len(ids))
+	for i, id := range ids {
+		machineTags[i] = names.NewMachineTag(id)
+	}
+	machines, err := task.machineGetter.Machines(machineTags...)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get machines %v", ids)
+	}
+	for i, machine := range machines {
 		switch {
-		case params.IsCodeNotFoundOrCodeUnauthorized(err):
-			logger.Debugf("machine %q not found in state", id)
-			delete(task.machines, id)
 		case err == nil:
-			task.machines[id] = machine
+			task.machines[machine.Machine.Id()] = machine.Machine
+		case params.IsCodeNotFoundOrCodeUnauthorized(machine.Err):
+			logger.Debugf("machine %q not found in state", ids[i])
+			delete(task.machines, ids[i])
 		default:
-			return errors.Annotatef(err, "failed to get machine %v", id)
+			return errors.Annotatef(machine.Err, "failed to get machine %v", ids[i])
 		}
 	}
 	return nil

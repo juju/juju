@@ -89,7 +89,7 @@ func (st *State) Facade() base.FacadeCaller {
 
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag names.Tag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.OneLife(st.facade, tag)
 }
 
 // relation requests relation information from the server.

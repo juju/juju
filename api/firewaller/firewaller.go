@@ -54,7 +54,7 @@ func (c *Client) ModelTag() (names.ModelTag, bool) {
 
 // life requests the life cycle of the given entity from the server.
 func (c *Client) life(tag names.Tag) (params.Life, error) {
-	return common.Life(c.facade, tag)
+	return common.OneLife(c.facade, tag)
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
