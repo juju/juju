@@ -108,7 +108,9 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) ([]crossm
 				Username:        oc.Username,
 				Endpoint:        oc.Endpoint,
 				RelationId:      oc.RelationId,
-				Status:          oc.Status,
+				Status:          oc.Status.Status.String(),
+				Message:         oc.Status.Info,
+				Since:           oc.Status.Since,
 				IngressSubnets:  oc.IngressSubnets,
 			})
 		}

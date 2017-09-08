@@ -55,7 +55,7 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		firewall.StateShim(ctx.State()),
 		ctx.Resources(), ctx.Auth(), authCtxt.(*commoncrossmodel.AuthContext),
 		firewall.WatchEgressAddressesForRelations,
-		watchRelationStatus,
+		watchRelationLifeStatus,
 	)
 }
 
@@ -345,12 +345,12 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 	return results, nil
 }
 
-func watchRelationStatus(st CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
+func watchRelationLifeStatus(st CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
 	relation, err := st.KeyRelation(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return relation.WatchStatus(), nil
+	return relation.WatchLifeStatus(), nil
 }
 
 // WatchRelationsStatus starts a RelationStatusWatcher for

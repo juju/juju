@@ -1016,9 +1016,9 @@ func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResult
 }
 
 // JoinedRelations returns the tags of all relations for which each supplied unit
-// has entered scope. It should be called RelationsInScope, but it's not convenient
-// to make that change until we have versioned APIs.
-func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults, error) {
+// has entered scope.
+// TODO(wallyworld) - this API is replaced by RelationsStatus
+func (u *UniterAPIV6) JoinedRelations(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
@@ -1041,6 +1041,76 @@ func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults
 			unit, err = u.getUnit(tag)
 			if err == nil {
 				result.Results[i].Result, err = relationsInScopeTags(unit)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// RelationsStatus returns for each unit the corresponding relation and status information.
+func (u *UniterAPI) RelationsStatus(args params.Entities) (params.RelationUnitStatusResults, error) {
+	result := params.RelationUnitStatusResults{
+		Results: make([]params.RelationUnitStatusResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := u.accessUnit()
+	if err != nil {
+		return params.RelationUnitStatusResults{}, err
+	}
+
+	oneRelationUnitStatus := func(rel *state.Relation, unit *state.Unit) (params.RelationUnitStatus, error) {
+		rus := params.RelationUnitStatus{
+			RelationTag: rel.Tag().String(),
+		}
+		relStatus, err := rel.Status()
+		if err != nil {
+			return params.RelationUnitStatus{}, errors.Trace(err)
+		}
+		rus.Status = params.RelationStatusValue(relStatus.Status)
+		ru, err := rel.Unit(unit)
+		if err != nil {
+			return params.RelationUnitStatus{}, errors.Trace(err)
+		}
+		inScope, err := ru.InScope()
+		if err != nil {
+			return params.RelationUnitStatus{}, errors.Trace(err)
+		}
+		rus.InScope = inScope
+		return rus, nil
+	}
+
+	relationResults := func(unit *state.Unit) ([]params.RelationUnitStatus, error) {
+		var ruStatus []params.RelationUnitStatus
+		app, err := unit.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		relations, err := app.Relations()
+		for _, rel := range relations {
+			rus, err := oneRelationUnitStatus(rel, unit)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ruStatus = append(ruStatus, rus)
+		}
+		return ruStatus, nil
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if canRead(tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(tag)
+			if err == nil {
+				result.Results[i].RelationResults, err = relationResults(unit)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -1458,11 +1528,15 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 	for _, otherEp := range otherEndpoints {
 		otherAppName = otherEp.ApplicationName
 	}
+	relStatus, err := rel.Status()
+	if err != nil {
+		return nothing, err
+	}
 	return params.RelationResult{
 		Id:     rel.Id(),
 		Key:    rel.String(),
 		Life:   params.Life(rel.Life().String()),
-		Status: params.RelationStatusValue(rel.Status()),
+		Status: params.RelationStatusValue(relStatus.Status),
 		Endpoint: multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
 			Relation:        multiwatcher.NewCharmRelation(ep.Relation),

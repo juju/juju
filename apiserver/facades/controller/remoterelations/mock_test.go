@@ -253,9 +253,9 @@ func (r *mockRelation) Life() state.Life {
 	return r.life
 }
 
-func (r *mockRelation) Status() status.Status {
+func (r *mockRelation) Status() (status.StatusInfo, error) {
 	r.MethodCall(r, "Status")
-	return status.Joined
+	return status.StatusInfo{Status: status.Joined}, nil
 }
 
 func (r *mockRelation) Unit(unitId string) (common.RelationUnit, error) {

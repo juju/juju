@@ -137,19 +137,19 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 			Username:        "mary",
 			RelationId:      2,
 			Endpoint:        "db",
-			Status:          "active",
+			Status:          "joined",
 		}, {
 			SourceModelUUID: "model-uuid2",
 			Username:        "fred",
 			RelationId:      1,
 			Endpoint:        "server",
-			Status:          "active",
+			Status:          "joined",
 		}, {
 			SourceModelUUID: "model-uuid3",
 			Username:        "mary",
 			RelationId:      1,
 			Endpoint:        "server",
-			Status:          "active",
+			Status:          "joined",
 			IngressSubnets:  []string{"192.168.0.1/32", "10.0.0.0/8"},
 		},
 	}
@@ -159,7 +159,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 			Username:        "mary",
 			RelationId:      3,
 			Endpoint:        "db",
-			Status:          "active",
+			Status:          "joined",
 		},
 	}
 	// Insert in random order to check sorting.
@@ -178,10 +178,10 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		[]string{"--format", "tabular"},
 		`
 Offer      User  Relation id  Status  Endpoint  Interface  Role      Ingress subnets
-zdiff-db2  fred  1            active  server    mysql      provider  
-           mary  1            active  server    mysql      provider  192.168.0.1/32,10.0.0.0/8
-           mary  2            active  db        db2        provider  
-adiff-db2  mary  3            active  db        db2        provider  
+zdiff-db2  fred  1            joined  server    mysql      provider  
+           mary  1            joined  server    mysql      provider  192.168.0.1/32,10.0.0.0/8
+           mary  2            joined  db        db2        provider  
+adiff-db2  mary  3            joined  db        db2        provider  
 
 `[1:],
 		"",
@@ -196,13 +196,14 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		{
 			SourceModelUUID: "model-uuid",
 			Username:        "mary",
-			Status:          "active",
+			Status:          "joined",
 			Endpoint:        "db",
 		},
 		{
 			SourceModelUUID: "another-model-uuid",
 			Username:        "fred",
-			Status:          "active",
+			Status:          "error",
+			Message:         "firewall issue",
 			RelationId:      2,
 			Endpoint:        "http",
 			IngressSubnets:  []string{"192.168.0.1/32", "10.0.0.0/8"},
@@ -227,12 +228,15 @@ hosted-db2:
     username: mary
     relation-id: 0
     endpoint: db
-    status: active
+    status:
+      current: joined
   - source-model-uuid: another-model-uuid
     username: fred
     relation-id: 2
     endpoint: http
-    status: active
+    status:
+      current: error
+      message: firewall issue
     ingress-subnets:
     - 192.168.0.1/32
     - 10.0.0.0/8

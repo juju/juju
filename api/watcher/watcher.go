@@ -347,9 +347,10 @@ func (w *relationStatusWatcher) loop(initialChanges []params.RelationStatusChang
 		result := make([]watcher.RelationStatusChange, len(changes))
 		for i, ch := range changes {
 			result[i] = watcher.RelationStatusChange{
-				Key:    ch.Key,
-				Life:   life.Value(ch.Life),
-				Status: relation.Status(ch.Status),
+				Key:           ch.Key,
+				Life:          life.Value(ch.Life),
+				Status:        relation.Status(ch.Status),
+				StatusMessage: ch.StatusMessage,
 			}
 		}
 		return result

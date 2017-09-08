@@ -103,6 +103,7 @@ func (w *remoteRelationsWorker) relationUnitsChangeEvent(
 		ApplicationToken: w.applicationToken,
 		Life:             params.Life(change.Life),
 		Status:           params.RelationStatusValue(change.Status),
+		StatusMessage:    change.StatusMessage,
 	}
 	return event, nil
 }

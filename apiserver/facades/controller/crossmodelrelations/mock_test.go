@@ -295,8 +295,8 @@ func (r *mockRelation) Life() state.Life {
 	return state.Alive
 }
 
-func (r *mockRelation) Status() status.Status {
-	return status.Suspended
+func (r *mockRelation) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.Suspended}, nil
 }
 
 func (r *mockRelation) RemoteUnit(unitId string) (commoncrossmodel.RelationUnit, error) {

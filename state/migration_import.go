@@ -1096,6 +1096,10 @@ func (i *importer) relation(rel description.Relation) error {
 			Insert: relationDoc,
 		},
 	}
+	if rel.Status() != nil {
+		status := i.makeStatusDoc(rel.Status())
+		ops = append(ops, createStatusOp(i.im.mb, relationGlobalScope(rel.Id()), status))
+	}
 
 	dbRelation := newRelation(i.st, relationDoc)
 	// Add an op that adds the relation scope document for each
@@ -1136,7 +1140,6 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		Id:        rel.Id(),
 		Endpoints: make([]Endpoint, len(endpoints)),
 		Life:      Alive,
-		Status:    status.Joined,
 	}
 	for i, ep := range endpoints {
 		doc.Endpoints[i] = Endpoint{

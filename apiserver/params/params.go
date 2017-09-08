@@ -142,6 +142,7 @@ type RelationStatusArgs struct {
 type RelationStatusArg struct {
 	RelationId int                 `json:"relation-id"`
 	Status     RelationStatusValue `json:"status"`
+	Message    string              `json:"message"`
 }
 
 // AddCharm holds the arguments for making an AddCharm API call.

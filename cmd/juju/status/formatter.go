@@ -254,7 +254,8 @@ func (sf *statusFormatter) formatRelation(rel params.RelationStatus) relationSta
 		Requirer:  fmt.Sprintf("%s:%s", requirer.ApplicationName, requirer.Name),
 		Interface: rel.Interface,
 		Type:      relType,
-		Status:    rel.Status,
+		Status:    rel.Status.Status,
+		Message:   rel.Status.Info,
 	}
 	return out
 }

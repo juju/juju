@@ -1055,7 +1055,10 @@ func (api *API) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorR
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return rel.SetStatus(status.Status(arg.Status))
+		return rel.SetStatus(status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Message,
+		})
 	}
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {

@@ -50,7 +50,6 @@ func formatListEndpointsSummary(writer io.Writer, offers offeredApplications) er
 		sort.Strings(endpoints)
 
 		for i, endpointName := range endpoints {
-
 			endpoint := offer.Endpoints[endpointName]
 			if i == 0 {
 				// As there is some information about offer and its endpoints,
@@ -124,7 +123,7 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 			}
 			connEp := endpoints[conn.Endpoint]
 			w.Print(conn.Username, conn.RelationId)
-			w.PrintColor(RelationStatusColor(relation.Status(conn.Status)), conn.Status)
+			w.PrintColor(RelationStatusColor(relation.Status(conn.Status.Current)), conn.Status.Current)
 			w.Println(connEp.Name, connEp.Interface, connEp.Role, strings.Join(conn.IngressSubnets, ","))
 		}
 	}
@@ -139,13 +138,13 @@ func RelationStatusColor(status relation.Status) *ansiterm.Context {
 		return output.GoodHighlight
 	case relation.Suspended:
 		return output.WarningHighlight
-	case relation.Broken:
+	case relation.Broken, relation.Error:
 		return output.ErrorHighlight
 	}
 	return nil
 }
 
-type byUserRelationId []offerConnectionStatus
+type byUserRelationId []offerConnectionDetails
 
 func (b byUserRelationId) Len() int {
 	return len(b)

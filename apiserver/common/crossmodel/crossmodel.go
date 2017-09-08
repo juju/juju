@@ -35,9 +35,18 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 
 	// Update the relation status if necessary.
 	relStatus := status.Status(change.Status)
-	if rel.Status() != relStatus && relStatus != "" {
-		if err := rel.SetStatus(relStatus); err != nil {
+	if relStatus != "" {
+		currentStatus, err := rel.Status()
+		if err != nil {
 			return errors.Trace(err)
+		}
+		if currentStatus.Status != relStatus || currentStatus.Message != change.StatusMessage {
+			if err := rel.SetStatus(status.StatusInfo{
+				Status:  relStatus,
+				Message: change.StatusMessage,
+			}); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -213,9 +222,14 @@ func GetRelationStatusChange(st relationGetter, key string) (*params.RelationSta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	relStatus, err := rel.Status()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &params.RelationStatusChange{
-		Key:    key,
-		Life:   params.Life(rel.Life().String()),
-		Status: params.RelationStatusValue(rel.Status()),
+		Key:           key,
+		Life:          params.Life(rel.Life().String()),
+		Status:        params.RelationStatusValue(relStatus.Status),
+		StatusMessage: relStatus.Message,
 	}, nil
 }

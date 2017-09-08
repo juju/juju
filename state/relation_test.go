@@ -491,14 +491,14 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchStatus()
+	w := rel.WatchLifeStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	// Initial event.
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 
-	err = rel.SetStatus(status.Suspended)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Suspended})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -518,7 +518,7 @@ func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchStatus()
+	w := rel.WatchLifeStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(rel.Tag().Id())
@@ -538,12 +538,21 @@ func (s *RelationSuite) TestStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus := rel.Status()
-	c.Assert(relStatus, gc.Equals, status.Joined)
-	err = rel.SetStatus(status.Suspended)
+	relStatus, err := rel.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Refresh()
+	c.Assert(relStatus.Status, gc.Equals, status.Joined)
+	err = rel.SetStatus(status.StatusInfo{
+		Status:  status.Suspended,
+		Message: "for a while",
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus = rel.Status()
-	c.Assert(relStatus, gc.Equals, status.Suspended)
+	relStatus, err = rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Since, gc.NotNil)
+	relStatus.Since = nil
+	c.Assert(relStatus, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Suspended,
+		Message: "for a while",
+		Data:    map[string]interface{}{},
+	})
 }

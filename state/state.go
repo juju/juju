@@ -976,6 +976,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 // addPeerRelationsOps returns the operations necessary to add the
 // specified application peer relations to the state.
 func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
+	now := st.clock().Now()
 	var ops []txn.Op
 	for _, rel := range peers {
 		relId, err := sequence(st, "relation")
@@ -994,14 +995,18 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
+		}
+		relationStatusDoc := statusDoc{
 			Status:    status.Joined,
+			ModelUUID: st.ModelUUID(),
+			Updated:   now.UnixNano(),
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,
 			Id:     relDoc.DocID,
 			Assert: txn.DocMissing,
 			Insert: relDoc,
-		})
+		}, createStatusOp(st, relationGlobalScope(relId), relationStatusDoc))
 	}
 	return ops, nil
 }
@@ -1765,6 +1770,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// If a application's charm is upgraded while we're trying to add a relation,
 	// we'll need to re-validate application sanity.
 	var doc *relationDoc
+	now := st.clock().Now()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
@@ -1832,14 +1838,18 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
+		}
+		relationStatusDoc := statusDoc{
 			Status:    status.Joined,
+			ModelUUID: st.ModelUUID(),
+			Updated:   now.UnixNano(),
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,
 			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: doc,
-		})
+		}, createStatusOp(st, relationGlobalScope(id), relationStatusDoc))
 		return ops, nil
 	}
 	if err = st.db().Run(buildTxn); err == nil {

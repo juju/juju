@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -644,13 +645,26 @@ func (u *Unit) RequestReboot() error {
 	return result.OneError()
 }
 
-// JoinedRelations returns the tags of the relations the unit has joined.
-func (u *Unit) JoinedRelations() ([]names.RelationTag, error) {
-	var results params.StringsResults
+// RelationStatus holds information about a relation's scope and status.
+type RelationStatus struct {
+	// Tag is the relation tag.
+	Tag names.RelationTag
+
+	// Status is the status of the relation.
+	Status relation.Status
+
+	// InScope is true if the relation unit is in scope.
+	InScope bool
+}
+
+// RelationsInScope returns the tags of the relations the unit has joined
+// and entered scope, or the relation is suspended.
+func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("JoinedRelations", args, &results)
+	var results params.RelationUnitStatusResults
+	err := u.st.facade.FacadeCall("RelationsStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -661,15 +675,19 @@ func (u *Unit) JoinedRelations() ([]names.RelationTag, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	var relTags []names.RelationTag
-	for _, rel := range result.Result {
-		tag, err := names.ParseRelationTag(rel)
+	var statusResult []RelationStatus
+	for _, result := range result.RelationResults {
+		tag, err := names.ParseRelationTag(result.RelationTag)
 		if err != nil {
 			return nil, err
 		}
-		relTags = append(relTags, tag)
+		statusResult = append(statusResult, RelationStatus{
+			Tag:     tag,
+			InScope: result.InScope,
+			Status:  relation.Status(result.Status),
+		})
 	}
-	return relTags, nil
+	return statusResult, nil
 }
 
 // MeterStatus returns the meter status of the unit.

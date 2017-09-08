@@ -16,4 +16,7 @@ const (
 	// Suspended is used to signify that a relation is temporarily broken pending
 	// action to resume it.
 	Suspended Status = "suspended"
+
+	// Error is used to signify that the relation is in an error state.
+	Error Status = "error"
 )
