@@ -2977,3 +2977,15 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c 
 	c.Assert(err, gc.ErrorMatches, `*would break relation "mysql:replication"*`)
 	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV, jc.IsTrue)
 }
+
+func (s *ApplicationSuite) TestAddApplicationInDevMode(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "wp",
+		Series:      "",
+		Charm:       ch,
+		Development: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.IsDevMode(), jc.IsTrue)
+}

@@ -1029,6 +1029,7 @@ type AddApplicationArgs struct {
 	Placement        []*instance.Placement
 	Constraints      constraints.Value
 	Resources        map[string]string
+	Development      bool // The application is created in development mode.
 }
 
 // AddApplication creates a new application, running the supplied charm, with the
@@ -1215,6 +1216,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
+		IsDevMode:     args.Development,
 	}
 
 	app := newApplication(st, appDoc)

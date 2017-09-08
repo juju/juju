@@ -247,6 +247,27 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	})
 }
 
+func (s *applicationSuite) TestApplicationDeployDevelopment(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
+	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.ApplicationDeploy{
+		ApplicationName: "application",
+		CharmURL:        curl.String(),
+		NumUnits:        1,
+		Development:     true,
+	}
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+}
+
 func (s *applicationSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "quantal/minjujuversion-0", "minjujuversion")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{

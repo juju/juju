@@ -15,14 +15,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+
+	"github.com/juju/juju/api/application"
 )
 
 type metricRegistrationPost struct {
 	ModelUUID       string `json:"env-uuid"`
 	CharmURL        string `json:"charm-url"`
 	ApplicationName string `json:"service-name"`
-	PlanURL         string `json:"plan-url"`
-	IncreaseBudget  int    `json:"increase-budget"`
+	PlanURL         string `json:"plan-url,omitempty"`
+	IncreaseBudget  int    `json:"increase-budget,omitempty"`
 }
 
 // RegisterMeteredCharm implements the DeployStep interface.
@@ -30,18 +32,58 @@ type RegisterMeteredCharm struct {
 	Plan           string
 	IncreaseBudget int
 	RegisterURL    string
+	DevelopmentURL string
 	QueryURL       string
 	credentials    []byte
+	Development    bool
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&r.IncreaseBudget, "increase-budget", 0, "increase model budget allocation by this amount")
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
+	f.BoolVar(&r.Development, "develop-commercial", false, "deploy application in development mode")
 }
 
-// RunPre obtains authorization to deploy this charm. The authorization, if received is not
+// RunPre is run before the deployment of an application.
+func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, args *application.DeployArgs) error {
+	if r.Development {
+		return r.runPreDevelopment(api, bakeryClient, ctx, deployInfo, args)
+	}
+	return r.runPreMetered(api, bakeryClient, ctx, deployInfo, args)
+}
+
+// runPreMetered obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
-func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) runPreDevelopment(api MeteredDeployAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, args *application.DeployArgs) error {
+	if r.Plan != "" {
+		return errors.Errorf("plans not supported in development mode")
+	}
+	if r.IncreaseBudget != 0 {
+		return errors.Errorf("modifying budget allocations not supported in development mode")
+	}
+	registrationPost := metricRegistrationPost{
+		ModelUUID:       deployInfo.ModelUUID,
+		CharmURL:        deployInfo.CharmID.URL.String(),
+		ApplicationName: deployInfo.ApplicationName,
+	}
+
+	var err error
+	r.credentials, err = r.register(r.DevelopmentURL, registrationPost, bakeryClient)
+	if err != nil {
+		if deployInfo.CharmID.URL.Schema == "cs" {
+			logger.Infof("failed to obtain development authorization: %v", err)
+			return err
+		}
+		logger.Debugf("no development authorization: %v", err)
+	}
+	// Set the deployment request to deploy in development mode.
+	args.Development = true
+	return nil
+}
+
+// runPreMetered obtains authorization to deploy this charm. The authorization, if received is not
+// sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
+func (r *RegisterMeteredCharm) runPreMetered(api MeteredDeployAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, args *application.DeployArgs) error {
 	if r.IncreaseBudget < 0 {
 		return errors.Errorf("invalid budget increase %d", r.IncreaseBudget)
 	}
@@ -76,12 +118,15 @@ func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpba
 		}
 	}
 
-	r.credentials, err = r.registerMetrics(
-		deployInfo.ModelUUID,
-		deployInfo.CharmID.URL.String(),
-		deployInfo.ApplicationName,
-		bakeryClient,
-	)
+	registrationPost := metricRegistrationPost{
+		ModelUUID:       deployInfo.ModelUUID,
+		CharmURL:        deployInfo.CharmID.URL.String(),
+		ApplicationName: deployInfo.ApplicationName,
+		PlanURL:         r.Plan,
+		IncreaseBudget:  r.IncreaseBudget,
+	}
+
+	r.credentials, err = r.register(r.RegisterURL, registrationPost, bakeryClient)
 	if err != nil {
 		if deployInfo.CharmID.URL.Schema == "cs" {
 			logger.Infof("failed to obtain plan authorization: %v", err)
@@ -208,26 +253,19 @@ func (r *RegisterMeteredCharm) getCharmPlans(client *httpbakery.Client, cURL str
 	return info, nil
 }
 
-func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
-	if r.RegisterURL == "" {
+// register sends a registration message on the provided url and expects credentials to be returned in response.
+func (r *RegisterMeteredCharm) register(reqUrl string, msg interface{}, client *httpbakery.Client) ([]byte, error) {
+	if reqUrl == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
-	registerURL, err := url.Parse(r.RegisterURL)
+	registerURL, err := url.Parse(reqUrl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	registrationPost := metricRegistrationPost{
-		ModelUUID:       modelUUID,
-		CharmURL:        charmURL,
-		ApplicationName: serviceName,
-		PlanURL:         r.Plan,
-		IncreaseBudget:  r.IncreaseBudget,
-	}
-
 	buff := &bytes.Buffer{}
 	encoder := json.NewEncoder(buff)
-	err = encoder.Encode(registrationPost)
+	err = encoder.Encode(msg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

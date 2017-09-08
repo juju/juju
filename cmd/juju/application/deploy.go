@@ -419,7 +419,7 @@ type DeployStep interface {
 	SetFlags(*gnuflag.FlagSet)
 
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
+	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, *application.DeployArgs) error
 
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
@@ -596,9 +596,20 @@ func (c *DeployCommand) deployCharm(
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
 	}
-
+	deployArgs := application.DeployArgs{
+		CharmID:          id,
+		Cons:             c.Constraints,
+		ApplicationName:  serviceName,
+		Series:           series,
+		NumUnits:         numUnits,
+		ConfigYAML:       string(configYAML),
+		Placement:        c.Placement,
+		Storage:          c.Storage,
+		AttachStorage:    c.AttachStorage,
+		EndpointBindings: c.Bindings,
+	}
 	for _, step := range c.Steps {
-		err = step.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
+		err = step.RunPre(apiRoot, bakeryClient, ctx, deployInfo, &deployArgs)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -629,20 +640,9 @@ func (c *DeployCommand) deployCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	deployArgs.Resources = ids
 
-	return errors.Trace(apiRoot.Deploy(application.DeployArgs{
-		CharmID:          id,
-		Cons:             c.Constraints,
-		ApplicationName:  serviceName,
-		Series:           series,
-		NumUnits:         numUnits,
-		ConfigYAML:       string(configYAML),
-		Placement:        c.Placement,
-		Storage:          c.Storage,
-		AttachStorage:    c.AttachStorage,
-		Resources:        ids,
-		EndpointBindings: c.Bindings,
-	}))
+	return errors.Trace(apiRoot.Deploy(deployArgs))
 }
 
 const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "

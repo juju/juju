@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/charmstore"
 )
@@ -69,7 +70,8 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,6 +95,104 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	})
 }
 
+func (s *registrationSuite) TestDevelopmentMode(c *gc.C) {
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ApplicationName: "application name",
+		ModelUUID:       "model uuid",
+		CharmInfo: &apicharms.CharmInfo{
+			Metrics: &charm.Metrics{
+				Plan: &charm.Plan{Required: true},
+			},
+		},
+	}
+	deployArgs := application.DeployArgs{}
+
+	s.register = &RegisterMeteredCharm{
+		Development:    true,
+		DevelopmentURL: s.server.URL,
+	}
+
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, &deployArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
+			CharmURL:        "cs:quantal/metered-1",
+			ApplicationName: "application name",
+		}},
+	}, {
+		"SetMetricCredentials", []interface{}{
+			"application name",
+			authorization,
+		}},
+	})
+	c.Assert(deployArgs.Development, jc.IsTrue)
+}
+
+func (s *registrationSuite) TestDevelopmentModePlanSpecified(c *gc.C) {
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ApplicationName: "application name",
+		ModelUUID:       "model uuid",
+		CharmInfo: &apicharms.CharmInfo{
+			Metrics: &charm.Metrics{
+				Plan: &charm.Plan{Required: true},
+			},
+		},
+	}
+	deployArgs := application.DeployArgs{}
+
+	s.register = &RegisterMeteredCharm{
+		Development:    true,
+		Plan:           "isv/plan",
+		DevelopmentURL: s.server.URL,
+	}
+
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, &deployArgs)
+	c.Assert(err, gc.ErrorMatches, `plans not supported in development mode`)
+	s.stub.CheckNoCalls(c)
+	c.Assert(deployArgs.Development, jc.IsFalse)
+}
+
+func (s *registrationSuite) TestDevelopmentModeBudgetIncreaseSpecified(c *gc.C) {
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ApplicationName: "application name",
+		ModelUUID:       "model uuid",
+		CharmInfo: &apicharms.CharmInfo{
+			Metrics: &charm.Metrics{
+				Plan: &charm.Plan{Required: true},
+			},
+		},
+	}
+	deployArgs := application.DeployArgs{}
+
+	s.register = &RegisterMeteredCharm{
+		Development:    true,
+		IncreaseBudget: 50,
+		DevelopmentURL: s.server.URL,
+	}
+
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, &deployArgs)
+	c.Assert(err, gc.ErrorMatches, `modifying budget allocations not supported in development mode`)
+	s.stub.CheckNoCalls(c)
+	c.Assert(deployArgs.Development, jc.IsFalse)
+}
+
 func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
@@ -107,7 +207,7 @@ func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,7 +245,7 @@ func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +284,7 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, gc.ErrorMatches, `authorization failed: something failed`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
@@ -219,7 +319,7 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 		IncreaseBudget: -1000,
 	}
 
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid budget increase -1000`)
 	s.stub.CheckNoCalls(c)
 }
@@ -244,7 +344,7 @@ func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
 		IncreaseBudget: 20,
 	}
 
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "IsMetered",
@@ -277,7 +377,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	deployError := errors.New("deployment failed")
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, deployError)
@@ -312,7 +412,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,7 +455,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -397,7 +497,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,7 +543,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, gc.ErrorMatches, `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
@@ -474,7 +574,7 @@ func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, gc.ErrorMatches, `no plans available for cs:quantal/metered-1.`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
@@ -504,7 +604,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
@@ -527,7 +627,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/unmetered-1"},
@@ -553,7 +653,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, gc.ErrorMatches, `authorization failed:.*`)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -643,7 +743,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 			},
 		}
 
-		err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+		err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
@@ -772,7 +872,7 @@ func (s *noPlanRegistrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -795,7 +895,7 @@ func (s *noPlanRegistrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 			},
 		},
 	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
