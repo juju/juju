@@ -71,10 +71,9 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.roundTripper = mockRoundTripper{
-		collectors:    make(map[string]*collector),
-		leaseProgress: make(chan int32, 2),
-		taskResult:    make(map[types.ManagedObjectReference]types.AnyType),
-		taskError:     make(map[types.ManagedObjectReference]*types.LocalizedMethodFault),
+		collectors: make(map[string]*collector),
+		taskResult: make(map[types.ManagedObjectReference]types.AnyType),
+		taskError:  make(map[types.ManagedObjectReference]*types.LocalizedMethodFault),
 	}
 	s.roundTripper.contents = map[string][]types.ObjectContent{
 		"FakeRootFolder": []types.ObjectContent{{
@@ -355,8 +354,9 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 
 	// Create an HTTP server to receive image uploads.
-	mux := http.NewServeMux()
-	mux.HandleFunc("/disk-device/", func(w http.ResponseWriter, r *http.Request) {
+	s.uploadRequests = nil
+	s.onImageUpload = nil
+	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var buf bytes.Buffer
 		io.Copy(&buf, r.Body)
 		rcopy := *r
@@ -365,10 +365,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		if s.onImageUpload != nil {
 			s.onImageUpload(r)
 		}
-	})
-	s.uploadRequests = nil
-	s.onImageUpload = nil
-	s.server = httptest.NewServer(mux)
+	}))
 	s.AddCleanup(func(*gc.C) {
 		s.server.Close()
 	})

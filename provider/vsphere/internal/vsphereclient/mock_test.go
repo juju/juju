@@ -71,7 +71,6 @@ type mockRoundTripper struct {
 	roundTrip        func(ctx context.Context, req, res soap.HasFault) error
 	contents         map[string][]types.ObjectContent
 	collectors       map[string]*collector
-	leaseProgress    chan int32
 	importVAppResult types.ManagedObjectReference
 	taskError        map[types.ManagedObjectReference]*types.LocalizedMethodFault
 	taskResult       map[types.ManagedObjectReference]types.AnyType
@@ -179,14 +178,6 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		r.MethodCall(r, "HttpNfcLeaseComplete", req.This.Value)
 		delete(r.collectors, req.This.Value)
 		res.Res = &types.HttpNfcLeaseCompleteResponse{}
-	case *methods.HttpNfcLeaseProgressBody:
-		req := req.(*methods.HttpNfcLeaseProgressBody).Req
-		r.MethodCall(r, "HttpNfcLeaseProgress", req.This.Value, req.Percent)
-		res.Res = &types.HttpNfcLeaseProgressResponse{}
-		select {
-		case r.leaseProgress <- req.Percent:
-		default:
-		}
 	case *methods.WaitForUpdatesExBody:
 		r.MethodCall(r, "WaitForUpdatesEx")
 		req := req.(*methods.WaitForUpdatesExBody).Req

@@ -5,6 +5,8 @@ package vsphere
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"path"
 	"sync"
 	"time"
@@ -48,6 +50,12 @@ func modelFolderName(modelUUID, modelName string) string {
 		modelName = modelName[:modelNameLimit]
 	}
 	return fmt.Sprintf("Model %q (%s)", modelName, modelUUID)
+}
+
+// vmdkDirectoryName returns the name of the datastore directory in which
+// the base VMDKs are stored for the controller.
+func vmdkDirectoryName(controllerUUID string) string {
+	return fmt.Sprintf("juju-vmdks/%s", controllerUUID)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -112,12 +120,14 @@ func (env *sessionEnviron) newRawInstance(
 	args environs.StartInstanceParams,
 	img *OvaFileMetadata,
 ) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+
 	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
+	series := args.Tools.OneSeries()
+	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -169,12 +179,24 @@ func (env *sessionEnviron) newRawInstance(
 		args.StatusCallback(status.Provisioning, message, nil)
 	}
 
+	readOVA := func() (string, io.ReadCloser, error) {
+		resp, err := http.Get(img.URL)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return img.URL, resp.Body, nil
+	}
+
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
 		Folder: path.Join(
 			controllerFolderName(args.ControllerUUID),
 			env.modelFolderName(),
 		),
+		Series:                 series,
+		ReadOVA:                readOVA,
+		OVASHA256:              img.Sha256,
+		VMDKDirectory:          vmdkDirectoryName(args.ControllerUUID),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,

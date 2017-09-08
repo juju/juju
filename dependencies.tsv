@@ -55,6 +55,8 @@ github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/juju/zip	git	f6b1e93fa2e29a1d7d49b566b2b51efb060c982a	2016-02-05T10:52:21Z
 github.com/julienschmidt/httprouter	git	77a895ad01ebc98a4dc95d8355bc825ce80a56f6	2015-10-13T22:55:20Z
+github.com/kr/pretty	git	cfb55aafdaf3ec08f0db22699ab822c50091b1c4	2016-08-23T17:07:15Z
+github.com/kr/text	git	7cafcd837844e784b526369c9bce262804aebc60	2016-05-04T23:40:17Z
 github.com/lestrrat/go-jspointer	git	f4881e611bdbe9fb413a7780721ef8400a1f2341	2016-02-29T02:13:54Z
 github.com/lestrrat/go-jsref	git	e452c7b5801d1c6494c9e7e0cbc7498c0f88dfd1	2016-06-01T01:32:40Z
 github.com/lestrrat/go-jsschema	git	b09d7650b822d2ea3dc83d5091a5e2acd8330051	2016-09-03T13:19:57Z
