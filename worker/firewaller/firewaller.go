@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -39,6 +40,7 @@ type FirewallerAPI interface {
 	WatchIngressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 	MacaroonForRelation(relationKey string) (*macaroon.Macaroon, error)
+	SetRelationStatus(relationKey string, status relation.Status, message string) error
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
@@ -332,6 +334,13 @@ func (fw *Firewaller) publishNetworkChanged(change *remoteRelationNetworkChange)
 	if errors.IsNotFound(err) {
 		logger.Debugf("relation id not found publishing %+v", event)
 		return nil
+	}
+
+	// If the requested ingress is not permitted on the offering side,
+	// mark the relation as in error. It's not an error that requires a
+	// worker restart though.
+	if params.IsCodeForbidden(err) {
+		return fw.firewallerApi.SetRelationStatus(relData.tag.Id(), relation.Error, err.Error())
 	}
 	return errors.Annotate(err, "cannot publish ingress network change")
 }

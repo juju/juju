@@ -74,6 +74,9 @@ type Backend interface {
 
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
+
+	// FirewallRule returns the firewall rule for the specified service.
+	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
 }
 
 // Relation provides access a relation in global state.

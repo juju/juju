@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/firewaller"
@@ -901,6 +902,99 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 
 	// Check the relation ready poll time is as expected.
 	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
+	// Set up the consuming model - create the local app.
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	// Set up the consuming model - create the remote app.
+	offeringModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	appToken := utils.MustNewUUID().String()
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", SourceModel: offeringModelTag,
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Create the external controller info.
+	ec := state.NewExternalControllers(s.State)
+	_, err = ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Addrs:         []string{"1.2.3.4:1234"},
+		CACert:        coretesting.CACert}, offeringModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	mac, err := macaroon.New(nil, "apimac", "")
+	c.Assert(err, jc.ErrorIsNil)
+	published := make(chan bool)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Code: params.CodeForbidden, Message: "error"}}},
+		}
+		published <- true
+		return nil
+	})
+
+	s.crossmodelFirewaller = crossmodelrelations.NewClient(apiCaller)
+	c.Assert(s.crossmodelFirewaller, gc.NotNil)
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Export the relation details so the firewaller knows it's ready to be processed.
+	re := s.State.RemoteEntities()
+	_, err = re.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.SaveMacaroon(rel.Tag(), mac)
+	c.Assert(err, jc.ErrorIsNil)
+	err = re.ImportRemoteEntity(app.Tag(), appToken)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a public address to the consuming unit so the firewaller can use it.
+	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Addresses: []network.Address{network.NewAddress("10.0.0.4")},
+	})
+	u, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(wpm)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a unit on the consuming app and have it enter the relation scope.
+	// This will trigger the firewaller to publish the changes.
+	err = ru.EnterScope(map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on enter scope")
+	case <-published:
+	}
+
+	// Check that the relation status is set to error.
+	attempt := time.After(0)
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case <-attempt:
+			relStatus, err := rel.Status()
+			c.Check(err, jc.ErrorIsNil)
+			if relStatus.Status != status.Error {
+				attempt = time.After(coretesting.ShortWait)
+				continue
+			}
+			c.Check(relStatus.Message, gc.Equals, "error")
+		case <-timeout:
+			c.Fatal("time out waiting for relation status to be updated")
+		}
+		break
+	}
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {

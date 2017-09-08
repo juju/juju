@@ -4113,9 +4113,9 @@ Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1          server    mysql      provider
 
 Relation provider      Requirer                   Interface  Type         Message
-mysql:juju-info        logging:info               juju-info  subordinate             
+mysql:juju-info        logging:info               juju-info  subordinate  
 mysql:server           wordpress:db               mysql      regular      suspended  
-wordpress:logging-dir  logging:logging-directory  logging    subordinate             
+wordpress:logging-dir  logging:logging-directory  logging    subordinate  
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)

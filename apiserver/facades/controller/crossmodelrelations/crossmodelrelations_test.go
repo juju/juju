@@ -4,6 +4,7 @@
 package crossmodelrelations_test
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/juju/testing"
@@ -256,6 +257,9 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 
 func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	rel := newMockRelation(1)
+	rel.key = "db2:db django:db"
+	s.st.relations["db2:db django:db"] = rel
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
@@ -284,11 +288,49 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.st.ingressNetworks[rel.key], jc.DeepEquals, []string{"1.2.3.4/32"})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
-	// TODO(wallyworld) - add mre tests when implementation finished
+}
+
+func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *gc.C) {
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.relations["db2:db django:db"] = newMockRelation(1)
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	mac, err := s.bakery.NewMacaroon("", nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.firewallRules[state.JujuApplicationOfferRule] = &state.FirewallRule{WhitelistCIDRs: []string{"10.1.1.1/8"}}
+	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
+		Changes: []params.IngressNetworksChangeEvent{
+			{
+				ApplicationToken: "token-db2",
+				RelationToken:    "token-db2:db django:db",
+				Networks:         []string{"1.2.3.4/32"},
+				Macaroons:        macaroon.Slice{mac},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = results.Combine()
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("subnet 1.2.3.4/32 not in firewall whitelist"))
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+	})
 }
 
 func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
