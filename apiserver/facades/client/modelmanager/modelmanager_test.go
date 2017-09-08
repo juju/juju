@@ -241,15 +241,15 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
-		"ControllerConfig",
 		"ComposeNewModelConfig",
+		"ControllerConfig",
 		"NewModel",
 		"ReloadSpaces",
+		"Close",
 		"GetBackend",
 		"Model",
 		"AllMachines",
 		"LatestMigration",
-		"Close",
 	)
 
 	// Check that Model.LastModelConnection is called three times
@@ -410,13 +410,12 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
-		"ControllerConfig",
 		"NewModel",
+		"Close",
 		"GetBackend",
 		"Model",
 		"AllMachines",
 		"LatestMigration",
-		"Close",
 	)
 
 	// Check that Model.LastModelConnection is called just twice
