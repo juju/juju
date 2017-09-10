@@ -328,12 +328,14 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	// For now, the model cloud must be the same as the controller cloud.
+
 	controllerInfo, err := st.ControllerInfo()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	if controllerInfo.CloudName != args.CloudName {
+
+	// For IAAS Models, the model cloud must be the same as the controller cloud.
+	if args.Type == ModelTypeIAAS && controllerInfo.CloudName != args.CloudName {
 		return nil, nil, errors.NewNotValid(
 			nil, fmt.Sprintf("controller cloud %s does not match model cloud %s", controllerInfo.CloudName, args.CloudName))
 	}

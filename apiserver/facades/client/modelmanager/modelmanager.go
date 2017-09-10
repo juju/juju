@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
@@ -243,6 +244,33 @@ func (m *ModelManagerAPI) newModelConfig(
 	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
 }
 
+func (m *ModelManagerAPI) newCAASModelConfig(
+	cloudSpec environs.CloudSpec,
+	args params.ModelCreateArgs,
+) (*config.Config, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if args.Name == "" {
+		return nil, errors.NewNotValid(nil, "Name must be specified")
+	}
+
+	attrs := map[string]interface{}{
+		config.NameKey:         args.Name,
+		config.TypeKey:         "CAAS",
+		config.UUIDKey:         uuid.String(),
+		config.AgentVersionKey: jujuversion.Current.String(),
+	}
+
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating config from values failed")
+	}
+
+	return cfg, nil
+}
+
 // CreateModel creates a new model using the account and
 // model config specified in the args.
 func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
@@ -353,14 +381,69 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		return result, errors.Trace(err)
 	}
 
-	controllerCfg, err := m.state.ControllerConfig()
+	var model common.Model
+
+	if jujucloud.CloudIsCAAS(cloud) {
+		model, err = m.newCAASModel(
+			cloudSpec,
+			args,
+			cloudTag,
+			cloudCredentialTag,
+			ownerTag)
+	} else {
+		model, err = m.newIAASModel(
+			cloudSpec,
+			args,
+			controllerModel,
+			cloudTag,
+			cloudRegionName,
+			cloudCredentialTag,
+			ownerTag)
+	}
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	return m.getModelInfo(model.ModelTag())
+}
 
-	newConfig, err := m.newModelConfig(cloudSpec, args, controllerModel)
+func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
+	createArgs params.ModelCreateArgs,
+	cloudTag names.CloudTag,
+	cloudCredentialTag names.CloudCredentialTag,
+	ownerTag names.UserTag,
+) (common.Model, error) {
+	newConfig, err := m.newCAASModelConfig(cloudSpec, createArgs)
 	if err != nil {
-		return result, errors.Annotate(err, "failed to create config")
+		return nil, errors.Annotate(err, "failed to create config")
+	}
+
+	model, st, err := m.state.NewModel(state.ModelArgs{
+		Type:            state.ModelTypeCAAS,
+		CloudName:       cloudTag.Id(),
+		CloudCredential: cloudCredentialTag,
+		Config:          newConfig,
+		Owner:           ownerTag,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to create new model")
+	}
+	defer st.Close()
+
+	return model, nil
+}
+
+func (m *ModelManagerAPI) newIAASModel(
+	cloudSpec environs.CloudSpec,
+	createArgs params.ModelCreateArgs,
+	controllerModel common.Model,
+	cloudTag names.CloudTag,
+	cloudRegionName string,
+	cloudCredentialTag names.CloudCredentialTag,
+	ownerTag names.UserTag,
+) (common.Model, error) {
+	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to create config")
 	}
 
 	// Create the Environ.
@@ -369,12 +452,18 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		Config: newConfig,
 	})
 	if err != nil {
-		return result, errors.Annotate(err, "failed to open environ")
+		return nil, errors.Annotate(err, "failed to open environ")
 	}
+
+	controllerCfg, err := m.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := env.Create(environs.CreateParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 	}); err != nil {
-		return result, errors.Annotate(err, "failed to create environ")
+		return nil, errors.Annotate(err, "failed to create environ")
 	}
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
@@ -392,7 +481,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		EnvironVersion:          env.Provider().Version(),
 	})
 	if err != nil {
-		return result, errors.Annotate(err, "failed to create new model")
+		return nil, errors.Annotate(err, "failed to create new model")
 	}
 	defer st.Close()
 
@@ -400,11 +489,10 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
-			return result, errors.Annotate(err, "Failed to perform spaces discovery")
+			return nil, errors.Annotate(err, "Failed to perform spaces discovery")
 		}
 	}
-
-	return m.getModelInfo(model.ModelTag())
+	return model, nil
 }
 
 func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte, error) {
