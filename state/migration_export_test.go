@@ -1401,7 +1401,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	app := model.RemoteApplications()[0]
 	c.Check(app.Tag(), gc.Equals, names.NewApplicationTag("gravy-rainbow"))
 	c.Check(app.Name(), gc.Equals, "gravy-rainbow")
-	c.Check(app.OfferName(), gc.Equals, "")
+	c.Check(app.OfferUUID(), gc.Equals, "")
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
 	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
 	c.Check(app.IsConsumerProxy(), jc.IsFalse)
@@ -1415,21 +1415,15 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	ep := app.Endpoints()[0]
 	c.Check(ep.Name(), gc.Equals, "db")
 	c.Check(ep.Interface(), gc.Equals, "mysql")
-	c.Check(ep.Limit(), gc.Equals, 0)
 	c.Check(ep.Role(), gc.Equals, "provider")
-	c.Check(ep.Scope(), gc.Equals, "global")
 	ep = app.Endpoints()[1]
 	c.Check(ep.Name(), gc.Equals, "db-admin")
 	c.Check(ep.Interface(), gc.Equals, "mysql-root")
-	c.Check(ep.Limit(), gc.Equals, 5)
 	c.Check(ep.Role(), gc.Equals, "provider")
-	c.Check(ep.Scope(), gc.Equals, "global")
 	ep = app.Endpoints()[2]
 	c.Check(ep.Name(), gc.Equals, "logging")
 	c.Check(ep.Interface(), gc.Equals, "logging")
-	c.Check(ep.Limit(), gc.Equals, 0)
 	c.Check(ep.Role(), gc.Equals, "provider")
-	c.Check(ep.Scope(), gc.Equals, "global")
 
 	originalSpaces := dbApp.Spaces()
 	actualSpaces := app.Spaces()

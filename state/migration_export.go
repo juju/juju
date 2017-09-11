@@ -1506,7 +1506,7 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	url, _ := app.URL()
 	args := description.RemoteApplicationArgs{
 		Tag:             app.Tag().(names.ApplicationTag),
-		OfferName:       app.OfferName(),
+		OfferUUID:       app.OfferName(),
 		URL:             url,
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
@@ -1527,8 +1527,6 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 			Name:      ep.Name,
 			Role:      string(ep.Role),
 			Interface: ep.Interface,
-			Limit:     ep.Limit,
-			Scope:     string(ep.Scope),
 		})
 	}
 	for _, space := range app.Spaces() {
