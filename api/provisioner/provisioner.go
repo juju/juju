@@ -26,6 +26,20 @@ type State struct {
 	facade base.FacadeCaller
 }
 
+// MachineResult provides a found Machine and any Error related to
+// finding it.
+type MachineResult struct {
+	Machine *Machine
+	Err     *params.Error
+}
+
+// MachineStatusResults provides a found Machine and Status Results
+// for it.
+type MachineStatusResult struct {
+	Machine *Machine
+	Status  params.StatusResult
+}
+
 const provisionerFacade = "Provisioner"
 
 // NewState creates a new client-side Machiner facade.
@@ -41,20 +55,34 @@ func NewState(caller base.APICaller) *State {
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.OneLife(st.facade, tag)
 }
 
-// Machine provides access to methods of a state.Machine through the facade.
-func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := st.machineLife(tag)
-	if err != nil {
-		return nil, err
+// Machine provides access to methods of a state.Machine through the facade
+// for the given tags.
+func (st *State) Machines(tags ...names.MachineTag) ([]MachineResult, error) {
+	lenTags := len(tags)
+	genericTags := make([]names.Tag, lenTags)
+	for i, t := range tags {
+		genericTags[i] = t
 	}
-	return &Machine{
-		tag:  tag,
-		life: life,
-		st:   st,
-	}, nil
+	result, err := common.Life(st.facade, genericTags)
+	if err != nil {
+		return []MachineResult{}, err
+	}
+	machines := make([]MachineResult, lenTags)
+	for i, r := range result {
+		if r.Error == nil {
+			machines[i].Machine = &Machine{
+				tag:  tags[i],
+				life: r.Life,
+				st:   st,
+			}
+		} else {
+			machines[i].Err = r.Error
+		}
+	}
+	return machines, nil
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of
@@ -112,24 +140,25 @@ func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 
 // MachinesWithTransientErrors returns a slice of machines and corresponding status information
 // for those machines which have transient provisioning errors.
-func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResult, error) {
+func (st *State) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 	var results params.StatusResults
 	err := st.facade.FacadeCall("MachinesWithTransientErrors", nil, &results)
 	if err != nil {
-		return nil, nil, err
+		return []MachineStatusResult{}, err
 	}
-	machines := make([]*Machine, len(results.Results))
+	machines := make([]MachineStatusResult, len(results.Results))
 	for i, status := range results.Results {
 		if status.Error != nil {
 			continue
 		}
-		machines[i] = &Machine{
+		machines[i].Machine = &Machine{
 			tag:  names.NewMachineTag(status.Id),
 			life: status.Life,
 			st:   st,
 		}
+		machines[i].Status = status
 	}
-	return machines, results.Results, nil
+	return machines, nil
 }
 
 // FindTools returns al ist of tools matching the specified version number and

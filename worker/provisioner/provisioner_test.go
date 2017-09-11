@@ -1110,12 +1110,12 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 
 type mockMachineGetter struct{}
 
-func (*mockMachineGetter) Machine(names.MachineTag) (*apiprovisioner.Machine, error) {
+func (*mockMachineGetter) Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
-func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error) {
-	return nil, nil, fmt.Errorf("error")
+func (*mockMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
+	return nil, fmt.Errorf("error")
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
