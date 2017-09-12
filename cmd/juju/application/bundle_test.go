@@ -1560,6 +1560,7 @@ func (*ProcessIncludesSuite) TestBundleReplacements(c *gc.C) {
         machines:
             1:
                 annotations: {foo: bar, baz: "include-file://machine" }
+            2:
     `
 
 	baseDir := c.MkDir()

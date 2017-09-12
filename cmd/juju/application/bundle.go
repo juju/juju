@@ -897,6 +897,8 @@ func isErrRelationExists(err error) bool {
 func processBundleIncludes(baseDir string, data *charm.BundleData) error {
 
 	for app, appData := range data.Applications {
+		// A bundle isn't valid if there are no applications, and applications must
+		// specify a charm at least, so we know appData must be non-nil.
 		for key, value := range appData.Options {
 			result, processed, err := processValue(baseDir, value)
 			if err != nil {
@@ -918,6 +920,9 @@ func processBundleIncludes(baseDir string, data *charm.BundleData) error {
 	}
 
 	for machine, machineData := range data.Machines {
+		if machineData == nil {
+			continue
+		}
 		for key, value := range machineData.Annotations {
 			result, processed, err := processValue(baseDir, value)
 			if err != nil {
