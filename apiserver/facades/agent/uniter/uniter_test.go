@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -514,6 +515,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
+	err = s.State.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
 		Unit:     s.wordpressUnit.Tag().String(),
@@ -531,6 +534,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 				},
 			},
 		},
+		EgressSubnets:    []string{"10.0.0.0/8"},
+		IngressAddresses: []string{privateAddress.Value},
 	}
 
 	result, err := s.uniter.NetworkInfo(args)
@@ -3650,6 +3655,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"10.0.0.10"},
 	}
 	// For the "admin-api" extra-binding we expect to see only interfaces from
 	// the "public" space.
@@ -3671,6 +3678,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"8.8.8.10"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
@@ -3685,6 +3694,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"100.64.0.10"},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3755,6 +3766,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{privateAddress.Value},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3784,6 +3797,13 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, mysqlRelUnit, true)
 
+	// Relation specific egress subnets override model config.
+	err = s.base.State.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	relEgress := state.NewRelationEgressNetworks(s.base.State)
+	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       s.base.mysqlUnit.Tag().String(),
@@ -3791,19 +3811,26 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 		RelationId: &relId,
 	}
 
-	// Since it is a remote relation, the expected address is set to the
+	// Since it is a remote relation, the expected ingress address is set to the
 	// machine's public address.
-	expectedAddress, err := s.base.machine1.PublicAddress()
+	expectedIngressAddress, err := s.base.machine1.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	privateAddress, err := s.base.machine1.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
+				MACAddress:    "00:11:22:33:20:50",
+				InterfaceName: "eth0.100",
 				Addresses: []params.InterfaceAddress{
-					{Address: expectedAddress.Value},
+					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
 				},
 			},
 		},
+		EgressSubnets:    []string{"192.168.1.0/24"},
+		IngressAddresses: []string{expectedIngressAddress.Value},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
