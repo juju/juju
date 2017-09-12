@@ -2,28 +2,33 @@
 """Assess juju charm storage."""
 
 from __future__ import print_function
-import os
 
 import argparse
 import copy
 import json
 import logging
+import os
 import sys
+import time
 
-from deploy_stack import (
-    BootstrapManager,
+from deploy_stack import BootstrapManager
+from distutils.version import (
+    LooseVersion,
+    StrictVersion,
 )
 from jujucharm import (
     Charm,
     local_charm_path,
 )
 from utility import (
+    until_timeout,
     add_basic_testing_arguments,
     assert_dict_is_subset,
     configure_logging,
     temp_dir,
 )
 from jujupy.version_client import ModelClient2_1
+from jujupy.client import get_stripped_version_number
 
 
 __metaclass__ = type
@@ -74,6 +79,51 @@ storage_pool_1x["ebs-ssd"] = {
     "provider": "ebs",
     "attrs": {"volume-type": "ssd"}
     }
+
+
+def after_2dot3(client_version):
+    # LooseVersion considers 2.3-somealpha to be newer than 2.3.0.
+    # Attempt strict versioning first.
+    client_version = get_stripped_version_number(client_version)
+    try:
+        return StrictVersion(client_version) >= StrictVersion('2.3.0')
+    except ValueError:
+        pass
+    return LooseVersion(client_version) >= LooseVersion('2.3.0')
+
+
+def wait_for_storage_detach(client, storage_id, interval, timeout):
+    """
+    Due to the asynchronous nature of Juju, detaching a persistent storage
+    takes some time.
+    This function will wait then check if the status of a specific persistent
+    storage unit changed to detached. Once detached, waiting stops.
+    """
+    for ignored in until_timeout(timeout):
+        time.sleep(interval)
+        storage_output = json.loads(client.list_storage())
+        try:
+            index = [elem for elem in storage_output['volumes'].keys()
+                if storage_output['volumes'][elem]['storage'] == storage_id][0]
+        except IndexError:
+            log.info('Volume index for {} cannot be found.'.format(storage_id))
+            break
+        storage_status = storage_output['volumes'][index]['status']['current']
+        if storage_status == 'detached':
+            break
+
+
+def wait_for_storage_removal(client, storage_id, interval, timeout):
+    """
+    Due to the asynchronous nature of Juju, storage removal takes some time.
+    This function will wait then check if a specific storage id can be found in
+    juju storage output. If the storage id disappeared, waiting stops.
+    """
+    for ignored in until_timeout(timeout):
+        time.sleep(interval)
+        storage_raw_output = client.list_storage()
+        if storage_id not in storage_raw_output:
+            break
 
 
 def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
@@ -312,7 +362,18 @@ def assess_storage(client, charm_series):
     expected = make_expected_ls(client, 'data/4', 'dummy-storage-np/0')
     check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
+
     client.remove_service('dummy-storage-np')
+    # persistent storage feature requires Juju 2.3+
+    # data/4 is persistent in Juju 2.3+, detach is required before removal,
+    # it needs to be removed otherwise will interfere the next test result.
+    if after_2dot3(client.version):
+        wait_for_storage_detach(
+            client, storage_id='data/4', interval=15, timeout=60)
+        client.get_juju_output(
+            'remove-storage', 'data/4', include_e=False, merge_stderr=True)
+        wait_for_storage_removal(
+            client, storage_id='data/4', interval=15, timeout=90)
 
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',

@@ -731,8 +731,10 @@ class FakeBackend:
                 raise SoftDeadlineExceeded()
 
     def get_active_model(self, juju_home):
-        return (self.controller_state.name, None,
-                self.controller_state.active_model)
+        return self.controller_state.active_model
+
+    def get_active_controller(self, juju_home):
+        return self.controller_state.name
 
     def deploy(self, model_state, charm_name, num, service_name=None,
                series=None):
@@ -995,7 +997,7 @@ class FakeBackend:
             if command == 'destroy-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
-                model = args[0]
+                model = args[0].split(':')[1]
                 try:
                     model_state = self.controller_state.models[model]
                 except KeyError:

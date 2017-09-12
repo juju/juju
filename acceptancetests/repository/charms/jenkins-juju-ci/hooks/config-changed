@@ -101,7 +101,7 @@ github_password=$(sed -r '/github_password/!d; s/.*"(.*)"/\1/; s/%20/ /' $JENKIN
 cat << EOC > $JENKINS_HOME/.gitconfig
 [user]
         name = jenkins
-        email = jenkins@vapour.ws
+        email = jenkins@jenkins
 [credential]
         helper = cache
 [credential "https://github.com"]

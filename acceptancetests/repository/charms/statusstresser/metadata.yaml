@@ -7,9 +7,7 @@ categories:
      - misc
 series:
   - trusty
-  - precise
-  - utopic
-  - vivid
-  - wily
   - xenial
+  - zesty
+  - artful
 

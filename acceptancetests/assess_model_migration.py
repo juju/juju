@@ -5,7 +5,10 @@ from __future__ import print_function
 
 import argparse
 from contextlib import contextmanager
-from distutils.version import LooseVersion
+from distutils.version import (
+    LooseVersion,
+    StrictVersion
+    )
 import logging
 import os
 from subprocess import CalledProcessError
@@ -19,6 +22,10 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string
     )
+from jujupy.client import (
+    BaseCondition,
+    get_stripped_version_number,
+)
 from jujupy.version_client import ModelClient2_0
 from jujucharm import local_charm_path
 from remote import remote_from_address
@@ -93,6 +100,13 @@ def client_is_at_least_2_1(client):
 
 
 def after_22beta4(client_version):
+    # LooseVersion considers 2.2-somealpha to be newer than 2.2.0.
+    # Attempt strict versioning first.
+    client_version = get_stripped_version_number(client_version)
+    try:
+        return StrictVersion(client_version) >= StrictVersion('2.2.0')
+    except ValueError:
+        pass
     return LooseVersion(client_version) >= LooseVersion('2.2-beta4')
 
 
@@ -368,11 +382,56 @@ def ensure_superuser_can_migrate_other_user_models(
 
 def deploy_simple_server_to_new_model(
         client, model_name, resource_contents=None):
+    # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
+    #  related to both
     new_model = client.add_model(client.env.clone(model_name))
     application = deploy_simple_resource_server(new_model, resource_contents)
+    _, deploy_complete = new_model.deploy('cs:ubuntu')
+    new_model.wait_for(deploy_complete)
+    new_model.deploy('cs:ntp')
+    new_model.juju('add-relation', ('ntp', application))
+    new_model.juju('add-relation', ('ntp', 'ubuntu'))
+    # Need to wait for the subordinate charms too.
+    new_model.wait_for(AllApplicationActive())
+    new_model.wait_for(AllApplicationWorkloads())
     assert_deployed_charm_is_responding(new_model, resource_contents)
 
     return new_model, application
+
+
+class AllApplicationActive(BaseCondition):
+    """Ensure all applications (incl. subordinates) are 'active' state."""
+
+    def iter_blocking_state(self, status):
+        applications = status.get_applications()
+        all_app_status = [
+            state['application-status']['current']
+            for name, state in applications.items()]
+        apps_active = [state == 'active' for state in all_app_status]
+        if not all(apps_active):
+            yield 'applications', 'not-all-active'
+
+    def do_raise(self, model_name, status):
+        raise Exception('Timed out waiting for all applications to be active.')
+
+
+class AllApplicationWorkloads(BaseCondition):
+    """Ensure all applications (incl. subordinates) are workload 'active'."""
+
+    def iter_blocking_state(self, status):
+        app_workloads_active = []
+        for name, unit in status.iter_units():
+            try:
+                state = unit['workload-status']['current'] == 'active'
+            except KeyError:
+                state = False
+            app_workloads_active.append(state)
+        if not all(app_workloads_active):
+            yield 'application-workloads', 'not-all-active'
+
+    def do_raise(self, model_name, status):
+        raise Exception(
+            'Timed out waiting for all application workloads to be active.')
 
 
 def deploy_dummy_source_to_new_model(client, model_name):
@@ -410,22 +469,7 @@ def deploy_simple_resource_server(client, resource_contents=None):
 def migrate_model_to_controller(
         source_client, dest_client, include_user_name=False):
     log.info('Initiating migration process')
-    if include_user_name:
-        if after_22beta4(source_client.version):
-            model_name = '{}:{}/{}'.format(
-                source_client.env.controller.name,
-                source_client.env.user_name,
-                source_client.env.environment)
-        else:
-            model_name = '{}/{}'.format(
-                source_client.env.user_name, source_client.env.environment)
-    else:
-        if after_22beta4(source_client.version):
-            model_name = '{}:{}'.format(
-                source_client.env.controller.name,
-                source_client.env.environment)
-        else:
-            model_name = source_client.env.environment
+    model_name = get_full_model_name(source_client, include_user_name)
 
     if after_22beta4(source_client.version):
         source_client.juju(
@@ -437,10 +481,54 @@ def migrate_model_to_controller(
             'migrate', (model_name, dest_client.env.controller.name))
     migration_target_client = dest_client.clone(
         dest_client.env.clone(source_client.env.environment))
-    wait_for_model(migration_target_client, source_client.env.environment)
-    migration_target_client.wait_for_started()
-    wait_until_model_disappears(source_client, source_client.env.environment)
+
+    try:
+        wait_for_model(migration_target_client, source_client.env.environment)
+        migration_target_client.wait_for_started()
+        wait_until_model_disappears(
+            source_client, source_client.env.environment)
+    except JujuAssertionError as e:
+        # Attempt to show model details as it might log migration failure
+        # message.
+        log.error(
+            'Model failed to migrate. '
+            'Attempting show-model for affected models.')
+        try:
+            source_client.juju('show-model', (model_name), include_e=False)
+        except:
+            log.info('Ignoring failed output.')
+            pass
+
+        try:
+            source_client.juju(
+                'show-model',
+                get_full_model_name(migration_target_client, include_user_name),
+                include_e=False)
+        except:
+            log.info('Ignoring failed output.')
+            pass
+        raise e
     return migration_target_client
+
+
+def get_full_model_name(client, include_user_name):
+    # Construct model name based on rules of version + if username is needed.
+    if include_user_name:
+        if after_22beta4(client.version):
+            return '{}:{}/{}'.format(
+                client.env.controller.name,
+                client.env.user_name,
+                client.env.environment)
+        else:
+            return '{}/{}'.format(
+                client.env.user_name, client.env.environment)
+    else:
+        if after_22beta4(client.version):
+            return '{}:{}'.format(
+                client.env.controller.name,
+                client.env.environment)
+        else:
+            return client.env.environment
 
 
 def ensure_model_is_functional(client, application):
@@ -460,7 +548,10 @@ def ensure_model_is_functional(client, application):
 
 def assert_units_on_different_machines(client, application):
     status = client.get_status()
-    unit_machines = [u[1]['machine'] for u in status.iter_units()]
+    # Not all units will be machines (as we have subordinate apps.)
+    unit_machines = [
+        u[1]['machine'] for u in status.iter_units()
+        if u[1].get('machine', None)]
     raise_if_shared_machines(unit_machines)
 
 

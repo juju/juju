@@ -303,7 +303,7 @@ class TestAddBasicTestingArguments(TestCase):
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
             verbose=logging.INFO, agent_stream=None, keep_env=False,
             upload_tools=False, bootstrap_host=None, machine=[], region=None,
-            deadline=None, to=None)
+            deadline=None, to=None, existing=None)
         self.assertEqual(args, expected)
 
     def test_positional_args_add_juju_bin_name(self):
@@ -464,7 +464,7 @@ class TestAddBasicTestingArguments(TestCase):
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
             verbose=logging.INFO, agent_stream=None, keep_env=False,
             upload_tools=False, bootstrap_host=None, machine=[], region=None,
-            deadline=None, to=None)
+            deadline=None, to=None, existing=None)
         self.assertEqual(args, expected)
 
 

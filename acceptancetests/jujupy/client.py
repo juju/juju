@@ -142,6 +142,10 @@ class NoActiveModel(Exception):
     """Raised when no active model could be found."""
 
 
+class NoActiveControllers(Exception):
+    """Raised when no active environment could be found."""
+
+
 def get_timeout_prefix(duration, timeout_path=None):
     """Return extra arguments to run a command with a timeout."""
     if timeout_path is None:
@@ -624,6 +628,7 @@ class JujuData(SimpleEnvironment):
             ctrl_config['cloud']
             )
         data.set_region(ctrl_config['region'])
+        data.load_yaml()
         return data
 
     def dump_yaml(self, path, config):
@@ -1291,16 +1296,42 @@ class Juju2Backend:
     def get_active_model(self, juju_data_dir):
         """Determine the active model in a juju data dir."""
         try:
-            current = self.get_juju_output(
-                'switch', (), set(), juju_data_dir, model=None).decode('ascii')
+            current = json.loads(self.get_juju_output(
+                'models', ('--format', 'json'), set(),
+                juju_data_dir, model=None).decode('ascii'))
         except subprocess.CalledProcessError as e:
-            if b'no currently specified model' not in e.stderr:
-                raise
-            raise NoActiveModel(
-                'No active model for {}'.format(juju_data_dir))
-        controller_name, user_model = current.split(':', 1)
-        user_name, model_name = user_model.split('/', 1)
-        return controller_name, user_name, model_name.rstrip('\n')
+            raise NoActiveControllers(
+                'No active controller for {}'.format(juju_data_dir))
+        try:
+            return current['current-model']
+        except KeyError:
+            raise NoActiveModel('No active model for {}'.format(juju_data_dir))
+
+    def get_active_controller(self, juju_data_dir):
+        """Determine the active controller in a juju data dir."""
+        try:
+            current = json.loads(self.get_juju_output(
+                'controllers', ('--format', 'json'), set(),
+                juju_data_dir, model=None).decode('ascii'))
+        except subprocess.CalledProcessError as e:
+            raise NoActiveControllers(
+                'No active controller for {}'.format(juju_data_dir))
+        try:
+            return current['current-controller']
+        except KeyError:
+            raise NoActiveControllers(
+                'No active controller for {}'.format(juju_data_dir))
+
+    def get_active_user(self, juju_data_dir, controller):
+        """Determine the active user for a controller."""
+        try:
+            current = json.loads(self.get_juju_output(
+                'controllers', ('--format', 'json'), set(),
+                juju_data_dir, model=None).decode('ascii'))
+        except subprocess.CalledProcessError as e:
+            raise NoActiveControllers(
+                'No active controller for {}'.format(juju_data_dir))
+        return current['controllers'][controller]['user']
 
     def pause(self, seconds):
         pause(seconds)
@@ -1557,6 +1588,16 @@ class CommandComplete(BaseCondition):
             'Timed out waiting for "{}" command to complete: "{}"'.format(
                 self.command_time.cmd,
                 ' '.join(self.command_time.full_args)))
+
+
+def get_stripped_version_number(version_string):
+    # strip the series and arch from the built version.
+    version_parts = version_string.split('-')
+    if len(version_parts) == 4:
+        version_number = '-'.join(version_parts[0:2])
+    else:
+        version_number = version_parts[0]
+    return version_number
 
 
 class ModelClient:
@@ -1918,6 +1959,7 @@ class ModelClient:
         # Strip unneeded variables.
         return dict((k, v) for k, v in config_dict.items() if k not in {
             'access-key',
+            'api-port',
             'admin-secret',
             'application-id',
             'application-password',
@@ -1934,6 +1976,9 @@ class ModelClient:
             'management-subscription-id',
             'manta-key-id',
             'manta-user',
+            'max-logs-age',
+            'max-logs-size',
+            'max-txn-log-size',
             'name',
             'password',
             'private-key',
@@ -1942,6 +1987,8 @@ class ModelClient:
             'sdc-url',
             'sdc-user',
             'secret-key',
+            'set-numa-control-policy',
+            'state-port',
             'storage-account-name',
             'subscription-id',
             'tenant-id',
@@ -2001,12 +2048,13 @@ class ModelClient:
             region_args = (cloud_region, '--credential', credential_name)
         else:
             region_args = ()
-        self.controller_juju('add-model', (model_name,) + region_args + (
-            '--config', config_file))
+        self.controller_juju('add-model', (model_name,) + region_args +
+                             ('--config', config_file,))
 
     def destroy_model(self):
         exit_status, _ = self.juju(
-            'destroy-model', (self.env.environment, '-y',),
+            'destroy-model', ('{}:{}'.format(self.env.controller.name,
+                                             self.env.environment), '-y',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
@@ -2253,7 +2301,7 @@ class ModelClient:
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, resource=None, num=None,
-               storage=None, constraints=None, alias=None, bind=None):
+               constraints=None, alias=None, bind=None, **kwargs):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -2267,14 +2315,18 @@ class ModelClient:
             args.extend(['--resource', resource])
         if num is not None:
             args.extend(['-n', str(num)])
-        if storage is not None:
-            args.extend(['--storage', storage])
         if constraints is not None:
             args.extend(['--constraints', constraints])
         if bind is not None:
             args.extend(['--bind', bind])
         if alias is not None:
             args.extend([alias])
+        for key, value in kwargs.items():
+            if isinstance(value, list):
+                for item in value:
+                    args.extend(['--{}'.format(key), item])
+            else:
+                args.extend(['--{}'.format(key), value])
         retvar, ct = self.juju('deploy', tuple(args))
         return retvar, CommandComplete(WaitAgentsStarted(), ct)
 
@@ -2681,12 +2733,7 @@ class ModelClient:
         condition.do_raise(self.model_name, status)
 
     def get_matching_agent_version(self, no_build=False):
-        # strip the series and srch from the built version.
-        version_parts = self.version.split('-')
-        if len(version_parts) == 4:
-            version_number = '-'.join(version_parts[0:2])
-        else:
-            version_number = version_parts[0]
+        version_number = get_stripped_version_number(self.version)
         if not no_build and self.env.local:
             version_number += '.1'
         return version_number

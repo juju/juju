@@ -10,7 +10,7 @@ provides:
 tags:
   - cache-proxy
 series:
-  - xenial
   - trusty
-  - precise
-  - yakkety
+  - xenial
+  - zesty
+  - artful
