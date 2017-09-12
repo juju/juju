@@ -468,6 +468,20 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		h.log.Infof("avoid creating other machines to host %s units", msg)
 		return nil
 	}
+	// Check if machine mapping was provided for services
+	for _, application := range services {
+		for _, toMach := range h.data.Applications[application].To {
+			if targetMach, ok := machinesMap[toMach]; ok {
+				if !machinesProvided[targetMach] {
+					h.results[id] = targetMach
+					machinesProvided[targetMach] = true
+					msg = application
+					h.log.Infof("Assigned existing (pre-created) machine: %s to host: %s units", targetMach, msg)
+					return nil
+				}
+			}
+		}
+	}
 	cons, err := constraints.Parse(p.Constraints)
 	if err != nil {
 		// This should never happen, as the bundle is already verified.
