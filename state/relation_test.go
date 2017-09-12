@@ -556,3 +556,41 @@ func (s *RelationSuite) TestStatus(c *gc.C) {
 		Data:    map[string]interface{}{},
 	})
 }
+
+func (s *RelationSuite) TestInvalidStatus(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Joined)
+
+	// A relation in error cannot be suspended.
+	err = rel.SetStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "for a while",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.StatusInfo{
+		Status:  status.Suspended,
+		Message: "for a while",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot set status "suspended" when relation has status "error"`)
+	relStatus, err = rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Error)
+
+	// But it can be started again.
+	err = rel.SetStatus(status.StatusInfo{
+		Status: status.Joined,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err = rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Joined)
+}

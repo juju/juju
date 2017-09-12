@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -109,14 +110,34 @@ func (r *Relation) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status of the relation.
 func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
-	switch statusInfo.Status {
-	case status.Joined, status.Suspended, status.Broken:
-	case status.Error:
-		if statusInfo.Message == "" {
-			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
+	currentStatus, err := r.Status()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if reflect.DeepEqual(currentStatus, statusInfo) {
+		return nil
+	}
+
+	if currentStatus.Status != statusInfo.Status {
+		switch statusInfo.Status {
+		case status.Broken:
+		case status.Suspended:
+			if currentStatus.Status != status.Joined {
+				return errors.Errorf(
+					"cannot set status %q when relation has status %q", statusInfo.Status, currentStatus.Status)
+			}
+		case status.Joined:
+			if currentStatus.Status != status.Suspended && currentStatus.Status != status.Error {
+				return errors.Errorf(
+					"cannot set status %q when relation has status %q", statusInfo.Status, currentStatus.Status)
+			}
+		case status.Error:
+			if statusInfo.Message == "" {
+				return errors.Errorf("cannot set status %q without info", statusInfo.Status)
+			}
+		default:
+			return errors.NewNotValid(nil, fmt.Sprintf("cannot set invalid status %q", statusInfo.Status))
 		}
-	default:
-		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
 	return setStatus(r.st.db(), setStatusParams{
 		badge:     "relation",
