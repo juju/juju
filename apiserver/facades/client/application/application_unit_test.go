@@ -405,39 +405,38 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"volume-0" is not a valid storage tag`)
 }
 
-func (s *ApplicationSuite) TestSetRelationStatus(c *gc.C) {
+func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
 	s.backend.offerConnections["wordpress:db mysql:db"] = &mockOfferConnection{}
-	results, err := s.api.SetRelationStatus(params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{{
+	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
-			Status:     params.Joined,
-			Message:    "a message",
+			Suspended:  true,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
-	c.Assert(s.relation.status, gc.Equals, status.Joined)
-	c.Assert(s.relation.message, gc.Equals, "a message")
+	c.Assert(s.relation.suspended, jc.IsTrue)
+	c.Assert(s.relation.status, gc.Equals, status.Suspended)
 }
 
 func (s *ApplicationSuite) TestSetNonOfferRelationStatus(c *gc.C) {
 	s.backend.relations[123].tag = names.NewRelationTag("mediawiki:db mysql:db")
-	results, err := s.api.SetRelationStatus(params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{{
+	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
-			Status:     params.Joined,
+			Suspended:  true,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.OneError(), gc.ErrorMatches, `cannot set status for "mediawiki:db mysql:db" which is not associated with an offer`)
+	c.Assert(results.OneError(), gc.ErrorMatches, `cannot set suspend status for "mediawiki:db mysql:db" which is not associated with an offer`)
 }
 
-func (s *ApplicationSuite) TestBlockSetRelationStatus(c *gc.C) {
+func (s *ApplicationSuite) TestBlockSetRelationSuspended(c *gc.C) {
 	s.blockChecker.SetErrors(errors.New("blocked"))
-	_, err := s.api.SetRelationStatus(params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{{
+	_, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
-			Status:     params.Joined,
+			Suspended:  true,
 		}},
 	})
 	c.Assert(err, gc.ErrorMatches, "blocked")
@@ -445,7 +444,7 @@ func (s *ApplicationSuite) TestBlockSetRelationStatus(c *gc.C) {
 	s.relation.CheckNoCalls(c)
 }
 
-func (s *ApplicationSuite) TestSetRelationStatusPermissionDenied(c *gc.C) {
+func (s *ApplicationSuite) TestSetRelationSuspendedPermissionDenied(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("fred")
 	api, err := application.NewAPI(
 		&s.backend,
@@ -459,10 +458,10 @@ func (s *ApplicationSuite) TestSetRelationStatusPermissionDenied(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = api.SetRelationStatus(params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{{
+	_, err = api.SetRelationsSuspended(params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
-			Status:     params.Joined,
+			Suspended:  true,
 		}},
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")

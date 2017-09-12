@@ -101,6 +101,7 @@ type Relation interface {
 	Tag() names.Tag
 	Destroy() error
 	Endpoint(string) (state.Endpoint, error)
+	SetSuspended(bool) error
 }
 
 // Unit defines a subset of the functionality provided by the

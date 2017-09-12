@@ -238,3 +238,21 @@ func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
 	}
 	return ua.Access == permission.SuperuserAccess, nil
 }
+
+func (st *State) isControllerOrModelAdmin(user names.UserTag) (bool, error) {
+	isAdmin, err := st.IsControllerAdmin(user)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if isAdmin {
+		return true, nil
+	}
+	ua, err := st.UserAccess(user, names.NewModelTag(st.modelUUID()))
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return ua.Access == permission.AdminAccess, nil
+}
