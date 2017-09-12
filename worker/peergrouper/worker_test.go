@@ -159,8 +159,18 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		// work. So we use the real clock to advance the test clock for this
 		// test.
 		done := make(chan struct{})
-		defer close(done)
+		clockAdvancerFinished := make(chan struct{})
+		defer func() {
+			close(done)
+			select {
+			case <-clockAdvancerFinished:
+				return
+			case <-time.After(coretesting.LongWait):
+				c.Error("advancing goroutine didn't finish")
+			}
+		}()
 		go func() {
+			defer close(clockAdvancerFinished)
 			for {
 				select {
 				case <-time.After(5 * time.Millisecond):
