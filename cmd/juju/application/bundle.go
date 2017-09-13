@@ -341,6 +341,9 @@ func (h *bundleHandler) addService(
 	}
 	resources := make(map[string]string)
 	for resName, path := range p.LocalResources {
+		if !filepath.IsAbs(path) {
+			path = filepath.Clean(filepath.Join(h.bundleDir, path))
+		}
 		resources[resName] = path
 	}
 	for resName, revision := range p.Resources {

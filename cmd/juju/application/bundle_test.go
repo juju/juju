@@ -240,10 +240,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
                 series: quantal
                 num_units: 1
                 resources:
-                  dummy: ./dummy-resource/dummy-resource.zip
+                  dummy: ./dummy-resource.zip
     `
 	dir := s.makeBundleDir(c, data)
 	testcharms.Repo.ClonedDir(dir, "dummy-resource")
+	c.Assert(
+		ioutil.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
+		jc.ErrorIsNil)
 	_, err := runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
