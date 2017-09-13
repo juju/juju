@@ -103,13 +103,12 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "owned", Owner: admin.UserTag()}).Close()
+		Name: "owned", Owner: admin.UserTag()}).CloseDBConnection()
+
 	remoteUserTag := names.NewUserTag("user@remote")
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	defer model.CloseDBConnection()
 
 	model.AddUser(
 		state.UserAccessSpec{
@@ -119,7 +118,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 			Access:      permission.ReadAccess})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "no-access", Owner: remoteUserTag}).Close()
+		Name: "no-access", Owner: remoteUserTag}).CloseDBConnection()
 
 	response, err := s.controller.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,10 +138,10 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner.UserTag()}).Close()
+		Name: "first", Owner: owner.UserTag()}).CloseDBConnection()
 	remoteUserTag := names.NewUserTag("user@remote")
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: remoteUserTag}).Close()
+		Name: "second", Owner: remoteUserTag}).CloseDBConnection()
 
 	results, err := s.controller.HostedModelConfigs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,10 +182,10 @@ func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) enviro
 func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner.UserTag()}).Close()
+		Name: "first", Owner: owner.UserTag()}).CloseDBConnection()
 	remoteUserTag := names.NewUserTag("user@remote")
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: remoteUserTag}).Close()
+		Name: "second", Owner: remoteUserTag}).CloseDBConnection()
 
 	results, err := s.controller.HostedModelConfigs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,14 +206,14 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
-	defer st.Close()
+	defer model.CloseDBConnection()
 
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+	model.State().SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
+	model.State().SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,7 +230,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 		},
 		params.ModelBlockInfo{
 			Name:     "test",
-			UUID:     st.ModelUUID(),
+			UUID:     model.UUID(),
 			OwnerTag: s.Owner.String(),
 			Blocks: []string{
 				"BlockDestroy",
@@ -255,9 +254,9 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 }
 
 func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
-	defer st.Close()
+	defer model.CloseDBConnection()
 
 	authorizer := &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -265,7 +264,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	}
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
-			State_:     st,
+			State_:     model.State(),
 			StatePool_: s.statePool,
 			Resources_: common.NewResources(),
 			Auth_:      authorizer,
@@ -288,14 +287,14 @@ func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 }
 
 func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
-	defer st.Close()
+	defer model.CloseDBConnection()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
-			State_:     st,
+			State_:     model.State(),
 			Resources_: common.NewResources(),
 			Auth_:      authorizer,
 		})
@@ -310,14 +309,14 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
-	defer st.Close()
+	defer model.CloseDBConnection()
 
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+	model.State().SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
+	model.State().SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{All: true})
 	c.Assert(err, jc.ErrorIsNil)
@@ -373,15 +372,11 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 
 func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	// Create two hosted models to migrate.
-	st1 := s.Factory.MakeModel(c, nil)
-	defer st1.Close()
-	model1, err := st1.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model1 := s.Factory.MakeModel(c, nil)
+	defer model1.CloseDBConnection()
 
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model2 := s.Factory.MakeModel(c, nil)
+	defer model2.CloseDBConnection()
 
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
@@ -419,22 +414,23 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
-	states := []*state.State{st1, st2}
+	models := []*state.Model{model1, model2}
 	for i, spec := range args.Specs {
 		c.Log(i)
-		st := states[i]
+		model := models[i]
 		result := out.Results[i]
 
 		c.Assert(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
-		expectedId := st.ModelUUID() + ":0"
+		expectedId := model.UUID() + ":0"
 		c.Check(result.MigrationId, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
-		mig, err := st.LatestMigration()
+		mig, err := model.State().LatestMigration()
 		c.Assert(err, jc.ErrorIsNil)
+
 		c.Check(mig.Id(), gc.Equals, expectedId)
-		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
+		c.Check(mig.ModelUUID(), gc.Equals, model.UUID())
 		c.Check(mig.InitiatedBy(), gc.Equals, s.Owner.Id())
 
 		targetInfo, err := mig.TargetInfo()
@@ -455,10 +451,8 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 	// Create a hosted model to migrate.
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
 	// Kick off the migration with missing details.
 	args := params.InitiateMigrationArgs{
@@ -477,17 +471,14 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 	controller.SetPrecheckResult(s, nil)
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
 			{
-				ModelTag: m.ModelTag().String(),
+				ModelTag: model.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
@@ -504,7 +495,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
-	c.Check(out.Results[0].ModelTag, gc.Equals, m.ModelTag().String())
+	c.Check(out.Results[0].ModelTag, gc.Equals, model.ModelTag().String())
 	c.Check(out.Results[0].Error, gc.IsNil)
 
 	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
@@ -512,16 +503,13 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
 			{
-				ModelTag: m.ModelTag().String(),
+				ModelTag: model.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
@@ -541,17 +529,14 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
 	controller.SetPrecheckResult(s, errors.New("boom"))
 
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
-			ModelTag: m.ModelTag().String(),
+			ModelTag: model.ModelTag().String(),
 			TargetInfo: params.MigrationTargetInfo{
 				ControllerTag: randomControllerTag(),
 				Addrs:         []string{"1.1.1.1:1111"},
@@ -565,7 +550,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	c.Assert(out.Results, gc.HasLen, 1)
 	c.Check(out.Results[0].Error, gc.ErrorMatches, "boom")
 
-	active, err := st.IsMigrationActive()
+	active, err := model.State().IsMigrationActive()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(active, jc.IsFalse)
 }

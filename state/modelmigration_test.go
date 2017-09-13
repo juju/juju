@@ -37,7 +37,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a hosted model to migrate.
-	s.State2 = s.Factory.MakeModel(c, nil)
+	s.State2 = s.Factory.MakeModel(c, nil).State()
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
 	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
@@ -110,7 +110,7 @@ func (s *MigrationSuite) TestIsMigrationActive(c *gc.C) {
 
 func (s *MigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 	st2 := s.State2
-	st3 := s.Factory.MakeModel(c, nil)
+	st3 := s.Factory.MakeModel(c, nil).State()
 	s.AddCleanup(func(*gc.C) { st3.Close() })
 
 	mig2, err := st2.CreateMigration(s.stdSpec)
@@ -534,7 +534,7 @@ func (s *MigrationSuite) TestWatchForMigrationMultiModel(c *gc.C) {
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
-	State3 := s.Factory.MakeModel(c, nil)
+	State3 := s.Factory.MakeModel(c, nil).State()
 	s.AddCleanup(func(*gc.C) { State3.Close() })
 	_, wc3 := s.createMigrationWatcher(c, State3)
 	wc3.AssertOneChange()
@@ -608,7 +608,7 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
-	State3 := s.Factory.MakeModel(c, nil)
+	State3 := s.Factory.MakeModel(c, nil).State()
 	s.AddCleanup(func(*gc.C) { State3.Close() })
 	_, wc3 := s.createStatusWatcher(c, State3)
 	wc3.AssertOneChange() // initial event
@@ -752,7 +752,7 @@ func (s *MigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
 	mig, wc := s.createMigAndWatchReports(c, s.State2)
 	wc.AssertOneChange() // initial event
 
-	State3 := s.Factory.MakeModel(c, nil)
+	State3 := s.Factory.MakeModel(c, nil).State()
 	s.AddCleanup(func(*gc.C) { State3.Close() })
 	mig3, wc3 := s.createMigAndWatchReports(c, State3)
 	wc3.AssertOneChange() // initial event

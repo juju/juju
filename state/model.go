@@ -197,6 +197,16 @@ func (st *State) Model() (*Model, error) {
 	return model, nil
 }
 
+// CloseDBConnection closes a Model's connection to the database.
+func (model *Model) CloseDBConnection() error {
+	return model.st.Close()
+}
+
+// State return the model's state.
+func (model *Model) State() *State {
+	return model.st
+}
+
 // AllModelUUIDs returns the UUIDs for all models in the controller.
 // Results are sorted by (name, owner).
 func (st *State) AllModelUUIDs() ([]string, error) {
@@ -1290,12 +1300,6 @@ func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
 		return nil, errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
 	return &doc, nil
-}
-
-// (TODO) externalreality: Temporary method to access state from model while
-// factoring Model concerns out from state.
-func (model *Model) State() *State {
-	return model.st
 }
 
 // checkModelEntityRefsEmpty checks that the model is empty of any entities

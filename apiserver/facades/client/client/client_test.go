@@ -235,14 +235,13 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 }
 
 func (s *serverSuite) makeMigratingModel(c *gc.C, name string, mode state.MigrationMode) {
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
+	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  name,
 		Owner: names.NewUserTag("some-user"),
 	})
-	defer otherSt.Close()
-	model, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(mode)
+	defer otherModel.CloseDBConnection()
+
+	err := otherModel.SetMigrationMode(mode)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -268,15 +267,15 @@ func (s *serverSuite) TestControllerModelSetEnvironAgentVersionBlockedByExportin
 
 func (s *serverSuite) TestUserModelSetEnvironAgentVersionNotAffectedByMigration(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	s.makeMigratingModel(c, "exporting-model", state.MigrationModeExporting)
 	s.makeMigratingModel(c, "importing-model", state.MigrationModeImporting)
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse("2.0.4"),
 	}
-	client := s.clientForState(c, otherSt)
+	client := s.clientForState(c, otherModel.State())
 
 	s.newEnviron = func() (environs.Environ, error) {
 		return &mockEnviron{}, nil
@@ -285,7 +284,7 @@ func (s *serverSuite) TestUserModelSetEnvironAgentVersionNotAffectedByMigration(
 	err := client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertModelVersion(c, otherSt, "2.0.4")
+	s.assertModelVersion(c, otherModel.State(), "2.0.4")
 }
 
 type mockEnviron struct {

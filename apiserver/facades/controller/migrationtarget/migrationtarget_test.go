@@ -161,13 +161,11 @@ func (s *Suite) TestAbortMissingEnv(c *gc.C) {
 }
 
 func (s *Suite) TestAbortNotImportingEnv(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	api := s.mustNewAPI(c)
-	err = api.Abort(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	err := api.Abort(params.ModelArgs{ModelTag: m.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
@@ -198,58 +196,49 @@ func (s *Suite) TestActivateMissingEnv(c *gc.C) {
 }
 
 func (s *Suite) TestActivateNotImportingEnv(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	api := s.mustNewAPI(c)
-	err = api.Activate(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	err := api.Activate(params.ModelArgs{ModelTag: m.Tag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
 func (s *Suite) TestLatestLogTime(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	t := time.Date(2016, 11, 30, 18, 14, 0, 100, time.UTC)
-	tracker := state.NewLastSentLogTracker(st, model.UUID(), "migration-logtransfer")
+	tracker := state.NewLastSentLogTracker(m.State(), m.UUID(), "migration-logtransfer")
 	defer tracker.Close()
-	err = tracker.Set(0, t.UnixNano())
+	err := tracker.Set(0, t.UnixNano())
 	c.Assert(err, jc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
-	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: m.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latest, gc.Equals, t)
 }
 
 func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	api := s.mustNewAPI(c)
-	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: m.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latest, gc.Equals, time.Time{})
 }
 
 func (s *Suite) TestAdoptResources(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	env := mockEnviron{Stub: &testing.Stub{}}
 	api, err := s.newAPI(func(envSt *state.State) (environs.Environ, error) {
-		c.Assert(envSt.ModelUUID(), gc.Equals, st.ModelUUID())
+		c.Assert(envSt.ModelUUID(), gc.Equals, m.UUID())
 		return &env, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = api.AdoptResources(params.AdoptResourcesArgs{
@@ -259,14 +248,14 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
-	env.Stub.CheckCall(c, 0, "AdoptResources", st.ControllerUUID(), version.MustParse("3.2.1"))
+	env.Stub.CheckCall(c, 0, "AdoptResources", m.State().ControllerUUID(), version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(model.State())
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "wind-up",
 	})
@@ -281,8 +270,6 @@ func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -292,10 +279,10 @@ func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(m.State())
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "judith",
 	})
@@ -308,10 +295,8 @@ func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
+		params.ModelArgs{ModelTag: m.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -319,25 +304,24 @@ func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	env := mockEnviron{Stub: &testing.Stub{}}
 	env.SetErrors(errors.Errorf("kablooie"))
 	api := s.mustNewAPIWithEnviron(c, &env)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
+		params.ModelArgs{ModelTag: m.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, "kablooie")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(model.State())
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "eriatarka",
 	})
@@ -354,8 +338,6 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 		},
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -363,10 +345,10 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(model.State())
 	m := fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})
@@ -377,8 +359,6 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 		instances: []*mockInstance{{id: "birds"}},
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -386,10 +366,10 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(model.State())
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})
@@ -403,8 +383,6 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)

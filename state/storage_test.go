@@ -1245,7 +1245,7 @@ var blackPool = mustStorageConfig("black", "lancashire", map[string]interface{}{
 func (s *StorageStateSuite) TestNewModelDefaultPools(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		StorageProviderRegistry: testingStorageProviders,
-	})
+	}).State()
 	s.AddCleanup(func(*gc.C) { st.Close() })
 
 	// When a model is created, it is populated with the default

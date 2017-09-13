@@ -24,10 +24,9 @@ var _ = gc.Suite(&ModelStatusSuite{})
 
 func (s *ModelStatusSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.st = s.Factory.MakeModel(c, nil)
-	m, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	s.model = m
+	s.model = s.Factory.MakeModel(c, nil)
+
+	s.st = s.model.State()
 	s.factory = factory.NewFactory(s.st)
 }
 

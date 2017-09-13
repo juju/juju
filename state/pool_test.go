@@ -28,11 +28,11 @@ func (s *statePoolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.ModelUUID = s.State.ModelUUID()
 
-	s.State1 = s.Factory.MakeModel(c, nil)
+	s.State1 = s.Factory.MakeModel(c, nil).State()
 	s.AddCleanup(func(*gc.C) { s.State1.Close() })
 	s.ModelUUID1 = s.State1.ModelUUID()
 
-	s.State2 = s.Factory.MakeModel(c, nil)
+	s.State2 = s.Factory.MakeModel(c, nil).State()
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 	s.ModelUUID2 = s.State2.ModelUUID()
 

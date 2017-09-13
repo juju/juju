@@ -236,7 +236,7 @@ func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 		}
 	}
 
-	otherSt := s.Factory.MakeModel(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil).State()
 	defer otherSt.Close()
 	assertIsolated(s.State, otherSt,
 		"Bob@UbuntuOne",
@@ -323,10 +323,9 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a second model and add the same user to this.
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model2 := s.Factory.MakeModel(c, nil)
+	defer model2.CloseDBConnection()
+
 	modelUser2, err := model2.AddUser(
 		state.UserAccessSpec{
 			User:      user.UserTag(),
@@ -337,7 +336,6 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 
 	// Now we have two model users with the same username. Ensure we get
 	// separate last connections.
-
 	// Connect modelUser and get last connection.
 	err = s.Model.UpdateLastModelConnection(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -462,7 +460,7 @@ func (s *ModelUserSuite) TestIsControllerAdmin(c *gc.C) {
 func (s *ModelUserSuite) TestIsControllerAdminFromOtherState(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
-	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()})
+	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()}).State()
 	defer otherState.Close()
 
 	isAdmin, err := otherState.IsControllerAdmin(user.UserTag())
@@ -501,12 +499,10 @@ func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.
 }
 
 func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag) *state.Model {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	newEnv, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	newEnv := s.Factory.MakeModel(c, nil)
+	defer newEnv.CloseDBConnection()
 
-	_, err = newEnv.AddUser(
+	_, err := newEnv.AddUser(
 		state.UserAccessSpec{
 			User: user, CreatedBy: newEnv.Owner(),
 			Access: permission.ReadAccess,

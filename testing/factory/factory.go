@@ -616,9 +616,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 // defaults are used for all values.
 //
 // By default the new model shares the same owner as the calling Factory's
-// model. TODO(ericclaudejones) MakeModel should return the model itself rather
-// than the state.
-func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
+func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.Model {
 	if params == nil {
 		params = new(ModelParams)
 	}
@@ -653,7 +651,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"uuid": uuid.String(),
 		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewModel(state.ModelArgs{
+	model, _, err := factory.st.NewModel(state.ModelArgs{
 		Type:            params.Type,
 		CloudName:       params.CloudName,
 		CloudRegion:     params.CloudRegion,
@@ -664,7 +662,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		EnvironVersion:          params.EnvironVersion,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return st
+	return model
 }
 
 // MakeSpace will create a new space with the specified params. If the space

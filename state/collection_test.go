@@ -141,9 +141,9 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 	// 2 models with machines in each.
 	m0 := s.Factory.MakeMachine(c, nil)
 	s.Factory.MakeMachine(c, nil)
-	st1 := s.Factory.MakeModel(c, nil)
-	defer st1.Close()
-	f1 := factory.NewFactory(st1)
+	m1 := s.Factory.MakeModel(c, nil)
+	defer m1.CloseDBConnection()
+	f1 := factory.NewFactory(m1.State())
 	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
 
 	// Ensure that the first machine in each model have overlapping ids
@@ -152,7 +152,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 
 	machines0, closer := state.GetCollection(s.State, state.MachinesC)
 	defer closer()
-	machines1, closer := state.GetCollection(st1, state.MachinesC)
+	machines1, closer := state.GetCollection(m1.State(), state.MachinesC)
 	defer closer()
 
 	machinesSnapshot := newCollectionSnapshot(c, machines0.Writeable().Underlying())

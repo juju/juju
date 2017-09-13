@@ -174,16 +174,14 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: nonce,
 	})
-	hostedState := s.Factory.MakeModel(c, nil)
-	defer hostedState.Close()
+	hostedModel := s.Factory.MakeModel(c, nil)
+	defer hostedModel.CloseDBConnection()
 
 	// Connect to the hosted model using the credentials of the
 	// controller machine.
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
-	hostedModel, err := hostedState.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.ModelTag = hostedModel.ModelTag()
 	apiInfo.Nonce = nonce
 	conn, err := api.Open(apiInfo, api.DialOpts{})

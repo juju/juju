@@ -419,10 +419,9 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newSt := s.Factory.MakeModel(c, nil)
-	defer newSt.Close()
-	importedModel, err := newSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	importedModel := s.Factory.MakeModel(c, nil)
+	defer importedModel.CloseDBConnection()
+
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 	s.extraHeaders = map[string]string{
@@ -438,7 +437,7 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedURL.String())
 
 	// The charm was added to the migrated model.
-	_, err = newSt.Charm(expectedURL)
+	_, err = importedModel.State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -448,9 +447,9 @@ func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	migratedModel := s.Factory.MakeModel(c, nil)
-	defer migratedModel.Close()
+	defer migratedModel.CloseDBConnection()
 	s.extraHeaders = map[string]string{
-		params.MigrationModelHTTPHeader: migratedModel.ModelUUID(),
+		params.MigrationModelHTTPHeader: migratedModel.UUID(),
 	}
 
 	// The default user is just a normal user, not a controller admin

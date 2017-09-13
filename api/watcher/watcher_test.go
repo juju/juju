@@ -411,9 +411,9 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	const nonce = "noncey"
 
 	// Create a model to migrate.
-	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{})
-	defer hostedState.Close()
-	hostedFactory := factory.NewFactory(hostedState)
+	hostedModel := s.Factory.MakeModel(c, &factory.ModelParams{})
+	defer hostedModel.CloseDBConnection()
+	hostedFactory := factory.NewFactory(hostedModel.State())
 
 	// Create a machine in the hosted model to connect as.
 	m, password := hostedFactory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -424,9 +424,6 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
-
-	hostedModel, err := hostedState.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo.ModelTag = hostedModel.ModelTag()
 	apiInfo.Nonce = nonce
@@ -444,7 +441,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	}()
 
 	assertNoChange := func() {
-		s.startSync(c, hostedState)
+		s.startSync(c, hostedModel.State())
 		select {
 		case _, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -453,7 +450,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	}
 
 	assertChange := func(id string, phase migration.Phase) {
-		s.startSync(c, hostedState)
+		s.startSync(c, hostedModel.State())
 		select {
 		case status, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
@@ -479,7 +476,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 			Password:      "sekret",
 		},
 	}
-	mig, err := hostedState.CreateMigration(spec)
+	mig, err := hostedModel.State().CreateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(mig.Id(), migration.QUIESCE)
 
@@ -490,7 +487,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	assertChange(mig.Id(), migration.ABORTDONE)
 
 	// Start a new migration, this should also trigger.
-	mig2, err := hostedState.CreateMigration(spec)
+	mig2, err := hostedModel.State().CreateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(mig2.Id(), migration.QUIESCE)
 }

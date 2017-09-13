@@ -655,16 +655,14 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	defer assertStop(c, srv)
 
 	modelOwner := s.Factory.MakeUser(c, nil)
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 	})
-	defer modelState.Close()
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	defer model.CloseDBConnection()
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(modelOwner.UserTag(), "password", "", nil)
+	err := st.Login(modelOwner.UserTag(), "password", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRemoteModel(c, st, model.ModelTag())
 }
@@ -678,25 +676,22 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	defer assertStop(c, srv)
 
 	modelOwner := s.Factory.MakeUser(c, nil)
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
 	})
-	defer modelState.Close()
+	defer model.CloseDBConnection()
 
-	f2 := factory.NewFactory(modelState)
+	f2 := factory.NewFactory(model.State())
 	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "nonce",
 	})
-
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -705,26 +700,23 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	defer assertStop(c, srv)
 
 	modelOwner := s.Factory.MakeUser(c, nil)
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
 	})
-	defer modelState.Close()
+	defer model.CloseDBConnection()
 
-	f2 := factory.NewFactory(modelState)
+	f2 := factory.NewFactory(model.State())
 	machine, password := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
-
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	// If the agent attempts Login before the provisioner has recorded
 	// the machine's nonce in state, then the agent should get back an
 	// error with code "not provisioned".
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, gc.ErrorMatches, `machine 0 not provisioned \(not provisioned\)`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 }
@@ -737,14 +729,12 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
-	modelState := s.Factory.MakeModel(c, nil)
-	defer modelState.Close()
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -758,21 +748,19 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 
 	// Create a hosted model with an unprovisioned machine that has the
 	// same tag as the manager machine.
-	hostedModelState := s.Factory.MakeModel(c, nil)
-	defer hostedModelState.Close()
-	f2 := factory.NewFactory(hostedModelState)
+	hostedModel := s.Factory.MakeModel(c, nil)
+	defer hostedModel.CloseDBConnection()
+	f2 := factory.NewFactory(hostedModel.State())
 	workloadMachine, _ := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 	c.Assert(managerMachine.Tag(), gc.Equals, workloadMachine.Tag())
 
-	hostedModel, err := hostedModelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = hostedModel.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	// The fact that the machine with the same tag in the hosted
 	// model is unprovisioned should not cause the login to fail
 	// with "not provisioned", because the passwords don't match.
-	err = st.Login(managerMachine.Tag(), password, "nonce", nil)
+	err := st.Login(managerMachine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -782,15 +770,13 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
 
-	modelState := s.Factory.MakeModel(c, nil)
-	defer modelState.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err := st.Login(machine.Tag(), password, "nonce", nil)
 	assertPermissionDenied(c, err)
 }
 

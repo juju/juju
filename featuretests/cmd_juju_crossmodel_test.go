@@ -347,7 +347,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", ch)
 
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel"})
-	s.AddCleanup(func(*gc.C) { otherModel.Close() })
+	s.AddCleanup(func(*gc.C) { otherModel.CloseDBConnection() })
 
 	mysql := testcharms.Repo.CharmDir("mysql")
 	ident := fmt.Sprintf("%s-%d", mysql.Meta().Name, mysql.Revision())
@@ -357,14 +357,14 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 		charmrepo.NewCharmStoreParams{},
 		testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
-	ch, err = jujutesting.PutCharm(otherModel, curl, repo, false)
+	ch, err = jujutesting.PutCharm(otherModel.State(), curl, repo, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherModel.AddApplication(state.AddApplicationArgs{
+	_, err = otherModel.State().AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
 		Charm: ch,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	offersAPi := state.NewApplicationOffers(otherModel)
+	offersAPi := state.NewApplicationOffers(otherModel.State())
 	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
@@ -378,7 +378,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 	otherOwner := s.Factory.MakeUser(c, &factory.UserParams{Name: "otheruser"})
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel", Owner: otherOwner.Tag()})
-	s.AddCleanup(func(*gc.C) { otherModel.Close() })
+	s.AddCleanup(func(*gc.C) { otherModel.CloseDBConnection() })
 
 	mysql := testcharms.Repo.CharmDir("mysql")
 	ident := fmt.Sprintf("%s-%d", mysql.Meta().Name, mysql.Revision())
@@ -388,14 +388,14 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 		charmrepo.NewCharmStoreParams{},
 		testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
-	ch, err := jujutesting.PutCharm(otherModel, curl, repo, false)
+	ch, err := jujutesting.PutCharm(otherModel.State(), curl, repo, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherModel.AddApplication(state.AddApplicationArgs{
+	_, err = otherModel.State().AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
 		Charm: ch,
 	})
 
-	offersAPi := state.NewApplicationOffers(otherModel)
+	offersAPi := state.NewApplicationOffers(otherModel.State())
 	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
@@ -403,7 +403,7 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 		Owner:           otherOwner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return otherModel
+	return otherModel.State()
 }
 
 func (s *crossmodelSuite) runJujuCommndWithStdin(c *gc.C, stdin io.Reader, args ...string) {

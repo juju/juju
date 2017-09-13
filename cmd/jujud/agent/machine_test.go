@@ -1417,7 +1417,7 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
-	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
+	newModel := s.Factory.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
 			"max-status-history-age":  "2h",
 			"max-status-history-size": "4M",
@@ -1425,8 +1425,8 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 			"max-action-results-size": "4M",
 		},
 	})
-	return newSt, func() {
-		err := newSt.Close()
+	return newModel.State(), func() {
+		err := newModel.CloseDBConnection()
 		c.Check(err, jc.ErrorIsNil)
 	}
 }

@@ -43,11 +43,11 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	s.PrimeStateAgent(c, m.Tag(), password)
 
 	//  Create multiple environments and add some logs for each.
-	st1 := s.Factory.MakeModel(c, nil)
-	defer st1.Close()
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	states := []*state.State{s.State, st1, st2}
+	m1 := s.Factory.MakeModel(c, nil)
+	defer m1.CloseDBConnection()
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
+	states := []*state.State{s.State, m1.State(), m2.State()}
 
 	t := time.Date(2015, 11, 4, 3, 2, 1, 0, time.UTC)
 	for _, st := range states {

@@ -63,8 +63,8 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermission, sharedModelTags []string) {
-	sharedModelState := s.Factory.MakeModel(c, nil)
-	defer sharedModelState.Close()
+	sharedModel := s.Factory.MakeModel(c, nil)
+	defer sharedModel.CloseDBConnection()
 
 	args := params.AddUsers{
 		Users: []params.AddUser{{

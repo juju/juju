@@ -1,4 +1,4 @@
-// Copyright Canonical Ltd. 2013
+// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -57,9 +57,8 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 
-	m, err := st.Model()
+	s.Model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.Model = m
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {

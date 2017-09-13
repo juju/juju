@@ -168,7 +168,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
-	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "hosted-env"})
+	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "hosted-env"})
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +184,7 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.ModelTag = names.NewModelTag(otherState.ModelUUID())
+	info.ModelTag = names.NewModelTag(otherModel.UUID())
 
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,5 +193,5 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
-	return undertakerClient, otherState
+	return undertakerClient, otherModel.State()
 }
