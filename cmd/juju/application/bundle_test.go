@@ -232,9 +232,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
-	dir := c.MkDir()
-	testcharms.Repo.ClonedDir(dir, "dummy-resource")
-	path := filepath.Join(dir, "mybundle")
 	data := `
         series: quantal
         applications:
@@ -243,12 +240,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
                 series: quantal
                 num_units: 1
                 resources:
-                  dummy: %s
+                  dummy: ./dummy-resource.zip
     `
-	data = fmt.Sprintf(data, filepath.Join(dir, "dummy-resource", "dummy-resource.zip"))
-	err := ioutil.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = runDeploy(c, path)
+	dir := s.makeBundleDir(c, data)
+	testcharms.Repo.ClonedDir(dir, "dummy-resource")
+	c.Assert(
+		ioutil.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
+		jc.ErrorIsNil)
+	_, err := runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
@@ -402,15 +401,19 @@ func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
 // local repository and then deploy it. It returns the bundle deployment output
 // and error.
 func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string, extraArgs ...string) (string, error) {
+	bundlePath := s.makeBundleDir(c, content)
+	args := append([]string{bundlePath}, extraArgs...)
+	return runDeploy(c, args...)
+}
+
+func (s *BundleDeployCharmStoreSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
-	defer os.RemoveAll(bundlePath)
 	err := ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	args := append([]string{bundlePath}, extraArgs...)
-	return runDeploy(c, args...)
+	return bundlePath
 }
 
 var deployBundleErrorsTests = []struct {
@@ -426,7 +429,7 @@ var deployBundleErrorsTests = []struct {
                 num_units: 1
     `,
 	err: `the provided bundle has the following errors:
-charm path in application "mysql" does not exist: mysql`,
+charm path in application "mysql" does not exist: .*mysql`,
 }, {
 	about: "charm store charm not found",
 	content: `
@@ -1560,6 +1563,7 @@ func (*ProcessIncludesSuite) TestBundleReplacements(c *gc.C) {
         machines:
             1:
                 annotations: {foo: bar, baz: "include-file://machine" }
+            2:
     `
 
 	baseDir := c.MkDir()
