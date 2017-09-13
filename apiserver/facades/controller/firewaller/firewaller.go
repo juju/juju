@@ -50,11 +50,16 @@ type FirewallerAPIV4 struct {
 func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	st := context.State()
 
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		cloudspec.MakeCloudSpecGetterForModel(st),
-		common.AuthFuncForTag(st.ModelTag()),
+		common.AuthFuncForTag(m.ModelTag()),
 	)
-	return NewFirewallerAPI(stateShim{st: st, State: firewall.StateShim(st)}, context.Resources(), context.Auth(), cloudSpecAPI)
+	return NewFirewallerAPI(stateShim{st: st, State: firewall.StateShim(st, m)}, context.Resources(), context.Auth(), cloudSpecAPI)
 }
 
 // NewStateFirewallerAPIv4 creates a new server-side FirewallerAPIV4 facade.

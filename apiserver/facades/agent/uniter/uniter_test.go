@@ -1742,7 +1742,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.ProviderType()

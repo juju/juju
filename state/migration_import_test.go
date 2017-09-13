@@ -1336,7 +1336,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "charisma",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",

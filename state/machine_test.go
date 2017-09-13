@@ -229,7 +229,7 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
 	c.Assert(s.machine.Id(), gc.Equals, "1")

@@ -39,6 +39,7 @@ type KeyManager interface {
 // implementation of the api end point.
 type KeyManagerAPI struct {
 	state      *state.State
+	model      *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -53,8 +54,13 @@ func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer fa
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &KeyManagerAPI{
 		state:      st,
+		model:      m,
 		resources:  resources,
 		authorizer: authorizer,
 		apiUser:    authorizer.GetAuthTag().(names.UserTag),
@@ -76,7 +82,7 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 		api.state.UserPermission,
 		api.apiUser,
 		permission.ReadAccess,
-		api.state.ModelTag(),
+		api.model.ModelTag(),
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -115,7 +121,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 
 	// For now, authorised keys are global, common to all users.
 	var keyInfo []string
-	cfg, configErr := api.state.ModelConfig()
+	cfg, configErr := api.model.ModelConfig()
 	if configErr == nil {
 		keys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 		keyInfo = parseKeys(keys, arg.Mode)
@@ -177,7 +183,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 // currentKeyDataForAdd gathers data used when adding ssh keys.
 func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints set.Strings, err error) {
 	fingerprints = make(set.Strings)
-	cfg, err := api.state.ModelConfig()
+	cfg, err := api.model.ModelConfig()
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
@@ -337,7 +343,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 func (api *KeyManagerAPI) currentKeyDataForDelete() (
 	currentKeys []string, byFingerprint map[string]string, byComment map[string]string, err error) {
 
-	cfg, err := api.state.ModelConfig()
+	cfg, err := api.model.ModelConfig()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}

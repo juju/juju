@@ -78,7 +78,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = provisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.IAASModel.Model)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 

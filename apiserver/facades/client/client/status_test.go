@@ -329,9 +329,12 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	state2 := s.Factory.MakeModel(c, nil)
 	defer state2.Close()
 
+	model2, err := state2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
-	apiInfo.ModelTag = state2.ModelTag()
+	apiInfo.ModelTag = model2.ModelTag()
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	client := conn.Client()

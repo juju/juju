@@ -43,14 +43,19 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &AgentAPIV2{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
-		ModelWatcher:        common.NewModelWatcher(st, resources, auth),
+		ModelWatcher:        common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		CloudSpecAPI: cloudspec.NewCloudSpec(
 			cloudspec.MakeCloudSpecGetterForModel(st),
-			common.AuthFuncForTag(st.ModelTag()),
+			common.AuthFuncForTag(model.ModelTag()),
 		),
 		st:        st,
 		auth:      auth,

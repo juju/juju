@@ -421,7 +421,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.State.ModelTag(),
+		ControllerModelTag: s.IAASModel.ModelTag(),
 		MongoInfo:          mongoInfo,
 		MongoDialOpts:      mongotest.DialOpts(),
 		NewPolicy:          newPolicy,
@@ -557,7 +557,7 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 }
 
 func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

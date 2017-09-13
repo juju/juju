@@ -4,6 +4,7 @@
 package imagemetadatamanager
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
@@ -41,4 +42,19 @@ func (s stateShim) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 
 func (s stateShim) DeleteMetadata(imageId string) error {
 	return s.State.CloudImageMetadataStorage.DeleteMetadata(imageId)
+}
+
+// ModelConfig implements the metadataAccess method as an expedient until the
+// State is replaced with its underlying Model.
+func (s stateShim) ModelConfig() (*config.Config, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cfg, nil
 }

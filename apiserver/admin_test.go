@@ -87,7 +87,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// called with user-admin permissions automatically.
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	adminUser := s.AdminUserTag(c)
 
@@ -142,7 +142,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	st := s.openAPIWithoutLogin(c, info)
 	password := "password"
@@ -411,7 +411,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	delayChan, cleanup := apiserver.DelayLogins()
 	defer cleanup()
@@ -438,7 +438,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
@@ -499,7 +499,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 	}
 	info, srv := newServerWithConfig(c, s.pool, cfg)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	checkLogin := func(tag names.Tag) {
 		st := s.openAPIWithoutLogin(c, info)
@@ -517,7 +517,7 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 	cfg.Validator = validator
 	info, srv := newServerWithConfig(c, s.pool, cfg)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	st := s.openAPIWithoutLogin(c, info)
 
@@ -551,7 +551,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 	conn := s.openAPIWithoutLogin(c, info)
 
 	var result params.LoginResult
@@ -562,7 +562,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
 	c.Assert(result.ControllerTag, gc.Equals, s.State.ControllerTag().String())
-	c.Assert(result.ModelTag, gc.Equals, s.State.ModelTag().String())
+	c.Assert(result.ModelTag, gc.Equals, s.IAASModel.ModelTag().String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossModelRelations", Versions: []int{1}},
 		{Name: "RelationStatusWatcher", Versions: []int{1}},
@@ -596,21 +596,21 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRemoteModel(c, st, s.State.ModelTag())
+	s.assertRemoteModel(c, st, s.IAASModel.ModelTag())
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.AdminUserTag(c)
@@ -659,12 +659,14 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 		Owner: modelOwner.UserTag(),
 	})
 	defer modelState.Close()
-	info.ModelTag = modelState.ModelTag()
+	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err := st.Login(modelOwner.UserTag(), "password", "", nil)
+	err = st.Login(modelOwner.UserTag(), "password", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertRemoteModel(c, st, modelState.ModelTag())
+	s.assertRemoteModel(c, st, model.ModelTag())
 }
 
 func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
@@ -689,10 +691,12 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 		Nonce: "nonce",
 	})
 
-	info.ModelTag = modelState.ModelTag()
+	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err := st.Login(machine.Tag(), password, "nonce", nil)
+	err = st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -712,13 +716,15 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	f2 := factory.NewFactory(modelState)
 	machine, password := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 
-	info.ModelTag = modelState.ModelTag()
+	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	// If the agent attempts Login before the provisioner has recorded
 	// the machine's nonce in state, then the agent should get back an
 	// error with code "not provisioned".
-	err := st.Login(machine.Tag(), password, "nonce", nil)
+	err = st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, gc.ErrorMatches, `machine 0 not provisioned \(not provisioned\)`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 }
@@ -733,10 +739,12 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 
 	modelState := s.Factory.MakeModel(c, nil)
 	defer modelState.Close()
-	info.ModelTag = modelState.ModelTag()
+	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err := st.Login(machine.Tag(), password, "nonce", nil)
+	err = st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -756,13 +764,15 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 	workloadMachine, _ := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 	c.Assert(managerMachine.Tag(), gc.Equals, workloadMachine.Tag())
 
-	info.ModelTag = hostedModelState.ModelTag()
+	hostedModel, err := hostedModelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = hostedModel.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	// The fact that the machine with the same tag in the hosted
 	// model is unprovisioned should not cause the login to fail
 	// with "not provisioned", because the passwords don't match.
-	err := st.Login(managerMachine.Tag(), password, "nonce", nil)
+	err = st.Login(managerMachine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -774,10 +784,13 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 
 	modelState := s.Factory.MakeModel(c, nil)
 	defer modelState.Close()
-	info.ModelTag = modelState.ModelTag()
+
+	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err := st.Login(machine.Tag(), password, "nonce", nil)
+	err = st.Login(machine.Tag(), password, "nonce", nil)
 	assertPermissionDenied(c, err)
 }
 
@@ -802,7 +815,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
@@ -813,7 +826,7 @@ func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C) {
 	info, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.AddModelAccess)
 
@@ -879,7 +892,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(lastLogin.After(startTime), jc.IsTrue)
 
 	// The model user is also updated.
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1073,7 +1086,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 
 	info, srv := newServerWithConfig(c, s.pool, cfg)
 	defer assertStop(c, srv)
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 
 	// If we have a remote user which has explict model access, but neither
 	// controller access nor 'everyone' access, the user will have access

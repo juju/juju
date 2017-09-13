@@ -104,7 +104,13 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
 	auth := ctx.Auth()
-	configGetter := stateenvirons.EnvironConfigGetter{st}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 
 	return NewModelManagerAPI(
 		common.NewModelManagerBackend(st, pool),

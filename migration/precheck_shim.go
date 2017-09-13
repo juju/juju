@@ -46,10 +46,15 @@ func (s *precheckShim) IsMigrationActive(modelUUID string) (bool, error) {
 
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.State.ModelConfig()
+	model, err := s.State.Model()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
+	cfg, err := model.ModelConfig()
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+
 	vers, ok := cfg.AgentVersion()
 	if !ok {
 		return version.Zero, errors.New("no model agent version")

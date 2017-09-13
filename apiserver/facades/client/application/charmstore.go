@@ -71,9 +71,13 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	if err != nil {
 		return err
 	}
-	modelConfig, err := st.ModelConfig()
+	model, err := st.Model()
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
 
@@ -262,7 +266,11 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
-	envConfig, err := st.ModelConfig()
+	model, err := st.Model()
+	if err != nil {
+		return params.ResolveCharmResults{}, errors.Trace(err)
+	}
+	envConfig, err := model.ModelConfig()
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}

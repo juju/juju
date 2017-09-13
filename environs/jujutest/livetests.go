@@ -615,7 +615,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
-	cfg, err := st.ModelConfig()
+	cfg, err := model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, jc.IsTrue)

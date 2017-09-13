@@ -38,11 +38,11 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		cloudspec.MakeCloudSpecGetterForModel(s.State),
-		common.AuthFuncForTag(s.State.ModelTag()),
+		common.AuthFuncForTag(s.IAASModel.ModelTag()),
 	)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewFirewallerAPI(
-		firewaller.StateShim(s.State),
+		firewaller.StateShim(s.State, s.IAASModel.Model),
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,
@@ -54,7 +54,10 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
 	constructor := func(st *state.State, res facade.Resources, auth facade.Authorizer) error {
-		_, err := firewaller.NewFirewallerAPI(firewaller.StateShim(st), res, auth, nil)
+		m, err := st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+
+		_, err = firewaller.NewFirewallerAPI(firewaller.StateShim(st, m), res, auth, nil)
 		return err
 	}
 	s.testFirewallerFailsWithNonEnvironManagerUser(c, constructor)

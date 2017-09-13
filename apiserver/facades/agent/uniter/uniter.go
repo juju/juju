@@ -43,7 +43,7 @@ type UniterAPI struct {
 	*common.RebootRequester
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
-
+	m                 *state.Model
 	st                *state.State
 	auth              facade.Authorizer
 	resources         facade.Resources
@@ -140,12 +140,18 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
+
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(st, resources),
-		ModelWatcher:               common.NewModelWatcher(st, resources, authorizer),
+		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
 		MeterStatus:                msAPI,
@@ -154,6 +160,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		StatusAPI: NewStatusAPI(st, accessUnitOrApplication),
 
 		st:                st,
+		m:                 m,
 		auth:              authorizer,
 		resources:         resources,
 		accessUnit:        accessUnit,
@@ -1169,7 +1176,7 @@ func (u *UniterAPI) CurrentModel() (params.ModelResult, error) {
 // addresses, this might be completely unnecessary though.
 func (u *UniterAPI) ProviderType() (params.StringResult, error) {
 	result := params.StringResult{}
-	cfg, err := u.st.ModelConfig()
+	cfg, err := u.m.ModelConfig()
 	if err == nil {
 		result.Result = cfg.Type()
 	}
@@ -1250,7 +1257,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 		return relUnit.EnterScope(settings)
 	}
-	cfg, err := u.st.ModelConfig()
+	cfg, err := u.m.ModelConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

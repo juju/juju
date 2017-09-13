@@ -201,7 +201,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond(s.State)
-	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
+	owner, err := s.State.UserAccess(s.Owner, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1341,7 +1341,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "charisma",
 		OfferUUID:   "offer-uuid",
 		Endpoints: []charm.Relation{{
@@ -1417,7 +1417,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(app.Name(), gc.Equals, "gravy-rainbow")
 	c.Check(app.OfferUUID(), gc.Equals, "offer-uuid")
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
-	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
+	c.Check(app.SourceModelTag(), gc.Equals, s.IAASModel.ModelTag())
 	c.Check(app.IsConsumerProxy(), jc.IsFalse)
 	c.Check(app.Bindings(), gc.DeepEquals, map[string]string{
 		"db":       "private",

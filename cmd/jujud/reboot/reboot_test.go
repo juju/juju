@@ -81,7 +81,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 		CACert:            coretesting.CACert,
 		Password:          "fake",
 		Controller:        s.State.ControllerTag(),
-		Model:             s.State.ModelTag(),
+		Model:             s.IAASModel.ModelTag(),
 		MongoVersion:      mongo.Mongo24,
 	}
 	s.st, _ = s.OpenAPIAsNewMachine(c)

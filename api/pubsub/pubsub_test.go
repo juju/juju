@@ -165,7 +165,7 @@ func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 	info := &api.Info{
 		Addrs:    []string{s.address},
 		CACert:   coretesting.CACert,
-		ModelTag: s.State.ModelTag(),
+		ModelTag: s.IAASModel.ModelTag(),
 		Tag:      s.machineTag,
 		Password: s.password,
 		Nonce:    s.nonce,

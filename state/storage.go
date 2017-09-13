@@ -1755,7 +1755,7 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no defaul
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
 func addDefaultStorageConstraints(im *IAASModel, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	conf, err := im.st.ModelConfig()
+	conf, err := im.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1924,7 +1924,7 @@ func (im *IAASModel) addStorageForUnitOps(
 
 		// Populate missing configuration parameters with defaults.
 		if cons.Pool == "" || cons.Size == 0 {
-			modelConfig, err := im.st.ModelConfig()
+			modelConfig, err := im.ModelConfig()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

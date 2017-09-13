@@ -31,6 +31,20 @@ func NewStateBackend(st *state.State) Backend {
 	return stateShim{st}
 }
 
+func (s stateShim) ModelConfig() (*config.Config, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := model.ModelConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
 func (s stateShim) Model() (Model, error) {
 	m, err := s.State.Model()
 	if err != nil {
