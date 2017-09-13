@@ -168,10 +168,6 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := export.remoteApplications(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// If we are doing a partial export, it doesn't really make sense
 	// to validate the model.
 	fullExport := ExportConfig{}
@@ -1483,54 +1479,6 @@ func (e *exporter) checkUnexportedValues() error {
 	if len(missing) > 0 {
 		content := strings.Join(missing, "\n  ")
 		return errors.Errorf("migration missed some docs:\n  %s", content)
-	}
-	return nil
-}
-
-func (e *exporter) remoteApplications() error {
-	remoteApps, err := e.st.AllRemoteApplications()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d remote applications", len(remoteApps))
-	for _, remoteApp := range remoteApps {
-		err := e.addRemoteApplication(remoteApp)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
-	url, _ := app.URL()
-	args := description.RemoteApplicationArgs{
-		Tag:             app.Tag().(names.ApplicationTag),
-		OfferUUID:       app.OfferName(),
-		URL:             url,
-		SourceModel:     app.SourceModel(),
-		IsConsumerProxy: app.IsConsumerProxy(),
-		Bindings:        app.Bindings(),
-	}
-	descApp := e.model.AddRemoteApplication(args)
-	status, err := e.statusArgs(app.globalKey())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	descApp.SetStatus(status)
-	endpoints, err := app.Endpoints()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, ep := range endpoints {
-		descApp.AddEndpoint(description.RemoteEndpointArgs{
-			Name:      ep.Name,
-			Role:      string(ep.Role),
-			Interface: ep.Interface,
-		})
-	}
-	for _, space := range app.Spaces() {
-		e.addRemoteSpace(descApp, space)
 	}
 	return nil
 }

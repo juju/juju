@@ -1342,6 +1342,14 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
+	// Models for this version of Juju don't export remote
+	// applications but we still want to guard against accidentally
+	// importing any that may exist from earlier versions.
+	in.AddRemoteApplication(description.RemoteApplicationArgs{
+		SourceModel: coretesting.ModelTag,
+		OfferUUID:   utils.MustNewUUID().String(),
+		Tag:         names.NewApplicationTag("remote"),
+	})
 
 	_, newSt, err := s.State.Import(in)
 	if err == nil {
