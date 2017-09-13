@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/bundlechanges"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -61,7 +62,7 @@ func deployBundle(
 	bundleConfigFile string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
-	log deploymentLogger,
+	ctx *cmd.Context,
 	bundleStorage map[string]map[string]storage.Constraints,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
 
@@ -78,6 +79,10 @@ func deployBundle(
 	}
 	var verifyError error
 	if bundleDir == "" {
+		// Process includes in the bundle data.
+		if err := processBundleIncludes(ctx.Dir, data); err != nil {
+			return nil, errors.Annotate(err, "unable to process includes")
+		}
 		verifyError = data.Verify(verifyConstraints, verifyStorage)
 	} else {
 		// Process includes in the bundle data.
@@ -128,7 +133,7 @@ func deployBundle(
 		channel:         channel,
 		api:             apiRoot,
 		bundleStorage:   bundleStorage,
-		log:             log,
+		ctx:             ctx,
 		data:            data,
 		unitStatus:      unitStatus,
 		ignoredMachines: make(map[string]bool, len(data.Applications)),
@@ -211,9 +216,10 @@ type bundleHandler struct {
 	// in the bundle itself.
 	bundleStorage map[string]map[string]storage.Constraints
 
-	// log is used to output messages to the user, so that the user can keep
-	// track of the bundle deployment progress.
-	log deploymentLogger
+	// ctx is the command context, which is used to output messages to the
+	// user, so that the user can keep track of the bundle deployment
+	// progress.
+	ctx *cmd.Context
 
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
@@ -388,7 +394,7 @@ func (h *bundleHandler) addService(
 
 	// Deploy the application.
 	logger.Debugf("application %s is deploying (charm %s)", p.Application, ch)
-	h.log.Infof("Deploying charm %q", ch)
+	h.ctx.Infof("Deploying charm %q", ch)
 	if err := api.Deploy(application.DeployArgs{
 		CharmID:          chID,
 		Cons:             cons,
@@ -400,7 +406,7 @@ func (h *bundleHandler) addService(
 		EndpointBindings: p.EndpointBindings,
 	}); err == nil {
 		for resName := range resNames2IDs {
-			h.log.Infof("added resource %s", resName)
+			h.ctx.Infof("added resource %s", resName)
 		}
 		return nil
 	} else if !isErrServiceExists(err) {
@@ -423,7 +429,7 @@ func (h *bundleHandler) addService(
 			// by the application Deploy call above.
 			return errors.Annotatef(err, "cannot update options for application %q", p.Application)
 		}
-		h.log.Infof("configuration updated for application %s", p.Application)
+		h.ctx.Infof("configuration updated for application %s", p.Application)
 	}
 	// Update application constraints.
 	if p.Constraints != "" {
@@ -431,7 +437,7 @@ func (h *bundleHandler) addService(
 			// This should never happen, as the bundle is already verified.
 			return errors.Annotatef(err, "cannot update constraints for application %q", p.Application)
 		}
-		h.log.Infof("constraints applied for application %s", p.Application)
+		h.ctx.Infof("constraints applied for application %s", p.Application)
 	}
 	return nil
 }
@@ -468,7 +474,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		default:
 			msg = strings.Join(notify[:svcLen-1], ", ") + " and " + notify[svcLen-1]
 		}
-		h.log.Infof("avoid creating other machines to host %s units", msg)
+		h.ctx.Infof("avoid creating other machines to host %s units", msg)
 		return nil
 	}
 	cons, err := constraints.Parse(p.Constraints)
@@ -486,7 +492,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		// placement directives as lxd.
 		if ct == "lxc" {
 			if !h.warnedLXC {
-				h.log.Infof("Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
+				h.ctx.Infof("Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
 				h.warnedLXC = true
 			}
 			ct = string(instance.LXD)
@@ -529,7 +535,7 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 	_, err := h.api.AddRelation(ep1, ep2)
 	if err == nil {
 		// A new relation has been established.
-		h.log.Infof("Related %q and %q", ep1, ep2)
+		h.ctx.Infof("Related %q and %q", ep1, ep2)
 		return nil
 	}
 	if isErrRelationExists(err) {
@@ -557,7 +563,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 			} else {
 				msg = fmt.Sprintf("%d units already present", num)
 			}
-			h.log.Infof("avoid adding new units to application %s: %s", application, msg)
+			h.ctx.Infof("avoid adding new units to application %s: %s", application, msg)
 		}
 		return nil
 	}
@@ -603,7 +609,7 @@ func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) e
 	if err := h.api.Expose(application); err != nil {
 		return errors.Annotatef(err, "cannot expose application %s", application)
 	}
-	h.log.Infof("application %s exposed", application)
+	h.ctx.Infof("application %s exposed", application)
 	return nil
 }
 
@@ -832,7 +838,7 @@ func (h *bundleHandler) upgradeCharm(
 		return errors.Annotatef(err, "cannot retrieve info for application %q", applicationName)
 	}
 	if existing.String() == id {
-		h.log.Infof("reusing application %s (charm: %s)", applicationName, id)
+		h.ctx.Infof("reusing application %s (charm: %s)", applicationName, id)
 		return nil
 	}
 	url, err := charm.ParseURL(id)
@@ -874,9 +880,9 @@ func (h *bundleHandler) upgradeCharm(
 	if err := h.api.SetCharm(cfg); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
-	h.log.Infof("upgraded charm for existing application %s (from %s to %s)", applicationName, existing, id)
+	h.ctx.Infof("upgraded charm for existing application %s (from %s to %s)", applicationName, existing, id)
 	for resName := range resNames2IDs {
-		h.log.Infof("added resource %s", resName)
+		h.ctx.Infof("added resource %s", resName)
 	}
 	return nil
 }
