@@ -323,7 +323,13 @@ func (c *registerCommand) updateController(
 	}
 	for name, ctl := range all {
 		if ctl.ControllerUUID == controllerDetails.ControllerUUID {
-			// TODO(rogpeppe) lp#1614010 Succeed but override the account details in this case?
+			ctx.Warningf("This controller has already been registered on this client as %q.", name)
+			ctx.Warningf("To login user %q run 'juju login -u %v -c %v'.", accountDetails.User, accountDetails.User, name)
+			ctx.Warningf("To update controller details and login as user %q:", accountDetails.User)
+			ctx.Warningf("    1. run 'juju unregister %v'", name)
+			ctx.Warningf("    2. request from your controller admin another registration string, i.e")
+			ctx.Warningf("       output from 'juju change-user-password %v --reset'", accountDetails.User)
+			ctx.Warningf("    3. re-run 'juju register' with the registration from (2) above.")
 			return errors.Errorf("controller is already registered as %q", name)
 		}
 	}
