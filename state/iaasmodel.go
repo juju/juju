@@ -20,7 +20,9 @@ type IAASModel struct {
 
 // IAASModel returns an Infrastructure-As-A-Service (IAAS) model.
 func (m *Model) IAASModel() (*IAASModel, error) {
-	// TODO: error when model type is not IAAS.
+	if m.Type() != ModelTypeIAAS {
+		return nil, errors.NotSupportedf("called IAASModel() on a non-IAAS Model")
+	}
 	return &IAASModel{
 		Model: m,
 		mb:    m.st,
