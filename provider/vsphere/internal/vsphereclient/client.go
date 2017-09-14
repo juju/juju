@@ -4,6 +4,7 @@
 package vsphereclient
 
 import (
+	"context"
 	"net/url"
 	"path"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 )
 
 // Client encapsulates a vSphere client, exposing the subset of
@@ -51,9 +51,10 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.client.Logout(ctx)
 }
 
-func (c *Client) recurser() *list.Recurser {
-	return &list.Recurser{
+func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
+	return &list.Lister{
 		Collector: property.DefaultCollector(c.client.Client),
+		Reference: ref,
 		All:       true,
 	}
 }
@@ -165,10 +166,10 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	root := list.Element{Object: folders.HostFolder}
-	es, err := c.recurser().Recurse(ctx, root, []string{"*"})
+
+	es, err := c.lister(folders.HostFolder.Reference()).List(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var cprs []*mo.ComputeResource
@@ -183,16 +184,42 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	return cprs, nil
 }
 
-// EnsureVMFolder creates the a VM folder with the given path if it doesn't
-// already exist.
-func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) error {
-	finder, datacenter, err := c.finder(ctx)
+// Datastores retuns list of all datastores in the system.
+func (c *Client) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
+	_, datacenter, err := c.finder(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	folders, err := datacenter.Folders(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+
+	es, err := c.lister(folders.DatastoreFolder.Reference()).List(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var datastores []*mo.Datastore
+	for _, e := range es {
+		switch o := e.Object.(type) {
+		case mo.Datastore:
+			datastores = append(datastores, &o)
+		}
+	}
+	return datastores, nil
+}
+
+// EnsureVMFolder creates the a VM folder with the given path if it doesn't
+// already exist.
+func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object.Folder, error) {
+	finder, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	folders, err := datacenter.Folders(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	createFolder := func(parent *object.Folder, name string) (*object.Folder, error) {
@@ -210,14 +237,14 @@ func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) error {
 	for _, name := range strings.Split(folderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
-			return errors.Annotatef(
+			return nil, errors.Annotatef(
 				err, "creating folder %q in %q",
 				name, parentFolder.InventoryPath,
 			)
 		}
 		parentFolder = folder
 	}
-	return nil
+	return parentFolder, nil
 }
 
 // DestroyVMFolder destroys a folder rooted at the datacenter's base VM folder.
@@ -332,6 +359,26 @@ func (c *Client) UpdateVirtualMachineExtraConfig(
 	}
 	if _, err := task.WaitForResult(ctx, nil); err != nil {
 		return errors.Annotate(err, "reconfiguring VM")
+	}
+	return nil
+}
+
+// DeleteDatastoreFile deletes a file or directory in the datastore.
+func (c *Client) DeleteDatastoreFile(ctx context.Context, datastorePath string) error {
+	_, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fileManager := object.NewFileManager(c.client.Client)
+	deleteTask, err := fileManager.DeleteDatastoreFile(ctx, datastorePath, datacenter)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := deleteTask.WaitForResult(ctx, nil); err != nil {
+		if types.IsFileNotFound(err) {
+			return nil
+		}
+		return errors.Trace(err)
 	}
 	return nil
 }

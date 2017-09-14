@@ -4,6 +4,7 @@
 package vsphereclient
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -14,13 +15,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"github.com/vmware/govmomi/nfc"
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/ovf"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/progress"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
@@ -143,7 +145,7 @@ func (c *Client) CreateVirtualMachine(
 	}
 
 	// Upload the VMDK.
-	info, err := lease.Wait(ctx)
+	info, err := lease.Wait(ctx, spec.FileItem)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -193,7 +195,7 @@ func (c *Client) CreateVirtualMachine(
 		}
 		leaseUpdaterContext.start += leaseUpdaterContext.size
 	}
-	if err := lease.HttpNfcLeaseComplete(ctx); err != nil {
+	if err := lease.Complete(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -252,7 +254,7 @@ func (c *Client) createImportSpec(
 		}
 	}
 
-	ovfManager := object.NewOvfManager(c.client.Client)
+	ovfManager := ovf.NewManager(c.client.Client)
 	resourcePool := object.NewReference(c.client.Client, *args.ComputeResource.ResourcePool)
 	datastore, err := c.selectDatastore(ctx, args)
 	if err != nil {
@@ -585,7 +587,7 @@ func (u *statusUpdater) loop(abort <-chan struct{}) error {
 }
 
 type leaseUpdaterContext struct {
-	lease *object.HttpNfcLease
+	lease *nfc.Lease
 	start int64
 	size  int64
 	total int64
@@ -620,7 +622,7 @@ func (u *leaseUpdater) loop(abort <-chan struct{}) error {
 			}
 			progress = u.progress(report.Percentage())
 		case <-timer.Chan():
-			if err := u.lease.HttpNfcLeaseProgress(u.ctx, progress); err != nil {
+			if err := u.lease.Progress(u.ctx, progress); err != nil {
 				// NOTE(axw) we don't bail on error here, in
 				// case it's just a transient failure. If it
 				// is not, we would expect the upload to fail
