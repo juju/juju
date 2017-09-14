@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -17,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 )
 
@@ -45,6 +45,7 @@ type relationDoc struct {
 	Endpoints []Endpoint `bson:"endpoints"`
 	Life      Life       `bson:"life"`
 	UnitCount int        `bson:"unitcount"`
+	Suspended bool       `bson:"suspended"`
 }
 
 // Relation represents a relation between one or two service endpoints.
@@ -67,6 +68,11 @@ func (r *Relation) String() string {
 // Tag returns a name identifying the relation.
 func (r *Relation) Tag() names.Tag {
 	return names.NewRelationTag(r.doc.Key)
+}
+
+// Suspended returns true if the relation is suspended.
+func (r *Relation) Suspended() bool {
+	return r.doc.Suspended
 }
 
 // Refresh refreshes the contents of the relation from the underlying
@@ -114,20 +120,12 @@ func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if reflect.DeepEqual(currentStatus, statusInfo) {
-		return nil
-	}
 
 	if currentStatus.Status != statusInfo.Status {
 		switch statusInfo.Status {
 		case status.Broken:
-		case status.Suspended:
-			if currentStatus.Status != status.Joined {
-				return errors.Errorf(
-					"cannot set status %q when relation has status %q", statusInfo.Status, currentStatus.Status)
-			}
-		case status.Joined:
-			if currentStatus.Status != status.Suspended && currentStatus.Status != status.Error {
+		case status.Suspended, status.Joined:
+			if currentStatus.Status == status.Broken {
 				return errors.Errorf(
 					"cannot set status %q when relation has status %q", statusInfo.Status, currentStatus.Status)
 			}
@@ -147,6 +145,90 @@ func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
 		rawData:   statusInfo.Data,
 		updated:   timeOrNow(statusInfo.Since, r.st.clock()),
 	})
+}
+
+// SetSuspended sets whether the relation is suspended.
+func (r *Relation) SetSuspended(suspended bool) error {
+	if r.doc.Suspended == suspended {
+		return nil
+	}
+
+	var buildTxn jujutxn.TransactionSource = func(attempt int) ([]txn.Op, error) {
+
+		if attempt > 1 {
+			if err := r.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		var (
+			oc       *OfferConnection
+			err      error
+			checkOps []txn.Op
+		)
+		oc, err = r.st.OfferConnectionForRelation(r.Tag().Id())
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			checkOps = append(checkOps, txn.Op{
+				C:      offerConnectionsC,
+				Id:     fmt.Sprintf("%d", r.Id()),
+				Assert: txn.DocExists,
+			})
+		}
+		if !suspended && oc != nil {
+			// Can only resume a relation when the user of the associated connection has consume access
+			// - either via being a model admin or having been granted access.
+			isAdmin, err := r.st.isControllerOrModelAdmin(names.NewUserTag(oc.UserName()))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !isAdmin {
+				// Not an admin so check for consume access and add the assert.
+				ok, err := r.checkConsumePermission(oc.OfferUUID(), oc.UserName())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if !ok {
+					return nil, errors.Errorf(
+						"cannot resume relation %q where user %q does not have consume permission",
+						r.Tag().Id(), oc.UserName())
+				}
+				checkOps = append(checkOps, txn.Op{
+					C:  permissionsC,
+					Id: permissionID(applicationOfferKey(oc.OfferUUID()), userGlobalKey(strings.ToLower(oc.UserName()))),
+					Assert: bson.D{
+						{"access",
+							bson.D{{"$in", []permission.Access{permission.ConsumeAccess, permission.AdminAccess}}}}},
+				})
+			}
+		}
+		setOps := []txn.Op{{
+			C:      relationsC,
+			Id:     r.doc.DocID,
+			Assert: bson.D{{"suspended", r.doc.Suspended}},
+			Update: bson.D{{"$set", bson.D{{"suspended", suspended}}}},
+		}}
+		return append(setOps, checkOps...), nil
+	}
+
+	err := r.st.db().Run(buildTxn)
+	if err == nil {
+		r.doc.Suspended = suspended
+	}
+	return err
+}
+
+func (r *Relation) checkConsumePermission(offerUUID, userId string) (bool, error) {
+	perm, err := r.st.GetOfferAccess(offerUUID, names.NewUserTag(userId))
+	if err != nil && !errors.IsNotFound(err) {
+		return false, errors.Trace(err)
+	}
+	if perm != permission.ConsumeAccess && perm != permission.AdminAccess {
+		return false, nil
+	}
+	return true, nil
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units

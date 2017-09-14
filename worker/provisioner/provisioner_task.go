@@ -199,16 +199,16 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 	var pending []*apiprovisioner.Machine
 	for _, result := range results {
 		if result.Status.Error != nil {
-			logger.Errorf("cannot retry provisioning of machine %q: %v", result.Machine.Id, result.Status.Error)
+			logger.Errorf("cannot retry provisioning of machine %q: %v", result.Machine.Id(), result.Status.Error)
 			continue
 		}
 		machine := result.Machine
 		if err := machine.SetStatus(status.Pending, "", nil); err != nil {
-			logger.Errorf("cannot reset status of machine %q: %v", machine.Id, err)
+			logger.Errorf("cannot reset status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		if err := machine.SetInstanceStatus(status.Provisioning, "", nil); err != nil {
-			logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id, err)
+			logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		task.machines[machine.Tag().String()] = machine

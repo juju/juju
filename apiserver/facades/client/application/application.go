@@ -1033,8 +1033,8 @@ func (api *API) DestroyRelation(args params.DestroyRelation) (err error) {
 	return rel.Destroy()
 }
 
-// SetRelationStatus updates the status of the specified relations.
-func (api *API) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorResults, error) {
+// SetRelationsSuspended sets the suspended status of the specified relations.
+func (api *API) SetRelationsSuspended(args params.RelationSuspendedArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return statusResults, errors.Trace(err)
@@ -1043,21 +1043,27 @@ func (api *API) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorR
 		return statusResults, errors.Trace(err)
 	}
 
-	changeOne := func(arg params.RelationStatusArg) error {
+	changeOne := func(arg params.RelationSuspendedArg) error {
 		rel, err := api.backend.Relation(arg.RelationId)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		_, err = api.backend.OfferConnectionForRelation(rel.Tag().Id())
 		if errors.IsNotFound(err) {
-			return errors.Errorf("cannot set status for %q which is not associated with an offer", rel.Tag().Id())
+			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
 		}
+		err = rel.SetSuspended(arg.Suspended)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		// TODO(wallyworld) - keep until followup PR so things keep working
+		statusValue := status.Joined
+		if arg.Suspended {
+			statusValue = status.Suspended
+		}
 		return rel.SetStatus(status.StatusInfo{
-			Status:  status.Status(arg.Status),
-			Message: arg.Message,
+			Status: status.Status(statusValue),
 		})
 	}
 	results := make([]params.ErrorResult, len(args.Args))

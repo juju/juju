@@ -516,9 +516,9 @@ type mockRelation struct {
 	application.Relation
 	jtesting.Stub
 
-	tag     names.Tag
-	status  status.Status
-	message string
+	tag       names.Tag
+	status    status.Status
+	suspended bool
 }
 
 func (r *mockRelation) Tag() names.Tag {
@@ -526,9 +526,15 @@ func (r *mockRelation) Tag() names.Tag {
 }
 
 func (r *mockRelation) SetStatus(status status.StatusInfo) error {
+	r.MethodCall(r, "SetStatus")
 	r.status = status.Status
-	r.message = status.Message
-	return nil
+	return r.NextErr()
+}
+
+func (r *mockRelation) SetSuspended(suspended bool) error {
+	r.MethodCall(r, "SetSuspended")
+	r.suspended = suspended
+	return r.NextErr()
 }
 
 func (r *mockRelation) Destroy() error {
