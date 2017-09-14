@@ -774,28 +774,27 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 
 func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	bundleFile := c.CharmOrBundle
-	var (
-		bundleFilePath                string
-		resolveRelativeBundleFilePath bool
-	)
+	var bundleDir string
+	isDir := false
+	resolveDir := false
 
 	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
 	if err != nil {
 		// We may have been given a local bundle archive or exploded directory.
-		bundle, url, pathErr := charmrepo.NewBundleAtPath(bundleFile)
+		bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
 		if charmrepo.IsInvalidPathError(pathErr) {
 			return nil, errors.Errorf(""+
 				"The charm or bundle %q is ambiguous.\n"+
 				"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
 				"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
-				c.CharmOrBundle,
+				bundleFile,
 			)
 		}
 		if pathErr != nil {
 			// If the bundle files existed but we couldn't read them,
 			// then return that error rather than trying to interpret
 			// as a charm.
-			if info, statErr := os.Stat(c.CharmOrBundle); statErr == nil {
+			if info, statErr := os.Stat(bundleFile); statErr == nil {
 				if info.IsDir() {
 					if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
 						return nil, pathErr
@@ -808,12 +807,12 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 		}
 
 		bundleData = bundle.Data()
-		bundleFile = url.String()
 		if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
-			bundleFilePath = bundleFile
+			resolveDir = true
+			isDir = true
 		}
 	} else {
-		resolveRelativeBundleFilePath = true
+		resolveDir = true
 	}
 
 	if err := c.validateBundleFlags(); err != nil {
@@ -821,15 +820,21 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-		// For local bundles, we extract the local path of the bundle
-		// directory.
-		if resolveRelativeBundleFilePath {
-			bundleFilePath = filepath.Dir(ctx.AbsPath(bundleFile))
+		if resolveDir {
+			if isDir {
+				// If we get to here bundleFile is a directory, in which case
+				// we should use the absolute path as the bundFilePath, or it is
+				// an archive, in which case we should pass the empty string.
+				bundleDir = ctx.AbsPath(bundleFile)
+			} else {
+				// If the bundle is defined with just a yaml file, the bundle
+				// path is the directory that holds the file.
+				bundleDir = filepath.Dir(ctx.AbsPath(bundleFile))
+			}
 		}
-
 		return errors.Trace(c.deployBundle(
 			ctx,
-			bundleFilePath,
+			bundleDir,
 			bundleData,
 			c.Channel,
 			apiRoot,

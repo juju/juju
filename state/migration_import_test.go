@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type MigrationImportSuite struct {
@@ -1363,6 +1365,14 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
+	// Models for this version of Juju don't export remote
+	// applications but we still want to guard against accidentally
+	// importing any that may exist from earlier versions.
+	in.AddRemoteApplication(description.RemoteApplicationArgs{
+		SourceModel: coretesting.ModelTag,
+		OfferUUID:   utils.MustNewUUID().String(),
+		Tag:         names.NewApplicationTag("remote"),
+	})
 
 	_, newSt, err := s.State.Import(in)
 	if err == nil {
@@ -1401,6 +1411,103 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
 	_, importedFound := importedSettings.Get("foo")
 	c.Assert(importedFound, jc.IsFalse)
+}
+
+func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
+	// Check that invalid relationscopes aren't created when importing
+	// a subordinate related to 2 principals.
+	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+
+	addSubordinate := func(app *state.Application, unit *state.Unit) string {
+		eps, err := s.State.InferEndpoints(app.Name(), logging.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		pru, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = pru.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		// Need to reload the doc to get the subordinates.
+		err = unit.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		subordinates := unit.SubordinateNames()
+		c.Assert(subordinates, gc.HasLen, 1)
+		loggingUnit, err := s.State.Unit(subordinates[0])
+		c.Assert(err, jc.ErrorIsNil)
+		sub, err := rel.Unit(loggingUnit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = sub.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		return rel.String()
+	}
+
+	logMysqlKey := addSubordinate(mysql, mysql0)
+	logWpKey := addSubordinate(wordpress, wordpress0)
+
+	units, err := logging.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 2)
+
+	for _, unit := range units {
+		app, err := unit.Application()
+		c.Assert(err, jc.ErrorIsNil)
+		agentTools := version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: app.Series(),
+		}
+		err = unit.SetAgentVersion(agentTools)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_, newSt := s.importModel(c)
+
+	logMysqlRel, err := newSt.KeyRelation(logMysqlKey)
+	c.Assert(err, jc.ErrorIsNil)
+	logWpRel, err := newSt.KeyRelation(logWpKey)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysqlLogUnit, err := newSt.Unit("logging/0")
+	c.Assert(err, jc.ErrorIsNil)
+	wpLogUnit, err := newSt.Unit("logging/1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Sanity checks
+	name, ok := mysqlLogUnit.PrincipalName()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(name, gc.Equals, "mysql/0")
+
+	name, ok = wpLogUnit.PrincipalName()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(name, gc.Equals, "wordpress/0")
+
+	checkScope := func(unit *state.Unit, rel *state.Relation, expected bool) {
+		ru, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		// Sanity check
+		valid, err := ru.Valid()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(valid, gc.Equals, expected)
+
+		inscope, err := ru.InScope()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(inscope, gc.Equals, expected)
+	}
+	// The WP logging unit shouldn't be in scope for the mysql-logging
+	// relation.
+	checkScope(wpLogUnit, logMysqlRel, false)
+	// Similarly, the mysql logging unit shouldn't be in scope for the
+	// wp-logging relation.
+	checkScope(mysqlLogUnit, logWpRel, false)
+
+	// But obviously the units should be in their relations.
+	checkScope(mysqlLogUnit, logMysqlRel, true)
+	checkScope(wpLogUnit, logWpRel, true)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

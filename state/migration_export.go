@@ -173,10 +173,6 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := export.remoteApplications(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// If we are doing a partial export, it doesn't really make sense
 	// to validate the model.
 	fullExport := ExportConfig{}
