@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -323,13 +324,17 @@ func (c *registerCommand) updateController(
 	}
 	for name, ctl := range all {
 		if ctl.ControllerUUID == controllerDetails.ControllerUUID {
-			ctx.Warningf("This controller has already been registered on this client as %q.", name)
-			ctx.Warningf("To login user %q run 'juju login -u %v -c %v'.", accountDetails.User, accountDetails.User, name)
-			ctx.Warningf("To update controller details and login as user %q:", accountDetails.User)
-			ctx.Warningf("    1. run 'juju unregister %v'", name)
-			ctx.Warningf("    2. request from your controller admin another registration string, i.e")
-			ctx.Warningf("       output from 'juju change-user-password %v --reset'", accountDetails.User)
-			ctx.Warningf("    3. re-run 'juju register' with the registration from (2) above.")
+			var buf bytes.Buffer
+			if err := alreadyRegisteredMessageT.Execute(
+				&buf,
+				map[string]interface{}{
+					"ControllerName": name,
+					"UserName":       accountDetails.User,
+				},
+			); err != nil {
+				return err
+			}
+			ctx.Warningf(buf.String())
 			return errors.Errorf("controller is already registered as %q", name)
 		}
 	}
@@ -341,6 +346,16 @@ func (c *registerCommand) updateController(
 	}
 	return nil
 }
+
+var alreadyRegisteredMessageT = template.Must(template.New("").Parse(`
+This controller has already been registered on this client as "{{.ControllerName}}."
+To login user "{{.UserName}}" run 'juju login -u {{.UserName}} -c {{.ControllerName}}'.
+To update controller details and login as user "{{.UserName}}":
+    1. run 'juju unregister {{.UserName}}'
+    2. request from your controller admin another registration string, i.e
+       output from 'juju change-user-password {{.UserName}} --reset'
+    3. re-run 'juju register' with the registration from (2) above.
+`[1:]))
 
 func (c *registerCommand) listModels(store jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 	api, err := c.NewAPIRoot(store, controllerName, "")
