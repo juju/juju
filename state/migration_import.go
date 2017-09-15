@@ -239,8 +239,8 @@ type importer struct {
 	model   description.Model
 	logger  loggo.Logger
 	// applicationUnits is populated at the end of loading the applications, and is a
-	// map of application name to units of that application.
-	applicationUnits map[string][]*Unit
+	// map of application name to the units of that application.
+	applicationUnits map[string]map[string]*Unit
 }
 
 func (i *importer) modelExtras() error {
@@ -707,10 +707,14 @@ func (i *importer) loadUnits() error {
 		return errors.Annotate(err, "cannot get all units")
 	}
 
-	result := make(map[string][]*Unit)
+	result := make(map[string]map[string]*Unit)
 	for _, doc := range docs {
-		units := result[doc.Application]
-		result[doc.Application] = append(units, newUnit(i.st, &doc))
+		units, found := result[doc.Application]
+		if !found {
+			units = make(map[string]*Unit)
+			result[doc.Application] = units
+		}
+		units[doc.Name] = newUnit(i.st, &doc)
 	}
 	i.applicationUnits = result
 	return nil
@@ -1107,7 +1111,11 @@ func (i *importer) relation(rel description.Relation) error {
 	// for each unit.
 	for _, endpoint := range rel.Endpoints() {
 		units := i.applicationUnits[endpoint.ApplicationName()]
-		for _, unit := range units {
+		for unitName, settings := range endpoint.AllSettings() {
+			unit, ok := units[unitName]
+			if !ok {
+				return errors.NotFoundf("unit %q", unitName)
+			}
 			ru, err := dbRelation.Unit(unit)
 			if err != nil {
 				return errors.Trace(err)
@@ -1121,7 +1129,7 @@ func (i *importer) relation(rel description.Relation) error {
 					Key: ruKey,
 				},
 			},
-				createSettingsOp(settingsC, ruKey, endpoint.Settings(unit.Name())),
+				createSettingsOp(settingsC, ruKey, settings),
 			)
 		}
 	}
