@@ -247,19 +247,19 @@ func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
 // Next returns when a change has occured to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationStatusWatcher.
-func (w *srvRelationStatusWatcher) Next() (params.RelationStatusWatchResult, error) {
+func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
-		changesParams := make([]params.RelationStatusChange, len(changes))
+		changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
 		for i, key := range changes {
-			change, err := crossmodel.GetRelationStatusChange(crossmodel.GetBackend(w.st), key)
+			change, err := crossmodel.GetRelationLifeSuspendedStatusChange(crossmodel.GetBackend(w.st), key)
 			if err != nil {
-				return params.RelationStatusWatchResult{
+				return params.RelationLifeSuspendedStatusWatchResult{
 					Error: common.ServerError(err),
 				}, nil
 			}
 			changesParams[i] = *change
 		}
-		return params.RelationStatusWatchResult{
+		return params.RelationLifeSuspendedStatusWatchResult{
 			Changes: changesParams,
 		}, nil
 	}
@@ -267,7 +267,7 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationStatusWatchResult, err
 	if err == nil {
 		err = common.ErrStoppedWatcher
 	}
-	return params.RelationStatusWatchResult{}, err
+	return params.RelationLifeSuspendedStatusWatchResult{}, err
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher

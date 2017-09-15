@@ -537,6 +537,11 @@ func (r *mockRelation) SetSuspended(suspended bool) error {
 	return r.NextErr()
 }
 
+func (r *mockRelation) Suspended() bool {
+	r.MethodCall(r, "Suspended")
+	return r.suspended
+}
+
 func (r *mockRelation) Destroy() error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()

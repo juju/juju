@@ -69,7 +69,7 @@ type Application interface {
 type Relation interface {
 	Id() int
 	Life() params.Life
-	Status() params.RelationStatusValue
+	Suspended() bool
 }
 
 func NewAPIState(st *uniter.State) State {

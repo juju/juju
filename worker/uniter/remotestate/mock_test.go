@@ -191,7 +191,7 @@ type mockUnit struct {
 	life                  params.Life
 	resolved              params.ResolvedMode
 	series                string
-	service               mockService
+	application           mockApplication
 	unitWatcher           *mockNotifyWatcher
 	addressesWatcher      *mockNotifyWatcher
 	configSettingsWatcher *mockNotifyWatcher
@@ -213,7 +213,7 @@ func (u *mockUnit) Resolved() params.ResolvedMode {
 }
 
 func (u *mockUnit) Application() (remotestate.Application, error) {
-	return &u.service, nil
+	return &u.application, nil
 }
 
 func (u *mockUnit) Series() string {
@@ -248,48 +248,48 @@ func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
 	return u.relationsWatcher, nil
 }
 
-type mockService struct {
+type mockApplication struct {
 	tag                   names.ApplicationTag
 	life                  params.Life
 	curl                  *charm.URL
 	charmModifiedVersion  int
 	forceUpgrade          bool
-	serviceWatcher        *mockNotifyWatcher
+	applicationWatcher    *mockNotifyWatcher
 	leaderSettingsWatcher *mockNotifyWatcher
 }
 
-func (s *mockService) CharmModifiedVersion() (int, error) {
+func (s *mockApplication) CharmModifiedVersion() (int, error) {
 	return s.charmModifiedVersion, nil
 }
 
-func (s *mockService) CharmURL() (*charm.URL, bool, error) {
+func (s *mockApplication) CharmURL() (*charm.URL, bool, error) {
 	return s.curl, s.forceUpgrade, nil
 }
 
-func (s *mockService) Life() params.Life {
+func (s *mockApplication) Life() params.Life {
 	return s.life
 }
 
-func (s *mockService) Refresh() error {
+func (s *mockApplication) Refresh() error {
 	return nil
 }
 
-func (s *mockService) Tag() names.ApplicationTag {
+func (s *mockApplication) Tag() names.ApplicationTag {
 	return s.tag
 }
 
-func (s *mockService) Watch() (watcher.NotifyWatcher, error) {
-	return s.serviceWatcher, nil
+func (s *mockApplication) Watch() (watcher.NotifyWatcher, error) {
+	return s.applicationWatcher, nil
 }
 
-func (s *mockService) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
+func (s *mockApplication) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
 	return s.leaderSettingsWatcher, nil
 }
 
 type mockRelation struct {
-	id     int
-	life   params.Life
-	status params.RelationStatusValue
+	id        int
+	life      params.Life
+	suspended bool
 }
 
 func (r *mockRelation) Id() int {
@@ -300,8 +300,8 @@ func (r *mockRelation) Life() params.Life {
 	return r.life
 }
 
-func (r *mockRelation) Status() params.RelationStatusValue {
-	return r.status
+func (r *mockRelation) Suspended() bool {
+	return r.suspended
 }
 
 type mockLeadershipTracker struct {

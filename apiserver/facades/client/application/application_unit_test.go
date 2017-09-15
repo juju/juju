@@ -416,7 +416,39 @@ func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 	c.Assert(s.relation.suspended, jc.IsTrue)
-	c.Assert(s.relation.status, gc.Equals, status.Suspended)
+	c.Assert(s.relation.status, gc.Equals, status.Suspending)
+}
+
+func (s *ApplicationSuite) TestSetRelationSuspendedNoOp(c *gc.C) {
+	s.backend.offerConnections["wordpress:db mysql:db"] = &mockOfferConnection{}
+	s.relation.suspended = true
+	s.relation.status = status.Error
+	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{
+			RelationId: 123,
+			Suspended:  true,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+	c.Assert(s.relation.suspended, jc.IsTrue)
+	c.Assert(s.relation.status, gc.Equals, status.Error)
+}
+
+func (s *ApplicationSuite) TestSetRelationSuspendedFalse(c *gc.C) {
+	s.backend.offerConnections["wordpress:db mysql:db"] = &mockOfferConnection{}
+	s.relation.suspended = true
+	s.relation.status = status.Error
+	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{
+			RelationId: 123,
+			Suspended:  false,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.IsNil)
+	c.Assert(s.relation.suspended, jc.IsFalse)
+	c.Assert(s.relation.status, gc.Equals, status.Joining)
 }
 
 func (s *ApplicationSuite) TestSetNonOfferRelationStatus(c *gc.C) {

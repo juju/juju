@@ -452,7 +452,7 @@ func findStubCall(c *gc.C, calls []testing.StubCall, name string) testing.StubCa
 			return call
 		}
 	}
-	c.Fatal("failed to find call %q", name)
+	c.Fatalf("failed to find call %q", name)
 	panic("unreachable")
 }
 

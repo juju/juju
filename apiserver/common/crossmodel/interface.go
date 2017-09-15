@@ -113,9 +113,15 @@ type Relation interface {
 	// specified application in the relation.
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 
-	// WatchLifeStatus returns a watcher that notifies of changes to the life
-	// or status of the relation.
-	WatchLifeStatus() state.StringsWatcher
+	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
+	// or suspended status of the relation.
+	WatchLifeSuspendedStatus() state.StringsWatcher
+
+	// Suspended returns the suspended status of the relation.
+	Suspended() bool
+
+	// SetSuspended sets the suspended status of the relation.
+	SetSuspended(bool) error
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,

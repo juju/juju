@@ -116,25 +116,32 @@ func (r *Relation) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status of the relation.
 func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
+	logger.Criticalf("SET STATUS: %+v", statusInfo)
 	currentStatus, err := r.Status()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if currentStatus.Status != statusInfo.Status {
+		validTransition := true
 		switch statusInfo.Status {
 		case status.Broken:
-		case status.Suspended, status.Joined:
-			if currentStatus.Status == status.Broken {
-				return errors.Errorf(
-					"cannot set status %q when relation has status %q", statusInfo.Status, currentStatus.Status)
-			}
+		case status.Suspending:
+			validTransition = currentStatus.Status != status.Broken && currentStatus.Status != status.Suspended
+		case status.Joining:
+			validTransition = currentStatus.Status != status.Broken && currentStatus.Status != status.Joined
+		case status.Joined, status.Suspended:
+			validTransition = currentStatus.Status != status.Broken
 		case status.Error:
 			if statusInfo.Message == "" {
 				return errors.Errorf("cannot set status %q without info", statusInfo.Status)
 			}
 		default:
 			return errors.NewNotValid(nil, fmt.Sprintf("cannot set invalid status %q", statusInfo.Status))
+		}
+		if !validTransition {
+			return errors.NewNotValid(nil, fmt.Sprintf(
+				"cannot set status %q when relation has status %q", statusInfo.Status, currentStatus.Status))
 		}
 	}
 	return setStatus(r.st.db(), setStatusParams{

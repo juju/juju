@@ -1048,6 +1048,9 @@ func (api *API) SetRelationsSuspended(args params.RelationSuspendedArgs) (params
 		if err != nil {
 			return errors.Trace(err)
 		}
+		if rel.Suspended() == arg.Suspended {
+			return nil
+		}
 		_, err = api.backend.OfferConnectionForRelation(rel.Tag().Id())
 		if errors.IsNotFound(err) {
 			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
@@ -1057,10 +1060,9 @@ func (api *API) SetRelationsSuspended(args params.RelationSuspendedArgs) (params
 			return errors.Trace(err)
 		}
 
-		// TODO(wallyworld) - keep until followup PR so things keep working
-		statusValue := status.Joined
+		statusValue := status.Joining
 		if arg.Suspended {
-			statusValue = status.Suspended
+			statusValue = status.Suspending
 		}
 		return rel.SetStatus(status.StatusInfo{
 			Status: status.Status(statusValue),

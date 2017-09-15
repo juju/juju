@@ -310,7 +310,7 @@ var scenarioStatus = &params.FullStatus{
 			Interface: "logging",
 			Scope:     "container",
 			Status: params.DetailedStatus{
-				Status: "joined",
+				Status: "joining",
 				Info:   "",
 				Data:   make(map[string]interface{}),
 			},

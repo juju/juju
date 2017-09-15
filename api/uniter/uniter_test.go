@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -118,7 +117,7 @@ func (s *uniterSuite) addRelatedApplication(c *gc.C, firstApp, relatedApp string
 func (s *uniterSuite) addRelationSuspended(c *gc.C, firstApp, relatedApp string, unit *state.Unit) *state.Relation {
 	s.AddTestingApplication(c, relatedApp, s.AddTestingCharm(c, relatedApp))
 	rel := s.addRelation(c, firstApp, relatedApp)
-	err := rel.SetStatus(status.StatusInfo{Status: status.Suspended})
+	err := rel.SetSuspended(true)
 	c.Assert(err, jc.ErrorIsNil)
 	return rel
 }

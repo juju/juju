@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -19,12 +20,12 @@ import (
 // Relation represents a relation between one or two service
 // endpoints.
 type Relation struct {
-	st       *State
-	tag      names.RelationTag
-	id       int
-	life     params.Life
-	status   params.RelationStatusValue
-	otherApp string
+	st        *State
+	tag       names.RelationTag
+	id        int
+	life      params.Life
+	suspended bool
+	otherApp  string
 }
 
 // Tag returns the relation tag.
@@ -50,9 +51,9 @@ func (r *Relation) Life() params.Life {
 	return r.life
 }
 
-// Status returns the relation's current status.
-func (r *Relation) Status() params.RelationStatusValue {
-	return r.status
+// Suspended returns the relation's current suspended status.
+func (r *Relation) Suspended() bool {
+	return r.suspended
 }
 
 // OtherApplication returns the name of the application on the other
@@ -73,9 +74,14 @@ func (r *Relation) Refresh() error {
 	// things that can change - id, tag and endpoint
 	// information are static.
 	r.life = result.Life
-	r.status = result.Status
+	r.suspended = result.Suspended
 
 	return nil
+}
+
+// SetStatus updates the status of the relation.
+func (r *Relation) SetStatus(status relation.Status) error {
+	return r.st.setRelationStatus(r.id, status)
 }
 
 func (r *Relation) toCharmRelation(cr multiwatcher.CharmRelation) charm.Relation {

@@ -321,7 +321,7 @@ func (w *remoteApplicationWorker) processNewConsumingRelation(
 		return errors.Trace(err)
 	}
 
-	remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationStatus(params.RemoteEntityArg{
+	remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationSuspendedStatus(params.RemoteEntityArg{
 		Token:     relationToken,
 		Macaroons: macaroon.Slice{mac},
 	})

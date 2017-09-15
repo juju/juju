@@ -280,9 +280,12 @@ func (m *mockModel) Owner() names.UserTag {
 type mockRelation struct {
 	commoncrossmodel.Relation
 	testing.Stub
-	id    int
-	key   string
-	units map[string]commoncrossmodel.RelationUnit
+	id        int
+	key       string
+	suspended bool
+	status    status.Status
+	message   string
+	units     map[string]commoncrossmodel.RelationUnit
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -311,8 +314,22 @@ func (r *mockRelation) Life() state.Life {
 	return state.Alive
 }
 
-func (r *mockRelation) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: status.Suspended}, nil
+func (r *mockRelation) SetStatus(statusInfo status.StatusInfo) error {
+	r.MethodCall(r, "SetStatus")
+	r.status = statusInfo.Status
+	r.message = statusInfo.Message
+	return nil
+}
+
+func (r *mockRelation) SetSuspended(suspended bool) error {
+	r.MethodCall(r, "SetSuspended")
+	r.suspended = suspended
+	return nil
+}
+
+func (r *mockRelation) Suspended() bool {
+	r.MethodCall(r, "Suspended")
+	return r.suspended
 }
 
 func (r *mockRelation) RemoteUnit(unitId string) (commoncrossmodel.RelationUnit, error) {

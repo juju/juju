@@ -616,7 +616,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 
 	// Make sure there is a status.
 	status := exRel.Status()
-	c.Check(status.Value(), gc.Equals, "joined")
+	c.Check(status.Value(), gc.Equals, "joining")
 }
 
 func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {

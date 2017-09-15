@@ -161,6 +161,10 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 				}},
 		},
 	}
+	relationStatus := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		RelationId: 1,
+		Status:     params.Joined,
+	}}}
 
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}, nil),
@@ -171,11 +175,11 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-	)
+		uniterAPICall("SetRelationStatus", relationStatus, noErrorResult, nil))
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 7)
+	assertNumCalls(c, &numCalls, 8)
 
 	info := r.GetInfo()
 	c.Assert(info, gc.HasLen, 1)
@@ -231,6 +235,10 @@ func relationJoinedAPICalls() []apiCall {
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
 	}}
+	relationStatus := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		RelationId: 1,
+		Status:     params.Joined,
+	}}}
 	apiCalls := []apiCall{
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
@@ -240,6 +248,7 @@ func relationJoinedAPICalls() []apiCall {
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
+		uniterAPICall("SetRelationStatus", relationStatus, noErrorResult, nil),
 	}
 	return apiCalls
 }
@@ -262,8 +271,8 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:   params.Alive,
-				Status: params.Joined,
+				Life:      params.Alive,
+				Suspended: false,
 				Members: map[string]int64{
 					"wordpress": 1,
 				},
@@ -273,7 +282,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 8)
+	assertNumCalls(c, numCalls, 9)
 	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -327,15 +336,15 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	// members, due to the "changed pending" local persistent
 	// state.
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:   params.Alive,
-		Status: params.Joined,
+		Life:      params.Alive,
+		Suspended: false,
 	}, &numCalls)
 
 	// wordpress starts at 1, changing to 2 should trigger a
 	// relation-changed hook.
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:   params.Alive,
-		Status: params.Joined,
+		Life:      params.Alive,
+		Suspended: false,
 		Members: map[string]int64{
 			"wordpress": 2,
 		},
@@ -358,8 +367,8 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
 	r := s.assertHookRelationJoined(c, numCalls, apiCalls...)
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:   params.Alive,
-		Status: params.Joined,
+		Life:      params.Alive,
+		Suspended: false,
 	}, numCalls)
 	numCallsBefore := *numCalls
 
@@ -420,7 +429,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 8)
+	assertNumCalls(c, &numCalls, 9)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
 }
 
@@ -438,15 +447,15 @@ func (s *relationsSuite) TestHookRelationBrokenWhenRevoked(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:   params.Alive,
-				Status: params.Suspended,
+				Life:      params.Alive,
+				Suspended: true,
 			},
 		},
 	}
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 8)
+	assertNumCalls(c, &numCalls, 9)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
 }
 
@@ -470,8 +479,8 @@ func (s *relationsSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:   params.Alive,
-				Status: params.Suspended,
+				Life:      params.Alive,
+				Suspended: true,
 			},
 		},
 	}
@@ -541,6 +550,10 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.juju-info#juju-info.juju-info", Unit: "unit-wordpress-0"},
 	}}
+	relationStatus := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		RelationId: 1,
+		Status:     params.Joined,
+	}}}
 	apiCalls := []apiCall{
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
@@ -550,6 +563,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
+		uniterAPICall("SetRelationStatus", relationStatus, noErrorResult, nil),
 	}
 
 	var numCalls int32
@@ -634,6 +648,14 @@ func subSubRelationAPICalls() []apiCall {
 			},
 		}},
 	}
+	relationStatus1 := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		RelationId: 1,
+		Status:     params.Joined,
+	}}}
+	relationStatus2 := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		RelationId: 2,
+		Status:     params.Joined,
+	}}}
 
 	return []apiCall{
 		uniterAPICall("Refresh", nrpeUnitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}, nil),
@@ -644,9 +666,11 @@ func subSubRelationAPICalls() []apiCall {
 		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
 		uniterAPICall("Watch", nrpeUnitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits1, noErrorResult, nil),
+		uniterAPICall("SetRelationStatus", relationStatus1, noErrorResult, nil),
 		uniterAPICall("Relation", relationUnits2, relationResults2, nil),
 		uniterAPICall("Watch", nrpeUnitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "2"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits2, noErrorResult, nil),
+		uniterAPICall("SetRelationStatus", relationStatus2, noErrorResult, nil),
 	}
 }
 

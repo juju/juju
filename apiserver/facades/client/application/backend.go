@@ -102,6 +102,7 @@ type Relation interface {
 	Destroy() error
 	Endpoint(string) (state.Endpoint, error)
 	SetSuspended(bool) error
+	Suspended() bool
 }
 
 // Unit defines a subset of the functionality provided by the
