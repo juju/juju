@@ -22,13 +22,20 @@ var _ = gc.Suite(&FirewallRulesSuite{})
 
 func (s *FirewallRulesSuite) TestSaveInvalidWhitelistCIDR(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	_, err := rules.Save(state.JujuControllerRule, []string{"192.168.1"}, nil)
+	err := rules.Save(state.FirewallRule{
+		WellKnownService: state.JujuControllerRule,
+		WhitelistCIDRs:   []string{"192.168.1"},
+	})
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`CIDR "192.168.1" not valid`))
 }
 
 func (s *FirewallRulesSuite) TestSaveInvalidBlacklistCIDR(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	_, err := rules.Save(state.JujuControllerRule, []string{"10.0.0.0/8"}, []string{"192.168.1"})
+	err := rules.Save(state.FirewallRule{
+		WellKnownService: state.JujuControllerRule,
+		WhitelistCIDRs:   []string{"10.0.0.0/8"},
+		BlacklistCIDRs:   []string{"192.168.1"},
+	})
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`CIDR "192.168.1" not valid`))
 }
 
@@ -54,36 +61,47 @@ func (s *FirewallRulesSuite) assertSavedRules(c *gc.C, service state.WellKnownSe
 
 func (s *FirewallRulesSuite) TestSaveInvalid(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	_, err := rules.Save("foo", []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
+	err := rules.Save(state.FirewallRule{
+		WellKnownService: "foo",
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+		BlacklistCIDRs:   []string{"10.0.0.0/8"},
+	})
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(err, gc.ErrorMatches, `well known service type "foo" not valid`)
 }
 
 func (s *FirewallRulesSuite) TestSave(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	r, err := rules.Save(state.SSHRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
+	err := rules.Save(state.FirewallRule{
+		WellKnownService: state.SSHRule,
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+		BlacklistCIDRs:   []string{"10.0.0.0/8"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.WellKnownService, gc.Equals, state.SSHRule)
-	c.Assert(r.WhitelistCIDRs, jc.DeepEquals, []string{"192.168.1.0/16"})
-	c.Assert(r.BlacklistCIDRs, jc.DeepEquals, []string{"10.0.0.0/8"})
 	s.assertSavedRules(c, state.SSHRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
 }
 
 func (s *FirewallRulesSuite) TestSaveIdempotent(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	r, err := rules.Save(state.SSHRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
+	rule := state.FirewallRule{
+		WellKnownService: state.SSHRule,
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+		BlacklistCIDRs:   []string{"10.0.0.0/8"},
+	}
+	err := rules.Save(rule)
 	c.Assert(err, jc.ErrorIsNil)
-	r, err = rules.Save(state.SSHRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
+	err = rules.Save(rule)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.WellKnownService, gc.Equals, state.SSHRule)
-	c.Assert(r.WhitelistCIDRs, jc.DeepEquals, []string{"192.168.1.0/16"})
-	c.Assert(r.BlacklistCIDRs, jc.DeepEquals, []string{"10.0.0.0/8"})
 	s.assertSavedRules(c, state.SSHRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
 }
 
 func (s *FirewallRulesSuite) TestRule(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	_, err := rules.Save(state.JujuApplicationOfferRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
+	err := rules.Save(state.FirewallRule{
+		WellKnownService: state.JujuApplicationOfferRule,
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+		BlacklistCIDRs:   []string{"10.0.0.0/8"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := rules.Rule(state.JujuApplicationOfferRule)
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,9 +113,16 @@ func (s *FirewallRulesSuite) TestRule(c *gc.C) {
 
 func (s *FirewallRulesSuite) TestAllRules(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	_, err := rules.Save(state.JujuApplicationOfferRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
+	err := rules.Save(state.FirewallRule{
+		WellKnownService: state.JujuApplicationOfferRule,
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+		BlacklistCIDRs:   []string{"10.0.0.0/8"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = rules.Save(state.JujuControllerRule, []string{"192.168.2.0/16"}, nil)
+	err = rules.Save(state.FirewallRule{
+		WellKnownService: state.JujuControllerRule,
+		WhitelistCIDRs:   []string{"192.168.2.0/16"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := rules.AllRules()
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,9 +143,16 @@ func (s *FirewallRulesSuite) TestAllRules(c *gc.C) {
 
 func (s *FirewallRulesSuite) TestUpdate(c *gc.C) {
 	rules := state.NewFirewallRules(s.State)
-	_, err := rules.Save(state.JujuApplicationOfferRule, []string{"192.168.1.0/16"}, []string{"10.0.0.0/8"})
+	err := rules.Save(state.FirewallRule{
+		WellKnownService: state.JujuApplicationOfferRule,
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+		BlacklistCIDRs:   []string{"10.0.0.0/8"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = rules.Save(state.JujuApplicationOfferRule, []string{"192.168.2.0/16"}, nil)
+	err = rules.Save(state.FirewallRule{
+		WellKnownService: state.JujuApplicationOfferRule,
+		WhitelistCIDRs:   []string{"192.168.2.0/16"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSavedRules(c, state.JujuApplicationOfferRule, []string{"192.168.2.0/16"}, nil)
 }

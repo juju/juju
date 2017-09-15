@@ -42,10 +42,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/apiserver/facades/client/charms"           // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/client"           // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/cloud"            // ModelUser Read
-	"github.com/juju/juju/apiserver/facades/client/controller"       // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
+	"github.com/juju/juju/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/facades/client/firewallrules"
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
@@ -151,6 +152,7 @@ func AllFacades() *facade.Registry {
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
 	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)
 	reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
+	reg("FirewallRules", 1, firewallrules.NewFacade)
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)

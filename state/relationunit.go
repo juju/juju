@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -482,7 +483,26 @@ func (ru *RelationUnit) IngressAddress() (network.Address, error) {
 	if crossmodel, err := ru.relation.IsCrossModel(); err != nil {
 		return network.Address{}, errors.Trace(err)
 	} else if !crossmodel {
-		return unit.PrivateAddress()
+		space, err := unit.GetSpaceForBinding("")
+		if err != nil {
+			return network.Address{}, errors.Trace(err)
+		}
+		m, err := unit.machine()
+		if err != nil {
+			return network.Address{}, errors.Trace(err)
+		}
+		networkInfos := m.GetNetworkInfoForSpaces(set.NewStrings(space))
+		info, ok := networkInfos[space]
+		if !ok || len(info.NetworkInfos) == 0 || len(info.NetworkInfos[0].Addresses) == 0 {
+			privateAddress, err := unit.PrivateAddress()
+			if err == nil {
+				logger.Warningf("Can't find an address for default binding space %q, falling back to units' private address %q", space, privateAddress.String())
+			}
+			return privateAddress, err
+		}
+		boundAddress := network.NewAddress(info.NetworkInfos[0].Addresses[0].Address)
+		logger.Debugf("Found an address for a default binding for an app - %v", boundAddress.String())
+		return boundAddress, nil
 	}
 
 	address, err := unit.PublicAddress()

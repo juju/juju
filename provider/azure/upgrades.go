@@ -71,9 +71,11 @@ func (step commonDeploymentUpgradeStep) Run() error {
 	env.mu.Lock()
 	storageAccountType := env.config.storageAccountType
 	env.mu.Unlock()
-	return env.createCommonResourceDeployment(
-		nil, storageAccountType, rules,
-	)
+	return env.createCommonResourceDeployment(nil, rules, storageAccountTemplateResource(
+		env.location, nil,
+		env.storageAccountName,
+		storageAccountType,
+	))
 }
 
 func isControllerEnviron(env *azureEnviron) (bool, error) {

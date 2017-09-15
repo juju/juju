@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/azure-sdk-for-go/arm/disk"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
@@ -65,7 +66,7 @@ const (
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
 
-	computeAPIVersion = "2016-03-30"
+	computeAPIVersion = "2016-04-30-preview"
 	networkAPIVersion = "2017-03-01"
 	storageAPIVersion = "2016-12-01"
 )
@@ -100,6 +101,7 @@ type azureEnviron struct {
 	authorizer *cloudSpecAuth
 
 	compute            compute.ManagementClient
+	disk               disk.ManagementClient
 	resources          resources.ManagementClient
 	storage            storage.ManagementClient
 	network            network.ManagementClient
@@ -109,7 +111,7 @@ type azureEnviron struct {
 	mu                     sync.Mutex
 	config                 *azureModelConfig
 	instanceTypes          map[string]instances.InstanceType
-	storageAccount         *storage.Account
+	storageAccount         **storage.Account
 	storageAccountKey      *storage.AccountKey
 	commonResourcesCreated bool
 }
@@ -171,11 +173,13 @@ func (env *azureEnviron) initEnviron() error {
 	}
 
 	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.disk = disk.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.storage = storage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	clients := map[string]*autorest.Client{
 		"azure.compute":   &env.compute.Client,
+		"azure.disk":      &env.disk.Client,
 		"azure.resources": &env.resources.Client,
 		"azure.storage":   &env.storage.Client,
 		"azure.network":   &env.network.Client,
@@ -249,7 +253,6 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string, controller boo
 		names.NewControllerTag(controllerUUID),
 		env.config,
 	)
-	storageAccountType := env.config.storageAccountType
 	env.mu.Unlock()
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
@@ -267,29 +270,28 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string, controller boo
 		// e.g. those made by the firewaller. For the controller model,
 		// we fold the creation of these resources into the bootstrap
 		// machine's deployment.
-		if err := env.createCommonResourceDeployment(
-			tags, storageAccountType, nil,
-		); err != nil {
+		if err := env.createCommonResourceDeployment(tags, nil); err != nil {
 			return errors.Trace(err)
 		}
 	}
+
+	// New models are not given a storage account. Initialise the
+	// storage account pointer to a pointer to a nil pointer, so
+	// "getStorageAccount" avoids making an API call.
+	env.storageAccount = new(*storage.Account)
+
 	return nil
 }
 
 func (env *azureEnviron) createCommonResourceDeployment(
 	tags map[string]string,
-	storageAccountType string,
 	rules []network.SecurityRule,
+	commonResources ...armtemplates.Resource,
 ) error {
 	const apiPort = -1
-	commonResources := networkTemplateResources(
+	commonResources = append(commonResources, networkTemplateResources(
 		env.location, tags, apiPort, rules,
-	)
-	commonResources = append(commonResources, storageAccountTemplateResource(
-		env.location, tags,
-		env.storageAccountName,
-		storageAccountType,
-	))
+	)...)
 
 	// We perform this deployment asynchronously, to avoid blocking
 	// the "juju add-model" command; Create is called synchronously.
@@ -579,19 +581,12 @@ func (env *azureEnviron) createVirtualMachine(
 	if createCommonResources {
 		// We're starting the bootstrap machine, so we will create the
 		// common resources in the same deployment.
-		commonResources := networkTemplateResources(env.location, envTags, apiPort, nil)
-		commonResources = append(commonResources, storageAccountTemplateResource(
-			env.location, envTags,
-			env.storageAccountName, storageAccountType,
-		))
-		resources = append(resources, commonResources...)
+		resources = append(resources,
+			networkTemplateResources(env.location, envTags, apiPort, nil)...,
+		)
 		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
 			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
 			internalNetworkName,
-		))
-		vmDependsOn = append(vmDependsOn, fmt.Sprintf(
-			`[resourceId('Microsoft.Storage/storageAccounts', '%s')]`,
-			env.storageAccountName,
 		))
 	} else {
 		// Wait for the common resource deployment to complete.
@@ -602,6 +597,17 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 	}
 
+	maybeStorageAccount, err := env.getStorageAccount()
+	if errors.IsNotFound(err) {
+		// Only models created prior to Juju 2.3 will have a storage
+		// account. Juju 2.3 onwards exclusively uses managed disks
+		// for all new models, and handles both managed and unmanaged
+		// disks for upgraded models.
+		maybeStorageAccount = nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
 		env.provider.config.RandomWindowsAdminPassword,
@@ -610,7 +616,12 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return errors.Annotate(err, "creating OS profile")
 	}
-	storageProfile, err := newStorageProfile(vmName, env.storageAccountName, instanceSpec)
+	storageProfile, err := newStorageProfile(
+		vmName,
+		maybeStorageAccount,
+		storageAccountType,
+		instanceSpec,
+	)
 	if err != nil {
 		return errors.Annotate(err, "creating storage profile")
 	}
@@ -627,12 +638,32 @@ func (env *azureEnviron) createVirtualMachine(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
 			availabilitySetName,
 		)
+		var availabilitySetProperties interface{}
+		if maybeStorageAccount == nil {
+			// This model uses managed disks; we must create
+			// the availability set as "aligned" to support
+			// them.
+			availabilitySetProperties = &compute.AvailabilitySetProperties{
+				// Managed means the availability set is
+				// "aligned", allowing managed disks to be
+				// used.
+				Managed: to.BoolPtr(true),
+
+				// Azure complains when the fault domain count
+				// is not specified, even though it is meant
+				// to be optional and default to the maximum.
+				// The maximum depends on the location, and
+				// there is no API to query it.
+				PlatformFaultDomainCount: to.Int32Ptr(maxFaultDomains(env.location)),
+			}
+		}
 		resources = append(resources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
 			Type:       "Microsoft.Compute/availabilitySets",
 			Name:       availabilitySetName,
 			Location:   env.location,
 			Tags:       envTags,
+			Properties: availabilitySetProperties,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -768,6 +799,32 @@ func (env *azureEnviron) createVirtualMachine(
 	return nil
 }
 
+// maxFaultDomains returns the maximum number of fault domains for the
+// given location/region. The numbers were taken from
+// https://docs.microsoft.com/en-au/azure/virtual-machines/windows/manage-availability,
+// as at 31 August 2017.
+func maxFaultDomains(location string) int32 {
+	// From the page linked in the doc comment:
+	// "The number of fault domains for managed availability sets varies
+	// by region - either two or three per region."
+	//
+	// We record those that at the time of writing have 3. Anything
+	// else has at least 2, so we just assume 2.
+	switch location {
+	case
+		"eastus",
+		"eastus2",
+		"westus",
+		"centralus",
+		"northcentralus",
+		"southcentralus",
+		"northeurope",
+		"westeurope":
+		return 3
+	}
+	return 2
+}
+
 // waitCommonResourcesCreated waits for the "common" deployment to complete.
 func (env *azureEnviron) waitCommonResourcesCreated() error {
 	env.mu.Lock()
@@ -775,10 +832,38 @@ func (env *azureEnviron) waitCommonResourcesCreated() error {
 	if env.commonResourcesCreated {
 		return nil
 	}
-	if err := env.waitCommonResourcesCreatedLocked(); err != nil {
+	deployment, err := env.waitCommonResourcesCreatedLocked()
+	if err != nil {
 		return errors.Trace(err)
 	}
 	env.commonResourcesCreated = true
+	if deployment != nil {
+		// Check if the common deployment created
+		// a storage account. If it didn't, we can
+		// avoid a query for the storage account.
+		var hasStorageAccount bool
+		if deployment.Properties.Providers != nil {
+			for _, p := range *deployment.Properties.Providers {
+				if to.String(p.Namespace) != "Microsoft.Storage" {
+					continue
+				}
+				if p.ResourceTypes == nil {
+					continue
+				}
+				for _, rt := range *p.ResourceTypes {
+					if to.String(rt.ResourceType) != "storageAccounts" {
+						continue
+					}
+					hasStorageAccount = true
+					break
+				}
+				break
+			}
+		}
+		if !hasStorageAccount {
+			env.storageAccount = new(*storage.Account)
+		}
+	}
 	return nil
 }
 
@@ -786,7 +871,7 @@ type deploymentIncompleteError struct {
 	error
 }
 
-func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
+func (env *azureEnviron) waitCommonResourcesCreatedLocked() (*resources.DeploymentExtended, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 
 	// Release the lock while we're waiting, to avoid blocking others.
@@ -797,6 +882,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 	// for the "common" deployment to be in one of the terminal
 	// states. The deployment typically takes only around 30 seconds,
 	// but we allow for a longer duration to be defensive.
+	var deployment *resources.DeploymentExtended
 	waitDeployment := func() error {
 		result, err := deploymentsClient.Get(env.resourceGroup, "common")
 		if err != nil {
@@ -818,6 +904,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		if state == "Succeeded" {
 			// The deployment has succeeded, so the resources are
 			// ready for use.
+			deployment = &result
 			return nil
 		}
 		err = errors.Errorf("common resource deployment status is %q", state)
@@ -828,7 +915,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		}
 		return err
 	}
-	return retry.Call(retry.CallArgs{
+	if err := retry.Call(retry.CallArgs{
 		Func: waitDeployment,
 		IsFatalError: func(err error) bool {
 			_, ok := err.(deploymentIncompleteError)
@@ -838,7 +925,10 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		Delay:       5 * time.Second,
 		MaxDuration: 5 * time.Minute,
 		Clock:       env.provider.config.RetryClock,
-	})
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return deployment, nil
 }
 
 // createAvailabilitySet creates the availability set for a machine to use
@@ -883,7 +973,8 @@ func availabilitySetName(
 // based on the series and chosen instance spec.
 func newStorageProfile(
 	vmName string,
-	storageAccountName string,
+	maybeStorageAccount *storage.Account,
+	storageAccountType string,
 	instanceSpec *instances.InstanceSpec,
 ) (*compute.StorageProfile, error) {
 	logger.Debugf("creating storage profile for %q", vmName)
@@ -897,23 +988,27 @@ func newStorageProfile(
 	sku := urnParts[2]
 	version := urnParts[3]
 
-	osDisksRoot := fmt.Sprintf(
-		`reference(resourceId('Microsoft.Storage/storageAccounts', '%s'), '%s').primaryEndpoints.blob`,
-		storageAccountName, storageAPIVersion,
-	)
 	osDiskName := vmName
-	osDiskURI := fmt.Sprintf(
-		`[concat(%s, '%s/%s%s')]`,
-		osDisksRoot, osDiskVHDContainer, osDiskName, vhdExtension,
-	)
 	osDiskSizeGB := mibToGB(instanceSpec.InstanceType.RootDisk)
 	osDisk := &compute.OSDisk{
 		Name:         to.StringPtr(osDiskName),
 		CreateOption: compute.FromImage,
 		Caching:      compute.ReadWrite,
-		Vhd:          &compute.VirtualHardDisk{URI: to.StringPtr(osDiskURI)},
 		DiskSizeGB:   to.Int32Ptr(int32(osDiskSizeGB)),
 	}
+
+	if maybeStorageAccount == nil {
+		// This model uses managed disks.
+		osDisk.ManagedDisk = &compute.ManagedDiskParameters{
+			StorageAccountType: compute.StorageAccountTypes(storageAccountType),
+		}
+	} else {
+		// This model uses unmanaged disks.
+		osDiskVhdRoot := blobContainerURL(maybeStorageAccount, osDiskVHDContainer)
+		vhdURI := osDiskVhdRoot + osDiskName + vhdExtension
+		osDisk.Vhd = &compute.VirtualHardDisk{to.StringPtr(vhdURI)}
+	}
+
 	return &compute.StorageProfile{
 		ImageReference: &compute.ImageReference{
 			Publisher: to.StringPtr(publisher),
@@ -1033,14 +1128,8 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 		return nil
 	}
 
-	maybeStorageClient, err := env.getStorageClient()
-	if errors.IsNotFound(err) {
-		// It is possible, if unlikely, that the first deployment for a
-		// hosted model will fail or be canceled before the model's
-		// storage account is created. We must therefore cater for the
-		// account being missing or incomplete here.
-		maybeStorageClient = nil
-	} else if err != nil {
+	maybeStorageClient, _, err := env.maybeGetStorageClient()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1125,6 +1214,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 	publicIPAddresses []network.PublicIPAddress,
 ) error {
 	vmClient := compute.VirtualMachinesClient{env.compute}
+	diskClient := disk.DisksClient{env.disk}
 	nicClient := network.InterfacesClient{env.network}
 	nsgClient := network.SecurityGroupsClient{env.network}
 	securityRuleClient := network.SecurityRulesClient{env.network}
@@ -1138,10 +1228,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
 	vmResultCh, errCh := vmClient.Delete(env.resourceGroup, vmName, nil)
 	if result, err := <-vmResultCh, <-errCh; err != nil {
-		if isNotFoundResponse(result.Response) {
-			return errors.NotFoundf("virtual machine %q", vmName)
+		if !isNotFoundResponse(result.Response) {
+			return errors.Annotate(err, "deleting virtual machine")
 		}
-		return errors.Annotate(err, "deleting virtual machine")
 	}
 
 	if maybeStorageClient != nil {
@@ -1151,6 +1240,15 @@ func (env *azureEnviron) deleteVirtualMachine(
 		vhdBlob := vhdContainer.Blob(vmName)
 		_, err := vhdBlob.DeleteIfExists(nil)
 		return errors.Annotate(err, "deleting OS VHD")
+	} else {
+		// Delete the managed OS disk.
+		logger.Debugf("- deleting OS disk (%s)", vmName)
+		resultCh, errCh := diskClient.Delete(env.resourceGroup, vmName, nil)
+		if result, err := <-resultCh, <-errCh; err != nil {
+			if !isNotFoundResponse(result.Response) {
+				return errors.Annotate(err, "deleting OS disk")
+			}
+		}
 	}
 
 	logger.Debugf("- deleting security rules (%s)", vmName)
@@ -1167,10 +1265,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 		logger.Tracef("deleting NIC %q", nicName)
 		resultCh, errCh := nicClient.Delete(env.resourceGroup, nicName, nil)
 		if result, err := <-resultCh, <-errCh; err != nil {
-			if isNotFoundResponse(result) {
-				return errors.NotFoundf("NIC %q", nicName)
+			if !isNotFoundResponse(result) {
+				return errors.Annotate(err, "deleting NIC")
 			}
-			return errors.Annotate(err, "deleting NIC")
 		}
 	}
 
@@ -1180,10 +1277,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 		logger.Tracef("deleting public IP %q", pipName)
 		resultCh, errCh := pipClient.Delete(env.resourceGroup, pipName, nil)
 		if result, err := <-resultCh, <-errCh; err != nil {
-			if isNotFoundResponse(result) {
-				return errors.NotFoundf("public IP %q", pipName)
+			if !isNotFoundResponse(result) {
+				return errors.Annotate(err, "deleting public IP")
 			}
-			return errors.Annotate(err, "deleting public IP")
 		}
 	}
 
@@ -1191,10 +1287,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 	logger.Debugf("- deleting deployment (%s)", vmName)
 	resultCh, errCh := deploymentsClient.Delete(env.resourceGroup, vmName, nil)
 	if result, err := <-resultCh, <-errCh; err != nil {
-		if isNotFoundResponse(result) {
-			return errors.NotFoundf("deployment %q", vmName)
+		if !isNotFoundResponse(result) {
+			return errors.Annotate(err, "deleting deployment")
 		}
-		return errors.Annotate(err, "deleting deployment")
 	}
 	return nil
 }
@@ -1371,6 +1466,13 @@ func (env *azureEnviron) allInstances(
 	azureInstances := make([]*azureInstance, 0, len(*deploymentsResult.Value))
 	for _, deployment := range *deploymentsResult.Value {
 		name := to.String(deployment.Name)
+		if _, err := names.ParseMachineTag(name); err != nil {
+			// Deployments we create for Juju machines are named
+			// with the machine tag. We also create a "common"
+			// deployment, so this will exclude that VM and any
+			// other stray deployment resources.
+			continue
+		}
 		if deployment.Properties == nil || deployment.Properties.Dependencies == nil {
 			continue
 		}
@@ -1589,20 +1691,37 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 	return instanceTypes, nil
 }
 
+// maybeGetStorageClient returns the environment's storage client if it
+// has one, and nil if it does not.
+func (env *azureEnviron) maybeGetStorageClient() (internalazurestorage.Client, *storage.Account, error) {
+	storageClient, storageAccount, err := env.getStorageClient()
+	if errors.IsNotFound(err) {
+		// Only models created prior to Juju 2.3 will have a storage
+		// account. Juju 2.3 onwards exclusively uses managed disks
+		// for all new models, and handles both managed and unmanaged
+		// disks for upgraded models.
+		storageClient = nil
+		storageAccount = nil
+	} else if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return storageClient, storageAccount, nil
+}
+
 // getStorageClient queries the storage account key, and uses it to construct
 // a new storage client.
-func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error) {
+func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, *storage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	storageAccount, err := env.getStorageAccountLocked(false)
+	storageAccount, err := env.getStorageAccountLocked()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage account")
+		return nil, nil, errors.Annotate(err, "getting storage account")
 	}
 	storageAccountKey, err := env.getStorageAccountKeyLocked(
 		to.String(storageAccount.Name), false,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage account key")
+		return nil, nil, errors.Annotate(err, "getting storage account key")
 	}
 	client, err := getStorageClient(
 		env.provider.config.NewStorageClient,
@@ -1611,33 +1730,40 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error)
 		storageAccountKey,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage client")
+		return nil, nil, errors.Annotate(err, "getting storage client")
 	}
-	return client, nil
+	return client, storageAccount, nil
 }
 
 // getStorageAccount returns the storage account for this environment's
-// resource group. If refresh is true, cached details will be refreshed.
-func (env *azureEnviron) getStorageAccount(refresh bool) (*storage.Account, error) {
+// resource group.
+func (env *azureEnviron) getStorageAccount() (*storage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	return env.getStorageAccountLocked(refresh)
+	return env.getStorageAccountLocked()
 }
 
-func (env *azureEnviron) getStorageAccountLocked(refresh bool) (*storage.Account, error) {
-	if !refresh && env.storageAccount != nil {
-		return env.storageAccount, nil
+func (env *azureEnviron) getStorageAccountLocked() (*storage.Account, error) {
+	if env.storageAccount != nil {
+		if *env.storageAccount == nil {
+			return nil, errors.NotFoundf("storage account")
+		}
+		return *env.storageAccount, nil
 	}
 	client := storage.AccountsClient{env.storage}
 	account, err := client.GetProperties(env.resourceGroup, env.storageAccountName)
 	if err != nil {
 		if isNotFoundResponse(account.Response) {
+			// Remember that the account was not found
+			// by storing a pointer to a nil pointer.
+			env.storageAccount = new(*storage.Account)
 			return nil, errors.NewNotFound(err, fmt.Sprintf("storage account not found"))
 		}
-		return nil, errors.Annotate(err, "getting storage account")
+		return nil, errors.Trace(err)
 	}
-	env.storageAccount = &account
-	return env.storageAccount, nil
+	env.storageAccount = new(*storage.Account)
+	*env.storageAccount = &account
+	return &account, nil
 }
 
 // getStorageAccountKeysLocked returns a storage account key for this
