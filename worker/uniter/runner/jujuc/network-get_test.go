@@ -143,7 +143,7 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 		code:    1,
 		out:     `no network config found for binding "valid-no-config"`,
 	}, {
-		summary: "API server returns no config for this binding, no --primary-address",
+		summary: "API server returns no config for this binding, no address args",
 		args:    []string{"valid-no-config"},
 		code:    1,
 		out:     `no network config found for binding "valid-no-config"`,
@@ -161,7 +161,7 @@ ingress-address: 10.20.1.42`[1:],
 		summary: "explicitly bound, extra-binding name given without extra args",
 		args:    []string{"known-extra"},
 		out: `
-info:
+bind-addresses:
 - macaddress: "00:11:22:33:44:22"
   interfacename: eth2
   addresses:
@@ -177,7 +177,7 @@ info:
 		summary: "explicitly bound relation name given without extra args",
 		args:    []string{"known-relation"},
 		out: `
-info:
+bind-addresses:
 - macaddress: "00:11:22:33:44:00"
   interfacename: eth0
   addresses:
@@ -197,10 +197,10 @@ info:
 		args:    []string{"known-unbound", "--ingress-address"},
 		out:     "10.33.1.8",
 	}, {
-		summary: "no user requested binding falls back to primary address, without --primary-address",
+		summary: "no user requested binding falls back to primary address, without address args",
 		args:    []string{"known-unbound"},
 		out: `
-info:
+bind-addresses:
 - macaddress: "00:11:22:33:44:33"
   interfacename: eth3
   addresses:
@@ -219,7 +219,7 @@ ingress-address: 100.1.2.3`[1:],
 		summary: "explicit ingress and egress information, no extra args",
 		args:    []string{"ingress-egress"},
 		out: `
-info:
+bind-addresses:
 - macaddress: "00:11:22:33:44:33"
   interfacename: eth3
   addresses:

@@ -1851,7 +1851,11 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	bindingsToEgressSubnets := make(map[string][]string)
 	bindingsToIngressAddress := make(map[string]string)
 
-	modelCfg, err := u.st.ModelConfig()
+	model, err := u.st.Model()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+	modelCfg, err := model.ModelConfig()
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -1916,13 +1920,16 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		// Set egress and ingress address information.
 		info.EgressSubnets = bindingsToEgressSubnets[binding]
 		// If there is no ingress address explicitly defined for a given binding,
-		// set the ingress address to the first binding address. This simplifies
-		// the processing charms need to do.
+		// set the ingress addresses to the binding addresses.
 		ingressAddress, ok := bindingsToIngressAddress[binding]
-		if !ok && len(info.Info[0].Addresses) > 0 {
-			ingressAddress = info.Info[0].Addresses[0].Address
+		if !ok {
+			for _, nwInfo := range info.Info {
+				for _, addr := range nwInfo.Addresses {
+					info.IngressAddresses = append(info.IngressAddresses, addr.Address)
+				}
+			}
 		}
-		if ingressAddress != "" {
+		if len(info.IngressAddresses) == 0 && ingressAddress != "" {
 			info.IngressAddresses = []string{ingressAddress}
 		}
 		result.Results[binding] = info

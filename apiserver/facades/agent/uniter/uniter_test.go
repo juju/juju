@@ -3656,7 +3656,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 			},
 		},
 		EgressSubnets:    []string{},
-		IngressAddresses: []string{"10.0.0.10"},
+		IngressAddresses: []string{"10.0.0.10", "10.0.0.11"},
 	}
 	// For the "admin-api" extra-binding we expect to see only interfaces from
 	// the "public" space.
@@ -3679,7 +3679,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 			},
 		},
 		EgressSubnets:    []string{},
-		IngressAddresses: []string{"8.8.8.10"},
+		IngressAddresses: []string{"8.8.8.10", "8.8.4.10", "8.8.4.11"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
