@@ -516,17 +516,30 @@ type mockRelation struct {
 	application.Relation
 	jtesting.Stub
 
-	tag    names.Tag
-	status status.Status
+	tag       names.Tag
+	status    status.Status
+	suspended bool
 }
 
 func (r *mockRelation) Tag() names.Tag {
 	return r.tag
 }
 
-func (r *mockRelation) SetStatus(status status.Status) error {
-	r.status = status
-	return nil
+func (r *mockRelation) SetStatus(status status.StatusInfo) error {
+	r.MethodCall(r, "SetStatus")
+	r.status = status.Status
+	return r.NextErr()
+}
+
+func (r *mockRelation) SetSuspended(suspended bool) error {
+	r.MethodCall(r, "SetSuspended")
+	r.suspended = suspended
+	return r.NextErr()
+}
+
+func (r *mockRelation) Suspended() bool {
+	r.MethodCall(r, "Suspended")
+	return r.suspended
 }
 
 func (r *mockRelation) Destroy() error {

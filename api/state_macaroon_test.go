@@ -90,7 +90,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	defer conn.Close()
 	connectURL, err := url.Parse(catcher.location)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.State.ModelTag().Id()+"/path")
+	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.IAASModel.ModelTag().Id()+"/path")
 	c.Assert(dischargeCount, gc.Equals, 1)
 }
 

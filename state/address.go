@@ -29,7 +29,11 @@ func (st *State) controllerAddresses() ([]string, error) {
 
 	var machines mongo.Collection
 	var closer SessionCloser
-	if st.ModelTag() == cinfo.ModelTag {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.ModelTag() == cinfo.ModelTag {
 		machines, closer = st.db().GetCollection(machinesC)
 	} else {
 		machines, closer = st.db().GetCollectionFor(cinfo.ModelTag.Id(), machinesC)

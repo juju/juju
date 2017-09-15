@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/relation"
 )
 
 var resumeHelpSummary = `
@@ -35,7 +34,7 @@ See also:
 // NewResumeRelationCommand returns a command to resume a relation.
 func NewResumeRelationCommand() cmd.Command {
 	cmd := &resumeRelationCommand{}
-	cmd.newAPIFunc = func() (SetRelationStatusAPI, error) {
+	cmd.newAPIFunc = func() (SetRelationSuspendedAPI, error) {
 		root, err := cmd.NewAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -49,7 +48,7 @@ func NewResumeRelationCommand() cmd.Command {
 type resumeRelationCommand struct {
 	modelcmd.ModelCommandBase
 	RelationId int
-	newAPIFunc func() (SetRelationStatusAPI, error)
+	newAPIFunc func() (SetRelationSuspendedAPI, error)
 }
 
 func (c *resumeRelationCommand) Info() *cmd.Info {
@@ -83,6 +82,6 @@ func (c *resumeRelationCommand) Run(_ *cmd.Context) error {
 	if client.BestAPIVersion() < 5 {
 		return errors.New("resuming a relation is not supported by this version of Juju")
 	}
-	err = client.SetRelationStatus(c.RelationId, relation.Joined)
+	err = client.SetRelationSuspended(c.RelationId, false)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

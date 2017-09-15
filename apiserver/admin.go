@@ -119,10 +119,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errors.Trace(err)
 	}
 
-	model, err := a.root.state.Model()
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
+	model := a.root.model
 
 	if authResult.userLogin || authResult.anonymousLogin {
 		switch model.MigrationMode() {
@@ -230,7 +227,7 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 
 	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
 	if a.root.entity != nil {
-		a.apiObserver.Login(a.root.entity.Tag(), a.root.state.ModelTag(), controllerMachineLogin, req.UserData)
+		a.apiObserver.Login(a.root.entity.Tag(), a.root.model.ModelTag(), controllerMachineLogin, req.UserData)
 	}
 
 	// For controller machine logins, we don't need a pinger
@@ -307,7 +304,7 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 		if result.anonymousLogin {
 			logger.Debugf("anonymous model login")
 		} else {
-			logger.Debugf("model login: %s for %s", a.root.entity.Tag(), a.root.state.ModelTag().Id())
+			logger.Debugf("model login: %s for %s", a.root.entity.Tag(), a.root.model.ModelTag().Id())
 		}
 	}
 	return nil
@@ -347,7 +344,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		// admin.
 
 		var err error
-		modelAccess, err = a.root.state.UserPermission(userTag, a.root.state.ModelTag())
+		modelAccess, err = a.root.state.UserPermission(userTag, a.root.model.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, common.ErrPerm)
 		}
@@ -373,7 +370,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		logger.Debugf("controller login: user %s has %q access", userTag.Id(), controllerAccess)
 	} else {
 		logger.Debugf("model login: user %s has %q for controller; %q for model %s",
-			userTag.Id(), controllerAccess, modelAccess, a.root.state.ModelTag().Id())
+			userTag.Id(), controllerAccess, modelAccess, a.root.model.ModelTag().Id())
 	}
 	return &params.AuthUserInfo{
 		Identity:         userTag.String(),
@@ -521,7 +518,11 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return f.st.FindEntity(tag)
 	}
 
-	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
+	model, err := f.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelUser, err := f.st.UserAccess(utag, model.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}

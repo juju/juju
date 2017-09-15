@@ -10,6 +10,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -263,6 +264,8 @@ type MockContext struct {
 	actionData      *context.ActionData
 	setStatusCalled bool
 	status          jujuc.StatusInfo
+	isLeader        bool
+	relation        *MockRelation
 }
 
 func (mock *MockContext) ActionData() (*context.ActionData, error) {
@@ -297,6 +300,29 @@ func (mock *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
 func (mock *MockContext) Prepare() error {
 	mock.MethodCall(mock, "Prepare")
 	return mock.NextErr()
+}
+
+func (mock *MockContext) IsLeader() (bool, error) {
+	return mock.isLeader, nil
+}
+
+func (mock *MockContext) Relation(id int) (jujuc.ContextRelation, error) {
+	return mock.relation, nil
+}
+
+type MockRelation struct {
+	jujuc.ContextRelation
+	suspended bool
+	status    relation.Status
+}
+
+func (mock *MockRelation) Suspended() bool {
+	return mock.suspended
+}
+
+func (mock *MockRelation) SetStatus(status relation.Status) error {
+	mock.status = status
+	return nil
 }
 
 type MockRunAction struct {

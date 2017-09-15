@@ -98,11 +98,12 @@ func (w *remoteRelationsWorker) relationUnitsChangeEvent(
 ) (*params.RemoteRelationChangeEvent, error) {
 	logger.Debugf("update relation status for %v", w.relationTag)
 
+	suspended := change.Suspended
 	event := &params.RemoteRelationChangeEvent{
 		RelationToken:    w.remoteRelationToken,
 		ApplicationToken: w.applicationToken,
 		Life:             params.Life(change.Life),
-		Status:           params.RelationStatusValue(change.Status),
+		Suspended:        &suspended,
 	}
 	return event, nil
 }

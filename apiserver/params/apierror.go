@@ -259,3 +259,7 @@ func IsRedirect(err error) bool {
 func IsCodeIncompatibleSeries(err error) bool {
 	return ErrCode(err) == CodeIncompatibleSeries
 }
+
+func IsCodeForbidden(err error) bool {
+	return ErrCode(err) == CodeForbidden
+}

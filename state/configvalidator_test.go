@@ -84,7 +84,7 @@ func (s *ConfigValidatorSuite) TestUpdateModelConfigFailsOnConfigValidateError(c
 
 func (s *ConfigValidatorSuite) TestUpdateModelConfigUpdatesState(c *gc.C) {
 	s.updateModelConfig(c)
-	stateCfg, err := s.State.ModelConfig()
+	stateCfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	newValidCfg, err := mockValidCfg()
 	c.Assert(err, jc.ErrorIsNil)

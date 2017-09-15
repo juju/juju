@@ -964,13 +964,17 @@ func (a *MachineAgent) updateSupportedContainers(
 ) error {
 	pr := apiprovisioner.NewState(st)
 	tag := agentConfig.Tag().(names.MachineTag)
-	machine, err := pr.Machine(tag)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
-		return jworker.ErrTerminateAgent
-	}
+	result, err := pr.Machines(tag)
 	if err != nil {
 		return errors.Annotatef(err, "cannot load machine %s from state", tag)
 	}
+	if len(result) != 1 {
+		return errors.Annotatef(err, "expected 1 result, got %d", len(result))
+	}
+	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == params.Dead) {
+		return jworker.ErrTerminateAgent
+	}
+	machine := result[0].Machine
 	if len(containers) == 0 {
 		if err := machine.SupportsNoContainers(); err != nil {
 			return errors.Annotatef(err, "clearing supported containers for %s", tag)

@@ -30,7 +30,7 @@ func (s *RemoteEntitiesSuite) TestExportLocalEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -53,7 +53,7 @@ func (s *RemoteEntitiesSuite) TestGetRemoteEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -73,7 +73,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	err = re.SaveMacaroon(entity, mac)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -87,7 +87,7 @@ func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -106,7 +106,7 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
 	err := re.ImportRemoteEntity(entity, token)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -127,7 +127,7 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntityOverwrites(c *gc.C) {
 	err = re.ImportRemoteEntity(entity, anotherToken)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 

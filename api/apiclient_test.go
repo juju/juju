@@ -166,7 +166,7 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	c.Assert(st.Addr(), gc.Equals, info.Addrs[0])
 	modelTag, ok := st.ModelTag()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(modelTag, gc.Equals, s.State.ModelTag())
+	c.Assert(modelTag, gc.Equals, s.IAASModel.ModelTag())
 
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
@@ -192,7 +192,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeModelNotFound)
 
 	// Now set it to the right tag, and we should succeed.
-	info.ModelTag = s.State.ModelTag()
+	info.ModelTag = s.IAASModel.ModelTag()
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()

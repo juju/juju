@@ -4,30 +4,25 @@
 package vsphereclient
 
 import (
+	"context"
 	"fmt"
-	"net/url"
-	"os"
+	"io"
 	"path"
-	"path/filepath"
 	"time"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"github.com/kr/pretty"
 	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25"
+	"github.com/vmware/govmomi/ovf"
 	"github.com/vmware/govmomi/vim25/mo"
-	"github.com/vmware/govmomi/vim25/progress"
-	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/constraints"
-	jujuworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
 )
+
+//go:generate go run ../../../../generate/filetoconst/filetoconst.go UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient
 
 // CreateVirtualMachineParams contains the parameters required for creating
 // a new virtual machine.
@@ -40,11 +35,22 @@ type CreateVirtualMachineParams struct {
 	// in which to create the VM.
 	Folder string
 
-	// OVAContentsDir is the directory containing the extracted OVA contents.
-	OVADir string
+	// VMDKDirectory is the datastore path in which VMDKs are stored for
+	// this controller. Within this directory there will be subdirectories
+	// for each series, and within those the VMDKs will be stored.
+	VMDKDirectory string
 
-	// OVF contains the OVF content.
-	OVF string
+	// Series is the name of the OS series that the image will run.
+	Series string
+
+	// ReadOVA returns the location of, and an io.ReadCloser for,
+	// the OVA from which to extract the VMDK. The location may be
+	// used for reporting progress. The ReadCloser must be closed
+	// by the caller when it is finished with it.
+	ReadOVA func() (location string, _ io.ReadCloser, _ error)
+
+	// OVASHA256 is the expected SHA-256 hash of the OVA.
+	OVASHA256 string
 
 	// UserData is the cloud-init user-data.
 	UserData string
@@ -90,33 +96,30 @@ type CreateVirtualMachineParams struct {
 //
 // This method imports an OVF template using the vSphere API. This process
 // comprises the following steps:
-//   1. Download the OVA archive, extract it, and load the OVF file contained
-//      within. This must have happened before CreateVirtualMachine is called.
-//   2. Call CreateImportSpec [0], which validates the OVF descriptor against
-//      the hardware supported by the host system. If the validation succeeds,
-//      the method returns a result containing:
-//        - an ImportSpec to use for importing the entity
-//        - a list of items to upload from the OVA (e.g. VMDKs)
+//   1. Ensure the VMDK contained within the OVA archive (args.OVA) is
+//      stored in the datastore, in this controller's cache. If it is
+//      there already, we use it; otherwise we remove any existing VMDK
+//      for the same series, and upload the new one.
+//   2. Call CreateImportSpec [0] with a pre-canned OVF, which validates
+//      the OVF descriptor against the hardware supported by the host system.
+//      If the validation succeeds,/the method returns an ImportSpec to use
+//      for importing the virtual machine.
 //   3. Prepare all necessary parameters (CPU, memory, root disk, etc.), and
 //      call the ImportVApp method [0]. This method is responsible for actually
-//      creating the VM. An HttpNfcLease [1] object is returned, which is used
-//      to signal completion of the process.
-//   4. Upload virtual disk contents (usually consists of a single VMDK file)
-//   5. Call HttpNfcLeaseComplete [0] to signal completion of uploading,
-//      completing the process of creating the virtual machine.
+//      creating the VM. This VM is temporary, and used only to convert the
+//      VMDK file into a disk type file.
+//   4. Clone the temporary VM from step 3, to create the VM we will associate
+//      with the Juju machine.
+//   5. If the user specified a root-disk constraint, extend the VMDK if its
+//      capacity is less than the specified constraint.
+//   6. Power on the virtual machine.
 //
 // [0] https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/
 // [1] https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/vim.HttpNfcLease.html
 func (c *Client) CreateVirtualMachine(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
-) (*mo.VirtualMachine, error) {
-
-	args.UpdateProgress("creating import spec")
-	spec, err := c.createImportSpec(ctx, args)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating import spec")
-	}
+) (_ *mo.VirtualMachine, resultErr error) {
 
 	// Locate the folder in which to create the VM.
 	finder, datacenter, err := c.finder(ctx)
@@ -133,78 +136,100 @@ func (c *Client) CreateVirtualMachine(
 		return nil, errors.Trace(err)
 	}
 
-	// Import the VApp.
+	// Select the datastore.
+	datastoreMo, err := c.selectDatastore(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	datastore := object.NewDatastore(c.client.Client, datastoreMo.Reference())
+	datastore.DatacenterPath = datacenter.InventoryPath
+	datastore.SetInventoryPath(path.Join(folders.DatastoreFolder.InventoryPath, datastoreMo.Name))
+
+	// Ensure the VMDK is present in the datastore, uploading it if it
+	// doesn't already exist.
+	resourcePool := object.NewResourcePool(c.client.Client, *args.ComputeResource.ResourcePool)
+	taskWaiter := &taskWaiter{args.Clock, args.UpdateProgress, args.UpdateProgressInterval}
+	vmdkDatastorePath, releaseVMDK, err := c.ensureVMDK(ctx, args, datastore, datacenter, taskWaiter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer releaseVMDK()
+
+	// Import the VApp, creating a temporary VM. This is necessary to
+	// import the VMDK, which exists in the datastore as a not-a-disk
+	// file type.
+	args.UpdateProgress("creating import spec")
+	importSpec, err := c.createImportSpec(ctx, args, datastore, vmdkDatastorePath)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating import spec")
+	}
+	importSpec.ConfigSpec.Name += ".tmp"
+
 	args.UpdateProgress(fmt.Sprintf("creating VM %q", args.Name))
-	c.logger.Debugf("creating VM in folder %s", vmFolder)
-	rp := object.NewResourcePool(c.client.Client, *args.ComputeResource.ResourcePool)
-	lease, err := rp.ImportVApp(ctx, spec.ImportSpec, vmFolder, nil)
+	c.logger.Debugf("creating temporary VM in folder %s", vmFolder)
+	c.logger.Tracef("import spec: %s", pretty.Sprint(importSpec))
+	lease, err := resourcePool.ImportVApp(ctx, importSpec, vmFolder, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to import vapp")
 	}
-
-	// Upload the VMDK.
-	info, err := lease.Wait(ctx)
+	info, err := lease.Wait(ctx, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	type uploadItem struct {
-		item types.OvfFileItem
-		url  *url.URL
-	}
-	var uploadItems []uploadItem
-	for _, device := range info.DeviceUrl {
-		for _, item := range spec.FileItem {
-			if device.ImportKey != item.DeviceId {
-				continue
-			}
-			u, err := c.client.Client.ParseURL(device.Url)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			uploadItems = append(uploadItems, uploadItem{
-				item: item,
-				url:  u,
-			})
-		}
-	}
-	leaseUpdaterContext := leaseUpdaterContext{lease: lease}
-	for _, item := range uploadItems {
-		leaseUpdaterContext.total += item.item.Size
-	}
-	for _, item := range uploadItems {
-		leaseUpdaterContext.size = item.item.Size
-		if err := uploadImage(
-			ctx,
-			c.client.Client,
-			item.item,
-			args.OVADir,
-			item.url,
-			args.UpdateProgress,
-			args.UpdateProgressInterval,
-			leaseUpdaterContext,
-			args.Clock,
-			c.logger,
-		); err != nil {
-			return nil, errors.Annotatef(
-				err, "uploading %s to %s",
-				filepath.Base(item.item.Path),
-				item.url,
-			)
-		}
-		leaseUpdaterContext.start += leaseUpdaterContext.size
-	}
-	if err := lease.HttpNfcLeaseComplete(ctx); err != nil {
+	if err := lease.Complete(ctx); err != nil {
 		return nil, errors.Trace(err)
+	}
+	tempVM := object.NewVirtualMachine(c.client.Client, info.Entity)
+	defer func() {
+		if err := c.destroyVM(ctx, tempVM, taskWaiter); err != nil {
+			c.logger.Warningf("failed to delete temporary VM: %s", err)
+		}
+	}()
+
+	// Clone the temporary VM to import the VMDK, as mentioned above.
+	// After cloning the temporary VM, we must detach the original
+	// VMDK from the temporary VM to avoid deleting it when destroying
+	// the VM.
+	c.logger.Debugf("cloning VM")
+	vm, err := c.cloneVM(ctx, tempVM, args.Name, vmFolder, taskWaiter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		if err := c.destroyVM(ctx, vm, taskWaiter); err != nil {
+			c.logger.Warningf("failed to delete VM: %s", err)
+		}
+	}()
+	if _, err := c.detachDisk(ctx, tempVM, taskWaiter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if args.Constraints.RootDisk != nil {
+		// The user specified a root disk, so extend the VM's
+		// disk before powering the VM on.
+		args.UpdateProgress(fmt.Sprintf(
+			"extending disk to %s",
+			humanize.IBytes(*args.Constraints.RootDisk*1024*1024),
+		))
+		if err := c.extendVMRootDisk(
+			ctx, vm, datacenter,
+			*args.Constraints.RootDisk,
+			taskWaiter,
+		); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	// Finally, power on and return the VM.
 	args.UpdateProgress("powering on")
-	vm := object.NewVirtualMachine(c.client.Client, info.Entity)
 	task, err := vm.PowerOn(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	taskInfo, err := task.WaitForResult(ctx, nil)
+	taskInfo, err := taskWaiter.waitTask(ctx, task, "powering on VM")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -215,10 +240,46 @@ func (c *Client) CreateVirtualMachine(
 	return &res, nil
 }
 
+func (c *Client) extendVMRootDisk(
+	ctx context.Context,
+	vm *object.VirtualMachine,
+	datacenter *object.Datacenter,
+	sizeMB uint64,
+	taskWaiter *taskWaiter,
+) error {
+	var mo mo.VirtualMachine
+	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
+		return errors.Trace(err)
+	}
+	for _, dev := range mo.Config.Hardware.Device {
+		dev, ok := dev.(*types.VirtualDisk)
+		if !ok {
+			continue
+		}
+		newCapacityInKB := int64(sizeMB) * 1024
+		if dev.CapacityInKB >= newCapacityInKB {
+			// The root disk is already bigger than the
+			// user-specified size, so leave it alone.
+			return nil
+		}
+		backing, ok := dev.Backing.(types.BaseVirtualDeviceFileBackingInfo)
+		if !ok {
+			continue
+		}
+		datastorePath := backing.GetVirtualDeviceFileBackingInfo().FileName
+		return errors.Trace(c.extendDisk(
+			ctx, datacenter, datastorePath, newCapacityInKB, taskWaiter,
+		))
+	}
+	return errors.New("disk not found")
+}
+
 func (c *Client) createImportSpec(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
-) (*types.OvfCreateImportSpecResult, error) {
+	datastore *object.Datastore,
+	vmdkDatastorePath string,
+) (*types.VirtualMachineImportSpec, error) {
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: args.Name,
 		PropertyMapping: []types.KeyValue{
@@ -252,19 +313,16 @@ func (c *Client) createImportSpec(
 		}
 	}
 
-	ovfManager := object.NewOvfManager(c.client.Client)
+	ovfManager := ovf.NewManager(c.client.Client)
 	resourcePool := object.NewReference(c.client.Client, *args.ComputeResource.ResourcePool)
-	datastore, err := c.selectDatastore(ctx, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	spec, err := ovfManager.CreateImportSpec(ctx, args.OVF, resourcePool, datastore, cisp)
+	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, resourcePool, datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if spec.Error != nil {
 		return nil, errors.New(spec.Error[0].LocalizedMessage)
 	}
+	importSpec := spec.ImportSpec.(*types.VirtualMachineImportSpec)
 	s := &spec.ImportSpec.(*types.VirtualMachineImportSpec).ConfigSpec
 
 	// Apply resource constraints.
@@ -281,29 +339,8 @@ func (c *Client) createImportSpec(
 			Reservation: cpuPower,
 		}
 	}
-	for _, d := range s.DeviceChange {
-		disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk)
-		if !ok {
-			continue
-		}
-		var rootDisk int64
-		if args.Constraints.RootDisk != nil {
-			rootDisk = int64(*args.Constraints.RootDisk) * 1024
-		}
-		if disk.CapacityInKB < rootDisk {
-			disk.CapacityInKB = rootDisk
-		}
-		// Set UnitNumber to -1 if it is unset in ovf file template
-		// (in this case it is parses as 0), because 0 causes an error
-		// for disk devices.
-		var unitNumber int32
-		if disk.UnitNumber != nil {
-			unitNumber = *disk.UnitNumber
-		}
-		if unitNumber == 0 {
-			unitNumber = -1
-			disk.UnitNumber = &unitNumber
-		}
+	if err := c.addRootDisk(s, args, datastore, vmdkDatastorePath); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Apply metadata. Note that we do not have the ability set create or
@@ -324,13 +361,47 @@ func (c *Client) createImportSpec(
 		}
 		c.logger.Debugf("external network device: %+v", device)
 	}
-	return spec, nil
+	return importSpec, nil
+}
+
+func (c *Client) addRootDisk(
+	s *types.VirtualMachineConfigSpec,
+	args CreateVirtualMachineParams,
+	diskDatastore *object.Datastore,
+	vmdkDatastorePath string,
+) error {
+	for _, d := range s.DeviceChange {
+		deviceConfigSpec := d.GetVirtualDeviceConfigSpec()
+		existingDisk, ok := deviceConfigSpec.Device.(*types.VirtualDisk)
+		if !ok {
+			continue
+		}
+		ds := diskDatastore.Reference()
+		disk := &types.VirtualDisk{
+			VirtualDevice: types.VirtualDevice{
+				Key:           existingDisk.VirtualDevice.Key,
+				ControllerKey: existingDisk.VirtualDevice.ControllerKey,
+				UnitNumber:    existingDisk.VirtualDevice.UnitNumber,
+				Backing: &types.VirtualDiskFlatVer2BackingInfo{
+					DiskMode:        string(types.VirtualDiskModePersistent),
+					ThinProvisioned: types.NewBool(true),
+					VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{
+						FileName:  vmdkDatastorePath,
+						Datastore: &ds,
+					},
+				},
+			},
+		}
+		deviceConfigSpec.Device = disk
+		deviceConfigSpec.FileOperation = "" // attach existing disk
+	}
+	return nil
 }
 
 func (c *Client) selectDatastore(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
-) (*object.Datastore, error) {
+) (*mo.Datastore, error) {
 	// Select a datastore. If the user specified one, use that; otherwise
 	// choose the first one in the list that is accessible.
 	refs := make([]types.ManagedObjectReference, len(args.ComputeResource.Datastore))
@@ -344,7 +415,7 @@ func (c *Client) selectDatastore(
 	if args.Datastore != "" {
 		for _, ds := range datastores {
 			if ds.Name == args.Datastore {
-				return object.NewDatastore(c.client.Client, ds.Reference()), nil
+				return &ds, nil
 			}
 		}
 		return nil, errors.Errorf("could not find datastore %q", args.Datastore)
@@ -352,7 +423,7 @@ func (c *Client) selectDatastore(
 	for _, ds := range datastores {
 		if ds.Summary.Accessible {
 			c.logger.Debugf("using datastore %q", ds.Name)
-			return object.NewDatastore(c.client.Client, ds.Reference()), nil
+			return &ds, nil
 		}
 	}
 	return nil, errors.New("could not find an accessible datastore")
@@ -461,180 +532,4 @@ func (c *Client) computeResourceNetworks(
 		networks = allnetworks
 	}
 	return networks, dvportgroupConfig, nil
-}
-
-// uploadImage uploads an image from the given extracted OVA directory
-// to a target URL.
-func uploadImage(
-	ctx context.Context,
-	client *vim25.Client,
-	item types.OvfFileItem,
-	ovaDir string,
-	targetURL *url.URL,
-	updateStatus func(string),
-	updateStatusInterval time.Duration,
-	leaseUpdaterContext leaseUpdaterContext,
-	clock clock.Clock,
-	logger loggo.Logger,
-) error {
-	sourcePath := filepath.Join(ovaDir, item.Path)
-	f, err := os.Open(sourcePath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer f.Close()
-
-	// Transfer upload progress to the updateStatus function.
-	statusUpdater := statusUpdater{
-		ch:       make(chan progress.Report),
-		clock:    clock,
-		logger:   logger,
-		update:   updateStatus,
-		action:   fmt.Sprintf("uploading %s", item.Path),
-		interval: updateStatusInterval,
-	}
-
-	// Update the lease periodically.
-	leaseUpdater := leaseUpdater{
-		ch:                  make(chan progress.Report),
-		clock:               clock,
-		logger:              logger,
-		ctx:                 ctx,
-		leaseUpdaterContext: leaseUpdaterContext,
-	}
-
-	// Upload.
-	opts := soap.Upload{
-		ContentLength: item.Size,
-		Progress:      progress.Tee(&statusUpdater, &leaseUpdater),
-	}
-	if item.Create {
-		opts.Method = "PUT"
-		opts.Headers = map[string]string{"Overwrite": "t"}
-	} else {
-		opts.Method = "POST"
-		opts.Type = "application/x-vnd.vmware-streamVmdk"
-	}
-	doUpload := func() error {
-		// NOTE(axw) client.Upload is not cancellable,
-		// as there is no way to inject a context. We
-		// should send a patch to govmomi to make it
-		// cancellable.
-		return errors.Trace(client.Upload(f, targetURL, &opts))
-	}
-
-	var site catacomb.Catacomb
-	if err := catacomb.Invoke(catacomb.Plan{
-		Site: &site,
-		Work: doUpload,
-		Init: []worker.Worker{
-			jujuworker.NewSimpleWorker(statusUpdater.loop),
-			jujuworker.NewSimpleWorker(leaseUpdater.loop),
-		},
-	}); err != nil {
-		return errors.Trace(err)
-	}
-	return site.Wait()
-}
-
-type statusUpdater struct {
-	clock    clock.Clock
-	logger   loggo.Logger
-	ch       chan progress.Report
-	update   func(string)
-	action   string
-	interval time.Duration
-}
-
-// Sink is part of the progress.Sinker interface.
-func (u *statusUpdater) Sink() chan<- progress.Report {
-	return u.ch
-}
-
-func (u *statusUpdater) loop(abort <-chan struct{}) error {
-	timer := u.clock.NewTimer(u.interval)
-	defer timer.Stop()
-	var timerChan <-chan time.Time
-
-	var message string
-	for {
-		select {
-		case <-abort:
-			return tomb.ErrDying
-		case <-timerChan:
-			u.update(message)
-			timer.Reset(u.interval)
-			timerChan = nil
-		case report, ok := <-u.ch:
-			if !ok {
-				return nil
-			}
-			if err := report.Error(); err != nil {
-				message = fmt.Sprintf("%s: %s", u.action, err)
-			} else {
-				message = fmt.Sprintf(
-					"%s: %.2f%% (%s)",
-					u.action,
-					report.Percentage(),
-					report.Detail(),
-				)
-			}
-			timerChan = timer.Chan()
-		}
-	}
-}
-
-type leaseUpdaterContext struct {
-	lease *object.HttpNfcLease
-	start int64
-	size  int64
-	total int64
-}
-
-type leaseUpdater struct {
-	clock  clock.Clock
-	logger loggo.Logger
-	ch     chan progress.Report
-	ctx    context.Context
-	leaseUpdaterContext
-}
-
-// Sink is part of the progress.Sinker interface.
-func (u *leaseUpdater) Sink() chan<- progress.Report {
-	return u.ch
-}
-
-func (u *leaseUpdater) loop(abort <-chan struct{}) error {
-	const interval = 2 * time.Second
-	timer := u.clock.NewTimer(interval)
-	defer timer.Stop()
-
-	var progress int32
-	for {
-		select {
-		case <-abort:
-			return tomb.ErrDying
-		case report, ok := <-u.ch:
-			if !ok {
-				return nil
-			}
-			progress = u.progress(report.Percentage())
-		case <-timer.Chan():
-			if err := u.lease.HttpNfcLeaseProgress(u.ctx, progress); err != nil {
-				// NOTE(axw) we don't bail on error here, in
-				// case it's just a transient failure. If it
-				// is not, we would expect the upload to fail
-				// to abort anyway.
-				u.logger.Debugf("failed to update lease progress: %v", err)
-			}
-			timer.Reset(interval)
-		}
-	}
-}
-
-// progress computes the overall progress based on the size of the items
-// uploaded prior, and the upload percentage of the current item.
-func (u *leaseUpdater) progress(pc float32) int32 {
-	pos := float64(u.start) + (float64(pc) * float64(u.size) / 100)
-	return int32((100 * pos) / float64(u.total))
 }

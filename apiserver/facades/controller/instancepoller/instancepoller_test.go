@@ -56,7 +56,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.clock = jujutesting.NewClock(time.Now())
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.resources, s.authoriser, s.clock)
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -99,7 +99,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := instancepoller.NewInstancePollerAPI(nil, s.resources, anAuthoriser, s.clock)
+	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, s.clock)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

@@ -182,7 +182,9 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
-	apiInfo.ModelTag = hostedState.ModelTag()
+	hostedModel, err := hostedState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.ModelTag = hostedModel.ModelTag()
 	apiInfo.Nonce = nonce
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)

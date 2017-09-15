@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/relation"
 )
 
 var suspendHelpSummary = `
@@ -35,7 +34,7 @@ See also:
 // NewSuspendRelationCommand returns a command to suspend a relation.
 func NewSuspendRelationCommand() cmd.Command {
 	cmd := &suspendRelationCommand{}
-	cmd.newAPIFunc = func() (SetRelationStatusAPI, error) {
+	cmd.newAPIFunc = func() (SetRelationSuspendedAPI, error) {
 		root, err := cmd.NewAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -49,7 +48,7 @@ func NewSuspendRelationCommand() cmd.Command {
 type suspendRelationCommand struct {
 	modelcmd.ModelCommandBase
 	RelationId int
-	newAPIFunc func() (SetRelationStatusAPI, error)
+	newAPIFunc func() (SetRelationSuspendedAPI, error)
 }
 
 func (c *suspendRelationCommand) Info() *cmd.Info {
@@ -74,11 +73,11 @@ func (c *suspendRelationCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[1:])
 }
 
-// SetRelationStatusAPI defines the API methods that the suspend/resume relation commands use.
-type SetRelationStatusAPI interface {
+// SetRelationSuspendedAPI defines the API methods that the suspend/resume relation commands use.
+type SetRelationSuspendedAPI interface {
 	Close() error
 	BestAPIVersion() int
-	SetRelationStatus(relationId int, status relation.Status) error
+	SetRelationSuspended(relationId int, suspended bool) error
 }
 
 func (c *suspendRelationCommand) Run(_ *cmd.Context) error {
@@ -90,6 +89,6 @@ func (c *suspendRelationCommand) Run(_ *cmd.Context) error {
 	if client.BestAPIVersion() < 5 {
 		return errors.New("suspending a relation is not supported by this version of Juju")
 	}
-	err = client.SetRelationStatus(c.RelationId, relation.Suspended)
+	err = client.SetRelationSuspended(c.RelationId, true)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

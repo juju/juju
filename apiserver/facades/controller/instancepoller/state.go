@@ -36,14 +36,17 @@ type StateInterface interface {
 	Machine(id string) (StateMachine, error)
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
+	*state.Model
 }
 
 func (s stateShim) Machine(id string) (StateMachine, error) {
 	return s.State.Machine(id)
 }
 
-var getState = func(st *state.State) StateInterface {
-	return stateShim{st}
+var getState = func(st *state.State, m *state.Model) StateInterface {
+	return stateShim{st, m}
 }

@@ -35,7 +35,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := common.Life(u.st.facade, u.tag)
+	life, err := common.OneLife(u.st.facade, u.tag)
 	if err != nil {
 		return err
 	}

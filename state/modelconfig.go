@@ -19,10 +19,9 @@ var disallowedModelConfigAttrs = [...]string{
 	"ca-private-key",
 }
 
-// ModelConfig returns the complete config for the model represented
-// by this state.
-func (st *State) ModelConfig() (*config.Config, error) {
-	return getModelConfig(st.db())
+// ModelConfig returns the complete config for the model
+func (m *Model) ModelConfig() (*config.Config, error) {
+	return getModelConfig(m.st.db())
 }
 
 func getModelConfig(db Database) (*config.Config, error) {
@@ -176,7 +175,12 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 // ModelConfigValues returns the config values for the model represented
 // by this state.
 func (st *State) ModelConfigValues() (config.ConfigValues, error) {
-	cfg, err := st.ModelConfig()
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err := m.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -323,7 +327,12 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	}
 
 	// Get the existing model config from state.
-	oldConfig, err := st.ModelConfig()
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	oldConfig, err := m.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

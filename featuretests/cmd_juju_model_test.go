@@ -52,7 +52,7 @@ func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName, gc.Equals, user.Id())
 	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, s.AdminUserTag(c).Id())
@@ -79,7 +79,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user, s.IAASModel.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }
@@ -89,7 +89,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	username := "bar@ubuntuone"
 	context := s.run(c, "grant", username, "read", "controller")
 	user := names.NewUserTag(username)
-	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser, gc.NotNil)
 
@@ -239,7 +239,7 @@ func (s *cmdModelSuite) TestDumpModelDB(c *gc.C) {
 }
 
 func (s *cmdModelSuite) assertModelValue(c *gc.C, key string, expected interface{}) {
-	modelConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsTrue)
@@ -247,7 +247,7 @@ func (s *cmdModelSuite) assertModelValue(c *gc.C, key string, expected interface
 }
 
 func (s *cmdModelSuite) assertModelValueMissing(c *gc.C, key string) {
-	modelConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsFalse)

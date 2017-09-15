@@ -143,7 +143,9 @@ func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
 	otherSt := s.Factory.MakeModel(c, nil)
 	info := s.APIInfo(c)
-	info.ModelTag = otherSt.ModelTag()
+	model, err := otherSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = model.ModelTag()
 	apiState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	return otherSt, apiState
@@ -514,7 +516,7 @@ func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
 	// SetModelAgentVersion call when an upgrade is in progress.
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

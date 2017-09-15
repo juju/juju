@@ -317,7 +317,7 @@ type RelationResults struct {
 type RelationResult struct {
 	Error            *Error                `json:"error,omitempty"`
 	Life             Life                  `json:"life"`
-	Status           RelationStatusValue   `json:"status,omitempty"`
+	Suspended        bool                  `json:"bool,omitempty"`
 	Id               int                   `json:"id"`
 	Key              string                `json:"key"`
 	Endpoint         multiwatcher.Endpoint `json:"endpoint"`
@@ -582,6 +582,27 @@ type RelationUnitsWatchResult struct {
 // returning a list of RelationUnitsWatchers.
 type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult `json:"results"`
+}
+
+// RelationUnitStatusResult holds details about scope
+// and suspended status for a relation unit.
+type RelationUnitStatus struct {
+	RelationTag string `json:"relation-tag"`
+	InScope     bool   `json:"in-scope"`
+	Suspended   bool   `json:"suspended"`
+}
+
+// RelationUnitStatusResult holds details about scope and status for
+// relation units, and an error.
+type RelationUnitStatusResult struct {
+	RelationResults []RelationUnitStatus `json:"results"`
+	Error           *Error               `json:"error,omitempty"`
+}
+
+// RelationUnitStatusResults holds the results of a
+// uniter RelationStatus API call.
+type RelationUnitStatusResults struct {
+	Results []RelationUnitStatusResult `json:"results"`
 }
 
 // MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,

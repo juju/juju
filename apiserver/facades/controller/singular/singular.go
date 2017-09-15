@@ -17,7 +17,20 @@ import (
 
 // NewExternalFacade is for API registration.
 func NewExternalFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	return NewFacade(st, auth)
+	m, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+
+	backend := getBackend(st, m)
+	return NewFacade(backend, auth)
+}
+
+var getBackend = func(st *state.State, m *state.Model) Backend {
+	return struct {
+		*state.State
+		*state.Model
+	}{st, m}
 }
 
 // Backend supplies capabilities required by a Facade.

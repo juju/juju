@@ -902,6 +902,12 @@ func (e *exporter) relations() error {
 			Id:  relation.Id(),
 			Key: relation.String(),
 		})
+		globalKey := relation.globalScope()
+		statusArgs, err := e.statusArgs(globalKey)
+		if err != nil {
+			return errors.Annotatef(err, "status for relation %v", relation.Id())
+		}
+		exRelation.SetStatus(statusArgs)
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
 				ApplicationName: ep.ApplicationName,

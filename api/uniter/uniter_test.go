@@ -114,6 +114,14 @@ func (s *uniterSuite) addRelatedApplication(c *gc.C, firstApp, relatedApp string
 	return rel, relatedApplication, relatedUnit
 }
 
+func (s *uniterSuite) addRelationSuspended(c *gc.C, firstApp, relatedApp string, unit *state.Unit) *state.Relation {
+	s.AddTestingApplication(c, relatedApp, s.AddTestingCharm(c, relatedApp))
+	rel := s.addRelation(c, firstApp, relatedApp)
+	err := rel.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+	return rel
+}
+
 func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
 	ok, err := relUnit.InScope()
 	c.Assert(err, jc.ErrorIsNil)

@@ -162,8 +162,17 @@ func (api *BaseAPI) applicationOffersFromModel(
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
+				relStatus, err := rel.Status()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 				connDetails.Endpoint = ep.Name
-				connDetails.Status = string(rel.Status())
+				connDetails.Status = params.EntityStatus{
+					Status: relStatus.Status,
+					Info:   relStatus.Message,
+					Data:   relStatus.Data,
+					Since:  relStatus.Since,
+				}
 				relIngress, err := backend.IngressNetworks(oc.RelationKey())
 				if err != nil {
 					return nil, errors.Trace(err)

@@ -97,10 +97,12 @@ type Machine interface {
 // details on the methods, see the methods on state.Relation with
 // the same names.
 type Relation interface {
+	status.StatusSetter
 	Tag() names.Tag
 	Destroy() error
-	SetStatus(status status.Status) error
 	Endpoint(string) (state.Endpoint, error)
+	SetSuspended(bool) error
+	Suspended() bool
 }
 
 // Unit defines a subset of the functionality provided by the
@@ -134,6 +136,8 @@ type Resources interface {
 	RemovePendingAppResources(string, map[string]string) error
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	*state.IAASModel

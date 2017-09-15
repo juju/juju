@@ -69,8 +69,12 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	}
 	apiserverClient, err := client.NewFacade(context)
 	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.newEnviron = func() (environs.Environ, error) {
-		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{st}, environs.New)
+		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{st, m}, environs.New)
 	}
 	client.SetNewEnviron(apiserverClient, func() (environs.Environ, error) {
 		return s.newEnviron()
@@ -88,7 +92,7 @@ func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 func (s *serverSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	conf, _ := s.State.ModelConfig()
+	conf, _ := s.IAASModel.ModelConfig()
 	// Model info is available to read-only users.
 	client := s.authClientForState(c, s.State, testing.FakeAuthorizer{
 		Tag:        names.NewUserTag("read"),
@@ -118,7 +122,7 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.UserAccess(testAdmin, s.State.ModelTag())
+	owner, err := s.State.UserAccess(testAdmin, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
@@ -206,13 +210,15 @@ func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Res
 func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
 	// factory.MakeUser will create an ModelUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
 }
 
 func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expected string) {
-	modelConfig, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
@@ -326,7 +332,7 @@ func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
@@ -464,6 +470,10 @@ func clearSinceTimes(status *params.FullStatus) {
 		machine.AgentStatus.Since = nil
 		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
+	}
+	for id, rel := range status.Relations {
+		rel.Status.Since = nil
+		status.Relations[id] = rel
 	}
 	status.Model.ModelStatus.Since = nil
 }

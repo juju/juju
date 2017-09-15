@@ -27,33 +27,20 @@ const (
 
 type environProvider struct {
 	environProviderCredentials
-	dial           DialFunc
-	ovaCacheDir    string
-	ovaCacheLocker CacheLocker
+	dial DialFunc
 }
 
 // EnvironProviderConfig contains configuration for the EnvironProvider.
 type EnvironProviderConfig struct {
 	// Dial is a function used for dialing connections to vCenter/ESXi.
 	Dial DialFunc
-
-	// OVACacheDir is a directory in which OVA contents are cached,
-	// to speed up VM creation. This is only used within the controller,
-	// and not on the bootstrap client.
-	OVACacheDir string
-
-	// OVACacheLocker is a CacheLocker used for synchronising access
-	// to the OVACacheDir. This should be a machine-wide lock.
-	OVACacheLocker CacheLocker
 }
 
 // NewEnvironProvider returns a new environs.EnvironProvider that will
 // dial vSphere connectons with the given dial function.
 func NewEnvironProvider(config EnvironProviderConfig) environs.EnvironProvider {
 	return &environProvider{
-		dial:           config.Dial,
-		ovaCacheDir:    config.OVACacheDir,
-		ovaCacheLocker: config.OVACacheLocker,
+		dial: config.Dial,
 	}
 }
 

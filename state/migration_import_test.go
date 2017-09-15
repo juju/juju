@@ -692,6 +692,10 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
+	relStatus, err := rels[0].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Joining)
+
 	ru, err = rels[0].Unit(units[0])
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1336,7 +1340,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "charisma",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",

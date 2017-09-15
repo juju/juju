@@ -501,6 +501,13 @@ func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func RemoveOfferConnectionsForRelation(c *gc.C, rel *Relation) {
+	removeOps := removeOfferConnectionsForRelationOps(rel.Id())
+	txnError := rel.st.db().RunTransaction(removeOps)
+	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func RelationCount(app *Application) int {
 	return app.doc.RelationCount
 }

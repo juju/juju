@@ -866,7 +866,7 @@ func (im *IAASModel) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
 
 func (im *IAASModel) volumeParamsWithDefaults(params VolumeParams, machineId string) (VolumeParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := im.st.ModelConfig()
+		modelConfig, err := im.ModelConfig()
 		if err != nil {
 			return VolumeParams{}, errors.Trace(err)
 		}

@@ -183,7 +183,10 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.State.ModelTag())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf := s.WriteStateAgentConfig(c, tag, password, vers, model.ModelTag())
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
 }

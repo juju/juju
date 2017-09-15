@@ -468,12 +468,6 @@ func (st *State) getSingularLeaseClient() (lease.Client, error) {
 	return client, nil
 }
 
-// ModelTag() returns the model tag for the model controlled by
-// this state instance.
-func (st *State) ModelTag() names.ModelTag {
-	return st.modelTag
-}
-
 // ModelUUID returns the model UUID for the model
 // controlled by this state instance.
 func (st *State) ModelUUID() string {
@@ -877,13 +871,13 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	case names.ApplicationTag:
 		return st.Application(id)
 	case names.ModelTag:
-		env, err := st.Model()
+		model, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		// Return an invalid entity error if the requested model is not
 		// the current one.
-		if id != env.UUID() {
+		if id != model.UUID() {
 			if utils.IsValidUUIDString(id) {
 				return nil, errors.NotFoundf("model %q", id)
 			}
@@ -891,23 +885,23 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			// We should not accept model tags that do not match the
 			// model's UUID. We accept anything for now, to cater
 			// both for past usage, and for potentially supporting aliases.
-			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, env.UUID())
-			conf, err := st.ModelConfig()
+			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, model.UUID())
+			conf, err := model.ModelConfig()
 			if err != nil {
 				logger.Warningf("ModelConfig failed: %v", err)
 			} else if id != conf.Name() {
 				logger.Warningf("model-tag does not match current model name: %q != %q", id, conf.Name())
 			}
 		}
-		return env, nil
+		return model, nil
 	case names.RelationTag:
 		return st.KeyRelation(id)
 	case names.ActionTag:
-		env, err := st.Model()
+		model, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return env.ActionByTag(tag)
+		return model.ActionByTag(tag)
 	case names.CharmTag:
 		if url, err := charm.ParseURL(id); err != nil {
 			logger.Warningf("Parsing charm URL %q failed: %v", id, err)
@@ -976,6 +970,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 // addPeerRelationsOps returns the operations necessary to add the
 // specified application peer relations to the state.
 func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
+	now := st.clock().Now()
 	var ops []txn.Op
 	for _, rel := range peers {
 		relId, err := sequence(st, "relation")
@@ -994,14 +989,18 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
-			Status:    status.Joined,
+		}
+		relationStatusDoc := statusDoc{
+			Status:    status.Joining,
+			ModelUUID: st.ModelUUID(),
+			Updated:   now.UnixNano(),
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,
 			Id:     relDoc.DocID,
 			Assert: txn.DocMissing,
 			Insert: relDoc,
-		})
+		}, createStatusOp(st, relationGlobalScope(relId), relationStatusDoc))
 	}
 	return ops, nil
 }
@@ -1765,6 +1764,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// If a application's charm is upgraded while we're trying to add a relation,
 	// we'll need to re-validate application sanity.
 	var doc *relationDoc
+	now := st.clock().Now()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
@@ -1832,14 +1832,18 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
-			Status:    status.Joined,
+		}
+		relationStatusDoc := statusDoc{
+			Status:    status.Joining,
+			ModelUUID: st.ModelUUID(),
+			Updated:   now.UnixNano(),
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,
 			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: doc,
-		})
+		}, createStatusOp(st, relationGlobalScope(id), relationStatusDoc))
 		return ops, nil
 	}
 	if err = st.db().Run(buildTxn); err == nil {

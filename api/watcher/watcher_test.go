@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -195,7 +194,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{Entities: []params.Entity{{
-		Tag: s.State.ModelTag().String(),
+		Tag: s.IAASModel.ModelTag().String(),
 	}}}
 	err := s.stateAPI.APICall(
 		"StorageProvisioner",
@@ -254,7 +253,9 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	}
 }
 
-func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relation, expectedLife life.Value, expectedStatus relation.Status) {
+func (s *watcherSuite) assertSetupRelationStatusWatch(
+	c *gc.C, rel *state.Relation,
+) (func(life life.Value, suspended bool), func()) {
 	// Export the relation so it can be found with a token.
 	re := s.State.RemoteEntities()
 	token, err := re.ExportLocalEntity(rel.Tag())
@@ -293,7 +294,7 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 		Store:    store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.State.ModelTag(), rel.Tag()), nil,
+	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.IAASModel.ModelTag(), rel.Tag()), nil,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", rel.String()),
@@ -303,14 +304,14 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 
 	// Start watching for a relation change.
 	client := crossmodelrelations.NewClient(s.stateAPI)
-	w, err := client.WatchRelationStatus(params.RemoteEntityArg{
+	w, err := client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
 		Token:     token,
 		Macaroons: macaroon.Slice{mac},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
+	stop := func() {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
-	}()
+	}
 
 	assertNoChange := func() {
 		s.BackingState.StartSync()
@@ -321,14 +322,14 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 		}
 	}
 
-	assertChange := func(life life.Value, status relation.Status) {
+	assertChange := func(life life.Value, suspended bool) {
 		s.BackingState.StartSync()
 		select {
 		case changes, ok := <-w.Changes():
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(changes, gc.HasLen, 1)
+			c.Check(ok, jc.IsTrue)
+			c.Check(changes, gc.HasLen, 1)
 			c.Check(changes[0].Life, gc.Equals, life)
-			c.Check(changes[0].Status, gc.Equals, status)
+			c.Check(changes[0].Suspended, gc.Equals, suspended)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}
@@ -336,12 +337,8 @@ func (s *watcherSuite) assertRelationStatusWatchResult(c *gc.C, rel *state.Relat
 	}
 
 	// Initial event.
-	assertChange(life.Alive, relation.Joined)
-
-	// Now change the relation, should trigger the watcher.
-	err = rel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	assertChange(expectedLife, expectedStatus)
+	assertChange(life.Alive, false)
+	return assertChange, stop
 }
 
 func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
@@ -363,7 +360,20 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRelationStatusWatchResult(c, rel, life.Dying, relation.Joined)
+	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
+	defer stop()
+
+	err = rel.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(life.Alive, true)
+
+	err = rel.SetSuspended(false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(life.Alive, false)
+
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(life.Dying, false)
 }
 
 func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
@@ -375,7 +385,12 @@ func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRelationStatusWatchResult(c, rel, life.Dead, relation.Broken)
+	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
+	defer stop()
+
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(life.Dead, false)
 }
 
 type migrationSuite struct {
@@ -408,7 +423,11 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
-	apiInfo.ModelTag = hostedState.ModelTag()
+
+	hostedModel, err := hostedState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiInfo.ModelTag = hostedModel.ModelTag()
 	apiInfo.Nonce = nonce
 
 	apiConn, err := api.Open(apiInfo, api.DialOpts{})

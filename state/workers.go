@@ -30,6 +30,7 @@ const (
 // workers when they fail.
 type workers struct {
 	state *State
+	//	model *Model
 	*worker.Runner
 }
 
@@ -50,7 +51,7 @@ func newWorkers(st *State) (*workers, error) {
 		return watcher.New(st.getTxnLogCollection()), nil
 	})
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
-		return presence.NewWatcher(st.getPresenceCollection(), st.ModelTag()), nil
+		return presence.NewWatcher(st.getPresenceCollection(), st.modelTag), nil
 	})
 	ws.StartWorker(pingBatcherWorker, func() (worker.Worker, error) {
 		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil

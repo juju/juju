@@ -309,7 +309,11 @@ var scenarioStatus = &params.FullStatus{
 			},
 			Interface: "logging",
 			Scope:     "container",
-			Status:    "joined",
+			Status: params.DetailedStatus{
+				Status: "joining",
+				Info:   "",
+				Data:   make(map[string]interface{}),
+			},
 		},
 	},
 }

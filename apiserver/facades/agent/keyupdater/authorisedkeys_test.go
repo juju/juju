@@ -75,7 +75,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keys)
 }

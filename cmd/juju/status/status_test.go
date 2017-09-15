@@ -3604,7 +3604,11 @@ func (rs relateServices) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetStatus(status.Status(rs.status))
+	s := rs.status
+	if s == "" {
+		s = "joined"
+	}
+	err = rel.SetStatus(status.StatusInfo{Status: status.Status(s)})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -4109,9 +4113,9 @@ Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1          server    mysql      provider
 
 Relation provider      Requirer                   Interface  Type         Message
-mysql:juju-info        logging:info               juju-info  subordinate             
+mysql:juju-info        logging:info               juju-info  subordinate  
 mysql:server           wordpress:db               mysql      regular      suspended  
-wordpress:logging-dir  logging:logging-directory  logging    subordinate             
+wordpress:logging-dir  logging:logging-directory  logging    subordinate  
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)

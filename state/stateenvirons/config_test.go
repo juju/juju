@@ -32,7 +32,7 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 	stateenvirons.GetNewEnvironFunc(newEnviron)(s.State)
 	c.Assert(calls, gc.Equals, 1)
 
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
 }
@@ -52,8 +52,11 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	})
 	defer st.Close()
 
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	emptyCredential.Label = "empty-credential"
-	cloudSpec, err := stateenvirons.EnvironConfigGetter{st}.CloudSpec()
+	cloudSpec, err := stateenvirons.EnvironConfigGetter{st, m}.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
 		Type:             "dummy",

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.firewaller")
@@ -49,11 +50,16 @@ type FirewallerAPIV4 struct {
 func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	st := context.State()
 
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		cloudspec.MakeCloudSpecGetterForModel(st),
-		common.AuthFuncForTag(st.ModelTag()),
+		common.AuthFuncForTag(m.ModelTag()),
 	)
-	return NewFirewallerAPI(stateShim{st: st, State: firewall.StateShim(st)}, context.Resources(), context.Auth(), cloudSpecAPI)
+	return NewFirewallerAPI(stateShim{st: st, State: firewall.StateShim(st, m)}, context.Resources(), context.Auth(), cloudSpecAPI)
 }
 
 // NewStateFirewallerAPIv4 creates a new server-side FirewallerAPIV4 facade.
@@ -439,6 +445,30 @@ func (f *FirewallerAPIV4) MacaroonForRelations(args params.Entities) (params.Mac
 			continue
 		}
 		result.Results[i].Result = mac
+	}
+	return result, nil
+}
+
+// SetRelationsStatus sets the status for the specified relations.
+func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	result.Results = make([]params.ErrorResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		relationTag, err := names.ParseRelationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		rel, err := f.st.KeyRelation(relationTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = rel.SetStatus(status.StatusInfo{
+			Status:  status.Status(entity.Status),
+			Message: entity.Info,
+		})
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }

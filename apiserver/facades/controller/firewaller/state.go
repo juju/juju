@@ -26,8 +26,8 @@ type State interface {
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
-func StateShim(st *state.State) stateShim {
-	return stateShim{st: st, State: firewall.StateShim(st)}
+func StateShim(st *state.State, m *state.Model) stateShim {
+	return stateShim{st: st, State: firewall.StateShim(st, m)}
 }
 
 type stateShim struct {

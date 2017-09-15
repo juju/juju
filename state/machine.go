@@ -369,7 +369,12 @@ func (m *Machine) IsManual() (bool, error) {
 	// case we need to check if its provider type is "manual".
 	// We also check for "null", which is an alias for manual.
 	if m.doc.Id == "0" {
-		cfg, err := m.st.ModelConfig()
+		model, err := m.st.Model()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		cfg, err := model.ModelConfig()
 		if err != nil {
 			return false, err
 		}

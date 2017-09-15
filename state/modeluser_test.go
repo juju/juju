@@ -52,7 +52,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 
-	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserID, gc.Equals, fmt.Sprintf("%s:validusername", s.modelTag.Id()))
 	c.Assert(modelUser.Object, gc.Equals, s.modelTag)
@@ -86,7 +86,7 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 
 	// Make sure that it is set when we read the user out.
-	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
@@ -112,7 +112,7 @@ func (s *ModelUserSuite) TestAddReadWriteModelUser(c *gc.C) {
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 
 	// Make sure that it is set when we read the user out.
-	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
@@ -138,7 +138,7 @@ func (s *ModelUserSuite) TestAddAdminModelUser(c *gc.C) {
 	c.Assert(modelUser.Access, gc.Equals, permission.AdminAccess)
 
 	// Make sure that it is set when we read the user out.
-	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.Access, gc.Equals, permission.AdminAccess)
@@ -177,9 +177,9 @@ func (s *ModelUserSuite) TestSetAccessModelUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.Access, gc.Equals, permission.AdminAccess)
 
-	s.State.SetUserAccess(modelUser.UserTag, s.State.ModelTag(), permission.ReadAccess)
+	s.State.SetUserAccess(modelUser.UserTag, s.IAASModel.ModelTag(), permission.ReadAccess)
 
-	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 }
 
@@ -218,14 +218,20 @@ func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 		f := factory.NewFactory(st1)
 		expectedUser := f.MakeModelUser(c, &factory.ModelUserParams{User: usernames[0]})
 
+		m1, err := st1.Model()
+		c.Assert(err, jc.ErrorIsNil)
+
+		m2, err := st2.Model()
+		c.Assert(err, jc.ErrorIsNil)
+
 		// assert case insensitive lookup for each username
 		for _, username := range usernames {
 			userTag := names.NewUserTag(username)
-			obtainedUser, err := st1.UserAccess(userTag, st1.ModelTag())
+			obtainedUser, err := st1.UserAccess(userTag, m1.ModelTag())
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(obtainedUser, gc.DeepEquals, expectedUser)
 
-			_, err = st2.UserAccess(userTag, st2.ModelTag())
+			_, err = st2.UserAccess(userTag, m2.ModelTag())
 			c.Assert(errors.IsNotFound(err), jc.IsTrue)
 		}
 	}
@@ -276,19 +282,19 @@ func (s *ModelUserSuite) TestAddModelNoCreatedByUserFails(c *gc.C) {
 
 func (s *ModelUserSuite) TestRemoveModelUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validUsername"})
-	_, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	_, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.RemoveUserAccess(user.UserTag(), s.State.ModelTag())
+	err = s.State.RemoveUserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	_, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelUserSuite) TestRemoveModelUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	err := s.State.RemoveUserAccess(user.UserTag(), s.State.ModelTag())
+	err := s.State.RemoveUserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -296,7 +302,7 @@ func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond(s.State)
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.Model.UpdateLastModelConnection(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -313,7 +319,7 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	// Create a user and add them to the inital model.
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a second model and add the same user to this.

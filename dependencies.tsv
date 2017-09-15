@@ -21,7 +21,7 @@ github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	cd189848b313df50084de692b05861210022cf81	2017-07-31T02:12:50Z
 github.com/juju/cmd	git	ad2437ef0ef282ae26e482eb1e44c02532bae1ba	2017-06-22T12:53:07Z
-github.com/juju/description	git	8ad5309667813031bd3198b5b2b35e83e4158d44	2017-09-05T08:49:31Z
+github.com/juju/description	git	221dce7c83fe01dfe7467f6988b2c84940af5d71	2017-09-14T02:23:00Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
 github.com/juju/go-oracle-cloud	git	932a8cea00a1cd5cba3829a672c823955db674ae	2017-04-21T13:45:47Z
@@ -55,6 +55,8 @@ github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/juju/zip	git	f6b1e93fa2e29a1d7d49b566b2b51efb060c982a	2016-02-05T10:52:21Z
 github.com/julienschmidt/httprouter	git	77a895ad01ebc98a4dc95d8355bc825ce80a56f6	2015-10-13T22:55:20Z
+github.com/kr/pretty	git	cfb55aafdaf3ec08f0db22699ab822c50091b1c4	2016-08-23T17:07:15Z
+github.com/kr/text	git	7cafcd837844e784b526369c9bce262804aebc60	2016-05-04T23:40:17Z
 github.com/lestrrat/go-jspointer	git	f4881e611bdbe9fb413a7780721ef8400a1f2341	2016-02-29T02:13:54Z
 github.com/lestrrat/go-jsref	git	e452c7b5801d1c6494c9e7e0cbc7498c0f88dfd1	2016-06-01T01:32:40Z
 github.com/lestrrat/go-jsschema	git	b09d7650b822d2ea3dc83d5091a5e2acd8330051	2016-09-03T13:19:57Z
@@ -79,7 +81,7 @@ github.com/prometheus/common	git	dd586c1c5abb0be59e60f942c22af711a2008cb4	2016-0
 github.com/prometheus/procfs	git	abf152e5f3e97f2fafac028d2cc06c1feb87ffa5	2016-04-11T19:08:41Z
 github.com/rogpeppe/fastuuid	git	6724a57986aff9bff1a1770e9347036def7c89f6	2015-01-06T09:32:20Z
 github.com/satori/uuid	git	5bf94b69c6b68ee1b541973bb8e1144db23a194b	2017-03-21T23:07:31Z
-github.com/vmware/govmomi	git	c0c7ce63df7edd78e713257b924c89d9a2dac119	2016-06-30T15:37:42Z
+github.com/vmware/govmomi	git	17b8c9ccb7f8c7b015d44c4ea39305c970a7bf31	2017-09-05T23:36:42Z
 golang.org/x/crypto	git	96846453c37f0876340a66a47f3f75b1f3a6cd2d	2017-04-21T04:31:20Z
 golang.org/x/net	git	ea47fc708ee3e20177f3ca3716217c4ab75942cb	2015-08-29T23:03:18Z
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z

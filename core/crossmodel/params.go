@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"gopkg.in/juju/charm.v6-unstable"
+	"time"
 )
 
 // ApplicationOfferDetails represents a remote application used when vendor
@@ -46,6 +47,12 @@ type OfferConnection struct {
 
 	// Status is the status of the offer connection.
 	Status string
+
+	// Message is the status message of the offer connection.
+	Message string
+
+	// Since is when the status value was last changed.
+	Since *time.Time
 
 	// IngressSubnets is the list of subnets from which traffic will originate.
 	IngressSubnets []string

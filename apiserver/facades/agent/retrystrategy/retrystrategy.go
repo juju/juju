@@ -35,6 +35,7 @@ type RetryStrategy interface {
 // RetryStrategyAPI implements RetryStrategy
 type RetryStrategyAPI struct {
 	st         *state.State
+	model      *state.Model
 	accessUnit common.GetAuthFunc
 	resources  facade.Resources
 }
@@ -50,8 +51,15 @@ func NewRetryStrategyAPI(
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &RetryStrategyAPI{
-		st: st,
+		st:    st,
+		model: model,
 		accessUnit: func() (common.AuthFunc, error) {
 			return authorizer.AuthOwner, nil
 		},
@@ -69,7 +77,7 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
-	config, err := h.st.ModelConfig()
+	config, err := h.model.ModelConfig()
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
@@ -116,7 +124,7 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.Noti
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			watch := h.st.WatchForModelConfigChanges()
+			watch := h.model.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.

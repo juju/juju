@@ -246,7 +246,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					RelationId:     1,
 					Endpoint:       "db",
 					Username:       "fred",
-					Status:         "joined",
+					Status:         params.EntityStatus{Status: "joined"},
 					IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
 				}},
 			},

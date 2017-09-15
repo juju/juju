@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // State provides the subset of global state required by the
@@ -28,12 +29,15 @@ type State interface {
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
-func StateShim(st *state.State) stateShim {
-	return stateShim{st}
+func StateShim(st *state.State, m *state.Model) stateShim {
+	return stateShim{st, m}
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
+	*state.Model
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {
@@ -45,6 +49,7 @@ func (st stateShim) KeyRelation(key string) (Relation, error) {
 }
 
 type Relation interface {
+	status.StatusSetter
 	Endpoints() []state.Endpoint
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 	UnitInScope(Unit) (bool, error)

@@ -5,7 +5,6 @@ package watcher
 
 import (
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/relation"
 )
 
 // RelationStatusChange describes changes to some relation.
@@ -13,14 +12,15 @@ type RelationStatusChange struct {
 	// Key is the relation key of the changed relation.
 	Key string
 
-	// Status is the status of the relation, eg Active.
-	Status relation.Status
+	// Suspended is the suspended status of the relation.
+	Suspended bool
 
 	// Life is the relation life value, eg Alive.
 	Life life.Value
 }
 
-// RelationStatusChannel is a channel used to notify of changes to a relation's status.
+// RelationStatusChannel is a channel used to notify of changes to
+// a relation's life or suspended status.
 type RelationStatusChannel <-chan []RelationStatusChange
 
 // RelationStatusWatcher conveniently ties a RelationStatusChannel to the

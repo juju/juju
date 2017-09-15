@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 )
@@ -89,7 +90,7 @@ func (st *State) Facade() base.FacadeCaller {
 
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag names.Tag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.OneLife(st.facade, tag)
 }
 
 // relation requests relation information from the server.
@@ -112,6 +113,17 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 		return nothing, err
 	}
 	return result.Results[0], nil
+}
+
+func (st *State) setRelationStatus(id int, status relation.Status) error {
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{{RelationId: id, Status: params.RelationStatusValue(status)}},
+	}
+	var results params.ErrorResults
+	if err := st.facade.FacadeCall("SetRelationStatus", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }
 
 // getOneAction retrieves a single Action from the controller.
@@ -203,12 +215,12 @@ func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
 		return nil, err
 	}
 	return &Relation{
-		id:       result.Id,
-		tag:      relationTag,
-		life:     result.Life,
-		status:   result.Status,
-		st:       st,
-		otherApp: result.OtherApplication,
+		id:        result.Id,
+		tag:       relationTag,
+		life:      result.Life,
+		suspended: result.Suspended,
+		st:        st,
+		otherApp:  result.OtherApplication,
 	}, nil
 }
 
@@ -296,12 +308,12 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	}
 	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
-		id:       result.Id,
-		tag:      relationTag,
-		life:     result.Life,
-		status:   result.Status,
-		st:       st,
-		otherApp: result.OtherApplication,
+		id:        result.Id,
+		tag:       relationTag,
+		life:      result.Life,
+		suspended: result.Suspended,
+		st:        st,
+		otherApp:  result.OtherApplication,
 	}, nil
 }
 

@@ -4,10 +4,10 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/permission"
@@ -61,13 +61,95 @@ func (st *State) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.U
 	if err != nil {
 		return errors.Trace(err)
 	}
-	op := updatePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)), access)
 
-	err = st.db().RunTransaction([]txn.Op{op})
-	if err == txn.ErrAborted {
-		return errors.NotFoundf("existing permissions")
+	buildTxn := func(int) ([]txn.Op, error) {
+		_, err := st.GetOfferAccess(offerUUID, user)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		isAdmin, err := st.isControllerOrModelAdmin(user)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := []txn.Op{updatePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)), access)}
+		if !isAdmin && access != permission.ConsumeAccess && access != permission.AdminAccess {
+			suspendOps, err := st.suspendRevokedRelationsOps(offerUUID, user.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, suspendOps...)
+		}
+		return ops, nil
 	}
+
+	err = st.db().Run(buildTxn)
 	return errors.Trace(err)
+}
+
+// suspendRevokedRelationsOps suspends any relations the given user has against
+// the specified offer.
+func (st *State) suspendRevokedRelationsOps(offerUUID, userId string) ([]txn.Op, error) {
+	conns, err := st.OfferConnections(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	relIdsToSuspend := make(set.Ints)
+	for _, oc := range conns {
+		if oc.UserName() == userId {
+			rel, err := st.Relation(oc.RelationId())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if rel.Suspended() {
+				continue
+			}
+			relIdsToSuspend.Add(rel.Id())
+			suspendOp := txn.Op{
+				C:      relationsC,
+				Id:     rel.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"suspended", true}}}},
+			}
+			ops = append(ops, suspendOp)
+		}
+	}
+
+	// Add asserts that the relations against the offered application don't change.
+	// This is broader than what we need but it's all that's possible.
+	ao := NewApplicationOffers(st)
+	offer, err := ao.ApplicationOfferForUUID(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	app, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	relations, err := app.Relations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sameRelCount := bson.D{{"relationcount", len(relations)}}
+	ops = append(ops, txn.Op{
+		C:      applicationsC,
+		Id:     app.doc.DocID,
+		Assert: sameRelCount,
+	})
+	// Ensure any relations not being updated still exist.
+	for _, r := range relations {
+		if relIdsToSuspend.Contains(r.Id()) {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      relationsC,
+			Id:     r.doc.DocID,
+			Assert: txn.DocExists,
+		})
+	}
+
+	return ops, nil
 }
 
 // RemoveOfferAccess removes the access permission for a user on an offer.
@@ -76,14 +158,27 @@ func (st *State) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.U
 	if err != nil {
 		return errors.Trace(err)
 	}
-	op := removePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))
 
-	err = st.db().RunTransaction([]txn.Op{op})
-	if err == txn.ErrAborted {
-		err = errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", user.Id()))
+	buildTxn := func(int) ([]txn.Op, error) {
+		_, err := st.GetOfferAccess(offerUUID, user)
+		if err != nil {
+			return nil, err
+		}
+		isAdmin, err := st.isControllerOrModelAdmin(user)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := []txn.Op{removePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))}
+		if !isAdmin {
+			suspendOps, err := st.suspendRevokedRelationsOps(offerUUID, user.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, suspendOps...)
+		}
+		return ops, nil
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+
+	err = st.db().Run(buildTxn)
+	return errors.Trace(err)
 }

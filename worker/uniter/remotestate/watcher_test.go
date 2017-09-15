@@ -39,12 +39,12 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		unit: mockUnit{
 			tag:  names.NewUnitTag("mysql/0"),
 			life: params.Alive,
-			service: mockService{
+			application: mockApplication{
 				tag:                   names.NewApplicationTag("mysql"),
 				life:                  params.Alive,
 				curl:                  charm.MustParseURL("cs:trusty/mysql"),
 				charmModifiedVersion:  5,
-				serviceWatcher:        newMockNotifyWatcher(),
+				applicationWatcher:    newMockNotifyWatcher(),
 				leaderSettingsWatcher: newMockNotifyWatcher(),
 			},
 			unitWatcher:           newMockNotifyWatcher(),
@@ -115,8 +115,8 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
-	s.st.unit.service.serviceWatcher.changes <- struct{}{}
-	s.st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
+	s.st.unit.application.applicationWatcher.changes <- struct{}{}
+	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -128,8 +128,8 @@ func signalAll(st *mockState, l *mockLeadershipTracker) {
 	st.unit.configSettingsWatcher.changes <- struct{}{}
 	st.unit.storageWatcher.changes <- []string{}
 	st.unit.actionWatcher.changes <- []string{}
-	st.unit.service.serviceWatcher.changes <- struct{}{}
-	st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
+	st.unit.application.applicationWatcher.changes <- struct{}{}
+	st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	st.unit.relationsWatcher.changes <- []string{}
 	l.claimTicket.ch <- struct{}{}
 }
@@ -143,9 +143,9 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 		Life:                  s.st.unit.life,
 		Relations:             map[int]remotestate.RelationSnapshot{},
 		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:  s.st.unit.service.charmModifiedVersion,
-		CharmURL:              s.st.unit.service.curl,
-		ForceCharmUpgrade:     s.st.unit.service.forceUpgrade,
+		CharmModifiedVersion:  s.st.unit.application.charmModifiedVersion,
+		CharmURL:              s.st.unit.application.curl,
+		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
 		ResolvedMode:          s.st.unit.resolved,
 		ConfigVersion:         2, // config settings and addresses
 		LeaderSettingsVersion: 1,
@@ -190,12 +190,12 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
-	s.st.unit.service.forceUpgrade = true
-	s.st.unit.service.serviceWatcher.changes <- struct{}{}
+	s.st.unit.application.forceUpgrade = true
+	s.st.unit.application.applicationWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 
-	s.st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
+	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
 
@@ -443,7 +443,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		id: 123, life: params.Alive, status: params.Joined,
+		id: 123, life: params.Alive, suspended: false,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
@@ -460,9 +460,9 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 		jc.DeepEquals,
 		map[int]remotestate.RelationSnapshot{
 			123: {
-				Life:    params.Alive,
-				Status:  params.Joined,
-				Members: map[string]int64{"mysql/1": 1, "mysql/2": 2},
+				Life:      params.Alive,
+				Suspended: false,
+				Members:   map[string]int64{"mysql/1": 1, "mysql/2": 2},
 			},
 		},
 	)
@@ -483,13 +483,13 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 	c.Assert(s.st.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
 }
 
-func (s *WatcherSuite) TestRelationsRevoked(c *gc.C) {
+func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
 	signalAll(s.st, s.leadership)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.relations[relationTag] = &mockRelation{
-		id: 123, life: params.Alive, status: params.Joined,
+		id: 123, life: params.Alive, suspended: false,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
@@ -499,10 +499,10 @@ func (s *WatcherSuite) TestRelationsRevoked(c *gc.C) {
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	s.st.relations[relationTag].status = params.Suspended
+	s.st.relations[relationTag].suspended = true
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Relations[123].Status, gc.Equals, params.Suspended)
+	c.Assert(s.watcher.Snapshot().Relations[123].Suspended, jc.IsTrue)
 	c.Assert(s.st.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
 }
 

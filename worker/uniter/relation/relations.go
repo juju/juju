@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -112,19 +113,24 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 // the corresponding relations. It's only expected to be called while a
 // *relations is being created.
 func (r *relations) init() error {
-	joinedRelationTags, err := r.unit.JoinedRelations()
+	relationStatus, err := r.unit.RelationsStatus()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
-	joinedRelations := make(map[int]*uniter.Relation)
-	for _, tag := range joinedRelationTags {
-		relation, err := r.st.Relation(tag)
+	activeRelations := make(map[int]*uniter.Relation)
+	relationSuspended := make(map[int]bool)
+	for _, rs := range relationStatus {
+		if !rs.InScope {
+			continue
+		}
+		relation, err := r.st.Relation(rs.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		joinedRelations[relation.Id()] = relation
+		relationSuspended[relation.Id()] = rs.Suspended
+		activeRelations[relation.Id()] = relation
 		orderedIds = append(orderedIds, relation.Id())
 	}
 	knownDirs, err := ReadAllStateDirs(r.relationsDir)
@@ -132,16 +138,23 @@ func (r *relations) init() error {
 		return errors.Trace(err)
 	}
 	for id, dir := range knownDirs {
-		if rel, ok := joinedRelations[id]; ok {
+		if rel, ok := activeRelations[id]; ok {
 			if err := r.add(rel, dir); err != nil {
 				return errors.Trace(err)
 			}
-		} else if err := dir.Remove(); err != nil {
-			return errors.Trace(err)
+		} else {
+			// Relations which are suspended may become
+			// active again so we keep the local state,
+			// otherwise we remove it.
+			if !relationSuspended[id] {
+				if err := dir.Remove(); err != nil {
+					return errors.Trace(err)
+				}
+			}
 		}
 	}
 	for _, id := range orderedIds {
-		rel := joinedRelations[id]
+		rel := activeRelations[id]
 		if _, ok := knownDirs[id]; ok {
 			continue
 		}
@@ -203,7 +216,7 @@ func (r *relations) NextHook(
 		}
 		var remoteBroken bool
 		if remoteState.Life == params.Dying ||
-			relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
+			relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
 			relationSnapshot = remotestate.RelationSnapshot{}
 			remoteBroken = true
 			// TODO(axw) if relation is implicit, leave scope & remove.
@@ -273,7 +286,7 @@ func nextRelationHook(
 	// If the relation's meant to be broken, break it.
 	if remoteBroken {
 		if !dir.Exists() {
-			// The relation may have been revoked and then removed, so we
+			// The relation may have been suspended and then removed, so we
 			// don't want to run the hook twice.
 			return hook.Info{}, resolver.ErrNoOperation
 		}
@@ -375,12 +388,13 @@ func (r *relations) GetInfo() map[int]*context.RelationInfo {
 
 func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 	for id, relationSnapshot := range remote {
-		if _, found := r.relationers[id]; found {
+		if rel, found := r.relationers[id]; found {
 			// We've seen this relation before. The only changes
 			// we care about are to the lifecycle state or status,
 			// and to the member settings versions. We handle
 			// differences in settings in nextRelationHook.
-			if relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
+			rel.ru.Relation().UpdateSuspended(relationSnapshot.Suspended)
+			if relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
 				}
@@ -389,7 +403,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 		}
 		// Relations that are not alive are simply skipped, because they
 		// were not previously known anyway.
-		if relationSnapshot.Life != params.Alive || relationSnapshot.Status != params.Joined {
+		if relationSnapshot.Life != params.Alive || relationSnapshot.Suspended {
 			continue
 		}
 		rel, err := r.st.RelationById(id)
@@ -490,6 +504,10 @@ func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 				return errors.Trace(err)
 			}
 			logger.Infof("joined relation %q", rel)
+			err = rel.SetStatus(relation.Joined)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			r.relationers[rel.Id()] = relationer
 			return nil
 		}
