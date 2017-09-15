@@ -90,6 +90,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeHostFolder"),
 		testing.StubCall{"ImportVApp", []interface{}{&types.VirtualMachineImportSpec{
 			ConfigSpec: types.VirtualMachineConfigSpec{
+				Name: "vm-name",
 				ExtraConfig: []types.BaseOptionValue{
 					&types.OptionValue{Key: "k", Value: "v"},
 				},
@@ -211,6 +212,7 @@ func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecified(c *gc.C) 
 
 	s.roundTripper.CheckCall(c, 12, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
+			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
@@ -254,6 +256,7 @@ func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecifiedDVPortgrou
 	// the DVS's UUID. This bumps the ImportVApp position by one.
 	s.roundTripper.CheckCall(c, 13, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
+			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},

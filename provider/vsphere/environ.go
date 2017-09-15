@@ -146,10 +146,11 @@ func (env *sessionEnviron) Bootstrap(
 }
 
 func (env *sessionEnviron) ensureVMFolder(controllerUUID string) error {
-	return env.client.EnsureVMFolder(env.ctx, path.Join(
+	_, err := env.client.EnsureVMFolder(env.ctx, path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
+	return errors.Trace(err)
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests

@@ -4,12 +4,12 @@
 package vsphere
 
 import (
+	"context"
 	"net/url"
 	"time"
 
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
-	"golang.org/x/net/context"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"

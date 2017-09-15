@@ -53,14 +53,28 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			Type:  "SessionManager",
 			Value: "FakeSessionManager",
 		},
+		FileManager: &types.ManagedObjectReference{
+			Type:  "FileManager",
+			Value: "FakeFileManager",
+		},
+		VirtualDiskManager: &types.ManagedObjectReference{
+			Type:  "VirtualDiskManager",
+			Value: "FakeVirtualDiskManager",
+		},
 		PropertyCollector: types.ManagedObjectReference{
 			Type:  "PropertyCollector",
 			Value: "FakePropertyCollector",
+		},
+		SearchIndex: &types.ManagedObjectReference{
+			Type:  "SearchIndex",
+			Value: "FakeSearchIndex",
 		},
 	}
 	s.roundTripper = mockRoundTripper{
 		collectors:    make(map[string]*collector),
 		leaseProgress: make(chan int32, 2),
+		taskResult:    make(map[types.ManagedObjectReference]types.AnyType),
+		taskError:     make(map[types.ManagedObjectReference]*types.LocalizedMethodFault),
 	}
 	s.roundTripper.contents = map[string][]types.ObjectContent{
 		"FakeRootFolder": []types.ObjectContent{{
@@ -86,6 +100,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				types.DynamicProperty{Name: "vmFolder", Val: types.ManagedObjectReference{
 					Type:  "Folder",
 					Value: "FakeVmFolder",
+				}},
+				types.DynamicProperty{Name: "datastoreFolder", Val: types.ManagedObjectReference{
+					Type:  "Folder",
+					Value: "FakeDatastoreFolder",
 				}},
 			},
 		}, {
@@ -134,6 +152,25 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "z1"},
 			},
 		}},
+		"FakeDatastoreFolder": []types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "Datastore",
+				Value: "FakeDatastore1",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "datastore1"},
+				{Name: "summary.accessible", Val: false},
+			},
+		}, {
+			Obj: types.ManagedObjectReference{
+				Type:  "Datastore",
+				Value: "FakeDatastore2",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "datastore2"},
+				{Name: "summary.accessible", Val: true},
+			},
+		}},
 		"FakeVmFolder": []types.ObjectContent{{
 			Obj: types.ManagedObjectReference{
 				Type:  "Folder",
@@ -178,6 +215,20 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "vm-0"},
 				{Name: "runtime.powerState", Val: "poweredOff"},
 				{
+					Name: "config.hardware.device",
+					Val: []types.BaseVirtualDevice{
+						&types.VirtualDisk{
+							VirtualDevice: types.VirtualDevice{
+								Backing: &types.VirtualDiskFlatVer2BackingInfo{
+									VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{
+										FileName: "disk.vmdk",
+									},
+								},
+							},
+						},
+					},
+				},
+				{
 					Name: "resourcePool",
 					Val: types.ManagedObjectReference{
 						Type:  "ResourcePool",
@@ -194,6 +245,21 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "vm-1"},
 				{Name: "runtime.powerState", Val: "poweredOn"},
+				{
+					Name: "config.hardware.device",
+					Val: []types.BaseVirtualDevice{
+						&types.VirtualDisk{
+							VirtualDevice: types.VirtualDevice{
+								Backing: &types.VirtualDiskFlatVer2BackingInfo{
+									VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{
+										FileName: "disk.vmdk",
+									},
+								},
+							},
+							CapacityInKB: 1024 * 1024 * 10, // 10 GiB
+						},
+					},
+				},
 				{
 					Name: "resourcePool",
 					Val: types.ManagedObjectReference{
@@ -278,6 +344,16 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		}},
 	}
 
+	s.roundTripper.importVAppResult = types.ManagedObjectReference{
+		Type:  "VirtualMachine",
+		Value: "FakeVm0",
+	}
+	s.roundTripper.taskResult[searchDatastoreTask] = types.HostDatastoreBrowserSearchResults{}
+	s.roundTripper.taskResult[cloneVMTask] = types.ManagedObjectReference{
+		Type:  "VirtualMachine",
+		Value: "FakeVm1",
+	}
+
 	// Create an HTTP server to receive image uploads.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/disk-device/", func(w http.ResponseWriter, r *http.Request) {
@@ -300,8 +376,13 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *clientSuite) newFakeClient(roundTripper soap.RoundTripper, dc string) *Client {
+	soapURL, err := url.Parse(s.server.URL + "/soap")
+	if err != nil {
+		panic(err)
+	}
+
 	vimClient := &vim25.Client{
-		Client:         soap.NewClient(&url.URL{}, true),
+		Client:         soap.NewClient(soapURL, true),
 		ServiceContent: s.serviceContent,
 		RoundTripper:   roundTripper,
 	}
@@ -382,8 +463,9 @@ func (s *clientSuite) TestDestroyVMFolder(c *gc.C) {
 
 func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	err := client.EnsureVMFolder(context.Background(), "foo/bar")
+	folder, err := client.EnsureVMFolder(context.Background(), "foo/bar")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(folder, gc.NotNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -521,4 +603,57 @@ func (s *clientSuite) TestVirtualMachines(c *gc.C) {
 	c.Assert(result, gc.HasLen, 2)
 	c.Assert(result[0].Name, gc.Equals, "vm-0")
 	c.Assert(result[1].Name, gc.Equals, "vm-1")
+}
+
+func (s *clientSuite) TestDatastores(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	result, err := client.Datastores(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
+		retrievePropertiesStubCall("FakeDatastoreFolder"),
+	})
+
+	c.Assert(result, gc.HasLen, 2)
+	c.Assert(result[0].Name, gc.Equals, "datastore1")
+	c.Assert(result[1].Name, gc.Equals, "datastore2")
+}
+
+func (s *clientSuite) TestDeleteDatastoreFile(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		testing.StubCall{"DeleteDatastoreFile", []interface{}{"[datastore1] file/path"}},
+		testing.StubCall{"CreatePropertyCollector", nil},
+		testing.StubCall{"CreateFilter", nil},
+		testing.StubCall{"WaitForUpdatesEx", nil},
+	})
+}
+
+func (s *clientSuite) TestDeleteDatastoreFileNotFound(c *gc.C) {
+	s.roundTripper.taskError[deleteDatastoreFileTask] = &types.LocalizedMethodFault{
+		Fault: &types.FileNotFound{},
+	}
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientSuite) TestDeleteDatastoreError(c *gc.C) {
+	s.roundTripper.taskError[deleteDatastoreFileTask] = &types.LocalizedMethodFault{
+		Fault:            &types.NotAuthenticated{},
+		LocalizedMessage: "nope",
+	}
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
+	c.Assert(err, gc.ErrorMatches, "nope")
 }
