@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -231,9 +232,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
-	dir := c.MkDir()
-	testcharms.Repo.ClonedDir(dir, "dummy-resource")
-	path := filepath.Join(dir, "mybundle")
 	data := `
         series: quantal
         applications:
@@ -242,12 +240,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
                 series: quantal
                 num_units: 1
                 resources:
-                  dummy: %s
+                  dummy: ./dummy-resource.zip
     `
-	data = fmt.Sprintf(data, filepath.Join(dir, "dummy-resource", "dummy-resource.zip"))
-	err := ioutil.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = runDeploy(c, path)
+	dir := s.makeBundleDir(c, data)
+	testcharms.Repo.ClonedDir(dir, "dummy-resource")
+	c.Assert(
+		ioutil.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
+		jc.ErrorIsNil)
+	_, err := runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
@@ -401,15 +401,19 @@ func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
 // local repository and then deploy it. It returns the bundle deployment output
 // and error.
 func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string, extraArgs ...string) (string, error) {
+	bundlePath := s.makeBundleDir(c, content)
+	args := append([]string{bundlePath}, extraArgs...)
+	return runDeploy(c, args...)
+}
+
+func (s *BundleDeployCharmStoreSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
-	defer os.RemoveAll(bundlePath)
 	err := ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	args := append([]string{bundlePath}, extraArgs...)
-	return runDeploy(c, args...)
+	return bundlePath
 }
 
 var deployBundleErrorsTests = []struct {
@@ -425,7 +429,7 @@ var deployBundleErrorsTests = []struct {
                 num_units: 1
     `,
 	err: `the provided bundle has the following errors:
-charm path in application "mysql" does not exist: mysql`,
+charm path in application "mysql" does not exist: .*mysql`,
 }, {
 	about: "charm store charm not found",
 	content: `
@@ -640,7 +644,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--bundle-config", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: open .*missing-file: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: "+missingFileRegex("missing-file"))
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleConfig(c *gc.C) {
@@ -1473,7 +1477,7 @@ func (*ProcessIncludesSuite) TestMissingFile(c *gc.C) {
 	value := "include-file://simple"
 	result, changed, err := processValue("", value)
 
-	c.Check(err, gc.ErrorMatches, "unable to read file: open simple: no such file or directory")
+	c.Check(err, gc.ErrorMatches, "unable to read file: "+missingFileRegex("simple"))
 	c.Check(changed, jc.IsFalse)
 	c.Check(result, gc.IsNil)
 }
@@ -1559,6 +1563,7 @@ func (*ProcessIncludesSuite) TestBundleReplacements(c *gc.C) {
         machines:
             1:
                 annotations: {foo: bar, baz: "include-file://machine" }
+            2:
     `
 
 	baseDir := c.MkDir()
@@ -1655,7 +1660,7 @@ func (s *ProcessBundleConfigSuite) TestNoFile(c *gc.C) {
 
 func (s *ProcessBundleConfigSuite) TestBadFile(c *gc.C) {
 	err := processBundleConfig(s.bundleData, "bad")
-	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: open .*bad: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: "+missingFileRegex("bad"))
 }
 
 func (s *ProcessBundleConfigSuite) TestGoodYAML(c *gc.C) {
@@ -1774,4 +1779,12 @@ func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
 		"disk": "big"})
 	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
 		"where": "dmz"})
+}
+
+func missingFileRegex(filename string) string {
+	text := "no such file or directory"
+	if runtime.GOOS == "windows" {
+		text = "The system cannot find the file specified."
+	}
+	return fmt.Sprintf("open .*%s: %s", filename, text)
 }
