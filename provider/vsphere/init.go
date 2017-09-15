@@ -6,10 +6,6 @@ package vsphere
 import (
 	"context"
 	"net/url"
-	"time"
-
-	"github.com/juju/mutex"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
@@ -24,12 +20,6 @@ func init() {
 		return vsphereclient.Dial(ctx, u, dc, logger)
 	}
 	environs.RegisterProvider(providerType, NewEnvironProvider(EnvironProviderConfig{
-		Dial:        dial,
-		OVACacheDir: "/var/cache/juju/vsphere/ova",
-		OVACacheLocker: NewMutexCacheLocker(mutex.Spec{
-			Name:  "juju-vsphere",
-			Clock: clock.WallClock,
-			Delay: 5 * time.Second,
-		}),
+		Dial: dial,
 	}))
 }

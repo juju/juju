@@ -4,48 +4,34 @@
 package vsphere_test
 
 import (
-	"archive/tar"
-	"bytes"
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"time"
 
-	"github.com/juju/mutex"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/provider/vsphere"
+	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ProviderFixture struct {
 	testing.IsolationSuite
-	dialStub    testing.Stub
-	client      *mockClient
-	ovaCacheDir string
-	provider    environs.EnvironProvider
+	dialStub testing.Stub
+	client   *mockClient
+	provider environs.EnvironProvider
 }
 
 func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dialStub.ResetCalls()
 	s.client = &mockClient{}
-	s.ovaCacheDir = c.MkDir()
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
-		Dial:        newMockDialFunc(&s.dialStub, s.client),
-		OVACacheDir: s.ovaCacheDir,
-		OVACacheLocker: vsphere.NewMutexCacheLocker(mutex.Spec{
-			Name:  "juju-vsphere-testing",
-			Clock: clock.WallClock,
-			Delay: time.Second,
-		}),
+		Dial: newMockDialFunc(&s.dialStub, s.client),
 	})
 }
 
@@ -119,12 +105,12 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
       }
     }
   }
-}`, fakeOvaSha256)
+}`, ovatest.FakeOVASHA256())
 
 	files := map[string][]byte{
 		"/streams/v1/index.json":                                                          []byte(index),
 		"/streams/v1/com.ubuntu.cloud:released:download.json":                             []byte(download),
-		"/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova": fakeOva,
+		"/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova": ovatest.FakeOVAContents(),
 	}
 	mux := http.NewServeMux()
 	for path := range files {
@@ -134,30 +120,4 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
 		})
 	}
 	return httptest.NewServer(mux)
-}
-
-var (
-	fakeOva       []byte
-	fakeOvaSha256 string
-)
-
-func init() {
-	buf := new(bytes.Buffer)
-	hash := sha256.New()
-	tw := tar.NewWriter(io.MultiWriter(buf, hash))
-	var files = []struct{ Name, Body string }{
-		{"ubuntu-14.04-server-cloudimg-amd64.ovf", "FakeOvfContent"},
-		{"ubuntu-14.04-server-cloudimg-amd64.vmdk", "FakeVmdkContent"},
-	}
-	for _, file := range files {
-		hdr := &tar.Header{
-			Name: file.Name,
-			Size: int64(len(file.Body)),
-		}
-		tw.WriteHeader(hdr)
-		tw.Write([]byte(file.Body))
-	}
-	tw.Close()
-	fakeOva = buf.Bytes()
-	fakeOvaSha256 = fmt.Sprintf("%x", hash.Sum(nil))
 }
