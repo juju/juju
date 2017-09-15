@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -157,14 +158,19 @@ func (rh *runHook) beforeHook(state State) error {
 // afterHook runs after a hook completes, or after a hook that is
 // not implemented by the charm is expected to have run if it were
 // implemented.
-func (rh *runHook) afterHook(state State) (bool, error) {
+func (rh *runHook) afterHook(state State) (_ bool, err error) {
+	defer func() {
+		if err != nil {
+			logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
+		}
+	}()
+
 	ctx := rh.runner.Context()
 	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
-	var err error
 	switch rh.info.Kind {
 	case hooks.Stop:
 		// Charm is no longer of this world.
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Terminated),
 		})
 	case hooks.Start:
@@ -174,15 +180,25 @@ func (rh *runHook) afterHook(state State) (bool, error) {
 		logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Unknown),
 		})
+	case hooks.RelationBroken:
+		var isLeader bool
+		isLeader, err = ctx.IsLeader()
+		if !isLeader || err != nil {
+			return hasRunStatusSet && err == nil, err
+		}
+		rel, err := ctx.Relation(rh.info.RelationId)
+		if err != nil {
+			return false, err
+		}
+		suspended, err := rel.Suspended()
+		if suspended && err == nil {
+			err = rel.SetStatus(relation.Suspended)
+		}
 	}
-	if err != nil {
-		logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
-		return false, err
-	}
-	return hasRunStatusSet, nil
+	return hasRunStatusSet && err == nil, err
 }
 
 // Commit updates relation state to include the fact of the hook's execution,

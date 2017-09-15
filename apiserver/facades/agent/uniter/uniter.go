@@ -1428,8 +1428,20 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
 
+	checker := u.st.LeadershipChecker()
+	token := checker.LeadershipCheck(u.unit.ApplicationName(), u.unit.Name())
+	if err := token.Check(nil); err != nil {
+		return statusResults, err
+	}
+
 	changeOne := func(arg params.RelationStatusArg) error {
 		rel, err := u.st.Relation(arg.RelationId)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = rel.Unit(u.unit)
 		if errors.IsNotFound(err) {
 			return common.ErrPerm
 		} else if err != nil {

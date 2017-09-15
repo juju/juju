@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -77,4 +78,17 @@ func (ctx *ContextRelation) WriteSettings() (err error) {
 		err = ctx.settings.Write()
 	}
 	return
+}
+
+// Suspended returns true if the relation is suspended.
+func (ctx *ContextRelation) Suspended() (bool, error) {
+	if err := ctx.ru.Relation().Refresh(); err != nil {
+		return false, err
+	}
+	return ctx.ru.Relation().Suspended(), nil
+}
+
+// SetStatus sets the relation's status.
+func (ctx *ContextRelation) SetStatus(status relation.Status) error {
+	return ctx.ru.Relation().SetStatus(status)
 }

@@ -116,7 +116,6 @@ func (r *Relation) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status of the relation.
 func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
-	logger.Criticalf("SET STATUS: %+v", statusInfo)
 	currentStatus, err := r.Status()
 	if err != nil {
 		return errors.Trace(err)

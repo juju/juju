@@ -41,20 +41,17 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		if err := rel.SetSuspended(*change.Suspended); err != nil {
 			return errors.Trace(err)
 		}
-		if *change.Suspended {
-			if err := rel.SetStatus(status.StatusInfo{
-				Status:  status.Suspending,
-				Message: "suspending after update from remote model",
-			}); err != nil && !errors.IsNotValid(err) {
-				return errors.Trace(err)
-			}
-		} else {
-			if err := rel.SetStatus(status.StatusInfo{
-				Status:  status.Joining,
-				Message: "resuming after update from remote model",
-			}); err != nil && !errors.IsNotValid(err) {
-				return errors.Trace(err)
-			}
+		newStatus := status.Suspending
+		action := "suspending"
+		if !*change.Suspended {
+			newStatus = status.Joining
+			action = "resuming"
+		}
+		if err := rel.SetStatus(status.StatusInfo{
+			Status:  newStatus,
+			Message: action + " after update from remote model",
+		}); err != nil && !errors.IsNotValid(err) {
+			return errors.Trace(err)
 		}
 	}
 

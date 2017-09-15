@@ -6,21 +6,18 @@ package relation
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	apiuniter "github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ru        *apiuniter.RelationUnit
-	dir       *StateDir
-	dying     bool
-	suspended bool
+	ru    *apiuniter.RelationUnit
+	dir   *StateDir
+	dying bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
@@ -55,7 +52,6 @@ func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
-	r.suspended = false
 	// We need to make sure the state directory exists before we join the
 	// relation, lest a subsequent ReadAllStateDirs report local state that
 	// doesn't include relations recorded in remote state.
@@ -70,13 +66,12 @@ func (r *Relationer) Join() error {
 // SetDying informs the relationer that the unit is departing the relation,
 // and that the only hooks it should send henceforth are -departed hooks,
 // until the relation is empty, followed by a -broken hook.
-func (r *Relationer) SetDying(suspended bool) error {
+func (r *Relationer) SetDying() error {
 	if r.IsImplicit() {
 		r.dying = true
 		return r.die()
 	}
 	r.dying = true
-	r.suspended = suspended
 	return nil
 }
 
@@ -110,15 +105,7 @@ func (r *Relationer) CommitHook(hi hook.Info) error {
 		panic("implicit relations must not run hooks")
 	}
 	if hi.Kind == hooks.RelationBroken {
-		err := r.die()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		rel := r.ru.Relation()
-		if r.suspended {
-			return rel.SetStatus(relation.Suspended)
-		}
-		return nil
+		return r.die()
 	}
 	return r.dir.Write(hi)
 }

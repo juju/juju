@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
@@ -264,6 +265,12 @@ type ContextRelation interface {
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
+
+	// Suspended returns true if the relation is suspended.
+	Suspended() (bool, error)
+
+	// SetStatus sets the relation's status.
+	SetStatus(relation.Status) error
 }
 
 // ContextStorageAttachment expresses the capabilities of a hook with

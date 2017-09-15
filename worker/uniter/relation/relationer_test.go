@@ -21,7 +21,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -246,7 +245,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	assertMembers(map[string]int64{"u/1": 7, "u/2": 3})
 }
 
-func (s *RelationerSuite) assertSetDying(c *gc.C, suspended bool) {
+func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	ru1, u := s.AddRelationUnit(c, "u/1")
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
@@ -256,7 +255,7 @@ func (s *RelationerSuite) assertSetDying(c *gc.C, suspended bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Change Life to Dying check the results.
-	err = r.SetDying(suspended)
+	err = r.SetDying()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot rejoin the relation.
@@ -279,21 +278,6 @@ func (s *RelationerSuite) assertSetDying(c *gc.C, suspended bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	relStatus, err := ru1.Relation().Status()
-	c.Assert(err, jc.ErrorIsNil)
-	if suspended {
-		c.Assert(relStatus.Status, gc.Equals, status.Suspended)
-	} else {
-		c.Assert(relStatus.Status, gc.Equals, status.Joining)
-	}
-}
-
-func (s *RelationerSuite) TestSetDying(c *gc.C) {
-	s.assertSetDying(c, false)
-}
-
-func (s *RelationerSuite) TestSetDyingSuspended(c *gc.C) {
-	s.assertSetDying(c, true)
 }
 
 type stopper interface {
@@ -356,7 +340,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(f, gc.PanicMatches, "implicit relations must not run hooks")
 
 	// Set it to Dying; check that the dir is removed immediately.
-	err = r.SetDying(false)
+	err = r.SetDying()
 	c.Assert(err, jc.ErrorIsNil)
 	path := strconv.Itoa(rel.Id())
 	ft.Removed{path}.Check(c, relsDir)

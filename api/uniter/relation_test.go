@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
+	"time"
 )
 
 type relationSuite struct {
@@ -87,7 +88,9 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *relationSuite) TestSetStatus(c *gc.C) {
-	err := s.apiRelation.SetStatus(relation.Suspended)
+	err := s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.apiRelation.SetStatus(relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 	relStatus, err := s.stateRelation.Status()
 	c.Assert(err, jc.ErrorIsNil)

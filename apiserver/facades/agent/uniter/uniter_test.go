@@ -1981,7 +1981,23 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 	check()
 }
 
-func (s *uniterSuite) TestSetRelationsStatus(c *gc.C) {
+func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{
+			{rel.Id(), params.Suspended, "message"},
+		},
+	}
+	_, err = s.uniter.SetRelationStatus(args)
+	c.Assert(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
+}
+
+func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1993,10 +2009,15 @@ func (s *uniterSuite) TestSetRelationsStatus(c *gc.C) {
 	err = rel2.SetSuspended(true)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.AddTestingApplication(c, "wp2", s.wpCharm)
+	rel3 := s.addRelation(c, "wp2", "logging")
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
-			{0, params.Suspended, "message"},
-			{1, params.Broken, ""},
+			{rel.Id(), params.Suspended, "message"},
+			{rel2.Id(), params.Broken, ""},
+			{rel3.Id(), params.Broken, ""},
 			{RelationId: 4},
 		},
 	}
@@ -2004,6 +2025,7 @@ func (s *uniterSuite) TestSetRelationsStatus(c *gc.C) {
 		Results: []params.ErrorResult{
 			{},
 			{},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	}
@@ -2015,6 +2037,10 @@ func (s *uniterSuite) TestSetRelationsStatus(c *gc.C) {
 		c.Assert(relStatus.Status, gc.Equals, expectedStatus)
 		c.Assert(relStatus.Message, gc.Equals, expectedMessage)
 	}
+
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
 	result, err := s.uniter.SetRelationStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)

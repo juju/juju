@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -107,4 +108,14 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 		return nil, fmt.Errorf("unknown unit %s", name)
 	}
 	return s.Map(), nil
+}
+
+// Suspended implements jujuc.ContextRelation.
+func (r *ContextRelation) Suspended() (bool, error) {
+	return true, nil
+}
+
+// SetStatus implements jujuc.ContextRelation.
+func (r *ContextRelation) SetStatus(status relation.Status) error {
+	return nil
 }

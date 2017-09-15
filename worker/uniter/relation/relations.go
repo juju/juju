@@ -394,7 +394,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 			// and to the member settings versions. We handle
 			// differences in settings in nextRelationHook.
 			if relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
-				if err := r.setDying(id, relationSnapshot.Suspended); err != nil {
+				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -516,12 +516,12 @@ func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 // setDying notifies the relationer identified by the supplied id that the
 // only hook executions to be requested should be those necessary to cleanly
 // exit the relation.
-func (r *relations) setDying(id int, suspended bool) error {
+func (r *relations) setDying(id int) error {
 	relationer, found := r.relationers[id]
 	if !found {
 		return nil
 	}
-	if err := relationer.SetDying(suspended); err != nil {
+	if err := relationer.SetDying(); err != nil {
 		return errors.Trace(err)
 	}
 	if relationer.IsImplicit() {
