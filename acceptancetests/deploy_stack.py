@@ -699,7 +699,7 @@ class BootstrapManager:
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
                  keep_env, permanent, jes_enabled, controller_strategy=None,
-                 logged_exception_exit=True):
+                 logged_exception_exit=True, existing_controller=None):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
@@ -727,6 +727,10 @@ class BootstrapManager:
         self.logged_exception_exit = logged_exception_exit
         self.has_controller = False
         self.resource_details = None
+
+        # We can probably just make this just 1 state.
+        self.existing_controller = existing_controller is not None
+        self.controller_id = existing_controller
 
     def ensure_cleanup(self):
         """
@@ -775,6 +779,9 @@ class BootstrapManager:
 
     @classmethod
     def from_args(cls, args):
+        if 'existing' in args and args.existing:
+            return cls._from_existing_controller(args)
+
         if not args.logs:
             args.logs = generate_default_clean_dir(args.temp_env_name)
 
@@ -791,7 +798,11 @@ class BootstrapManager:
         return cls.from_client(args, client)
 
     @classmethod
-    def from_existing_controller(cls, args):
+    def _from_existing_controller(cls, args):
+        if 'existing' not in args:
+            raise RuntimeError(
+                'Attempting to use existing controller without providing '
+                'controller id.')
         try:
             juju_home = os.environ['JUJU_DATA']
         except KeyError:
@@ -817,17 +828,18 @@ class BootstrapManager:
                                      controller_name=controller,
                                      model_name=model)
         client.has_controller = True
-        return cls.from_client_existing(args, client)
+        return cls.from_client_existing(args, client, args.existing)
 
     @classmethod
-    def from_client_existing(cls, args, client):
+    def from_client_existing(cls, args, client, existing_controller):
         jes_enabled = client.is_jes_enabled()
         controller_strategy = ExistingController(client)
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
             args.machine, args.series, args.agent_url, args.agent_stream,
             args.region, args.logs, args.keep_env, permanent=jes_enabled,
-            jes_enabled=jes_enabled, controller_strategy=controller_strategy)
+            jes_enabled=jes_enabled, controller_strategy=controller_strategy,
+            existing_controller=existing_controller)
 
     @classmethod
     def from_client(cls, args, client):
@@ -1108,22 +1120,26 @@ class BootstrapManager:
         :param **kwargs: All remaining keyword arguments are passed to the
         client's bootstrap.
         """
-        try:
-            with self.top_context() as machines:
-                with self.bootstrap_context(
-                        machines, omit_config=self.client.bootstrap_replaces):
-                    self.controller_strategy.create_initial_model(
-                        upload_tools, self.series, kwargs)
-                with self.runtime_context(machines):
-                    self.client.list_controllers()
-                    self.client.list_models()
-                    for m_client in self.client.iter_model_clients():
-                        m_client.show_status()
-                    yield machines
-        except LoggedException:
-            if self.logged_exception_exit:
-                sys.exit(1)
-            raise
+        if self.existing_controller:
+            yield self.existing_context(upload_tools, **kwargs)
+        else:
+            try:
+                with self.top_context() as machines:
+                    with self.bootstrap_context(
+                            machines,
+                            omit_config=self.client.bootstrap_replaces):
+                        self.controller_strategy.create_initial_model(
+                            upload_tools, self.series, kwargs)
+                    with self.runtime_context(machines):
+                        self.client.list_controllers()
+                        self.client.list_models()
+                        for m_client in self.client.iter_model_clients():
+                            m_client.show_status()
+                        yield machines
+            except LoggedException:
+                if self.logged_exception_exit:
+                    sys.exit(1)
+                raise
 
     @contextmanager
     def existing_booted_context(self, upload_tools, **kwargs):
@@ -1142,13 +1158,15 @@ class BootstrapManager:
             sys.exit(1)
 
     @contextmanager
-    def existing_context(self, upload_tools, controller_id):
+    def existing_context(self, upload_tools):
+        if controller_id is None:
+            raise RuntimeError()   # Lets make it so this isn't possible.
         try:
             with self.top_context() as machines:
                 with self.runtime_context(machines):
                     self.has_controller = True
-                    if controller_id != 'current':
-                        self.controller_strategy.prepare(controller_id)
+                    if self.controller_id != 'current':
+                        self.controller_strategy.prepare(self.controller_id)
                     self.controller_strategy.create_initial_model()
                     yield machines
         except LoggedException:
@@ -1265,15 +1283,3 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
         else:
             raise Exception(
                 '{} was not deleted:'.format(instance_id))
-
-
-def test_on_controller(test, args):
-    if args.existing:
-        bs_manager = BootstrapManager.from_existing_controller(args)
-        with bs_manager.existing_context(args.upload_tools,
-                                         args.existing):
-                test(bs_manager.client)
-    else:
-        bs_manager = BootstrapManager.from_args(args)
-        with bs_manager.booted_context(args.upload_tools):
-                test(bs_manager.client)

@@ -247,8 +247,8 @@ def add_arg_juju_bin(parser):
                         default=None)
 
 
-def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
-                                env=True):
+def add_basic_testing_arguments(
+        parser, using_jes=False, deadline=True, env=True, existing=False):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures
@@ -317,9 +317,10 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
     parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
                         ' completes.')
-    parser.add_argument('--existing', action='store',
-                        help='Existing controller to test against. Using '
-                        '"current" selects the current controller')
+    if existing:
+        parser.add_argument('--existing', action='store',
+                            help='Existing controller to test against. Using '
+                            '"current" selects the current controller')
     if deadline:
         parser.add_argument('--timeout', dest='deadline', type=_to_deadline,
                             help="The script timeout, in seconds.")
