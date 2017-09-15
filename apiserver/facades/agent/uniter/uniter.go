@@ -1428,6 +1428,8 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
 
+	// TODO(wallyworld) - the token should be passed to SetStatus() but the
+	// interface method doesn't allow for that yet.
 	checker := u.st.LeadershipChecker()
 	token := checker.LeadershipCheck(u.unit.ApplicationName(), u.unit.Name())
 	if err := token.Check(nil); err != nil {

@@ -304,6 +304,10 @@ func (r *mockRelation) Suspended() bool {
 	return r.suspended
 }
 
+func (r *mockRelation) UpdateSuspended(suspended bool) {
+	r.suspended = suspended
+}
+
 type mockLeadershipTracker struct {
 	leadership.Tracker
 	claimTicket  mockTicket

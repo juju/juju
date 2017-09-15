@@ -111,8 +111,8 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 }
 
 // Suspended implements jujuc.ContextRelation.
-func (r *ContextRelation) Suspended() (bool, error) {
-	return true, nil
+func (r *ContextRelation) Suspended() bool {
+	return true
 }
 
 // SetStatus implements jujuc.ContextRelation.

@@ -267,7 +267,7 @@ type ContextRelation interface {
 	ReadSettings(unit string) (params.Settings, error)
 
 	// Suspended returns true if the relation is suspended.
-	Suspended() (bool, error)
+	Suspended() bool
 
 	// SetStatus sets the relation's status.
 	SetStatus(relation.Status) error

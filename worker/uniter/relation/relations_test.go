@@ -364,6 +364,43 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	}, &numCalls)
 }
 
+func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
+	var numCalls int32
+	apiCalls := relationJoinedAPICalls()
+	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
+
+	// There will be an initial relation-changed regardless of
+	// members, due to the "changed pending" local persistent
+	// state.
+	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
+		Life:      params.Alive,
+		Suspended: true,
+	}, &numCalls)
+	c.Assert(r.GetInfo()[1].RelationUnit.Relation().Suspended(), jc.IsTrue)
+
+	numCallsBefore := numCalls
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		Relations: map[int]remotestate.RelationSnapshot{
+			1: {
+				Life:      params.Alive,
+				Suspended: true,
+			},
+		},
+	}
+
+	relationsResolver := relation.NewRelationsResolver(r)
+	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+	assertNumCalls(c, &numCalls, numCallsBefore)
+	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
+}
+
 func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
 	r := s.assertHookRelationJoined(c, numCalls, apiCalls...)
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
@@ -433,7 +470,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
 }
 
-func (s *relationsSuite) TestHookRelationBrokenWhenRevoked(c *gc.C) {
+func (s *relationsSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 

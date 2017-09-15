@@ -56,6 +56,12 @@ func (r *Relation) Suspended() bool {
 	return r.suspended
 }
 
+// UpdateSuspended updates the in memory value of the
+// relation's suspended attribute.
+func (r *Relation) UpdateSuspended(suspended bool) {
+	r.suspended = suspended
+}
+
 // OtherApplication returns the name of the application on the other
 // end of the relation (from this unit's perspective).
 func (r *Relation) OtherApplication() string {

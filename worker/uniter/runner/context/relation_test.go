@@ -188,9 +188,9 @@ func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := context.NewContextRelation(s.apiRelUnit, nil)
-	suspended, err := ctx.Suspended()
+	err = s.apiRelUnit.Relation().Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(suspended, jc.IsTrue)
+	c.Assert(ctx.Suspended(), jc.IsTrue)
 }
 
 func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {

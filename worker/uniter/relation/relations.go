@@ -388,11 +388,12 @@ func (r *relations) GetInfo() map[int]*context.RelationInfo {
 
 func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 	for id, relationSnapshot := range remote {
-		if _, found := r.relationers[id]; found {
+		if rel, found := r.relationers[id]; found {
 			// We've seen this relation before. The only changes
 			// we care about are to the lifecycle state or status,
 			// and to the member settings versions. We handle
 			// differences in settings in nextRelationHook.
+			rel.ru.Relation().UpdateSuspended(relationSnapshot.Suspended)
 			if relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)

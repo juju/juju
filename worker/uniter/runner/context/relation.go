@@ -81,11 +81,8 @@ func (ctx *ContextRelation) WriteSettings() (err error) {
 }
 
 // Suspended returns true if the relation is suspended.
-func (ctx *ContextRelation) Suspended() (bool, error) {
-	if err := ctx.ru.Relation().Refresh(); err != nil {
-		return false, err
-	}
-	return ctx.ru.Relation().Suspended(), nil
+func (ctx *ContextRelation) Suspended() bool {
+	return ctx.ru.Relation().Suspended()
 }
 
 // SetStatus sets the relation's status.

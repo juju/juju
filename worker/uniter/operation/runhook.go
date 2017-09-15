@@ -190,11 +190,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 			return hasRunStatusSet && err == nil, err
 		}
 		rel, err := ctx.Relation(rh.info.RelationId)
-		if err != nil {
-			return false, err
-		}
-		suspended, err := rel.Suspended()
-		if suspended && err == nil {
+		if err == nil && rel.Suspended() {
 			err = rel.SetStatus(relation.Suspended)
 		}
 	}

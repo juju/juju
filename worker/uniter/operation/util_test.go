@@ -316,8 +316,8 @@ type MockRelation struct {
 	status    relation.Status
 }
 
-func (mock *MockRelation) Suspended() (bool, error) {
-	return mock.suspended, nil
+func (mock *MockRelation) Suspended() bool {
+	return mock.suspended
 }
 
 func (mock *MockRelation) SetStatus(status relation.Status) error {

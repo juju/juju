@@ -70,6 +70,7 @@ type Relation interface {
 	Id() int
 	Life() params.Life
 	Suspended() bool
+	UpdateSuspended(bool)
 }
 
 func NewAPIState(st *uniter.State) State {
