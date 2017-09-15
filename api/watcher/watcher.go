@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
@@ -315,7 +314,7 @@ func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 }
 
 // relationStatusWatcher will sends notifications of changes to
-// relation life and status.
+// relation life and suspended status.
 type relationStatusWatcher struct {
 	commonWatcher
 	caller                  base.APICaller
@@ -323,8 +322,11 @@ type relationStatusWatcher struct {
 	out                     chan []watcher.RelationStatusChange
 }
 
-// NewRelationStatusWatcher returns a watcher notifying of changes to relation life and status.
-func NewRelationStatusWatcher(caller base.APICaller, result params.RelationStatusWatchResult) watcher.RelationStatusWatcher {
+// NewRelationStatusWatcher returns a watcher notifying of changes to
+// relation life and suspended status.
+func NewRelationStatusWatcher(
+	caller base.APICaller, result params.RelationLifeSuspendedStatusWatchResult,
+) watcher.RelationStatusWatcher {
 	w := &relationStatusWatcher{
 		caller:                  caller,
 		relationStatusWatcherId: result.RelationStatusWatcherId,
@@ -337,20 +339,19 @@ func NewRelationStatusWatcher(caller base.APICaller, result params.RelationStatu
 	return w
 }
 
-func (w *relationStatusWatcher) loop(initialChanges []params.RelationStatusChange) error {
-	w.newResult = func() interface{} { return new(params.RelationStatusWatchResult) }
+func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspendedStatusChange) error {
+	w.newResult = func() interface{} { return new(params.RelationLifeSuspendedStatusWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationStatusWatcher", w.relationStatusWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	copyChanges := func(changes []params.RelationStatusChange) []watcher.RelationStatusChange {
+	copyChanges := func(changes []params.RelationLifeSuspendedStatusChange) []watcher.RelationStatusChange {
 		result := make([]watcher.RelationStatusChange, len(changes))
 		for i, ch := range changes {
 			result[i] = watcher.RelationStatusChange{
-				Key:           ch.Key,
-				Life:          life.Value(ch.Life),
-				Status:        relation.Status(ch.Status),
-				StatusMessage: ch.StatusMessage,
+				Key:       ch.Key,
+				Life:      life.Value(ch.Life),
+				Suspended: ch.Suspended,
 			}
 		}
 		return result
@@ -370,7 +371,7 @@ func (w *relationStatusWatcher) loop(initialChanges []params.RelationStatusChang
 			// at this point, so just return.
 			return nil
 		}
-		changes = copyChanges(data.(*params.RelationStatusWatchResult).Changes)
+		changes = copyChanges(data.(*params.RelationLifeSuspendedStatusWatchResult).Changes)
 	}
 }
 

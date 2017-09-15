@@ -475,7 +475,7 @@ func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
+func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 	rel := s.setupRelationStatus(c)
 	mysql, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -489,14 +489,14 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchLifeStatus()
+	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	// Initial event.
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 
-	err = rel.SetStatus(status.StatusInfo{Status: status.Suspended})
+	err = rel.SetSuspended(true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -507,7 +507,7 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
+func (s *RelationSuite) TestWatchLifeSuspendedStatusDead(c *gc.C) {
 	// Create a pair of services and a relation between them.
 	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -516,7 +516,7 @@ func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchLifeStatus()
+	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(rel.Tag().Id())
@@ -538,7 +538,7 @@ func (s *RelationSuite) setupRelationStatus(c *gc.C) *state.Relation {
 	c.Assert(err, jc.ErrorIsNil)
 	relStatus, err := rel.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus.Status, gc.Equals, status.Joined)
+	c.Assert(relStatus.Status, gc.Equals, status.Joining)
 	ao := state.NewApplicationOffers(s.State)
 	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",

@@ -35,20 +35,23 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		return errors.Trace(err)
 	}
 
-	// Update the relation status if necessary.
-	relStatus := status.Status(change.Status)
-	if relStatus != "" {
-		currentStatus, err := rel.Status()
-		if err != nil {
+	// Update the relation suspended status.
+	currentStatus := rel.Suspended()
+	if change.Suspended != nil && currentStatus != *change.Suspended {
+		if err := rel.SetSuspended(*change.Suspended); err != nil {
 			return errors.Trace(err)
 		}
-		if currentStatus.Status != relStatus || currentStatus.Message != change.StatusMessage {
-			if err := rel.SetStatus(status.StatusInfo{
-				Status:  relStatus,
-				Message: change.StatusMessage,
-			}); err != nil {
-				return errors.Trace(err)
-			}
+		newStatus := status.Suspending
+		action := "suspending"
+		if !*change.Suspended {
+			newStatus = status.Joining
+			action = "resuming"
+		}
+		if err := rel.SetStatus(status.StatusInfo{
+			Status:  newStatus,
+			Message: action + " after update from remote model",
+		}); err != nil && !errors.IsNotValid(err) {
+			return errors.Trace(err)
 		}
 	}
 
@@ -272,27 +275,22 @@ type relationGetter interface {
 	KeyRelation(string) (Relation, error)
 }
 
-// GetRelationStatusChange returns a status change struct for a specified relation key.
-func GetRelationStatusChange(st relationGetter, key string) (*params.RelationStatusChange, error) {
+// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+// struct for a specified relation key.
+func GetRelationLifeSuspendedStatusChange(st relationGetter, key string) (*params.RelationLifeSuspendedStatusChange, error) {
 	rel, err := st.KeyRelation(key)
 	if errors.IsNotFound(err) {
-		return &params.RelationStatusChange{
-			Key:    key,
-			Life:   params.Dead,
-			Status: params.Broken,
+		return &params.RelationLifeSuspendedStatusChange{
+			Key:  key,
+			Life: params.Dead,
 		}, nil
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	relStatus, err := rel.Status()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &params.RelationStatusChange{
-		Key:           key,
-		Life:          params.Life(rel.Life().String()),
-		Status:        params.RelationStatusValue(relStatus.Status),
-		StatusMessage: relStatus.Message,
+	return &params.RelationLifeSuspendedStatusChange{
+		Key:       key,
+		Life:      params.Life(rel.Life().String()),
+		Suspended: rel.Suspended(),
 	}, nil
 }

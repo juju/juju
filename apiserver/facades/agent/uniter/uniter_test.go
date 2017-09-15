@@ -278,7 +278,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(rel.Life(), gc.Equals, state.Alive)
 	relStatus, err := rel.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus.Status, gc.Equals, status.Joined)
+	c.Assert(relStatus.Status, gc.Equals, status.Joining)
 
 	// Make the wordpressUnit dead.
 	err = s.wordpressUnit.EnsureDead()
@@ -1677,16 +1677,14 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	}}
 	result, err := s.uniter.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus, err := rel.Status()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:     rel.Id(),
-				Key:    rel.String(),
-				Life:   params.Life(rel.Life().String()),
-				Status: params.RelationStatusValue(relStatus.Status),
+				Id:        rel.Id(),
+				Key:       rel.String(),
+				Life:      params.Life(rel.Life().String()),
+				Suspended: rel.Suspended(),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
@@ -1718,16 +1716,14 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 	}
 	result, err := s.uniter.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus, err := rel.Status()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:     rel.Id(),
-				Key:    rel.String(),
-				Life:   params.Life(rel.Life().String()),
-				Status: params.RelationStatusValue(relStatus.Status),
+				Id:        rel.Id(),
+				Key:       rel.String(),
+				Life:      params.Life(rel.Life().String()),
+				Suspended: rel.Suspended(),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
@@ -1933,7 +1929,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, settings)
 }
 
-func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
+func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1942,7 +1938,7 @@ func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
 
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel2 := s.addRelation(c, "wordpress", "logging")
-	err = rel2.SetStatus(status.StatusInfo{Status: status.Suspended})
+	err = rel2.SetSuspended(true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
@@ -1960,11 +1956,11 @@ func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
 			{RelationResults: []params.RelationUnitStatus{{
 				RelationTag: rel.Tag().String(),
 				InScope:     true,
-				Status:      params.Joined,
+				Suspended:   false,
 			}, {
 				RelationTag: rel2.Tag().String(),
 				InScope:     false,
-				Status:      params.Suspended,
+				Suspended:   true,
 			}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1983,6 +1979,73 @@ func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
 	err = relUnit.PrepareLeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	check()
+}
+
+func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{
+			{rel.Id(), params.Suspended, "message"},
+		},
+	}
+	_, err = s.uniter.SetRelationStatus(args)
+	c.Assert(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
+}
+
+func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	rel2 := s.addRelation(c, "wordpress", "logging")
+	err = rel2.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AddTestingApplication(c, "wp2", s.wpCharm)
+	rel3 := s.addRelation(c, "wp2", "logging")
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{
+			{rel.Id(), params.Suspended, "message"},
+			{rel2.Id(), params.Broken, ""},
+			{rel3.Id(), params.Broken, ""},
+			{RelationId: 4},
+		},
+	}
+	expect := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	}
+	check := func(rel *state.Relation, expectedStatus status.Status, expectedMessage string) {
+		err = rel.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		relStatus, err := rel.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(relStatus.Status, gc.Equals, expectedStatus)
+		c.Assert(relStatus.Message, gc.Equals, expectedMessage)
+	}
+
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.uniter.SetRelationStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expect)
+	check(rel, status.Suspended, "message")
+	check(rel2, status.Broken, "")
 }
 
 func (s *uniterSuite) TestReadSettings(c *gc.C) {

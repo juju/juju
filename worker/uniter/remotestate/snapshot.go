@@ -74,9 +74,9 @@ type Snapshot struct {
 }
 
 type RelationSnapshot struct {
-	Life    params.Life
-	Status  params.RelationStatusValue
-	Members map[string]int64
+	Life      params.Life
+	Suspended bool
+	Members   map[string]int64
 }
 
 // StorageSnapshot has information relating to a storage

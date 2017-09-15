@@ -24,6 +24,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -102,10 +103,12 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
+	suspended := true
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
 				Life:             params.Alive,
+				Suspended:        &suspended,
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
@@ -120,6 +123,8 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.status, gc.Equals, status.Suspending)
+	c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
@@ -414,7 +419,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 			},
 		},
 	}
-	results, err := s.api.WatchRelationsStatus(args)
+	results, err := s.api.WatchRelationsSuspendedStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)

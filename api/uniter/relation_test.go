@@ -11,7 +11,9 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
+	"time"
 )
 
 type relationSuite struct {
@@ -51,7 +53,7 @@ func (s *relationSuite) TestOtherApplication(c *gc.C) {
 
 func (s *relationSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
-	c.Assert(s.apiRelation.Status(), gc.Equals, params.Joined)
+	c.Assert(s.apiRelation.Suspended(), jc.IsTrue)
 
 	// EnterScope with mysqlUnit, so the relation will be set to dying
 	// when destroyed later.
@@ -64,25 +66,35 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	// Destroy it - should set it to dying.
 	err = s.stateRelation.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	// Update status as well.
-	err = s.stateRelation.SetStatus(status.StatusInfo{Status: status.Suspended})
+	// Update suspended as well.
+	err = s.stateRelation.SetSuspended(false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
-	c.Assert(s.apiRelation.Status(), gc.Equals, params.Joined)
+	c.Assert(s.apiRelation.Suspended(), jc.IsTrue)
 
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
-	c.Assert(s.apiRelation.Status(), gc.Equals, params.Suspended)
+	c.Assert(s.apiRelation.Suspended(), jc.IsFalse)
 
 	// Leave scope with mysqlUnit, so the relation will be removed.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
-	c.Assert(s.apiRelation.Status(), gc.Equals, params.Suspended)
+	c.Assert(s.apiRelation.Suspended(), jc.IsFalse)
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *relationSuite) TestSetStatus(c *gc.C) {
+	err := s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.apiRelation.SetStatus(relation.Suspended)
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := s.stateRelation.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Suspended)
 }
 
 func (s *relationSuite) TestEndpoint(c *gc.C) {

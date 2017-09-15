@@ -991,7 +991,7 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			Life:      Alive,
 		}
 		relationStatusDoc := statusDoc{
-			Status:    status.Joined,
+			Status:    status.Joining,
 			ModelUUID: st.ModelUUID(),
 			Updated:   now.UnixNano(),
 		}
@@ -1834,7 +1834,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Life:      Alive,
 		}
 		relationStatusDoc := statusDoc{
-			Status:    status.Joined,
+			Status:    status.Joining,
 			ModelUUID: st.ModelUUID(),
 			Updated:   now.UnixNano(),
 		}

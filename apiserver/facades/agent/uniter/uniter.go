@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/utils/set"
 )
 
@@ -1071,12 +1072,8 @@ func (u *UniterAPI) RelationsStatus(args params.Entities) (params.RelationUnitSt
 	oneRelationUnitStatus := func(rel *state.Relation, unit *state.Unit) (params.RelationUnitStatus, error) {
 		rus := params.RelationUnitStatus{
 			RelationTag: rel.Tag().String(),
+			Suspended:   rel.Suspended(),
 		}
-		relStatus, err := rel.Status()
-		if err != nil {
-			return params.RelationUnitStatus{}, errors.Trace(err)
-		}
-		rus.Status = params.RelationStatusValue(relStatus.Status)
 		ru, err := rel.Unit(unit)
 		if err != nil {
 			return params.RelationUnitStatus{}, errors.Trace(err)
@@ -1427,6 +1424,45 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 	return result, nil
 }
 
+// SetRelationStatus updates the status of the specified relations.
+func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorResults, error) {
+	var statusResults params.ErrorResults
+
+	// TODO(wallyworld) - the token should be passed to SetStatus() but the
+	// interface method doesn't allow for that yet.
+	checker := u.st.LeadershipChecker()
+	token := checker.LeadershipCheck(u.unit.ApplicationName(), u.unit.Name())
+	if err := token.Check(nil); err != nil {
+		return statusResults, err
+	}
+
+	changeOne := func(arg params.RelationStatusArg) error {
+		rel, err := u.st.Relation(arg.RelationId)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = rel.Unit(u.unit)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		return rel.SetStatus(status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Message,
+		})
+	}
+	results := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		err := changeOne(arg)
+		results[i].Error = common.ServerError(err)
+	}
+	statusResults.Results = results
+	return statusResults, nil
+}
+
 // WatchUnitAddresses returns a NotifyWatcher for observing changes
 // to each unit's addresses.
 func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
@@ -1535,15 +1571,11 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 	for _, otherEp := range otherEndpoints {
 		otherAppName = otherEp.ApplicationName
 	}
-	relStatus, err := rel.Status()
-	if err != nil {
-		return nothing, err
-	}
 	return params.RelationResult{
-		Id:     rel.Id(),
-		Key:    rel.String(),
-		Life:   params.Life(rel.Life().String()),
-		Status: params.RelationStatusValue(relStatus.Status),
+		Id:        rel.Id(),
+		Key:       rel.String(),
+		Life:      params.Life(rel.Life().String()),
+		Suspended: rel.Suspended(),
 		Endpoint: multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
 			Relation:        multiwatcher.NewCharmRelation(ep.Relation),

@@ -120,7 +120,7 @@ func (r *relations) init() error {
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
 	activeRelations := make(map[int]*uniter.Relation)
-	relationStatusValues := make(map[int]relation.Status)
+	relationSuspended := make(map[int]bool)
 	for _, rs := range relationStatus {
 		if !rs.InScope {
 			continue
@@ -129,7 +129,7 @@ func (r *relations) init() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		relationStatusValues[relation.Id()] = rs.Status
+		relationSuspended[relation.Id()] = rs.Suspended
 		activeRelations[relation.Id()] = relation
 		orderedIds = append(orderedIds, relation.Id())
 	}
@@ -143,11 +143,10 @@ func (r *relations) init() error {
 				return errors.Trace(err)
 			}
 		} else {
-			switch relationStatusValues[id] {
-			// Relations which are not broken, eg just suspended or in error, may
-			// become active again so we keep the local state.
-			case relation.Joined, relation.Suspended, relation.Error:
-			default:
+			// Relations which are suspended may become
+			// active again so we keep the local state,
+			// otherwise we remove it.
+			if !relationSuspended[id] {
 				if err := dir.Remove(); err != nil {
 					return errors.Trace(err)
 				}
@@ -217,7 +216,7 @@ func (r *relations) NextHook(
 		}
 		var remoteBroken bool
 		if remoteState.Life == params.Dying ||
-			relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
+			relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
 			relationSnapshot = remotestate.RelationSnapshot{}
 			remoteBroken = true
 			// TODO(axw) if relation is implicit, leave scope & remove.
@@ -287,7 +286,7 @@ func nextRelationHook(
 	// If the relation's meant to be broken, break it.
 	if remoteBroken {
 		if !dir.Exists() {
-			// The relation may have been revoked and then removed, so we
+			// The relation may have been suspended and then removed, so we
 			// don't want to run the hook twice.
 			return hook.Info{}, resolver.ErrNoOperation
 		}
@@ -389,12 +388,13 @@ func (r *relations) GetInfo() map[int]*context.RelationInfo {
 
 func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 	for id, relationSnapshot := range remote {
-		if _, found := r.relationers[id]; found {
+		if rel, found := r.relationers[id]; found {
 			// We've seen this relation before. The only changes
 			// we care about are to the lifecycle state or status,
 			// and to the member settings versions. We handle
 			// differences in settings in nextRelationHook.
-			if relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
+			rel.ru.Relation().UpdateSuspended(relationSnapshot.Suspended)
+			if relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
 				}
@@ -403,7 +403,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 		}
 		// Relations that are not alive are simply skipped, because they
 		// were not previously known anyway.
-		if relationSnapshot.Life != params.Alive || relationSnapshot.Status != params.Joined {
+		if relationSnapshot.Life != params.Alive || relationSnapshot.Suspended {
 			continue
 		}
 		rel, err := r.st.RelationById(id)
@@ -504,6 +504,10 @@ func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 				return errors.Trace(err)
 			}
 			logger.Infof("joined relation %q", rel)
+			err = rel.SetStatus(relation.Joined)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			r.relationers[rel.Id()] = relationer
 			return nil
 		}

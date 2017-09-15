@@ -41,6 +41,8 @@ func (m *commonRelationSuiteMixin) SetUpTest(c *gc.C, s uniterSuite) {
 
 	// Add a relation, used by both this suite and relationSuite.
 	m.stateRelation = s.addRelation(c, "wordpress", "mysql")
+	err := m.stateRelation.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *relationUnitSuite) SetUpTest(c *gc.C) {
