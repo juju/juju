@@ -832,11 +832,11 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 	return result.OneError()
 }
 
-// NetworkInfo returns the network info for the given bindingNames.
-func (ctx *HookContext) NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error) {
+// NetworkInfo returns the network info for the given bindings on the given relation.
+func (ctx *HookContext) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
 	var relId *int
-	if ctx.relationId != -1 {
-		relId = &ctx.relationId
+	if relationId != -1 {
+		relId = &relationId
 	}
 	return ctx.unit.NetworkInfo(bindingNames, relId)
 }
