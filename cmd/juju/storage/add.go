@@ -86,7 +86,7 @@ Examples:
 // addCommand adds unit storage instances dynamically.
 type addCommand struct {
 	StorageCommandBase
-	unitTag string
+	unitTag names.UnitTag
 
 	// storageCons is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
@@ -104,7 +104,7 @@ func (c *addCommand) Init(args []string) (err error) {
 	if !names.IsValidUnit(u) {
 		return errors.NotValidf("unit name %q", u)
 	}
-	c.unitTag = names.NewUnitTag(u).String()
+	c.unitTag = names.NewUnitTag(u)
 
 	c.storageCons, err = storage.ParseConstraintsMap(args[1:], false)
 	return
@@ -137,7 +137,6 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	var added []string
 	var failures []string
 	// If there was a unit-related error, then all storages will get the same error.
 	// We want to collapse these - no need to repeat the same things ad nauseam.
@@ -145,15 +144,23 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	for i, one := range results {
 		us := storages[i]
 		if one.Error != nil {
-			failures = append(failures, fmt.Sprintf(fail, us.StorageName, one.Error))
+			const fail = "failed to add storage %q to %s: %v"
+			failures = append(failures, fmt.Sprintf(fail, us.StorageName, c.unitTag.Id(), one.Error))
 			collapsedFailures.Add(one.Error.Error())
 			continue
 		}
-		added = append(added, fmt.Sprintf(success, us.StorageName))
-	}
-
-	if len(added) > 0 {
-		fmt.Fprintln(ctx.Stdout, strings.Join(added, newline))
+		if one.Result == nil {
+			// Old controllers don't inform us of tag names.
+			ctx.Infof("added storage %q to %s", us.StorageName, c.unitTag.Id())
+			continue
+		}
+		for _, tagString := range one.Result.StorageTags {
+			tag, err := names.ParseStorageTag(tagString)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ctx.Infof("added storage %s to %s", tag.Id(), c.unitTag.Id())
+		}
 	}
 
 	if len(failures) == len(storages) {
@@ -166,37 +173,30 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 	if len(failures) > 0 {
-		fmt.Fprintln(ctx.Stderr, strings.Join(failures, newline))
+		fmt.Fprintln(ctx.Stderr, strings.Join(failures, "\n"))
 		return cmd.ErrSilent
 	}
 	return nil
 }
 
-var (
-	newline = "\n"
-	success = "added %q"
-	fail    = "failed to add %q: %v"
-)
-
 // StorageAddAPI defines the API methods that the storage commands use.
 type StorageAddAPI interface {
 	Close() error
-	AddToUnit(storages []params.StorageAddParams) ([]params.ErrorResult, error)
+	AddToUnit(storages []params.StorageAddParams) ([]params.AddStorageResult, error)
 }
 
 func (c *addCommand) createStorageAddParams() []params.StorageAddParams {
 	all := make([]params.StorageAddParams, 0, len(c.storageCons))
 	for one, cons := range c.storageCons {
-		all = append(all,
-			params.StorageAddParams{
-				UnitTag:     c.unitTag,
-				StorageName: one,
-				Constraints: params.StorageConstraints{
-					cons.Pool,
-					&cons.Size,
-					&cons.Count,
-				},
-			})
+		all = append(all, params.StorageAddParams{
+			UnitTag:     c.unitTag.String(),
+			StorageName: one,
+			Constraints: params.StorageConstraints{
+				cons.Pool,
+				&cons.Size,
+				&cons.Count,
+			},
+		})
 	}
 
 	// For consistency and because we are coming from a map,

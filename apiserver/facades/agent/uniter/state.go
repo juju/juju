@@ -26,7 +26,7 @@ type storageStateInterface interface {
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
-	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error
+	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 	UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error)
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
