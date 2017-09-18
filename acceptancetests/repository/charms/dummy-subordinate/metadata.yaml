@@ -6,13 +6,12 @@ description: |
   This dummy subordinate charm is used to verify that a relationship is created correctly
 requires:
   sink:
-    interface: dummy-token 
-    scope: container 
+    interface: dummy-token
+    scope: container
 categories:
   - misc
 series:
-  - xenial
   - trusty
-  - precise
-  - yakkety
+  - xenial
   - zesty
+  - artful

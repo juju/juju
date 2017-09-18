@@ -8,6 +8,7 @@ try:
     from contextlib import nested
 except ImportError:
     from contextlib import ExitStack as nested
+import errno
 import glob
 import logging
 import os
@@ -26,6 +27,7 @@ from jujucharm import (
 )
 from jujupy import (
     client_from_config,
+    client_for_existing,
     EnvJujuClient1X,
     FakeBackend,
     fake_juju_client,
@@ -570,6 +572,59 @@ class CreateController:
             self.tear_down_client.kill_controller(check=True)
 
 
+class ExistingController:
+    """A Controller strategy where the controller is already present.
+
+    Intended for use with BootstrapManager and
+    version_client.client_for_existing().
+
+    :ivar client: Client object
+    :ivar tear_down_client: Client object to tear down at the end of testing
+    """
+
+    def __init__(self, client):
+        self.client = client
+        self.tear_down_client = client
+
+    def create_initial_model(self):
+        """Create the initial model for use in testing.
+
+        Since we set client.env.environment to our desired model name jujupy
+        picks that up to name the new model.
+        """
+
+        self.client.add_model(self.client.env)
+        logging.info('Added model {} to existing controller'.format(
+            self.client.env.environment))
+
+    def prepare(self, controller_name):
+        """Prepare client for use by pointing it at the selected controller.
+
+        This is a bit of a hack to allow for multiple controllers in the same
+        environment while testing. When the client object is intiailly made out
+        of the existing environment it picks up the current controller and
+        sets the env.controller name to that ID. Resetting the name to occurred
+        desired ID simply forces jujupy to pass that ID as the first part of
+        the -m <controller>:<model> flag for commands.
+
+        :param controller_id: ID of the controller in use for testing, passed
+        in with the --existing flag
+        """
+        self.client.env.controller.name = controller_name
+
+    def get_hosts(self):
+        """Provide the controller host."""
+        host = get_machine_dns_name(
+            self.client.get_controller_client(), '0')
+        if host is None:
+            raise ValueError('Could not get machine 0 host')
+        return {'0': host}
+
+    def tear_down(self, _):
+        """Destroys the current model"""
+        self.client.destroy_model()
+
+
 class PublicController:
     """A controller strategy where the controller is public.
 
@@ -734,6 +789,45 @@ class BootstrapManager:
             if args.to is not None:
                 client.env.bootstrap_to = args.to
         return cls.from_client(args, client)
+
+    @classmethod
+    def from_existing_controller(cls, args):
+        try:
+            juju_home = os.environ['JUJU_DATA']
+        except KeyError:
+            home = os.path.expanduser('~')
+            if os.path.isdir(os.path.join(home, '.local/share/juju/')):
+                juju_home = os.path.join(home, '.local/share/juju/')
+            elif os.path.isdir(os.path.join(home, '.juju/')):
+                juju_home = os.path.join(home, '.juju/')
+            else:
+                raise Exception(
+                    'No juju data directory found at ~/.local/share/juju/ '
+                    'or ~/.juju If your juju data is located somewhere '
+                    'else please set the JUJU_DATA env variable to that path.')
+        if not args.logs:
+            args.logs = generate_default_clean_dir(args.temp_env_name)
+        model = args.temp_env_name.replace('-temp-env', '')
+
+        if args.existing == 'current':
+            controller = None
+        else:
+            controller = args.existing
+        client = client_for_existing(args.juju_bin, juju_home,
+                                     controller_name=controller,
+                                     model_name=model)
+        client.has_controller = True
+        return cls.from_client_existing(args, client)
+
+    @classmethod
+    def from_client_existing(cls, args, client):
+        jes_enabled = client.is_jes_enabled()
+        controller_strategy = ExistingController(client)
+        return cls(
+            args.temp_env_name, client, client, args.bootstrap_host,
+            args.machine, args.series, args.agent_url, args.agent_stream,
+            args.region, args.logs, args.keep_env, permanent=jes_enabled,
+            jes_enabled=jes_enabled, controller_strategy=controller_strategy)
 
     @classmethod
     def from_client(cls, args, client):
@@ -977,7 +1071,11 @@ class BootstrapManager:
                     runtime_config = None
                 artifacts_dir = os.path.join(self.log_dir,
                                              client.env.environment)
-                os.makedirs(artifacts_dir)
+                try:
+                    os.makedirs(artifacts_dir)
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
                 dump_env_logs_known_hosts(
                     client, artifacts_dir, runtime_config, known_hosts)
 
@@ -1039,6 +1137,19 @@ class BootstrapManager:
                         bootstrap_series=self.series,
                         **kwargs)
                 with self.runtime_context(machines):
+                    yield machines
+        except LoggedException:
+            sys.exit(1)
+
+    @contextmanager
+    def existing_context(self, upload_tools, controller_id):
+        try:
+            with self.top_context() as machines:
+                with self.runtime_context(machines):
+                    self.has_controller = True
+                    if controller_id != 'current':
+                        self.controller_strategy.prepare(controller_id)
+                    self.controller_strategy.create_initial_model()
                     yield machines
         except LoggedException:
             sys.exit(1)
@@ -1154,3 +1265,15 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
         else:
             raise Exception(
                 '{} was not deleted:'.format(instance_id))
+
+
+def test_on_controller(test, args):
+    if args.existing:
+        bs_manager = BootstrapManager.from_existing_controller(args)
+        with bs_manager.existing_context(args.upload_tools,
+                                         args.existing):
+                test(bs_manager.client)
+    else:
+        bs_manager = BootstrapManager.from_args(args)
+        with bs_manager.booted_context(args.upload_tools):
+                test(bs_manager.client)

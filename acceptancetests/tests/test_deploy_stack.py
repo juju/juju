@@ -35,6 +35,7 @@ from deploy_stack import (
     copy_local_logs,
     copy_remote_logs,
     CreateController,
+    ExistingController,
     deploy_dummy_stack,
     deploy_job,
     _deploy_job,
@@ -52,6 +53,7 @@ from deploy_stack import (
     update_env,
     wait_for_state_server_to_shutdown,
     error_if_unclean,
+    test_on_controller
     )
 from jujupy import (
     EnvJujuClient1X,
@@ -1353,6 +1355,34 @@ class TestMakeControllerStrategy(TestCase):
         self.assertEqual('sso-password', strategy.password)
 
 
+class TestExistingController(FakeHomeTestCase):
+
+    def get_controller(self):
+        client = fake_juju_client()
+        create_controller = ExistingController(client)
+        return create_controller
+
+    def test_prepare(self):
+        controller = self.get_controller()
+        controller.prepare('foo')
+        self.assertEqual('foo', controller.client.env.controller.name)
+
+    def test_create_initial_model(self):
+        controller = self.get_controller()
+        client = controller.client
+        self.assertEqual({'models': []}, client.get_models())
+        controller.create_initial_model()
+        self.assertEqual([{'name': 'name'}], client.get_models()['models'])
+
+    def test_tear_down(self):
+        controller = self.get_controller()
+        client = controller.client
+        client.add_model(client.env)
+        self.assertEqual([{'name': 'name'}], client.get_models()['models'])
+        controller.tear_down('')
+        self.assertEqual([], client.get_models()['models'])
+
+
 class TestCreateController(FakeHomeTestCase):
 
     def get_cleanup_controller(self):
@@ -1498,6 +1528,36 @@ class TestBootstrapManager(FakeHomeTestCase):
             bs_manager = BootstrapManager.from_args(args)
         fc_mock.assert_called_once_with('foo', 'bar', debug=True,
                                         soft_deadline=deadline)
+        self.assertEqual('baz', bs_manager.temp_env_name)
+        self.assertIs(fc_mock.return_value, bs_manager.client)
+        self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
+        self.assertEqual('example.org', bs_manager.bootstrap_host)
+        self.assertEqual(['example.com'], bs_manager.machines)
+        self.assertEqual('angsty', bs_manager.series)
+        self.assertEqual('qux', bs_manager.agent_url)
+        self.assertEqual('escaped', bs_manager.agent_stream)
+        self.assertEqual('eu-west-northwest-5', bs_manager.region)
+        self.assertIs(True, bs_manager.keep_env)
+        self.assertEqual('pine', bs_manager.log_dir)
+        jes_enabled = bs_manager.client.is_jes_enabled.return_value
+        self.assertEqual(jes_enabled, bs_manager.permanent)
+        self.assertEqual(jes_enabled, bs_manager.jes_enabled)
+        self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsFalse(bs_manager.has_controller)
+
+    def test_from_existing(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
+        args = Namespace(
+            env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
+            bootstrap_host='example.org', machine=['example.com'],
+            series='angsty', agent_url='qux', agent_stream='escaped',
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=deadline, to=None, existing='existing')
+        with patch('deploy_stack.client_for_existing') as fc_mock:
+            with patch.dict('os.environ', {'JUJU_DATA': 'foo'}):
+                bs_manager = BootstrapManager.from_existing_controller(args)
+        fc_mock.assert_called_once_with(
+            'bar', 'foo', controller_name='existing', model_name='baz')
         self.assertEqual('baz', bs_manager.temp_env_name)
         self.assertIs(fc_mock.return_value, bs_manager.client)
         self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
@@ -2656,6 +2716,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             deadline=None,
             controller_host=None,
             use_charmstore=False,
+            existing=None
         ))
 
     def test_upload_tools(self):
