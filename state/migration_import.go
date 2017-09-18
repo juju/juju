@@ -73,18 +73,13 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		Type:           modelType,
-		CloudName:      model.Cloud(),
-		CloudRegion:    model.CloudRegion(),
-		Config:         cfg,
-		Owner:          model.Owner(),
-		MigrationMode:  MigrationModeImporting,
-		EnvironVersion: model.EnvironVersion(),
-
-		// NOTE(axw) we create the model without any storage
-		// pools. We'll need to import the storage pools from
-		// the model description before adding any volumes,
-		// filesystems or storage instances.
+		Type:                    modelType,
+		CloudName:               model.Cloud(),
+		CloudRegion:             model.CloudRegion(),
+		Config:                  cfg,
+		Owner:                   model.Owner(),
+		MigrationMode:           MigrationModeImporting,
+		EnvironVersion:          model.EnvironVersion(),
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
 	if creds := model.CloudCredential(); creds != nil {
@@ -1586,14 +1581,16 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Insert: doc,
 	})
 
-	refcounts, closer := i.st.db().GetCollection(refcountsC)
-	defer closer()
-	storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
-	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
-	if err != nil {
-		return errors.Trace(err)
+	if owner != nil {
+		refcounts, closer := i.st.db().GetCollection(refcountsC)
+		defer closer()
+		storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
+		incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, incRefOp)
 	}
-	ops = append(ops, incRefOp)
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
