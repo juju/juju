@@ -204,6 +204,7 @@ func AllFacades() *facade.Registry {
 	reg("Pinger", 1, NewPinger)
 	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
 	reg("Provisioner", 4, provisioner.NewProvisionerAPI)
+	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5) // v5 adds DistributionGroupByMachineId()
 	reg("ProxyUpdater", 1, proxyupdater.NewAPI)
 	reg("Reboot", 2, reboot.NewRebootAPI)
 	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
