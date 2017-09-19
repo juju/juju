@@ -101,7 +101,7 @@ func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname 
 }
 
 func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
-	pool := "loop-pool"
+	pool := "modelscoped"
 	kind := "block"
 	// Create a default pool for block devices.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
@@ -1151,7 +1151,7 @@ func (s *MigrationExportSuite) TestStorage(c *gc.C) {
 	c.Assert(constraints, gc.HasLen, 2)
 	cons, found := constraints["data"]
 	c.Assert(found, jc.IsTrue)
-	c.Check(cons.Pool(), gc.Equals, "loop-pool")
+	c.Check(cons.Pool(), gc.Equals, "modelscoped")
 	c.Check(cons.Size(), gc.Equals, uint64(0x400))
 	c.Check(cons.Count(), gc.Equals, uint64(1))
 	cons, found = constraints["allecto"]

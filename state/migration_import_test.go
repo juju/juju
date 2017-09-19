@@ -1162,7 +1162,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cons, jc.DeepEquals, map[string]state.StorageConstraints{
-		"data":    {Pool: "loop-pool", Size: 0x400, Count: 1},
+		"data":    {Pool: "modelscoped", Size: 0x400, Count: 1},
 		"allecto": {Pool: "loop", Size: 0x400},
 	})
 
@@ -1182,6 +1182,20 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	attachments, err := newIM.StorageAttachments(storageTag)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
+}
+
+func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
+	_, u, storageTag := s.makeUnitWithStorage(c)
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.importModel(c)
 }
 
 func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
