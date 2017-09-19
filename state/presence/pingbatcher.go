@@ -293,50 +293,40 @@ func (pb *PingBatcher) flush() error {
 	session := pb.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := pb.pings.With(session)
-	bulk := pings.Bulk()
 	docCount := 0
 	fieldCount := 0
 	t := time.Now()
-	bulkCount := 0
+	slots := make(map[int64]bool)
 	for docId, slot := range next {
 		docCount++
-		var incFields bson.D
+		var fields bson.D
 		for fieldKey, value := range slot.Alive {
-			incFields = append(incFields, bson.DocElem{Name: "alive." + fieldKey, Value: value})
+			fields = append(fields, bson.DocElem{Name: "alive." + fieldKey, Value: bson.M{"or": value}})
 			fieldCount++
 		}
-		// TODO(jam): 2016-06-22 https://bugs.launchpad.net/juju/+bug/1699678
-		// Consider switching $inc to $bit {or }. It would let us cleanup
-		// presence.beings a lot if we didn't have to worry about pinging
-		// the same slot twice.
-		bulk.Upsert(
-			bson.D{{"_id", docId}},
+		// Note: UpsertId already handles hitting the DuplicateKey error internally
+		// We also just Upsert directly instead of using Bulk because for now each PingBatcher is actually
+		// only used by 1 model. Given 30s slots, we only ever hit 1 or 2 documents being updated at the same
+		// time. If we switch to sharing batchers between models, then it might make more sense to use bulk updates
+		// but then we need to handle when we get Duplicate Key errors during update.
+		_, err := pings.UpsertId(docId,
 			bson.D{
 				{"$set", bson.D{{"slot", slot.Slot}}},
-				{"$inc", incFields},
+				{"$bit", fields},
 			},
 		)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if logger.IsTraceEnabled() {
 			// the rest of Pings records the first 6 characters of
 			// model-uuids, so we include that here if we are TRACEing.
 			uuids.Add(docId[:6])
-		}
-		bulkCount++
-		if bulkCount >= maxBatch {
-			if _, err := bulk.Run(); err != nil {
-				return errors.Trace(err)
-			}
-			bulkCount = 0
-			bulk = pings.Bulk()
-		}
-	}
-	if bulkCount > 0 {
-		if _, err := bulk.Run(); err != nil {
-			return errors.Trace(err)
+			slots[slot.Slot] = true
 		}
 	}
 	// usually we should only be processing 1 slot
-	logger.Tracef("[%v] recorded %d pings for %d ping slot(s) and %d fields in %.3fs",
-		strings.Join(uuids.SortedValues(), ", "), pingCount, docCount, fieldCount, time.Since(t).Seconds())
+	logger.Tracef("%p [%v] recorded %d pings for %d ping slot(s) and %d fields in %.3fs",
+		pb, strings.Join(uuids.SortedValues(), ", "), pingCount, docCount, fieldCount, time.Since(t).Seconds())
 	return nil
 }
