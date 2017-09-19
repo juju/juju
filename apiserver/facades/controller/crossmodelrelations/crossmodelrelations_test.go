@@ -80,7 +80,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life params.Life) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
@@ -107,7 +107,7 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
-				Life:             params.Alive,
+				Life:             life,
 				Suspended:        &suspended,
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
@@ -123,13 +123,22 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rel.status, gc.Equals, status.Suspending)
-	c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
-	s.st.CheckCalls(c, []testing.StubCall{
+	expected := []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
-	})
+	}
+	if life == params.Alive {
+		c.Assert(rel.status, gc.Equals, status.Suspending)
+		c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
+	} else {
+		c.Assert(rel.status, gc.Equals, status.Status(""))
+		c.Assert(rel.message, gc.Equals, "")
+		expected = append(expected, testing.StubCall{
+			"RemoteApplication", []interface{}{"db2"},
+		})
+	}
+	s.st.CheckCalls(c, expected)
 	ru1.CheckCalls(c, []testing.StubCall{
 		{"InScope", []interface{}{}},
 		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
@@ -137,6 +146,14 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
+	s.assertPublishRelationsChanges(c, params.Alive)
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
+	s.assertPublishRelationsChanges(c, params.Dying)
 }
 
 func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {

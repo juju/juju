@@ -23,13 +23,17 @@ import (
 // RelationUnit holds information about a single unit in a relation, and
 // allows clients to conveniently access unit-specific functionality.
 type RelationUnit struct {
-	st            *State
-	relation      *Relation
-	unitName      string
-	isPrincipal   bool
-	checkUnitLife bool
-	endpoint      Endpoint
-	scope         string
+	st          *State
+	relation    *Relation
+	unitName    string
+	isPrincipal bool
+	endpoint    Endpoint
+	scope       string
+
+	// isLocalUnit is true for relation units representing
+	// the local side of a cross model relation, or for
+	// any 2 units in a non cross model relation.
+	isLocalUnit bool
 }
 
 // Relation returns the relation associated with the unit.
@@ -90,7 +94,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   being saved for a followup).
 	relationDocID := ru.relation.doc.DocID
 	var ops []txn.Op
-	if ru.checkUnitLife {
+	if ru.isLocalUnit {
 		ops = append(ops, txn.Op{
 			C:      unitsC,
 			Id:     ru.unitName,
@@ -166,7 +170,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if ru.checkUnitLife {
+	if ru.isLocalUnit {
 		units, closer := db.GetCollection(unitsC)
 		defer closer()
 		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
@@ -317,12 +321,14 @@ func (ru *RelationUnit) LeaveScope() error {
 			Remove: true,
 		}}
 		if ru.relation.doc.Life == Alive {
-			ops = append(ops, txn.Op{
-				C:      relationsC,
-				Id:     ru.relation.doc.DocID,
-				Assert: bson.D{{"life", Alive}},
-				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
-			})
+			if ru.isLocalUnit {
+				ops = append(ops, txn.Op{
+					C:      relationsC,
+					Id:     ru.relation.doc.DocID,
+					Assert: bson.D{{"life", Alive}},
+					Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
+				})
+			}
 		} else if ru.relation.doc.UnitCount > 1 {
 			ops = append(ops, txn.Op{
 				C:      relationsC,

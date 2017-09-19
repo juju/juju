@@ -1194,13 +1194,26 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 	}
 	rel := results[0].Result
 
-	dead := notfound || rel.Life == params.Dead
+	gone := notfound || rel.Life == params.Dead || rel.Suspended
 	data, known := fw.relationIngress[tag]
-	if known && dead {
-		logger.Debugf("relation %v was known but has died", tag.Id())
+	if known && gone {
+		logger.Debugf("relation %v was known but has died or been suspended", tag.Id())
+		// If relation is suspended, shut off ingress immediately.
+		// Units will also eventually leave scope which would cause
+		// ingress to be shut off, but best to do it up front.
+		if rel != nil && rel.Suspended {
+			change := &remoteRelationNetworkChange{
+				relationTag:         tag,
+				localApplicationTag: data.localApplicationTag,
+				ingressRequired:     false,
+			}
+			if err := fw.relationIngressChanged(change); err != nil {
+				return errors.Trace(err)
+			}
+		}
 		return fw.forgetRelation(data)
 	}
-	if !known && !dead {
+	if !known && !gone {
 		err := fw.startRelation(rel, rel.Endpoint.Role)
 		if err != nil {
 			return err

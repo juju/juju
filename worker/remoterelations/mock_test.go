@@ -200,9 +200,10 @@ func (m *mockRelationsFacade) Relations(keys []string) ([]params.RemoteRelationR
 	for i, key := range keys {
 		if rel, ok := m.relations[key]; ok {
 			result[i].Result = &params.RemoteRelation{
-				Id:   rel.id,
-				Life: rel.life,
-				Key:  keys[i],
+				Id:        rel.id,
+				Life:      rel.life,
+				Suspended: rel.suspended,
+				Key:       keys[i],
 			}
 			if epInfo, ok := m.relationsEndpoints[key]; ok {
 				result[i].Result.RemoteEndpointName = epInfo.remoteEndpointName
@@ -466,8 +467,9 @@ func (r *mockRemoteApplication) Life() params.Life {
 
 type mockRelation struct {
 	testing.Stub
-	id   int
-	life params.Life
+	id        int
+	life      params.Life
+	suspended bool
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -485,4 +487,9 @@ func (r *mockRelation) Id() int {
 func (r *mockRelation) Life() params.Life {
 	r.MethodCall(r, "Life")
 	return r.life
+}
+
+func (r *mockRelation) Suspended() bool {
+	r.MethodCall(r, "Suspended")
+	return r.suspended
 }

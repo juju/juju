@@ -363,16 +363,18 @@ func (r *relations) PrepareHook(hookInfo hook.Info) (string, error) {
 }
 
 // CommitHook is part of the Relations interface.
-func (r *relations) CommitHook(hookInfo hook.Info) error {
+func (r *relations) CommitHook(hookInfo hook.Info) (err error) {
+	defer func() {
+		if err == nil && hookInfo.Kind == hooks.RelationBroken {
+			delete(r.relationers, hookInfo.RelationId)
+		}
+	}()
 	if !hookInfo.Kind.IsRelation() {
 		return errors.Errorf("not a relation hook: %#v", hookInfo)
 	}
 	relationer, found := r.relationers[hookInfo.RelationId]
 	if !found {
 		return errors.Errorf("unknown relation: %d", hookInfo.RelationId)
-	}
-	if hookInfo.Kind == hooks.RelationBroken {
-		delete(r.relationers, hookInfo.RelationId)
 	}
 	return relationer.CommitHook(hookInfo)
 }
