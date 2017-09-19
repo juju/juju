@@ -482,8 +482,8 @@ func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) 
 
 // Unit returns a RelationUnit for the supplied unit.
 func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	const checkUnitLife = true
-	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), checkUnitLife)
+	const isLocalUnit = true
+	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), isLocalUnit)
 }
 
 // RemoteUnit returns a RelationUnit for the supplied unit
@@ -501,8 +501,8 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	// relation, so all remote units are principals.
 	const principal = ""
 	const isPrincipal = true
-	const checkUnitLife = false
-	return r.unit(unitName, principal, isPrincipal, checkUnitLife)
+	const isLocalUnit = false
+	return r.unit(unitName, principal, isPrincipal, isLocalUnit)
 }
 
 // IsCrossModel returns whether this relation is a cross-model
@@ -523,7 +523,7 @@ func (r *Relation) unit(
 	unitName string,
 	principal string,
 	isPrincipal bool,
-	checkUnitLife bool,
+	isLocalUnit bool,
 ) (*RelationUnit, error) {
 	serviceName, err := names.UnitApplication(unitName)
 	if err != nil {
@@ -542,13 +542,13 @@ func (r *Relation) unit(
 		scope = fmt.Sprintf("%s#%s", scope, container)
 	}
 	return &RelationUnit{
-		st:            r.st,
-		relation:      r,
-		unitName:      unitName,
-		isPrincipal:   isPrincipal,
-		checkUnitLife: checkUnitLife,
-		endpoint:      ep,
-		scope:         scope,
+		st:          r.st,
+		relation:    r,
+		unitName:    unitName,
+		isPrincipal: isPrincipal,
+		isLocalUnit: isLocalUnit,
+		endpoint:    ep,
+		scope:       scope,
 	}, nil
 }
 

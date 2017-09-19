@@ -1058,6 +1058,18 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
 	})
 
+	// And again when relation is suspended.
+	err = rel.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), nil)
+
+	// And again when relation is resumed.
+	err = rel.SetSuspended(false)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+	})
+
 	// And again when relation is destroyed.
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

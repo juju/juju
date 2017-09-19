@@ -170,6 +170,7 @@ type TokenResults struct {
 // the perspective of the local model.
 type RemoteRelation struct {
 	Life                  Life           `json:"life"`
+	Suspended             bool           `json:"suspended"`
 	Id                    int            `json:"id"`
 	Key                   string         `json:"key"`
 	ApplicationName       string         `json:"application-name"`

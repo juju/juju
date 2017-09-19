@@ -190,9 +190,10 @@ func (api *RemoteRelationsAPI) remoteRelation(entity params.Entity) (*params.Rem
 		return nil, errors.Trace(err)
 	}
 	result := &params.RemoteRelation{
-		Id:   rel.Id(),
-		Life: params.Life(rel.Life().String()),
-		Key:  tag.Id(),
+		Id:        rel.Id(),
+		Life:      params.Life(rel.Life().String()),
+		Suspended: rel.Suspended(),
+		Key:       tag.Id(),
 	}
 	for _, ep := range rel.Endpoints() {
 		// Try looking up the info for the remote application.

@@ -37,7 +37,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 
 	// Update the relation suspended status.
 	currentStatus := rel.Suspended()
-	if change.Suspended != nil && currentStatus != *change.Suspended {
+	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
 		if err := rel.SetSuspended(*change.Suspended); err != nil {
 			return errors.Trace(err)
 		}

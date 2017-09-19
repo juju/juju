@@ -222,6 +222,7 @@ type mockRelation struct {
 	id                    int
 	key                   string
 	life                  state.Life
+	suspended             bool
 	units                 map[string]common.RelationUnit
 	remoteUnits           map[string]common.RelationUnit
 	endpoints             []state.Endpoint
@@ -255,7 +256,7 @@ func (r *mockRelation) Life() state.Life {
 
 func (r *mockRelation) Suspended() bool {
 	r.MethodCall(r, "Suspended")
-	return false
+	return r.suspended
 }
 
 func (r *mockRelation) Unit(unitId string) (common.RelationUnit, error) {
