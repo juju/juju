@@ -19,6 +19,8 @@ var bridgeOnlyOptions = []string{
 	"dns-nameservers",
 	"dns-search",
 	"dns-sortlist",
+	"post-up",
+	"pre-down",
 }
 
 func pruneOptions(options []string, names ...string) []string {
