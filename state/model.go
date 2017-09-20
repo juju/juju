@@ -571,7 +571,7 @@ func (m *Model) Name() string {
 	return m.doc.Name
 }
 
-// Type returns the human friendly name of the model.
+// Type returns the type of the model.
 func (m *Model) Type() ModelType {
 	return m.doc.Type
 }
