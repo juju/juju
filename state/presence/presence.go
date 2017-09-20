@@ -557,8 +557,8 @@ func (w *Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, se
 			remaining = nil
 		}
 		docIds := make([]string, len(batch))
-		for _, seq := range batch {
-			docIds = append(docIds, docIDInt64(w.modelUUID, seq))
+		for i, seq := range batch {
+			docIds[i] = docIDInt64(w.modelUUID, seq)
 		}
 		query := beingsC.Find(bson.M{"_id": bson.M{"$in": docIds}})
 		// We don't need the _id returned, as its just a way to lookup the seq,
