@@ -249,8 +249,18 @@ func deployApplication(
 		attachStorage[i] = tag
 	}
 
+	modelType, err := backend.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	applicationType := state.ApplicationTypeIAAS
+	if modelType == state.ModelTypeCAAS {
+		applicationType = state.ApplicationTypeCAAS
+	}
+
 	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:  args.ApplicationName,
+		Type:             applicationType,
 		Series:           args.Series,
 		Charm:            stateCharm(ch),
 		Channel:          csparams.Channel(args.Channel),

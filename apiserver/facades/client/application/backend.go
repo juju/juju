@@ -34,6 +34,7 @@ type Backend interface {
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
+	ModelType() (state.ModelType, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
@@ -127,6 +128,7 @@ type Model interface {
 	Tag() names.Tag
 	Name() string
 	Owner() names.UserTag
+	Type() state.ModelType
 }
 
 // Resources defines a subset of the functionality provided by the
@@ -266,6 +268,14 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return stateUnitShim{u, s.State}, nil
+}
+
+func (s stateShim) ModelType() (state.ModelType, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return state.ModelTypeIAAS, err
+	}
+	return m.Type(), nil
 }
 
 func (s stateShim) Resources() (Resources, error) {

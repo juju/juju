@@ -24,6 +24,7 @@ import (
 // charm.
 type DeployApplicationParams struct {
 	ApplicationName string
+	Type            state.ApplicationType
 	Series          string
 	Charm           *state.Charm
 	Channel         csparams.Channel
@@ -72,6 +73,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 
 	asa := state.AddApplicationArgs{
 		Name:             args.ApplicationName,
+		Type:             args.Type,
 		Series:           args.Series,
 		Charm:            args.Charm,
 		Channel:          args.Channel,

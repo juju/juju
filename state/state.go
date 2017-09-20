@@ -1013,6 +1013,7 @@ var (
 type AddApplicationArgs struct {
 	Name             string
 	Series           string
+	Type             ApplicationType
 	Charm            *Charm
 	Channel          csparams.Channel
 	Storage          map[string]StorageConstraints
@@ -1057,15 +1058,23 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-	im, err := st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
+	if args.Type == "" {
+		return nil, errors.Errorf("unknown application type")
 	}
-	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
+
+	if args.Type == ApplicationTypeIAAS {
+
+		im, err := st.IAASModel()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	storagePools := make(set.Strings)
 	for _, storageParams := range args.Storage {
@@ -1202,6 +1211,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	appDoc := &applicationDoc{
 		DocID:         applicationID,
 		Name:          args.Name,
+		Type:          args.Type,
 		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
