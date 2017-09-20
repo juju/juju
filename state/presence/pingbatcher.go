@@ -296,7 +296,6 @@ func (pb *PingBatcher) flush() error {
 	docCount := 0
 	fieldCount := 0
 	t := time.Now()
-	slots := make(map[int64]bool)
 	for docId, slot := range next {
 		docCount++
 		var fields bson.D
@@ -322,7 +321,6 @@ func (pb *PingBatcher) flush() error {
 			// the rest of Pings records the first 6 characters of
 			// model-uuids, so we include that here if we are TRACEing.
 			uuids.Add(docId[:6])
-			slots[slot.Slot] = true
 		}
 	}
 	// usually we should only be processing 1 slot
