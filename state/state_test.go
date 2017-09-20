@@ -1482,25 +1482,28 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 
 func (s *StateSuite) TestAddApplication(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "haha/borken", Charm: ch})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "haha/borken", Type: state.ApplicationTypeIAAS, Charm: ch})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "haha/borken": invalid name`)
 	_, err = s.State.Application("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid application name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "umadbro"})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "umadbro", Type: state.ApplicationTypeIAAS})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
+
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "notype", Charm: ch})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "notype": unknown application type`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: ch, Settings: insettings})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	outsettings, err := wordpress.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outsettings, gc.DeepEquals, insettings)
 
-	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
+	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Type: state.ApplicationTypeIAAS, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 	sInfo, err := mysql.Status()
@@ -1526,7 +1529,7 @@ func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	insettings := charm.Settings{"tuning": nil}
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: ch, Settings: insettings})
 	c.Assert(err, jc.ErrorIsNil)
 	outsettings, err := wordpress.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1546,7 +1549,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
@@ -1555,7 +1558,7 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 	// Check that services cannot be added if the model is initially Dying.
 	err := s.model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is being migrated`)
 }
 
@@ -1564,7 +1567,7 @@ func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
 }
 
@@ -1578,14 +1581,14 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 			Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
 }
 
 func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingApplication(c, "s0", charm)
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s0", Charm: charm})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s0", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s0": application already exists`)
 }
 
@@ -1597,7 +1600,7 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.AddTestingApplication(c, "s1", charm)
 	}).Check()
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": application already exists`)
 }
 
@@ -1610,7 +1613,7 @@ func (s *StateSuite) TestAddApplicationEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(s.model.Life(), gc.Equals, state.Alive)
 		c.Assert(s.model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
@@ -1624,6 +1627,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: ch,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1657,6 +1661,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: ch,
 		EndpointBindings: map[string]string{
 			"client":  "client",
@@ -1717,6 +1722,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 
 		_, err := s.State.AddApplication(state.AddApplicationArgs{
 			Name:             "yoursql",
+			Type:             state.ApplicationTypeIAAS,
 			Charm:            charm,
 			EndpointBindings: test.bindings,
 		})
@@ -1731,7 +1737,7 @@ func (s *StateSuite) TestAddServiceMachinePlacementInvalidSeries(c *gc.C) {
 
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name: "wordpress", Charm: charm,
+		Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: charm,
 		Placement: []*instance.Placement{
 			{instance.MachineScope, m.Id()},
 		},
@@ -1744,7 +1750,7 @@ func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
 	// A charm with a series in its URL is implicitly supported by that
 	// series only.
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: "wordpress", Charm: charm,
+		Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: charm,
 		Series: "centos7",
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS \"CentOS"\) not supported by charm, supported series are "quantal"`)
@@ -1755,7 +1761,7 @@ func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
 	// A charm with a series in its URL is implicitly supported by that
 	// series only.
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: "wordpress", Charm: charm,
+		Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: charm,
 		Series: charm.URL().Series,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1765,7 +1771,7 @@ func (s *StateSuite) TestAddServiceCompatibleOSWithNoExplicitSupportedSeries(c *
 	// If a charm doesn't declare any series, we can add it with any series we choose.
 	charm := s.AddSeriesCharm(c, "dummy", "")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: "wordpress", Charm: charm,
+		Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: charm,
 		Series: "quantal",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1776,7 +1782,7 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 	// A charm with supported series can only be force-deployed to series
 	// of the same operating systems as the suppoted series.
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: "wordpress", Charm: charm,
+		Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: charm,
 		Series: "centos7",
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty, xenial, yakkety"`)
@@ -1789,13 +1795,13 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 	c.Assert(len(applications), gc.Equals, 0)
 
 	// Check that after adding applications the result is ok.
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: charm})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(applications), gc.Equals, 1)
 
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: charm})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3612,7 +3618,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a application and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3664,7 +3670,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	// Add a machine and a unit with the current version.
 	machine, err := st.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service, err := st.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
+	service, err := st.AddApplication(state.AddApplicationArgs{Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

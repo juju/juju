@@ -76,6 +76,7 @@ func (s *uniterSuite) addMachineBoundAppCharmAndUnit(c *gc.C, appName string, bi
 
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:             appName,
+		Type:             state.ApplicationTypeIAAS,
 		Charm:            charm,
 		EndpointBindings: bindings,
 	})

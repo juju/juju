@@ -307,6 +307,8 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+
+	c.Assert(app.Type(), gc.Equals, state.ApplicationTypeIAAS)
 	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{

@@ -282,6 +282,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 	cons := constraints.MustParse("virt-type=blah")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        s.applicationName,
+		Type:        state.ApplicationTypeIAAS,
 		Series:      "",
 		Charm:       s.testCharm,
 		Constraints: cons,
@@ -293,6 +294,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 	cons := constraints.MustParse("virt-type=kvm")
 	service, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        s.applicationName,
+		Type:        state.ApplicationTypeIAAS,
 		Series:      "",
 		Charm:       s.testCharm,
 		Constraints: cons,

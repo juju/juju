@@ -37,6 +37,7 @@ func addApplication(c *gc.C, st *state.State, series, name string, ch *state.Cha
 	c.Assert(ch, gc.NotNil)
 	service, err := st.AddApplication(state.AddApplicationArgs{
 		Name:             name,
+		Type:             state.ApplicationTypeIAAS,
 		Series:           series,
 		Charm:            ch,
 		EndpointBindings: bindings,

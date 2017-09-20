@@ -197,6 +197,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 
 	service, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: oldCharm,
 		EndpointBindings: map[string]string{
 			"":       "db",

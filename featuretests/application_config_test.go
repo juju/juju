@@ -45,6 +45,7 @@ func (s *ApplicationConfigSuite) SetUpTest(c *gc.C) {
 	// Deploy application with custom config overwriting desired settings.
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:             s.appName,
+		Type:             state.ApplicationTypeIAAS,
 		Charm:            s.charm,
 		EndpointBindings: nil,
 		Settings: map[string]interface{}{

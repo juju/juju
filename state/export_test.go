@@ -178,6 +178,7 @@ func addTestingApplication(c *gc.C, st *State, series, name string, ch *Charm, b
 	c.Assert(ch, gc.NotNil)
 	app, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
+		Type:             ApplicationTypeIAAS,
 		Series:           series,
 		Charm:            ch,
 		EndpointBindings: bindings,

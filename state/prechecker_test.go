@@ -165,6 +165,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:     "storage-block",
+		Type:     state.ApplicationTypeIAAS,
 		Charm:    ch,
 		NumUnits: 1,
 		Storage: map[string]state.StorageConstraints{
@@ -218,6 +219,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name:     "storage-block-the-second",
+		Type:     state.ApplicationTypeIAAS,
 		Charm:    ch,
 		NumUnits: 1,
 		Placement: []*instance.Placement{{

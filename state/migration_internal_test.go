@@ -363,6 +363,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Name",
+		"Type",
 		"Series",
 		"Subordinate",
 		"CharmURL",

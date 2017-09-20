@@ -57,22 +57,22 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Application) *state.Unit {
 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Type: state.ApplicationTypeIAAS, Charm: charm})
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddApplication(state.AddApplicationArgs{Name: "not-assigned", Charm: charm})
+	notAssigned, err := s.State.AddApplication(state.AddApplicationArgs{Name: "not-assigned", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = notAssigned.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "no-units", Charm: charm})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "no-units", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Type: state.ApplicationTypeIAAS, Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress0 := s.addUnit(c, wordpress)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "logging", Charm: s.AddTestingCharm(c, "logging")})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "logging", Type: state.ApplicationTypeIAAS, Charm: s.AddTestingCharm(c, "logging")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -196,7 +196,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

@@ -146,6 +146,12 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			"pgdata/0": {detachable: true},
 			"pgdata/1": {detachable: false},
 		},
+		model: mockModel{
+			uuid:      utils.MustNewUUID().String(),
+			name:      "mockmodel",
+			owner:     "admin",
+			modelType: state.ModelTypeIAAS,
+		},
 	}
 	s.blockChecker = mockBlockChecker{}
 	api, err := application.NewAPI(

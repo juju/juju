@@ -996,8 +996,14 @@ func (i *importer) makeApplicationDoc(s description.Application) (*applicationDo
 		return nil, errors.Trace(err)
 	}
 
+	applicationType, err := ParseApplicationType(s.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &applicationDoc{
 		Name:                 s.Name(),
+		Type:                 applicationType,
 		Series:               s.Series(),
 		Subordinate:          s.Subordinate(),
 		CharmURL:             charmURL,

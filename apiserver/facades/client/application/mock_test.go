@@ -43,21 +43,30 @@ type mockNoNetworkEnviron struct {
 }
 
 type mockModel struct {
-	uuid  string
-	name  string
-	owner string
+	uuid      string
+	name      string
+	owner     string
+	modelType state.ModelType
 }
 
 func (m *mockModel) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.uuid)
 }
 
-func (m *mockModel) Name() string {
+func (m mockModel) Tag() names.Tag {
+	return m.ModelTag()
+}
+
+func (m mockModel) Name() string {
 	return m.name
 }
 
-func (m *mockModel) Owner() names.UserTag {
+func (m mockModel) Owner() names.UserTag {
 	return names.NewUserTag(m.owner)
+}
+
+func (m mockModel) Type() state.ModelType {
+	return m.modelType
 }
 
 type mockCharm struct {
@@ -266,6 +275,10 @@ type mockBackend struct {
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
 	controllers                map[string]crossmodel.ControllerInfo
+}
+
+func (m *mockBackend) ModelType() (state.ModelType, error) {
+	return state.ModelTypeIAAS, nil
 }
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {

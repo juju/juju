@@ -21,7 +21,8 @@ var _ = gc.Suite(&UnitAssignmentSuite{})
 func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
 	charm := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: "dummy", Charm: charm, NumUnits: 2,
+		Name: "dummy", Type: state.ApplicationTypeIAAS,
+		Charm: charm, NumUnits: 2,
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,6 +81,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	placement := instance.Placement{Scope: "lxd"}
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:      "dummy",
+		Type:      state.ApplicationTypeIAAS,
 		Charm:     charm,
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},

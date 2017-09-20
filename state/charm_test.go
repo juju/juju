@@ -175,6 +175,7 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 
 	args := state.AddApplicationArgs{
 		Name:  "blah",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: s.charm,
 	}
 	_, err := s.State.AddApplication(args)
@@ -189,6 +190,7 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 
 	args := state.AddApplicationArgs{
 		Name:  "blah",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: s.charm,
 	}
 	_, err := s.State.AddApplication(args)
