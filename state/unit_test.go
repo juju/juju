@@ -462,7 +462,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	// retries.
 	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
 
-	c.Assert(target.Destroy(), gc.ErrorMatches, "state changing too quickly; try again soon")
+	c.Assert(target.Destroy(), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
