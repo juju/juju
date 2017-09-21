@@ -50,6 +50,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,6 +66,7 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			Series:          "aseries",
 		})
@@ -81,6 +83,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
+			Type:             state.ApplicationTypeIAAS,
 			Charm:            wordpressCharm,
 			EndpointBindings: nil,
 		})
@@ -136,6 +139,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
 				"":   "public",
@@ -172,6 +176,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
 				"":          "public",
@@ -209,6 +214,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
 				"":   "public",
@@ -235,6 +241,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
 				"":      "public",
@@ -257,6 +264,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			EndpointBindings: map[string]string{
 				"": "public",
@@ -274,6 +282,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			ConfigSettings: charm.Settings{
 				"title":       "banana cupcakes",
@@ -291,6 +300,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 	_, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			ConfigSettings: charm.Settings{
 				"skill-level": 99.01,
@@ -308,6 +318,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 		})
@@ -322,6 +333,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 			NumUnits:        2,
@@ -341,6 +353,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 			NumUnits:        1,
@@ -363,6 +376,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 			NumUnits:        1,
@@ -390,6 +404,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 			NumUnits:        4,
@@ -411,6 +426,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
+			Type:            state.ApplicationTypeIAAS,
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 			NumUnits:        3,
