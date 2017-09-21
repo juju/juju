@@ -31,25 +31,50 @@ type Application struct {
 	doc applicationDoc
 }
 
+// ApplicationType encodes the type of an application: IAAS or CAAS.
+type ApplicationType string
+
+const (
+	applicationTypeNone = ApplicationType("")
+	ApplicationTypeIAAS = ApplicationType("iaas")
+	ApplicationTypeCAAS = ApplicationType("caas")
+)
+
+// ParseApplicationType turns a valid application type string into a ApplicationType
+// constant.
+func ParseApplicationType(raw string) (ApplicationType, error) {
+	for _, typ := range []ApplicationType{ApplicationTypeIAAS, ApplicationTypeCAAS} {
+		if raw == string(typ) {
+			return typ, nil
+		}
+	}
+	return "", errors.NotValidf("application type %v", raw)
+}
+
+func (at ApplicationType) String() string {
+	return string(at)
+}
+
 // applicationDoc represents the internal state of an application in MongoDB.
 // Note the correspondence with ApplicationInfo in apiserver.
 type applicationDoc struct {
-	DocID                string     `bson:"_id"`
-	Name                 string     `bson:"name"`
-	ModelUUID            string     `bson:"model-uuid"`
-	Series               string     `bson:"series"`
-	Subordinate          bool       `bson:"subordinate"`
-	CharmURL             *charm.URL `bson:"charmurl"`
-	Channel              string     `bson:"cs-channel"`
-	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
-	ForceCharm           bool       `bson:"forcecharm"`
-	Life                 Life       `bson:"life"`
-	UnitCount            int        `bson:"unitcount"`
-	RelationCount        int        `bson:"relationcount"`
-	Exposed              bool       `bson:"exposed"`
-	MinUnits             int        `bson:"minunits"`
-	TxnRevno             int64      `bson:"txn-revno"`
-	MetricCredentials    []byte     `bson:"metric-credentials"`
+	DocID                string          `bson:"_id"`
+	Name                 string          `bson:"name"`
+	Type                 ApplicationType `bson:"type"`
+	ModelUUID            string          `bson:"model-uuid"`
+	Series               string          `bson:"series"`
+	Subordinate          bool            `bson:"subordinate"`
+	CharmURL             *charm.URL      `bson:"charmurl"`
+	Channel              string          `bson:"cs-channel"`
+	CharmModifiedVersion int             `bson:"charmmodifiedversion"`
+	ForceCharm           bool            `bson:"forcecharm"`
+	Life                 Life            `bson:"life"`
+	UnitCount            int             `bson:"unitcount"`
+	RelationCount        int             `bson:"relationcount"`
+	Exposed              bool            `bson:"exposed"`
+	MinUnits             int             `bson:"minunits"`
+	TxnRevno             int64           `bson:"txn-revno"`
+	MetricCredentials    []byte          `bson:"metric-credentials"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -68,6 +93,11 @@ func (a *Application) IsRemote() bool {
 // Name returns the application name.
 func (a *Application) Name() string {
 	return a.doc.Name
+}
+
+// Type returns the type of the application.
+func (a *Application) Type() ApplicationType {
+	return a.doc.Type
 }
 
 // Tag returns a name identifying the application.

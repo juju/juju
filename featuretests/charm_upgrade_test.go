@@ -31,6 +31,7 @@ func (s *CharmUpgradeSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.appOne, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name:  s.appOneName,
+		Type:  state.ApplicationTypeIAAS,
 		Charm: charmOne,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -42,6 +43,7 @@ func (s *CharmUpgradeSuite) SetUpTest(c *gc.C) {
 	charmTwo := s.AddTestingCharm(c, "upgrade-charm2")
 	appTwo, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  s.appTwoName,
+		Type:  state.ApplicationTypeIAAS,
 		Charm: charmTwo,
 	})
 	c.Assert(err, jc.ErrorIsNil)

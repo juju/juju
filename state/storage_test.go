@@ -385,7 +385,7 @@ var _ = gc.Suite(&StorageStateSuite{})
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storageBlock, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch})
+	storageBlock, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Type: state.ApplicationTypeIAAS, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -403,7 +403,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	})
 
 	ch = s.AddTestingCharm(c, "storage-filesystem")
-	storageFilesystem, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Charm: ch})
+	storageFilesystem, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Type: state.ApplicationTypeIAAS, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -419,7 +419,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storage})
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Type: state.ApplicationTypeIAAS, Charm: ch, Storage: storage})
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addService(storage)
@@ -451,7 +451,7 @@ func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, 
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: cons})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Type: state.ApplicationTypeIAAS, Charm: ch, Storage: cons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -523,7 +523,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storageCons})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Type: state.ApplicationTypeIAAS, Charm: ch, Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -533,7 +533,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Type: state.ApplicationTypeIAAS, Charm: ch, Storage: storage})
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -850,6 +850,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app2, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:   "secondwind",
+		Type:   state.ApplicationTypeIAAS,
 		Series: app.Series(),
 		Charm:  ch,
 		Storage: map[string]state.StorageConstraints{
@@ -882,6 +883,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C
 	ch, _, _ := app.Charm()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:          "secondwind",
+		Type:          state.ApplicationTypeIAAS,
 		Series:        app.Series(),
 		Charm:         ch,
 		AttachStorage: []names.StorageTag{storageTag},
@@ -913,6 +915,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name:   "secondwind",
+		Type:   state.ApplicationTypeIAAS,
 		Series: app.Series(),
 		Charm:  ch,
 		Storage: map[string]state.StorageConstraints{

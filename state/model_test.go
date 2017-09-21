@@ -631,6 +631,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 
 	args := state.AddApplicationArgs{
 		Name:  service.Name(),
+		Type:  state.ApplicationTypeIAAS,
 		Charm: ch,
 	}
 	service, err = otherSt.AddApplication(args)
@@ -995,6 +996,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.AddApplicationArgs{
 		Name:  service.Name(),
+		Type:  state.ApplicationTypeIAAS,
 		Charm: ch,
 	}
 	service, err = st.AddApplication(args)

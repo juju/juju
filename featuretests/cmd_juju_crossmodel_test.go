@@ -273,6 +273,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: ch,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -304,6 +305,7 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: ch,
 	})
 

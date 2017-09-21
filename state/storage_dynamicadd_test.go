@@ -30,7 +30,11 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 		"multi1to10": makeStorageCons("persistent-block", 0, 3),
 	}
 	charm := s.AddTestingCharm(c, "storage-block2")
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: charm, Storage: storageCons})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:    "storage-block2",
+		Type:    state.ApplicationTypeIAAS,
+		Charm:   charm,
+		Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

@@ -884,7 +884,7 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
@@ -897,7 +897,7 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 	// there is no conflict initially but a local application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+		_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Type: state.ApplicationTypeIAAS, Charm: charm})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

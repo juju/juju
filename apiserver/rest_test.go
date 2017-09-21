@@ -119,6 +119,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: mysqlCh,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,6 +139,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "dummy",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: dummyCh,
 	})
 	c.Assert(err, jc.ErrorIsNil)

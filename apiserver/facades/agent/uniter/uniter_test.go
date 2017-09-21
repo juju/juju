@@ -3162,6 +3162,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.base.wordpress, err = s.base.State.AddApplication(state.AddApplicationArgs{
 		Name:  "wordpress",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: s.base.wpCharm,
 		EndpointBindings: map[string]string{
 			"db":        "internal", // relation name
@@ -3428,6 +3429,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.base.wordpress, err = s.base.State.AddApplication(state.AddApplicationArgs{
 		Name:  "wordpress",
+		Type:  state.ApplicationTypeIAAS,
 		Charm: s.base.wpCharm,
 		EndpointBindings: map[string]string{
 			"db":        "internal",   // relation name

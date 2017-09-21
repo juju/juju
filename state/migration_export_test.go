@@ -400,6 +400,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 
 	exported := applications[0]
 	c.Assert(exported.Name(), gc.Equals, application.Name())
+	c.Assert(exported.Type(), gc.Equals, string(application.Type()))
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)

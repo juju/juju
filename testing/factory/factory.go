@@ -449,6 +449,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:        params.Name,
+		Type:        state.ApplicationTypeIAAS,
 		Charm:       params.Charm,
 		Settings:    charm.Settings(params.Settings),
 		Storage:     params.Storage,

@@ -453,6 +453,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	imported := importedApplications[0]
 
 	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
+	c.Assert(imported.Type(), gc.Equals, exported.Type())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
