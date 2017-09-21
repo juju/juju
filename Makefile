@@ -24,6 +24,7 @@ else
 	INSTALL_FLAGS = -gccgoflags=-static-libgo
 endif
 
+# Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
 	CHECK_ARGS = -v
 else
