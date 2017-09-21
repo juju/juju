@@ -129,9 +129,9 @@ func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 	return a.NextErr()
 }
 
-func (a *mockApplication) Destroy() error {
-	a.MethodCall(a, "Destroy")
-	return a.NextErr()
+func (a *mockApplication) DestroyOperation() *state.DestroyApplicationOperation {
+	a.MethodCall(a, "DestroyOperation")
+	return &state.DestroyApplicationOperation{}
 }
 
 func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, error) {
@@ -458,6 +458,11 @@ func (m *mockBackend) Application(name string) (application.Application, error) 
 	return app, nil
 }
 
+func (m *mockBackend) ApplyOperation(op state.ModelOperation) error {
+	m.MethodCall(m, "ApplyOperation", op)
+	return m.NextErr()
+}
+
 type mockExternalController struct {
 	uuid string
 	info crossmodel.ControllerInfo
@@ -563,9 +568,9 @@ func (u *mockUnit) IsPrincipal() bool {
 	return true
 }
 
-func (u *mockUnit) Destroy() error {
-	u.MethodCall(u, "Destroy")
-	return u.NextErr()
+func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
+	u.MethodCall(u, "DestroyOperation")
+	return &state.DestroyUnitOperation{}
 }
 
 func (u *mockUnit) AssignWithPolicy(policy state.AssignmentPolicy) error {

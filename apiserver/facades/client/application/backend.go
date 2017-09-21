@@ -25,6 +25,7 @@ type Backend interface {
 
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
+	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
@@ -65,6 +66,7 @@ type Application interface {
 	ConfigSettings() (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy() error
+	DestroyOperation() *state.DestroyApplicationOperation
 	Endpoints() ([]state.Endpoint, error)
 	IsPrincipal() bool
 	Series() string
@@ -112,6 +114,7 @@ type Relation interface {
 type Unit interface {
 	UnitTag() names.UnitTag
 	Destroy() error
+	DestroyOperation() *state.DestroyUnitOperation
 	IsPrincipal() bool
 	Life() state.Life
 

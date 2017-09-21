@@ -4,6 +4,8 @@
 package application
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -59,9 +61,17 @@ func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
 	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
 }
 
-func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
+func (s *RemoveApplicationSuite) TestDetachStorage(c *gc.C) {
+	s.testStorageRemoval(c, false)
+}
+
+func (s *RemoveApplicationSuite) TestDestroyStorage(c *gc.C) {
+	s.testStorageRemoval(c, true)
+}
+
+func (s *RemoveApplicationSuite) testStorageRemoval(c *gc.C, destroy bool) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
-	_, err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,rootfs")
+	_, err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Materialise the storage by assigning units to machines.
@@ -72,16 +82,22 @@ func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	ctx, err := runRemoveApplication(c, "storage-filesystem-multi-series")
+	args := []string{"storage-filesystem-multi-series"}
+	action := "detach"
+	if destroy {
+		args = append(args, "--destroy-storage")
+		action = "remove"
+	}
+	ctx, err := runRemoveApplication(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
+	c.Assert(stderr, gc.Equals, fmt.Sprintf(`
 removing application storage-filesystem-multi-series
-- will remove storage data/0
-- will remove storage data/1
-- will remove storage data/2
-- will remove storage data/3
-`[1:])
+- will %[1]s storage data/0
+- will %[1]s storage data/1
+- will %[1]s storage data/2
+- will %[1]s storage data/3
+`[1:], action))
 }
 
 func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
