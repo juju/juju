@@ -1007,7 +1007,123 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	})
 }
 
-func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
+	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
+		app := s.AddTestingApplication(c, name, s.AddTestingCharm(c, name))
+		for _, m := range machines {
+			unit, err := app.AddUnit(state.AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+			err = unit.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			units = append(units, unit)
+		}
+		return units
+	}
+	setProvisioned := func(id string) {
+		m, err := s.State.Machine(id)
+		c.Assert(err, jc.ErrorIsNil)
+		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "nonce", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_ = addUnits("mysql", s.machines[0], s.machines[3])[0]
+	wordpressUnits := addUnits("wordpress", s.machines[0], s.machines[1], s.machines[2])
+
+	// Unassign wordpress/1 from machine-1.
+	// The unit should not show up in the results.
+	err := wordpressUnits[1].UnassignFromMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision machines 1, 2 and 3. Machine-0 remains
+	// unprovisioned.
+	setProvisioned("1")
+	setProvisioned("2")
+	setProvisioned("3")
+
+	// Add a few controllers, provision two of them.
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	setProvisioned("5")
+	setProvisioned("7")
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.machines[1].Tag().String()},
+		{Tag: s.machines[2].Tag().String()},
+		{Tag: s.machines[3].Tag().String()},
+		{Tag: "machine-5"},
+	}}
+	provisionerV5 := provisioner.ProvisionerAPIV5{s.provisioner}
+	result, err := provisionerV5.DistributionGroupByMachineId(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: []string{"2", "3"}},
+			{Result: []string{}},
+			{Result: []string{"0"}},
+			{Result: []string{"0"}},
+			{Result: []string{"6", "7"}},
+		},
+	})
+}
+
+func (s *withoutControllerSuite) TestDistributionGroupByMachineIdEnvironManagerAuth(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+		{Tag: "machine-0-lxd-99"},
+		{Tag: "unit-foo-0"},
+		{Tag: "application-bar"},
+	}}
+	provisionerV5 := provisioner.ProvisionerAPIV5{s.provisioner}
+	result, err := provisionerV5.DistributionGroupByMachineId(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			// environ manager may access any top-level machines.
+			{Result: []string{}, Error: nil},
+			{Result: nil, Error: apiservertesting.NotFoundError("machine 42")},
+			// only a machine agent for the container or its
+			// parent may access it.
+			{Result: nil, Error: apiservertesting.ErrUnauthorized},
+			// non-machines always unauthorized
+			{Result: nil, Error: apiservertesting.ErrUnauthorized},
+			{Result: nil, Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAuth(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = names.NewMachineTag("1")
+	anAuthorizer.Controller = false
+	provisionerV5, err := provisioner.NewProvisionerAPIV5(s.State, s.resources, anAuthorizer)
+	c.Check(err, jc.ErrorIsNil)
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"},
+		{Tag: "machine-0-lxd-99"},
+		{Tag: "machine-1-lxd-99"},
+		{Tag: "machine-1-lxd-99-lxd-100"},
+	}}
+	result, err := provisionerV5.DistributionGroupByMachineId(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: nil, Error: apiservertesting.ErrUnauthorized},
+			{Result: []string{}, Error: nil},
+			{Result: nil, Error: apiservertesting.ErrUnauthorized},
+			// only a machine agent for the container or its
+			// parent may access it.
+			{Result: nil, Error: apiservertesting.ErrUnauthorized},
+			{Result: nil, Error: apiservertesting.NotFoundError("machine 1/lxd/99")},
+			{Result: nil, Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	cons := constraints.MustParse("cores=123", "mem=8G")
 	template := state.MachineTemplate{
