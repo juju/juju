@@ -517,10 +517,44 @@ func (s *applicationSuite) TestSetRelationSuspended(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		c.Assert(request, gc.Equals, "SetRelationsSuspended")
 		c.Assert(a, jc.DeepEquals, params.RelationSuspendedArgs{
-			Args: []params.RelationSuspendedArg{{
-				RelationId: 123,
-				Suspended:  true,
-			}},
+			Args: []params.RelationSuspendedArg{
+				{
+					RelationId: 123,
+					Suspended:  true,
+					Message:    "message",
+				}, {
+					RelationId: 456,
+					Suspended:  true,
+					Message:    "message",
+				}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*result.(*params.ErrorResults) = params.ErrorResults{
+			Results: []params.ErrorResult{{}, {}},
+		}
+		called = true
+		return nil
+	})
+	err := client.SetRelationSuspended([]int{123, 456}, true, "message")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestSetRelationSuspendedArity(c *gc.C) {
+	called := false
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Assert(request, gc.Equals, "SetRelationsSuspended")
+		c.Assert(a, jc.DeepEquals, params.RelationSuspendedArgs{
+			Args: []params.RelationSuspendedArg{
+				{
+					RelationId: 123,
+					Suspended:  true,
+					Message:    "message",
+				}, {
+					RelationId: 456,
+					Suspended:  true,
+					Message:    "message",
+				}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*result.(*params.ErrorResults) = params.ErrorResults{
@@ -529,8 +563,8 @@ func (s *applicationSuite) TestSetRelationSuspended(c *gc.C) {
 		called = true
 		return nil
 	})
-	err := client.SetRelationSuspended(123, true)
-	c.Assert(err, jc.ErrorIsNil)
+	err := client.SetRelationSuspended([]int{123, 456}, true, "message")
+	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 1")
 	c.Assert(called, jc.IsTrue)
 }
 

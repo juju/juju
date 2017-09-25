@@ -2004,6 +2004,8 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 
 func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
+	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"})
+	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(nil)
@@ -2013,6 +2015,8 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel2 := s.addRelation(c, "wordpress", "logging")
 	err = rel2.SetSuspended(true)
 	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""})
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddTestingApplication(c, "wp2", s.wpCharm)
 	rel3 := s.addRelation(c, "wp2", "logging")
@@ -2021,7 +2025,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
 			{rel.Id(), params.Suspended, "message"},
-			{rel2.Id(), params.Broken, ""},
+			{rel2.Id(), params.Suspended, "gone"},
 			{rel3.Id(), params.Broken, ""},
 			{RelationId: 4},
 		},
@@ -2050,7 +2054,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 	check(rel, status.Suspended, "message")
-	check(rel2, status.Broken, "")
+	check(rel2, status.Suspended, "gone")
 }
 
 func (s *uniterSuite) TestReadSettings(c *gc.C) {

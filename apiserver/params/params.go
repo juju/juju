@@ -153,8 +153,9 @@ type RelationSuspendedArgs struct {
 
 // RelationSuspendedArg holds the new suspended status value for a relation.
 type RelationSuspendedArg struct {
-	RelationId int  `json:"relation-id"`
-	Suspended  bool `json:"suspended"`
+	RelationId int    `json:"relation-id"`
+	Message    string `json:"message"`
+	Suspended  bool   `json:"suspended"`
 }
 
 // AddCharm holds the arguments for making an AddCharm API call.

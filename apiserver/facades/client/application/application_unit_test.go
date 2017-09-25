@@ -411,12 +411,14 @@ func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
+			Message:    "message",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 	c.Assert(s.relation.suspended, jc.IsTrue)
 	c.Assert(s.relation.status, gc.Equals, status.Suspending)
+	c.Assert(s.relation.message, gc.Equals, "message")
 }
 
 func (s *ApplicationSuite) TestSetRelationSuspendedNoOp(c *gc.C) {

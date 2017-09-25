@@ -1065,7 +1065,8 @@ func (api *API) SetRelationsSuspended(args params.RelationSuspendedArgs) (params
 			statusValue = status.Suspending
 		}
 		return rel.SetStatus(status.StatusInfo{
-			Status: status.Status(statusValue),
+			Status:  status.Status(statusValue),
+			Message: arg.Message,
 		})
 	}
 	results := make([]params.ErrorResult, len(args.Args))

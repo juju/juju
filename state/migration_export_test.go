@@ -560,8 +560,8 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	msEp, wpEp := eps[0], eps[1]
 	c.Assert(err, jc.ErrorIsNil)
+	msEp, wpEp := eps[0], eps[1]
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
@@ -1407,6 +1407,11 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 		Macaroon: &macaroon.Macaroon{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1444,6 +1449,10 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(actualSpaces, gc.HasLen, 2)
 	checkSpaceMatches(c, actualSpaces[0], originalSpaces[0])
 	checkSpaceMatches(c, actualSpaces[1], originalSpaces[1])
+
+	c.Assert(model.Relations(), gc.HasLen, 1)
+	rel := model.Relations()[0]
+	c.Assert(rel.Key(), gc.Equals, "wordpress:db gravy-rainbow:db")
 }
 
 func checkSpaceMatches(c *gc.C, actual description.RemoteSpace, original state.RemoteSpace) {
