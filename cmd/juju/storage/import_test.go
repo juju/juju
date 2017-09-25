@@ -35,7 +35,7 @@ var initErrorTests = []struct {
 	expectedErr string
 }{{
 	args:        []string{"foo", "bar"},
-	expectedErr: "import-filesystem requires a storage pool, provider ID, and storage name",
+	expectedErr: "import-filesystem requires a storage provider, provider ID, and storage name",
 }, {
 	args:        []string{"123", "foo", "bar"},
 	expectedErr: `pool name "123" not valid`,
