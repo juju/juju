@@ -1218,7 +1218,7 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
 func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 	_, u, storageTag0 := s.makeUnitWithStorage(c)
 
-	err := s.IAASModel.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
+	_, err := s.IAASModel.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
 		Count: 3,
 		Size:  1234,
 		Pool:  "modelscoped",

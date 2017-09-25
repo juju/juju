@@ -819,7 +819,7 @@ func (a *Application) upgradeStorageOps(
 				// cosntraints.
 				countMin = int(cons.Count)
 			}
-			unitOps, err := im.addUnitStorageOps(
+			_, unitOps, err := im.addUnitStorageOps(
 				meta, u, name, cons, countMin,
 			)
 			if err != nil {
@@ -1268,7 +1268,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		}
 		machineAssignable = pu
 	}
-	storageOps, storageCounts, numStorageAttachments, err := createStorageOps(
+	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
 		im,
 		unitTag,
 		charm.Meta(),
@@ -1299,9 +1299,10 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		}
 		storageOps = append(storageOps, ops...)
 		numStorageAttachments++
-		storageCounts[si.StorageName()]++
+		storageTags[si.StorageName()] = append(storageTags[si.StorageName()], storageTag)
 	}
-	for name, count := range storageCounts {
+	for name, tags := range storageTags {
+		count := len(tags)
 		charmStorage := charm.Meta().Storage[name]
 		if err := validateCharmStorageCountChange(charmStorage, 0, count); err != nil {
 			return "", nil, errors.Trace(err)

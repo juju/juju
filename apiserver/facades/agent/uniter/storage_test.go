@@ -534,8 +534,8 @@ func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.Notify
 	return m.watchBlockDevices(mtag)
 }
 
-func (m *mockStorageState) AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error {
-	return m.addUnitStorage(tag, name, cons)
+func (m *mockStorageState) AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
+	return nil, m.addUnitStorage(tag, name, cons)
 }
 
 func (m *mockStorageState) UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error) {

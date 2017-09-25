@@ -89,9 +89,9 @@ func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *gc.C) {
 
 func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	msg := "add test directive error"
-	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
-		return errors.Errorf(msg)
+		return nil, errors.Errorf(msg)
 	}
 
 	args := params.StorageAddParams{
@@ -118,18 +118,20 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 		UnitTag: s.unitTag.String(),
 	}
 	msg := "storage name missing error"
-	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
 		if name == "" {
-			return errors.Errorf(msg)
+			return nil, errors.Errorf(msg)
 		}
-		return nil
+		return nil, nil
 	}
 	failures, err := s.api.AddToUnit(params.StoragesAddParams{
 		[]params.StorageAddParams{
 			wrong0,
 			right,
-			wrong1}})
+			wrong1,
+		}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, 3)
 	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*is not a valid tag.*")
@@ -139,11 +141,30 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall, addStorageForUnitCall})
 }
 
+func (s *storageAddSuite) TestStorageAddUnitTags(c *gc.C) {
+	tags := []names.StorageTag{names.NewStorageTag("foo/0"), names.NewStorageTag("foo/1")}
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
+		return tags, nil
+	}
+
+	args := params.StorageAddParams{
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
+	results, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.AddStorageResult{{
+		Result: &params.AddStorageDetails{
+			StorageTags: []string{"storage-foo-0", "storage-foo-1"},
+		},
+	}})
+}
+
 func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *gc.C) {
 	msg := "sanity"
-	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
-		return errors.NotFoundf(msg)
+		return nil, errors.NotFoundf(msg)
 	}
 
 	args := params.StorageAddParams{

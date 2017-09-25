@@ -846,3 +846,21 @@ type ImportStorageDetails struct {
 	// assigned to the imported storage entity.
 	StorageTag string `json:"storage-tag"`
 }
+
+// AddStorageResults contains the results of adding storage to units.
+type AddStorageResults struct {
+	Results []AddStorageResult `json:"results"`
+}
+
+// AddStorageResult contains the result of adding storage to a unit.
+type AddStorageResult struct {
+	Result *AddStorageDetails `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
+}
+
+// AddStorageDetails contains the details of added storage.
+type AddStorageDetails struct {
+	// StorageTags contains the string representation of the storage tags
+	// of the added storage instances.
+	StorageTags []string `json:"storage-tags"`
+}
