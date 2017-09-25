@@ -227,11 +227,8 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 	if errors.IsNotFound(err) {
 		return nil
 	}
-	var whitelistCIDRs, blacklistCIDRs, requestedCIDRs []*net.IPNet
+	var whitelistCIDRs, requestedCIDRs []*net.IPNet
 	if err := parseCIDRs(&whitelistCIDRs, rule.WhitelistCIDRs); err != nil {
-		return errors.Trace(err)
-	}
-	if err := parseCIDRs(&blacklistCIDRs, rule.BlacklistCIDRs); err != nil {
 		return errors.Trace(err)
 	}
 	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {
@@ -243,16 +240,6 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 				return &params.Error{
 					Code:    params.CodeForbidden,
 					Message: fmt.Sprintf("subnet %v not in firewall whitelist", n),
-				}
-			}
-		}
-	}
-	if len(blacklistCIDRs) > 0 {
-		for _, n := range requestedCIDRs {
-			if network.SubnetInAnyRange(whitelistCIDRs, n) {
-				return &params.Error{
-					Code:    params.CodeForbidden,
-					Message: fmt.Sprintf("subnet %v in firewall blacklist", n),
 				}
 			}
 		}

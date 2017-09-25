@@ -24,7 +24,7 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // SetFirewallRule creates or updates a firewall rule.
-func (c *Client) SetFirewallRule(service string, whiteListCidrs, blackListCidrs []string) error {
+func (c *Client) SetFirewallRule(service string, whiteListCidrs []string) error {
 	serviceValue := params.KnownServiceValue(service)
 	if err := serviceValue.Validate(); err != nil {
 		return errors.Trace(err)
@@ -32,9 +32,9 @@ func (c *Client) SetFirewallRule(service string, whiteListCidrs, blackListCidrs 
 
 	args := params.FirewallRuleArgs{
 		Args: []params.FirewallRule{
-			{KnownService: serviceValue,
+			{
+				KnownService:   serviceValue,
 				WhitelistCIDRS: whiteListCidrs,
-				BlacklistCIDRS: blackListCidrs,
 			}},
 	}
 	var results params.ErrorResults
