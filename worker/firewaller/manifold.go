@@ -86,6 +86,13 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	if err := context.Get(cfg.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	fwEnv, ok := environ.(environs.Firewaller)
+	if !ok {
+		logger.Infof("stopping firewaller (not used in this provider)")
+		return nil, dependency.ErrUninstall
+	}
+
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
 		logger.Infof("stopping firewaller (not required)")
@@ -105,7 +112,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		ModelUUID:          agent.CurrentConfig().Model().Id(),
 		RemoteRelationsApi: remoteRelationsAPI,
 		FirewallerAPI:      firewallerAPI,
-		EnvironFirewaller:  environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   environ,
 		Mode:               mode,
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),

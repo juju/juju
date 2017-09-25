@@ -2026,22 +2026,6 @@ func (environ *maasEnviron) DestroyController(controllerUUID string) error {
 	return environ.Destroy()
 }
 
-// MAAS does not do firewalling so these port methods do nothing.
-func (*maasEnviron) OpenPorts([]network.IngressRule) error {
-	logger.Debugf("unimplemented OpenPorts() called")
-	return nil
-}
-
-func (*maasEnviron) ClosePorts([]network.IngressRule) error {
-	logger.Debugf("unimplemented ClosePorts() called")
-	return nil
-}
-
-func (*maasEnviron) IngressRules() ([]network.IngressRule, error) {
-	logger.Debugf("unimplemented Rules() called")
-	return nil, nil
-}
-
 func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
 }

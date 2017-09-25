@@ -337,8 +337,6 @@ type Environ interface {
 	// when the Juju controller process is unavailable.
 	DestroyController(controllerUUID string) error
 
-	Firewaller
-
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
