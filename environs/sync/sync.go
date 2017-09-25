@@ -309,7 +309,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	toolsVersion, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
+	toolsVersion, official, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +327,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	size := fileInfo.Size()
 	reportedVersion := toolsVersion
-	if forceVersion != nil {
+	if !official && forceVersion != nil {
 		reportedVersion.Number = *forceVersion
 	}
 	logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
