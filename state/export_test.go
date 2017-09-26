@@ -127,11 +127,19 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
+func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
 	key := applicationSettingsKey(appName, curl)
+	return nsRefcounts.read(refcounts, key)
+}
+
+func ApplicationOffersRefCount(st *State, appName string) (int, error) {
+	refcounts, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+
+	key := applicationOffersRefCountKey(appName)
 	return nsRefcounts.read(refcounts, key)
 }
 
