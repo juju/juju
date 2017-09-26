@@ -29,7 +29,11 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(f)
+	return application.NewClient(basetesting.BestVersionCaller{f, 5})
+}
+
+func newClientV4(f basetesting.APICallerFunc) *application.Client {
+	return application.NewClient(basetesting.BestVersionCaller{f, 4})
 }
 
 func (s *applicationSuite) TestSetServiceMetricCredentials(c *gc.C) {
@@ -331,6 +335,36 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	}}
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyApplication")
+		c.Assert(a, jc.DeepEquals, params.DestroyApplicationsParams{
+			Applications: []params.DestroyApplicationParams{
+				{ApplicationTag: "application-foo"},
+				{ApplicationTag: "application-bar"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyApplicationResults{})
+		out := response.(*params.DestroyApplicationResults)
+		*out = params.DestroyApplicationResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"foo", "bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyApplicationsV4(c *gc.C) {
+	expectedResults := []params.DestroyApplicationResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyApplicationInfo{
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+			DestroyedUnits:   []params.Entity{{Tag: "unit-bar-1"}},
+		},
+	}}
+	client := newClientV4(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyApplication")
 		c.Assert(a, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{
 				{Tag: "application-foo"},
@@ -342,7 +376,9 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 		*out = params.DestroyApplicationResults{expectedResults}
 		return nil
 	})
-	results, err := client.DestroyApplications("foo", "bar")
+	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"foo", "bar"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -351,7 +387,9 @@ func (s *applicationSuite) TestDestroyApplicationsArity(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		return nil
 	})
-	_, err := client.DestroyApplications("foo")
+	_, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"foo"},
+	})
 	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
@@ -366,7 +404,9 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
 		*out = params.DestroyApplicationResults{expectedResults[1:]}
 		return nil
 	})
-	results, err := client.DestroyApplications("!", "foo")
+	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"!", "foo"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -382,6 +422,35 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 	}}
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyUnit")
+		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
+			Units: []params.DestroyUnitParams{
+				{UnitTag: "unit-foo-0"},
+				{UnitTag: "unit-bar-1"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyUnitResults{})
+		out := response.(*params.DestroyUnitResults)
+		*out = params.DestroyUnitResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"foo/0", "bar/1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyUnitsV4(c *gc.C) {
+	expectedResults := []params.DestroyUnitResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyUnitInfo{
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+		},
+	}}
+	client := newClientV4(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyUnit")
 		c.Assert(a, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{
 				{Tag: "unit-foo-0"},
@@ -393,7 +462,9 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 		*out = params.DestroyUnitResults{expectedResults}
 		return nil
 	})
-	results, err := client.DestroyUnits("foo/0", "bar/1")
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"foo/0", "bar/1"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -402,7 +473,9 @@ func (s *applicationSuite) TestDestroyUnitsArity(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		return nil
 	})
-	_, err := client.DestroyUnits("foo/0")
+	_, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"foo/0"},
+	})
 	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
@@ -417,7 +490,9 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
 		*out = params.DestroyUnitResults{expectedResults[1:]}
 		return nil
 	})
-	results, err := client.DestroyUnits("!", "foo/0")
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"!", "foo/0"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }

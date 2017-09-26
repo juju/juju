@@ -319,15 +319,25 @@ func (c *Client) DestroyUnitsDeprecated(unitNames ...string) error {
 	return c.facade.FacadeCall("DestroyUnits", params, nil)
 }
 
+// DestroyUnitsParams contains parameters for the DestroyUnits API method.
+type DestroyUnitsParams struct {
+	// Units holds the IDs of units to destroy.
+	Units []string
+
+	// DestroyStorage controls whether or not storage attached
+	// to the units will be destroyed.
+	DestroyStorage bool
+}
+
 // DestroyUnits decreases the number of units dedicated to one or more
 // applications.
-func (c *Client) DestroyUnits(unitNames ...string) ([]params.DestroyUnitResult, error) {
-	args := params.Entities{
-		Entities: make([]params.Entity, 0, len(unitNames)),
+func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult, error) {
+	argsV5 := params.DestroyUnitsParams{
+		Units: make([]params.DestroyUnitParams, 0, len(in.Units)),
 	}
-	allResults := make([]params.DestroyUnitResult, len(unitNames))
-	index := make([]int, 0, len(unitNames))
-	for i, name := range unitNames {
+	allResults := make([]params.DestroyUnitResult, len(in.Units))
+	index := make([]int, 0, len(in.Units))
+	for i, name := range in.Units {
 		if !names.IsValidUnit(name) {
 			allResults[i].Error = &params.Error{
 				Message: errors.NotValidf("unit ID %q", name).Error(),
@@ -335,21 +345,38 @@ func (c *Client) DestroyUnits(unitNames ...string) ([]params.DestroyUnitResult, 
 			continue
 		}
 		index = append(index, i)
-		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewUnitTag(name).String(),
+		argsV5.Units = append(argsV5.Units, params.DestroyUnitParams{
+			UnitTag:        names.NewUnitTag(name).String(),
+			DestroyStorage: in.DestroyStorage,
 		})
 	}
-	if len(args.Entities) > 0 {
-		var result params.DestroyUnitResults
-		if err := c.facade.FacadeCall("DestroyUnit", args, &result); err != nil {
-			return nil, errors.Trace(err)
+	if len(argsV5.Units) == 0 {
+		return allResults, nil
+	}
+
+	args := interface{}(argsV5)
+	if c.BestAPIVersion() < 5 {
+		if in.DestroyStorage {
+			return nil, errors.New("this controller does not support --destroy-storage")
 		}
-		if n := len(result.Results); n != len(args.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
+		argsV4 := params.Entities{
+			Entities: make([]params.Entity, len(argsV5.Units)),
 		}
-		for i, result := range result.Results {
-			allResults[index[i]] = result
+		for i, arg := range argsV5.Units {
+			argsV4.Entities[i].Tag = arg.UnitTag
 		}
+		args = argsV4
+	}
+
+	var result params.DestroyUnitResults
+	if err := c.facade.FacadeCall("DestroyUnit", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(result.Results); n != len(argsV5.Units) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(argsV5.Units), n)
+	}
+	for i, result := range result.Results {
+		allResults[index[i]] = result
 	}
 	return allResults, nil
 }
@@ -369,14 +396,25 @@ func (c *Client) DestroyDeprecated(application string) error {
 	return c.facade.FacadeCall("Destroy", params, nil)
 }
 
+// DestroyApplicationsParams contains parameters for the DestroyApplications
+// API method.
+type DestroyApplicationsParams struct {
+	// Applications holds the names of applications to destroy.
+	Applications []string
+
+	// DestroyStorage controls whether or not storage attached
+	// to units of the applications will be destroyed.
+	DestroyStorage bool
+}
+
 // DestroyApplications destroys the given applications.
-func (c *Client) DestroyApplications(appNames ...string) ([]params.DestroyApplicationResult, error) {
-	args := params.Entities{
-		Entities: make([]params.Entity, 0, len(appNames)),
+func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+	argsV5 := params.DestroyApplicationsParams{
+		Applications: make([]params.DestroyApplicationParams, 0, len(in.Applications)),
 	}
-	allResults := make([]params.DestroyApplicationResult, len(appNames))
-	index := make([]int, 0, len(appNames))
-	for i, name := range appNames {
+	allResults := make([]params.DestroyApplicationResult, len(in.Applications))
+	index := make([]int, 0, len(in.Applications))
+	for i, name := range in.Applications {
 		if !names.IsValidApplication(name) {
 			allResults[i].Error = &params.Error{
 				Message: errors.NotValidf("application name %q", name).Error(),
@@ -384,21 +422,38 @@ func (c *Client) DestroyApplications(appNames ...string) ([]params.DestroyApplic
 			continue
 		}
 		index = append(index, i)
-		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewApplicationTag(name).String(),
+		argsV5.Applications = append(argsV5.Applications, params.DestroyApplicationParams{
+			ApplicationTag: names.NewApplicationTag(name).String(),
+			DestroyStorage: in.DestroyStorage,
 		})
 	}
-	if len(args.Entities) > 0 {
-		var result params.DestroyApplicationResults
-		if err := c.facade.FacadeCall("DestroyApplication", args, &result); err != nil {
-			return nil, errors.Trace(err)
+	if len(argsV5.Applications) == 0 {
+		return allResults, nil
+	}
+
+	args := interface{}(argsV5)
+	if c.BestAPIVersion() < 5 {
+		if in.DestroyStorage {
+			return nil, errors.New("this controller does not support --destroy-storage")
 		}
-		if n := len(result.Results); n != len(args.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
+		argsV4 := params.Entities{
+			Entities: make([]params.Entity, len(argsV5.Applications)),
 		}
-		for i, result := range result.Results {
-			allResults[index[i]] = result
+		for i, arg := range argsV5.Applications {
+			argsV4.Entities[i].Tag = arg.ApplicationTag
 		}
+		args = argsV4
+	}
+
+	var result params.DestroyApplicationResults
+	if err := c.facade.FacadeCall("DestroyApplication", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(result.Results); n != len(argsV5.Applications) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(argsV5.Applications), n)
+	}
+	for i, result := range result.Results {
+		allResults[index[i]] = result
 	}
 	return allResults, nil
 }

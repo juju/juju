@@ -443,14 +443,48 @@ type AddApplicationUnits struct {
 	AttachStorage   []string              `json:"attach-storage,omitempty"`
 }
 
-// DestroyApplicationUnits holds parameters for the DestroyUnits call.
+// DestroyApplicationUnits holds parameters for the deprecated
+// Application.DestroyUnits call.
 type DestroyApplicationUnits struct {
 	UnitNames []string `json:"unit-names"`
 }
 
-// ApplicationDestroy holds the parameters for making the application Destroy call.
+// DestroyUnitsParams holds bulk parameters for the Application.DestroyUnit call.
+type DestroyUnitsParams struct {
+	Units []DestroyUnitParams `json:"units"`
+}
+
+// DestroyUnitParams holds parameters for the Application.DestroyUnit call.
+type DestroyUnitParams struct {
+	// UnitTag holds the tag of the unit to destroy.
+	UnitTag string `json:"unit-tag"`
+
+	// DestroyStorage controls whether or not storage
+	// attached to the unit should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+}
+
+// ApplicationDestroy holds the parameters for making the deprecated
+// Application.Destroy call.
 type ApplicationDestroy struct {
 	ApplicationName string `json:"application"`
+}
+
+// DestroyApplicationsParams holds bulk parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationsParams struct {
+	Applications []DestroyApplicationParams `json:"applications"`
+}
+
+// DestroyApplicationParams holds parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationParams struct {
+	// ApplicationTag holds the tag of the application to destroy.
+	ApplicationTag string `json:"application-tag"`
+
+	// DestroyStorage controls whether or not storage attached to
+	// units of the application should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
 }
 
 // Creds holds credentials for identifying an entity.

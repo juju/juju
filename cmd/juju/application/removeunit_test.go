@@ -4,6 +4,8 @@
 package application
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -63,9 +65,17 @@ removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
 	}
 }
 
-func (s *RemoveUnitSuite) TestRemoveUnitInformsStorageRemoval(c *gc.C) {
+func (s *RemoveUnitSuite) TestRemoveUnitDetachesStorage(c *gc.C) {
+	s.testRemoveUnitRemoveStorage(c, false)
+}
+
+func (s *RemoveUnitSuite) TestRemoveUnitDestroyStorage(c *gc.C) {
+	s.testRemoveUnitRemoveStorage(c, true)
+}
+
+func (s *RemoveUnitSuite) testRemoveUnitRemoveStorage(c *gc.C, destroy bool) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
-	_, err := runDeploy(c, ch, "storage-filesystem", "--storage", "data=rootfs,2")
+	_, err := runDeploy(c, ch, "storage-filesystem", "--storage", "data=modelscoped,2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Materialise the storage by assigning the unit to a machine.
@@ -74,14 +84,20 @@ func (s *RemoveUnitSuite) TestRemoveUnitInformsStorageRemoval(c *gc.C) {
 	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := runRemoveUnit(c, "storage-filesystem/0")
+	args := []string{"storage-filesystem/0"}
+	action := "detach"
+	if destroy {
+		args = append(args, "--destroy-storage")
+		action = "remove"
+	}
+	ctx, err := runRemoveUnit(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
+	c.Assert(stderr, gc.Equals, fmt.Sprintf(`
 removing unit storage-filesystem/0
-- will remove storage data/0
-- will remove storage data/1
-`[1:])
+- will %[1]s storage data/0
+- will %[1]s storage data/1
+`[1:], action))
 }
 
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {

@@ -116,9 +116,9 @@ func (st *State) Cleanup() (err error) {
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupUnitsForDyingApplication:
-			err = st.cleanupUnitsForDyingApplication(doc.Prefix)
+			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
-			err = st.cleanupDyingUnit(doc.Prefix)
+			err = st.cleanupDyingUnit(doc.Prefix, args)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
 		case cleanupApplicationsForDyingModel:
@@ -360,7 +360,19 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // application is destroyed.
-func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
+func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
+	var destroyStorage bool
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old behaviour.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args")
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+
 	// This won't miss units, because a Dying application cannot have units
 	// added to it. But we do have to remove the units themselves via
 	// individual transactions, because they could be in any state at all.
@@ -372,8 +384,10 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err er
 	iter := units.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading unit document")
 	for iter.Next(&unit.doc) {
-		if err := unit.Destroy(); err != nil {
-			return err
+		op := unit.DestroyOperation()
+		op.DestroyStorage = destroyStorage
+		if err := st.ApplyOperation(op); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -414,13 +428,26 @@ func (st *State) cleanupCharm(charmURL string) error {
 
 // cleanupDyingUnit marks resources owned by the unit as dying, to ensure
 // they are cleaned up as well.
-func (st *State) cleanupDyingUnit(name string) error {
+func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
+	var destroyStorage bool
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old behaviour.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args")
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+
 	unit, err := st.Unit(name)
 	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err
 	}
+
 	// Mark the unit as departing from its joined relations, allowing
 	// related units to start converging to a state in which that unit
 	// is gone as quickly as possible.
@@ -439,9 +466,16 @@ func (st *State) cleanupDyingUnit(name string) error {
 			return err
 		}
 	}
-	// Mark storage attachments as dying, so that they are detached
-	// and removed from state, allowing the unit to terminate.
-	return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
+
+	if destroyStorage {
+		// Detach and mark storage instances as dying, allowing the
+		// unit to terminate.
+		return st.cleanupUnitStorageInstances(unit.UnitTag())
+	} else {
+		// Mark storage attachments as dying, so that they are detached
+		// and removed from state, allowing the unit to terminate.
+		return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
+	}
 }
 
 func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
@@ -465,6 +499,27 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 			continue
 		}
 		err = im.RemoveStorageAttachment(storageTag, unitTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag) error {
+	im, err := st.IAASModel()
+	if err != nil {
+		return err
+	}
+	storageAttachments, err := im.UnitStorageAttachments(unitTag)
+	if err != nil {
+		return err
+	}
+	for _, storageAttachment := range storageAttachments {
+		storageTag := storageAttachment.StorageInstance()
+		err := im.DestroyStorageInstance(storageTag, true)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
