@@ -465,3 +465,28 @@ func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkIn
 		Info: infos,
 	}
 }
+
+func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {
+	result := params.FanConfigResult{make([]params.FanConfigEntry, len(config))}
+	for i, entry := range config {
+		result.Fans[i] = params.FanConfigEntry{entry.Underlay.String(), entry.Overlay.String()}
+	}
+	return result
+}
+
+func FanConfigResultToFanConfig(config params.FanConfigResult) (network.FanConfig, error) {
+	rv := make(network.FanConfig, len(config.Fans))
+	for i, entry := range config.Fans {
+		_, ipnet, err := net.ParseCIDR(entry.Underlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Underlay = ipnet
+		_, ipnet, err = net.ParseCIDR(entry.Overlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Overlay = ipnet
+	}
+	return rv, nil
+}

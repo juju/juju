@@ -375,7 +375,7 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.State.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16:253.0.0.0/8"}, nil)
+	s.State.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
 	err := s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -393,7 +393,7 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.State.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16:253.0.0.0/8"}, nil)
+	s.State.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
 	err := s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 

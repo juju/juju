@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/logfwd/syslog"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 )
 
@@ -70,23 +69,6 @@ func (e *ModelWatcher) LogForwardConfig() (*syslog.RawConfig, bool, error) {
 	}
 	cfg, ok := modelConfig.LogFwdSyslog()
 	return cfg, ok, nil
-}
-
-// WatchForFanConfigChanges return a NotifyWatcher waiting for the
-// fan configuration to change.
-func (e *ModelWatcher) WatchForFanConfigChanges() (watcher.NotifyWatcher, error) {
-	// TODO(wpk) same as LogForwardConfig, this needs to have it's own backend implementation.
-	// For now, we'll piggyback off the ModelConfig API.
-	return e.WatchForModelConfigChanges()
-}
-
-// FanConfig returns the current fan configuration.
-func (e *ModelWatcher) FanConfig() (network.FanConfig, error) {
-	modelConfig, err := e.ModelConfig()
-	if err != nil {
-		return nil, err
-	}
-	return modelConfig.FanConfig()
 }
 
 // UpdateStatusHookInterval returns the current update status hook interval.

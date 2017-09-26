@@ -4,9 +4,8 @@
 package state
 
 import (
-	"encoding/binary"
 	"fmt"
-	"net"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -87,7 +86,11 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 	}
 
 	// We process FAN subnets separately for clarity.
-	cfg, err := st.ModelConfig()
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cfg, err := m.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -100,35 +103,17 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 	}
 
 	for _, subnet := range subnets {
-		_, subnetNet, err := net.ParseCIDR(subnet.CIDR)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		for _, fan := range fans {
-			subnetSize, _ := subnetNet.Mask.Size()
-			underlaySize, _ := fan.Underlay.Mask.Size()
-			// We need to cut a part of fan specific for this physical subnet, eg:
-			// for FAN 172.31/16 -> 243/8 and physical subnet 172.31.64/20
-			// we get FAN subnet 243.64/12.
-			if underlaySize <= subnetSize && fan.Underlay.Contains(subnetNet.IP) {
-				id := fmt.Sprintf("%s-INFAN-%d-%d-%d-%d-%d", subnet.ProviderId, subnetNet.IP[0], subnetNet.IP[1], subnetNet.IP[2], subnetNet.IP[3], subnetSize)
-				if modelSubnetIds.Contains(id) {
-					continue
-				}
-				overlaySize, _ := fan.Overlay.Mask.Size()
-				newOverlaySize := overlaySize + (subnetSize - underlaySize)
-				fanSize := uint(underlaySize - overlaySize)
-				newFanIP := subnetNet.IP.To4()
-				for i := 0; i < 4; i++ {
-					newFanIP[i] &^= fan.Underlay.Mask[i]
-				}
-				numIp := binary.BigEndian.Uint32(newFanIP)
-				numIp <<= fanSize
-				binary.BigEndian.PutUint32(newFanIP, numIp)
-				for i := 0; i < 4; i++ {
-					newFanIP[i] += fan.Overlay.IP[i]
-				}
-				newOverlay := net.IPNet{IP: newFanIP, Mask: net.CIDRMask(newOverlaySize, 32)}
+			subnetWithDashes := strings.Replace(strings.Replace(subnet.CIDR, ".", "-", -1), "/", "-", -1)
+			id := fmt.Sprintf("%s-INFAN-%s", subnet.ProviderId, subnetWithDashes)
+			if modelSubnetIds.Contains(id) {
+				continue
+			}
+			overlaySegment, err := network.CalculateOverlaySegment(subnet.CIDR, fan)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if overlaySegment != nil {
 				var firstZone string
 				if len(subnet.AvailabilityZones) > 0 {
 					firstZone = subnet.AvailabilityZones[0]
@@ -136,7 +121,7 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 				_, err := st.AddSubnet(SubnetInfo{
 					ProviderId:        network.Id(id),
 					ProviderNetworkId: subnet.ProviderNetworkId,
-					CIDR:              newOverlay.String(),
+					CIDR:              overlaySegment.String(),
 					SpaceName:         spaceName,
 					VLANTag:           subnet.VLANTag,
 					AvailabilityZone:  firstZone,
@@ -146,7 +131,6 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 				if err != nil {
 					return errors.Trace(err)
 				}
-
 			}
 		}
 	}

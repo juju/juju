@@ -31,6 +31,10 @@ type Networking interface {
 	// by the provider for the environment.
 	Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error)
 
+	// SuperSubnets returns information about aggregated subnets - eg. global CIDR
+	// for EC2 VPC.
+	SuperSubnets() ([]string, error)
+
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given instance.
 	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)

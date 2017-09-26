@@ -286,6 +286,19 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
+	// Set up default container networking mode
+	model, err := st.Model()
+	if err != nil {
+		return err
+	}
+	if err = model.AutoConfigureContainerNetworking(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
+		} else {
+			return err
+		}
+	}
+
 	// Fetch spaces from substrate
 	if err = st.ReloadSpaces(env); err != nil {
 		if errors.IsNotSupported(err) {

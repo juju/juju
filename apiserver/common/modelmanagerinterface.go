@@ -95,6 +95,7 @@ type Model interface {
 	ControllerUUID() string
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
+	AutoConfigureContainerNetworking(environ environs.Environ) error
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

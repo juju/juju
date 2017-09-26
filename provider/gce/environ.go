@@ -83,6 +83,9 @@ type environ struct {
 	namespace instance.Namespace
 }
 
+var _ environs.Environ = (*environ)(nil)
+var _ environs.NetworkingEnviron = (*environ)(nil)
+
 // Function entry points defined as variables so they can be overridden
 // for testing purposes.
 var (

@@ -201,7 +201,7 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "creating hosted model environment")
 	}
 
-	_, hostedModelState, err := st.NewModel(state.ModelArgs{
+	model, hostedModelState, err := st.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		Owner:                   adminUser,
 		Config:                  hostedModelConfig,
@@ -218,8 +218,16 @@ func InitializeState(
 
 	defer hostedModelState.Close()
 
+	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
+		} else {
+			return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
+		}
+	}
+
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
-	if err := hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
+	if err = hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

@@ -265,6 +265,9 @@ type environ struct {
 	spacesMutex  sync.RWMutex
 }
 
+var _ environs.Environ = (*environ)(nil)
+var _ environs.Networking = (*environ)(nil)
+
 // discardOperations discards all Operations written to it.
 var discardOperations = make(chan Operation)
 
@@ -1716,4 +1719,9 @@ func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, er
 		}
 	}
 	return rv, nil
+}
+
+// SuperSubnets implements environs.SuperSubnets
+func (*environ) SuperSubnets() ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
 }

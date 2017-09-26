@@ -85,9 +85,7 @@ func NewFanConfigurer(config FanConfigurerConfig, clock clock.Clock) (*FanConfig
 	}
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &fc.catacomb,
-		Work: func() error {
-			return errors.Trace(fc.loop())
-		},
+		Work: fc.loop,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

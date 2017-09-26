@@ -31,12 +31,12 @@ type BridgePolicy struct {
 	// one of the devices being bridged is a BondDevice. This exists because of
 	// https://bugs.launchpad.net/juju/+bug/1657579
 	NetBondReconfigureDelay int
-	// UseLocalBridges decides if we should use local-only bridges ("lxdbr0", "virbr0"),
-	// to handle unnamed space requests.
-	UseLocalBridges bool
-	// UseFanNetworking decides if we should use FAN network if it's set up,
-	// it overrides UseLocalBridges for unnamed space requests.
-	UseFanNetworking bool
+	// ContainerNetworkingMethod defines the way containers are networked.
+	// It's one of:
+	//  - fan
+	//  - provider
+	//  - local
+	ContainerNetworkingMethod string
 }
 
 // Machine describes either a host machine, or a container machine. Either way
@@ -64,13 +64,12 @@ var _ Container = (*state.Machine)(nil)
 // inferContainerSpaces tries to find a valid space for the container to be
 // on. This should only be used when the container itself doesn't have any
 // valid constraints on what spaces it should be in.
-// If UseLocalBridges is set and UseFanNetworking is not set we fall back to
-// "" and use lxdbr0 as we probably won't be able to get an IP on hosts space.
+// If ContainerNetworkingMethod is 'local' we fall back to "" and use lxdbr0.
 // If this machine is in a single space, then that space is used. Else, if
 // the machine has the default space, then that space is used.
 // If neither of those conditions is true, then we return an error.
 func (p *BridgePolicy) inferContainerSpaces(m Machine, containerId, defaultSpaceName string) (set.Strings, error) {
-	if p.UseLocalBridges && !p.UseFanNetworking {
+	if p.ContainerNetworkingMethod == "local" {
 		return set.NewStrings(""), nil
 	}
 	hostSpaces, err := m.AllSpaces()
@@ -235,7 +234,7 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 	for spaceName, devices := range devicesPerSpace {
 		for _, device := range devices {
 			if device.Type() == state.BridgeDevice {
-				if !b.UseLocalBridges && skippedDeviceNames.Contains(device.Name()) {
+				if b.ContainerNetworkingMethod != "local" && skippedDeviceNames.Contains(device.Name()) {
 					continue
 				}
 				spacesFound.Add(spaceName)
@@ -353,7 +352,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 				}
 
 			}
-			wantThisDevice := isFan == p.UseFanNetworking
+			wantThisDevice := isFan == (p.ContainerNetworkingMethod == "fan")
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
 			if wantThisDevice && deviceType == state.BridgeDevice && !skippedDeviceNames.Contains(name) {
 				devicesByName[name] = hostDevice
@@ -365,7 +364,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 	missingSpace := containerSpaces.Difference(spacesFound)
 
 	// Check if we are missing "" and can fill it in with a local bridge
-	if len(missingSpace) == 1 && missingSpace.Contains("") && p.UseLocalBridges && !p.UseFanNetworking {
+	if len(missingSpace) == 1 && missingSpace.Contains("") && p.ContainerNetworkingMethod == "local" {
 		localBridgeName := localBridgeForType[containerMachine.ContainerType()]
 		for _, hostDevice := range devicesPerSpace[""] {
 			name := hostDevice.Name()

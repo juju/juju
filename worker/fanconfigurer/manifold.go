@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
 
-	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
+	apifanconfigurer "github.com/juju/juju/api/fanconfigurer"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/utils/clock"
 )
@@ -21,7 +21,7 @@ type ManifoldConfig struct {
 	Clock         clock.Clock
 }
 
-// Manifold returns a dependency manifold that runs a log forwarding
+// Manifold returns a dependency manifold that runs a fan configurer
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
@@ -47,13 +47,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			agentFacade, err := apiagent.NewState(apiCaller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			facade := apifanconfigurer.NewFacade(apiCaller)
 
 			fanconfigurer, err := NewFanConfigurer(FanConfigurerConfig{
-				Facade: agentFacade,
+				Facade: facade,
 			}, config.Clock)
 			return fanconfigurer, errors.Annotate(err, "creating fanconfigurer orchestrator")
 		},

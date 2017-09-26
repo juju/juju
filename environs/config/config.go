@@ -106,6 +106,10 @@ const (
 	// the network for containers.
 	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
+	// ContainerNetworkingMethod is the key for setting up
+	// networking method for containers.
+	ContainerNetworkingMethod = "container-networking-method"
+
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
@@ -305,6 +309,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	if err := c.ensureUnitLogging(); err != nil {
 		return nil, err
 	}
+
 	// no old config to compare against
 	if err := Validate(c, nil); err != nil {
 		return nil, err
@@ -359,6 +364,7 @@ var defaultConfigValues = map[string]interface{}{
 	//
 	// $ juju model-config net-bond-reconfigure-delay=30
 	NetBondReconfigureDelayKey: 17,
+	ContainerNetworkingMethod:  "",
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
@@ -573,6 +579,21 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if v, ok := cfg.defined[ContainerNetworkingMethod].(string); ok {
+		switch v {
+		case "fan":
+			if cfg, err := cfg.FanConfig(); err != nil || cfg == nil {
+				return errors.New("container-networking-method cannot be set to 'fan' without fan-config set")
+			}
+		case "provider": // TODO(wpk) FIXME we should check that the provider supports this setting!
+		case "local":
+		case "": // We'll try to autoconfigure it
+		default:
+			return fmt.Errorf("Invalid value for container-networking-method - %v", v)
+		}
+	} else {
+		return errors.New("container-networking-method value invalid cannot be empty")
+	}
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -683,6 +704,12 @@ func (c *Config) ProxySSH() bool {
 func (c *Config) NetBondReconfigureDelay() int {
 	value, _ := c.defined[NetBondReconfigureDelayKey].(int)
 	return value
+}
+
+// ContainerNetworkingMethod returns the method with which
+// containers network should be set up.
+func (c *Config) ContainerNetworkingMethod() string {
+	return c.asString(ContainerNetworkingMethod)
 }
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
@@ -1165,6 +1192,7 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
 	NetBondReconfigureDelayKey:   schema.Omit,
+	ContainerNetworkingMethod:    schema.Omit,
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
 	MaxActionResultsAge:          schema.Omit,
@@ -1541,6 +1569,11 @@ data of the store. (default false)`,
 	NetBondReconfigureDelayKey: {
 		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
 		Type:        environschema.Tint,
+		Group:       environschema.EnvironGroup,
+	},
+	ContainerNetworkingMethod: {
+		Description: "Method of container networking setup - one of fan, provider, local",
+		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	MaxStatusHistoryAge: {
