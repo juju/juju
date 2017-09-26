@@ -211,11 +211,6 @@ class FakeEnvironmentState:
         self.remove_machine(machine_id)
         self.state_servers.remove(machine_id)
 
-    def destroy_environment(self):
-        self._clear()
-        self.controller.state = 'destroyed'
-        return 0
-
     def destroy_model(self):
         del self.controller.models[self.name]
         self._clear()
@@ -774,14 +769,6 @@ class FakeBackend:
         default_model = self.controller_state.bootstrap(
             model_name, config, self.is_feature_enabled('jes'))
         default_model.deploy_bundle(bundle)
-
-    def destroy_environment(self, model_name):
-        try:
-            state = self.controller_state.models[model_name]
-        except KeyError:
-            return 0
-        state.destroy_environment()
-        return 0
 
     def add_machines(self, model_state, args):
         if len(args) == 0:

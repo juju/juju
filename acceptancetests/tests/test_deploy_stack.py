@@ -40,7 +40,6 @@ from deploy_stack import (
     deploy_job,
     _deploy_job,
     deploy_job_parse_args,
-    destroy_environment,
     dump_env_logs,
     dump_juju_timings,
     _get_clients_to_upgrade,
@@ -56,8 +55,7 @@ from deploy_stack import (
     test_on_controller
     )
 from jujupy import (
-    EnvJujuClient1X,
-    EnvJujuClient25,
+    # EnvJujuClient25,
     fake_juju_client,
     fake_juju_client_optional_jes,
     get_cache_path,
@@ -112,41 +110,6 @@ def make_logs(log_dir):
 class DeployStackTestCase(FakeHomeTestCase):
 
     log_level = logging.DEBUG
-
-    def test_destroy_environment(self):
-        client = EnvJujuClient1X(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client,
-                          'destroy_environment', autospec=True) as de_mock:
-            with patch('deploy_stack.destroy_job_instances',
-                       autospec=True) as dji_mock:
-                destroy_environment(client, 'foo')
-        self.assertEqual(1, de_mock.call_count)
-        self.assertEqual(0, dji_mock.call_count)
-
-    def test_destroy_environment_with_manual_type_aws(self):
-        os.environ['AWS_ACCESS_KEY'] = 'fake-juju-ci-testing-key'
-        client = EnvJujuClient1X(
-            SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
-        with patch.object(client,
-                          'destroy_environment', autospec=True) as de_mock:
-            with patch('deploy_stack.destroy_job_instances',
-                       autospec=True) as dji_mock:
-                destroy_environment(client, 'foo')
-        self.assertEqual(1, de_mock.call_count)
-        dji_mock.assert_called_once_with('foo')
-
-    def test_destroy_environment_with_manual_type_non_aws(self):
-        client = EnvJujuClient1X(
-            SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
-        with patch.object(client,
-                          'destroy_environment', autospec=True) as de_mock:
-            with patch('deploy_stack.destroy_job_instances',
-                       autospec=True) as dji_mock:
-                destroy_environment(client, 'foo')
-        self.assertEqual(os.environ.get('AWS_ACCESS_KEY'), None)
-        self.assertEqual(1, de_mock.call_count)
-        self.assertEqual(0, dji_mock.call_count)
 
     def test_assess_juju_run(self):
         env = JujuData('foo', {'type': 'nonlocal'})
@@ -393,7 +356,7 @@ class DeployStackTestCase(FakeHomeTestCase):
 
     def test_check_token_win_client_status(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
-        client = EnvJujuClient1X(env, None, None)
+        client = ModelClient(env, None, None)
         remote = MagicMock(spec=['cat', 'is_windows'])
         remote.is_windows.return_value = False
         status = Status.from_text("""\
@@ -1075,10 +1038,7 @@ class FakeBootstrapManager:
             self.exited_runtime = True
 
     def tear_down(self):
-        tear_down_meth = getattr(
-            self.tear_down_client, 'destroy_environment',
-            self.tear_down_client.kill_controller)
-        tear_down_meth()
+        self.tear_down_client.kill_controller()
         self.torn_down = True
 
     @contextmanager
@@ -1291,18 +1251,6 @@ class TestTestUpgrade(FakeHomeTestCase):
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 6)
         assert_juju_call(self, co_mock, new_client, self.STATUS, 7)
         self.assertEqual(co_mock.call_count, 9)
-
-    def test__get_clients_to_upgrade_returns_new_version_class(self):
-        env = SimpleEnvironment('foo', {'type': 'foo'})
-        old_client = fake_juju_client(
-            env, '/foo/juju', version='1.25', cls=EnvJujuClient25)
-        with patch('jujupy.ModelClient.get_version',
-                   return_value='1.25-arch-series'):
-            with patch('jujupy.EnvJujuClient25._get_models', return_value=[]):
-                [new_client] = _get_clients_to_upgrade(
-                    old_client, '/foo/newer/juju')
-
-        self.assertIs(type(new_client), EnvJujuClient25)
 
     def test__get_clients_to_upgrade_returns_controller_and_model(self):
         old_client = fake_juju_client()
@@ -2366,10 +2314,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch(
             'deploy_stack.BootstrapManager.collect_resource_details',
             autospec=True))
-        if isinstance(client, EnvJujuClient1X):
-            models = []
-        else:
-            models = [{'name': 'controller'}, {'name': 'bar'}]
+        models = [{'name': 'controller'}, {'name': 'bar'}]
         self.addContext(patch.object(client, '_get_models',
                                      return_value=models, autospec=True))
         if jes:
@@ -2415,21 +2360,6 @@ class TestBootContext(FakeHomeTestCase):
             'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
-    def test_bootstrap_context_non_jes(self):
-        cc_mock = self.addContext(patch('subprocess.check_call'))
-        client = EnvJujuClient1X(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, 'log_dir'):
-            with boot_context('bar', client, None, [], None, None, None,
-                              'log_dir', keep_env=False, upload_tools=False):
-                pass
-        assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
-            'mem=2G'), 0)
-        assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'status', '-e', 'bar',
-            '--format', 'yaml'), 1)
-
     def test_keep_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = ModelClient(JujuData(
@@ -2454,21 +2384,6 @@ class TestBootContext(FakeHomeTestCase):
             'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
-    def test_keep_env_non_jes(self):
-        cc_mock = self.addContext(patch('subprocess.check_call'))
-        client = EnvJujuClient1X(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, keep_env=True):
-            with boot_context('bar', client, None, [], None, None, None, None,
-                              keep_env=True, upload_tools=False):
-                pass
-        assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
-            'mem=2G'), 0)
-        assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'status', '-e', 'bar',
-            '--format', 'yaml'), 1)
-
     def test_upload_tools(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = ModelClient(JujuData(
@@ -2483,22 +2398,10 @@ class TestBootContext(FakeHomeTestCase):
             '--constraints', 'mem=2G', 'paas/qux', 'bar', '--config',
             config_file.name, '--default-model', 'bar'), 0)
 
-    def test_upload_tools_non_jes(self):
-        cc_mock = self.addContext(patch('subprocess.check_call'))
-        client = EnvJujuClient1X(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client):
-            with boot_context('bar', client, None, [], None, None, None, None,
-                              keep_env=False, upload_tools=True):
-                pass
-        assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
-            '--constraints', 'mem=2G'), 0)
-
-    def test_calls_update_env_2(self):
+    def test_calls_update_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = ModelClient(JujuData(
-            'foo', {'type': 'paas', 'region': 'qux'}), '1.23', 'path')
+            'foo', {'type': 'paas', 'region': 'qux'}), '2.3', 'path')
         ue_mock = self.addContext(
             patch('deploy_stack.update_env', wraps=update_env))
         with self.bc_context(client, jes='kill-controller'):
@@ -2513,42 +2416,8 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
             'paas/qux', 'bar', '--config', config_file.name,
-            '--default-model', 'bar', '--agent-version', '1.23',
+            '--default-model', 'bar', '--agent-version', '2.3',
             '--bootstrap-series', 'wacky'), 0)
-
-    def test_calls_update_env_1(self):
-        cc_mock = self.addContext(patch('subprocess.check_call'))
-        client = EnvJujuClient1X(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        ue_mock = self.addContext(
-            patch('deploy_stack.update_env', wraps=update_env))
-        with self.bc_context(client):
-            with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
-                              None, keep_env=False, upload_tools=False):
-                pass
-        ue_mock.assert_called_with(
-            client.env, 'bar', series='wacky', bootstrap_host=None,
-            agent_url='url', agent_stream='devel', region=None)
-        assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', '-e', 'bar',
-            '--constraints', 'mem=2G'), 0)
-
-    def test_calls_update_env_non_jes(self):
-        cc_mock = self.addContext(patch('subprocess.check_call'))
-        client = EnvJujuClient1X(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        ue_mock = self.addContext(
-            patch('deploy_stack.update_env', wraps=update_env))
-        with self.bc_context(client):
-            with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
-                              None, keep_env=False, upload_tools=False):
-                pass
-        ue_mock.assert_called_with(
-            client.env, 'bar', series='wacky', bootstrap_host=None,
-            agent_url='url', agent_stream='devel', region=None)
-        assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', '-e', 'bar',
-            '--constraints', 'mem=2G'), 0)
 
     def test_with_bootstrap_failure(self):
 
@@ -2589,44 +2458,6 @@ class TestBootContext(FakeHomeTestCase):
         self.assertEqual(2, kill_mock.call_count)
         self.assertEqual(0, po_mock.call_count)
 
-    def test_with_bootstrap_failure_non_jes(self):
-
-        class FakeException(Exception):
-            """A sentry exception to be raised by bootstrap."""
-
-        client = EnvJujuClient1X(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        self.addContext(patch('deploy_stack.get_machine_dns_name',
-                              return_value='foo'))
-        self.addContext(patch('subprocess.check_call'))
-        tear_down_mock = self.addContext(
-            patch('deploy_stack.BootstrapManager.tear_down', autospec=True))
-        kill_mock = self.addContext(
-            patch.object(client, 'kill_controller', autospec=True))
-        po_mock = self.addContext(patch('subprocess.Popen', autospec=True,
-                                        return_value=FakePopen('', '', 0)))
-        self.addContext(patch('deploy_stack.wait_for_port'))
-        fake_exception = FakeException()
-        self.addContext(patch.object(client, 'bootstrap',
-                                     side_effect=fake_exception))
-        crl_mock = self.addContext(patch('deploy_stack.copy_remote_logs'))
-        al_mock = self.addContext(patch('deploy_stack.archive_logs'))
-        le_mock = self.addContext(patch('logging.exception'))
-        with self.assertRaises(SystemExit):
-            with boot_context('bar', client, 'baz', [], None, None, None,
-                              'log_dir', keep_env=False, upload_tools=True):
-                pass
-        le_mock.assert_called_once_with(fake_exception)
-        self.assertEqual(crl_mock.call_count, 1)
-        call_args = crl_mock.call_args[0]
-        self.assertIsInstance(call_args[0], _Remote)
-        self.assertEqual(call_args[0].get_address(), 'baz')
-        self.assertEqual(call_args[1], 'log_dir')
-        al_mock.assert_called_once_with('log_dir')
-        self.assertEqual(0, tear_down_mock.call_count)
-        self.assertEqual(2, kill_mock.call_count)
-        self.assertEqual(0, po_mock.call_count)
-
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = ModelClient(JujuData(
@@ -2641,17 +2472,6 @@ class TestBootContext(FakeHomeTestCase):
         client = ModelClient(JujuData(
             'foo', {'type': 'paas'}), '1.23', 'path')
         with self.bc_context(client, 'log_dir', jes='kill-controller'):
-            with boot_context('bar', client, None, [], None, None, None,
-                              'log_dir', keep_env=False, upload_tools=False,
-                              region='steve'):
-                pass
-        self.assertEqual('steve', client.env.get_region())
-
-    def test_region_non_jes(self):
-        self.addContext(patch('subprocess.check_call', autospec=True))
-        client = EnvJujuClient1X(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, 'log_dir'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):

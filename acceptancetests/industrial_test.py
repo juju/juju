@@ -581,11 +581,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         yield cls.destroy.as_result()
         groups = cls.get_security_groups(client)
-        if client.is_jes_enabled():
-            client.kill_controller()
-        elif client.destroy_environment(force=False) != 0:
-            yield cls.destroy.as_result(False)
-            return
+        client.kill_controller()
         yield cls.destroy.as_result(True)
         yield cls.substrate_clean.as_result()
         cls.check_security_groups(client, groups)
