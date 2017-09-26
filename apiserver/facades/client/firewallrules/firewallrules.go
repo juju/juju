@@ -89,7 +89,6 @@ func (api *API) SetFirewallRules(args params.FirewallRuleArgs) (params.ErrorResu
 		err := api.backend.SaveFirewallRule(state.FirewallRule{
 			WellKnownService: state.WellKnownServiceType(arg.KnownService),
 			WhitelistCIDRs:   arg.WhitelistCIDRS,
-			BlacklistCIDRs:   arg.BlacklistCIDRS,
 		})
 		results[i].Error = common.ServerError(err)
 	}
@@ -115,7 +114,6 @@ func (api *API) ListFirewallRules() (params.ListFirewallRulesResults, error) {
 		listResults.Rules[i] = params.FirewallRule{
 			KnownService:   params.KnownServiceValue(r.WellKnownService),
 			WhitelistCIDRS: r.WhitelistCIDRs,
-			BlacklistCIDRS: r.BlacklistCIDRs,
 		}
 	}
 	return listResults, nil

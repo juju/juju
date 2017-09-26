@@ -95,7 +95,6 @@ func (c *listFirewallRulesCommand) Run(ctx *cmd.Context) error {
 		rules[i] = firewallRule{
 			KnownService:   string(r.KnownService),
 			WhitelistCIDRS: r.WhitelistCIDRS,
-			BlacklistCIDRS: r.BlacklistCIDRS,
 		}
 	}
 	return c.out.Write(ctx, rules)

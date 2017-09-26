@@ -25,9 +25,6 @@ type FirewallRule struct {
 
 	// WhitelistCIDRS is the ist of subnets allowed access.
 	WhitelistCIDRS []string `json:"whitelist-cidrs,omitempty"`
-
-	// BlacklistCIDRS is the ist of subnets denied access.
-	BlacklistCIDRS []string `json:"blacklist-cidrs,omitempty"`
 }
 
 // KnownServiceValue describes a well known service for which a

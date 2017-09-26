@@ -43,7 +43,6 @@ func (m *mockBackend) ListFirewallRules() ([]*state.FirewallRule, error) {
 		{
 			WellKnownService: state.JujuApplicationOfferRule,
 			WhitelistCIDRs:   []string{"1.2.3.4/8"},
-			BlacklistCIDRs:   []string{"4.3.2.1/8"},
 		},
 	}, nil
 }

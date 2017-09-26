@@ -39,7 +39,6 @@ func (s *FirewallRulesSuite) TestSetFirewallRule(c *gc.C) {
 			rule := args.Args[0]
 			c.Assert(rule.KnownService, gc.Equals, params.SSHRule)
 			c.Assert(rule.WhitelistCIDRS, jc.DeepEquals, []string{"192.168.1.0/32"})
-			c.Assert(rule.BlacklistCIDRS, jc.DeepEquals, []string{"10.0.0.0/8"})
 
 			if results, ok := result.(*params.ErrorResults); ok {
 				results.Results = []params.ErrorResult{{
@@ -49,7 +48,7 @@ func (s *FirewallRulesSuite) TestSetFirewallRule(c *gc.C) {
 		})
 
 	client := firewallrules.NewClient(apiCaller)
-	err := client.SetFirewallRule("ssh", []string{"192.168.1.0/32"}, []string{"10.0.0.0/8"})
+	err := client.SetFirewallRule("ssh", []string{"192.168.1.0/32"})
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
@@ -67,7 +66,7 @@ func (s *FirewallRulesSuite) TestSetFirewallRuleFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := firewallrules.NewClient(apiCaller)
-	err := client.SetFirewallRule("ssh", nil, nil)
+	err := client.SetFirewallRule("ssh", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
@@ -83,7 +82,7 @@ func (s *FirewallRulesSuite) TestSetFirewallRuleInvalid(c *gc.C) {
 		})
 
 	client := firewallrules.NewClient(apiCaller)
-	err := client.SetFirewallRule("foo", []string{"192.168.1.0/32"}, []string{"10.0.0.0/8"})
+	err := client.SetFirewallRule("foo", []string{"192.168.1.0/32"})
 	c.Assert(err, gc.ErrorMatches, `known service "foo" not valid`)
 }
 
@@ -106,7 +105,6 @@ func (s *FirewallRulesSuite) TestList(c *gc.C) {
 				results.Rules = []params.FirewallRule{{
 					KnownService:   params.SSHRule,
 					WhitelistCIDRS: []string{"192.168.1.0/32"},
-					BlacklistCIDRS: []string{"10.0.0.0/8"},
 				}}
 			}
 			return nil
@@ -119,7 +117,6 @@ func (s *FirewallRulesSuite) TestList(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, []params.FirewallRule{{
 		KnownService:   params.SSHRule,
 		WhitelistCIDRS: []string{"192.168.1.0/32"},
-		BlacklistCIDRS: []string{"10.0.0.0/8"},
 	}})
 }
 

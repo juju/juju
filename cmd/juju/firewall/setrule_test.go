@@ -37,24 +37,23 @@ func (s *SetRuleSuite) TestInitInvalidWhitelist(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid white-list subnet: invalid CIDR address: foo`)
 }
 
-func (s *SetRuleSuite) TestInitInvalidBlacklist(c *gc.C) {
-	_, err := s.runSetRule(c, "--blacklist", "foo", "ssh")
-	c.Assert(err, gc.ErrorMatches, `invalid black-list subnet: invalid CIDR address: foo`)
+func (s *SetRuleSuite) TestInitMissingWhitelist(c *gc.C) {
+	_, err := s.runSetRule(c, "ssh")
+	c.Assert(err, gc.ErrorMatches, `no whitelist subnets specified`)
 }
 
 func (s *SetRuleSuite) TestSetRule(c *gc.C) {
-	_, err := s.runSetRule(c, "--blacklist", "10.0.0.0/8,192.168.1.0/8", "--whitelist", "10.2.1.0/8", "ssh")
+	_, err := s.runSetRule(c, "--whitelist", "10.2.1.0/8,192.168.1.0/8", "ssh")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.rule, jc.DeepEquals, params.FirewallRule{
 		KnownService:   params.SSHRule,
-		WhitelistCIDRS: []string{"10.2.1.0/8"},
-		BlacklistCIDRS: []string{"10.0.0.0/8", "192.168.1.0/8"},
+		WhitelistCIDRS: []string{"10.2.1.0/8", "192.168.1.0/8"},
 	})
 }
 
 func (s *SetRuleSuite) TestSetError(c *gc.C) {
 	s.mockAPI.err = errors.New("fail")
-	_, err := s.runSetRule(c, "ssh")
+	_, err := s.runSetRule(c, "ssh", "--whitelist", "10.0.0.0/8")
 	c.Assert(err, gc.ErrorMatches, ".*fail.*")
 }
 
@@ -71,14 +70,13 @@ func (s *mockSetRuleAPI) Close() error {
 	return nil
 }
 
-func (s *mockSetRuleAPI) SetFirewallRule(service string, whiteListCidrs, blackListCidrs []string) error {
+func (s *mockSetRuleAPI) SetFirewallRule(service string, whiteListCidrs []string) error {
 	if s.err != nil {
 		return s.err
 	}
 	s.rule = params.FirewallRule{
 		KnownService:   params.KnownServiceValue(service),
 		WhitelistCIDRS: whiteListCidrs,
-		BlacklistCIDRS: blackListCidrs,
 	}
 	return nil
 }
