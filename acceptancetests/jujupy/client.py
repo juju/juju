@@ -1728,7 +1728,8 @@ class ModelClient:
             full_path = self.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
-        return self.clone(full_path=full_path)
+        return self.clone(
+            full_path=full_path, version=self.get_version(juju_path))
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):
