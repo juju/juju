@@ -86,23 +86,23 @@ type Config struct {
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
-func (config Config) Validate() error {
-	if config.ModelUUID == "" {
+func (cfg Config) Validate() error {
+	if cfg.ModelUUID == "" {
 		return errors.NotValidf("empty model uuid")
 	}
-	if config.FirewallerAPI == nil {
+	if cfg.FirewallerAPI == nil {
 		return errors.NotValidf("nil Firewaller Facade")
 	}
-	if config.RemoteRelationsApi == nil {
+	if cfg.RemoteRelationsApi == nil {
 		return errors.NotValidf("nil RemoteRelations Facade")
 	}
-	if config.EnvironFirewaller == nil {
+	if cfg.Mode == config.FwGlobal && cfg.EnvironFirewaller == nil {
 		return errors.NotValidf("nil EnvironFirewaller")
 	}
-	if config.EnvironInstances == nil {
+	if cfg.EnvironInstances == nil {
 		return errors.NotValidf("nil EnvironInstances")
 	}
-	if config.NewCrossModelFacadeFunc == nil {
+	if cfg.NewCrossModelFacadeFunc == nil {
 		return errors.NotValidf("nil Cross Model Facade func")
 	}
 	return nil
@@ -576,7 +576,7 @@ func (fw *Firewaller) reconcileInstances() error {
 
 		fwInstance, ok := instances[0].(instance.InstanceFirewaller)
 		if !ok {
-			return errors.Errorf("firewaller using unexpected instance type")
+			return nil
 		}
 
 		initialRules, err := fwInstance.IngressRules(machineId)
@@ -879,7 +879,8 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	fwInstance, ok := instances[0].(instance.InstanceFirewaller)
 	if !ok {
-		return errors.Errorf("firewaller using unexpected instance type")
+		logger.Infof("flushInstancePorts called on an instance of type %T which doesn't support firewall.", instances[0])
+		return nil
 	}
 
 	// Open and close the ports.

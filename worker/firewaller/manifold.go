@@ -87,16 +87,20 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, errors.Trace(err)
 	}
 
-	fwEnv, ok := environ.(environs.Firewaller)
-	if !ok {
-		logger.Infof("stopping firewaller (not used in this provider)")
-		return nil, dependency.ErrUninstall
-	}
+	// Check if the env supports global firewalling.  If the
+	// configured mode is instance, we can ignore fwEnv being a
+	// nil value, as it won't be used.
+	fwEnv, fwEnvOK := environ.(environs.Firewaller)
 
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
 		logger.Infof("stopping firewaller (not required)")
 		return nil, dependency.ErrUninstall
+	} else if mode == config.FwGlobal {
+		if !fwEnvOK {
+			logger.Infof("Firewall global mode set on provider with no support. stopping firewaller")
+			return nil, dependency.ErrUninstall
+		}
 	}
 
 	firewallerAPI, err := cfg.NewFirewallerFacade(apiConn)
