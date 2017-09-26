@@ -52,10 +52,10 @@ def get_clients(initial, other, base_env, debug, agent_url):
         environment = initial_client.env
     if agent_url is None:
         environment.discard_option('tools-metadata-url')
-    other_client = initial_client.clone_path_cls(other)
+    other_client = initial_client.clone_from_path(other)
     # This used to catch an exception of the config didn't match.
     # version_client no longer exists so that no longer made sense.
-    released_client = initial_client.clone_path_cls(None)
+    released_client = initial_client.clone_from_path(None)
     # If system juju is used, ensure it has identical env to
     # initial_client.
     released_client.env = initial_client.env

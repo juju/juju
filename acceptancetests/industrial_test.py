@@ -447,7 +447,7 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
             bootstrap_path = self.bootstrap_paths[client.full_path]
         except KeyError:
             raise CannotUpgradeToClient(client)
-        return client.clone_path_cls(bootstrap_path)
+        return client.clone_from_path(bootstrap_path)
 
     def iter_steps(self, client):
         """Use a BootstrapAttempt with a different client."""
@@ -1015,7 +1015,7 @@ def run_single(args):
             if (
                     factory.bootstrap_attempt == PrepareUpgradeJujuAttempt and
                     upgrade_client is None):
-                upgrade_client = client.clone_path_cls(None)
+                upgrade_client = client.clone_from_path(None)
             if upgrade_client is not None:
                 upgrade_sequence = [upgrade_client.full_path, client.full_path]
             else:

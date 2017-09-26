@@ -12,7 +12,6 @@ import yaml
 from jujupy import (
     AuthNotAccepted,
     ModelClient,
-    get_client_class,
     InvalidEndpoint,
     JujuData,
     NameNotAccepted,
@@ -258,16 +257,13 @@ def main():
     args = parse_args()
     juju_bin = args.juju_bin
     version = ModelClient.get_version(juju_bin)
-    client_class = get_client_class(version)
-    if client_class.config_class is not JujuData:
-        logging.warn('This test does not support old jujus.')
     with open(args.example_clouds) as f:
         clouds = yaml.safe_load(f)['clouds']
     cloug_validation = CloudValidation(version)
     cloud_specs = iter_clouds(clouds, cloug_validation)
     with temp_dir() as juju_home:
         env = JujuData('foo', config=None, juju_home=juju_home)
-        client = client_class(env, version, juju_bin)
+        client = ModelClient(env, version, juju_bin)
         succeeded, xfailed, failed = assess_all_clouds(client, cloud_specs)
     write_status('Succeeded', succeeded)
     for bug, failures in sorted(xfailed.items()):

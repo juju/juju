@@ -1722,16 +1722,13 @@ class ModelClient:
         return subprocess.check_output(
             ('which', 'juju')).decode(getpreferredencoding()).rstrip('\n')
 
-    def clone_path_cls(self, juju_path):
-        """Clone using the supplied path to determine the class."""
-        from jujupy.version_client import get_client_class
-        version = self.get_version(juju_path)
-        cls = get_client_class(version)
+    def clone_from_path(self, juju_path):
+        """Clone using the supplied path."""
         if juju_path is None:
             full_path = self.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
-        return self.clone(version=version, full_path=full_path, cls=cls)
+        return self.clone(full_path=full_path)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):

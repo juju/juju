@@ -55,7 +55,6 @@ from deploy_stack import (
     test_on_controller
     )
 from jujupy import (
-    # EnvJujuClient25,
     fake_juju_client,
     fake_juju_client_optional_jes,
     get_cache_path,
