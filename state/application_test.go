@@ -1384,7 +1384,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 
 	// Trying to destroy the app while there is an offer fails.
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
 	assertOffersRef(c, s.State, "mysql", 1)
 
 	// Remove the last offer and the app can be destroyed.
@@ -1411,7 +1411,7 @@ func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
 
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
 	assertOffersRef(c, s.State, "mysql", 1)
 }
 

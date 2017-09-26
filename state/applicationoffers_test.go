@@ -416,7 +416,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnections(c *gc.C) {
 	s.addOfferConnection(c, offer.OfferUUID)
 	ao := state.NewApplicationOffers(s.State)
 	err := ao.Remove("hosted-mysql")
-	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
@@ -428,5 +428,5 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
 
 	err := ao.Remove(offer.OfferName)
-	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }

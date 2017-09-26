@@ -157,7 +157,7 @@ func (s *applicationOffers) Remove(offerName string) (err error) {
 			return nil, errors.Trace(err)
 		}
 		if len(conns) > 0 {
-			return nil, errors.Errorf("offer has %d relation(s)", len(conns))
+			return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
 		}
 		ops, err := s.removeOps(offerName)
 		if err != nil {

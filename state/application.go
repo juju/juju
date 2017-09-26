@@ -1413,7 +1413,7 @@ func zeroApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error)
 		return op, errors.Trace(err)
 	}
 	if current > 0 {
-		return op, errors.Errorf("application is used by %d offer(s)", current)
+		return op, errors.Errorf("application is used by %d offer%s", current, plural(current))
 	}
 	return op, nil
 }
