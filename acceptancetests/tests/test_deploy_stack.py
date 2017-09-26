@@ -52,7 +52,6 @@ from deploy_stack import (
     update_env,
     wait_for_state_server_to_shutdown,
     error_if_unclean,
-    test_on_controller
     )
 from jujupy import (
     fake_juju_client,

@@ -26,10 +26,8 @@ from __future__ import print_function
 import argparse
 import json
 import logging
-import os
 import sys
 
-from jujucharm import local_charm_path
 
 from deploy_stack import (
     BootstrapManager,
@@ -59,7 +57,7 @@ def assert_initial_spaces(client):
     if expected_spaces not in raw_output:
         raise JujuAssertionError(
             'Incorrect initial spaces status. Found: {}\nExpected: {}'.format(
-            raw_output, expected_spaces))
+                raw_output, expected_spaces))
     else:
         log.info('Initial spaces status is: {}.'.format(expected_spaces))
 
@@ -88,7 +86,9 @@ def assert_initial_subnets(client):
     if not subnets_dict:
         raise JujuAssertionError('No subnet can be Found.')
     else:
-        log.info('{} subnet(s) have been found.'.format(str(len(subnets_dict))))
+        log.info(
+            '{} subnet(s) have been found.'.format(
+                str(len(subnets_dict))))
 
 
 def add_space_with_existing_subnet(client, space_name):
@@ -100,15 +100,16 @@ def add_space_with_existing_subnet(client, space_name):
     subnet_cidr = subnets_cidr_list[0]
     # Bug 1704105, merge_stderr=True is required.
     client.get_juju_output(
-        'add-space', space_name, subnet_cidr, include_e=False, merge_stderr=True)
+        'add-space', space_name, subnet_cidr,
+        include_e=False, merge_stderr=True)
     return (space_name, subnet_cidr)
 
 
 def assert_added_space(client):
     """Validate if configurations in new added space are as expected.
        Five checkpoints:
-       1. After new space is added, juju spaces --format json should give output
-          in json format, in comparison to no space exists.
+       1. After new space is added, juju spaces --format json should give
+          output in json format, in comparison to no space exists.
        2. Total number of space should be 1.
        3. The name of new added space should be the same as specified.
        4. Total number of subnet CIDR from this new added space should be 1.
@@ -130,19 +131,19 @@ def assert_added_space(client):
     if len(space_output['spaces'].keys()) != 1:
         raise JujuAssertionError(
             'Incorrect number of space(s). Found: {}; Expected: 1.'.format(
-            str(len(space_output['spaces'].keys()))))
+                str(len(space_output['spaces'].keys()))))
     elif space_output['spaces'].keys()[0] != space_name:
         raise JujuAssertionError(
             'Incorrect space name. Found: {}; Expected: {}.'.format(
-            space_output['spaces'].keys()[0], space_name))
+                space_output['spaces'].keys()[0], space_name))
     elif len(space_output['spaces'][space_name].keys()) != 1:
         raise JujuAssertionError(
             'Incorrect number of CIDR(s). Found: {}; Expected: 1.'.format(
-            str(len(space_output['spaces'][space_name].keys()))))
+                str(len(space_output['spaces'][space_name].keys()))))
     elif space_output['spaces'][space_name].keys()[0] != subnet_cidr:
         raise JujuAssertionError(
             'Incorrect CIDR name. Found: {}; Expected: {}.'.format(
-            space_output['spaces'][space_name].keys()[0], subnet_cidr))
+                space_output['spaces'][space_name].keys()[0], subnet_cidr))
     log.info('New added space {} has been validated.'.format(space_name))
 
 
@@ -155,7 +156,8 @@ def assert_app_status(client, charm_name, expected):
     log.info('Checking current status of app {}.'.format(charm_name))
     status_output = json.loads(
         client.get_juju_output('status', '--format', 'json', include_e=False))
-    app_status = status_output['applications'][charm_name]['application-status']['current']
+    app_status = status_output[
+        'applications'][charm_name]['application-status']['current']
 
     if app_status != expected:
         raise JujuAssertionError(
@@ -163,7 +165,7 @@ def assert_app_status(client, charm_name, expected):
             'Found: {}; Expected: {}'.format(app_status, expected))
     else:
         log.info('The current status of app {} is: {}; Expected: {}'.format(
-        charm_name, app_status, expected))
+            charm_name, app_status, expected))
 
 
 def parse_args(argv):

@@ -36,7 +36,7 @@ def list_sla(client):
 
 def assert_sla_state(client, expected_state):
     sla_state = list_sla(client)
-    if not expected_state in sla_state:
+    if expected_state not in sla_state:
         raise JujuAssertionError(
             'Found: {}\nExpected: {}'.format(sla_state, expected_state))
 

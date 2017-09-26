@@ -129,6 +129,7 @@ def main(args):
             else:
                 s3_cmd(params)
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--dry-run', action='store_true')
