@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 /*
@@ -46,8 +48,9 @@ return curated values for each API call.
 type relationsSuite struct {
 	coretesting.BaseSuite
 
-	stateDir     string
-	relationsDir string
+	stateDir              string
+	relationsDir          string
+	leadershipContextFunc relation.LeadershipContextFunc
 }
 
 var _ = gc.Suite(&relationsSuite{})
@@ -94,6 +97,15 @@ func mockAPICaller(c *gc.C, callNumber *int32, apiCalls ...apiCall) apitesting.A
 	return apiCaller
 }
 
+type stubLeadershipContext struct {
+	context.LeadershipContext
+	isLeader bool
+}
+
+func (stub *stubLeadershipContext) IsLeader() (bool, error) {
+	return stub.isLeader, nil
+}
+
 var minimalMetadata = `
 name: wordpress
 summary: "test"
@@ -109,6 +121,9 @@ func (s *relationsSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(s.stateDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	s.relationsDir = filepath.Join(c.MkDir(), "relations")
+	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext {
+		return &stubLeadershipContext{isLeader: true}
+	}
 }
 
 func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
@@ -128,7 +143,15 @@ func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
-	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              unitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                abort,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 3)
 	return r
@@ -140,9 +163,12 @@ func (s *relationsSuite) TestNewRelationsNoRelations(c *gc.C) {
 	c.Assert(r.GetInfo(), gc.HasLen, 0)
 }
 
-func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
+func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLeader bool) {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
+	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext {
+		return &stubLeadershipContext{isLeader: isLeader}
+	}
 
 	var numCalls int32
 	unitEntity := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
@@ -166,7 +192,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 		Status:     params.Joined,
 	}}}
 
-	apiCaller := mockAPICaller(c, &numCalls,
+	apiCalls := []apiCall{
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{
@@ -175,11 +201,25 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterAPICall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		uniterAPICall("SetRelationStatus", relationStatus, noErrorResult, nil))
+	}
+	if isLeader {
+		apiCalls = append(apiCalls,
+			uniterAPICall("SetRelationStatus", relationStatus, noErrorResult, nil),
+		)
+	}
+	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 	st := uniter.NewState(apiCaller, unitTag)
-	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              unitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                abort,
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 8)
+	assertNumCalls(c, &numCalls, int32(len(apiCalls)))
 
 	info := r.GetInfo()
 	c.Assert(info, gc.HasLen, 1)
@@ -189,6 +229,14 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 		Relation: charm.Relation{Name: "mysql", Role: "provider", Interface: "db", Optional: false, Limit: 0, Scope: ""},
 	})
 	c.Assert(oneInfo.MemberNames, gc.HasLen, 0)
+}
+
+func (s *relationsSuite) TestNewRelationsWithExistingRelationsLeader(c *gc.C) {
+	s.assertNewRelationsWithExistingRelations(c, true)
+}
+
+func (s *relationsSuite) TestNewRelationsWithExistingRelationsNotLeader(c *gc.C) {
+	s.assertNewRelationsWithExistingRelations(c, false)
 }
 
 func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
@@ -203,7 +251,15 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
-	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              unitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                abort,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 3)
 
@@ -259,7 +315,15 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 
 	apiCaller := mockAPICaller(c, numCalls, apiCalls...)
 	st := uniter.NewState(apiCaller, unitTag)
-	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              unitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                abort,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, 3)
 
@@ -606,7 +670,15 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	var numCalls int32
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 	st := uniter.NewState(apiCaller, unitTag)
-	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              unitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                abort,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	localState := resolver.LocalState{
@@ -725,7 +797,15 @@ func (s *relationsSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
 	st := uniter.NewState(apiCaller, nrpeUnitTag)
-	r, err := relation.NewRelations(st, nrpeUnitTag, s.stateDir, s.relationsDir, make(chan struct{}))
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              nrpeUnitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                make(chan struct{}),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, callsBeforeDestroy)
 
@@ -774,7 +854,15 @@ func (s *relationsSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C) {
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 
 	st := uniter.NewState(apiCaller, nrpeUnitTag)
-	r, err := relation.NewRelations(st, nrpeUnitTag, s.stateDir, s.relationsDir, make(chan struct{}))
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              nrpeUnitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                make(chan struct{}),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, expectedCalls)
 

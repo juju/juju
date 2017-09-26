@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -75,6 +76,7 @@ func (s *relationsResolver) NextOp(
 type relations struct {
 	st            *uniter.State
 	unit          *uniter.Unit
+	leaderCtx     context.LeadershipContext
 	subordinate   bool
 	principalName string
 	charmDir      string
@@ -83,9 +85,24 @@ type relations struct {
 	abort         <-chan struct{}
 }
 
+// LeadershipContextFunc is a function that returns a leadership context.
+type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext
+
+// RelationsConfig contains configuration values
+// for the relations instance.
+type RelationsConfig struct {
+	State                *uniter.State
+	UnitTag              names.UnitTag
+	Tracker              leadership.Tracker
+	CharmDir             string
+	RelationsDir         string
+	NewLeadershipContext LeadershipContextFunc
+	Abort                <-chan struct{}
+}
+
 // NewRelations returns a new Relations instance.
-func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir string, abort <-chan struct{}) (Relations, error) {
-	unit, err := st.Unit(tag)
+func NewRelations(config RelationsConfig) (Relations, error) {
+	unit, err := config.State.Unit(config.UnitTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,15 +110,20 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	leadershipContext := config.NewLeadershipContext(
+		config.State.LeadershipSettings,
+		config.Tracker,
+	)
 	r := &relations{
-		st:            st,
+		st:            config.State,
 		unit:          unit,
+		leaderCtx:     leadershipContext,
 		subordinate:   subordinate,
 		principalName: principalName,
-		charmDir:      charmDir,
-		relationsDir:  relationsDir,
+		charmDir:      config.CharmDir,
+		relationsDir:  config.RelationsDir,
 		relationers:   make(map[int]*Relationer),
-		abort:         abort,
+		abort:         config.Abort,
 	}
 	if err := r.init(); err != nil {
 		return nil, errors.Trace(err)
@@ -506,9 +528,17 @@ func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 				return errors.Trace(err)
 			}
 			logger.Infof("joined relation %q", rel)
-			err = rel.SetStatus(relation.Joined)
+			// Leaders get to set the relation status.
+			var isLeader bool
+			isLeader, err = r.leaderCtx.IsLeader()
 			if err != nil {
 				return errors.Trace(err)
+			}
+			if isLeader {
+				err = rel.SetStatus(relation.Joined)
+				if err != nil {
+					return errors.Trace(err)
+				}
 			}
 			r.relationers[rel.Id()] = relationer
 			return nil

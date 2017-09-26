@@ -430,9 +430,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	relations, err := relation.NewRelations(
-		u.st, unitTag, u.paths.State.CharmDir,
-		u.paths.State.RelationsDir, u.catacomb.Dying(),
-	)
+		relation.RelationsConfig{
+			State:                u.st,
+			UnitTag:              unitTag,
+			Tracker:              u.leadershipTracker,
+			NewLeadershipContext: context.NewLeadershipContext,
+			CharmDir:             u.paths.State.CharmDir,
+			RelationsDir:         u.paths.State.RelationsDir,
+			Abort:                u.catacomb.Dying(),
+		})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create relations")
 	}
