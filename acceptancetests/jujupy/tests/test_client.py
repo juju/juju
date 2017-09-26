@@ -33,9 +33,7 @@ from jujupy.configuration import (
     NoSuchEnvironment,
     )
 from jujupy import (
-    FakeControllerState,
     fake_juju_client,
-    get_client_class,
     )
 from jujupy.client import (
     AuthNotAccepted,
@@ -96,10 +94,6 @@ from jujupy.fake import (
     get_user_register_command_info,
     get_user_register_token,
 )
-from jujupy.version_client import (
-    EnvJujuClient1X,
-    EnvJujuClient24,
-    )
 from tests import (
     assert_juju_call,
     client_past_deadline,
@@ -134,26 +128,6 @@ class ClientTest(FakeHomeTestCase):
         patcher = patch('jujupy.client.pause')
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
-
-    def fake_juju_client(self):
-        """Provide a faked juju client for the version under test.
-
-        Requires client_version, client_class, fake_backend_class to be
-        defined.
-        """
-        backend_state = FakeControllerState()
-        backend = self.fake_backend_class(backend_state,
-                                          version=self.client_version)
-        return fake_juju_client(version=self.client_version,
-                                cls=self.client_class, _backend=backend)
-
-    def check_basics(self):
-        """Basic tests for a recent ClientTest.
-
-        These are opt-in because not every ClientTest declares client_class
-        and client_version.
-        """
-        self.assertIs(self.client_class, get_client_class(self.client_version))
 
 
 class TestTempYamlFile(TestCase):
@@ -317,7 +291,7 @@ class TestJuju2Backend(TestCase):
                                soft_deadline=None)
         with patch('subprocess.Popen') as mock_popen:
             mock_popen.return_value.communicate.return_value = (
-                '{"current-model": "model"}', '')
+                b'{"current-model": "model"}', b'')
             mock_popen.return_value.returncode = 0
             result = backend.get_active_model('/foo/bar')
         self.assertEqual(('model'), result)
@@ -564,19 +538,6 @@ class TestModelClient(ClientTest):
         self.assertIs(client1.debug, client2.debug)
         self.assertEqual(client1.feature_flags, client2.feature_flags)
         self.assertEqual(client1._backend, client2._backend)
-
-    def test_clone_changed(self):
-        client1 = ModelClient(JujuData('foo'), '1.27', 'full/path',
-                              debug=True)
-        env2 = SimpleEnvironment('bar')
-        client2 = client1.clone(env2, '1.28', 'other/path', debug=False,
-                                cls=EnvJujuClient1X)
-        self.assertIs(EnvJujuClient1X, type(client2))
-        self.assertIs(env2, client2.env)
-        self.assertEqual('1.28', client2.version)
-        self.assertEqual('other/path', client2.full_path)
-        self.assertIs(False, client2.debug)
-        self.assertEqual(client1.feature_flags, client2.feature_flags)
 
     def test_get_cache_path(self):
         client = ModelClient(JujuData('foo', juju_home='/foo/'),
@@ -928,11 +889,6 @@ class TestModelClient(ClientTest):
             '-c', 'name', 'new-model', '--config', config_file.name),
             frozenset({'migration'}), 'foo', None, True, None, None,
             suppress_err=False)
-
-    def test_destroy_environment(self):
-        env = JujuData('foo')
-        client = ModelClient(env, None, None)
-        self.assertIs(False, hasattr(client, 'destroy_environment'))
 
     def test_destroy_model(self):
         env = JujuData('foo', {'type': 'ec2'})
@@ -1322,7 +1278,7 @@ class TestModelClient(ClientTest):
             'deploy', ('local:blah', '--resource', 'foo=/path/dir'))
 
     def test_deploy_storage(self):
-        env = EnvJujuClient1X(
+        env = ModelClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', storage='rootfs,1G')
@@ -1330,7 +1286,7 @@ class TestModelClient(ClientTest):
             'deploy', ('mondogb', '--storage', 'rootfs,1G'))
 
     def test_deploy_constraints(self):
-        env = EnvJujuClient1X(
+        env = ModelClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', constraints='virt-type=kvm')
@@ -3917,7 +3873,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
 
     @staticmethod
     def get_client(env):
-        return EnvJujuClient24(env, '1.24-fake', 'fake-juju-path')
+        return ModelClient(env, '1.24-fake', 'fake-juju-path')
 
     def test_no_config_mangling_side_effect(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
@@ -3931,7 +3887,6 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         env = SimpleEnvironment('qux', {'type': 'local'})
         with bootstrap_context() as fake_home:
             client = self.get_client(env)
-            agent_version = client.get_matching_agent_version()
             with temp_bootstrap_env(fake_home, client):
                 temp_home = os.environ['JUJU_HOME']
                 self.assertEqual(temp_home, os.environ['JUJU_DATA'])
@@ -3943,13 +3898,19 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                 self.assertEqual(symlink_target, expected_target)
                 config = yaml.safe_load(
                     open(get_environments_path(temp_home)))
-                self.assertEqual(config, {'environments': {'qux': {
-                    'type': 'local',
-                    'root-dir': get_local_root(fake_home, client.env),
-                    'agent-version': agent_version,
-                    'test-mode': True,
-                    'name': 'qux',
-                }}})
+                self.assertEqual(
+                    config, {
+                        'environments': {
+                            'qux': {
+                                'type': 'local',
+                                'root-dir': get_local_root(
+                                    fake_home,
+                                    client.env),
+                                'test-mode': True,
+                                'name': 'qux',
+                            }
+                        }
+                    })
                 stub_bootstrap(client)
 
     def test_temp_bootstrap_env_provides_dir(self):

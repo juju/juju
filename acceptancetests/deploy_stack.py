@@ -28,7 +28,6 @@ from jujucharm import (
 from jujupy import (
     client_from_config,
     client_for_existing,
-    EnvJujuClient1X,
     FakeBackend,
     fake_juju_client,
     get_juju_home,
@@ -73,13 +72,6 @@ from utility import (
 
 
 __metaclass__ = type
-
-
-def destroy_environment(client, instance_tag):
-    client.destroy_environment()
-    if (client.env.provider == 'manual' and
-            'AWS_ACCESS_KEY' in os.environ):
-        destroy_job_instances(instance_tag)
 
 
 def deploy_dummy_stack(client, charm_series, use_charmstore=False):
@@ -163,8 +155,7 @@ def check_token(client, token, timeout=120):
     # sent successfully, but fallback to timeout as previously for now.
     start = time.time()
     while True:
-        is_winclient1x = (isinstance(client, EnvJujuClient1X) and
-                          sys.platform == "win32")
+        is_winclient1x = sys.platform == "win32"
         if remote.is_windows() or is_winclient1x:
             result = get_token_from_status(client)
             if not result:
@@ -428,7 +419,7 @@ def _get_clients_to_upgrade(old_client, juju_path):
 
     Ensure that the controller (if available) is the first client in the list.
     """
-    new_client = old_client.clone_path_cls(juju_path)
+    new_client = old_client.clone_from_path(juju_path)
     all_clients = sorted(
         new_client.iter_model_clients(),
         key=lambda m: m.model_name == 'controller',
@@ -575,8 +566,7 @@ class CreateController:
 class ExistingController:
     """A Controller strategy where the controller is already present.
 
-    Intended for use with BootstrapManager and
-    version_client.client_for_existing().
+    Intended for use with BootstrapManager and client.client_for_existing().
 
     :ivar client: Client object
     :ivar tear_down_client: Client object to tear down at the end of testing

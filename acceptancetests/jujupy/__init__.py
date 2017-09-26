@@ -2,6 +2,8 @@ from jujupy.client import (
     AgentsNotStarted,
     AuthNotAccepted,
     ConditionList,
+    client_from_config,
+    client_for_existing,
     get_cache_path,
     get_machine_dns_name,
     get_timeout_prefix,
@@ -39,14 +41,7 @@ from jujupy.fake import (
     fake_juju_client,
     fake_juju_client_optional_jes,
     )
-from jujupy.version_client import (
-    client_from_config,
-    client_for_existing,
-    EnvJujuClient1X,
-    EnvJujuClient25,
-    get_client_class,
-    IncompatibleConfigClass,
-    )
+
 
 __all__ = [
     'AgentsNotStarted',
@@ -54,19 +49,15 @@ __all__ = [
     'client_from_config',
     'client_for_existing',
     'ConditionList',
-    'EnvJujuClient1X',
-    'EnvJujuClient25',
     'FakeBackend',
     'FakeControllerState',
     'fake_juju_client',
     'fake_juju_client_optional_jes',
     'get_cache_path',
-    'get_client_class',
     'get_juju_data',
     'get_juju_home',
     'get_machine_dns_name',
     'get_timeout_prefix',
-    'IncompatibleConfigClass',
     'InvalidEndpoint',
     'jes_home_path',
     'JESNotSupported',

@@ -12,9 +12,7 @@ from jujucharm import (
 )
 from jujupy import (
     client_from_config,
-    EnvJujuClient1X,
     fake_juju_client,
-    IncompatibleConfigClass,
     SimpleEnvironment,
     )
 from deploy_stack import (
@@ -54,27 +52,13 @@ def get_clients(initial, other, base_env, debug, agent_url):
         environment = initial_client.env
     if agent_url is None:
         environment.discard_option('tools-metadata-url')
-    other_client = initial_client.clone_path_cls(other)
-    # System juju is assumed to be released and the best choice for tearing
-    # down environments reliably.  (For example, 1.18.x cannot tear down
-    # environments with alpha agent-versions.)
-    try:
-        released_client = initial_client.clone_path_cls(None)
-    except IncompatibleConfigClass:
-        # If initial_client's config class is incompatible with the system
-        # juju, use initial client for teardown.
-        released_client = initial_client
-    # If released_client is a different major version, it cannot tear down
-    # initial client, so use initial client for teardown.
-    if (
-            isinstance(released_client, EnvJujuClient1X) !=
-            isinstance(initial_client, EnvJujuClient1X)
-            ):
-        released_client = initial_client
-    else:
-        # If system juju is used, ensure it has identical env to
-        # initial_client.
-        released_client.env = initial_client.env
+    other_client = initial_client.clone_from_path(other)
+    # This used to catch an exception of the config didn't match.
+    # version_client no longer exists so that no longer made sense.
+    released_client = initial_client.clone_from_path(None)
+    # If system juju is used, ensure it has identical env to
+    # initial_client.
+    released_client.env = initial_client.env
     return initial_client, other_client, released_client
 
 
@@ -207,11 +191,7 @@ def callback_with_fallback(other, released, callback):
 
 
 def nice_tear_down(client):
-    if client.is_jes_enabled():
-        client.kill_controller()
-    else:
-        if client.destroy_environment(force=False) != 0:
-            raise CalledProcessError(1, 'juju destroy-environment')
+    client.kill_controller()
 
 
 def has_agent(client, agent_id):

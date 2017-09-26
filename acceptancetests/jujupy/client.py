@@ -1605,8 +1605,7 @@ class ModelClient:
 
     Note: A model is often called an enviroment (Juju 1 legacy).
 
-    This class represents the latest Juju version.  Subclasses are used to
-    support older versions (see get_client_class).
+    This class represents the latest Juju version.
     """
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -1723,16 +1722,14 @@ class ModelClient:
         return subprocess.check_output(
             ('which', 'juju')).decode(getpreferredencoding()).rstrip('\n')
 
-    def clone_path_cls(self, juju_path):
-        """Clone using the supplied path to determine the class."""
-        from jujupy.version_client import get_client_class
-        version = self.get_version(juju_path)
-        cls = get_client_class(version)
+    def clone_from_path(self, juju_path):
+        """Clone using the supplied path."""
         if juju_path is None:
             full_path = self.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
-        return self.clone(version=version, full_path=full_path, cls=cls)
+        return self.clone(
+            full_path=full_path, version=self.get_version(juju_path))
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):
@@ -3442,3 +3439,65 @@ class GroupReporter:
         self.last_group = group
         self.ticks = 0
         self.wrap_offset = lead_length if lead_length < self.wrap_width else 0
+
+
+def _get_full_path(juju_path):
+    """Helper to ensure a full path is used.
+
+    If juju_path is None, ModelClient.get_full_path is used.  Otherwise,
+    the supplied path is converted to absolute.
+    """
+    if juju_path is None:
+        return ModelClient.get_full_path()
+    else:
+        return os.path.abspath(juju_path)
+
+
+def client_from_config(config, juju_path, debug=False, soft_deadline=None):
+    """Create a client from an environment's configuration.
+
+    :param config: Name of the environment to use the config from.
+    :param juju_path: Path to juju binary the client should wrap.
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
+    version = ModelClient.get_version(juju_path)
+    if config is None:
+        env = ModelClient.config_class('', {})
+    else:
+        env = ModelClient.config_class.from_config(config)
+    full_path = _get_full_path(juju_path)
+    return ModelClient(
+        env, version, full_path, debug=debug, soft_deadline=soft_deadline)
+
+
+def client_for_existing(juju_path, juju_data_dir, debug=False,
+                        soft_deadline=None, controller_name=None,
+                        model_name=None):
+    """Create a client for an existing controller/model.
+
+    :param juju_path: Path to juju binary the client should wrap.
+    :param juju_data_dir: Path to the juju data directory referring the the
+        controller and model.
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
+    version = ModelClient.get_version(juju_path)
+    full_path = _get_full_path(juju_path)
+    backend = ModelClient.default_backend(
+        full_path, version, set(), debug=debug, soft_deadline=soft_deadline)
+    if controller_name is None:
+        current_controller = backend.get_active_controller(juju_data_dir)
+        controller_name = current_controller
+    if model_name is None:
+        current_model = backend.get_active_model(juju_data_dir)
+        model_name = current_model
+    config = ModelClient.config_class.for_existing(
+        juju_data_dir, controller_name, model_name)
+    return ModelClient(
+        config, version, full_path,
+        debug=debug, soft_deadline=soft_deadline, _backend=backend)

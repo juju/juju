@@ -20,9 +20,6 @@ from jujuconfig import (
     get_euca_env,
     translate_to_env,
     )
-from jujupy import (
-    EnvJujuClient1X
-    )
 from utility import (
     temp_dir,
     until_timeout,
@@ -415,13 +412,9 @@ def convert_to_azure_ids(client, instance_ids):
     :param instance_ids: a list of Juju machine instance-ids
     :return: A list of ARM VM instance ids.
     """
-    if isinstance(client, EnvJujuClient1X):
-        # Juju 1.x reports the true vm instance-id.
-        return instance_ids
-    else:
-        with AzureARMAccount.from_boot_config(
-                client.env) as substrate:
-            return substrate.convert_to_azure_ids(client, instance_ids)
+    with AzureARMAccount.from_boot_config(
+            client.env) as substrate:
+        return substrate.convert_to_azure_ids(client, instance_ids)
 
 
 class GCEAccount:
