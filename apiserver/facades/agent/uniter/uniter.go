@@ -1449,9 +1449,22 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+		// If we are transitioning from "suspending" to "suspended",
+		// we retain any existing message so that if the user has
+		// previously specified a reason for suspending, it is retained.
+		message := arg.Message
+		if message == "" && arg.Status == params.Suspended {
+			current, err := rel.Status()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if current.Status == status.Suspending {
+				message = current.Message
+			}
+		}
 		return rel.SetStatus(status.StatusInfo{
 			Status:  status.Status(arg.Status),
-			Message: arg.Message,
+			Message: message,
 		})
 	}
 	results := make([]params.ErrorResult, len(args.Args))

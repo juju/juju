@@ -488,15 +488,23 @@ func (c *Client) DestroyRelationId(relationId int) error {
 }
 
 // SetRelationSuspended updates the suspended status of the relation with the specified id.
-func (c *Client) SetRelationSuspended(relationId int, suspended bool) error {
-	args := params.RelationSuspendedArgs{
-		Args: []params.RelationSuspendedArg{{RelationId: relationId, Suspended: suspended}},
+func (c *Client) SetRelationSuspended(relationIds []int, suspended bool, message string) error {
+	var args params.RelationSuspendedArgs
+	for _, relId := range relationIds {
+		args.Args = append(args.Args, params.RelationSuspendedArg{
+			RelationId: relId,
+			Suspended:  suspended,
+			Message:    message,
+		})
 	}
 	var results params.ErrorResults
 	if err := c.facade.FacadeCall("SetRelationsSuspended", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	if len(results.Results) != len(args.Args) {
+		return errors.Errorf("expected %d results, got %d", len(args.Args), len(results.Results))
+	}
+	return results.Combine()
 }
 
 // Consume adds a remote application to the model.

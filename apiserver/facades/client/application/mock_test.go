@@ -518,6 +518,7 @@ type mockRelation struct {
 
 	tag       names.Tag
 	status    status.Status
+	message   string
 	suspended bool
 }
 
@@ -528,6 +529,7 @@ func (r *mockRelation) Tag() names.Tag {
 func (r *mockRelation) SetStatus(status status.StatusInfo) error {
 	r.MethodCall(r, "SetStatus")
 	r.status = status.Status
+	r.message = status.Message
 	return r.NextErr()
 }
 

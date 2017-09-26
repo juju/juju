@@ -5,6 +5,7 @@ package application
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -24,6 +25,7 @@ status will be set to joined. The relation is specified using its id.
 
 Examples:
     juju resume-relation 123
+    juju resume-relation 123 456
 
 See also: 
     add-relation
@@ -47,30 +49,31 @@ func NewResumeRelationCommand() cmd.Command {
 
 type resumeRelationCommand struct {
 	modelcmd.ModelCommandBase
-	RelationId int
-	newAPIFunc func() (SetRelationSuspendedAPI, error)
+	relationIds []int
+	newAPIFunc  func() (SetRelationSuspendedAPI, error)
 }
 
 func (c *resumeRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resume-relation",
-		Args:    "<relation-id>",
+		Args:    "<relation-id>[,<relation-id>]",
 		Purpose: resumeHelpSummary,
 		Doc:     resumeHelpDetails,
 	}
 }
 
 func (c *resumeRelationCommand) Init(args []string) (err error) {
-	if len(args) == 1 {
-		if c.RelationId, err = strconv.Atoi(args[0]); err != nil || c.RelationId < 0 {
-			return errors.NotValidf("relation ID %q", args[0])
-		}
-		return nil
-	}
 	if len(args) == 0 {
-		return errors.New("no relation id specified")
+		return errors.New("no relation ids specified")
 	}
-	return cmd.CheckEmpty(args[1:])
+	for _, id := range args {
+		if relId, err := strconv.Atoi(strings.TrimSpace(id)); err != nil || relId < 0 {
+			return errors.NotValidf("relation ID %q", id)
+		} else {
+			c.relationIds = append(c.relationIds, relId)
+		}
+	}
+	return nil
 }
 
 func (c *resumeRelationCommand) Run(_ *cmd.Context) error {
@@ -82,6 +85,6 @@ func (c *resumeRelationCommand) Run(_ *cmd.Context) error {
 	if client.BestAPIVersion() < 5 {
 		return errors.New("resuming a relation is not supported by this version of Juju")
 	}
-	err = client.SetRelationSuspended(c.RelationId, false)
+	err = client.SetRelationSuspended(c.relationIds, false, "")
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
