@@ -607,3 +607,29 @@ func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
 	_, err := client.GetConsumeDetails("badurl")
 	c.Assert(err, gc.ErrorMatches, "application offer URL is missing application")
 }
+
+func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Assert(request, gc.Equals, "DestroyOffers")
+			args, ok := a.(params.DestroyApplicationOffers)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
+			if results, ok := result.(*params.ErrorResults); ok {
+				results.Results = []params.ErrorResult{{
+					Error: &params.Error{Message: "fail"},
+				}}
+			}
+			return nil
+		})
+	client := applicationoffers.NewClient(apiCaller)
+	err := client.DestroyOffers("me/prod.app")
+	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(called, jc.IsTrue)
+}

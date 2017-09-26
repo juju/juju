@@ -306,6 +306,15 @@ func (m *mockApplicationOffers) ListOffers(filters ...jujucrossmodel.Application
 	return result, nil
 }
 
+func (m *mockApplicationOffers) Remove(name string) error {
+	_, ok := m.st.applicationOffers[name]
+	if !ok {
+		return errors.NotFoundf("application offer %q", name)
+	}
+	delete(m.st.applicationOffers, name)
+	return nil
+}
+
 type offerAccess struct {
 	user      names.UserTag
 	offerUUID string

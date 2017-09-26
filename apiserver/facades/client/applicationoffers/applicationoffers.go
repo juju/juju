@@ -513,3 +513,35 @@ func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApp
 		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
 	}, nil
 }
+
+// DestroyOffers removes the offers specified by the given URLs.
+func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
+	result := make([]params.ErrorResult, len(args.OfferURLs))
+
+	models, err := api.getModelsFromOffers(args.OfferURLs...)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	for i, one := range args.OfferURLs {
+		url, err := jujucrossmodel.ParseApplicationURL(one)
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+		backend, releaser, err := api.StatePool.Get(models[i].model.UUID())
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+		defer releaser()
+
+		if err := api.checkAdmin(backend); err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName)
+		result[i].Error = common.ServerError(err)
+	}
+	return params.ErrorResults{Results: result}, nil
+}
