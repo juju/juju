@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -1190,13 +1191,13 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 	assertApplicationSeriesUpdate(c, subApp2, "precise")
 }
 
-func assertNoSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm) {
-	_, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
+func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {
+	_, err := state.ApplicationSettingsRefCount(st, appName, sch.URL())
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
-func assertSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm, refcount int) {
-	rc, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
+func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm, refcount int) {
+	rc, err := state.ApplicationSettingsRefCount(st, appName, sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc, gc.Equals, refcount)
 }
@@ -1206,23 +1207,23 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// properly reference counted.
 	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
 	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
-	svcName := "mywp"
+	appName := "mywp"
 
 	// Both refcounts are zero initially.
-	assertNoSettingsRef(c, s.State, svcName, oldCh)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertNoSettingsRef(c, s.State, appName, oldCh)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// app is using oldCh, so its settings refcount is incremented.
-	app := s.AddTestingApplication(c, svcName, oldCh)
-	assertSettingsRef(c, s.State, svcName, oldCh, 1)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	app := s.AddTestingApplication(c, appName, oldCh)
+	assertSettingsRef(c, s.State, appName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Changing to the same charm does not change the refcount.
 	cfg := state.SetCharmConfig{Charm: oldCh}
 	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSettingsRef(c, s.State, svcName, oldCh, 1)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertSettingsRef(c, s.State, appName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Changing from oldCh to newCh causes the refcount of oldCh's
 	// settings to be decremented, while newCh's settings is
@@ -1231,15 +1232,15 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	cfg = state.SetCharmConfig{Charm: newCh}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoSettingsRef(c, s.State, svcName, oldCh)
-	assertSettingsRef(c, s.State, svcName, newCh, 1)
+	assertNoSettingsRef(c, s.State, appName, oldCh)
+	assertSettingsRef(c, s.State, appName, newCh, 1)
 
 	// The same but newCh swapped with oldCh.
 	cfg = state.SetCharmConfig{Charm: oldCh}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSettingsRef(c, s.State, svcName, oldCh, 1)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertSettingsRef(c, s.State, appName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Adding a unit without a charm URL set does not affect the
 	// refcount.
@@ -1247,8 +1248,8 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	curl, ok := u.CharmURL()
 	c.Assert(ok, jc.IsFalse)
-	assertSettingsRef(c, s.State, svcName, oldCh, 1)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertSettingsRef(c, s.State, appName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Setting oldCh as the units charm URL increments oldCh, which is
 	// used by app as well, hence 2.
@@ -1257,27 +1258,27 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	curl, ok = u.CharmURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
-	assertSettingsRef(c, s.State, svcName, oldCh, 2)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertSettingsRef(c, s.State, appName, oldCh, 2)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// A dead unit does not decrement the refcount.
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	assertSettingsRef(c, s.State, svcName, oldCh, 2)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertSettingsRef(c, s.State, appName, oldCh, 2)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Once the unit is removed, refcount is decremented.
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	assertSettingsRef(c, s.State, svcName, oldCh, 1)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertSettingsRef(c, s.State, appName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
-	// Finally, after the service is destroyed and removed (since the
+	// Finally, after the application is destroyed and removed (since the
 	// last unit's gone), the refcount is again decremented.
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoSettingsRef(c, s.State, svcName, oldCh)
-	assertNoSettingsRef(c, s.State, svcName, newCh)
+	assertNoSettingsRef(c, s.State, appName, oldCh)
+	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Having studiously avoided triggering cleanups throughout,
 	// invoke them now and check that the charms are cleaned up
@@ -1342,6 +1343,78 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 	assertSettingsRef(c, s.State, appName, newCh, 1)
 }
 
+func assertNoOffersRef(c *gc.C, st *state.State, appName string) {
+	_, err := state.ApplicationOffersRefCount(st, appName)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
+}
+
+func assertOffersRef(c *gc.C, st *state.State, appName string, refcount int) {
+	rc, err := state.ApplicationOffersRefCount(st, appName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc, gc.Equals, refcount)
+}
+
+func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
+	// Refcounts are zero initially.
+	assertNoOffersRef(c, s.State, "mysql")
+
+	ao := state.NewApplicationOffers(s.State)
+	_, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"server": "server"},
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertOffersRef(c, s.State, "mysql", 1)
+
+	_, err = ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "mysql-offer",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"server": "server"},
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertOffersRef(c, s.State, "mysql", 2)
+
+	// Once the offer is removed, refcount is decremented.
+	err = ao.Remove("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	assertOffersRef(c, s.State, "mysql", 1)
+
+	// Trying to destroy the app while there is an offer fails.
+	err = s.mysql.Destroy()
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer\(s\)`)
+	assertOffersRef(c, s.State, "mysql", 1)
+
+	// Remove the last offer and the app can be destroyed.
+	err = ao.Remove("mysql-offer")
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoOffersRef(c, s.State, "mysql")
+
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoOffersRef(c, s.State, "mysql")
+}
+
+func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
+	addOffer := func() {
+		ao := state.NewApplicationOffers(s.State)
+		_, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+			OfferName:       "hosted-mysql",
+			ApplicationName: "mysql",
+			Endpoints:       map[string]string{"server": "server"},
+			Owner:           s.Owner.Id(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
+
+	err := s.mysql.Destroy()
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer\(s\)`)
+	assertOffersRef(c, s.State, "mysql", 1)
+}
+
 const mysqlBaseMeta = `
 name: mysql
 summary: "Database engine"
@@ -1359,8 +1432,8 @@ peers:
   loadbalancer: phony
 `
 
-func (s *ApplicationSuite) assertApplicationRelations(c *gc.C, svc *state.Application, expectedKeys ...string) []*state.Relation {
-	rels, err := svc.Relations()
+func (s *ApplicationSuite) assertApplicationRelations(c *gc.C, app *state.Application, expectedKeys ...string) []*state.Relation {
+	rels, err := app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	if len(rels) == 0 {
 		return nil

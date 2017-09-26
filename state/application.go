@@ -200,6 +200,14 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, resOps...)
+
+	// We can't delete an application if it is being offered.
+	zeroOffers, err := zeroApplicationOffersRefOp(a.st, a.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, zeroOffers)
+
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
 	if a.doc.UnitCount == 0 && a.doc.RelationCount == removeCount {
@@ -1375,6 +1383,52 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
 	probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
+}
+
+// applicationOffersRefCountKey returns a key for refcounting offers
+// for the specified application. Each time an offer is created, the
+// refcount is incremented, and the opposite happens on removal.
+func applicationOffersRefCountKey(appName string) string {
+	return fmt.Sprintf("offer#%s", appName)
+}
+
+// incApplicationOffersRefOp returns a txn.Op that increments the reference
+// count for an application offer.
+func incApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
+	defer closer()
+	offerRefCountKey := applicationOffersRefCountKey(appName)
+	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, offerRefCountKey, 1)
+	return incRefOp, errors.Trace(err)
+}
+
+// zeroApplicationOffersRefOp returns a txn.Op that ensures that the offer
+// refcount remains at zero, and an error if it is not zero to start with.
+func zeroApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
+	defer closer()
+	key := applicationOffersRefCountKey(appName)
+	op, current, err := nsRefcounts.CurrentOp(refcounts, key)
+	if err != nil {
+		return op, errors.Trace(err)
+	}
+	if current > 0 {
+		return op, errors.Errorf("application is used by %d offer(s)", current)
+	}
+	return op, nil
+}
+
+// decApplicationOffersRefOp returns a txn.Op that decrements the reference
+// count for an application offer.
+func decApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
+	defer closer()
+	offerRefCountKey := applicationOffersRefCountKey(appName)
+	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, offerRefCountKey)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	return decRefOp, nil
 }
 
 // incUnitCountOp returns the operation to increment the application's unit count.
