@@ -27,7 +27,6 @@ from utility import (
     configure_logging,
     temp_dir,
 )
-from jujupy.version_client import ModelClient2_1
 from jujupy.client import get_stripped_version_number
 
 
@@ -148,13 +147,6 @@ def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
                 }
             }
         }
-    # Remember that clients descend from the newest client. So 2.2 is not
-    # an instance of 2.1, but 1.25 is an instance.
-    if isinstance(client, ModelClient2_1):
-        # Juju 2.1- is missing the life field.
-        del data['storage'][storage_name]['life']
-        del data['storage'][storage_name]['attachments']['units'][
-            unit_name]['life']
     return data
 
 

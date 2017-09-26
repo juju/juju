@@ -566,8 +566,7 @@ class CreateController:
 class ExistingController:
     """A Controller strategy where the controller is already present.
 
-    Intended for use with BootstrapManager and
-    version_client.client_for_existing().
+    Intended for use with BootstrapManager and client.client_for_existing().
 
     :ivar client: Client object
     :ivar tear_down_client: Client object to tear down at the end of testing
