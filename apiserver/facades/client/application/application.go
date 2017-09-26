@@ -449,6 +449,44 @@ func (api *API) SetCharm(args params.ApplicationSetCharm) error {
 	)
 }
 
+// GetConfig returns the application config for each of the applications
+// asked for.
+func (api *API) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.ApplicationGetConfigResults{}, err
+	}
+	results := params.ApplicationGetConfigResults{
+		Results: make([]params.ConfigResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		config, err := api.getConfig(arg.Tag)
+		results.Results[i].Config = config
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *API) getConfig(entity string) (map[string]interface{}, error) {
+	tag, err := names.ParseTag(entity)
+	if err != nil {
+		return nil, err
+	}
+	switch kind := tag.Kind(); kind {
+	case names.ApplicationTagKind:
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			return nil, err
+		}
+		settings, err := app.ConfigSettings()
+		if err != nil {
+			return nil, err
+		}
+		return settings, nil
+	default:
+		return nil, errors.Errorf("unexpected tag type, expected application, got %s", kind)
+	}
+}
+
 // applicationSetCharm sets the charm for the given for the application.
 func (api *API) applicationSetCharm(
 	appName string,
@@ -1254,3 +1292,13 @@ func (api *API) maybeUpdateExistingApplicationEndpoints(
 	}
 	return existingRemoteApp, nil
 }
+
+// Mask the new methods from the V4 API. The API reflection code in
+// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
+// removes the method as far as the RPC machinery is concerned.
+
+// UpdateApplicationSeries isn't on the V4 API.
+func (u *APIv4) UpdateApplicationSeries(_, _ struct{}) {}
+
+// GetConfig isn't on the V4 API.
+func (u *APIv4) GetConfig(_, _ struct{}) {}

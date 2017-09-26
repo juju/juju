@@ -395,6 +395,17 @@ type ApplicationMetricCredentials struct {
 	Creds []ApplicationMetricCredential `json:"creds"`
 }
 
+// ApplicationGetConfigResults holds the return values for application GetConfig.
+type ApplicationGetConfigResults struct {
+	Results []ConfigResult
+}
+
+// ConfigResults holds configuration values for an entity.
+type ConfigResult struct {
+	Config map[string]interface{} `json:"config"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
 	Target string `json:"target"`

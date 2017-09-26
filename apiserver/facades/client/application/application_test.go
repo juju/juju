@@ -101,6 +101,49 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
 	return api
 }
 
+func (s *applicationSuite) TestGetConfig(c *gc.C) {
+	fooConfig := map[string]interface{}{
+		"name":   "foo",
+		"answer": 42,
+	}
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:     "foo",
+		Settings: fooConfig,
+	})
+	barConfig := map[string]interface{}{
+		"name": "bar",
+		"key":  "value",
+	}
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:     "bar",
+		Settings: barConfig,
+	})
+	results, err := s.applicationAPI.GetConfig(params.Entities{
+		Entities: []params.Entity{
+			{"wat"}, {"machine-0"}, {"user-foo"},
+			{"application-foo"}, {"application-bar"}, {"application-wat"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetConfigResults{
+		Results: []params.ConfigResult{
+			{
+				Error: &params.Error{Message: `"wat" is not a valid tag`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got machine`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got user`},
+			}, {
+				Config: fooConfig,
+			}, {
+				Config: barConfig,
+			}, {
+				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
+			},
+		}})
+
+}
+
 func (s *applicationSuite) TestSetMetricCredentials(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
