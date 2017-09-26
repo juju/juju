@@ -130,7 +130,7 @@ func (s *cmdModelSuite) TestModelConfigReset(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsGet(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.IAASModel.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-defaults", "special")
@@ -142,7 +142,7 @@ special    -        known
 }
 
 func (s *cmdModelSuite) TestModelDefaultsGetRegion(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.RegionSpec{"dummy", "dummy-region"})
+	err := s.IAASModel.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.RegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-defaults", "dummy-region", "special")
@@ -174,7 +174,7 @@ func (s *cmdModelSuite) TestModelDefaultsSetRegion(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.IAASModel.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "--reset", "special")
@@ -185,7 +185,7 @@ func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.RegionSpec{"dummy", "dummy-region"})
+	err := s.IAASModel.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.RegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "dummy-region", "--reset", "special")

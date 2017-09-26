@@ -68,7 +68,8 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	st := ctx.State()
-	m, err := st.Model()
+
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -76,13 +77,13 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 	return &ControllerAPIv3{
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI: common.NewModelStatusAPI(
-			common.NewModelManagerBackend(st, ctx.StatePool()),
+			common.NewModelManagerBackend(model, ctx.StatePool()),
 			authorizer,
 			apiUser,
 		),
 		CloudSpecAPI: cloudspec.NewCloudSpec(
 			cloudspec.MakeCloudSpecGetter(ctx.StatePool()),
-			common.AuthFuncForTag(m.ModelTag()),
+			common.AuthFuncForTag(model.ModelTag()),
 		),
 		state:      st,
 		statePool:  ctx.StatePool(),

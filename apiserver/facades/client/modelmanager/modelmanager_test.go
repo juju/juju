@@ -855,8 +855,8 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State, s.StatePool),
-		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		stateenvirons.EnvironConfigGetter{s.State, s.IAASModel.Model},
 		s.authoriser,
 	)
@@ -868,8 +868,8 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State, s.StatePool),
-		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, anAuthoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -880,8 +880,8 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.State, s.StatePool),
-		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, anAuthoriser,
 	)
 	c.Assert(endPoint, gc.IsNil)
@@ -1096,10 +1096,12 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st, s.StatePool),
-		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(model, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1113,7 +1115,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	model, err := st.Model()
+	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
 }
@@ -1128,11 +1130,13 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.authoriser.Tag = s.AdminUserTag(c)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st, s.StatePool),
-		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(model, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1147,7 +1151,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
 	s.authoriser.Tag = owner
-	model, err := st.Model()
+	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
 }
@@ -1160,10 +1164,12 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(st, s.StatePool),
-		common.NewModelManagerBackend(s.State, s.StatePool),
+		common.NewModelManagerBackend(model, s.StatePool),
+		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1197,7 +1203,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	}})
 
 	s.setAPIUser(c, owner)
-	model, err := st.Model()
+	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
