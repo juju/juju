@@ -1605,8 +1605,7 @@ class ModelClient:
 
     Note: A model is often called an enviroment (Juju 1 legacy).
 
-    This class represents the latest Juju version.  Subclasses are used to
-    support older versions (see get_client_class).
+    This class represents the latest Juju version.
     """
 
     # The environments.yaml options that are replaced by bootstrap options.

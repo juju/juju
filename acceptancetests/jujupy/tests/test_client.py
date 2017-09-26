@@ -291,7 +291,7 @@ class TestJuju2Backend(TestCase):
                                soft_deadline=None)
         with patch('subprocess.Popen') as mock_popen:
             mock_popen.return_value.communicate.return_value = (
-                '{"current-model": "model"}', '')
+                b'{"current-model": "model"}', b'')
             mock_popen.return_value.returncode = 0
             result = backend.get_active_model('/foo/bar')
         self.assertEqual(('model'), result)
