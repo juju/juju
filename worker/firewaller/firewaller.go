@@ -86,23 +86,23 @@ type Config struct {
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
-func (config Config) Validate() error {
-	if config.ModelUUID == "" {
+func (cfg Config) Validate() error {
+	if cfg.ModelUUID == "" {
 		return errors.NotValidf("empty model uuid")
 	}
-	if config.FirewallerAPI == nil {
+	if cfg.FirewallerAPI == nil {
 		return errors.NotValidf("nil Firewaller Facade")
 	}
-	if config.RemoteRelationsApi == nil {
+	if cfg.RemoteRelationsApi == nil {
 		return errors.NotValidf("nil RemoteRelations Facade")
 	}
-	if config.EnvironFirewaller == nil {
+	if cfg.Mode == config.FwGlobal && cfg.EnvironFirewaller == nil {
 		return errors.NotValidf("nil EnvironFirewaller")
 	}
-	if config.EnvironInstances == nil {
+	if cfg.EnvironInstances == nil {
 		return errors.NotValidf("nil EnvironInstances")
 	}
-	if config.NewCrossModelFacadeFunc == nil {
+	if cfg.NewCrossModelFacadeFunc == nil {
 		return errors.NotValidf("nil Cross Model Facade func")
 	}
 	return nil
@@ -573,7 +573,13 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		machineId := machined.tag.Id()
-		initialRules, err := instances[0].IngressRules(machineId)
+
+		fwInstance, ok := instances[0].(instance.InstanceFirewaller)
+		if !ok {
+			return nil
+		}
+
+		initialRules, err := fwInstance.IngressRules(machineId)
 		if err != nil {
 			return err
 		}
@@ -583,7 +589,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toOpen) > 0 {
 			logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
-			if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+			if err := fwInstance.OpenPorts(machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -591,7 +597,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toClose) > 0 {
 			logger.Infof("closing instance port ranges %v for %q",
 				toClose, machined.tag)
-			if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+			if err := fwInstance.ClosePorts(machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -871,9 +877,15 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
+	fwInstance, ok := instances[0].(instance.InstanceFirewaller)
+	if !ok {
+		logger.Infof("flushInstancePorts called on an instance of type %T which doesn't support firewall.", instances[0])
+		return nil
+	}
+
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+		if err := fwInstance.OpenPorts(machineId, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -881,7 +893,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
-		if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+		if err := fwInstance.ClosePorts(machineId, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}

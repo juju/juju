@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	jujunetwork "github.com/juju/juju/network"
+
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazureresources "github.com/juju/juju/provider/azure/internal/azureresources"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -1610,25 +1610,6 @@ func (env *azureEnviron) deleteResourceGroup(resourceGroup string) error {
 		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
 	return nil
-}
-
-var errNoFwGlobal = errors.New("global firewall mode is not supported")
-
-// OpenPorts is specified in the Environ interface. However, Azure does not
-// support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []jujunetwork.IngressRule) error {
-	return errNoFwGlobal
-}
-
-// ClosePorts is specified in the Environ interface. However, Azure does not
-// support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []jujunetwork.IngressRule) error {
-	return errNoFwGlobal
-}
-
-// Ports is specified in the Environ interface.
-func (env *azureEnviron) IngressRules() ([]jujunetwork.IngressRule, error) {
-	return nil, errNoFwGlobal
 }
 
 // Provider is specified in the Environ interface.
