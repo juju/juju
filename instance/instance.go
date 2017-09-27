@@ -41,6 +41,7 @@ type Instance interface {
 	Addresses() ([]network.Address, error)
 }
 
+// InstanceFirewaller provides instance-level firewall functionality
 type InstanceFirewaller interface {
 	// OpenPorts opens the given port ranges on the instance, which
 	// should have been started with the given machine id.
