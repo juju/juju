@@ -936,7 +936,7 @@ func (context *statusContext) processRemoteApplications() map[string]params.Remo
 }
 
 func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
-	status.ApplicationURL, _ = application.URL()
+	status.OfferURL, _ = application.URL()
 	status.OfferName = application.Name()
 	eps, err := application.Endpoints()
 	if err != nil {

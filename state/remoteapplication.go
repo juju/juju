@@ -602,8 +602,8 @@ func (p AddRemoteApplicationParams) Validate() error {
 	if p.URL != "" {
 		// URL may be empty, to represent remote applications corresponding
 		// to consumers of an offered application.
-		if _, err := crossmodel.ParseApplicationURL(p.URL); err != nil {
-			return errors.Annotate(err, "validating offered application URL")
+		if _, err := crossmodel.ParseOfferURL(p.URL); err != nil {
+			return errors.Annotate(err, "validating offer URL")
 		}
 	}
 	if p.SourceModel == (names.ModelTag{}) {

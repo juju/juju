@@ -214,7 +214,7 @@ func (api *OffersAPI) modifyOneOfferAccess(modelUUID string, isControllerAdmin b
 		return errors.Annotate(err, "could not modify offer access")
 	}
 
-	url, err := jujucrossmodel.ParseApplicationURL(arg.OfferURL)
+	url, err := jujucrossmodel.ParseOfferURL(arg.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -323,9 +323,9 @@ func (api *OffersAPI) revokeOfferAccess(backend Backend, offerTag names.Applicat
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
-func (api *OffersAPI) ApplicationOffers(urls params.ApplicationURLs) (params.ApplicationOffersResults, error) {
+func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	var results params.ApplicationOffersResults
-	results.Results = make([]params.ApplicationOfferResult, len(urls.ApplicationURLs))
+	results.Results = make([]params.ApplicationOfferResult, len(urls.OfferURLs))
 
 	var (
 		filters []params.OfferFilter
@@ -334,8 +334,8 @@ func (api *OffersAPI) ApplicationOffers(urls params.ApplicationURLs) (params.App
 		// It is used to process the result offers.
 		fullURLs []string
 	)
-	for i, urlStr := range urls.ApplicationURLs {
-		url, err := jujucrossmodel.ParseApplicationURL(urlStr)
+	for i, urlStr := range urls.OfferURLs {
+		url, err := jujucrossmodel.ParseOfferURL(urlStr)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -419,9 +419,9 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 
 // GetConsumeDetails returns the details necessary to pass to another model to
 // consume the specified offers represented by the urls.
-func (api *OffersAPI) GetConsumeDetails(args params.ApplicationURLs) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
 	var consumeResults params.ConsumeOfferDetailsResults
-	results := make([]params.ConsumeOfferDetailsResult, len(args.ApplicationURLs))
+	results := make([]params.ConsumeOfferDetailsResult, len(args.OfferURLs))
 
 	offers, err := api.ApplicationOffers(args)
 	if err != nil {
@@ -460,9 +460,9 @@ func (api *OffersAPI) GetConsumeDetails(args params.ApplicationURLs) (params.Con
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
-func (api *OffersAPI) RemoteApplicationInfo(args params.ApplicationURLs) (params.RemoteApplicationInfoResults, error) {
-	results := make([]params.RemoteApplicationInfoResult, len(args.ApplicationURLs))
-	for i, url := range args.ApplicationURLs {
+func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
+	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
+	for i, url := range args.OfferURLs {
 		info, err := api.oneRemoteApplicationInfo(url)
 		results[i].Result = info
 		results[i].Error = common.ServerError(err)
@@ -470,7 +470,7 @@ func (api *OffersAPI) RemoteApplicationInfo(args params.ApplicationURLs) (params
 	return params.RemoteApplicationInfoResults{results}, nil
 }
 
-func (api *OffersAPI) filterFromURL(url *jujucrossmodel.ApplicationURL) params.OfferFilter {
+func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
 	f := params.OfferFilter{
 		OwnerName: url.User,
 		ModelName: url.ModelName,
@@ -480,7 +480,7 @@ func (api *OffersAPI) filterFromURL(url *jujucrossmodel.ApplicationURL) params.O
 }
 
 func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicationInfo, error) {
-	url, err := jujucrossmodel.ParseApplicationURL(urlStr)
+	url, err := jujucrossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -507,7 +507,7 @@ func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApp
 		ModelTag:         offer.SourceModelTag,
 		Name:             url.ApplicationName,
 		Description:      offer.ApplicationDescription,
-		ApplicationURL:   url.String(),
+		OfferURL:         url.String(),
 		SourceModelLabel: url.ModelName,
 		Endpoints:        offer.Endpoints,
 		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
@@ -524,7 +524,7 @@ func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (param
 	}
 
 	for i, one := range args.OfferURLs {
-		url, err := jujucrossmodel.ParseApplicationURL(one)
+		url, err := jujucrossmodel.ParseOfferURL(one)
 		if err != nil {
 			result[i].Error = common.ServerError(err)
 			continue

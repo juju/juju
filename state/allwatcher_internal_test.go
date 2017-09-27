@@ -344,11 +344,11 @@ func addTestingRemoteApplication(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return rs, multiwatcher.RemoteApplicationInfo{
-		ModelUUID:      st.ModelUUID(),
-		Name:           name,
-		OfferUUID:      offerUUID,
-		ApplicationURL: url,
-		Life:           multiwatcher.Life(rs.Life().String()),
+		ModelUUID: st.ModelUUID(),
+		Name:      name,
+		OfferUUID: offerUUID,
+		OfferURL:  url,
+		Life:      multiwatcher.Life(rs.Life().String()),
 		Status: multiwatcher.StatusInfo{
 			Current: "unknown",
 			Data:    map[string]interface{}{},
@@ -3514,10 +3514,10 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 				about: "remote application is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.RemoteApplicationInfo{
-						ModelUUID:      st.ModelUUID(),
-						Name:           "remote-mysql2",
-						ApplicationURL: "me/model.mysql",
-						OfferUUID:      "remote-mysql2-uuid",
+						ModelUUID: st.ModelUUID(),
+						Name:      "remote-mysql2",
+						OfferURL:  "me/model.mysql",
+						OfferUUID: "remote-mysql2-uuid",
 					},
 				},
 				change: watcher.Change{

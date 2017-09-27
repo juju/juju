@@ -778,11 +778,11 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	}
 	if !c.Check(deltas[aIndex], jc.DeepEquals, multiwatcher.Delta{
 		Entity: &multiwatcher.RemoteApplicationInfo{
-			Name:           "remote-db2",
-			ModelUUID:      s.State.ModelUUID(),
-			OfferUUID:      "offer-uuid",
-			ApplicationURL: "admin/prod.db2",
-			Life:           "alive",
+			Name:      "remote-db2",
+			ModelUUID: s.State.ModelUUID(),
+			OfferUUID: "offer-uuid",
+			OfferURL:  "admin/prod.db2",
+			Life:      "alive",
 			Status: multiwatcher.StatusInfo{
 				Current: status.Unknown,
 			},

@@ -147,11 +147,11 @@ func (s *grantSuite) TestInitOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, gc.Equals, "bob")
-	url1, err := crossmodel.ParseApplicationURL("fred/model.offer1")
+	url1, err := crossmodel.ParseOfferURL("fred/model.offer1")
 	c.Assert(err, jc.ErrorIsNil)
-	url2, err := crossmodel.ParseApplicationURL("mary/model.offer2")
+	url2, err := crossmodel.ParseOfferURL("mary/model.offer2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(grantCmd.OfferURLs, jc.DeepEquals, []*crossmodel.ApplicationURL{url1, url2})
+	c.Assert(grantCmd.OfferURLs, jc.DeepEquals, []*crossmodel.OfferURL{url1, url2})
 	c.Assert(grantCmd.ModelNames, gc.HasLen, 0)
 }
 

@@ -368,7 +368,7 @@ func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "borken", URL: "haha/borken", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add remote application "borken": validating offered application URL: `+
+		`cannot add remote application "borken": validating offer URL: `+
 			`application offer URL is missing application`,
 	)
 	_, err = s.State.RemoteApplication("borken")

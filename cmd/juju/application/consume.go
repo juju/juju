@@ -87,7 +87,7 @@ func (c *consumeCommand) getTargetAPI() (applicationConsumeAPI, error) {
 	return application.NewClient(root), nil
 }
 
-func (c *consumeCommand) getSourceAPI(url *crossmodel.ApplicationURL) (applicationConsumeDetailsAPI, error) {
+func (c *consumeCommand) getSourceAPI(url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.sourceAPI != nil {
 		return c.sourceAPI, nil
 	}
@@ -114,7 +114,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	url, err := crossmodel.ParseApplicationURL(c.remoteApplication)
+	url, err := crossmodel.ParseOfferURL(c.remoteApplication)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -137,7 +137,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	}
 	// Parse the offer details URL and add the source controller so
 	// things like status can show the original source of the offer.
-	offerURL, err := crossmodel.ParseApplicationURL(consumeDetails.Offer.OfferURL)
+	offerURL, err := crossmodel.ParseOfferURL(consumeDetails.Offer.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -76,7 +76,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
 			app := fs.RemoteApplications[appName]
 			var store, urlPath string
-			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
+			url, err := crossmodel.ParseOfferURL(app.OfferURL)
 			if err == nil {
 				store = url.Source
 				url.Source = ""
@@ -86,9 +86,9 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 				}
 			} else {
 				// This is not expected.
-				logger.Errorf("invalid application URL %q: %v", app.ApplicationURL, err)
+				logger.Errorf("invalid offer URL %q: %v", app.OfferURL, err)
 				store = "unknown"
-				urlPath = app.ApplicationURL
+				urlPath = app.OfferURL
 			}
 			p(appName, app.StatusInfo.Current, store, urlPath)
 		}

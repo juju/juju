@@ -166,8 +166,8 @@ var scenarioStatus = &params.FullStatus{
 	},
 	RemoteApplications: map[string]params.RemoteApplicationStatus{
 		"remote-db2": {
-			ApplicationURL: "admin/prod.db2",
-			OfferName:      "remote-db2",
+			OfferURL:  "admin/prod.db2",
+			OfferName: "remote-db2",
 			Endpoints: []params.RemoteEndpoint{{
 				Name:      "database",
 				Interface: "db2",

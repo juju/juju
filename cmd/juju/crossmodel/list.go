@@ -231,7 +231,7 @@ type offerConnectionDetails struct {
 func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
 	result := make(offeredApplications)
 	for _, one := range all {
-		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, errors.Annotatef(err, "%v", one.OfferURL)
 		}
@@ -245,7 +245,7 @@ func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOff
 	return result, nil
 }
 
-func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
+func convertOfferToListItem(url *crossmodel.OfferURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
 		OfferName:       offer.OfferName,
 		ApplicationName: offer.ApplicationName,

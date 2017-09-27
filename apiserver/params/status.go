@@ -121,13 +121,13 @@ type ApplicationStatus struct {
 
 // RemoteApplicationStatus holds status info about a remote application.
 type RemoteApplicationStatus struct {
-	Err            error               `json:"err,omitempty"`
-	ApplicationURL string              `json:"application-url"`
-	OfferName      string              `json:"offer-name"`
-	Endpoints      []RemoteEndpoint    `json:"endpoints"`
-	Life           string              `json:"life"`
-	Relations      map[string][]string `json:"relations"`
-	Status         DetailedStatus      `json:"status"`
+	Err       error               `json:"err,omitempty"`
+	OfferURL  string              `json:"offer-url"`
+	OfferName string              `json:"offer-name"`
+	Endpoints []RemoteEndpoint    `json:"endpoints"`
+	Life      string              `json:"life"`
+	Relations map[string][]string `json:"relations"`
+	Status    DetailedStatus      `json:"status"`
 }
 
 // ApplicationOfferStatus holds status info about an application offer.
