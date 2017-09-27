@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/status"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -192,26 +193,44 @@ func (st *State) OfferConnectionForRelation(relationKey string) (*OfferConnectio
 
 // RemoteConnectionStatus returns summary information about connections to the specified offer.
 func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStatus, error) {
-	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
-	defer closer()
-
-	count, err := offerConnectionCollection.Find(bson.D{{"offer-uuid", offerUUID}}).Count()
+	conns, err := st.OfferConnections(offerUUID)
 	if err != nil {
-		return nil, errors.Errorf("cannot get remote connection status for offer %q", offerUUID)
+		return nil, errors.Trace(err)
 	}
-	return &RemoteConnectionStatus{
-		count: count,
-	}, nil
+	result := &RemoteConnectionStatus{
+		totalCount: len(conns),
+	}
+	for _, conn := range conns {
+		rel, err := st.KeyRelation(conn.RelationKey())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		relStatus, err := rel.Status()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if relStatus.Status == status.Joined {
+			result.activeCount++
+		}
+	}
+	return result, nil
 }
 
 // RemoteConnectionStatus holds summary information about connections
 // to an application offer.
 type RemoteConnectionStatus struct {
-	count int
+	activeCount int
+	totalCount  int
 }
 
-// ConnectionCount returns the number of remote applications
+// TotalConnectionCount returns the number of remote applications
 // related to an offer.
-func (r *RemoteConnectionStatus) ConnectionCount() int {
-	return r.count
+func (r *RemoteConnectionStatus) TotalConnectionCount() int {
+	return r.totalCount
+}
+
+// ActiveConnectionCount returns the number of active remote applications
+// related to an offer.
+func (r *RemoteConnectionStatus) ActiveConnectionCount() int {
+	return r.activeCount
 }

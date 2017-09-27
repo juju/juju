@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	model "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/relation"
 )
 
 type ListSuite struct {
@@ -89,7 +90,7 @@ func (s *ListSuite) TestListFormatError(c *gc.C) {
 
 func (s *ListSuite) TestListSummary(c *gc.C) {
 	// For summary output, we don't care about the content, just the count.
-	conns1 := []model.OfferConnection{{}, {}, {}}
+	conns1 := []model.OfferConnection{{Status: relation.Joined}, {}, {}}
 	conns2 := []model.OfferConnection{{}, {}}
 	// Insert in random order to check sorting.
 	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", conns1)})
@@ -100,11 +101,11 @@ func (s *ListSuite) TestListSummary(c *gc.C) {
 		[]string{"--format", "summary"},
 		`
 Offer       Application     Charm     Connected  Store           URL                                  Endpoint  Interface  Role
-zdiff-db2   app-zdiff-db2   cs:db2-5  3          differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
+zdiff-db2   app-zdiff-db2   cs:db2-5  1/3        differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
                                                                                                       mysql     db2        requirer
-hosted-db2  app-hosted-db2  cs:db2-5  0          myctrl          myctrl:fred/model.hosted-db2         log       http       provider
+hosted-db2  app-hosted-db2  cs:db2-5  0/0        myctrl          myctrl:fred/model.hosted-db2         log       http       provider
                                                                                                       mysql     db2        requirer
-adiff-db2   app-adiff-db2   cs:db2-5  2          vendor          vendor:fred/model.adiff-db2          log       http       provider
+adiff-db2   app-adiff-db2   cs:db2-5  0/2        vendor          vendor:fred/model.adiff-db2          log       http       provider
                                                                                                       mysql     db2        requirer
 
 `[1:],
@@ -121,7 +122,7 @@ func (s *ListSuite) TestListWithErrors(c *gc.C) {
 		[]string{"--format", "summary"},
 		`
 Offer       Application     Charm     Connected  Store   URL                           Endpoint  Interface  Role
-hosted-db2  app-hosted-db2  cs:db2-5  0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
+hosted-db2  app-hosted-db2  cs:db2-5  0/0        myctrl  myctrl:fred/model.hosted-db2  log       http       provider
                                                                                        mysql     db2        requirer
 
 `[1:],

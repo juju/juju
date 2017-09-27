@@ -298,12 +298,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		},
 	})
 
-	_, applicationOfferInfo := addTestingApplicationOffer(
-		c, st, s.owner, "hosted-mysql", "mysql", curl.Name, []string{"server"}, 2,
-	)
-	if includeOffers {
-		add(&applicationOfferInfo)
-	}
 	// Set up a remote application related to the offer.
 	// It won't be included in the backing model.
 	addTestingRemoteApplication(
@@ -314,6 +308,41 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Interface: "mysql",
 		}}, true,
 	)
+	addTestingRemoteApplication(
+		c, st, "remote-wordpress2", "", "remote-wordpress2-uuid", []charm.Relation{{
+			Name:      "db",
+			Role:      "requirer",
+			Scope:     charm.ScopeGlobal,
+			Interface: "mysql",
+		}}, true,
+	)
+	eps, err = st.InferEndpoints("mysql", "remote-wordpress2")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err = st.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	add(&multiwatcher.RelationInfo{
+		ModelUUID: modelUUID,
+		Key:       rel.Tag().Id(),
+		Id:        rel.Id(),
+		Endpoints: []multiwatcher.Endpoint{
+			{ApplicationName: "mysql", Relation: multiwatcher.CharmRelation{Name: "server", Role: "provider", Interface: "mysql", Optional: false, Limit: 0, Scope: "global"}},
+			{ApplicationName: "remote-wordpress2", Relation: multiwatcher.CharmRelation{Name: "db", Role: "requirer", Interface: "mysql", Optional: false, Limit: 0, Scope: "global"}}},
+	})
+
+	_, applicationOfferInfo, rel2 := addTestingApplicationOffer(
+		c, st, s.owner, "hosted-mysql", "mysql", curl.Name, []string{"server"},
+	)
+	add(&multiwatcher.RelationInfo{
+		ModelUUID: modelUUID,
+		Key:       rel2.Tag().Id(),
+		Id:        rel2.Id(),
+		Endpoints: []multiwatcher.Endpoint{
+			{ApplicationName: "mysql", Relation: multiwatcher.CharmRelation{Name: "server", Role: "provider", Interface: "mysql", Optional: false, Limit: 0, Scope: "global"}},
+			{ApplicationName: "remote-wordpress", Relation: multiwatcher.CharmRelation{Name: "db", Role: "requirer", Interface: "mysql", Optional: false, Limit: 0, Scope: "global"}}},
+	})
+	if includeOffers {
+		add(&applicationOfferInfo)
+	}
 
 	return
 }
@@ -357,8 +386,8 @@ func addTestingRemoteApplication(
 }
 
 func addTestingApplicationOffer(
-	c *gc.C, st *State, owner names.UserTag, offerName, applicationName, charmName string, endpoints []string, connected int,
-) (*crossmodel.ApplicationOffer, multiwatcher.ApplicationOfferInfo) {
+	c *gc.C, st *State, owner names.UserTag, offerName, applicationName, charmName string, endpoints []string,
+) (*crossmodel.ApplicationOffer, multiwatcher.ApplicationOfferInfo, *Relation) {
 
 	eps := make(map[string]string)
 	for _, ep := range endpoints {
@@ -372,24 +401,27 @@ func addTestingApplicationOffer(
 		Endpoints:       eps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// Add the requested number of connections.
-	for i := 0; i < connected; i++ {
-		_, err := st.AddOfferConnection(AddOfferConnectionParams{
-			SourceModelUUID: utils.MustNewUUID().String(),
-			RelationId:      i,
-			Username:        "fred",
-			OfferUUID:       offer.OfferUUID,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	return offer, multiwatcher.ApplicationOfferInfo{
-		ModelUUID:       st.ModelUUID(),
-		OfferName:       offerName,
+	relEps, err := st.InferEndpoints("mysql", "remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := st.AddRelation(relEps...)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = st.AddOfferConnection(AddOfferConnectionParams{
+		SourceModelUUID: utils.MustNewUUID().String(),
+		RelationId:      rel.Id(),
+		Username:        "fred",
 		OfferUUID:       offer.OfferUUID,
-		ApplicationName: applicationName,
-		CharmName:       charmName,
-		ConnectedCount:  connected,
-	}
+		RelationKey:     rel.Tag().Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return offer, multiwatcher.ApplicationOfferInfo{
+		ModelUUID:            st.ModelUUID(),
+		OfferName:            offerName,
+		OfferUUID:            offer.OfferUUID,
+		ApplicationName:      applicationName,
+		CharmName:            charmName,
+		TotalConnectedCount:  1,
+		ActiveConnectedCount: 0,
+	}, rel
 }
 
 var _ = gc.Suite(&allWatcherStateSuite{})
@@ -3615,9 +3647,17 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 		owner, err := st.AddUser("owner", "owner", "password", "admin")
 		c.Assert(err, jc.ErrorIsNil)
 		AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
-		offer, applicationOfferInfo := addTestingApplicationOffer(
+		addTestingRemoteApplication(
+			c, st, "remote-wordpress", "", "remote-wordpress-uuid", []charm.Relation{{
+				Name:      "db",
+				Role:      "requirer",
+				Scope:     charm.ScopeGlobal,
+				Interface: "mysql",
+			}}, true,
+		)
+		offer, applicationOfferInfo, _ := addTestingApplicationOffer(
 			c, st, owner.UserTag(), "hosted-mysql", "mysql",
-			"quantal-mysql", []string{"server"}, 0)
+			"quantal-mysql", []string{"server"})
 		return applicationOfferInfo, owner, offer.OfferUUID
 	}
 
@@ -3690,22 +3730,33 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			applicationOfferInfo, _, offerUUID := addOffer(c, st)
 			initialApplicationOfferInfo := applicationOfferInfo
 			addTestingRemoteApplication(
-				c, st, "remote-wordpress", "", offerUUID, mysqlRelations, true)
-			_, err := st.AddOfferConnection(AddOfferConnectionParams{
+				c, st, "remote-wordpress2", "", offerUUID, []charm.Relation{{
+					Name:      "db",
+					Role:      "requirer",
+					Scope:     charm.ScopeGlobal,
+					Interface: "mysql",
+				}}, true,
+			)
+			eps, err := st.InferEndpoints("mysql", "remote-wordpress2")
+			c.Assert(err, jc.ErrorIsNil)
+			rel, err := st.AddRelation(eps...)
+			c.Assert(err, jc.ErrorIsNil)
+			_, err = st.AddOfferConnection(AddOfferConnectionParams{
 				SourceModelUUID: utils.MustNewUUID().String(),
-				RelationId:      0,
+				RelationId:      rel.Id(),
+				RelationKey:     rel.Tag().Id(),
 				Username:        "fred",
 				OfferUUID:       initialApplicationOfferInfo.OfferUUID,
 			})
 			c.Assert(err, jc.ErrorIsNil)
 
-			applicationOfferInfo.ConnectedCount = 1
+			applicationOfferInfo.TotalConnectedCount = 2
 			return changeTestCase{
 				about:           "application offer count is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&initialApplicationOfferInfo},
 				change: watcher.Change{
 					C:  "remoteApplications",
-					Id: st.docID("remote-wordpress"),
+					Id: st.docID("remote-wordpress2"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&applicationOfferInfo},
 			}

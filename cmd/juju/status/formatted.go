@@ -154,12 +154,13 @@ func (s remoteApplicationStatus) MarshalYAML() (interface{}, error) {
 type offerStatusNoMarshal offerStatus
 
 type offerStatus struct {
-	Err             error                     `json:"-" yaml:",omitempty"`
-	OfferName       string                    `json:"-" yaml:",omitempty"`
-	ApplicationName string                    `json:"application" yaml:"application"`
-	CharmURL        string                    `json:"charm,omitempty" yaml:"charm,omitempty"`
-	ConnectedCount  int                       `json:"connected-count,omitempty" yaml:"connected-count,omitempty"`
-	Endpoints       map[string]remoteEndpoint `json:"endpoints" yaml:"endpoints"`
+	Err                  error                     `json:"-" yaml:",omitempty"`
+	OfferName            string                    `json:"-" yaml:",omitempty"`
+	ApplicationName      string                    `json:"application" yaml:"application"`
+	CharmURL             string                    `json:"charm,omitempty" yaml:"charm,omitempty"`
+	TotalConnectedCount  int                       `json:"total-connected-count,omitempty" yaml:"total-connected-count,omitempty"`
+	ActiveConnectedCount int                       `json:"active-connected-count,omitempty" yaml:"active-connected-count,omitempty"`
+	Endpoints            map[string]remoteEndpoint `json:"endpoints" yaml:"endpoints"`
 }
 
 func (s offerStatus) MarshalJSON() ([]byte, error) {

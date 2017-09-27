@@ -245,7 +245,8 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 					return errors.Trace(err)
 				}
 				w.Println(offerName, offer.ApplicationName, curl.Name, fmt.Sprint(curl.Revision),
-					fmt.Sprint(offer.ConnectedCount), endpointName, endpoint.Interface, endpoint.Role)
+					fmt.Sprintf("%v/%v", offer.ActiveConnectedCount, offer.TotalConnectedCount),
+					endpointName, endpoint.Interface, endpoint.Role)
 				continue
 			}
 			// Subsequent lines only need to display endpoint information.

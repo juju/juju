@@ -261,7 +261,7 @@ func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.App
 			RelationId:      conn.RelationId,
 			Endpoint:        conn.Endpoint,
 			Status: offerConnectionStatus{
-				Current: conn.Status,
+				Current: conn.Status.String(),
 				Message: conn.Message,
 				Since:   friendlyDuration(conn.Since),
 			},

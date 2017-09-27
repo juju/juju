@@ -594,7 +594,8 @@ func fetchOffers(st Backend, applications map[string]*state.Application) (map[st
 			offerInfo.err = err
 			continue
 		} else if err == nil {
-			offerInfo.connectedCount = rc.ConnectionCount()
+			offerInfo.totalConnectedCount = rc.TotalConnectionCount()
+			offerInfo.activeConnectedCount = rc.ActiveConnectionCount()
 		}
 		offersMap[offer.OfferName] = offerInfo
 	}
@@ -965,21 +966,23 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 
 type offerStatus struct {
 	crossmodel.ApplicationOffer
-	err            error
-	charmURL       string
-	connectedCount int
+	err                  error
+	charmURL             string
+	activeConnectedCount int
+	totalConnectedCount  int
 }
 
 func (context *statusContext) processOffers() map[string]params.ApplicationOfferStatus {
 	offers := make(map[string]params.ApplicationOfferStatus)
 	for name, offer := range context.offers {
 		offerStatus := params.ApplicationOfferStatus{
-			Err:             offer.err,
-			ApplicationName: offer.ApplicationName,
-			OfferName:       offer.OfferName,
-			CharmURL:        offer.charmURL,
-			Endpoints:       make(map[string]params.RemoteEndpoint),
-			ConnectedCount:  offer.connectedCount,
+			Err:                  offer.err,
+			ApplicationName:      offer.ApplicationName,
+			OfferName:            offer.OfferName,
+			CharmURL:             offer.charmURL,
+			Endpoints:            make(map[string]params.RemoteEndpoint),
+			ActiveConnectedCount: offer.activeConnectedCount,
+			TotalConnectedCount:  offer.totalConnectedCount,
 		}
 		for name, ep := range offer.Endpoints {
 			offerStatus.Endpoints[name] = params.RemoteEndpoint{
