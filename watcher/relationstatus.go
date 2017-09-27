@@ -15,6 +15,9 @@ type RelationStatusChange struct {
 	// Suspended is the suspended status of the relation.
 	Suspended bool
 
+	// SuspendedReason is an optional message to explain why suspend is true.
+	SuspendedReason string
+
 	// Life is the relation life value, eg Alive.
 	Life life.Value
 }

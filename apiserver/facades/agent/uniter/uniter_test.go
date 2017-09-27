@@ -1943,7 +1943,7 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel2 := s.addRelation(c, "wordpress", "logging")
-	err = rel2.SetSuspended(true)
+	err = rel2.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
@@ -2013,7 +2013,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel2 := s.addRelation(c, "wordpress", "logging")
-	err = rel2.SetSuspended(true)
+	err = rel2.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""})
 	c.Assert(err, jc.ErrorIsNil)

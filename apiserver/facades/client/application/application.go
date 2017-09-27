@@ -1108,7 +1108,11 @@ func (api *API) SetRelationsSuspended(args params.RelationSuspendedArgs) (params
 		if errors.IsNotFound(err) {
 			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
 		}
-		err = rel.SetSuspended(arg.Suspended)
+		message := arg.Message
+		if !arg.Suspended {
+			message = ""
+		}
+		err = rel.SetSuspended(arg.Suspended, message)
 		if err != nil {
 			return errors.Trace(err)
 		}

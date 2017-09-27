@@ -38,18 +38,27 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	// Update the relation suspended status.
 	currentStatus := rel.Suspended()
 	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
-		if err := rel.SetSuspended(*change.Suspended); err != nil {
+		var (
+			newStatus status.Status
+			message   string
+		)
+		if *change.Suspended {
+			newStatus = status.Suspending
+			message = change.SuspendedReason
+			if message == "" {
+				message = "suspending after update from remote model"
+			}
+		}
+		if err := rel.SetSuspended(*change.Suspended, message); err != nil {
 			return errors.Trace(err)
 		}
-		newStatus := status.Suspending
-		action := "suspending"
 		if !*change.Suspended {
 			newStatus = status.Joining
-			action = "resuming"
+			message = ""
 		}
 		if err := rel.SetStatus(status.StatusInfo{
 			Status:  newStatus,
-			Message: action + " after update from remote model",
+			Message: message,
 		}); err != nil && !errors.IsNotValid(err) {
 			return errors.Trace(err)
 		}
@@ -276,8 +285,9 @@ func GetRelationLifeSuspendedStatusChange(st relationGetter, key string) (*param
 		return nil, errors.Trace(err)
 	}
 	return &params.RelationLifeSuspendedStatusChange{
-		Key:       key,
-		Life:      params.Life(rel.Life().String()),
-		Suspended: rel.Suspended(),
+		Key:             key,
+		Life:            params.Life(rel.Life().String()),
+		Suspended:       rel.Suspended(),
+		SuspendedReason: rel.SuspendedReason(),
 	}, nil
 }

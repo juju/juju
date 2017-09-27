@@ -38,14 +38,15 @@ func relationKey(endpoints []Endpoint) string {
 // relationDoc is the internal representation of a Relation in MongoDB.
 // Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
-	DocID     string     `bson:"_id"`
-	Key       string     `bson:"key"`
-	ModelUUID string     `bson:"model-uuid"`
-	Id        int        `bson:"id"`
-	Endpoints []Endpoint `bson:"endpoints"`
-	Life      Life       `bson:"life"`
-	UnitCount int        `bson:"unitcount"`
-	Suspended bool       `bson:"suspended"`
+	DocID           string     `bson:"_id"`
+	Key             string     `bson:"key"`
+	ModelUUID       string     `bson:"model-uuid"`
+	Id              int        `bson:"id"`
+	Endpoints       []Endpoint `bson:"endpoints"`
+	Life            Life       `bson:"life"`
+	UnitCount       int        `bson:"unitcount"`
+	Suspended       bool       `bson:"suspended"`
+	SuspendedReason string     `bson:"suspended-reason"`
 }
 
 // Relation represents a relation between one or two service endpoints.
@@ -73,6 +74,11 @@ func (r *Relation) Tag() names.Tag {
 // Suspended returns true if the relation is suspended.
 func (r *Relation) Suspended() bool {
 	return r.doc.Suspended
+}
+
+// SuspendedReason returns the reason why the relation is suspended.
+func (r *Relation) SuspendedReason() string {
+	return r.doc.SuspendedReason
 }
 
 // Refresh refreshes the contents of the relation from the underlying
@@ -154,9 +160,12 @@ func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
 }
 
 // SetSuspended sets whether the relation is suspended.
-func (r *Relation) SetSuspended(suspended bool) error {
+func (r *Relation) SetSuspended(suspended bool, suspendedReason string) error {
 	if r.doc.Suspended == suspended {
 		return nil
+	}
+	if !suspended && suspendedReason != "" {
+		return errors.New("cannot set suspended reason if not suspended")
 	}
 
 	var buildTxn jujutxn.TransactionSource = func(attempt int) ([]txn.Op, error) {
@@ -214,7 +223,10 @@ func (r *Relation) SetSuspended(suspended bool) error {
 			C:      relationsC,
 			Id:     r.doc.DocID,
 			Assert: bson.D{{"suspended", r.doc.Suspended}},
-			Update: bson.D{{"$set", bson.D{{"suspended", suspended}}}},
+			Update: bson.D{
+				{"$set", bson.D{{"suspended", suspended}}},
+				{"$set", bson.D{{"suspended-reason", suspendedReason}}},
+			},
 		}}
 		return append(setOps, checkOps...), nil
 	}

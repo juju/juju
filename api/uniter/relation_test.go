@@ -67,7 +67,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	err = s.stateRelation.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Update suspended as well.
-	err = s.stateRelation.SetSuspended(false)
+	err = s.stateRelation.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
 	c.Assert(s.apiRelation.Suspended(), jc.IsTrue)

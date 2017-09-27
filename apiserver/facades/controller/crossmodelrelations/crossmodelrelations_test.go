@@ -80,7 +80,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life params.Life) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life params.Life, suspendedReason string) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
@@ -109,6 +109,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 			{
 				Life:             life,
 				Suspended:        &suspended,
+				SuspendedReason:  suspendedReason,
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
@@ -130,7 +131,11 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 	}
 	if life == params.Alive {
 		c.Assert(rel.status, gc.Equals, status.Suspending)
-		c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
+		if suspendedReason == "" {
+			c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
+		} else {
+			c.Assert(rel.message, gc.Equals, suspendedReason)
+		}
 	} else {
 		c.Assert(rel.status, gc.Equals, status.Status(""))
 		c.Assert(rel.message, gc.Equals, "")
@@ -149,11 +154,15 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Alive)
+	s.assertPublishRelationsChanges(c, params.Alive, "")
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
+	s.assertPublishRelationsChanges(c, params.Alive, "reason")
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Dying)
+	s.assertPublishRelationsChanges(c, params.Dying, "")
 }
 
 func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
