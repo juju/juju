@@ -439,11 +439,39 @@ func (c *Client) DestroyApplications(appNames ...string) ([]params.DestroyApplic
 	return allResults, nil
 }
 
-// GetConstraints returns the constraints for the given application.
-func (c *Client) GetConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetConstraints", params.GetApplicationConstraints{service}, results)
-	return results.Constraints, err
+// GetConstraints returns the constraints for the given applications.
+func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, error) {
+	var allConstraints []constraints.Value
+	if c.BestAPIVersion() < 5 {
+		for _, application := range applications {
+			var result params.GetConstraintsResults
+			err := c.facade.FacadeCall("GetConstraints", params.GetApplicationConstraints{application}, &result)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			allConstraints = append(allConstraints, result.Constraints)
+		}
+		return allConstraints, nil
+	}
+
+	// Make a single call to get all the constraints.
+	var results params.ApplicationGetConstraintsResults
+	var args params.Entities
+	for _, application := range applications {
+		args.Entities = append(args.Entities,
+			params.Entity{names.NewApplicationTag(application).String()})
+	}
+	err := c.facade.FacadeCall("GetConstraints", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for i, result := range results.Results {
+		if result.Error != nil {
+			return nil, errors.Annotatef(err, "unable to get constraints for %q", applications[i])
+		}
+		allConstraints = append(allConstraints, result.Constraints)
+	}
+	return allConstraints, nil
 }
 
 // SetConstraints specifies the constraints for the given application.

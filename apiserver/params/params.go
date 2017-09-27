@@ -518,6 +518,18 @@ type GetConstraintsResults struct {
 	Constraints constraints.Value `json:"constraints"`
 }
 
+// ApplicationGetConstraintsResults holds the multiple return values for GetConstraints call.
+type ApplicationGetConstraintsResults struct {
+	Results []ApplicationConstraint `json:"results"`
+}
+
+// ApplicationConstraint holds the constraints value for a single application, or
+// an error for trying to get it.
+type ApplicationConstraint struct {
+	Constraints constraints.Value `json:"constraints"`
+	Error       *Error            `json:"error,omitempty"`
+}
+
 // SetConstraints stores parameters for making the SetConstraints call.
 type SetConstraints struct {
 	ApplicationName string            `json:"application"` //optional, if empty, model constraints are set.

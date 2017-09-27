@@ -639,3 +639,71 @@ func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
 		fooConfig, barConfig,
 	})
 }
+
+func (s *applicationSuite) TestGetConstraints(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.Entities)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{"application-foo"}, {"application-bar"},
+					}})
+
+				result, ok := response.(*params.ApplicationGetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ApplicationConstraint{
+					{Constraints: fooConstraints}, {Constraints: barConstraints},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []constraints.Value{
+		fooConstraints, barConstraints,
+	})
+}
+
+func (s *applicationSuite) TestGetConstraintsAPIv4(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.GetApplicationConstraints)
+				c.Assert(ok, jc.IsTrue)
+
+				result, ok := response.(*params.GetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+
+				switch args.ApplicationName {
+				case "foo":
+					result.Constraints = fooConstraints
+				case "bar":
+					result.Constraints = barConstraints
+				default:
+					return errors.New("unexpected app name")
+				}
+				return nil
+			},
+		),
+		BestVersion: 4,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []constraints.Value{
+		fooConstraints, barConstraints,
+	})
+}
