@@ -57,7 +57,7 @@ func (c *removeCommand) Init(args []string) error {
 		return errors.Errorf("no offers specified")
 	}
 	for _, urlStr := range args {
-		url, err := crossmodel.ParseApplicationURL(urlStr)
+		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
 			return errors.Trace(err)
 		}

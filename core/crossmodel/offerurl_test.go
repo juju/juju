@@ -14,40 +14,40 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 )
 
-type ApplicationURLSuite struct{}
+type OfferURLSuite struct{}
 
-var _ = gc.Suite(&ApplicationURLSuite{})
+var _ = gc.Suite(&OfferURLSuite{})
 
 var urlTests = []struct {
 	s, err string
 	exact  string
-	url    *crossmodel.ApplicationURL
+	url    *crossmodel.OfferURL
 }{{
 	s:   "controller:user/modelname.applicationname",
-	url: &crossmodel.ApplicationURL{"controller", "user", "modelname", "applicationname"},
+	url: &crossmodel.OfferURL{"controller", "user", "modelname", "applicationname"},
 }, {
 	s:   "controller:user/modelname.applicationname:rel",
-	url: &crossmodel.ApplicationURL{"controller", "user", "modelname", "applicationname:rel"},
+	url: &crossmodel.OfferURL{"controller", "user", "modelname", "applicationname:rel"},
 }, {
 	s:   "modelname.applicationname",
-	url: &crossmodel.ApplicationURL{"", "", "modelname", "applicationname"},
+	url: &crossmodel.OfferURL{"", "", "modelname", "applicationname"},
 }, {
 	s:   "modelname.applicationname:rel",
-	url: &crossmodel.ApplicationURL{"", "", "modelname", "applicationname:rel"},
+	url: &crossmodel.OfferURL{"", "", "modelname", "applicationname:rel"},
 }, {
 	s:   "user/modelname.applicationname:rel",
-	url: &crossmodel.ApplicationURL{"", "user", "modelname", "applicationname:rel"},
+	url: &crossmodel.OfferURL{"", "user", "modelname", "applicationname:rel"},
 }, {
 	s:     "/modelname.applicationname",
-	url:   &crossmodel.ApplicationURL{"", "", "modelname", "applicationname"},
+	url:   &crossmodel.OfferURL{"", "", "modelname", "applicationname"},
 	exact: "modelname.applicationname",
 }, {
 	s:     "/modelname.applicationname:rel",
-	url:   &crossmodel.ApplicationURL{"", "", "modelname", "applicationname:rel"},
+	url:   &crossmodel.OfferURL{"", "", "modelname", "applicationname:rel"},
 	exact: "modelname.applicationname:rel",
 }, {
 	s:   "user/modelname.applicationname",
-	url: &crossmodel.ApplicationURL{"", "user", "modelname", "applicationname"},
+	url: &crossmodel.OfferURL{"", "user", "modelname", "applicationname"},
 }, {
 	s:   "controller:modelname",
 	err: `application offer URL is missing application`,
@@ -71,10 +71,10 @@ var urlTests = []struct {
 	err: `model name "\[badmodel" not valid`,
 }}
 
-func (s *ApplicationURLSuite) TestParseURL(c *gc.C) {
+func (s *OfferURLSuite) TestParseURL(c *gc.C) {
 	for i, t := range urlTests {
 		c.Logf("test %d: %q", i, t.s)
-		url, err := crossmodel.ParseApplicationURL(t.s)
+		url, err := crossmodel.ParseOfferURL(t.s)
 
 		match := t.s
 		if t.exact != "" {
@@ -95,28 +95,28 @@ func (s *ApplicationURLSuite) TestParseURL(c *gc.C) {
 
 var urlPartsTests = []struct {
 	s, err string
-	url    *crossmodel.ApplicationURLParts
+	url    *crossmodel.OfferURLParts
 }{{
 	s:   "controller:/user/modelname.applicationname",
-	url: &crossmodel.ApplicationURLParts{"controller", "user", "modelname", "applicationname"},
+	url: &crossmodel.OfferURLParts{"controller", "user", "modelname", "applicationname"},
 }, {
 	s:   "user/modelname.applicationname",
-	url: &crossmodel.ApplicationURLParts{"", "user", "modelname", "applicationname"},
+	url: &crossmodel.OfferURLParts{"", "user", "modelname", "applicationname"},
 }, {
 	s:   "user/modelname",
-	url: &crossmodel.ApplicationURLParts{"", "user", "modelname", ""},
+	url: &crossmodel.OfferURLParts{"", "user", "modelname", ""},
 }, {
 	s:   "modelname.application",
-	url: &crossmodel.ApplicationURLParts{"", "", "modelname", "application"},
+	url: &crossmodel.OfferURLParts{"", "", "modelname", "application"},
 }, {
 	s:   "controller:/modelname",
-	url: &crossmodel.ApplicationURLParts{"controller", "", "modelname", ""},
+	url: &crossmodel.OfferURLParts{"controller", "", "modelname", ""},
 }, {
 	s:   "controller:",
-	url: &crossmodel.ApplicationURLParts{Source: "controller"},
+	url: &crossmodel.OfferURLParts{Source: "controller"},
 }, {
 	s:   "",
-	url: &crossmodel.ApplicationURLParts{},
+	url: &crossmodel.OfferURLParts{},
 }, {
 	s:   "user/prod/applicationname/extra",
 	err: `application offer URL has invalid form, must be \[<user/\]<model>.<appname>: "user/prod/applicationname/extra"`,
@@ -131,10 +131,10 @@ var urlPartsTests = []struct {
 	err: `application offer URL has invalid form, must be \[<user/\]<model>.<appname>: $URL`,
 }}
 
-func (s *ApplicationURLSuite) TestParseURLParts(c *gc.C) {
+func (s *OfferURLSuite) TestParseURLParts(c *gc.C) {
 	for i, t := range urlPartsTests {
 		c.Logf("test %d: %q", i, t.s)
-		url, err := crossmodel.ParseApplicationURLParts(t.s)
+		url, err := crossmodel.ParseOfferURLParts(t.s)
 
 		if t.url != nil {
 			c.Check(err, gc.IsNil)
@@ -148,32 +148,32 @@ func (s *ApplicationURLSuite) TestParseURLParts(c *gc.C) {
 	}
 }
 
-func (s *ApplicationURLSuite) TestHasEndpoint(c *gc.C) {
-	url, err := crossmodel.ParseApplicationURL("model.application:endpoint")
+func (s *OfferURLSuite) TestHasEndpoint(c *gc.C) {
+	url, err := crossmodel.ParseOfferURL("model.application:endpoint")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsTrue)
-	url, err = crossmodel.ParseApplicationURL("model.application")
+	url, err = crossmodel.ParseOfferURL("model.application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsFalse)
-	url, err = crossmodel.ParseApplicationURL("controller:/user/model.application:thing")
+	url, err = crossmodel.ParseOfferURL("controller:/user/model.application:thing")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsTrue)
-	url, err = crossmodel.ParseApplicationURL("controller:/user/model.application")
+	url, err = crossmodel.ParseOfferURL("controller:/user/model.application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsFalse)
 }
 
-func (s *ApplicationURLSuite) TestMakeURL(c *gc.C) {
+func (s *OfferURLSuite) TestMakeURL(c *gc.C) {
 	url := crossmodel.MakeURL("user", "model", "app", "")
 	c.Assert(url, gc.Equals, "user/model.app")
 	url = crossmodel.MakeURL("user", "model", "app", "ctrl")
 	c.Assert(url, gc.Equals, "ctrl:user/model.app")
 }
 
-func (s *ApplicationURLSuite) TestAsLocal(c *gc.C) {
-	url, err := crossmodel.ParseApplicationURL("source:model.application:endpoint")
+func (s *OfferURLSuite) TestAsLocal(c *gc.C) {
+	url, err := crossmodel.ParseOfferURL("source:model.application:endpoint")
 	c.Assert(err, jc.ErrorIsNil)
-	expected, err := crossmodel.ParseApplicationURL("model.application:endpoint")
+	expected, err := crossmodel.ParseOfferURL("model.application:endpoint")
 	c.Assert(err, jc.ErrorIsNil)
 	original := *url
 	c.Assert(url.AsLocal(), gc.DeepEquals, expected)

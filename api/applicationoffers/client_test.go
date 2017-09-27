@@ -250,9 +250,9 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
@@ -298,9 +298,9 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
@@ -341,9 +341,9 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
@@ -568,9 +568,9 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 		) error {
 			called = true
 			c.Assert(request, gc.Equals, "GetConsumeDetails")
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, jc.DeepEquals, []string{"me/prod.app"})
+			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
 			if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
 				result := params.ConsumeOfferDetailsResult{
 					ConsumeOfferDetails: params.ConsumeOfferDetails{

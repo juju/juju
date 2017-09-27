@@ -80,7 +80,7 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
-	url, err := crossmodel.ParseApplicationURL(c.url)
+	url, err := crossmodel.ParseOfferURL(c.url)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func convertOffers(store string, offers ...params.ApplicationOffer) (map[string]
 		if one.ApplicationDescription != "" {
 			app.Description = one.ApplicationDescription
 		}
-		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, err
 		}

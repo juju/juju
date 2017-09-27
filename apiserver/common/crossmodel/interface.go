@@ -201,7 +201,7 @@ type RemoteApplication interface {
 	// Tag returns the remote applications's tag.
 	Tag() names.Tag
 
-	// URL returns the remote application URL, at which it is offered.
+	// URL returns the offer URL, at which the application is offered.
 	URL() (string, bool)
 
 	// OfferUUID returns the UUID of the offer.

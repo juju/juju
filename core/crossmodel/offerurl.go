@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-// ApplicationURL represents the location of an offered application and its
+// OfferURL represents the location of an offered application and its
 // associated exported endpoints.
-type ApplicationURL struct {
+type OfferURL struct {
 	// Source represents where the offer is hosted.
 	// If empty, the model is another model in the same controller.
 	Source string // "<controller-name>" or "<jaas>" or ""
@@ -33,7 +33,7 @@ type ApplicationURL struct {
 }
 
 // Path returns the path component of the URL.
-func (u *ApplicationURL) Path() string {
+func (u *OfferURL) Path() string {
 	var parts []string
 	if u.User != "" {
 		parts = append(parts, u.User)
@@ -49,20 +49,20 @@ func (u *ApplicationURL) Path() string {
 	return fmt.Sprintf("%s:%s", u.Source, path)
 }
 
-func (u *ApplicationURL) String() string {
+func (u *OfferURL) String() string {
 	return u.Path()
 }
 
 // AsLocal returns a copy of the URL with an empty (local) source.
-func (u *ApplicationURL) AsLocal() *ApplicationURL {
+func (u *OfferURL) AsLocal() *OfferURL {
 	localURL := *u
 	localURL.Source = ""
 	return &localURL
 }
 
-// HasEndpoint returns whether this application URL includes an
+// HasEndpoint returns whether this offer URL includes an
 // endpoint name in the application name.
-func (u *ApplicationURL) HasEndpoint() bool {
+func (u *OfferURL) HasEndpoint() bool {
 	return strings.Contains(u.ApplicationName, ":")
 }
 
@@ -71,7 +71,7 @@ var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[^/]+)/)?(?P<model
 
 //var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[a-zA-Z]+)/)?(?P<model>[a-zA-Z]+)?(\.(?P<application>[^:]*(:[a-zA-Z]+)?))?)?`)
 
-// ParseApplicationURL parses the specified URL string into an ApplicationURL.
+// ParseOfferURL parses the specified URL string into an OfferURL.
 // The URL string is of one of the forms:
 //  <model-name>.<application-name>
 //  <model-name>.<application-name>:<relation-name>
@@ -79,27 +79,27 @@ var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[^/]+)/)?(?P<model
 //  <user>/<model-name>.<application-name>:<relation-name>
 //  <controller>:<user>/<model-name>.<application-name>
 //  <controller>:<user>/<model-name>.<application-name>:<relation-name>
-func ParseApplicationURL(urlStr string) (*ApplicationURL, error) {
-	return parseApplicationURL(urlStr)
+func ParseOfferURL(urlStr string) (*OfferURL, error) {
+	return parseOfferURL(urlStr)
 }
 
-// parseApplicationURL parses the specified URL string into an ApplicationURL.
-func parseApplicationURL(urlStr string) (*ApplicationURL, error) {
-	urlParts, err := parseApplicationURLParts(urlStr, false)
+// parseOfferURL parses the specified URL string into an OfferURL.
+func parseOfferURL(urlStr string) (*OfferURL, error) {
+	urlParts, err := parseOfferURLParts(urlStr, false)
 	if err != nil {
 		return nil, err
 	}
-	url := ApplicationURL(*urlParts)
+	url := OfferURL(*urlParts)
 	return &url, nil
 }
 
-// ApplicationURLParts contains various attributes of a URL.
-type ApplicationURLParts ApplicationURL
+// OfferURLParts contains various attributes of a URL.
+type OfferURLParts OfferURL
 
-// ParseApplicationURLParts parses a partial URL, filling out what parts are supplied.
-// This method is used to generate a filter used to query matching application URLs.
-func ParseApplicationURLParts(urlStr string) (*ApplicationURLParts, error) {
-	return parseApplicationURLParts(urlStr, true)
+// ParseOfferURLParts parses a partial URL, filling out what parts are supplied.
+// This method is used to generate a filter used to query matching offer URLs.
+func ParseOfferURLParts(urlStr string) (*OfferURLParts, error) {
+	return parseOfferURLParts(urlStr, true)
 }
 
 var endpointRegexp = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
@@ -118,8 +118,8 @@ func maybeParseSource(urlStr string) (source, rest string) {
 	return "", urlStr
 }
 
-func parseApplicationURLParts(urlStr string, allowIncomplete bool) (*ApplicationURLParts, error) {
-	var result ApplicationURLParts
+func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, error) {
+	var result OfferURLParts
 	source, urlParts := maybeParseSource(urlStr)
 
 	valid := !strings.HasPrefix(urlStr, ":")
@@ -157,7 +157,7 @@ func parseApplicationURLParts(urlStr string, allowIncomplete bool) (*Application
 	return &result, nil
 }
 
-// MakeURL constructs an application URL from the specified components.
+// MakeURL constructs an offer URL from the specified components.
 func MakeURL(user, model, application, controller string) string {
 	base := fmt.Sprintf("%s/%s.%s", user, model, application)
 	if controller == "" {

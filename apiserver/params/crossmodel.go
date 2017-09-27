@@ -134,10 +134,10 @@ type ApplicationOffersResults struct {
 	Results []ApplicationOfferResult `json:"results,omitempty"`
 }
 
-// ApplicationURLs is a collection of remote application URLs
-type ApplicationURLs struct {
-	// ApplicationURLs contains collection of urls for applications that are to be shown.
-	ApplicationURLs []string `json:"application-urls,omitempty"`
+// OfferURLs is a collection of remote offer URLs
+type OfferURLs struct {
+	// OfferURLs contains collection of urls for applications that are to be shown.
+	OfferURLs []string `json:"offer-urls,omitempty"`
 }
 
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
@@ -462,10 +462,10 @@ type RemoteEntityArg struct {
 
 // RemoteApplicationInfo has attributes for a remote application.
 type RemoteApplicationInfo struct {
-	ModelTag       string `json:"model-tag"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	ApplicationURL string `json:"application-url"`
+	ModelTag    string `json:"model-tag"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	OfferURL    string `json:"offer-url"`
 	// SourceModelLabel is only populated if the application
 	// originates from another model on the same controller
 	// rather than via an offer URL.

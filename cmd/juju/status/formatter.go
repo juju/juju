@@ -211,11 +211,11 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 
 func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
 	out := remoteApplicationStatus{
-		Err:            application.Err,
-		ApplicationURL: application.ApplicationURL,
-		Life:           application.Life,
-		Relations:      application.Relations,
-		StatusInfo:     sf.getRemoteApplicationStatusInfo(application),
+		Err:        application.Err,
+		OfferURL:   application.OfferURL,
+		Life:       application.Life,
+		Relations:  application.Relations,
+		StatusInfo: sf.getRemoteApplicationStatusInfo(application),
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
 	for _, ep := range application.Endpoints {

@@ -127,12 +127,12 @@ type remoteEndpoint struct {
 }
 
 type remoteApplicationStatus struct {
-	Err            error                     `json:"-" yaml:",omitempty"`
-	ApplicationURL string                    `json:"url" yaml:"url"`
-	Endpoints      map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
-	Life           string                    `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo     statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
-	Relations      map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
+	Err        error                     `json:"-" yaml:",omitempty"`
+	OfferURL   string                    `json:"url" yaml:"url"`
+	Endpoints  map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	Life       string                    `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
+	Relations  map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
 }
 
 type remoteApplicationStatusNoMarshal remoteApplicationStatus
