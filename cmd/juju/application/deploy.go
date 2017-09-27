@@ -50,6 +50,8 @@ type ApplicationAPI interface {
 	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)
 	Expose(application string) error
+	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
+	GetConfig(appNames ...string) ([]map[string]interface{}, error)
 	GetCharmURL(serviceName string) (*charm.URL, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
 	SetCharm(application.SetCharmConfig) error
@@ -178,6 +180,10 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 	return a.annotationsClient.Set(annotations)
 }
 
+func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error) {
+	return a.annotationsClient.Get(tags)
+}
+
 // NewDeployCommandForTest returns a command to deploy services inteded to be used only in tests.
 func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
@@ -270,6 +276,10 @@ type DeployCommand struct {
 	// Force is used to allow a charm to be deployed onto a machine
 	// running an unsupported series.
 	Force bool
+
+	// DryRun is used to specify that the bundle shouldn't actually be
+	// deployed but just output the changes.
+	DryRun bool
 
 	ApplicationName string
 	Config          cmd.FileVar
@@ -451,7 +461,8 @@ var (
 		"bind", "config", "constraints", "force", "n", "num-units",
 		"series", "to", "resource", "attach-storage",
 	}
-	bundleOnlyFlags = []string{"bundle-config"}
+	// TODO(thumper): support dry-run for apps as well as bundles.
+	bundleOnlyFlags = []string{"bundle-config", "dry-run"}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -465,6 +476,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BundleConfigFile, "bundle-config", "", "Config override values for a bundle")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
@@ -532,6 +544,7 @@ func (c *DeployCommand) deployBundle(
 		apiRoot,
 		ctx,
 		bundleStorage,
+		c.DryRun,
 	); err != nil {
 		return errors.Trace(err)
 	}
