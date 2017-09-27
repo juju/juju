@@ -74,7 +74,7 @@ func NewServiceGetConstraintsCommand() modelcmd.ModelCommand {
 
 type serviceConstraintsAPI interface {
 	Close() error
-	GetConstraints(string) (constraints.Value, error)
+	GetConstraints(...string) ([]constraints.Value, error)
 	SetConstraints(string, constraints.Value) error
 }
 
@@ -146,7 +146,7 @@ func (c *serviceGetConstraintsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctx, cons)
+	return c.out.Write(ctx, cons[0])
 }
 
 type serviceSetConstraintsCommand struct {

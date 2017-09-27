@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -665,5 +666,153 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(results.Endpoints, jc.DeepEquals, map[string]params.CharmRelation{
 		"ep1": {Name: "foo"},
+	})
+}
+
+func (s *applicationSuite) TestGetConfig(c *gc.C) {
+	fooConfig := map[string]interface{}{
+		"name":   "foo",
+		"answer": 42,
+	}
+	barConfig := map[string]interface{}{
+		"name": "bar",
+		"key":  "value",
+	}
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConfig")
+				args, ok := a.(params.Entities)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{"application-foo"}, {"application-bar"},
+					}})
+
+				result, ok := response.(*params.ApplicationGetConfigResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ConfigResult{
+					{Config: fooConfig}, {Config: barConfig},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	results, err := client.GetConfig("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
+		fooConfig, barConfig,
+	})
+}
+
+func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
+	fooConfig := map[string]interface{}{
+		"name":   "foo",
+		"answer": 42,
+	}
+	barConfig := map[string]interface{}{
+		"name": "bar",
+		"key":  "value",
+	}
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "Get")
+				args, ok := a.(params.ApplicationGet)
+				c.Assert(ok, jc.IsTrue)
+
+				result, ok := response.(*params.ApplicationGetResults)
+				c.Assert(ok, jc.IsTrue)
+
+				switch args.ApplicationName {
+				case "foo":
+					result.Config = fooConfig
+				case "bar":
+					result.Config = barConfig
+				default:
+					return errors.New("unexpected app name")
+				}
+				return nil
+			},
+		),
+		BestVersion: 4,
+	})
+
+	results, err := client.GetConfig("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
+		fooConfig, barConfig,
+	})
+}
+
+func (s *applicationSuite) TestGetConstraints(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.Entities)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{"application-foo"}, {"application-bar"},
+					}})
+
+				result, ok := response.(*params.ApplicationGetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ApplicationConstraint{
+					{Constraints: fooConstraints}, {Constraints: barConstraints},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []constraints.Value{
+		fooConstraints, barConstraints,
+	})
+}
+
+func (s *applicationSuite) TestGetConstraintsAPIv4(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.GetApplicationConstraints)
+				c.Assert(ok, jc.IsTrue)
+
+				result, ok := response.(*params.GetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+
+				switch args.ApplicationName {
+				case "foo":
+					result.Constraints = fooConstraints
+				case "bar":
+					result.Constraints = barConstraints
+				default:
+					return errors.New("unexpected app name")
+				}
+				return nil
+			},
+		),
+		BestVersion: 4,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []constraints.Value{
+		fooConstraints, barConstraints,
 	})
 }

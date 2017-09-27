@@ -396,6 +396,17 @@ type ApplicationMetricCredentials struct {
 	Creds []ApplicationMetricCredential `json:"creds"`
 }
 
+// ApplicationGetConfigResults holds the return values for application GetConfig.
+type ApplicationGetConfigResults struct {
+	Results []ConfigResult
+}
+
+// ConfigResults holds configuration values for an entity.
+type ConfigResult struct {
+	Config map[string]interface{} `json:"config"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
 	Target string `json:"target"`
@@ -540,6 +551,18 @@ type GetApplicationConstraints struct {
 // GetConstraintsResults holds results of the GetConstraints call.
 type GetConstraintsResults struct {
 	Constraints constraints.Value `json:"constraints"`
+}
+
+// ApplicationGetConstraintsResults holds the multiple return values for GetConstraints call.
+type ApplicationGetConstraintsResults struct {
+	Results []ApplicationConstraint `json:"results"`
+}
+
+// ApplicationConstraint holds the constraints value for a single application, or
+// an error for trying to get it.
+type ApplicationConstraint struct {
+	Constraints constraints.Value `json:"constraints"`
+	Error       *Error            `json:"error,omitempty"`
 }
 
 // SetConstraints stores parameters for making the SetConstraints call.
