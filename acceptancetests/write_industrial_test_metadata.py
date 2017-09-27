@@ -5,7 +5,7 @@ import json
 from jujupy.client import (
     describe_substrate,
     ModelClient,
-    SimpleEnvironment,
+    JujuData,
     )
 
 
@@ -26,7 +26,7 @@ def make_metadata(buildvars_path, env_name):
     :param env_name: Name of the environment being used.
     """
     old_version = ModelClient.get_version()
-    env = SimpleEnvironment.from_config(env_name)
+    env = JujuData.from_config(env_name)
     with open(buildvars_path) as buildvars_file:
         buildvars = json.load(buildvars_file)
     metadata = {

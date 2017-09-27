@@ -22,13 +22,11 @@ from jujupy.client import (
     NameNotAccepted,
     NoProvider,
     parse_new_state_server_from_error,
-    SimpleEnvironment,
     SoftDeadlineExceeded,
     Status,
     temp_bootstrap_env,
     _temp_env,
     TypeNotAccepted,
-    uniquify_local,
     )
 from jujupy.configuration import (
     get_juju_data,
@@ -74,11 +72,9 @@ __all__ = [
     'NoProvider',
     'NoSuchEnvironment',
     'parse_new_state_server_from_error',
-    'SimpleEnvironment',
     'SoftDeadlineExceeded',
     'Status',
     'temp_bootstrap_env',
     '_temp_env',
     'TypeNotAccepted',
-    'uniquify_local',
     ]

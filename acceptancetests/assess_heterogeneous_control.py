@@ -13,7 +13,7 @@ from jujucharm import (
 from jujupy import (
     client_from_config,
     fake_juju_client,
-    SimpleEnvironment,
+    JujuData,
     )
 from deploy_stack import (
     BootstrapManager,
@@ -44,7 +44,7 @@ def prepare_dummy_env(client):
 def get_clients(initial, other, base_env, debug, agent_url):
     """Return the clients to use for testing."""
     if initial == 'FAKE':
-        environment = SimpleEnvironment.from_config(base_env)
+        environment = JujuData.from_config(base_env)
         client = fake_juju_client(env=environment)
         return client, client, client
     else:

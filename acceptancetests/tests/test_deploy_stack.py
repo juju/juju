@@ -62,7 +62,6 @@ from jujupy import (
     JujuData,
     KILL_CONTROLLER,
     ModelClient,
-    SimpleEnvironment,
     SoftDeadlineExceeded,
     Status,
     Machine,
@@ -166,7 +165,7 @@ class DeployStackTestCase(FakeHomeTestCase):
             self.fail('Raised SoftDeadlineExceeded.')
 
     def test_update_env(self):
-        env = SimpleEnvironment('foo', {'type': 'paas'})
+        env = JujuData('foo', {'type': 'paas'})
         update_env(
             env, 'bar', series='wacky', bootstrap_host='baz',
             agent_url='url', agent_stream='devel')
@@ -179,13 +178,14 @@ class DeployStackTestCase(FakeHomeTestCase):
         self.assertNotIn('region', env._config)
 
     def test_update_env_region(self):
-        env = SimpleEnvironment('foo', {'type': 'paas'})
+        env = JujuData('foo', {'type': 'paas'})
         update_env(env, 'bar', region='region-foo')
         self.assertEqual('region-foo', env.get_region())
 
     def test_update_env_region_none(self):
-        env = SimpleEnvironment('foo',
-                                {'type': 'paas', 'region': 'region-foo'})
+        env = JujuData(
+            'foo',
+            {'type': 'paas', 'region': 'region-foo'})
         update_env(env, 'bar', region=None)
         self.assertEqual('region-foo', env.get_region())
 
@@ -353,7 +353,7 @@ class DeployStackTestCase(FakeHomeTestCase):
             self.log_stream.getvalue().splitlines())
 
     def test_check_token_win_client_status(self):
-        env = SimpleEnvironment('foo', {'type': 'ec2'})
+        env = JujuData('foo', {'type': 'ec2'})
         client = ModelClient(env, None, None)
         remote = MagicMock(spec=['cat', 'is_windows'])
         remote.is_windows.return_value = False
@@ -583,7 +583,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
     def test_copy_local_logs(self):
         # Relevent local log files are copied, after changing their permissions
         # to allow access by non-root user.
-        env = SimpleEnvironment('a-local', {'type': 'local'})
+        env = JujuData('a-local', {'type': 'local'})
         with temp_dir() as juju_home_dir:
             log_dir = os.path.join(juju_home_dir, "a-local", "log")
             os.makedirs(log_dir)
@@ -608,7 +608,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
         ])
 
     def test_copy_local_logs_warns(self):
-        env = SimpleEnvironment('a-local', {'type': 'local'})
+        env = JujuData('a-local', {'type': 'local'})
         err = subprocess.CalledProcessError(1, 'cp', None)
         with temp_dir() as juju_home_dir:
             with patch('deploy_stack.get_juju_home', autospec=True,
@@ -978,10 +978,6 @@ class TestDeployDummyStack(FakeHomeTestCase):
             'local:bar-/dummy-sink', '--series', 'bar-'), 1)
 
 
-def fake_SimpleEnvironment(name):
-    return SimpleEnvironment(name, {})
-
-
 def fake_ModelClient(env, path=None, debug=None):
     return ModelClient(env=env, version='1.2.3.4', full_path=path)
 
@@ -1056,7 +1052,7 @@ class TestDeployJob(FakeHomeTestCase):
         client = fake_ModelClient(env)
         bc_cxt = patch('deploy_stack.client_from_config',
                        return_value=client)
-        fc_cxt = patch('jujupy.SimpleEnvironment.from_config',
+        fc_cxt = patch('jujupy.JujuData.from_config',
                        return_value=env)
         mgr = MagicMock()
         bm_cxt = patch('deploy_stack.BootstrapManager', autospec=True,
@@ -1602,7 +1598,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     def make_client(self):
         client = MagicMock()
-        client.env = SimpleEnvironment(
+        client.env = JujuData(
             'foo', {'type': 'baz'}, use_context(self, temp_dir()))
         client.is_jes_enabled.return_value = False
         client.get_matching_agent_version.return_value = '3.14'
