@@ -137,7 +137,7 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.RegionSpec) error {
+func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.RegionSpec) error {
 	var key string
 
 	if regionSpec != nil {
@@ -145,13 +145,13 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 	} else {
 		key = controllerInheritedSettingsGlobalKey
 	}
-	settings, err := readSettings(st.db(), globalSettingsC, key)
+	settings, err := readSettings(model.st.db(), globalSettingsC, key)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 		// We haven't created settings for this region yet.
-		_, err := createSettings(st.db(), globalSettingsC, key, attrs)
+		_, err := createSettings(model.st.db(), globalSettingsC, key, attrs)
 		if err != nil {
 			return errors.Trace(err)
 		}
