@@ -143,14 +143,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer, s.st.model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer, s.st.model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -904,6 +904,7 @@ type mockModel struct {
 	users           []*mockModelUser
 	migrationStatus state.MigrationMode
 	controllerUUID  string
+	cfgDefaults     config.ModelDefaultAttributes
 }
 
 func (m *mockModel) Config() (*config.Config, error) {
@@ -1012,6 +1013,11 @@ func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 func (m *mockModel) AutoConfigureContainerNetworking(environ environs.Environ) error {
 	m.MethodCall(m, "AutoConfigureContainerNetworking", environ)
 	return m.NextErr()
+}
+
+func (m *mockModel) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
+	m.MethodCall(m, "ModelConfigDefaultValues")
+	return m.cfgDefaults, nil
 }
 
 type mockModelUser struct {

@@ -425,7 +425,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
 		Value: "dummy-proxy"}}
 	expectedValues["no-proxy"] = ds
 
-	sources, err := s.State.ModelConfigDefaultValues()
+	sources, err := s.IAASModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
@@ -456,7 +456,10 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
-	cfg, err := anotherState.ModelConfigDefaultValues()
+	anotherModel, err := anotherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := anotherModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -509,7 +512,10 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
-	cfg, err := anotherState.ModelConfigDefaultValues()
+	anotherModel, err := anotherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := anotherModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -540,9 +546,9 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	err = s.IAASModel.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
 
 	// and check again
-	cfg, err = anotherState.ModelConfigDefaultValues()
+	cfg, err = anotherModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err = anotherState.ModelConfigDefaultValues()
+	cfg, err = anotherModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues = make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -579,7 +585,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then check config.
-	cfg, err := s.State.ModelConfigDefaultValues()
+	cfg, err := s.IAASModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
 		Default:    "127.0.0.1,localhost,::1",
