@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -54,7 +55,8 @@ type destroyCommand struct {
 	destroyStorage bool
 	releaseStorage bool
 	api            DestroyModelAPI
-	configApi      ModelConfigAPI
+	configAPI      ModelConfigAPI
+	storageAPI     StorageAPI
 }
 
 var destroyDoc = `
@@ -146,14 +148,25 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 }
 
 func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
-	if c.configApi != nil {
-		return c.configApi, nil
+	if c.configAPI != nil {
+		return c.configAPI, nil
 	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return modelconfig.NewClient(root), nil
+}
+
+func (c *destroyCommand) getStorageAPI() (StorageAPI, error) {
+	if c.storageAPI != nil {
+		return c.storageAPI, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storage.NewClient(root), nil
 }
 
 // Run implements Command.Run
@@ -192,15 +205,15 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	configApi, err := c.getModelConfigAPI()
+	configAPI, err := c.getModelConfigAPI()
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to API")
 	}
-	defer configApi.Close()
+	defer configAPI.Close()
 
 	// Check if the model has an SLA set.
 	slaIsSet := false
-	slaLevel, err := configApi.SLALevel()
+	slaLevel, err := configAPI.SLALevel()
 	if err == nil {
 		slaIsSet = slaLevel != "" && slaLevel != slaUnsupported
 	} else {
@@ -215,17 +228,32 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			return errors.New("this juju controller only supports destroying storage")
 		}
 		if !c.destroyStorage {
-			ctx.Infof(`this juju controller only supports destroying storage
+			storageAPI, err := c.getStorageAPI()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			defer storageAPI.Close()
 
-Please run the the command again with --destroy-storage,
+			storage, err := storageAPI.ListStorageDetails()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if len(storage) > 0 {
+				return errors.Errorf(`cannot destroy model %q
+
+Destroying this model will destroy the storage, but you
+have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
 to confirm that you want to destroy the storage along
 with the model.
 
 If instead you want to keep the storage, you must first
 upgrade the controller to version 2.3 or greater.
 
-`)
-			return cmd.ErrSilent
+`, modelName)
+			}
+			c.destroyStorage = true
 		}
 	}
 
@@ -418,4 +446,10 @@ func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) BudgetAPIClient {
 // BudgetAPIClient defines the budget API client interface.
 type BudgetAPIClient interface {
 	DeleteBudget(string) (string, error)
+}
+
+// StorageAPI defines the storage client API interface.
+type StorageAPI interface {
+	Close() error
+	ListStorageDetails() ([]params.StorageDetails, error)
 }
