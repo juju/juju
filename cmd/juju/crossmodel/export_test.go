@@ -62,3 +62,11 @@ func NewFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) c
 	aCmd.SetClientStore(store)
 	return modelcmd.WrapController(aCmd)
 }
+
+func NewRemoveCommandForTest(store jujuclient.ClientStore, api RemoveAPI) cmd.Command {
+	aCmd := &removeCommand{newAPIFunc: func(controllerName string) (RemoveAPI, error) {
+		return api, nil
+	}}
+	aCmd.SetClientStore(store)
+	return modelcmd.WrapController(aCmd)
+}

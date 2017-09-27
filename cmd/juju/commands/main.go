@@ -276,6 +276,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Cross model relations commands.
 	r.Register(crossmodel.NewOfferCommand())
+	r.Register(crossmodel.NewRemoveOfferCommand())
 	r.Register(crossmodel.NewShowOfferedEndpointCommand())
 	r.Register(crossmodel.NewListEndpointsCommand())
 	r.Register(crossmodel.NewFindEndpointsCommand())

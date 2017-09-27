@@ -260,3 +260,29 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 		ControllerInfo: theOne.ControllerInfo,
 	}, nil
 }
+
+// DestroyOffers removes the specified application offers.
+func (c *Client) DestroyOffers(offerURLs ...string) error {
+	if len(offerURLs) == 0 {
+		return nil
+	}
+	args := params.DestroyApplicationOffers{
+		OfferURLs: make([]string, len(offerURLs)),
+	}
+	for i, url := range offerURLs {
+		if _, err := crossmodel.ParseApplicationURL(url); err != nil {
+			return errors.Trace(err)
+		}
+		args.OfferURLs[i] = url
+	}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("DestroyOffers", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.OfferURLs) {
+		return errors.Errorf("expected %d results, got %d", len(args.OfferURLs), len(result.Results))
+	}
+	return result.Combine()
+}

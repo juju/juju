@@ -90,6 +90,12 @@ type AddApplicationOffer struct {
 	Endpoints              map[string]string `json:"endpoints"`
 }
 
+// DestroyApplicationOffers holds parameters for the DestroyOffers call.
+type DestroyApplicationOffers struct {
+	OfferURLs []string `json:"offer-urls"`
+	Force     bool     `json:"force,omitempty"`
+}
+
 // RemoteEndpoint represents a remote application endpoint.
 type RemoteEndpoint struct {
 	Name      string             `json:"name"`
