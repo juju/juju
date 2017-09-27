@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/permission"
 )
 
@@ -108,7 +109,7 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) ([]crossm
 				Username:        oc.Username,
 				Endpoint:        oc.Endpoint,
 				RelationId:      oc.RelationId,
-				Status:          oc.Status.Status.String(),
+				Status:          relation.Status(oc.Status.Status),
 				Message:         oc.Status.Info,
 				Since:           oc.Status.Since,
 				IngressSubnets:  oc.IngressSubnets,

@@ -4,8 +4,11 @@
 package crossmodel
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
 	"time"
+
+	"gopkg.in/juju/charm.v6-unstable"
+
+	"github.com/juju/juju/core/relation"
 )
 
 // ApplicationOfferDetails represents a remote application used when vendor
@@ -46,7 +49,7 @@ type OfferConnection struct {
 	Endpoint string
 
 	// Status is the status of the offer connection.
-	Status string
+	Status relation.Status
 
 	// Message is the status message of the offer connection.
 	Message string

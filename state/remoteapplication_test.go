@@ -767,20 +767,21 @@ func (s *remoteApplicationSuite) TestDestroyWithOfferConnections(c *gc.C) {
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: coretesting.ModelTag.Id(),
 		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
 		Username:        "fred",
 		OfferUUID:       "offer-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	rc, err := s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
+	c.Assert(rc.TotalConnectionCount(), gc.Equals, 1)
 
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	rc, err = s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rc.ConnectionCount(), gc.Equals, 0)
+	c.Assert(rc.TotalConnectionCount(), gc.Equals, 0)
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
