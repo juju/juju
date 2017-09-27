@@ -135,7 +135,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		return environs.GetEnviron(configGetter, environs.New)
 	}
 	blockChecker := common.NewBlockChecker(st)
-	backend := modelconfig.NewStateBackend(st)
+	backend := modelconfig.NewStateBackend(model)
 	modelConfigAPI, err := modelconfig.NewModelConfigAPI(backend, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)

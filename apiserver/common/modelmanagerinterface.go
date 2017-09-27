@@ -125,6 +125,11 @@ func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string
 	return st.model.UpdateModelConfigDefaultValues(update, remove, regionSpec)
 }
 
+// ControllerTag exposes Model ControllerTag for ModelManagerBackend inteface
+func (st modelManagerStateShim) ControllerTag() names.ControllerTag {
+	return st.model.ControllerTag()
+}
+
 // GetBackend implements ModelManagerBackend.
 func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBackend, func() bool, error) {
 	otherState, release, err := st.pool.Get(modelUUID)

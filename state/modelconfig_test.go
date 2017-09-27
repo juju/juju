@@ -375,7 +375,7 @@ func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *conf
 			Source: source,
 		}
 	}
-	sources, err := s.State.ModelConfigValues()
+	sources, err := s.IAASModel.ModelConfigValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
 }

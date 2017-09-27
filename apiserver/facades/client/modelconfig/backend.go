@@ -25,6 +25,11 @@ type Backend interface {
 
 type stateShim struct {
 	*state.State
+	model *state.Model
+}
+
+func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
+	return st.model.ModelConfigValues()
 }
 
 func (st stateShim) ModelTag() names.ModelTag {
@@ -37,6 +42,6 @@ func (st stateShim) ModelTag() names.ModelTag {
 }
 
 // NewStateBackend creates a backend for the facade to use.
-func NewStateBackend(st *state.State) Backend {
-	return stateShim{st}
+func NewStateBackend(m *state.Model) Backend {
+	return stateShim{m.State(), m}
 }

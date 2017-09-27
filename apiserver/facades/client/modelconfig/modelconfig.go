@@ -17,7 +17,11 @@ import (
 
 // NewFacade is used for API registration.
 func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelConfigAPI, error) {
-	return NewModelConfigAPI(NewStateBackend(st), auth)
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewModelConfigAPI(NewStateBackend(model), auth)
 }
 
 // ModelConfigAPI is the endpoint which implements the model config facade.
